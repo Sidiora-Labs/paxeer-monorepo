@@ -251,6 +251,7 @@ class ProgramOperations:
     def lifecycle_receipt(self, request: NativeProgramLifecycleRequest) -> ReceiptVerification:
         if self._trust.protocol_version != 3:
             raise ValueError("lifecycle scope")
+        decode_signed(request.signed_activity)
         binding = request.bind()
         result = self._client.agent("program.receipt", {"idempotency_key": binding.idempotency_key, "expected_activity_id": binding.activity_id, "requested_verification_level": "sequencer-signed"})
         if isinstance(result, Mapping) and result.get("rung") in {"receipted", "committed"}:
@@ -271,6 +272,7 @@ class ProgramOperations:
     def _lifecycle(self, request: NativeProgramLifecycleRequest, key: IdempotencyKey, ordinal: int, operation: Literal["program.deploy", "program.upgrade", "program.wind-down"]) -> Mapping[str, str | int]:
         if request.ordinal != ordinal or self._trust.protocol_version != 3:
             raise ValueError("lifecycle scope")
+        decode_signed(request.signed_activity)
         binding = request.bind(str(key))
         retained = request.signed_activity.hex()
         try:
@@ -516,6 +518,19 @@ def _verify_execution_receipt(
         or (execution["state"] == "refused") != (receipt.result_code != 0)
     ):
         raise ValueError("program execution receipt binding failed")
+    authority = _mapping(execution.get("authority"))
+    _exact(authority, ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"))
+    expected_authority = {
+        "batch_id": receipt.batch_id.hex(), "asset": receipt.asset.hex(),
+        "previous_state_root": receipt.previous_state_root.hex(),
+        "resulting_state_root": receipt.resulting_state_root.hex(),
+        "sequencer_public_key": next(
+            key.public_key.hex() for key in trust.receipt_keys
+            if key.key_id == receipt.context_hash
+            and key.first_height <= verified.height <= key.last_height),
+    }
+    if dict(authority) != expected_authority:
+        raise ValueError("program execution receipt authority binding failed")
     return verified
 
 
@@ -593,7 +608,7 @@ def _execution(value: object, expected_state: Literal["executed", "refused", "si
     execution = _mapping(value)
     _exact(execution, ("state", "activity_id", "program_id", "guest_abi_version", "module_version", "batch_id",
         "global_sequence", "result_code", "state_root", "receipt", "receipt_digest", "terminal_payload",
-        "call_graph", "usage", "outcome", "verification"), ("idempotency_key", "retained_signed_activity"))
+        "call_graph", "authority", "usage", "outcome", "verification"), ("idempotency_key", "retained_signed_activity"))
     if execution.get("state") != expected_state:
         raise ValueError("invalid program execution state")
     _hex_field(execution, "activity_id", 32, exact=True)
@@ -610,6 +625,10 @@ def _execution(value: object, expected_state: Literal["executed", "refused", "si
         raise ValueError("invalid program execution metadata")
     if execution.get("verification") != "receipt-terminal-and-call-graph-verified":
         raise ValueError("invalid program verification status")
+    authority = _mapping(execution.get("authority"))
+    _exact(authority, ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"))
+    for field in authority:
+        _hex_field(authority, field, 32, exact=True)
     outcome = _program_outcome(execution.get("outcome"))
     if (expected_state == "refused" and outcome.get("kind") != "refused") or (expected_state == "executed" and outcome.get("kind") == "refused"):
         raise ValueError("program state/outcome mismatch")

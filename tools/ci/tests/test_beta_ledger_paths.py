@@ -48,6 +48,15 @@ class BetaLedgerPathsTest(unittest.TestCase):
             self.assertIn(
                 "spec/layerx-merge/qualification.kvx", ledger_check.stdout
             )
+            self.assertNotIn("violation(s)", ledger_check.stdout + ledger_check.stderr)
+            header_count = sum(
+                line.startswith("[finding.")
+                for line in (root / "spec/layerx-merge/qualification.kvx")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            )
+            self.assertGreater(header_count, 0)
+            self.assertIn(f"{header_count} finding record(s)", ledger_check.stdout)
         with self.subTest(script="beta-report"):
             self.assertEqual(
                 report_check.returncode,

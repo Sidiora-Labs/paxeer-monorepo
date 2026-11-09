@@ -71,6 +71,8 @@ def test_finding_031_normative_states_and_evidence_selection():
         states,
         'case "done", "done-finalised" -> null;',
         'case "refused" -> new Refused(state);',
+        'case "closed" -> new Refused(state);',
+        '"awaiting-approval" ->',
         'new Pending(journey.path("journey_id").textValue());',
         'default -> throw MobileIntegrationException.of(MobileIntegrationException.Code.DECODE_FAILURE);',
         '!journey.path("state").isTextual()',
@@ -138,7 +140,7 @@ def test_finding_031_producer_material_matches_resolver():
         'Sha256::digest(&evidence.canonical_receipt)',
         'evidence.canonical_receipt != evidence.signed_receipt',
         'Rung::Receipted => "receipt-verified"',
-        'Rung::Committed => "checkpoint-finalised"',
+        'Rung::Committed => "committed"',
         'PortableReceiptV2::export(',
         '"content_type":"application/vnd.layerx.receipt-proof-v2+json"',
         '"bytes_base64":STANDARD.encode(portable)',
@@ -234,7 +236,8 @@ def test_finding_031_reopened_tracking_source_path_has_no_cached_success():
     contains(method(factory, "public void close()"), 'transport.close();', 'sessions.close();')
     producer = (HUMAN / "production_reads.rs").read_text()
     contains(method(producer, "fn public_journeys("), 'JourneyEngine::list(scope)', 'native_journey_json(scope, &entry)')
-    contains(method(producer, "fn native_journey_json("), '.verified_leg_evidence(index)', 'evidence_ref(digest, verification)')
+    contains(method(producer, "fn native_journey_json("), "native_journey_json_with(scope, journey, receipt_keys)")
+    contains(method(producer, "fn native_journey_json_with("), '.verified_leg_evidence(index)', 'evidence_ref(digest, verification)')
 
 
 def test_finding_031_recorded_node_receipt_digest_contract():

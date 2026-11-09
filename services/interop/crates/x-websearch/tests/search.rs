@@ -308,6 +308,7 @@ fn gate(dir: &std::path::Path) -> Result<(Arc<PaymentGate>, Gateway), Box<dyn st
     let mut config: serde_json::Value = serde_json::from_slice(&std::fs::read(fixture)?)?;
     config["data_dir"] = serde_json::json!(dir.join("data"));
     let gateway = Gateway::start_with_chain_id(Some(125))?;
+    config["gateway"]["endpoint"] = serde_json::json!(gateway.url());
     config["evm"]["endpoint"] = serde_json::json!(gateway.url());
     config["evm"]["chain_id"] = serde_json::json!(125);
     let config = Config::parse(&config.to_string())?;

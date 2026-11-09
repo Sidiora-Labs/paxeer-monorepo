@@ -1,0 +1,19 @@
+[disposition.21.45.1.1]
+finding = "21.45.1.1"
+status = "environment"
+evidence = "On main, services/agent/crates/layerx-sdk/tests/proof_sdk.rs:685 uses a real node and funds the wallet before reading nonce and estimating gas. The consumer then verifies the node-produced receipt and compares the same canonical receipt after reopening at services/agent/crates/layerx-sdk/tests/proof_sdk.rs:867, as landed in f799368a56."
+
+[disposition.21.45.1.2]
+finding = "21.45.1.2"
+status = "resolved"
+evidence = "Commit f799368a56 made the SDK proof estimate with the funded payer on main. services/agent/crates/layerx-sdk/src/rpc.rs:1398 includes from in estimate_fee_from and preserves the calldata bound, while services/agent/crates/layerx-sdk/tests/proof_sdk.rs:710 supplies the funded account and requires 21000 gas."
+
+[disposition.21.45.1.3]
+finding = "21.45.1.3"
+status = "resolved"
+evidence = "Commit f799368a56 corrected the SDK proof to the version-2 receipt contract on main. services/agent/crates/layerx-sdk/tests/proof_sdk.rs:822 authorizes the actual batch asset and requires economic verification, then services/agent/crates/layerx-sdk/tests/proof_sdk.rs:841 requires ReceiptCheck::Asset for a different authorized asset."
+
+[disposition.21.45.1.5]
+finding = "21.45.1.5"
+status = "resolved"
+evidence = "Commit d429fa28ba restored committed sends to the receipt source on main. node/sequencer/receipt_source.go:56 scans the retained WAL through the committed tip, validates stored receipts and outputs, and records the reconstructed sends; services/agent/crates/layerx-sdk/tests/proof_sdk.rs:867 compares the canonical receipt after reopening."

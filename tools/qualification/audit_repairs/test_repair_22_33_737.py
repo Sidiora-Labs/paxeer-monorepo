@@ -208,7 +208,7 @@ def test_021_build_and_release_guidance_targets_merged_paxd():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")

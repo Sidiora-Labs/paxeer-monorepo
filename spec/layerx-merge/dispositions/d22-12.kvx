@@ -51,3 +51,8 @@ finding = "22.9.29.1"
 status = "open"
 evidence = "Although 3cb44ec2b ported the event ingestor and gap backfill, services/agent/crates/layerx-agentd/tests/support/real_authority.rs:7 still imports the retired LNI handshake, refusal, schema and transport modules on lines 7 through 10, so the test-support port assigned to task 22.9.31 has not landed."
 follow_up = "22.9.31"
+
+[closure.22.39.194]
+finding_ids = "spec/layerx-merge/programme/closure/22.39.194.ids"
+dispositions = "spec/layerx-merge/dispositions/d22-26.kvx"
+main_revision = "a26369c7eda603cb28bcdd8cef55c35df7d248ee"

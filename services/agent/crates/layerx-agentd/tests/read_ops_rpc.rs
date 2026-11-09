@@ -112,7 +112,8 @@ fn receipt_bytes(tx: [u8; 32], sender: [u8; 20], signature: Option<[u8; 64]>) ->
     encoder.u32(1).unwrap();
     encoder.u32(0).unwrap();
     encoder.u8(2).unwrap();
-    encoder.bytes(&hash(b"upax"), 32).unwrap();
+    let payment_denom = "upax";
+    encoder.bytes(&hash(payment_denom.as_bytes()), 32).unwrap();
     encoder.u128(1).unwrap();
     encoder.bytes(&from, 32).unwrap();
     encoder.u128(21002).unwrap();
@@ -198,7 +199,10 @@ fn read_proof_bundle_operation_returns_receipt_proof_v2() {
     )
     .unwrap();
     assert_eq!(value["freshness"]["chain_head"], "150");
-    assert_eq!(value["freshness"]["relative_to"], "pending");
+    assert_eq!(
+        value["freshness"]["relative_to"],
+        json!({"height": "150", "hash": format!("0x{}", hex::encode([9; 32]))})
+    );
     assert_eq!(value["freshness"]["value_height"], "151");
     assert!(value["value"].get("commit").is_none());
     assert_no_sequences(&value);

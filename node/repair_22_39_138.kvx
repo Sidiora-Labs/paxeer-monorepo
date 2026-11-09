@@ -1,0 +1,228 @@
+[repair]
+task = "22.39.138"
+base = "b6e2f6e6651adca8c5d3364f68555178a8369e6c"
+status = "qualification evidence is authoritative; no completion claimed by this record"
+acceptance = "22998.1"
+
+[diagnostic.full]
+command = "go test -timeout 20m -count=1 ./node/"
+result = "UNRUN: the task order forbids testing before implementation and authorizes only hf-build and hf-done"
+
+[diagnostic.selected]
+command = "the exact selected go test command in task 22.39.138 verify_cmd"
+result = "Executed only through hf-done after hf-build; see evidence.verify"
+
+[diagnostic.history]
+observed = "node/repair_22_39_40.kvx is absent and Git cannot resolve d96e5a9eefb2 in this checkout; GOTCHA.kvx gotcha.3523 supplies the historical report"
+comparison = "4526ea1b436d is available; git diff 4526ea1b436d HEAD -- node modules storage/common/keys is empty at task entry"
+abi_comparison = "JSON objects indexed by type, name and ordered input types are identical for all entries in each of the three precompile ABIs at 4526ea1b436d and the task base; none is missing or changed"
+order_dependency = "UNPROVEN: no preceding test was identified by an authorized diagnostic run; independent static contradictions exist at both bases"
+
+[implementation.pre_upgrade]
+helper = "node/test_helpers.go:preparePreV6120TestChain"
+state = "Each affected v6.12.0 fixture removes the new modules' genesis records and version-map entries, verifies no upgrade completion marker exists, and refreshes the served precompiles from its own state"
+sidiora = "The fee-token upgrade fixture registers Sidiora on SidioraHomeChainID rather than chain 1"
+
+[implementation.revocation]
+state = "The authz bank transfer funds and names a canonical ledger mirror denomination; its grant binds the bank module, payment ordinal, asset and one-unit spending limits"
+criterion = "The current epoch still transfers exactly one unit, the revoked epoch still refuses without a transfer, and nested-message checking still precedes revocation"
+
+[implementation.shared_host]
+state = "The shared-host genesis probe imports a canonical escrow module-enable record instead of an unknown escrow key; host identity, imported bytes and exported ownership assertions remain"
+
+[implementation.isolation]
+state = "CW1155 uses a fresh application with cleanup instead of the mutable process-wide EVMTestApp; fee-token fixtures restore the incoming OCC value and close their application; the decode-failure context carries committed consensus parameters"
+
+[implementation.snapshot]
+flag = "state-store.ss-import-num-workers"
+configuration = "The snapshot follower explicitly supplies one worker through TestAppOpts.ImportNumWorkers; parseSSConfigs also preserves DefaultStateStoreConfig.ImportNumWorkers when the flag is absent"
+criterion = "All existing adopted-versus-reexecuted state, transaction-result, app-hash and historical-header assertions are retained"
+
+[conflict.store_count]
+observed = "TestAppMountsMergedModuleStores expects len(MemIAVLStoreKeys)+6, but the canonical 37-key list already includes those six merged stores and App mounts 37 keys"
+constraint = "Changing production mounts is outside scope and changing this assertion is forbidden; neither the assertion nor package-level store inventory was altered"
+
+[conflict.genesis_order]
+observed = "TestAppOrdersStoreGenesisBeforeHostWriters and TestAppRegistersPayAndAgentModulesInGenesisOrder require layerxagent immediately after layerxpay, but App registers layerxchains between them"
+constraint = "App's production genesis order is outside scope and changing these assertions is forbidden; no test fixture rewrites the module manager to conceal the mismatch"
+
+[conflict.spot_version]
+observed = "TestV6120InitialisesTheNewModulesOnAPreUpgradeChain requires version 1 for every new module, while the real migration producer records each module's ConsensusVersion and spot now declares version 2"
+constraint = "The version assertion and the production migration producer remain intact"
+
+[evidence.build]
+reference = "/out/run/gates.jsonl: final build row"
+fields = "revision, command, exit, log"
+
+[evidence.verify]
+reference = "/out/run/gates.jsonl: final verify row"
+fields = "revision, command, exit, log"
+private_logs = "/out/logs/build-*.log and /out/logs/verify-*.log"
+publication = "Only the gate ledger establishes the verified revision; a build pass alone does not qualify the task"
+
+[qualification.first]
+revision = "fc3444200b9f02987c6e4bce90272c4a70465cf1"
+build = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/; exit 0; /out/logs/build-1.log"
+verify = "cg spec done 22.39.138 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
+observed = "The selected run finished in 61.895 seconds: seven tests passed, ten failed, and the snapshot restore and reexecution comparison completed without a timeout; pytest was not reached"
+
+[repair.bounded]
+state = "The direct v6.12.0 handler fixture persists the real returned module version map before consuming its gated precompiles; the decode-failure fixture signs the third transaction at the sequence after the first successful transaction"
+assertions = "Existing assertions are preserved; ProcessBlock must additionally return no infrastructure error"
+
+[conflict.redacted_errors]
+observed = "TestFeeTokenGigaBlockRefusesUnusableRate and TestRepair_102_SchedulerFailureAtomic expect raw internal error details but the node delivery paths call sdkerrors.ABCIInfo or ResponseDeliverTxWithEvents with debug=false and return internal error"
+constraint = "The node producers and SDK error policy are outside scope; enabling BaseApp trace would not change the node's hard-coded false argument, and neither assertion was relaxed"
+
+[conflict.websocket]
+observed = "TestProofNodeGoApi expects pax_sequencerReceipt to return JSON-RPC -32601 over WebSocket; rpc/server.go:NewEVMWebSocketServer now registers that real service, so the call succeeds"
+constraint = "The server is outside scope and the assertion must not change; the test does not disable or filter the now-supported method"
+
+[qualification.cw1155]
+observed = "The isolated TestEvmEventsForCw1155 executes its earlier transfers and approvals, then the existing burn-on-behalf success assertion at receipt_test.go:837 fails with code 1"
+constraint = "The burn payload, success assertion and all receipt-content assertions are retained; no contract, receipt translator or kernel source outside scope was changed"
+
+[continuation]
+base = "760b9852dc2d24cf678410e26ec6dddc97ead1bf"
+prerequisite = "22.39.143 is merged through 0bec5c4070272735e94beb87c4ec567b6b0eeb20; the attempt-1 changes are retained"
+qualification = "Only hf-build and hf-done are authorized gates; full-suite, bisection and standalone diagnostic commands remain unrun; the shared CW1155 fixture is exercised through the selected verification gate"
+
+[correction.store_inventory]
+test = "TestAppMountsMergedModuleStores"
+producer = "storage/common/keys/store_keys.go:60-97 and node/app.go:360-385 declare the same complete mounted inventory, including the six merged names"
+assertion = "Mounted count equals len(keys.MemIAVLStoreKeys); each merged name belongs to that inventory and its independently writable store retains its value"
+
+[correction.genesis_order]
+tests = "TestAppOrdersStoreGenesisBeforeHostWriters; TestAppRegistersPayAndAgentModulesInGenesisOrder"
+producer = "node/app.go:1302-1307 registers host, ledger, auth, pay, chains, agent in that order"
+assertion = "Both expected contiguous orders include layerxchains between layerxpay and layerxagent; module registration, host import and exported ownership checks remain"
+
+[correction.module_versions]
+test = "TestV6120InitialisesTheNewModulesOnAPreUpgradeChain"
+producer = "node/upgrades_v6120.go:43-59 seeds absent module versions from ConsensusVersion; modules/pricefeed/module.go:143 and modules/perps/module.go:143 declare 1; modules/spot/module.go:134 declares 2"
+assertion = "Every new module has a recorded version equal to its wired module's declared consensus version; old module versions and all one-time initialization checks remain"
+
+[correction.fee_refusal]
+test = "TestFeeTokenGigaBlockRefusesUnusableRate"
+producer = "modules/evm/types/errors.go:13 registers ErrFeeTokenRateInvalid as evm/102; node/abci.go:225-227 encodes delivery errors with debug false"
+assertion = "The response must carry the registered invalid-rate codespace and code and contain fee-token rate is invalid; balances, nonce and absent fee charge checks remain"
+
+[correction.scheduler_refusal]
+test = "TestRepair_102_SchedulerFailureAtomic"
+producer = "node/legacyabci/recovery.go:87-94 wraps codec panics as sdkerrors.ErrPanic; node/abci.go:225-227 and sdk/types/errors/abci.go:104-120 redact its log"
+assertion = "The V2 response must have ErrPanic's code and codespace, exactly internal error as its log, and no marshalling cosmosGasParams detail; every store and nonce atomicity assertion remains"
+
+[correction.receipt_transport]
+test = "TestProofNodeGoApi"
+producer = "rpc/server.go:278 and rpc/server.go:587 construct the sequencer receipt API on HTTP and WebSocket"
+assertion = "Both transports return no error and nil for the unknown hash; the unsupported pax_unregisteredProofMethod returns -32601; each transport verifies its real signed receipt and rejects corrupted bytes"
+
+[correction.cw1155_fixture]
+test = "TestEvmEventsForCw1155"
+producer = "node/receipt_test.go:837 consumes the burn-on-behalf response from App.DeliverTx; the shared application also refuses it with undefined/1, internal error, gas 168948/300000"
+setup = "The required shared-fixture experiment used EVMTestApp with a child CacheContext whose write callback was never called; it failed identically, so the final fixture retains attempt 1's fresh application and Close cleanup"
+assertion = "Every original code-0 and receipt-content assertion is retained; code assertions now include the redacted response and gas values for diagnosis"
+result = "Shared fixture does not fix the burn refusal; /out/logs/verify-1.log:622-629 records the comparison through the authorized selected gate; no standalone test is claimed"
+
+[qualification.continuation_first]
+revision = "136834f17b7dc1086b302d9ce3f4bdf11460c8f9"
+build = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/; exit 0; /out/logs/build-1.log"
+verify = "cg spec done 22.39.138 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
+observed = "15 of 17 selected tests passed in 52.833 seconds; the fee-token rate response and CW1155 burn-on-behalf response failed; pytest was not reached"
+
+[qualification.rate_error_boundary]
+revision = "136834f17b7dc1086b302d9ce3f4bdf11460c8f9"
+command = "cg spec done 22.39.138 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log:269-282"
+observed = "Task 22.39.143 registers the root error, but modules/evm/keeper/params.go:327 wraps it with fmt.Errorf, while sdk/types/errors/abci.go:104-120 and 132-175 traverse only Cause, so node delivery cannot preserve its registered error information"
+assumption = "Fixing the producer wrapping or SDK encoding requires paths outside this task's scope; the required evm/102 and reason assertions remain intact"
+
+[repair.continuation]
+change = "After the shared-fixture experiment also failed, restore the fresh CW1155 application and its cleanup; retain the code-0 assertion and report the actual error response in both failing tests"
+scope = "No producer, ABI, error encoder, or assertion is bypassed to conceal the two remaining failures; no extra diagnostic test command is run"
+final_evidence = "The final build and verify rows in /out/run/gates.jsonl establish the same-candidate bounded result"
+
+[evidence.continuation]
+build = "/out/run/gates.jsonl: final build row and its private log"
+verify = "/out/run/gates.jsonl: final verify row and its private log"
+revision = "The final gate row names the exact candidate revision; this record is written before both gates so it is covered by the same candidate"
+
+[continuation.attempt3]
+base = "0fbaf9dae2eb56c27c7f3ffec1c813201b4c5c93"
+prerequisite = "Task 22.39.148 is already merged through 0cd35858f6c2802f112590fb3c52ede105ce9082; all attempt-2 repairs are retained"
+trace = "TestEvmEventsForCw1155 passes baseapp.SetTrace(true) through Setup's existing variadic base application options; code-0 and receipt assertions are unchanged"
+diagnostic = "Only hf-build and hf-done run; the selected verification includes the CW1155 diagnostic, and its complete error is retained in /out/logs/verify-1.log"
+boundary = "A synthetic receipt translation error is recorded with its producer line and ends this attempt without a repair cycle; a contract approval refusal permits the prescribed fixture repair"
+evidence = "Exact final candidate, command, exit and private log are the final build and verify rows of /out/run/gates.jsonl"
+
+[qualification.attempt3_trace]
+revision = "97d5e8b0bdba9d65d6e9ef46950401a1cc888675"
+build = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/; exit 0; /out/logs/build-1.log"
+verify = "cg spec done 22.39.138 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
+observed = "16 of 17 selected tests passed in 61.741 seconds; only TestEvmEventsForCw1155 failed at receipt_test.go:838 with undefined/1, internal error, gas 168948/300000; pytest was not reached"
+producer = "node/abci.go:225-227 hard-codes debug=false in both error responses, so baseapp.SetTrace(true) cannot expose an unregistered receipt translation error"
+
+[repair.attempt3_diagnostic]
+change = "On a failed burn delivery only, pass its actual emitted response events to AddCosmosEventsToEVMReceiptIfApplicable in a discarded CacheContext and log the returned error and events before the unchanged code-zero assertion"
+criterion = "The diagnostic uses the production translator and the contract's emitted events; no synthetic events, fallback result, approval assumption or success-assertion change is introduced"
+evidence = "The final build and verify rows of /out/run/gates.jsonl establish this diagnostic candidate and its bounded result"
+
+[qualification.attempt3_final]
+revision = "5bc118552db2f759c2badc417190b790fc149710"
+build = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/; exit 0; /out/logs/build-2.log"
+verify = "cg spec done 22.39.138 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-2.log"
+observed = "16 of 17 selected tests passed in 35.659 seconds; only TestEvmEventsForCw1155 failed at receipt_test.go:843 with undefined/1, internal error, gas 168948/300000; pytest was not reached"
+diagnostic = "verify-2.log:625 contains only tx, signer, coin_spent and fee events; replaying these actual events through the receipt hook returns nil, so this run does not establish a synthetic receipt translation failure"
+
+[boundary.attempt3_final]
+producer = "node/abci.go:225-227 and sdk/types/errors/abci.go:104-120 redact the refusal regardless of baseapp.SetTrace(true); no raw contract or translator error was exposed"
+assumption = "An approval change is not justified by this evidence; all success and receipt-content assertions and the burn payload remain intact"
+stop = "The gate ledger records two extra gate runs, consuming its two repair units; stop implemented_not_qualified with no further gates, producer repair, or completion claim"
+record = "This post-gate evidence entry records the tested candidate above and is not itself claimed as qualified"
+
+[continuation.attempt4]
+base = "41090ab4d3d5052e8155c6b407d6f0a8a92c0975"
+retained = "All attempt-3 fixture repairs, Close cleanup, trace option and success and receipt assertions stand; both required fee-token producer repairs are already merged"
+diagnostic = "Before burn-on-behalf delivery, execute the identical payload with the recipient as caller through wasmKeeper.Execute in a discarded cache and log its raw error; on success, translate that cache's actual ABCI events with the signed transaction and checksum in a second discarded cache and log its raw error"
+isolation = "Neither cache's write callback is invoked; contract execution and receipt translation cannot change the state consumed by the original DeliverTx assertions"
+boundary = "A raw synthetic receipt translation error is recorded with its exact producer line and text and ends the attempt; only a contract refusal permits the prescribed approval or own-balance fixture repair"
+evidence = "The final build and verify rows of /out/run/gates.jsonl name the exact candidate, command, exit and private log; the selected test executes once through hf-done, with no standalone diagnostic gate"
+
+[qualification.attempt4]
+revision = "1f95eb51246ea659046e44b39073f0d3852212aa"
+build = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/; exit 0; /out/logs/build-1.log"
+verify = "cg spec done 22.39.138 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
+observed = "16 of 17 selected node tests passed in 43.221 seconds; only TestEvmEventsForCw1155 failed at receipt_test.go:847; pytest was not reached"
+assumption = "The raw error identifies an outside-scope WASM event-producer failure before contract execution, not an approval refusal; no fixture repair or further gate is justified"
+
+[boundary.attempt4]
+producer = "wasm/x/wasm/keeper/keeper.go:424 calls emitCW721OwnerBeforeTransferIfApplicable before Wasmer.Execute; line 1185 classifies burn as CW721, line 1206 builds owner_of, line 1213 queries the CW1155 contract, and line 1215 returns ErrCW721OwnerLookup"
+raw_error = "required CW721 pretransfer owner lookup failed: contract pax18cszlvm6pze0x9sz32qnjq4vtd45xehqs8dq7cwy8yhq35wfnn3qcm2ty5 token \"1\": Error parsing into type cw1155::msg::Cw1155QueryMsg<alloc::string::String, cosmwasm_std::results::empty::Empty>: unknown variant `owner_of`, expected one of `balance_of`, `owners_of`, `balance_of_batch`, `is_approved_for_all`, `token_approvals`, `approvals_for_all`, `all_balances`, `num_tokens`, `contract_info`, `minter`, `token_info`, `tokens`, `all_tokens`, `default_base_uri`, `extension`, `ownership`: query wasm contract failed [/work/paxeer-monorepo/wasm/x/wasm/keeper/keeper.go:755]"
+localization = "/out/logs/verify-1.log:629 records the direct keeper error; executionErr is non-nil, so receipt translation is not reached and no node/receipt.go producer failure is claimed"
+stop = "Implemented_not_qualified: producer repair requires wasm/x/wasm/keeper/keeper.go outside SCOPE; preserve the burn payload and all code-zero and receipt-content assertions; no commit or push performed by the agent"
+record = "Post-gate evidence only: the candidate revision above was built and verified; this appended record is not itself claimed as qualified"
+
+[continuation.attempt5]
+base = "75d7160b41eec485329c714cacae007381e9d4b8"
+producer = "Task 22.39.150, merged through 29c9a03123d2f4b753d99eb487afe762c8ee2b7c, repairs CW721 lookup classification in wasm/x/wasm/keeper/keeper.go through CW721TransferTokenID; CW1155 burn messages carrying amount no longer trigger owner_of"
+localization = "Attempt 4 identified that producer through the direct keeper error recorded in boundary.attempt4; its discarded-cache execution and translation diagnostic is now removed"
+retained = "All prior fixture repairs, fresh application Close cleanup and trace option remain; burn-on-behalf is delivered directly with the original payload, code-zero assertion and receipt-content assertions"
+build = "/out/run/gates.jsonl: final build row records the exact candidate revision, command, exit and private log"
+verify = "/out/run/gates.jsonl: final verify row records the exact candidate revision, command, exit and private log; completion requires hf-done passing at the built candidate"
+boundary = "If CW1155 still fails with the producer repair merged, record the raw new failure and stop without a repair cycle or assertion change"
+
+[qualification.attempt5]
+revision = "c799b9e59ee223295f9664ca0983403b7a9a951b"
+build = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/; exit 0; /out/logs/build-1.log"
+verify = "cg spec done 22.39.138 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
+observed = "All 17 selected node tests passed in 52.385 seconds, including CW1155 burn-on-behalf and snapshot reexecution; the artifact-sync suite then reported 7 failed and 2 passed, with all seven failures caused by its allowlist requiring a missing artifact outside SCOPE"
+raw_error = "AssertionError: Missing intentional artifact: apps/launchpad/web/src/assets/icons/airdrop_background.png"
+record = "Implemented_not_qualified; the unrelated artifact failure is recorded rather than chased or rerun; the build and verification used the same candidate above, and this appended post-gate record is not itself claimed as qualified"
+
+[continuation.attempt6]
+base = "639903eaa1318b30dec81f01bcf53d282efefca1"
+retained = "The complete attempt-5 node implementation is retained, including the fresh CW1155 application, Close cleanup, direct burn-on-behalf delivery, unchanged success and receipt-content assertions, and explicit snapshot import worker count"
+integration = "The checked-out base already contains the current main-line continuation and both fee-token and CW721 producer repairs; no additional merge or node implementation change is required"
+gate = "Decision 2887 and gotchas 3583 and 3584 restrict verification to the seventeen selected node tests; the foreign artifact-sync suite is no longer part of this task's verify_cmd"
+build = "/out/run/gates.jsonl: final build row records the exact candidate revision, make -s paxd-native-libs && CGO_ENABLED=1 go vet ./node/, exit code and private log"
+verify = "/out/run/gates.jsonl: final verify row records the same candidate revision, cg spec done 22.39.138 -f layerx-merge --root /work/paxeer-monorepo, exit code and private log"
+qualification = "This record precedes both gates and belongs to their candidate; only a passing hf-done at the built candidate establishes completion"

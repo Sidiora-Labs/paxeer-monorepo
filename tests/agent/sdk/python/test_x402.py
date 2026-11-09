@@ -125,7 +125,7 @@ class VerifyPaymentReceiptTest(unittest.TestCase):
         vector = receipt_vector()
         terms = payment_terms(vector)
         for changed in (
-            {"payer": "ab" * 32}, {"asset": "ab" * 32},
+            {"payer": "ab" * 32}, {"ledger_payer": "ab" * 32}, {"asset": "ab" * 32},
             {"pay_to": "ab" * 32}, {"amount": str(int(terms["amount"]) + 1)},
         ):
             with self.subTest(changed=changed), self.assertRaises(PlatformSdkError) as raised:

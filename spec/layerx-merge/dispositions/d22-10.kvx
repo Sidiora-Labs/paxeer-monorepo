@@ -1,3 +1,6 @@
+# The 105 additional 22.33 findings inventoried in programme/closure/22.39.192.ids
+# have their ordered dispositions in d22-24.kvx.
+
 [disposition.22.13.9.1]
 finding = "22.13.9.1"
 status = "resolved"

@@ -89,6 +89,7 @@ def test_doc_root_public_rpc_hosts_and_chain_probe():
     assert seen == {
         "api-mainnet-beta.paxeer.network",
         "api1.mainnet-beta.paxeer.network",
+        "api2.mainnet-beta.paxeer.network",
         "api14.mainnet-beta.paxeer.network",
     }
     example, = blocks(quickstart, "sh")

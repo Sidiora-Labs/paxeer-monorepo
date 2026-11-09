@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     admission::{AdmissionTable, Participant},
     codec::{
@@ -37,24 +38,57 @@ pub const SCRATCH_BYTES: usize = 2 * BOOK_MAX_BYTES
     + Section::Control.payload_cap();
 const _: () = assert!(BOOK_MAX_BYTES + 13 <= Section::SettlementClaims.payload_cap());
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum RoomState {
     Open = 0,
     Closed = 1,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+impl RoomState {
+    pub(crate) fn decode(value: u8) -> CodecResult<Self> {
+        match value {
+            0 => Ok(Self::Open),
+            1 => Ok(Self::Closed),
+            _ => Err(NON_CANONICAL),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum AskState {
     Open = 0,
     Matched = 1,
     Closed = 2,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+impl AskState {
+    pub(crate) fn decode(value: u8) -> CodecResult<Self> {
+        match value {
+            0 => Ok(Self::Open),
+            1 => Ok(Self::Matched),
+            2 => Ok(Self::Closed),
+            _ => Err(NON_CANONICAL),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum DealState {
     Open = 0,
     Settled = 1,
+}
+impl DealState {
+    pub(crate) fn decode(value: u8) -> CodecResult<Self> {
+        match value {
+            0 => Ok(Self::Open),
+            1 => Ok(Self::Settled),
+            _ => Err(NON_CANONICAL),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -73,10 +107,12 @@ impl RoomRecord {
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.profile.validate()?;
         let mut w = Writer::new(out.get_mut(..ROOM_RECORD_BYTES).ok_or(CAPACITY)?);
-        w.put(self.room_id.as_bytes())?;
-        w.put(self.host_key.as_bytes())?;
-        w.put(self.model_digest.as_bytes())?;
-        w.put(self.runtime_digest.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: self.room_id.as_bytes();
+            id32: self.host_key.as_bytes();
+            id32: self.model_digest.as_bytes();
+            id32: self.runtime_digest.as_bytes();
+        )?;
         w.room_profile(&self.profile)?;
         w.u8(self.state as u8)?;
         w.u64(self.opened_at_epoch)?;
@@ -85,19 +121,14 @@ impl RoomRecord {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
-        let value = Self {
-            room_id: r.digest32()?,
-            host_key: r.principal_id()?,
-            model_digest: r.digest32()?,
-            runtime_digest: r.digest32()?,
-            profile: r.room_profile()?,
-            state: match r.u8()? {
-                0 => RoomState::Open,
-                1 => RoomState::Closed,
-                _ => return Err(NON_CANONICAL),
-            },
-            opened_at_epoch: r.u64()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
+            host_key: PrincipalId,
+            model_digest: Digest32,
+            runtime_digest: Digest32,
+            profile: RoomProfile,
+            state: RoomState,
+            opened_at_epoch: U64
+        );
         r.finish()?;
         Ok(value)
     }
@@ -122,34 +153,30 @@ impl AskRecord {
             return Err(NON_CANONICAL);
         }
         let mut w = Writer::new(out.get_mut(..ASK_RECORD_BYTES).ok_or(CAPACITY)?);
-        w.put(self.room_id.as_bytes())?;
-        w.put(self.ask_id.as_bytes())?;
-        w.put(self.asker_key.as_bytes())?;
-        w.put(self.model_digest.as_bytes())?;
-        w.u128(self.maximum_price_per_thousand_tokens)?;
-        w.u128(self.stream_id)?;
-        w.u8(self.state as u8)?;
-        w.put(self.posted_request.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: self.room_id.as_bytes();
+            id32: self.ask_id.as_bytes();
+            id32: self.asker_key.as_bytes();
+            id32: self.model_digest.as_bytes();
+            u128: self.maximum_price_per_thousand_tokens;
+            u128: self.stream_id;
+            u8: self.state as u8;
+            id32: self.posted_request.as_bytes();
+        )?;
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
-        let value = Self {
-            room_id: r.digest32()?,
-            ask_id: r.digest32()?,
-            asker_key: r.principal_id()?,
-            model_digest: r.digest32()?,
-            maximum_price_per_thousand_tokens: r.u128()?,
-            stream_id: r.u128()?,
-            state: match r.u8()? {
-                0 => AskState::Open,
-                1 => AskState::Matched,
-                2 => AskState::Closed,
-                _ => return Err(NON_CANONICAL),
-            },
-            posted_request: r.request_digest()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
+            ask_id: Digest32,
+            asker_key: PrincipalId,
+            model_digest: Digest32,
+            maximum_price_per_thousand_tokens: U128,
+            stream_id: U128,
+            state: AskState,
+            posted_request: RequestDigest
+        );
         r.finish()?;
         if value.maximum_price_per_thousand_tokens == 0 {
             return Err(NON_CANONICAL);
@@ -183,27 +210,28 @@ impl BidRecord {
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         let mut w = Writer::new(out.get_mut(..BID_RECORD_BYTES).ok_or(CAPACITY)?);
-        w.put(self.room_id.as_bytes())?;
-        w.put(self.bid_id.as_bytes())?;
-        w.put(self.peer_key.as_bytes())?;
-        w.put(self.capability_digest.as_bytes())?;
-        w.u128(self.minimum_price_per_thousand_tokens)?;
-        w.u128(self.bond_amount)?;
-        w.u16(self.layer_capacity)?;
+        crate::codec::write_fields!(w;
+            id32: self.room_id.as_bytes();
+            id32: self.bid_id.as_bytes();
+            id32: self.peer_key.as_bytes();
+            id32: self.capability_digest.as_bytes();
+            u128: self.minimum_price_per_thousand_tokens;
+            u128: self.bond_amount;
+            u16: self.layer_capacity;
+        )?;
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
-        let value = Self {
-            room_id: r.digest32()?,
-            bid_id: r.digest32()?,
-            peer_key: r.principal_id()?,
-            capability_digest: r.digest32()?,
-            minimum_price_per_thousand_tokens: r.u128()?,
-            bond_amount: r.u128()?,
-            layer_capacity: r.u16()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
+            bid_id: Digest32,
+            peer_key: PrincipalId,
+            capability_digest: Digest32,
+            minimum_price_per_thousand_tokens: U128,
+            bond_amount: U128,
+            layer_capacity: U16
+        );
         r.finish()?;
         value.validate()?;
         Ok(value)
@@ -250,15 +278,23 @@ impl DealRecord {
         let count = self.layers.iter().take_while(|s| s.is_some()).count();
         if count == 0
             || self.agreed_price_per_thousand_tokens == 0
-            || self.layers[count..].iter().any(Option::is_some)
+            || self.layers.guest_index(count..).iter().any(Option::is_some)
         {
             return Err(NON_CANONICAL);
         }
         let mut end = 0;
-        for (i, split) in self.layers[..count].iter().flatten().enumerate() {
+        for (i, split) in self
+            .layers
+            .guest_index(..count)
+            .iter()
+            .flatten()
+            .enumerate()
+        {
             if split.first_layer != end
                 || split.end_layer <= split.first_layer
-                || self.layers[..i]
+                || self
+                    .layers
+                    .guest_index(..i)
                     .iter()
                     .flatten()
                     .any(|p| p.bid_id == split.bid_id)
@@ -297,14 +333,10 @@ impl DealRecord {
         let mut r = Reader::new(input);
         let (request, count) = RecordDealRequest::read_header(&mut r)?;
         let mut value = request.record();
-        value.state = match r.u8()? {
-            0 => DealState::Open,
-            1 => DealState::Settled,
-            _ => return Err(NON_CANONICAL),
-        };
+        value.state = DealState::decode(r.u8()?)?;
         for i in 0..MAX_DEAL_PEERS {
             if i < count {
-                value.layers[i] = Some(LayerSplit::read(&mut r)?);
+                *value.layers.guest_index_mut(i) = Some(LayerSplit::read(&mut r)?);
             } else if r.take(36)? != [0; 36] {
                 return Err(NON_CANONICAL);
             }
@@ -327,9 +359,11 @@ impl OpenRoomRequest {
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.profile.validate()?;
         let mut w = Writer::new(out.get_mut(..168).ok_or(CAPACITY)?);
-        w.put(self.room_id.as_bytes())?;
-        w.put(self.model_digest.as_bytes())?;
-        w.put(self.runtime_digest.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: self.room_id.as_bytes();
+            id32: self.model_digest.as_bytes();
+            id32: self.runtime_digest.as_bytes();
+        )?;
         w.room_profile(&self.profile)?;
         Ok(w.len())
     }
@@ -349,11 +383,13 @@ impl PostAskRequest {
             return Err(NON_CANONICAL);
         }
         let mut w = Writer::new(out.get_mut(..128).ok_or(CAPACITY)?);
-        w.put(self.room_id.as_bytes())?;
-        w.put(self.ask_id.as_bytes())?;
-        w.put(self.model_digest.as_bytes())?;
-        w.u128(self.maximum_price_per_thousand_tokens)?;
-        w.u128(self.stream_id)?;
+        crate::codec::write_fields!(w;
+            id32: self.room_id.as_bytes();
+            id32: self.ask_id.as_bytes();
+            id32: self.model_digest.as_bytes();
+            u128: self.maximum_price_per_thousand_tokens;
+            u128: self.stream_id;
+        )?;
         Ok(w.len())
     }
 }
@@ -376,12 +412,14 @@ impl PostBidRequest {
             return Err(NON_CANONICAL);
         }
         let mut w = Writer::new(out.get_mut(..130).ok_or(CAPACITY)?);
-        w.put(self.room_id.as_bytes())?;
-        w.put(self.bid_id.as_bytes())?;
-        w.put(self.capability_digest.as_bytes())?;
-        w.u128(self.minimum_price_per_thousand_tokens)?;
-        w.u128(self.bond_amount)?;
-        w.u16(self.layer_capacity)?;
+        crate::codec::write_fields!(w;
+            id32: self.room_id.as_bytes();
+            id32: self.bid_id.as_bytes();
+            id32: self.capability_digest.as_bytes();
+            u128: self.minimum_price_per_thousand_tokens;
+            u128: self.bond_amount;
+            u16: self.layer_capacity;
+        )?;
         Ok(w.len())
     }
 }
@@ -452,18 +490,20 @@ impl RecordDealRequest {
         roster: RosterDigest,
         count: usize,
     ) -> CodecResult<()> {
-        w.put(room.as_bytes())?;
-        w.put(deal.as_bytes())?;
-        w.put(ask.as_bytes())?;
-        w.u128(price)?;
-        w.put(roster.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: room.as_bytes();
+            id32: deal.as_bytes();
+            id32: ask.as_bytes();
+            u128: price;
+            id32: roster.as_bytes();
+        )?;
         w.u8(count as u8)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let (mut value, count) = Self::read_header(&mut r)?;
-        for slot in &mut value.layers[..count] {
+        for slot in value.layers.guest_index_mut(..count) {
             *slot = Some(LayerSplit::read(&mut r)?);
         }
         r.finish()?;
@@ -508,15 +548,15 @@ impl<'a> RoomBook<'a> {
             counts: [0; 4],
         };
         for (i, cap) in CAPS.iter().enumerate() {
-            book.counts[i] = usize::from(r.u16()?);
-            if book.counts[i] > *cap {
+            *book.counts.guest_index_mut(i) = usize::from(r.u16()?);
+            if *book.counts.guest_index(i) > *cap {
                 return Err(CAPACITY);
             }
         }
         for (i, width) in WIDTHS.iter().enumerate() {
-            book.tables[i] = r.take(book.counts[i] * width)?;
+            *book.tables.guest_index_mut(i) = r.take(*book.counts.guest_index(i) * width)?;
             let mut previous = None;
-            for bytes in book.tables[i].chunks_exact(*width) {
+            for bytes in book.tables.guest_index(i).guest_chunks_exact(*width) {
                 let (id, room) = match i {
                     0 => {
                         let v = RoomRecord::decode(bytes)?;
@@ -550,9 +590,10 @@ impl<'a> RoomBook<'a> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn get(&self, table: usize, id: Digest32) -> Option<&'a [u8]> {
         let at = if table == 0 { 0 } else { 32 };
-        self.tables[table]
-            .chunks_exact(WIDTHS[table])
-            .find(|bytes| &bytes[at..at + 32] == id.as_bytes())
+        self.tables
+            .guest_index(table)
+            .guest_chunks_exact(*WIDTHS.guest_index(table))
+            .find(|bytes| bytes.guest_index(at..at + 32) == id.as_bytes())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn room(&self, id: Digest32) -> CodecResult<Option<RoomRecord>> {
@@ -582,7 +623,7 @@ impl<'a> RoomBook<'a> {
         replace: bool,
         out: &mut [u8],
     ) -> CodecResult<usize> {
-        if record.len() != WIDTHS[table] {
+        if record.len() != *WIDTHS.guest_index(table) {
             return Err(NON_CANONICAL);
         }
         let found = self.get(table, id).is_some();
@@ -591,9 +632,9 @@ impl<'a> RoomBook<'a> {
         }
         let mut counts = self.counts;
         if !replace {
-            counts[table] += 1;
+            *counts.guest_index_mut(table) += 1;
         }
-        if counts[table] > CAPS[table] {
+        if *counts.guest_index(table) > *CAPS.guest_index(table) {
             return Err(CAPACITY);
         }
         let mut w = Writer::new(out);
@@ -604,18 +645,22 @@ impl<'a> RoomBook<'a> {
         }
         for (i, width) in WIDTHS.iter().enumerate() {
             if i != table {
-                w.put(self.tables[i])?;
+                w.put(*self.tables.guest_index(i))?;
                 continue;
             }
             let offset = if i == 0 { 0 } else { 32 };
-            let index = self.tables[i]
-                .chunks_exact(*width)
-                .take_while(|b| &b[offset..offset + 32] < &id.as_bytes()[..])
+            let index = self
+                .tables
+                .guest_index(i)
+                .guest_chunks_exact(*width)
+                .take_while(|b| b.guest_index(offset..offset + 32) < id.as_bytes().guest_index(..))
                 .count();
             let at = index * width;
-            w.put(&self.tables[i][..at])?;
+            w.put((*self.tables.guest_index(i)).guest_index(..at))?;
             w.put(record)?;
-            w.put(&self.tables[i][at + if replace { *width } else { 0 }..])?;
+            w.put(
+                (*self.tables.guest_index(i)).guest_index(at + if replace { *width } else { 0 }..),
+            )?;
         }
         Ok(w.len())
     }
@@ -658,6 +703,7 @@ fn worker_for(
     Ok(worker)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_record_deal(
     book: &RoomBook<'_>,
     request: &RecordDealRequest,
@@ -717,7 +763,7 @@ pub fn apply_record_deal(
         {
             return Err(UNAUTHORIZED);
         }
-        for previous in record.layers[..i].iter().flatten() {
+        for previous in record.layers.guest_index(..i).iter().flatten() {
             if book.bid(previous.bid_id)?.ok_or(NOT_FOUND)?.peer_key == bid.peer_key {
                 return Err(CONFLICT);
             }
@@ -731,6 +777,7 @@ pub fn apply_record_deal(
     book.write(3, record.deal_id, &bytes, false, out)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -854,7 +901,7 @@ pub fn apply(
             let mut bytes = [0; ROOM_RECORD_BYTES];
             room.encode(&mut bytes)?;
             let n = book.write(0, room_id, &bytes, false, first)?;
-            (&first[..n], room_id)
+            (first.guest_index(..n), room_id)
         }
         dispatch::PostAsk => {
             let room = book.open_room(room_id)?;
@@ -883,7 +930,7 @@ pub fn apply(
             let mut bytes = [0; ASK_RECORD_BYTES];
             ask.encode(&mut bytes)?;
             let n = book.write(1, ask.ask_id, &bytes, false, first)?;
-            (&first[..n], ask.ask_id)
+            (first.guest_index(..n), ask.ask_id)
         }
         dispatch::PostBid => {
             let room = book.open_room(room_id)?;
@@ -905,7 +952,7 @@ pub fn apply(
             let mut bytes = [0; BID_RECORD_BYTES];
             bid.encode(&mut bytes)?;
             let n = book.write(2, bid.bid_id, &bytes, false, first)?;
-            (&first[..n], bid.bid_id)
+            (first.guest_index(..n), bid.bid_id)
         }
         dispatch::RecordDeal => {
             let request = RecordDealRequest::decode(e.payload)?;
@@ -925,20 +972,27 @@ pub fn apply(
                 ctx.height,
                 first,
             )?;
-            let staged = RoomBook::decode(&first[..n])?;
+            let staged = RoomBook::decode(first.guest_index(..n))?;
             let mut ask = staged.ask(request.ask_id)?.ok_or(NOT_FOUND)?;
             ask.state = AskState::Matched;
             let mut bytes = [0; ASK_RECORD_BYTES];
             ask.encode(&mut bytes)?;
             let n = staged.write(1, ask.ask_id, &bytes, true, second)?;
-            (&second[..n], request.deal_id)
+            (second.guest_index(..n), request.deal_id)
         }
         dispatch::CloseRoom => {
             let mut room = book.open_room(room_id)?;
             if room.host_key != ctx.principal {
                 return Err(UNAUTHORIZED);
             }
-            for bytes in book.tables[3].chunks_exact(DEAL_RECORD_BYTES) {
+            for bytes in book
+                .tables
+                .guest_index(3)
+                .as_chunks::<{ DEAL_RECORD_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
+            {
                 let deal = DealRecord::decode(bytes)?;
                 if deal.room_id == room_id && deal.state == DealState::Open {
                     return Err(WRONG_PHASE);
@@ -948,14 +1002,16 @@ pub fn apply(
             let mut bytes = [0; ROOM_RECORD_BYTES];
             room.encode(&mut bytes)?;
             let n = book.write(0, room_id, &bytes, true, first)?;
-            (&first[..n], room_id)
+            (first.guest_index(..n), room_id)
         }
         _ => return Err(UNKNOWN_OPERATION),
     };
     let settlement_len = state.encode_room_market(book_bytes, settlement)?;
-    let mut candidate =
-        state.replace_section(Section::SettlementClaims, &settlement[..settlement_len])?;
     let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
+    let mut candidate = state.with_section(
+        Section::SettlementClaims,
+        settlement.guest_index(..settlement_len),
+    )?;
     let digest = ApplicationResult::success(
         ResultStatus::Ok,
         envelope.request_digest()?,
@@ -972,8 +1028,10 @@ pub fn apply(
     }
     policy.header.state_revision = revision;
     let policy_len = policy.encode(policy_out)?;
-    let candidate =
-        candidate.replace_section(Section::PolicyLifecycle, &policy_out[..policy_len])?;
+    let candidate = candidate.with_section(
+        Section::PolicyLifecycle,
+        policy_out.guest_index(..policy_len),
+    )?;
     let state_len = state::encode_shared_state(&candidate, next, control)?;
     let event_len = codec::encode_event_frame(
         op,

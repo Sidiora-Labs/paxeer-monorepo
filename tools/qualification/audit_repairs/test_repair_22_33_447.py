@@ -83,11 +83,12 @@ def test_env_sync_comments_match_node_transport_and_adapter_source():
     )
     body = adapter.split("  def fetch_syncing_status(", 1)[1].split("\n  @doc", 1)[0]
     assert '%{id: 0, method: "eth_syncing", params: []}' in body
-    assert "|> json_rpc(json_rpc_named_arguments)" in body
-    assert re.search(r"\{:ok, false\} ->\s+\{:ok, :synced\}", body)
+    assert "with {:ok, result} <- json_rpc(syncing_request, json_rpc_named_arguments) do" in body
+    assert re.search(r"false ->\s+\{:ok, :synced\}", body)
     assert '%{"currentBlock" => current_block, "highestBlock" => highest_block}' in body
     assert "{:ok, {:syncing, quantity_to_integer(current_block), quantity_to_integer(highest_block)}}" in body
-    assert re.search(r"\{:error, _reason\} = error ->\s+error", body)
+    assert "with {:ok, result} <- json_rpc(syncing_request, json_rpc_named_arguments)" in body
+    assert "else" not in body  # with propagates the original error unchanged
     assert "{:error, {:unexpected_syncing_result, other}}" in body
     assert body.count("{:ok, :synced}") == 1
 

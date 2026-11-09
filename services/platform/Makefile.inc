@@ -39,6 +39,7 @@ platform-sample-install: platform-sample-preflight
 	python3 -m venv $(PLATFORM_PYTHON_ENV)
 	$(PLATFORM_PYTHON_ENV)/bin/python -m pip install --no-index --no-deps --no-build-isolation \
 		$(CURDIR)/services/agent/sdk/python $(CURDIR)/sdk/integrations/fastapi
+	$(PLATFORM_PYTHON_ENV)/bin/python -m pip install -r sdk/integrations/fastapi/tests/requirements.txt
 	cd sdk/platform/go && go mod download
 	cd services/platform/examples/samples/first-payment-go && go mod download
 	cargo fetch --manifest-path services/platform/examples/samples/verify-receipt-rust/Cargo.toml --locked
@@ -331,27 +332,31 @@ platform-test-ten-line:
 	tools/paxeer-x/gates/104.16.5.sh
 
 platform-test-middleware: platform-sample-dependencies-ready
-	npm run build --workspace @sidiora/layerx-seller-middleware
-	npm run build --workspace @sidiora/layerx-buyer-middleware
-	npm run build --workspace @sidiora/layerx-merchant-middleware
-	npm run build --workspace @sidiora/layerx-agent-middleware
-	npm run build --workspace @sidiora/layerx-middleware-conformance
+	npm test --workspace @sidiora/layerx-seller-middleware
+	npm test --workspace @sidiora/layerx-buyer-middleware
+	npm test --workspace @sidiora/layerx-merchant-middleware
+	npm test --workspace @sidiora/layerx-agent-middleware
+	npm test --workspace @sidiora/layerx-middleware-conformance
 	npm run conformance --workspace @sidiora/layerx-middleware-conformance
+	python3 -m pytest -q tests/ci/test_platform_middleware_suites_wired.py
+	$(PLATFORM_PYTHON_ENV)/bin/python -m pytest -q \
+		services/platform/middleware/conformance/pay6 services/platform/middleware/examples
 	node --check services/platform/examples/merchant-shop/index.mjs
 	node --check services/platform/examples/merchant-checkout/index.mjs
 	node --check services/platform/examples/buyer-agent/index.mjs
 	node --check services/platform/examples/paid-api/index.mjs
-	node --check services/platform/examples/marketplace/index.mjs
+	npm test --workspace @sidiora/layerx-example-marketplace
 	node --check services/platform/examples/support/runtime.mjs
 	node --check services/platform/examples/support/merchant-app.mjs
 	node --check services/platform/examples/agent-spend/index.mjs
-	npm run build --workspace @sidiora/layerx-express
-	npm run build --workspace @sidiora/layerx-next
+	npm test --workspace @sidiora/layerx-express
+	npm test --workspace @sidiora/layerx-next
 	npm run build --workspace @sidiora/layerx-example-next
 	npm run scan --workspace @sidiora/layerx-example-next
 	PYTHONPATH=services/agent/sdk/python:sdk/integrations/fastapi python3 -m compileall -q \
 		sdk/integrations/fastapi/layerx_fastapi sdk/integrations/fastapi/examples
-	npm run build --workspace @sidiora/layerx-agent-integrations
+	npm test --workspace @sidiora/layerx-agent-integrations
+	PYTHONPATH=services/agent/sdk/python:sdk/integrations/fastapi $(PLATFORM_PYTHON_ENV)/bin/python -m pytest -q sdk/integrations/fastapi
 	mvn -o -q -f sdk/integrations/android/pom.xml -DskipTests verify
 	swift build --disable-automatic-resolution --package-path sdk/integrations/ios
 	swift test --package-path sdk/integrations/ios

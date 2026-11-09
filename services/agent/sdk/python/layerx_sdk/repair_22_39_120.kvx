@@ -1,0 +1,113 @@
+[meta]
+task = "22.39.120"
+requirement = "22998.1"
+base_revision = "3a0f70d0fce59d96719043d5294b98aa3718e3bd"
+qualification_revision = "The candidate revision in the final hf-build and hf-done rows of /out/run/gates.jsonl."
+evidence = "The final build and verify rows in /out/run/gates.jsonl name the exact revision, command, exit code and private log; only hf-done passing at the built revision qualifies this repair. The runner owns publication."
+
+[implementation]
+tests = "Apply the reviewed attempt-1 corrections to the five declared modules in tests/agent/sdk/python; remove the eight duplicate modules from services/agent/sdk/python/tests as decision 2895 requires. Retain the carried conftest baseline reader."
+receipts = "Use the node-produced EIP-1559 program-call vector instead of retired kernel activity bytes; assert Type2Transaction for the current committed vector and use the preserved chain713714 legacy transaction for canonical EIP-155 refusal cases. Preserve governed key ranges, signatures, raw transaction hashes, payment logs, exact amounts and recorded block identities."
+rpc = "Use PaymentRpc at the node root for submission and receipt reads, and HostedGatewayRpc at /rpc for receipt-key discovery. Assert the current ValueError payment-binding-mismatch wrapper and its exact underlying signature or key failure."
+intent = "Serialize typed IntentPlan optional fields by omitting absent values; retain the assertions for exact zero, one and maximum u128 integers and strings through the real intent HTTP client."
+baseline = "Retire the 48 entries for the five repaired modules. Preserve all 46 entries of 22.39.119 and the unchanged test_receipt_fixture.py entry outside scope; assert the exact retained list against the task base."
+
+[producer_lines]
+revision = "3a0f70d0fce59d96719043d5294b98aa3718e3bd"
+web_search_payer = "web_search.py passes offer.payer as ledger_payer following layerx_sdk/x402.py:176-177 and 197-198: payer identifies the recovered signer while ledger_payer identifies the payExact source account; x402.py:214-217 authenticates the signer and 241-250 binds the ledger account to calldata."
+web_search_settlement = "web_search.py reads the settlement payer from authenticated payExact calldata[4:36] following layerx_sdk/x402.py:245 and 250,273: the source account is independently bound to the PaymentExact event. x402.py:295-304 ledger_payment_payer returns the EVM signer, which is a different identity. Receipt and transaction verification runs before settlement comparison."
+web_search_ledger_rpc = "The retained ledger_rpc option and web_search.pyi declaration supply the canonical ledger account read required by layerx_sdk/x402.py:239-250 independently of signer identity discovery. The existing payer_rpc/payer_address pair remains validated; ledger_rpc defaults to payer_rpc and resolves accounts through precompiles/layerxledger/views.go:65-77 accountId."
+account_replay = "Replay accountId answers from services/agent/sdk/typescript/test/recorded-web-ledger.json in the same method/params/result shape as the other recorded RPC answers. The producer is precompiles/layerxledger/views.go:73-77 through modules/lxphost/accountmap.go AssetAccountID and layerxproof/codec/state.go:397-416 DeriveAccountID. Unmatched RPC requests still fail; HTTP request matching and recorded responses are unchanged."
+payer_owner = "The metered payer selector uses the zero-padded EVM address owner as services/interop/crates/x-websearch/tests/payment.rs:64-87 payer_account and payer_account_rules do; the distinct grant signing key remains BUYER.payerDid and is asserted independently."
+metered_refusal = "layerx_sdk/x402.py:68-71,185-186 refuses retired payer-grant authority with terminal LXP_NO_PAYER_GRANT. Metered cases assert receipt-unverified with that exact cause and retryability, including changed purposes, while preserving the recorded HTTP exchange."
+committed_refusal = "layerx_sdk/x402.py:282-291 requires caller-pinned finality for a committed payment; x402_rpc.py:350-351 wraps SDK binding errors and 358-361 refuses a committed rung without committed evidence even when the requested minimum is receipted. The genuine signature, transaction, height, key and block identity assertions remain."
+
+[scope]
+receipt_fixture = "The unchanged central test_receipt_fixture.py has a pre-existing V2-pax-transfer-insufficient-funds expectation mismatch: the vector has empty returnData and no LXP registry code. Its baseline entry remains because that file is outside the five declared test paths; this gate does not execute that case."
+format = "No Python formatter is configured; apply .editorconfig final-newline and trailing-whitespace rules to touched files after implementation."
+
+[producer_lines.raw_transaction_lookup]
+web_search = "Use the explicitly configured ledger_rpc for eth_getRawTransactionByHash as well as accountId; it defaults to payer_rpc for existing callers. This follows layerx_sdk/x402.py:202-206,209-217: payment verification requires the raw signed transaction and authenticates its recovered signer, independently of optional payer identity discovery. No receipt is accepted without that verification."
+
+[qualification.first_verify]
+revision = "b70c58af1dbf7cc18758679e45ea856d431e4ef8"
+command = "cg spec done 22.39.120 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Fetch metered settlement transactions through ledger_rpc; exercise WebSearchClient's unsafe-endpoint refusal directly so a helper's PaymentRpc construction cannot preempt it. Reformat touched files, rebuild and verify the same new candidate."
+
+[finding.unchanged_receipt_keys]
+task = "22.39.120"
+file = "services/agent/sdk/python/tests/test_ai_market_commit.py"
+symbol = "test_market_node_receipt_summary_events_and_return_binding"
+observed = "At b70c58af1dbf7cc18758679e45ea856d431e4ef8, cg spec done 22.39.120 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): the unchanged test calls the removed PaymentRpc.receipt_keys method."
+assumption = "The owner must migrate key discovery to HostedGatewayRpc in this test outside the declared task paths."
+severity = "blocker"
+
+[finding.unchanged_payer_binding]
+task = "22.39.120"
+file = "services/agent/sdk/python/tests/test_sequencer_receipt.py"
+symbol = "test_payment_recording_binds_the_production_ledger_transaction; test_verify_rpc_payment_uses_receipt_keys"
+observed = "At b70c58af1dbf7cc18758679e45ea856d431e4ef8, cg spec done 22.39.120 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): two unchanged cases pass the ledger account as the EVM signer and fail with PaymentBindingError payer or payment-binding-mismatch."
+assumption = "These consumers outside scope must follow the separate payer and ledger_payer arguments without weakening producer signer authentication."
+severity = "blocker"
+
+[finding.unchanged_committed_binding]
+task = "22.39.120"
+file = "services/agent/sdk/python/tests/test_x402_http_sequencer.py"
+symbol = "test_buyer_verifies_sequencer_receipts_through_receipt_keys"
+observed = "At b70c58af1dbf7cc18758679e45ea856d431e4ef8, cg spec done 22.39.120 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): the unchanged buyer case offers a committed result without pinned finality and fails with missing-committed-evidence."
+assumption = "The owning test must provide committed evidence or assert the current refusal rather than bypass the producer's finality check."
+severity = "blocker"
+
+[finding.unchanged_node_peer_dependency]
+task = "22.39.120"
+file = "services/agent/sdk/python/tests/test_x402_rpc_surface.py"
+symbol = "test_rpc_submission_and_receipt_use_the_typescript_producer; test_malformed_submissions_are_refused_before_a_request"
+observed = "At b70c58af1dbf7cc18758679e45ea856d431e4ef8, cg spec done 22.39.120 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): two unchanged JS peer cases fail before readiness with ERR_MODULE_NOT_FOUND for @noble/hashes imported by services/agent/sdk/typescript/src/committed-proof.ts."
+assumption = "The declared SDK gate requires the TypeScript peer's dependencies to be provisioned independently of this Python test repair."
+severity = "blocker"
+
+[continuation.attempt3]
+base_revision = "01f2f5ac278b33a21e5104a1e1895f231c747548"
+seed_revision = "8173d0a942f162ce484fffdc30cbd758ffb251d7"
+scope = "The current task explicitly owns services/agent/sdk/python/tests; the earlier unchanged-test findings above are historical and their scope assumptions are superseded. The carried baseline reader remains intact. No new baseline entry is added."
+recording = "Regenerate the Python receipt view at use time from daemon/committed-fixture/vectors/vector-v4-committed.json, the recorder output named in 40d7268e74, through sdk/platform/conformance/fixtures/refresh_receipt_vectors.py:60-105 _committed. Assert the complete regenerated view equals its governed conformance copy and its source SHA256 matches. No chain, transaction, signed receipt, signer, digest or governed key is synthesized or re-signed for the positive path."
+recording_identity = "The current recorder output already carries the chain-125 type-2 transaction and EVM signer 0x2b1e0f87874643a65818291ca1656e62b3dcc7d4. The stale consumer passed the distinct PaymentExact ledger account as payer; regenerating the consumer view preserves the recorded identities and binds each at its producer-defined field. No extra build or recording gate is run outside the two declared gates."
+baseline = "The seed retires twenty entries relative to this base (240 deleted JSON lines); the retained regression test compares against the earlier 3a0f70d0fce59d96719043d5294b98aa3718e3bd inventory with forty-eight retired entries. Every 22.39.119 entry remains byte-for-byte represented."
+qualification = "The final matching-revision build and verify rows in /out/run/gates.jsonl are the only evidence for this continuation; the runner supplies revision, exact command, exit and private log. Stop immediately when hf-done passes."
+
+[cases.attempt3.market]
+file = "services/agent/sdk/python/tests/test_ai_market_commit.py"
+symbol = "test_market_node_receipt_summary_events_and_return_binding"
+producer = "layerx_sdk/x402_rpc.py:220-234 HostedGatewayRpc restricts hosted reads to /rpc and implements receipt_keys; :237-273 PaymentRpc owns node-root receipt reads."
+correction = "Discover keys through HostedGatewayRpc against the existing recorded HTTP peer at /rpc, retain PaymentRpc for pax_sequencerReceipt at the node root, and assert each peer received only its corresponding method. Preserve summary, event, return-data and journal-binding assertions."
+
+[cases.attempt3.payment_recording]
+file = "services/agent/sdk/python/tests/test_sequencer_receipt.py"
+symbol = "test_payment_recording_binds_the_production_ledger_transaction"
+producer = "layerx_sdk/x402.py:176-177 separates payer and ledger_payer; :209-217 authenticates the recovered EVM signer; :239-250 binds the ledger source and payment calldata."
+correction = "Use the regenerated recorder view. Assert the recorded from equals the recovered transaction signer, pass it as payer, and bind the event-derived ledger source separately as ledger_payer. Preserve every existing chain, contract, value, calldata, transaction-hash and signed-digest assertion; add an exact wrong-ledger-payer refusal."
+
+[cases.attempt3.rpc_keys]
+file = "services/agent/sdk/python/tests/test_sequencer_receipt.py"
+symbol = "test_verify_rpc_payment_uses_receipt_keys"
+producer = "layerx_sdk/x402_rpc.py:336-353 passes expected_payer as the signer and wraps SDK binding failures as ValueError(payment-binding-mismatch); :358-361 requires independent finality for a committed rung."
+correction = "Verify the recorder's regenerated receipted view with its unmodified signed receipt and governed key, passing the signed EVM payer. Explicitly refuse the original committed view without finality. Retain rotated-key acceptance and every hash, amount, asset, recipient, payer, return-data, key-range, missing-key, bad-signature and submitted assertion; require each wrapped cryptographic failure's exact cause, check and SDK error code."
+
+[cases.attempt3.buyer]
+file = "services/agent/sdk/python/tests/test_x402_http_sequencer.py"
+symbol = "test_buyer_verifies_sequencer_receipts_through_receipt_keys"
+producer = "layerx_sdk/x402_rpc.py:358-361 refuses committed results without a two-part finality tuple; layerx_sdk/x402_http.py:487-536 prepares through verify_rpc_payment; :310-348 verifies captured portable proofs directly."
+correction = "Assert missing-committed-evidence for the original recorder result with no pinned finality and assert both HTTP exchanges. Then exercise the recorder-converted receipted view with the same transaction and signed bytes through the complete buyer/seller/capture path. Preserve six successful/refused submission exchanges, grant refusals, empty stores and signature/key checks, following the prepare wrapper while checking its exact cryptographic cause. The separate existing committed restart test still exercises successful pinned finality."
+
+[cases.attempt3.typescript_peer]
+file = "services/agent/sdk/python/tests/test_x402_rpc_surface.py"
+symbols = "test_rpc_submission_and_receipt_use_the_typescript_producer; test_malformed_submissions_are_refused_before_a_request"
+producer = "services/agent/sdk/typescript/src/committed-proof.ts imports @noble/hashes; package.json declares the SDK workspace and services/agent/sdk/typescript/package.json supplies its dependency."
+correction = "Keep both real TypeScript peer tests intact. The declared hf-build installs the root workspace with npm ci --ignore-scripts --no-audit --no-fund before Python collection, supplying the peer dependencies for hf-done."
+
+[gotchas.attempt3]
+fixture_identity = "A ledger payment source is not the EVM signer. Existing test_x402_draw_sequencer.py:_payment_terms already models both identities; the two stale sequencer receipt consumers now follow the same producer distinction."
+receipt_levels = "The recorder retains committed block identity while its own conversion explicitly emits a receipted view. Use each unchanged producer view for its own assertion; never remove committed evidence checks or invent finality."
+format = "The SDK pyproject.toml configures no Python formatter; apply only the repository EditorConfig trailing-whitespace and final-newline rules to touched source, stub and repair-record files after implementation."

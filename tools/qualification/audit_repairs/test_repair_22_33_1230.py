@@ -7,6 +7,7 @@ import inspect
 import json
 from pathlib import Path
 import subprocess
+import selectors
 import sys
 
 import pytest
@@ -98,7 +99,23 @@ def test_finding_15_scoped_lifecycle_source():
 def spawn_process(home):
     # This is an actual local process, testing the generic process-ownership
     # component. It does not stand in for wasmd or claim to exercise consensus.
-    return subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "--home", str(home)])
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import time; print('ready', flush=True); time.sleep(60)",
+         "--home", str(home)],
+        stdout=subprocess.PIPE, text=True,
+    )
+    try:
+        with selectors.DefaultSelector() as ready:
+            ready.register(child.stdout, selectors.EVENT_READ)
+            assert ready.select(timeout=2), "Child did not acknowledge startup"
+            assert child.stdout.readline() == "ready\n"
+    except BaseException:
+        child.terminate()
+        child.wait(timeout=2)
+        raise
+    finally:
+        child.stdout.close()
+    return child
 
 
 def test_finding_15_real_process_ownership_and_reopen(tmp_path):

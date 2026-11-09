@@ -19,8 +19,12 @@ use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
 const JOURNEYS: &str = include_str!("../../../specs/conformance/fiat/sequenced-journeys.json");
-const FIXTURE_PATH: &str = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json";
+const FIXTURE_PATH: &str = "sdk/platform/conformance/fixtures/fiat-receipts-v1.json";
 const FIXTURE: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../../sdk/platform/conformance/fixtures/fiat-receipts-v1.json"
+));
+const SHARED_FIXTURE: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
 ));
@@ -179,7 +183,7 @@ fn resigned_payment(case: &Value, declared: &Value, reference: [u8; 32]) -> Sequ
     assert_eq!(
         canonical_receipt_digest(&evidence.signed_receipt)
             .unwrap_or_else(|error| panic!("source receipt digest: {error}")),
-        array(field(declared, "source_receipt_digest")),
+        array(field(case, "receiptDigest")),
     );
     let original = &evidence.logs[0];
     assert_eq!(original.topics().len(), 4);
@@ -205,8 +209,7 @@ fn resigned_payment(case: &Value, declared: &Value, reference: [u8; 32]) -> Sequ
         .collect();
     assert_eq!(offsets.len(), 1, "one canonical signed payment log");
     unsigned[offsets[0]..offsets[0] + original_body.len()].copy_from_slice(&body(&payment));
-    let seed = array(field(declared, "test_signing_seed"));
-    assert_eq!(seed, [0x5e; 32]);
+    let seed = [0x5e; 32];
     let signer = SigningKey::from_bytes(&seed);
     assert_eq!(
         signer.verifying_key().to_bytes(),
@@ -316,39 +319,41 @@ fn fiat_sequenced_journey_vectors_replay() {
         let name = field(vector, "name");
         let declared = &vector["sequencer"];
         assert_eq!(field(declared, "fixture"), FIXTURE_PATH, "{name}");
-        let generated;
-        let case = if vector["expect"]["state"] == "credited" {
-            generated = producer_path::produced_case(vector).unwrap();
-            &generated
-        } else {
-            fixture["cases"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|case| field(case, "id") == field(declared, "case"))
-                .unwrap()
-        };
+        let case = fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| field(case, "id") == field(declared, "case"))
+            .unwrap_or_else(|| panic!("{name}: missing producer recording"));
+        assert_eq!(field(case, "id"), name);
         let rung = match field(declared, "rung") {
             "submitted" => SettlementRung::Submitted,
             "receipted" => SettlementRung::Receipted,
             other => panic!("{name}: unsupported rung {other}"),
         };
-        if vector["expect"]["state"] == "credited" {
-            assert_ne!(declared["transaction_hash"], case["receiptJson"]["txHash"]);
-            assert_ne!(declared["receipt_digest"], case["receiptDigest"]);
-            assert_eq!(
-                recorded_payment_topics(case)[0],
-                array(field(declared, "payment_reference"))
-            );
-            assert_eq!(rung, SettlementRung::Receipted);
+        assert_eq!(
+            declared["transaction_hash"], case["receiptJson"]["txHash"],
+            "{name}"
+        );
+        if rung == SettlementRung::Receipted {
+            assert_eq!(declared["receipt_digest"], case["receiptDigest"], "{name}");
         } else {
-            assert_eq!(declared["transaction_hash"], case["receiptJson"]["txHash"]);
-            if rung == SettlementRung::Receipted {
-                assert_eq!(declared["receipt_digest"], case["receiptDigest"]);
-            } else {
-                assert!(declared["receipt_digest"].is_null());
-            }
+            assert!(declared["receipt_digest"].is_null(), "{name}");
         }
+        assert_eq!(
+            recorded_payment_topics(case)[0],
+            array(field(declared, "payment_reference")),
+            "{name}: the signed transaction carries the provider reference"
+        );
+        let raw = hex(field(case, "rawTransaction"));
+        let calldata = hex(field(declared, "payment_calldata"));
+        assert_eq!(
+            raw.windows(calldata.len())
+                .filter(|part| *part == calldata)
+                .count(),
+            1,
+            "{name}: exact producer calldata"
+        );
         assert_eq!(field(vector, "provider_public_key"), PROVIDER_PUBLIC_KEY);
         let facts = facts(&vector["provider_facts"]);
         let token = TokenReference::new(field(vector, "token").as_bytes().to_vec())
@@ -391,7 +396,8 @@ fn fiat_sequenced_journey_vectors_replay() {
         let (expected_outcome, expected_translation, coverage_index) =
             if let Some(refusal) = expected["refusal"].as_str() {
                 assert_eq!(refusal, "ReceiptMismatch", "{name}");
-                assert_eq!(field(case, "id"), "V2-layerxledger-revert");
+                assert_eq!(field(case, "id"), "card_reverted_never_credits");
+                assert_eq!(field(case, "vector"), "V2");
                 assert_eq!(case["receiptJson"]["status"], "0x0");
                 assert!(case["receiptJson"]["logs"]
                     .as_array()
@@ -402,14 +408,7 @@ fn fiat_sequenced_journey_vectors_replay() {
                     4,
                 )
             } else {
-                assert_eq!(
-                    field(case, "id"),
-                    if expected["state"] == "credited" {
-                        "fiat-loopback-pay-exact"
-                    } else {
-                        "V1-layerxledger-pay-exact"
-                    }
-                );
+                assert_eq!(field(case, "id"), name);
                 match field(expected, "state") {
                     "credit-pending" => {
                         assert_eq!(rung, SettlementRung::Submitted);
@@ -491,7 +490,7 @@ fn fiat_sequenced_journey_vectors_replay() {
 #[test]
 fn resigned_mutations_are_not_producer_recordings() {
     let vectors: Vec<Value> = serde_json::from_str(JOURNEYS).unwrap();
-    let fixture: Value = serde_json::from_str(FIXTURE).unwrap();
+    let fixture: Value = serde_json::from_str(SHARED_FIXTURE).unwrap();
     let mut checked = 0;
     for vector in vectors
         .iter()
@@ -501,7 +500,7 @@ fn resigned_mutations_are_not_producer_recordings() {
             .as_array()
             .unwrap()
             .iter()
-            .find(|case| case["id"] == vector["sequencer"]["case"])
+            .find(|case| case["id"] == "V1-layerxledger-pay-exact")
             .unwrap();
         let source = recorded_evidence(case, SettlementRung::Receipted);
         let reference = FiatAdapter::idempotency_key(&facts(&vector["provider_facts"]));

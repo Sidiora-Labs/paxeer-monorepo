@@ -339,11 +339,15 @@ def test_kernel_kms_chain_selection_domain_is_not_evm_identity(runtime):
     for retired in ('human_kms_chain_snapshot', 'human_kms_prepare', 'LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE'):
         assert retired not in init and retired not in source
     # Source contract only: no Rust compiler/loader execution is claimed.
-    loader = (ROOT / 'services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs').read_text()
-    assert '#[serde(deny_unknown_fields)]\nstruct ChainSnapshot {\n    chain_id: u32,\n}' in loader
-    assert 'serde_json::from_slice(&material("REGISTRY_FILE", false)?)' in loader
-    assert 'if snapshot.chain_id != 125 {' in loader
+    loader = (ROOT / 'services/human/crates/layerx-human-service/src/bin/kms_gateway/startup.rs').read_text()
+    contract = (ROOT / 'services/human/crates/layerx-human-service/src/custody/gateway.rs').read_text()
+    assert '#[serde(deny_unknown_fields)]\npub struct GatewayChainSnapshot {\n    pub chain_id: u32,\n}' in contract
+    assert 'let bytes = protected(path, false)' in loader
+    assert 'GatewayChainSnapshot::decode(&bytes)' in loader
+    assert 'let snapshot: Self = serde_json::from_slice(bytes)' in contract
+    assert 'if snapshot.chain_id != 125 {' in contract
     assert 'network_id: snapshot.chain_id,' in loader
+
 
 
 @pytest.mark.parametrize('key', ['LAYERX_NODE_EVM_CHAIN_ID', 'LAYERX_NODE_PAXEER_CHAIN_ID'])

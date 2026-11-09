@@ -6,15 +6,15 @@ write_receipt() {
 	mkdir -p "$(dirname "$receipt")"
 	temporary=$(mktemp "${receipt}.XXXXXX")
 	if [ "$result" = pass ]; then
-		jq -n --arg version "$plan" --argjson nodes "$nodes" --argjson served "$precompiles_served" \
+		jq -n --arg version "$release_version" --arg plan "$plan" --argjson nodes "$nodes" --argjson served "$precompiles_served" \
 			--argjson pools "$pools" --argjson markets "$markets" --argjson fresh "$oracle_fresh" \
 			--argjson feed_keys "$feed_keys" --arg sha "$new_sha" \
-			'{version: $version, plan: $version, nodes_checked: $nodes, nodes_passed: $nodes,
+			'{version: $version, plan: $plan, nodes_checked: $nodes, nodes_passed: $nodes,
 			  precompiles_served: $served, pools: $pools, markets: $markets, oracle_fresh: $fresh,
 			  feed_keys: $feed_keys, rollback_rehearsed: true, new_bin_sha256: $sha, result: "pass"}' >"$temporary"
 	else
-		jq -n --arg version "$plan" --arg sha "$new_sha" \
-			'{version: $version, plan: $version, rollback_rehearsed: false, new_bin_sha256: $sha, result: "fail"}' >"$temporary"
+		jq -n --arg version "$release_version" --arg plan "$plan" --arg sha "$new_sha" \
+			'{version: $version, plan: $plan, rollback_rehearsed: false, new_bin_sha256: $sha, result: "fail"}' >"$temporary"
 	fi
 	mv -fT -- "$temporary" "$receipt"
 }

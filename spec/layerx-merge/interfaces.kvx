@@ -264899,9 +264899,9 @@ path = "contracts/config/checkpoint-settlement.json"
 line = 1
 signature = "JSON object {chain_id, offline_export}"
 callers = ["docker/kernel/Dockerfile:354", "docker/kernel/Dockerfile:397", "docker/kernel/init.sh:1151", "docker/layerx/Dockerfile:17", "docker/paxeer/Dockerfile.paxd-node:11", "docker/platform-node/Dockerfile:42", "services/agent/crates/layerx-proof/src/settlement.rs:12", "services/agent/crates/layerx-types/src/settlement.rs:11", "services/platform/hosted/node/bootstrap.sh:460", "services/platform/hosted/node/bootstrap.sh:461", "services/platform/hosted/node/bootstrap.sh:463", "services/platform/hosted/node/deployment.yaml:290", "services/platform/hosted/node/deployment.yaml:323", "services/platform/hosted/node/supervisor.sh:569", "services/platform/hosted/node/supervisor.sh:570", "services/platform/hosted/paxeer/deploy-contracts.sh:3", "services/platform/hosted/paxeer/deploy-contracts.sh:52", "services/platform/hosted/paxeer/deploy-contracts.sh:77", "services/platform/hosted/paxeer/settlement-domain.py:143", "tools/paxeer-x/build/104.30.2.mk:25", "tools/paxeer-x/retired_callers.json:312", "tools/qualification/paxeer-x/authority-evidence-read.py:13", "tools/qualification/paxeer-x/program_balance_read.py:80", "tools/qualification/paxeer-x/program_cache_native_equivalence.py:83", "tools/qualification/paxeer-x/program_market_attestation.py:23", "tools/qualification/paxeer-x/program_spend_composition.py:87", "tools/qualification/paxeer-x/program_transfer_authority.py:35", "services/agent/crates/layerx-client/tests/availability_daemon.rs:273", "services/human/crates/layerx-human-service/tests/support/withdraw-daemon.py:38", "services/platform/hosted/core/tests/boundary.rs:2688", "services/platform/hosted/core/tests/boundary.rs:2691", "services/platform/hosted/core/tests/boundary.rs:2827", "services/platform/hosted/core/tests/qualify.py:17", "services/platform/hosted/core/tests/receipt_retention.py:15", "services/platform/hosted/node/tests/bootstrap-test.py:34", "services/platform/hosted/node/tests/node-artifacts.py:15", "services/platform/hosted/node/tests/node-artifacts.py:97", "services/platform/hosted/node/tests/node-test.sh:314", "services/platform/hosted/node/tests/reset_recovery.py:1093", "services/platform/hosted/node/tests/reset_recovery.py:266"]
-status = "retired"
+status = "keep"
 contract = "contracts/address-inventory.md#fmt-checkpoint-settlement"
-notes = "kernel checkpoint settlement domain document embedded by layerx-proof (services/agent/crates/layerx-proof/src/settlement.rs:12) and copied into the kernel, layerx, node and platform images; retire: the settlement-domain component lists it (tools/paxeer-x/retired_callers.json:306 and :312); 83 caller lines in 57 files; first 40 listed; absent at HEAD (reconcile 2026-11-03, 0b17e0748b8a)"
+notes = "kept by decisions 3022 and 3027: the document stays on main as a COPY input of docker/layerx/Dockerfile:18 and a document the historical module reads; 6.59.7 retired its kernel consumer only (gotcha 3732); kernel checkpoint settlement domain document embedded by layerx-proof (services/agent/crates/layerx-proof/src/settlement.rs:12) and copied into the kernel, layerx, node and platform images; retire: the settlement-domain component lists it (tools/paxeer-x/retired_callers.json:306 and :312); 83 caller lines in 57 files; first 40 listed; absent at HEAD (reconcile 2026-11-03, 0b17e0748b8a)"
 
 [interface.6.fmt-ed25519-vectors-json]
 kind = "file_format"
@@ -286894,9 +286894,9 @@ signature = "verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) pure retur
 address = "0x1012"
 selector = "0x2a5bdc60"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:48; sol precompiles/layerxverify/LayerXVerify.sol:102; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:48; sol precompiles/layerxverify/LayerXVerify.sol:102; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyed25519]
 kind = "precompile_method"
@@ -286906,9 +286906,9 @@ signature = "verifyEd25519(bytes32,uint8,bytes,bytes) pure returns (bool)"
 address = "0x1012"
 selector = "0xb23cd638"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:44; sol precompiles/layerxverify/LayerXVerify.sol:68; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:44; sol precompiles/layerxverify/LayerXVerify.sol:68; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyreceipt]
 kind = "precompile_method"
@@ -286918,9 +286918,9 @@ signature = "verifyReceipt(bytes,bytes32) pure returns ((bytes32,bytes32,uint64,
 address = "0x1012"
 selector = "0x582eecb5"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:45; sol precompiles/layerxverify/LayerXVerify.sol:76; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:45; sol precompiles/layerxverify/LayerXVerify.sol:76; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyreceiptinclusion]
 kind = "precompile_method"
@@ -286930,9 +286930,9 @@ signature = "verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint
 address = "0x1012"
 selector = "0x3f0de084"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:46; sol precompiles/layerxverify/LayerXVerify.sol:83; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:46; sol precompiles/layerxverify/LayerXVerify.sol:83; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifystateproof]
 kind = "precompile_method"
@@ -286942,9 +286942,9 @@ signature = "verifyStateProof(bytes,bytes32) pure returns (uint16,bytes,bytes)"
 address = "0x1012"
 selector = "0xe6038e69"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:47; sol precompiles/layerxverify/LayerXVerify.sol:95; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:47; sol precompiles/layerxverify/LayerXVerify.sol:95; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1013-assetbypointer]
 kind = "precompile_method"
@@ -300452,9 +300452,9 @@ signature = "function verifyDiscoveryProof( bytes calldata payload, bytes callda
 address = "0x1012"
 selector = "0x2a5bdc60"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) returns ((bytes32,uint32,bytes32,uint16,uint64,uint64,uint64,bytes32,bytes32)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) returns ((bytes32,uint32,bytes32,uint16,uint64,uint64,uint64,bytes32,bytes32)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyed25519-b23cd638]
 kind = "sol_function"
@@ -300464,9 +300464,9 @@ signature = "function verifyEd25519( bytes32 publicKey, uint8 domain, bytes call
 address = "0x1012"
 selector = "0xb23cd638"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyEd25519(bytes32,uint8,bytes,bytes) returns (bool); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyEd25519(bytes32,uint8,bytes,bytes) returns (bool); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyreceipt-582eecb5]
 kind = "sol_function"
@@ -300476,9 +300476,9 @@ signature = "function verifyReceipt( bytes calldata receipt, bytes32 sequencerPu
 address = "0x1012"
 selector = "0x582eecb5"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyReceipt(bytes,bytes32) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyReceipt(bytes,bytes32) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyreceiptinclusion-3f0de084]
 kind = "sol_function"
@@ -300488,9 +300488,9 @@ signature = "function verifyReceiptInclusion( bytes calldata receipt, bytes call
 address = "0x1012"
 selector = "0x3f0de084"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint64,uint64) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64),(bytes32,uint32,uint64,uint64,uint64,uint64,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint64,uint64) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64),(bytes32,uint32,uint64,uint64,uint64,uint64,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifystateproof-e6038e69]
 kind = "sol_function"
@@ -300500,9 +300500,9 @@ signature = "function verifyStateProof( bytes calldata witness, bytes32 stateRoo
 address = "0x1012"
 selector = "0xe6038e69"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyStateProof(bytes,bytes32) returns (uint16,bytes,bytes); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyStateProof(bytes,bytes32) returns (uint16,bytes,bytes); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-imanagersealattestation-componentforrole-f5517ac2]
 kind = "sol_function"

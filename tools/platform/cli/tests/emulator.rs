@@ -468,11 +468,8 @@ mod bootstrap {
     }
 
     fn published_bootstrap_sequence() -> String {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../services/platform")
-            .join("docs")
-            .join("content")
-            .join("install.md");
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../docs/platform/content/install.md");
         let document = match fs::read_to_string(&path) {
             Ok(document) => document,
             Err(error) => panic!("{} should be readable: {error}", path.display()),

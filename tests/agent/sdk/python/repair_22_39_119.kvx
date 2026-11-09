@@ -1,0 +1,428 @@
+[meta]
+task = "22.39.119"
+requirement = "22998.1"
+base_revision = "e586fd17d347cb8d454948b3c3d7a4dbec4670c2"
+qualification_revision = "The candidate revision in the final matching hf-build and hf-done rows of /out/run/gates.jsonl."
+build_reference = "/out/run/gates.jsonl kind=build; command=npm ci --ignore-scripts --no-audit --no-fund && python3 -m pytest -q --collect-only tests/agent/sdk/python services/agent/sdk/python/tests > /dev/null"
+verify_reference = "/out/run/gates.jsonl kind=verify; command=cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo; verify_cmd=python3 -m pytest -q tests/agent/sdk/python services/agent/sdk/python/tests"
+qualification = "Only the declared gate rows establish qualification; both must pass at the same candidate revision. The runner owns publication."
+
+[baseline]
+removed_entries = 46
+retired_payment_entries = 0
+retained_entries = 1
+policy = "The forty-six 22.39.119 retirements from attempt 3 stand. Preserve the original unrelated 22.39.120 payment entry byte-for-byte as JSON data per do_2; the first gate exposed its outstanding native-transfer refusal assertion. The payment retirement guard asserts that none of its original forty-eight retired entries remain and every retained entry is original. Keep the baseline conftest unchanged."
+
+[case.1]
+nodeid = "tests/agent/sdk/python/test_account_derivation.py::AccountDerivationTest::test_mnemonic_vectors_and_bind_calls"
+producer = "services/agent/sdk/python/layerx_sdk/account_derivation.py:248 checksum_address"
+correction = "Compare the same golden address bytes using the SDK EIP-55 display contract; retain DID, private-key, bind calldata, nonce and signature assertions."
+
+[case.2]
+nodeid = "tests/agent/sdk/python/test_account_derivation.py::AccountDerivationTest::test_wallet_signature_vectors"
+producer = "services/agent/sdk/python/layerx_sdk/account_derivation.py:248 checksum_address"
+correction = "Compare the same golden address bytes using the SDK EIP-55 display contract; retain DID, private-key, bind calldata, nonce and signature assertions."
+
+[case.3]
+nodeid = "tests/agent/sdk/python/test_evm_transaction.py::AiMarketVectorTests::test_codec_round_trips_the_ai_market_transaction_vectors_byte_for_byte"
+producer = "services/agent/sdk/python/layerx_sdk/ai_market.py:991 _encode_programs_call; :1072 _unsigned_activity; rpc/sequencer_receipt_vectors_test.go"
+correction = "Bind the current producer transaction to the native request before testing both market envelopes, canonical type-2 bytes, recovered signer and ABI round trips."
+
+[case.4]
+nodeid = "tests/agent/sdk/python/test_evm_transaction.py::AiMarketVectorTests::test_programs_call_calldata_matches_the_ai_market_encoder"
+producer = "services/agent/sdk/python/layerx_sdk/ai_market.py:991 _encode_programs_call; :1072 _unsigned_activity; rpc/sequencer_receipt_vectors_test.go"
+correction = "Bind the current producer transaction to the native request before testing both market envelopes, canonical type-2 bytes, recovered signer and ABI round trips."
+
+[case.5]
+nodeid = "tests/agent/sdk/python/test_mirror_process.py::MirrorProcessTests::test_process_exit_and_requested_batch_bind_success"
+producer = "sdk/platform/go/testdata/repair141/mirror-transcript.json:60; services/agent/sdk/python/layerx_sdk/mirror.py:96 decode_mirror_process_result"
+correction = "Consume the committed-height/block-hash producer transcript; assert its receipt digest and exact unavailable/malformed refusals for process, coordinate, level and missing evidence mismatches."
+
+[case.6]
+nodeid = "tests/agent/sdk/python/test_native_program_binding.py::NativeProgramBindingTest::test_real_signed_native_binding_and_mismatches"
+producer = "sdk/platform/conformance/fixtures/native-program-call-v4.json:7; services/agent/sdk/python/layerx_sdk/program_wire.py:81 _program_transaction"
+correction = "Sign the committed EVM ABI calldata with the shipping type-2 codec, assert hash/idempotency and canonical bytes, retain every mutated native field/fee refusal, and check the historical identity through the explicit historical decoder."
+
+[case.7]
+nodeid = "tests/agent/sdk/python/test_precompile_calls.py::PrecompileCallsTest::test_launchpad_generated_write_mutability_matches_abi"
+producer = "precompiles/launchpad/run.go:315 callKindRefusal; services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs:33 writes"
+correction = "Keep the complete ABI signature set and assert no attached value is admitted even for the payable Solidity upgradeToAndCall artifact; preserve exact SDK invalid_value refusal."
+
+[case.8]
+nodeid = "tests/agent/sdk/python/test_program_account_bound.py::ProgramAccountBoundTest::test_account_bound_authority_rejects_changed_names_and_shape"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/account-bound-call/execution.json:1"
+correction = "Decode historical Activity bytes with explicit bounded historical codecs, retaining principal names, authorization roots, payload hashes, ABI, idempotency, and every negative case; current transaction identity remains independently receipt-verified."
+
+[case.9]
+nodeid = "tests/agent/sdk/python/test_program_account_bound.py::ProgramAccountBoundTest::test_current_transaction_binds_hash_sender_and_precompile"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/account-bound-call/execution.json:1"
+correction = "Decode historical Activity bytes with explicit bounded historical codecs, retaining principal names, authorization roots, payload hashes, ABI, idempotency, and every negative case; current transaction identity remains independently receipt-verified."
+
+[case.10]
+nodeid = "tests/agent/sdk/python/test_program_account_bound.py::ProgramAccountBoundTest::test_real_native_call_verifies_with_principal_account_binding"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/account-bound-call/execution.json:1"
+correction = "Decode historical Activity bytes with explicit bounded historical codecs, retaining principal names, authorization roots, payload hashes, ABI, idempotency, and every negative case; current transaction identity remains independently receipt-verified."
+
+[case.11]
+nodeid = "tests/agent/sdk/python/test_program_account_bound.py::ProgramAccountBoundTest::test_signed_native_call_commitments_remain_bound"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/account-bound-call/execution.json:1"
+correction = "Decode historical Activity bytes with explicit bounded historical codecs, retaining principal names, authorization roots, payload hashes, ABI, idempotency, and every negative case; current transaction identity remains independently receipt-verified."
+
+[case.12]
+nodeid = "tests/agent/sdk/python/test_program_executed_v3.py::ProgramExecutedV3Test::test_actual_kernel_runtime_receipt_and_module_binding"
+producer = "services/agent/sdk/typescript/src/programs.ts:165 executionDocument; tests/fixtures/programs/emulator-response-code/execution.json:1"
+correction = "Require and validate the producer authority object in Python, assert its preservation and missing-field refusals, and retain module, signature and receipt mutation checks."
+
+[case.13]
+nodeid = "tests/agent/sdk/python/test_program_lifecycle.py::ProgramLifecycleTest::test_c_signed_fixtures_and_refusals"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:66 bindSignedProgramLifecycle; services/agent/sdk/python/layerx_sdk/program_lifecycle.py:17 NativeProgramLifecycleRequest"
+correction = "Restore bounded parsing of explicitly tagged historical lifecycle evidence; preserve current EIP-1559 admission checks in both ProgramOperations and AgentHttpTransport, including exact payload and transaction identity bindings."
+
+[case.14]
+nodeid = "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_call_identity_abi_idempotency_and_signature_bindings"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/pre-runtime-refusal/execution.json:1"
+correction = "Keep protocol-2/3 historical refusal layout checks on the explicit historical decoder and every current receipt/key/bounds test; authenticate all authority fields against the signed receipt and selected pin."
+
+[case.15]
+nodeid = "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_every_pre_runtime_receipt_invariant_is_enforced"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/pre-runtime-refusal/execution.json:1"
+correction = "Keep protocol-2/3 historical refusal layout checks on the explicit historical decoder and every current receipt/key/bounds test; authenticate all authority fields against the signed receipt and selected pin."
+
+[case.16]
+nodeid = "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_native_protocol_two_codec_preserves_historical_failure_layout"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/pre-runtime-refusal/execution.json:1"
+correction = "Keep protocol-2/3 historical refusal layout checks on the explicit historical decoder and every current receipt/key/bounds test; authenticate all authority fields against the signed receipt and selected pin."
+
+[case.17]
+nodeid = "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_original_layout_bounds_and_wrapper_refusal"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/pre-runtime-refusal/execution.json:1"
+correction = "Keep protocol-2/3 historical refusal layout checks on the explicit historical decoder and every current receipt/key/bounds test; authenticate all authority fields against the signed receipt and selected pin."
+
+[case.18]
+nodeid = "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_original_native_refusal_and_submission_recovery"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/pre-runtime-refusal/execution.json:1"
+correction = "Keep protocol-2/3 historical refusal layout checks on the explicit historical decoder and every current receipt/key/bounds test; authenticate all authority fields against the signed receipt and selected pin."
+
+[case.19]
+nodeid = "tests/agent/sdk/python/test_program_pre_runtime.py::ProgramPreRuntimeTest::test_resigned_terminal_fields_cannot_rebind_refusal"
+producer = "services/agent/sdk/typescript/src/program-wire.ts:148 bindRetainedProgramCall; tests/fixtures/programs/pre-runtime-refusal/execution.json:1"
+correction = "Keep protocol-2/3 historical refusal layout checks on the explicit historical decoder and every current receipt/key/bounds test; authenticate all authority fields against the signed receipt and selected pin."
+
+[case.20]
+nodeid = "tests/agent/sdk/python/test_program_response_code.py::ProgramResponseCodeTest::test_original_executed_guest_response_seven_has_protocol_success_zero"
+producer = "tests/fixtures/programs/emulator-response-code/execution.json:1; services/agent/sdk/typescript/src/programs.ts:165 executionDocument"
+correction = "Parse the original authority-bearing producer document; retain protocol success zero and guest code seven and assert exact echo bytes and resulting-root equality."
+
+[case.21]
+nodeid = "tests/agent/sdk/python/test_program_trust.py::ProgramTrustTests::test_concurrent_head_change_invalidates_inflight_simulation"
+producer = "services/agent/sdk/python/layerx_sdk/program_wire.py:81 _program_transaction; services/agent/sdk/python/layerx_sdk/programs.py:315 simulate"
+correction = "Use the node-produced native transaction and its actual program id to reach the HTTP boundary for head expiry and concurrency tests; keep historical signed-validity bounds in the explicit historical decoder and assert the current EVM hash identity and validity representation."
+
+[case.22]
+nodeid = "tests/agent/sdk/python/test_program_trust.py::ProgramTrustTests::test_signed_validity_and_maximum_simulation_age_are_enforced"
+producer = "services/agent/sdk/python/layerx_sdk/program_wire.py:81 _program_transaction; services/agent/sdk/python/layerx_sdk/programs.py:315 simulate"
+correction = "Use the node-produced native transaction and its actual program id to reach the HTTP boundary for head expiry and concurrency tests; keep historical signed-validity bounds in the explicit historical decoder and assert the current EVM hash identity and validity representation."
+
+[case.23]
+nodeid = "tests/agent/sdk/python/test_program_trust.py::ProgramTrustTests::test_simulation_rechecks_head_freshness_after_http"
+producer = "services/agent/sdk/python/layerx_sdk/program_wire.py:81 _program_transaction; services/agent/sdk/python/layerx_sdk/programs.py:315 simulate"
+correction = "Use the node-produced native transaction and its actual program id to reach the HTTP boundary for head expiry and concurrency tests; keep historical signed-validity bounds in the explicit historical decoder and assert the current EVM hash identity and validity representation."
+
+[case.24]
+nodeid = "tests/agent/sdk/python/test_program_typed_responses.py::TypedProgramResponseTests::test_discovery_and_interface_are_typed_and_honest_about_server_verification"
+producer = "services/agent/sdk/python/layerx_sdk/agent_http.py:953 _decode_envelope; services/agent/sdk/python/layerx_sdk/programs.py:738 _interface"
+correction = "Emit the direct interface document with deployment_receipt_digest and integer freshness fields while retaining the discovery envelope; preserve typed source, interface bytes and honest server-verification assertions and add exact deployment digest and sequence checks."
+
+[case.25]
+nodeid = "tests/agent/sdk/python/test_px.py::UnifiedNetworkReadTest::test_quantities_decode_exactly_and_never_as_floats"
+producer = "precompiles/bank/abi.json amount:uint256; services/agent/sdk/python/layerx_sdk/px.py:396 px_quantity"
+correction = "Use the current producer uint256 maximum and first overflow as exact vectors, retaining all malformed/float/negative/canonical-decimal refusals."
+
+[case.26]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; rpc/sequencer_receipt_vectors_test.go"
+correction = "Replay the unchanged signed transaction and receipt at the node root, asserting the exact root path before and after transport reopen; preserve all terminal bytes, framing and malformed/overflow assertions."
+
+[case.27]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; rpc/sequencer_receipt_vectors_test.go"
+correction = "Replay the unchanged signed transaction and receipt at the node root, asserting the exact root path before and after transport reopen; preserve all terminal bytes, framing and malformed/overflow assertions."
+
+[case.28]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_312.py::test_programs_terminal_response_recorded_call_survives_transport_reopen[guest response]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; rpc/sequencer_receipt_vectors_test.go"
+correction = "Replay the unchanged signed transaction and receipt at the node root, asserting the exact root path before and after transport reopen; preserve all terminal bytes, framing and malformed/overflow assertions."
+
+[case.29]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-erc20-approve]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
+
+[case.30]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxbridge-bridge-out]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
+
+[case.31]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxledger-pay-exact]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
+
+[case.32]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-layerxprograms-call]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
+
+[case.33]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_15.py::test_offline_example_installed_receipt_round_trip[V1-pax-transfer]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Keep node submission/receipt at the root and hosted receipt-key discovery at /rpc, assert each method-specific path, and retain installed-wheel identity, exact signed bytes and all key/signature refusal checks. Assert independent node/gateway correlation counters as exactly [1, 2, 1]."
+
+[case.34]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_current_identity_over_recorded_rpc"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.35]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_account_bound_authority_rejects_changed_names_and_shape]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.36]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_current_transaction_binds_hash_sender_and_precompile]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.37]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_real_native_call_verifies_with_principal_account_binding]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.38]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_account_legacy_identity[test_signed_native_call_commitments_remain_bound]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.39]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_http_current_ingress_and_protected_inputs"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.40]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_lifecycle_historical_internal_coverage[test_c_signed_fixtures_and_refusals]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.41]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_concurrent_head_change_invalidates_inflight_simulation]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.42]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_signed_validity_and_maximum_simulation_age_are_enforced]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.43]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_program_trust_envelope_shape_and_freshness[test_simulation_rechecks_head_freshness_after_http]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.44]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_px_recorded_chain_125_root_answers_over_sdk_rpc"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.45]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_701.py::test_typed_program_verification_state[test_discovery_and_interface_are_typed_and_honest_about_server_verification]"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json:1"
+correction = "Assert the root path at both replay boundaries, preserve recorded answers and framing, and execute the corrected account, lifecycle, trust and typed-response cases unchanged through their existing wrappers."
+
+[case.46]
+nodeid = "tests/agent/sdk/python/test_revert.py::RevertRegistryTest::test_retryable_table_is_the_registry_column"
+producer = "spec/layerx-merge/contracts/address-table.md:197 Error code registry; services/agent/sdk/python/layerx_sdk/revert.py:17 LXP_RETRYABLE"
+correction = "Pin the current 395 registry rows and 54 retryable rows while retaining exact whole-registry equality and every code decoding assertion."
+
+[case.program_http]
+nodeid = "tests/agent/sdk/python/test_program_http.py::ProgramHttp::request"
+producer = "services/agent/sdk/python/layerx_sdk/program_wire.py:81 _program_transaction; sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+correction = "Assert zero transaction value and exact signature reattachment to the protected raw transaction; the in-scope recorded ingress test executes this real request path without changing external fixture requirements."
+
+[gotchas]
+transport = "PaymentRpc requires the node root; receipt_keys belongs to HostedGatewayRpc at /rpc. Changing only the URL exposes that separate producer ownership."
+historical = "Historical Activity metadata codecs are distinct from EIP-1559 admission. Current native bindings and submission paths must continue to refuse retired frames."
+authority = "The producer execution document and TypeScript parser require authority, but the Python document parser omitted it and the receipt adapter ignored it. Restore exact shape validation and authenticate every field."
+format = "The repository configures no Python formatter. Apply .editorconfig newline and trailing-whitespace rules only after the implementation is complete."
+
+[repair_cycle.1]
+revision = "51016514a8328132c747038584da423359a14a1e"
+command = "cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+correction = "Use the canonical 0x prefix for the re-signed RPC receipt; assert separate node/gateway request IDs [1, 2, 1]; replay all original node error probes through the real bounded JSON-RPC transport and independently assert PaymentRpc refuses those methods before HTTP. No method allowlist or endpoint check changes."
+
+[finding.lifecycle_bound]
+task = "22.39.119"
+file = "tests/agent/sdk/python/test_program_lifecycle.py"
+symbol = "test_c_signed_fixtures_and_refusals"
+observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): The unchanged historical test encodes a 524289-byte deploy payload outside its assertRaises block and the current encoder correctly refuses its 524288-byte bound; its in-scope wrapper reports the same error."
+assumption = "The owning test must put the current encoder refusal inside its assertion; widening the producer bound is prohibited."
+severity = "blocker"
+
+[finding.baseline_preservation]
+task = "22.39.119"
+file = "tests/agent/sdk/python/test_repair_22_33_702.py"
+symbol = "test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_preserved"
+observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): The unchanged payment repair test requires every 22.39.119 baseline entry to remain, contradicting this task's required retirement."
+assumption = "The owning baseline-preservation assertion must be made compatible with subsequent authorized baseline retirements."
+severity = "blocker"
+
+[finding.retired_rpc_constructor]
+task = "22.39.119"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_buyer_send_contract_and_restart_recovery; test_empty_receipt_keys_and_rotated_node_responses; test_draw_send_contract_and_restart_recovery; test_web_search_payer_header_and_ledger_accounts"
+observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): Unchanged payment tests call the retired PaymentRpc(hosted_gateway_endpoint=...) constructor and raise TypeError."
+assumption = "The owning tests must use the current separate node-root and HostedGatewayRpc interfaces without widening admission."
+severity = "blocker"
+
+[finding.retired_rpc_keys]
+task = "22.39.119"
+file = "tests/agent/sdk/python/test_repair_22_33_17.py"
+symbol = "test_program_receipt_key_rotation_and_reopened_lifecycle_recovery; test_retired_batch_authority_and_payment_evidence_exports_preserve_signed_receipts; test_root_node_and_explicit_hosted_gateway_endpoints; test_rpc_endpoint_protections_apply_to_explicit_gateway_too; test_rpc_refuses_redirect_without_forwarding_credentials; test_live_payment_evidence_flows_through_buyer_seller_and_reopen"
+observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): Unchanged transport tests use the removed hosted_gateway_endpoint constructor argument or PaymentRpc.receipt_keys and fail with TypeError or AttributeError."
+assumption = "The owning tests must route hosted reads through HostedGatewayRpc while retaining the current node endpoint and method restrictions."
+severity = "blocker"
+
+[finding.payment_identity]
+task = "22.39.119"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_seller_commitment_downgrade_and_verified_landing; test_grant_receipt_kind_from_recorded_server_producer"
+observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): Unchanged payment cases fail with unsupported-network and PaymentBindingError payer mismatch."
+assumption = "The payment tests must follow the current producer network and distinct signer/ledger payer identities."
+severity = "blocker"
+
+[finding.node_dependency]
+task = "22.39.119"
+file = "services/agent/sdk/python/tests/test_x402_rpc_surface.py"
+symbol = "test_rpc_submission_and_receipt_use_the_typescript_producer; test_malformed_submissions_are_refused_before_a_request"
+observed = "At 51016514a8328132c747038584da423359a14a1e, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): The unchanged TypeScript peer cannot start because @noble/hashes is absent and Node reports ERR_MODULE_NOT_FOUND."
+assumption = "The qualification environment must provision the declared TypeScript peer dependency independently of this test repair."
+severity = "blocker"
+
+
+[continuation.attempt_4]
+prior_candidate = "51d796cb34761abe8bfe74385edbb0909ce627ea"
+decisions = "2951 and 2952; preserve the unrelated payment baseline per do_2 and apply the payment guard to its original forty-eight retired entries. The first verification proves that an absolute no-22.39.120 assertion conflicts with do_2 and the unchanged native-transfer producer."
+resolved_findings = "lifecycle_bound, baseline_preservation, retired_rpc_constructor, retired_rpc_keys, payment_identity and node_dependency are addressed by the continuation cases and npm ci in the declared build."
+qualification = "Only the final matching passing build and verify rows of /out/run/gates.jsonl qualify the candidate; their revision, command, exit and private logs are the evidence by reference. No prior failed attempt establishes qualification."
+
+[case.47]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_buyer_send_contract_and_restart_recovery"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc; x402_http.py:345 _make_proof; :487 BuyerMiddleware.prepare"
+correction = "Exercise both node root spellings with hosted keys at /rpc; preserve one send, pending recovery, exact v2 proof, settlement verification and durable seller replay. Use the recovered signer for RPC payer and the distinct payExact account for ledger terms."
+parameters = ["rpc_path=", "rpc_path=/"]
+
+[case.48]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_seller_commitment_downgrade_and_verified_landing"
+producer = "services/agent/sdk/python/layerx_sdk/x402_http.py:85 validate_requirements; :309 _verify_proof; x402.py:168 verify_payment_receipt"
+correction = "Use eip155:125 and the exact node-produced v2 proof; assert the exact commitment-mismatch downgrade refusal, preserve the missing-finality SDK refusal, and accept only verified block inclusion while retaining data/app hash tampering refusals."
+parameters = []
+
+[case.49]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_empty_receipt_keys_and_rotated_node_responses"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Fetch the same empty, pinned, rotated and duplicate-key responses at /rpc; for both node root spellings independently assert px_getReceiptKeys is refused without a request, retaining all four hosted responses and unpinned-key verification refusal."
+parameters = ["rpc_path=", "rpc_path=/"]
+
+[case.50]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_web_search_payment_binding_uses_ledger_event"
+producer = "services/agent/sdk/python/layerx_sdk/web_search.py:437 verify_sequencer_receipt; x402.py:168 verify_payment_receipt; tests/agent/sdk/python/payment_receipt_evidence.py:34 payment_terms"
+correction = "Bind the offer payer to the ledger account from the independently checked signed calldata and PaymentExact log. Preserve amount, asset, pay-to, payer and non-ledger transfer refusals."
+parameters = []
+
+[case.51]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_grant_receipt_kind_from_recorded_server_producer"
+producer = "services/agent/sdk/python/layerx_sdk/x402.py:168 verify_payment_receipt; web_search.py:437 verify_sequencer_receipt"
+correction = "Keep the recovered signer and ledger payer as separate terms; preserve every registered LXP_NO_PAYER_GRANT refusal, pending-result refusal, no-reservation assertion and mismatched draw transaction refusal."
+parameters = []
+
+[case.52]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_draw_send_contract_and_restart_recovery"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc"
+correction = "Send node eth_sendRawTransaction at the root in both canonical endpoint spellings, preserving exact signed calldata, typed producer refusal, durable reopen and zero grant rows."
+parameters = ["rpc_path=", "rpc_path=/"]
+
+[case.53]
+nodeid = "tests/agent/sdk/python/test_repair_22_31_147.py::test_web_search_payer_header_and_ledger_accounts"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:247 PaymentRpc; web_search.py:601 _exchange; :688 _payer_owner_did"
+correction = "Keep payer DID/account eth_call reads on the node root for both spellings; retain all four currencies and both DID registrations, exact payer header, account order and configured-payer mismatch refusal."
+parameters = ["rpc_path= or /; registered_did=False or True; currency=SID, PAX, USDC or USDL"]
+
+[case.54]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_program_receipt_key_rotation_and_reopened_lifecycle_recovery"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; programs.py:251 lifecycle_receipt"
+correction = "Obtain rotated pins through the hosted client at /rpc and lifecycle receipts through the node root; retain both independent signing keys, durable reopen, all four pin mutations and signingKey summary refusal."
+parameters = []
+
+[case.55]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_retired_batch_authority_and_payment_evidence_exports_preserve_signed_receipts"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc; :409 rpc_payment_evidence"
+correction = "Read keys from the hosted client while reading the exact recorded program receipt from the node; preserve retired-export checks, receipt digest and unpinned verification refusal."
+parameters = []
+
+[case.56]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_root_node_and_explicit_hosted_gateway_endpoints"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Keep all fifteen node hosts and both root spellings; use the explicit /rpc hosted endpoint, preserve five observed exchanges and assert cross-family methods and noncanonical gateway paths are refused before HTTP."
+parameters = []
+
+[case.57]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_rpc_endpoint_protections_apply_to_explicit_gateway_too"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:171 _BoundedRpc.__init__; :221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Assert all twelve scheme, credential, query, fragment, path, port, whitespace and backslash refusals independently on hosted /rpc and node root clients; valid paths for each client expose the intended protection rather than an incidental wrong-path refusal."
+parameters = ["all twelve endpoint vectors"]
+
+[case.58]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_rpc_refuses_redirect_without_forwarding_credentials"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:165 _NoRedirect; :221 HostedGatewayRpc; :247 PaymentRpc"
+correction = "Assert exact rpc-redirect refusal on both hosted keys and node receipt reads, preserving the real HTTP 307 boundary and zero destination credentials."
+parameters = []
+
+[case.59]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_17.py::test_live_payment_evidence_flows_through_buyer_seller_and_reopen"
+producer = "services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 HostedGatewayRpc; x402_http.py:85 validate_requirements; :487 BuyerMiddleware.prepare; x402.py:168 verify_payment_receipt"
+correction = "Use hosted receipt keys, the eip155:125 network, the recovered transaction signer and separate ledger account. Preserve receipted and committed proof paths, validator finality, one send, consumer reopen, verified settlement and exactly one durable fulfillment."
+parameters = ["commitment=receipted", "commitment=committed"]
+
+[case.60]
+nodeid = "tests/agent/sdk/python/test_program_lifecycle.py::ProgramLifecycleTest::test_c_signed_fixtures_and_refusals"
+producer = "services/agent/sdk/python/layerx_sdk/program_lifecycle.py:74 NativeProgramDeploy.encode; program_wire.py:157 _historical_activity_envelope"
+correction = "Encode the 524289-byte deploy only inside assertRaises; keep exact 524288-byte acceptance and independently construct the oversized historical frame to retain binder refusal. The existing test_repair_22_33_701 wrapper executes this case too."
+parameters = []
+
+[case.61]
+nodeid = "tests/agent/sdk/python/test_repair_22_33_702.py::test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_preserved"
+producer = "spec/layerx-merge/spec.kvx:10825 decision.2952; original baseline at 3a0f70d0fce59d96719043d5294b98aa3718e3bd"
+correction = "Preserve the original forty-eight payment-retirement inventory assertions; assert every retained entry is original and none of those forty-eight retired payment entries remains, allowing authorized subsequent transport retirements while preserving the unrelated payment baseline required by do_2."
+parameters = []
+
+[case.62]
+nodeid = "tests/agent/sdk/python/test_receipt_fixture.py::ReceiptFixtureTest::test_core_fixture_receipt_verifies_positively"
+producer = "rpc/sequencer_receipt_vectors_test.go; sdk/platform/conformance/fixtures/sequencer-receipt-v1.json; services/agent/sdk/python/layerx_sdk/verifier.py"
+correction = "Preserve this original payment baseline entry per do_2. The first verification executed the unchanged test and proved its native-transfer refusal assertion still fails; this task cannot correct that assertion outside scope or invent an LXP code the producer never returned."
+parameters = []
+
+[finding.unrelated_payment_refusal]
+task = "22.39.119"
+file = "tests/agent/sdk/python/test_receipt_fixture.py"
+symbol = "ReceiptFixtureTest::test_core_fixture_receipt_verifies_positively"
+observed = "At ae18f4ce5dfeaf13a6eb114064f3130090ccb893, cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): 686 passed and one failed because V2-pax-transfer-insufficient-funds asserts an LXP revert code although the node producer deliberately returns empty revert data and no lxpCode."
+assumption = "Preserve the original 22.39.120 payment baseline entry under do_2 and limit its retirement guard to its original forty-eight retired entries; inventing a code or changing the out-of-scope test is prohibited."
+severity = "blocker"
+
+[repair_cycle.attempt_4_1]
+revision = "ae18f4ce5dfeaf13a6eb114064f3130090ccb893"
+command = "cg spec done 22.39.119 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+correction = "All transport, EVM, program and newly carried payment caller repairs passed. Restore the one original unrelated payment baseline entry as do_2 requires; assert the payment retirement guard's original forty-eight entries remain absent rather than asserting the unrelated payment task is entirely qualified. No SDK admission or test is relaxed."

@@ -1,0 +1,196 @@
+# Source: main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.4.21.2.a2]
+finding = "4.21.2.a2"
+status = "environment"
+evidence = "services/launchpad/Makefile:63 defines fmt with gofmt followed by an optional goimports invocation whose failure propagates from the recipe; the target remains part of the launchpad workspace interface."
+
+[disposition.4.21.3.a2]
+finding = "4.21.3.a2"
+status = "environment"
+evidence = "services/launchpad/Makefile:77 defines test-module, validates MODULE against the workspace module list and requires an anchored RUN expression before invoking the selected module's Go tests."
+
+[disposition.4.22.1.1.a2]
+finding = "4.22.1.1.a2"
+status = "resolved"
+evidence = "Commit fe3e9e1ec3 makes the identity fixture load the tracked identity migration at services/launchpad/gateway/internal/auth/identity_test.go:82. Commits 174f37d0ba and f07fb412a6 replace the additional social handoff SQL readers with coordinator migrations at services/launchpad/social/internal/interactions/store_test.go:78 and embedded safety DDL at services/launchpad/social/internal/voice/control_test.go:79."
+
+[disposition.4.22.1.a2]
+finding = "4.22.1.a2"
+status = "environment"
+evidence = "services/launchpad/gateway/internal/auth/identity_test.go:57 requires a live PostgreSQL connection and loads the tracked identity DDL at line 82; services/launchpad/gateway/internal/auth/identity_http_test.go:264 exercises identity revision deduplication through JetStream."
+
+[disposition.4.22.3.a2]
+finding = "4.22.3.a2"
+status = "environment"
+evidence = "services/launchpad/gateway/internal/app/retired_routes_test.go:24 requires every retired connected route to return 503 with the frozen Error envelope and private, no-store headers; services/launchpad/gateway/internal/internaltest/containers.go:61 supplies the MinIO dependency used by the gateway fixture."
+
+[disposition.4.23.3.a2]
+finding = "4.23.3.a2"
+status = "resolved"
+evidence = "Commit f39dbcaa98 makes the account store fixture apply embedded goose migrations at services/launchpad/user/internal/account/account_test.go:65, including the tracked account-store schema instead of the absent L35 handoff file."
+
+[disposition.4.23.4.a2]
+finding = "4.23.4.a2"
+status = "environment"
+evidence = "services/launchpad/user/internal/account/http.go:49 registers the v2 profile and batch reads, and line 58 registers profile PATCH alongside v2 watchlist mutations. The account store fixture at services/launchpad/user/internal/account/account_test.go:32 uses USER_TEST_DATABASE_URL and applies embedded migrations."
+
+[disposition.4.24.3.1.a2]
+finding = "4.24.3.1.a2"
+status = "resolved"
+evidence = "Commit f39dbcaa98 switches productionReadsFixture to embedded goose migrations at services/launchpad/api/internal/rest/production_integration_test.go:47; commit 01d2bf319 imports the integration migration set and its registry and grants for the other readers."
+
+[disposition.4.24.3.a2]
+finding = "4.24.3.a2"
+status = "environment"
+evidence = "services/launchpad/api/internal/rest/frozen_response_schema_test.go:92 checks v2 leaderboard and snapshot handler bytes against their frozen response schemas. The PostgreSQL helper at services/launchpad/api/internal/internaltest/containers.go:211 requires a database connection with database-creation permission."
+
+[disposition.4.26.2.a2]
+finding = "4.26.2.a2"
+status = "environment"
+evidence = "services/launchpad/discovery/phase2_test.go:14 obtains the discovery store through proofDiscoveryStore, and line 204 exercises durable squad recipient confirmation and stale role edits against that store."
+
+[disposition.4.27.4.a2]
+finding = "4.27.4.a2"
+status = "resolved"
+evidence = "Commit 44b1f0714e adds timestamp, version-7 and UUID-variant components to v2_id at services/launchpad/notifications/schema.sql:17. services/launchpad/notifications/http.go:142 now takes the wallet from the authenticated principal and places it in every notification item at line 163."
+
+[disposition.4.4.1.a2]
+finding = "4.4.1.a2"
+status = "resolved"
+evidence = "Commit 2fcc434f4 removes the Params forwarding method from modules/launchpad/keeper/grpc_query.go:14 and leaves the keeper-backed Params implementation in modules/launchpad/keeper/grpc_query_params.go:9."
+
+[disposition.4.4.11.1.a2]
+finding = "4.4.11.1.a2"
+status = "resolved"
+evidence = "Commit a6ad6456fc adds feeRightQueryError at modules/launchpad/keeper/grpc_query_fee_right.go:11 with the original error text, Unwrap and a registered-root Cause. FeeRight applies it to address and keeper refusals at lines 39 and 43."
+
+[disposition.4.4.17.a2]
+finding = "4.4.17.a2"
+status = "resolved"
+evidence = "Commit 6b1f13b477 removes the PoolMetadata forwarder from modules/launchpad/keeper/grpc_query.go:14, leaving the keeper-backed method in modules/launchpad/keeper/grpc_query_pool_metadata.go:9."
+
+[disposition.4.4.2.a2]
+finding = "4.4.2.a2"
+status = "resolved"
+evidence = "Commit 5041572c6 removes the Market forwarder from modules/launchpad/keeper/grpc_query.go:14, leaving modules/launchpad/keeper/grpc_query_market.go:11 to return stored market data or the unknown-market refusal."
+
+[disposition.4.4.3.1.a2]
+finding = "4.4.3.1.a2"
+status = "resolved"
+evidence = "Commit a3997f7c9f adds marketByAddressError at modules/launchpad/keeper/grpc_query_market_by_address.go:40; it recognizes registered address, configuration and market error roots with errors.Is and returns sdkerrors.Wrap at line 49."
+
+[disposition.4.4.3.a2]
+finding = "4.4.3.a2"
+status = "resolved"
+evidence = "Commit a3997f7c9f removes the duplicate MarketByAddress forwarder from modules/launchpad/keeper/grpc_query.go:14 and supplies the keeper-backed address and token lookup at modules/launchpad/keeper/grpc_query_market_by_address.go:11."
+
+[disposition.4.4.4.a2]
+finding = "4.4.4.a2"
+status = "resolved"
+evidence = "Commit 63495dc4c removes the Markets forwarder from modules/launchpad/keeper/grpc_query.go:14, leaving modules/launchpad/keeper/grpc_query_markets.go:10 to validate pagination and return keeper market data."
+
+[disposition.4.4.5.a2]
+finding = "4.4.5.a2"
+status = "resolved"
+evidence = "Commit 3855070fb removes the MarketsByCreator forwarder from modules/launchpad/keeper/grpc_query.go:14, leaving the address-validating keeper implementation in modules/launchpad/keeper/grpc_query_markets_by_creator.go:11."
+
+[disposition.4.4.6.1.a2]
+finding = "4.4.6.1.a2"
+status = "resolved"
+evidence = "Commit cae1a29337 changes the absent-market branch at modules/launchpad/keeper/price_history.go:15 to sdkerrors.Wrap(types.ErrUnknownMarket, denom), preserving the registered launchpad error through PriceHistory."
+
+[disposition.4.4.7.a2]
+finding = "4.4.7.a2"
+status = "resolved"
+evidence = "Commit 056cf0e3a4 removes the Quote forwarder and supplies the keeper-backed quote handler in modules/launchpad/keeper/grpc_query_quote.go:13. modules/launchpad/keeper/grpc_query.go:14 now holds the shared Querier and context validation without duplicate forwarding methods."
+
+[disposition.4.4.8.a2]
+finding = "4.4.8.a2"
+status = "resolved"
+evidence = "Commit 526e27e77b makes QueryTreasuryResponse balance and held plain decimal strings at api/launchpad/query.proto:350 and regenerates the Go response; modules/launchpad/keeper/grpc_query_treasury.go:26 fills those string fields."
+
+[disposition.4.41.4.a2]
+finding = "4.41.4.a2"
+status = "resolved"
+evidence = "Commit 098a318543 deletes apps/launchpad/web/ecosystem.config.mjs and removes the telegram-bot workspace scripts; apps/launchpad/package.json:6 retains the web development, build, package-build and lint entry points."
+
+[disposition.4.44.2.a2]
+finding = "4.44.2.a2"
+status = "resolved"
+evidence = "Commit c98debee44 removes mediaApiUrl from apps/launchpad/web/src/core/sdk-config.ts:1 while retaining gatewayUrl at line 72 as the URL builder for gateway-backed account and social requests."
+
+[disposition.4.46.1.1.a2]
+finding = "4.46.1.1.a2"
+status = "resolved"
+evidence = "Commit cd0729db0d changes apps/launchpad/mobile/test/vitest/harness.test.ts:2 to import Operations and SdkClient from the built @kindle/sdk package. Commit fd78a7119a also maps generated validator specifiers to dist in apps/launchpad/mobile/vitest.config.ts:8."
+
+[disposition.4.46.1.2.a2]
+finding = "4.46.1.2.a2"
+status = "resolved"
+evidence = "Commit cd0729db0d lands the package-entry import at apps/launchpad/mobile/test/vitest/harness.test.ts:2; the harness constructs Operations and SdkClient and checks their instances and configuration at lines 14 through 18."
+
+[disposition.4.46.1.a2]
+finding = "4.46.1.a2"
+status = "resolved"
+evidence = "Commit cd0729db0d makes apps/launchpad/mobile/test/vitest/harness.test.ts:2 consume @kindle/sdk, whose built entry includes the generated validator runtime modules rather than requiring them beside the source entry."
+
+[disposition.4.46.2.1.a2]
+finding = "4.46.2.1.a2"
+status = "resolved"
+evidence = "Commit fd78a7119a adds skipLibCheck while retaining strict source checking at apps/launchpad/mobile/tsconfig.json:3 and repairs WalletProtocolStorage.load in apps/launchpad/mobile/src/platform/protected-storage.ts:70. The explicit no-content response conversion remains at apps/launchpad/mobile/src/runtime/service-client.ts:626."
+
+[disposition.4.46.2.2.a2]
+finding = "4.46.2.2.a2"
+status = "resolved"
+evidence = "Commit fd78a7119a retains the default TypeScript libraries and src/test inclusion while adding skipLibCheck at apps/launchpad/mobile/tsconfig.json:4; the ES2022-only tsconfig.test.json is absent from main."
+
+[disposition.4.46.2.3.a2]
+finding = "4.46.2.3.a2"
+status = "resolved"
+evidence = "Commit fd78a7119a adds the three generated-validator module aliases at apps/launchpad/mobile/vitest.config.ts:8, resolving source imports to sdk/launchpad/packages/sdk/dist without changing the route modules' SDK source imports."
+
+[disposition.4.46.2.a2]
+finding = "4.46.2.a2"
+status = "resolved"
+evidence = "Commit fd78a7119a repairs the Token screen's JSX closing brace; apps/launchpad/mobile/src/screens/token.tsx:20 declares the complete Token component with its repaired return at line 59, and commit dff0de77f4 updates its market reads."
+
+[disposition.4.48.5.1.a2]
+finding = "4.48.5.1.a2"
+status = "resolved"
+evidence = "Commit 75af045e94 deletes sdk/launchpad/packages/sdk/test/run-phase4.py together with the other retired phase runners and configurations, and removes their scripts from sdk/launchpad/packages/sdk/package.json:22."
+
+[disposition.4.48.5.a2]
+finding = "4.48.5.a2"
+status = "resolved"
+evidence = "Commit 75af045e94 deletes sdk/launchpad/packages/sdk/test/run-phase2.py and the four companion runner/configuration files, removing their package-script entry points from sdk/launchpad/packages/sdk/package.json:22."
+
+[disposition.4.5.3.a2]
+finding = "4.5.3.a2"
+status = "resolved"
+evidence = "Commit f7289ba01 adds the registered-codespace early return at sdk/baseapp/abci.go:627, preserving Market and MarketByAddress module errors instead of converting them to ErrInvalidRequest."
+
+[disposition.4.5.4.a2]
+finding = "4.5.4.a2"
+status = "resolved"
+evidence = "Commit f7289ba01 makes sdk/baseapp/abci.go:627 return registered module errors unchanged, preserving the launchpad ErrInvalidRange codespace and code returned by the Markets handler."
+
+[disposition.4.5.5.1.a2]
+finding = "4.5.5.1.a2"
+status = "resolved"
+evidence = "Commit c0121992c6 adds unknownMarketError at modules/launchpad/keeper/keeper.go:194, whose Cause returns ErrUnknownMarket and whose Error retains the denomination suffix; mustMarket returns it at line 209."
+
+[disposition.4.5.5.a2]
+finding = "4.5.5.a2"
+status = "resolved"
+evidence = "Commit f7289ba01 preserves registered codespaces at sdk/baseapp/abci.go:627, so the PriceHistory query issued at modules/launchpad/client/cli/query_price.go:41 retains its launchpad refusal rather than the generic invalid-request mapping."
+
+[disposition.4.53.2.a2]
+finding = "4.53.2.a2"
+status = "resolved"
+evidence = "Commit 12c3d48817 makes sdk/launchpad/protocol/bootstrap/abi_baseline.py:23 recursively normalize whitespace in internalType before canonical comparison, preserving ABI identity across spaced role metadata and compact abigen metadata."
+
+[disposition.4.54.1.a2]
+finding = "4.54.1.a2"
+status = "resolved"
+evidence = "Commit 9bb0b381e1 corrects the OpticalRegistry artifact lookup depth; commit ea31038181 subsequently embeds the reviewed compiler artifact and build input at sdk/launchpad/protocol/catalog/registry_input_test.go:90 and checks their hashes at line 120."

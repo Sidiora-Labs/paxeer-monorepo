@@ -1,12 +1,12 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
 	"golang.org/x/mod/semver"
 )
@@ -320,22 +320,22 @@ func (k *Keeper) GetFeeTokenRate(ctx sdk.Context, denom string) (sdk.Dec, error)
 			continue
 		}
 		if entry.Rate.IsNil() || !entry.Rate.IsPositive() {
-			return sdk.Dec{}, fmt.Errorf("%w: rate %v for denom %q", ErrFeeTokenRateInvalid, entry.Rate, denom)
+			return sdk.Dec{}, sdkerrors.Wrapf(ErrFeeTokenRateInvalid, "rate %v for denom %q", entry.Rate, denom)
 		}
 		height := ctx.BlockHeight()
 		if entry.RateUpdateHeight < 0 || entry.RateUpdateHeight > height {
-			return sdk.Dec{}, fmt.Errorf("%w: rate_update_height %d at block_height %d for denom %q", ErrFeeTokenRateInvalid, entry.RateUpdateHeight, height, denom)
+			return sdk.Dec{}, sdkerrors.Wrapf(ErrFeeTokenRateInvalid, "rate_update_height %d at block_height %d for denom %q", entry.RateUpdateHeight, height, denom)
 		}
 		maxAge := k.GetMaxFeeTokenRateAge(ctx)
 		if maxAge <= 0 {
-			return sdk.Dec{}, fmt.Errorf("%w: max_fee_token_rate_age %d", ErrFeeTokenRateInvalid, maxAge)
+			return sdk.Dec{}, sdkerrors.Wrapf(ErrFeeTokenRateInvalid, "max_fee_token_rate_age %d", maxAge)
 		}
 		if height-entry.RateUpdateHeight > maxAge {
-			return sdk.Dec{}, fmt.Errorf("%w: rate_update_height %d at block_height %d exceeds max_fee_token_rate_age %d for denom %q", ErrFeeTokenRateStale, entry.RateUpdateHeight, height, maxAge, denom)
+			return sdk.Dec{}, sdkerrors.Wrapf(ErrFeeTokenRateStale, "rate_update_height %d at block_height %d exceeds max_fee_token_rate_age %d for denom %q", entry.RateUpdateHeight, height, maxAge, denom)
 		}
 		return entry.Rate, nil
 	}
-	return sdk.Dec{}, fmt.Errorf("%w: denom %q", ErrFeeTokenRateUnavailable, denom)
+	return sdk.Dec{}, sdkerrors.Wrapf(ErrFeeTokenRateUnavailable, "denom %q", denom)
 }
 
 // ValidateFeeTokenRateUpdate refuses an allowed fee denom whose new rate differs
@@ -353,10 +353,10 @@ func (k *Keeper) ValidateFeeTokenRateUpdate(ctx sdk.Context, updated []types.All
 			continue
 		}
 		if entry.Rate.IsNil() || !entry.Rate.IsPositive() {
-			return fmt.Errorf("%w: rate %v for denom %q", ErrFeeTokenRateInvalid, entry.Rate, entry.Denom)
+			return sdkerrors.Wrapf(ErrFeeTokenRateInvalid, "rate %v for denom %q", entry.Rate, entry.Denom)
 		}
 		if entry.Rate.Sub(previous).Abs().GT(previous.Mul(spread)) {
-			return fmt.Errorf("%w: denom %q rate %s to %s exceeds max_fee_token_spread %s", ErrFeeTokenRateSpread, entry.Denom, previous, entry.Rate, spread)
+			return sdkerrors.Wrapf(ErrFeeTokenRateSpread, "denom %q rate %s to %s exceeds max_fee_token_spread %s", entry.Denom, previous, entry.Rate, spread)
 		}
 	}
 	return nil

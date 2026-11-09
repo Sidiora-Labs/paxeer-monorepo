@@ -136,8 +136,6 @@ async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_r
               'pax_sequencerReceipt',
               'px_getReceiptKeys',
               'eth_getRawTransactionByHash',
-              'px_getReceiptKeys',
-              'eth_getRawTransactionByHash',
               'pax_sequencerReceipt',
               'px_getReceiptKeys',
               'eth_getRawTransactionByHash',

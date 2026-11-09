@@ -10,9 +10,10 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_ucp::{
-    interop_ucp, ucp_adapter_descriptor, verify_sequencer_receipt, Capability, CheckoutStatus,
-    CheckoutSubmission, MerchantProfile, NegotiatedCapabilities, PaymentHandler, PlatformProfile,
-    UcpError, UcpIdempotencyKey, UCP_CHECKOUT_SPEC_SHA256,
+    interop_ucp, ucp_adapter_descriptor, verify_sequencer_receipt_with_config, Capability,
+    CheckoutStatus, CheckoutSubmission, MerchantCurrencyBinding, MerchantProfile,
+    NegotiatedCapabilities, PaymentHandler, PlatformProfile, UcpError, UcpIdempotencyKey,
+    UcpServiceConfig, UCP_CHECKOUT_SPEC_SHA256,
 };
 use sha2::{Digest as _, Sha256};
 
@@ -515,7 +516,12 @@ fn single_log_module_offset() -> usize {
 fn assert_receipt_refused(submission: &CheckoutSubmission, unsigned: &[u8]) {
     let (signed, _) = signed_receipt(unsigned);
     assert_eq!(
-        verify_sequencer_receipt(submission, &signed, &[receipt_key(1, 16)]),
+        verify_sequencer_receipt_with_config(
+            submission,
+            &signed,
+            &[receipt_key(1, 16)],
+            &currency_config(&sequencer_checkout())
+        ),
         Err(UcpError::ReceiptMismatch),
     );
 }
@@ -530,7 +536,12 @@ fn sequencer_receipt_accepts_exact_payment_and_returns_signature_digest() {
         unsigned[module + 10] = operation;
         let (signed, digest) = signed_receipt(&unsigned);
         assert_eq!(
-            verify_sequencer_receipt(&submission, &signed, &[receipt_key(1, 16)]),
+            verify_sequencer_receipt_with_config(
+                &submission,
+                &signed,
+                &[receipt_key(1, 16)],
+                &currency_config(&sequencer_checkout())
+            ),
             Ok(digest),
         );
     }
@@ -543,7 +554,12 @@ fn sequencer_receipt_key_height_window_is_inclusive() {
         let (signed, digest) =
             signed_receipt(&unsigned_receipt(&[payment_log(&submission)], height));
         assert_eq!(
-            verify_sequencer_receipt(&submission, &signed, &[receipt_key(1, 16)]),
+            verify_sequencer_receipt_with_config(
+                &submission,
+                &signed,
+                &[receipt_key(1, 16)],
+                &currency_config(&sequencer_checkout())
+            ),
             Ok(digest),
         );
     }
@@ -553,7 +569,12 @@ fn sequencer_receipt_key_height_window_is_inclusive() {
     ));
     for key in [receipt_key(9, 16), receipt_key(1, 7), receipt_key(9, 7)] {
         assert_eq!(
-            verify_sequencer_receipt(&submission, &signed, &[key]),
+            verify_sequencer_receipt_with_config(
+                &submission,
+                &signed,
+                &[key],
+                &currency_config(&sequencer_checkout())
+            ),
             Err(UcpError::ReceiptMismatch)
         );
     }
@@ -585,12 +606,22 @@ fn sequencer_receipt_refuses_missing_ambiguous_and_wrong_keys() {
         vec![weak_public],
     ] {
         assert_eq!(
-            verify_sequencer_receipt(&submission, &signed, &keys),
+            verify_sequencer_receipt_with_config(
+                &submission,
+                &signed,
+                &keys,
+                &currency_config(&sequencer_checkout())
+            ),
             Err(UcpError::ReceiptMismatch)
         );
     }
     assert_eq!(
-        verify_sequencer_receipt(&submission, &signed, &[different, key]),
+        verify_sequencer_receipt_with_config(
+            &submission,
+            &signed,
+            &[different, key],
+            &currency_config(&sequencer_checkout())
+        ),
         Ok(digest)
     );
 }
@@ -603,7 +634,12 @@ fn sequencer_receipt_refuses_corruption_truncation_and_unsigned_bytes() {
     let keys = [receipt_key(1, 16)];
     for length in 0..signed.len() {
         assert_eq!(
-            verify_sequencer_receipt(&submission, &signed[..length], &keys),
+            verify_sequencer_receipt_with_config(
+                &submission,
+                &signed[..length],
+                &keys,
+                &currency_config(&sequencer_checkout())
+            ),
             Err(UcpError::ReceiptMismatch)
         );
     }
@@ -611,18 +647,33 @@ fn sequencer_receipt_refuses_corruption_truncation_and_unsigned_bytes() {
         let mut corrupt = signed.clone();
         corrupt[index] ^= 1;
         assert_eq!(
-            verify_sequencer_receipt(&submission, &corrupt, &keys),
+            verify_sequencer_receipt_with_config(
+                &submission,
+                &corrupt,
+                &keys,
+                &currency_config(&sequencer_checkout())
+            ),
             Err(UcpError::ReceiptMismatch)
         );
     }
     assert_eq!(
-        verify_sequencer_receipt(&submission, &unsigned, &keys),
+        verify_sequencer_receipt_with_config(
+            &submission,
+            &unsigned,
+            &keys,
+            &currency_config(&sequencer_checkout())
+        ),
         Err(UcpError::ReceiptMismatch)
     );
     let mut extended = signed;
     extended.push(0);
     assert_eq!(
-        verify_sequencer_receipt(&submission, &extended, &keys),
+        verify_sequencer_receipt_with_config(
+            &submission,
+            &extended,
+            &keys,
+            &currency_config(&sequencer_checkout())
+        ),
         Err(UcpError::ReceiptMismatch)
     );
 }
@@ -745,7 +796,12 @@ fn sequencer_receipt_requires_one_unambiguous_settlement() {
     unrelated[53..85].fill(0x45);
     let (signed, digest) = signed_receipt(&unsigned_receipt(&[unrelated, log], RECEIPT_HEIGHT));
     assert_eq!(
-        verify_sequencer_receipt(&submission, &signed, &[receipt_key(1, 16)]),
+        verify_sequencer_receipt_with_config(
+            &submission,
+            &signed,
+            &[receipt_key(1, 16)],
+            &currency_config(&sequencer_checkout())
+        ),
         Ok(digest)
     );
 }
@@ -760,19 +816,34 @@ fn sequencer_receipt_refuses_invalid_checkout() {
     let mut invalid = submission.clone();
     invalid.total_minor = 0;
     assert_eq!(
-        verify_sequencer_receipt(&invalid, &signed, &[receipt_key(1, 16)]),
+        verify_sequencer_receipt_with_config(
+            &invalid,
+            &signed,
+            &[receipt_key(1, 16)],
+            &currency_config(&sequencer_checkout())
+        ),
         Err(UcpError::InvalidCheckout)
     );
     invalid = submission.clone();
     invalid.layerx_asset = [0; 32];
     assert_eq!(
-        verify_sequencer_receipt(&invalid, &signed, &[receipt_key(1, 16)]),
+        verify_sequencer_receipt_with_config(
+            &invalid,
+            &signed,
+            &[receipt_key(1, 16)],
+            &currency_config(&sequencer_checkout())
+        ),
         Err(UcpError::InvalidCheckout)
     );
     invalid = submission;
     invalid.layerx_recipient = [0; 32];
     assert_eq!(
-        verify_sequencer_receipt(&invalid, &signed, &[receipt_key(1, 16)]),
+        verify_sequencer_receipt_with_config(
+            &invalid,
+            &signed,
+            &[receipt_key(1, 16)],
+            &currency_config(&sequencer_checkout())
+        ),
         Err(UcpError::InvalidCheckout)
     );
 }
@@ -783,4 +854,11 @@ mod producer_checkout;
 #[test]
 fn ucp_conformance_producer() {
     producer_checkout::producer_checkout("ucp-conformance-producer");
+}
+
+fn currency_config(submission: &CheckoutSubmission) -> UcpServiceConfig {
+    UcpServiceConfig::new(
+        MerchantCurrencyBinding::new(submission.currency, submission.layerx_asset, 2, 2)
+            .unwrap_or_else(|error| panic!("merchant currency binding: {error}")),
+    )
 }

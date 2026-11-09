@@ -356,6 +356,16 @@ fn skipped_sequence_is_backfilled_over_the_real_stream_before_unblocking() {
         .read_head(&mut heads, &source, history_limits(), 2, attributes())
         .unwrap();
     heads_server.finish();
+    // 22.39.171: recovery still records the raw chain position independently of journal ordinals.
+    assert_eq!(
+        ingestor.watermark().last_position,
+        Some(Cursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0
+        })
+    );
+    assert_eq!(ingestor.watermark().next_expected, 13);
     let mut subscriptions = match SubscriptionStore::open(ingestor.into_store(), durable_tenant()) {
         Ok(value) => value,
         Err(error) => panic!("subscription reopen failed: {error}"),

@@ -1,5 +1,5 @@
 import { parseTransaction } from 'viem';
-import { nodeVector, receiptWireKeys } from './support/receipt-recordings.js';
+import { authenticatedReceipt, nodeVector, receiptWireKeys } from './support/receipt-recordings.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -61,6 +61,7 @@ import {
   SPONSORED_QUOTE_PATH,
   SPONSORED_SUBMIT_PATH,
   WEB_DATA_EVENTS,
+  WebPayerGrantsRetiredError,
   bridge,
   constructionDigest,
   listHolderRecords,
@@ -503,6 +504,13 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
         res.end(
           JSON.stringify({ jsonrpc: '2.0', id: body.id, result: receiptWireKeys(moduleReceipted) })
         );
+      } else if (
+        body.method === 'eth_getRawTransactionByHash' &&
+        body.params[0] === moduleReceipted.txHash
+      ) {
+        res.end(
+          JSON.stringify({ jsonrpc: '2.0', id: body.id, result: bridgeRecording.rawTransaction })
+        );
       } else if (body.method === 'paxeer_sendTransactionReceipted') {
         const code =
           scenario === 'injected'
@@ -909,42 +917,23 @@ describe('modules', () => {
     const recurring = grantFixture(0x11, true, true, false);
     const single = grantFixture(0xa1, false, false, true);
     const chain = viewChain([recurring, single]);
-    const caps = await webData(chain).caps([
-      recurring.grantId,
-      single.grantId.toUpperCase().replace('0X', '0x'),
-    ]);
-    expect(caps).toEqual({ fee: XWEB_FEE, grants: [recurring, single] });
-    expect(
-      Object.isFrozen(caps) &&
-        Object.isFrozen(caps.grants) &&
-        caps.grants.every((grant) => Object.isFrozen(grant))
-    ).toBe(true);
-    expect(chain.requests.map((request) => request.method)).toEqual([
-      'eth_call',
-      'eth_call',
-      'eth_call',
-    ]);
-    expect(chain.requests.some((request) => request.method === 'lx_getWalletCaps')).toBe(false);
-    expect(chain.requests.map((request) => request.params)).toEqual([
-      [{ to: XWEB_PRECOMPILE, data: FEE_SELECTOR }, 'latest'],
-      [{ to: LEDGER_PRECOMPILE, data: `0x423fe4b2${recurring.grantId.slice(2)}` }, 'latest'],
-      [{ to: LEDGER_PRECOMPILE, data: `0x423fe4b2${single.grantId.slice(2)}` }, 'latest'],
-    ]);
-    expect(GET_PAYER_GRANT_SELECTOR).toBe('0x423fe4b2');
-    expect(LEDGER_PRECOMPILE).toBe('0x000000000000000000000000000000000000101a');
-
-    const empty = viewChain([]);
-    expect(await webData(empty).caps([])).toEqual({ fee: XWEB_FEE, grants: [] });
-    expect(empty.requests).toEqual([
+    for (const ids of [
+      [recurring.grantId, single.grantId.toUpperCase().replace('0X', '0x')],
+      [],
+      ['0x1234'],
+      [fill(0x99, 32)],
+    ]) {
+      await expect(webData(chain).caps(ids)).rejects.toBeInstanceOf(WebPayerGrantsRetiredError);
+      await expect(webData(chain).caps(ids)).rejects.toMatchObject({
+        code: 'payer_grants_retired',
+        message: 'Payer grants are retired. Web requests pay the current fee as transaction value.',
+      });
+    }
+    expect(chain.requests).toEqual([]);
+    expect(await webData(chain).fee()).toBe(XWEB_FEE);
+    expect(chain.requests).toEqual([
       { method: 'eth_call', params: [{ to: XWEB_PRECOMPILE, data: FEE_SELECTOR }, 'latest'] },
     ]);
-
-    await expect(webData(chain).caps(['0x1234'])).rejects.toMatchObject({
-      code: 'invalid_value',
-      field: 'grantId',
-    });
-    await expect(webData(chain).caps([fill(0x99, 32)])).rejects.toThrow('LXP_NO_PAYER_GRANT');
-
     const key = `${LEDGER_PRECOMPILE}:${GET_PAYER_GRANT_SELECTOR}${recurring.grantId.slice(2)}`;
     const good = getPayerGrantAnswer(recurring);
     const patch = (offset: number, value: string): string =>
@@ -966,9 +955,10 @@ describe('modules', () => {
     ]) {
       chain.answers.set(key, bad);
       await expect(webData(chain).caps([recurring.grantId])).rejects.toMatchObject({
-        code: 'invalid_answer',
-        field: 'getPayerGrant',
+        name: 'WebPayerGrantsRetiredError',
+        code: 'payer_grants_retired',
       });
+      expect(chain.requests).toHaveLength(1);
     }
   });
 
@@ -977,21 +967,11 @@ describe('modules', () => {
       grantFixture(0x10 + index * 4, true, false, false)
     );
     const chain = viewChain(grants);
-    let inFlight = 0;
-    let peak = 0;
-    const counting: ModuleProvider = {
-      request: async (argument) => {
-        inFlight += 1;
-        peak = Math.max(peak, inFlight);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        inFlight -= 1;
-        return chain.request(argument);
-      },
-    };
-    const caps = await webData(counting).caps(grants.map((grant) => grant.grantId));
-    expect(caps.grants).toEqual(grants);
-    expect(peak).toBe(CAPS_READ_BATCH + 1);
-    expect(chain.requests).toHaveLength(grants.length + 1);
+    await expect(webData(chain).caps(grants.map((grant) => grant.grantId))).rejects.toMatchObject({
+      name: 'WebPayerGrantsRetiredError',
+      code: 'payer_grants_retired',
+    });
+    expect(chain.requests).toEqual([]);
   });
 
   it('the ledger log floor is the v6.12.0 activation height on Paxeer mainnet and absent on any other chain', () => {
@@ -1601,7 +1581,7 @@ async function send_module_transaction_receipted_answers_the_receipt_with_logs()
   const from = `0x${moduleReceipted.from!.slice(2).toUpperCase()}`;
   const before = moduleReceiptRequests.length;
   const answer = await sendModuleTransactionReceipted(provider, from, tx);
-  expect(answer).toEqual(moduleReceipted);
+  expect(answer).toEqual(authenticatedReceipt(moduleReceipted));
   expect(answer.rung).toBe('receipted');
   expect(answer.logs).toHaveLength(1);
   expect(answer.logs).toEqual(moduleReceipted.logs);
@@ -1625,6 +1605,7 @@ async function send_module_transaction_receipted_answers_the_receipt_with_logs()
       ],
     },
     { scenario: 'direct', method: 'px_getReceiptKeys', params: [] },
+    { scenario: 'direct', method: 'eth_getRawTransactionByHash', params: [moduleReceipted.txHash] },
   ]);
   for (const [scenario, code] of [
     ['rejected', 4001],
@@ -1642,11 +1623,12 @@ async function send_module_transaction_receipted_answers_the_receipt_with_logs()
   await expect(
     sendModuleTransactionReceipted(moduleReceiptProvider('submitted'), from, tx)
   ).rejects.toMatchObject({
-    code: 'invalid_answer',
-    field: 'paxeer_sendTransactionReceipted',
+    name: 'TypeError',
+    message: 'sequencer receipt authentication mismatch: receipt rung',
   });
   expect(moduleReceiptRequests.slice(start).map((request) => request.method)).toEqual([
     'paxeer_sendTransactionReceipted',
+    'px_getReceiptKeys',
   ]);
 }
 
@@ -1655,7 +1637,7 @@ async function send_module_transaction_receipted_falls_back_for_an_injected_prov
   const tx = bridgeOutTransaction(provider);
   const before = moduleReceiptRequests.length;
   const answer = await sendModuleTransactionReceipted(provider, moduleReceipted.from!, tx);
-  expect(answer).toEqual(moduleReceipted);
+  expect(answer).toEqual(authenticatedReceipt(moduleReceipted));
   expect(answer.rung).toBe('receipted');
   expect(answer.txHash).toBe(moduleSubmitted.txHash);
   expect(answer.logs).toEqual(moduleReceipted.logs);
@@ -1675,6 +1657,11 @@ async function send_module_transaction_receipted_falls_back_for_an_injected_prov
     { scenario: 'injected', method: 'pax_sequencerReceipt', params: [answer.txHash] },
     { scenario: 'injected', method: 'pax_sequencerReceipt', params: [answer.txHash] },
     { scenario: 'injected', method: 'px_getReceiptKeys', params: [] },
+    {
+      scenario: 'injected',
+      method: 'eth_getRawTransactionByHash',
+      params: [moduleReceipted.txHash],
+    },
   ]);
 }
 

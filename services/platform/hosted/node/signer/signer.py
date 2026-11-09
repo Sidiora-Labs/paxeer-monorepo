@@ -54,7 +54,7 @@ import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from provider import (ProviderError, ProviderTimeout, load, operation_deadline,
+from provider import (ProviderError, ProviderTimeout, load, monotonic, operation_deadline,
                       remaining_time, verify, verify_binding)
 
 DIGEST_PATTERN = re.compile(r'^[0-9a-f]{64}$')
@@ -142,7 +142,7 @@ class Signer:
         return uid in self._allowed_uids
 
     def sign(self, digest):
-        with operation_deadline(time.monotonic() + remaining_time()):
+        with operation_deadline(monotonic() + remaining_time()):
             if not self._lock.acquire(timeout=remaining_time()):
                 raise ProviderTimeout('the signer is busy')
             try:
@@ -164,7 +164,7 @@ class Signer:
         if self._binding_policy is None \
                 or not self._binding_policy.admits(binding, self._binding_account):
             raise ProviderError('recipient binding is not authorized')
-        with operation_deadline(time.monotonic() + remaining_time()):
+        with operation_deadline(monotonic() + remaining_time()):
             if not self._lock.acquire(timeout=remaining_time()):
                 raise ProviderTimeout('the signer is busy')
             try:
@@ -184,7 +184,7 @@ class Handler(socketserver.BaseRequestHandler):
     def handle(self):
         self.deadline = self.server.deadlines[self.request]
         try:
-            with operation_deadline(self.deadline):
+            with operation_deadline(self.deadline, self.server.clock):
                 credentials = self.request.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED,
                                                       struct.calcsize('3i'))
                 _, uid, _ = struct.unpack('3i', credentials)
@@ -262,7 +262,7 @@ class Handler(socketserver.BaseRequestHandler):
         return {'error': {'code': 'unknown_request', 'retry': 'never'}}
 
     def reply(self, message):
-        self.request.settimeout(max(0.001, self.deadline - time.monotonic()))
+        self.request.settimeout(max(0.001, self.deadline - self.server.clock()))
         self.request.sendall((json.dumps(message, separators=(',', ':')) + '\n').encode())
 
 
@@ -272,18 +272,20 @@ class Server(socketserver.ThreadingUnixStreamServer):
     request_queue_size = 32
 
     def __init__(self, server_address, handler_class, bind_and_activate=True,
-                 max_active_requests=MAXIMUM_ACTIVE_REQUESTS, request_timeout=5):
+                 max_active_requests=MAXIMUM_ACTIVE_REQUESTS, request_timeout=5,
+                 clock=time.monotonic):
         if type(max_active_requests) is not int or max_active_requests <= 0:
             raise ValueError('the active request bound must be a positive integer')
         if not math.isfinite(request_timeout) or request_timeout <= 0:
             raise ValueError('the request timeout must be finite and positive')
+        self.clock = clock
         self.request_timeout = request_timeout
         self.active_requests = threading.BoundedSemaphore(max_active_requests)
         self.deadlines = {}
         super().__init__(server_address, handler_class, bind_and_activate)
 
     def process_request(self, request, client_address):
-        deadline = time.monotonic() + self.request_timeout
+        deadline = self.clock() + self.request_timeout
         if not self.active_requests.acquire(blocking=False):
             try:
                 request.settimeout(min(0.01, self.request_timeout))

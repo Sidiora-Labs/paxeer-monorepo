@@ -112,6 +112,7 @@ fn faucet_posts_service_claim_route() -> TestResult {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
     let cli = FaucetCli::new(&format!("http://{}", listener.local_addr()?))?;
+    let service_endpoint = format!("http://{}/rpc", listener.local_addr()?);
     let session = "faucet-route-identity-session";
     let stored = cli.run(&["auth", "set"], Some(session))?;
     assert!(
@@ -119,7 +120,16 @@ fn faucet_posts_service_claim_route() -> TestResult {
         "{}",
         String::from_utf8_lossy(&stored.stderr)
     );
-    let mut invocation = Invocation(cli.command(&["faucet", "--key", "alice"]).spawn()?);
+    let mut invocation = Invocation(
+        cli.command(&[
+            "faucet",
+            "--key",
+            "alice",
+            "--service-endpoint",
+            &service_endpoint,
+        ])
+        .spawn()?,
+    );
     let deadline = Instant::now() + Duration::from_secs(10);
     let stream = loop {
         match listener.accept() {
@@ -230,7 +240,17 @@ fn faucet_requires_identity_session() -> TestResult {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
     let cli = FaucetCli::new(&format!("http://{}", listener.local_addr()?))?;
-    for arguments in [vec!["faucet"], vec!["faucet", "--key", "alice"]] {
+    let service_endpoint = format!("http://{}/rpc", listener.local_addr()?);
+    for arguments in [
+        vec!["faucet", "--service-endpoint", &service_endpoint],
+        vec![
+            "faucet",
+            "--key",
+            "alice",
+            "--service-endpoint",
+            &service_endpoint,
+        ],
+    ] {
         let output = cli.run(&arguments, None)?;
         assert!(!output.status.success());
         let refusal: Value = serde_json::from_slice(&output.stderr)?;

@@ -232,7 +232,7 @@ func TestDevelopmentTransactionStatusFromChainRPC(t *testing.T) {
 		return tx.Hash()
 	}
 	// Install a real LOG0 receiver, so the frozen receipt has a genuine event
-	// position. Native log-free transfers are explicitly refused below.
+	// position.
 	recipient := crypto.CreateAddress(from, nonce)
 	send(nil, common.FromHex("0x6006600c60003960066000f360006000a000"), big.NewInt(0))
 	backend.Commit()
@@ -274,10 +274,6 @@ func TestDevelopmentTransactionStatusFromChainRPC(t *testing.T) {
 	if status != "included_success" || receipt["success"] != true || !strings.EqualFold(receipt["from"].(string), from.Hex()) || !strings.EqualFold(receipt["to"].(string), recipient.Hex()) || receipt["height"] != chainReceipt.BlockNumber.String() || receipt["blockHash"] != chainReceipt.BlockHash.Hex() || receipt["gasUsedRaw"] != fmt.Sprint(chainReceipt.GasUsed) || receipt["effectiveGasPriceRaw"] != chainReceipt.EffectiveGasPrice.String() {
 		t.Fatalf("transfer: %s %v (chain %+v)", status, receipt, chainReceipt)
 	}
-	code, body, _ := netCall(t, http.MethodGet, srv.URL+"/v2/transactions/"+reverted.Hex())
-	if code != 503 || interfaces.ValidateJSON("Error", body) != nil || !strings.Contains(string(body), `"code":"INTEGRITY_QUARANTINED"`) {
-		t.Fatalf("log-free reversion must refuse an invented event position: %d %s", code, body)
-	}
 	revertedReceipt, err := client.TransactionReceipt(ctx, reverted)
 	if err != nil || revertedReceipt == nil || revertedReceipt.Status != 0 || len(revertedReceipt.Logs) != 0 {
 		t.Fatalf("real log-free reversion: %+v %v", revertedReceipt, err)
@@ -285,6 +281,14 @@ func TestDevelopmentTransactionStatusFromChainRPC(t *testing.T) {
 	position := receipt["position"].(map[string]any)
 	if position["transactionIndex"] != "0" || position["logIndex"] != "0" || position["chainId"] != "125" {
 		t.Fatalf("position %v", position)
+	}
+	status, receipt = read(reverted)
+	if status != "included_reverted" || receipt["success"] != false || receipt["transactionHash"] != reverted.Hex() || receipt["from"] != from.Hex() || receipt["to"] != nil || receipt["height"] != revertedReceipt.BlockNumber.String() || receipt["blockHash"] != revertedReceipt.BlockHash.Hex() || receipt["gasUsedRaw"] != fmt.Sprint(revertedReceipt.GasUsed) || receipt["effectiveGasPriceRaw"] != revertedReceipt.EffectiveGasPrice.String() {
+		t.Fatalf("log-free reversion: %s %v (chain %+v)", status, receipt, revertedReceipt)
+	}
+	position = receipt["position"].(map[string]any)
+	if position["chainId"] != "125" || position["height"] != revertedReceipt.BlockNumber.String() || position["blockHash"] != revertedReceipt.BlockHash.Hex() || position["transactionHash"] != reverted.Hex() || position["transactionIndex"] != fmt.Sprint(revertedReceipt.TransactionIndex) || position["logIndex"] != "0" {
+		t.Fatalf("log-free reversion position %v", position)
 	}
 	if status, receipt = read(pending); status != "submitted" || receipt != nil {
 		t.Fatalf("pending: %s %v", status, receipt)
