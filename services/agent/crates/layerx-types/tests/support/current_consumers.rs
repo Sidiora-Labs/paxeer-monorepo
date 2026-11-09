@@ -1,24 +1,22 @@
-// Compile whole production modules, without extracting declarations or launching
-// a second compiler. The client budget codec is dependency-free; its API
-// consumer requires the same concrete ProtocolBudgetRecord as the real crate.
-extern crate self as layerx_client;
+// Link production consumers with their real dependencies and shared types.
+// The independent verifier below authenticates the recorded producer evidence.
+pub use layerx_agent_api::TimestampSeconds;
+pub use layerx_client::budget;
 
-#[path = "../../../layerx-client/src/budget.rs"]
-pub mod budget;
-#[path = "../../../layerx-agent-api/src/generated.rs"]
-pub mod generated;
-pub use generated::{Amount, BudgetLimit, Sequence, TimestampSeconds};
-#[path = "../../../layerx-agent-api/src/error.rs"]
-pub mod error;
-#[path = "../../../layerx-agent-api/src/identity.rs"]
-pub mod identity;
-#[path = "../../../layerx-agent-api/src/write.rs"]
-pub mod write_contract;
-pub mod verify {
-    pub use layerx_types::rung::Rung;
+pub mod error {
+    pub use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId};
+    pub use layerx_agent_api::verify::{ApiSuccess, RungStatus};
 }
 
-#[path = "../../../layerx-agent-api/tests/support/independent/mod.rs"]
+pub mod write_contract {
+    pub use layerx_agent_api::prepare::CanonicalBytes;
+    pub use layerx_agent_api::track::{
+        EvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackedSubmission, WaitRequest,
+        WaitResult,
+    };
+}
+
+#[path = "independent/mod.rs"]
 mod independent;
 #[path = "proof_cases.rs"]
 mod proof_cases;

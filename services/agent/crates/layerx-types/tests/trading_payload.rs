@@ -53,12 +53,12 @@ fn market() -> PerpsMarket {
         insurance_account_id: [0x17; 32],
         contract_size: 1,
         tick_size: 10,
-        lot_size: 1000,
+        lot_size: 1_000,
         price_scale: 100_000_000,
-        initial_margin_ratio_bps: 1000,
+        initial_margin_ratio_bps: 1_000,
         maintenance_margin_ratio_bps: 500,
         liquidation_fee_bps: 100,
-        liquidator_share_bps: 5000,
+        liquidator_share_bps: 5_000,
         maximum_funding_rate_bps: 75,
         maximum_deviation_basis_points: 250,
         funding_interval_ms: 3_600_000,
@@ -102,7 +102,7 @@ fn perps_cases() -> Vec<(&'static str, PerpsPayload)> {
                 owner_account_id: [0x32; 32],
                 side: TradeSide::Sell,
                 price: (1_u128 << 64) | 2,
-                quantity: 5000,
+                quantity: 5_000,
                 time_in_force: PerpsTimeInForce::GoodTillCancelled,
             },
         ),
@@ -120,7 +120,7 @@ fn perps_cases() -> Vec<(&'static str, PerpsPayload)> {
                 position_id: [0x41; 32],
                 margin_account_id: [0x42; 32],
                 side: TradeSide::Buy,
-                size: 1000,
+                size: 1_000,
                 entry_notional: 0,
                 margin_amount: 250_000,
             },
@@ -132,7 +132,7 @@ fn perps_cases() -> Vec<(&'static str, PerpsPayload)> {
                 position_id: [0x41; 32],
                 size_delta: 500,
                 notional_delta: 0,
-                margin_amount: 1000,
+                margin_amount: 1_000,
             },
         ),
         (
@@ -349,7 +349,7 @@ fn perps_payload_decoder_refuses_what_the_kernel_refuses() {
         PerpsPayload::MarketCreate(Box::new(bounded.clone())).encode(),
         Err(TradingPayloadError::ParameterBounds)
     );
-    bounded.initial_margin_ratio_bps = 1000;
+    bounded.initial_margin_ratio_bps = 1_000;
     bounded.permitted_oracle_keys.reverse();
     assert_eq!(
         PerpsPayload::MarketCreate(Box::new(bounded)).encode(),
@@ -361,7 +361,7 @@ fn perps_payload_decoder_refuses_what_the_kernel_refuses() {
             position_id: [0x41; 32],
             margin_account_id: [0x42; 32],
             side: TradeSide::Buy,
-            size: 1000,
+            size: 1_000,
             entry_notional: 1,
             margin_amount: 250_000,
         }
