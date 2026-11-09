@@ -183785,7 +183785,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.209]
 title = "Remove the unused binding named level in the agent RPC adapters so the agent lint target passes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = []
@@ -318100,7 +318100,7 @@ do_4 = "Finding 17.2.6.1: stale_rows ignores a component whose deleted_trees is 
 
 [task.17.2.7]
 title = "Run every retired-surface refusal once on the merged revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["17.2.6", "6.0.9", "3.0.9"]
