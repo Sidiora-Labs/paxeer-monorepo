@@ -13,13 +13,9 @@
   },
   "owner": "PLACEHOLDER:owner",
   "attestors": [
-    "PLACEHOLDER:attestor-1",
-    "PLACEHOLDER:attestor-2",
-    "PLACEHOLDER:attestor-3",
-    "PLACEHOLDER:attestor-4",
-    "PLACEHOLDER:attestor-5"
+    "0x12598F221f1e645322C7665537D4Ab130281f51d"
   ],
-  "threshold": 3,
+  "threshold": 1,
   "finality_depth": 1800,
   "assets": [
     {
