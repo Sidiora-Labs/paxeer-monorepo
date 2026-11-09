@@ -492,6 +492,14 @@ func TestRepairM_948_NativeExecutorNode(t *testing.T) {
 		assertRepairM948NodeEvent(t, s, receipt, "Swap", map[string]any{"poolId": poolID, "sender": s.auth[0].From, "isBuy": true, "amountIn": amount, "amountOut": buy.TokensOut})
 		assertRepairM948NodeEvent(t, s, receipt, "RouterTrade", map[string]any{"kind": uint8(0), "pool": market.Pool, "sender": s.auth[0].From, "tokenIn": quote, "tokenOut": market.Token, "amountIn": amount, "amountOut": buy.TokensOut, "intermediateUsdl": big.NewInt(0)})
 	}
+	feeMetadata, err := b.FeesRouterMetaData.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	nftConsumer, err := b.NewSidioraNFT(protocol.ActiveAddresses.Roles["SidioraNFT"], s.client)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i, origin := range []common.Address{at, protocol.ActiveAddresses.Roles["FeesRouter"]} {
 		fees, err := b.NewFeesRouter(origin, s.client)
 		if err != nil {
@@ -504,15 +512,30 @@ func TestRepairM_948_NativeExecutorNode(t *testing.T) {
 		assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["FeesRouter"], fees, b.FeesRouterMetaData, "FeeStrategyChanged", map[string]any{"nftId": market.NftId, "oldStrategy": old, "newStrategy": next})
 		assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["SidioraNFT"], nft, b.SidioraNFTMetaData, "FeeStrategyChanged", map[string]any{"tokenId": market.NftId, "oldStrategy": old, "newStrategy": next})
 		var changed *b.FeesRouterFeeStrategyChanged
+		roleCount, nftCount := 0, 0
 		for _, log := range receipt.Logs {
-			if log.Address == protocol.ActiveAddresses.Roles["FeesRouter"] {
-				if parsed, err := fees.ParseFeeStrategyChanged(*log); err == nil {
-					changed = parsed
+			if len(log.Topics) == 0 || log.Topics[0] != feeMetadata.Events["FeeStrategyChanged"].ID {
+				continue
+			}
+			switch log.Address {
+			case protocol.ActiveAddresses.Roles["SidioraNFT"]:
+				parsed, err := nftConsumer.ParseFeeStrategyChanged(*log)
+				if err != nil || parsed.TokenId.Cmp(market.NftId) != 0 || parsed.OldStrategy != old || parsed.NewStrategy != next {
+					t.Fatalf("native SidioraNFT strategy change: %+v, %v", parsed, err)
 				}
+				nftCount++
+			case protocol.ActiveAddresses.Roles["FeesRouter"]:
+				changed, err = fees.ParseFeeStrategyChanged(*log)
+				if err != nil {
+					t.Fatal(err)
+				}
+				roleCount++
+			default:
+				t.Fatalf("FeeStrategyChanged role topic at unexpected address %s for call at %s", log.Address, origin)
 			}
 		}
-		if changed == nil || changed.NftId.Cmp(market.NftId) != 0 || changed.OldStrategy != old || changed.NewStrategy != next {
-			t.Fatalf("native FeesRouter origin %s: %+v", origin, changed)
+		if roleCount != 1 || nftCount != 1 || changed == nil || changed.NftId.Cmp(market.NftId) != 0 || changed.OldStrategy != old || changed.NewStrategy != next {
+			t.Fatalf("native FeesRouter origin %s: %+v (FeesRouter logs %d, SidioraNFT logs %d)", origin, changed, roleCount, nftCount)
 		}
 	}
 	accumulator, err := b.NewFeeAccumulator(protocol.ActiveAddresses.Roles["FeeAccumulator"], s.client)
@@ -831,6 +854,7 @@ func TestRepairM_948_RoleMetadata(t *testing.T) {
 }
 
 type repairM948Transcript struct {
+	NodeRPC      json.RawMessage
 	Revision     string
 	SourceHashes map[string]string
 	Family       []repairM948Execution
@@ -923,17 +947,29 @@ func TestRepairM_948_NativeExecutorTransport(t *testing.T) {
 	}
 	seenRoles := map[string]bool{}
 	seenOrigins := map[string]map[common.Address]bool{}
+	seenFeesCalls := map[common.Address]bool{}
 	for _, observation := range transcript.Roles {
 		role, ok := roles[observation.Role]
 		if !ok || observation.Name == "Initialized" {
 			t.Fatalf("invalid successful role emission %s.%s", observation.Role, observation.Name)
 		}
 		expected := protocol.ActiveAddresses.Roles[observation.Role]
+		if observation.Role == "FeesRouter" {
+			if observation.CalledAt != expected && observation.CalledAt != protocol.ActiveAddresses.Precompile {
+				t.Fatalf("invalid FeesRouter called-at surface %s", observation.CalledAt)
+			}
+			if observation.Log.Address == protocol.ActiveAddresses.Precompile {
+				t.Fatalf("FeesRouter.%s role log emitted at the precompile", observation.Name)
+			}
+			if observation.Name != "RoleGranted" && observation.Name != "RoleRevoked" {
+				seenFeesCalls[observation.CalledAt] = true
+			}
+		}
 		if observation.Name != "RoleGranted" && observation.Name != "RoleRevoked" {
 			switch observation.Role {
 			case "ProtocolConfig":
 				expected = protocol.ActiveAddresses.Precompile
-			case "Router", "FeesRouter":
+			case "Router":
 				if observation.CalledAt != expected && observation.CalledAt != protocol.ActiveAddresses.Precompile {
 					t.Fatalf("invalid called-at surface %s", observation.CalledAt)
 				}
@@ -969,12 +1005,18 @@ func TestRepairM_948_NativeExecutorTransport(t *testing.T) {
 			t.Fatalf("no executor emission for role %s", name)
 		}
 	}
-	for _, name := range []string{"Router", "FeesRouter"} {
-		for _, address := range []common.Address{protocol.ActiveAddresses.Precompile, protocol.ActiveAddresses.Roles[name]} {
-			if !seenOrigins[name][address] {
-				t.Fatalf("missing %s helper schema origin %s", name, address)
-			}
+	for _, address := range []common.Address{protocol.ActiveAddresses.Precompile, protocol.ActiveAddresses.Roles["Router"]} {
+		if !seenOrigins["Router"][address] {
+			t.Fatalf("missing Router helper schema origin %s", address)
 		}
+	}
+	for _, address := range []common.Address{protocol.ActiveAddresses.Precompile, protocol.ActiveAddresses.Roles["FeesRouter"]} {
+		if !seenFeesCalls[address] {
+			t.Fatalf("missing FeesRouter call entry point %s", address)
+		}
+	}
+	if len(seenOrigins["FeesRouter"]) != 1 || !seenOrigins["FeesRouter"][protocol.ActiveAddresses.Roles["FeesRouter"]] {
+		t.Fatalf("invalid FeesRouter runtime origins: %v", seenOrigins["FeesRouter"])
 	}
 	refused := map[string]bool{}
 	for _, refusal := range transcript.Refusals {
@@ -1020,9 +1062,25 @@ func newRepairM948Replay(t *testing.T) *repairM948Replay {
 	} else if strings.Contains(t.Name(), "NativeExecutorNode") {
 		name = "native-node-rpc.json"
 	}
-	raw, err := os.ReadFile(filepath.Join("testdata", "repair_m948", name))
+	path := name
+	if name == "native-node-rpc.json" {
+		path = "native-execution.json"
+	}
+	raw, err := os.ReadFile(filepath.Join("testdata", "repair_m948", path))
 	if err != nil {
 		t.Fatalf("recorded retained-contract execution unavailable: %v; see repair_m948.kvx wiring.retained_transcripts", err)
+	}
+	if name == "native-node-rpc.json" {
+		var execution repairM948Transcript
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&execution); err != nil {
+			t.Fatal(err)
+		}
+		if len(execution.NodeRPC) == 0 {
+			t.Fatal("missing native node execution recording")
+		}
+		raw = execution.NodeRPC
 	}
 	var transcript struct {
 		Revision       string
