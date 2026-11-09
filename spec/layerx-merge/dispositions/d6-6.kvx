@@ -1,0 +1,101 @@
+# Source: main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.6.1.3.a2]
+finding = "6.1.3.a2"
+status = "resolved"
+evidence = "Commit bfce96243 resolves the retirement reader through the executor's EVMKeeper accessor, retained at precompiles/common/precompiles.go:231, and uses RetiredAt to gate the call at line 234 without requiring the state DB to expose its keeper."
+
+[disposition.6.23.1.1.a2]
+finding = "6.23.1.1.a2"
+status = "resolved"
+evidence = "Commit ea9995ca14 adds Keeper.DenomPaused at modules/tokenfactory/keeper/grpc_query.go:81, providing the method required by the regenerated QueryServer interface alongside the existing keeper query methods."
+
+[disposition.6.23.1.a2]
+finding = "6.23.1.a2"
+status = "resolved"
+evidence = "Commit ea9995ca14 implements Keeper.DenomPaused at modules/tokenfactory/keeper/grpc_query.go:81; it returns the stored pause flag and issuer DID at lines 100 through 103, completing the regenerated query interface."
+
+[disposition.6.23.2.a2]
+finding = "6.23.2.a2"
+status = "resolved"
+evidence = "Commit 6aec577cc2 adds the explicit DenomAuthorityMetadataKey existence check at modules/tokenfactory/keeper/grpc_query.go:91, returning codes.NotFound before metadata decoding when the denomination is absent."
+
+[disposition.6.28.1.a2]
+finding = "6.28.1.a2"
+status = "resolved"
+evidence = "Commit b5316c1cb3 adds the bridge-message amino round-trip proof at modules/layerxgov/types/amino_bridge_test.go:16 using the existing bridge codec registration; modules/layerxgov/types/proposal.go:60 retains the governance registrations without registering the bridge messages twice."
+
+[disposition.6.47.2.a2]
+finding = "6.47.2.a2"
+status = "resolved"
+evidence = "Commit 6c6889c8e corrects retirement release ordering; modules/layerxcustody/keeper/genesis_retire_test.go:58 now applies the real upgrade at the scheduled plan height and checks its done height before exporting the retired custody state at line 62."
+
+[disposition.6.58.6.a2]
+finding = "6.58.6.a2"
+status = "environment"
+evidence = "contracts/libraries/SafeTransfer.sol is absent from main, and tests/bridge/retired/test_retired_safe_transfer.py:4 asserts its retirement through the shared reference scan. The retained arithmetic and call libraries remain separate from that retired transfer surface."
+
+[disposition.6.59.7.1]
+finding = "6.59.7.1"
+status = "resolved"
+evidence = "Commit 6721c8d2d9 retains the archival settlement document and pins its remaining reader set at tests/bridge/retired/test_retired_checkpoint_settlement.py:6. The only permitted source reader is the historical settlement module at line 14, and task 9.27.4's removed trust readers are recorded in tests/bridge/retired/repair_6_59_7.kvx:5."
+
+[disposition.6.59.7.2]
+finding = "6.59.7.2"
+status = "resolved"
+evidence = "Commit 6721c8d2d9 treats the retained settlement document as a Docker COPY input rather than a Rust embedded input at tests/ci/test_image_compile_inputs_not_ignored.py:296; tests/bridge/retired/repair_6_59_7.kvx:41 records the matching producer change and archival-document identity."
+
+[disposition.6.6.1.a2]
+finding = "6.6.1.a2"
+status = "environment"
+evidence = "precompiles/common/precompiles.go:29 declares MergeUpgrade as v7.0, supplying the single shared merge-upgrade constant used by the precompile package."
+
+[disposition.6.6.3.a2]
+finding = "6.6.3.a2"
+status = "resolved"
+evidence = "Commit 890d9200bd makes the precompile registry dry run use testkeeper.EVMTestApp.GetPrecompileKeepers at precompiles/names_markets_test.go:41, supplying the EVM keeper required by the registered merge constructors."
+
+[disposition.6.63.3.a2]
+finding = "6.63.3.a2"
+status = "resolved"
+evidence = "Commit a2ab6d9f2 removes the obsolete denomination helpers; modules/xweb/keeper/program_fulfil.go:205 now resolves the recorded FeeAsset with ProgramFeeDenom before splitting the recorded fee among signers."
+
+[disposition.6.69.1.1.a2]
+finding = "6.69.1.1.a2"
+status = "resolved"
+evidence = "Commit 7f65d97eba makes queryServer.Params return only the stored Params at modules/xweb/keeper/grpc_query.go:23, matching the generated QueryParamsResponse rather than assigning an undeclared pause field."
+
+[disposition.6.69.1.a2]
+finding = "6.69.1.a2"
+status = "resolved"
+evidence = "Commit 7f65d97eba implements the complete queryServer from modules/xweb/keeper/grpc_query.go:12 across the request and program query files; NewQueryServer returns types.QueryServer at line 16, and Params returns the stored params at line 23."
+
+[disposition.6.69.2.a2]
+finding = "6.69.2.a2"
+status = "superseded"
+evidence = "Task 6.69.1 absorbs the request and result query implementation from task 6.69.2 in commit 7f65d97eba; the shared receiver lives at modules/xweb/keeper/grpc_query.go:12 and its Request and Result methods at modules/xweb/keeper/grpc_query_requests.go:12 and line 23."
+
+[disposition.6.72.1.a2]
+finding = "6.72.1.a2"
+status = "environment"
+evidence = "wasm-runtime/types/msg.go:135 declares GovMsg with Vote and VoteWeighted pointer fields; wasm/x/wasm/keeper/handler_plugin_encoders.go:296 encodes the supported Vote variant and returns ErrUnknownMsg when Vote is absent, including weighted-only messages."
+
+[disposition.6.80.3.a2]
+finding = "6.80.3.a2"
+status = "environment"
+evidence = "contracts/security/LayerXComponent.sol is absent from main, and tests/bridge/retired/test_retired_layer_x_component.py:4 asserts the retired component has no live importers through the shared retirement scan."
+
+[disposition.6.81.1.1.a2]
+finding = "6.81.1.1.a2"
+status = "environment"
+evidence = "contracts/test/hardhat_solc_parity.test.js:6 loads the actual Hardhat configuration and asserts its compiler version equals foundry.paxeer.toml's solc_version at line 17; foundry.paxeer.toml:12 pins that version to 0.8.27."
+
+[disposition.6.81.1.a2]
+finding = "6.81.1.a2"
+status = "environment"
+evidence = "contracts/test/hardhat_solc_parity.test.js:17 compares the loaded Hardhat compiler version with the parsed Foundry version, retaining the real compiler-parity assertion on main."
+
+[disposition.6.82.1.a2]
+finding = "6.82.1.a2"
+status = "resolved"
+evidence = "Commit ab637e1371 leaves only send, balance, name, symbol, decimals and supply in contracts/src/precompiles/IBank.sol:8. The declared Foundry gates at spec/layerx-merge/spec.kvx:259260 select foundry.paxeer.toml through FOUNDRY_CONFIG instead of --config-path."

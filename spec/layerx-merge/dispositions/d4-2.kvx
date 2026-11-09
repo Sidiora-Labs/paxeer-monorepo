@@ -116,4 +116,4 @@ evidence = "Commit 12c3d4881 normalizes internalType whitespace recursively in s
 [disposition.4.54.1]
 finding = "4.54.1"
 status = "resolved"
-evidence = "Commit 9bb0b381e sets the OpticalRegistry test root to four parent segments followed by contracts/launchpad at sdk/launchpad/protocol/catalog/registry_input_test.go:66, correcting the artifact lookup depth."
+evidence = "Commit 9bb0b381e1 corrects the OpticalRegistry artifact lookup depth; commit ea31038181 subsequently embeds the reviewed compiler artifact and build input at sdk/launchpad/protocol/catalog/registry_input_test.go:90 and checks their hashes at line 120."
