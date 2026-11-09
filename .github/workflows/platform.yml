@@ -104,6 +104,13 @@ jobs:
           PAXEER_X_TEN_LINE_ARTIFACTS="$ten_line_directory/artifacts.json" make platform-build-ten-line
       - name: Build the framework integrations and scan client bundles for secrets
         run: make platform-test-middleware
+      - name: Gate seller and buyer quickstarts against the actual public registry snapshot
+        if: >-
+          (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')
+        env:
+          LAYERX_TEN_LINE_REGISTRY_SNAPSHOT: ${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}
+          LAYERX_TEN_LINE_REGISTRY_URL: ${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}
+        run: make platform-test-ten-line
       - name: Retain the actual published-package integration line counts
         if: >-
           always() && (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')

@@ -9,10 +9,11 @@ import { paxeerChain } from "../src/core/chain";
 import { getPaxeerRpcUrls } from "../src/core/rpc";
 import { PRECOMPILES } from "../src/core/network/precompiles";
 import { PerpsPrecompileABI } from "../src/core/network/abi/PerpsPrecompile";
-import { buildOpenPosition } from "../src/core/perps/calls";
 import { resolvePaxeerConfig } from "../src/core/wallet/embedded/client";
 import { createPaxeerEIP1193Provider } from "../src/core/wallet/embedded/eip1193";
 import { PaxeerWallet } from "../src/core/wallet/embedded/sdk";
+
+process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL ??= "https://perps-gateway.invalid";
 
 const CLIENT_SOURCE = readFileSync(new URL("../src/core/wallet/embedded/client.ts", import.meta.url), "utf8");
 const ENV_KEYS = [
@@ -68,9 +69,13 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
-test("chainIdFromChainObject", async () => {
-  const config = await withBrowserEnv({ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "test-anon-key" }, () =>
-    resolvePaxeerConfig(),
+async function chainIdFromChainObject() {
+  const config = await withBrowserEnv(
+    {
+      NEXT_PUBLIC_PAXEER_WALLET_API: "https://wallet-api.example.test/connector",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "test-anon-key",
+    },
+    () => resolvePaxeerConfig(),
   );
   assert.ok(config);
   assert.equal(config.chainId, paxeerChain.id);
@@ -78,7 +83,7 @@ test("chainIdFromChainObject", async () => {
   assert.equal(config.rpcUrl, getPaxeerRpcUrls()[0]);
   assert.equal(config.rpcUrl, "https://api1.mainnet-beta.paxeer.network");
   assert.deepEqual(config, {
-    apiUrl: "https://connect.paxportwallet.com",
+    apiUrl: "https://wallet-api.example.test/connector",
     supabaseUrl: "https://zezsqawedbikldiedlse.supabase.co",
     supabaseAnonKey: "test-anon-key",
     chainId: 125,
@@ -87,17 +92,30 @@ test("chainIdFromChainObject", async () => {
 
   const pinned = await withBrowserEnv(
     {
+      NEXT_PUBLIC_PAXEER_WALLET_API: "https://wallet-api.example.test/pinned",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "test-anon-key",
       NEXT_PUBLIC_PAXEER_RPC_URLS: "https://rpc-a.example.test, https://rpc-b.example.test",
     },
     () => resolvePaxeerConfig(),
   );
   assert.ok(pinned);
+  assert.equal(pinned.apiUrl, "https://wallet-api.example.test/pinned");
   assert.equal(pinned.rpcUrl, "https://rpc-a.example.test");
   assert.equal(pinned.chainId, 125);
 
   assert.equal(
     await withBrowserEnv({}, () => resolvePaxeerConfig()),
+    null,
+    "a missing publishable key disables the embedded wallet even without an endpoint",
+  );
+  await assert.rejects(
+    withBrowserEnv({ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "test-anon-key" }, () => resolvePaxeerConfig()),
+    /NEXT_PUBLIC_PAXEER_WALLET_API/,
+  );
+  assert.equal(
+    await withBrowserEnv({ NEXT_PUBLIC_PAXEER_WALLET_API: "https://wallet-api.example.test/connector" }, () =>
+      resolvePaxeerConfig(),
+    ),
     null,
     "a missing publishable key disables the embedded wallet",
   );
@@ -105,11 +123,15 @@ test("chainIdFromChainObject", async () => {
 
   assert.ok(!/chainId:\s*\d/.test(CLIENT_SOURCE), "client.ts carries no chain id literal");
   assert.ok(!CLIENT_SOURCE.includes("mainnet-beta"), "client.ts carries no RPC host literal");
-  assert.ok(CLIENT_SOURCE.includes("https://connect.paxportwallet.com"), "wallet API origin stays");
+  assert.ok(!CLIENT_SOURCE.includes("https://connect.paxportwallet.com"), "retired wallet API origin is absent");
+  assert.ok(CLIENT_SOURCE.includes("NEXT_PUBLIC_PAXEER_WALLET_API"), "wallet API endpoint setting is referenced");
   assert.ok(CLIENT_SOURCE.includes("https://zezsqawedbikldiedlse.supabase.co"), "auth origin stays");
-});
+}
+
+test(chainIdFromChainObject);
 
 test("embeddedTxTargetsPrecompile", async () => {
+  const { buildOpenPosition } = await import("../src/core/perps/calls");
   const accessToken = [
     base64url({ alg: "HS256", typ: "JWT" }),
     base64url({

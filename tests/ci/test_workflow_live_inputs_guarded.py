@@ -1,10 +1,12 @@
 from pathlib import Path
 import re
 
+import pytest
 import yaml
 
 from tools.ci.tests.workflow_graph import workflow_closure
 
+from test_platform_middleware_suites_wired import recipe
 from test_workflow_runs_on_routed import (
     ROUTED,
     assert_runner_routing,
@@ -165,6 +167,125 @@ def test_primary_platform_job_runs_unconditionally():
     ]
     assert "if" not in middleware
     assert not job_inputs(workflow, job)
+
+
+@pytest.mark.parametrize(
+    ("snapshot", "url", "expected"),
+    [
+        ("", "", False),
+        ("/private/registry-snapshot.json", "", True),
+        ("", "https://registry.example/snapshot.json", True),
+        ("/private/registry-snapshot.json", "https://registry.example/snapshot.json", True),
+    ],
+    ids=["neither", "snapshot-only", "url-only", "both"],
+)
+def test_ten_line_verification_runs_only_in_guarded_step(snapshot, url, expected):
+    workflow = load_workflow("platform.yml")
+    job = workflow["jobs"]["build-lint-test"]
+    assert not {"if", "continue-on-error"} & job.keys()
+    assert job["runs-on"] == ROUTED
+    steps = job["steps"]
+    named_steps = {step["name"]: step for step in steps}
+    benchmark = named_steps["Build the source-bound published quickstart benchmark"]
+    middleware = named_steps[
+        "Build the framework integrations and scan client bundles for secrets"
+    ]
+    verification_steps = [
+        step for step in steps if step.get("run") == "make platform-test-ten-line"
+    ]
+    assert len(verification_steps) == 1
+    verification = verification_steps[0]
+    assert (
+        sum(
+            len(re.findall(r"\bmake\s+platform-test-ten-line\b", step.get("run", "")))
+            for step in steps
+        )
+        == 1
+    )
+    upload = named_steps["Retain the actual published-package integration line counts"]
+    assert (
+        steps.index(benchmark)
+        < steps.index(middleware)
+        < steps.index(verification)
+        < steps.index(upload)
+    )
+    assert middleware["run"] == "make platform-test-middleware"
+    assert not {"if", "continue-on-error"} & middleware.keys()
+    prerequisites, commands = recipe("platform-test-middleware")
+    assert "platform-test-ten-line" not in prerequisites
+    assert all("platform-test-ten-line" not in command for command in commands)
+    assert all(
+        "tools/paxeer-x/gates/104.16.5.sh" not in command for command in commands
+    )
+    assert recipe("platform-build-ten-line") == (
+        [],
+        [["tools/paxeer-x/gates/104.16.5.sh", "--build-artifacts"]],
+    )
+    assert recipe("platform-test-ten-line") == (
+        [],
+        [["tools/paxeer-x/gates/104.16.5.sh"]],
+    )
+    presence = (
+        "(vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || "
+        "vars.LAYERX_TEN_LINE_REGISTRY_URL != '')"
+    )
+    assert benchmark["if"] == verification["if"] == presence
+    assert upload["if"] == f"always() && {presence}"
+    registry_env = {
+        "LAYERX_TEN_LINE_REGISTRY_SNAPSHOT": "${{ vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT }}",
+        "LAYERX_TEN_LINE_REGISTRY_URL": "${{ vars.LAYERX_TEN_LINE_REGISTRY_URL }}",
+    }
+    assert benchmark["env"] == verification["env"] == registry_env
+    assert "continue-on-error" not in benchmark
+    assert "continue-on-error" not in verification
+    registry_values = {
+        "vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT": snapshot,
+        "vars.LAYERX_TEN_LINE_REGISTRY_URL": url,
+    }
+
+    def condition_matches(expression):
+        expression = expression.strip()
+        if expression in {"", "always()"}:
+            return True
+        for operator in ("||", "&&"):
+            parts = split_condition(expression, operator)
+            if len(parts) > 1:
+                results = [condition_matches(part) for part in parts]
+                return any(results) if operator == "||" else all(results)
+        if expression.startswith("(") and expression.endswith(")"):
+            return condition_matches(expression[1:-1])
+        match = PRESENCE.fullmatch(expression)
+        assert match is not None, f"Unsupported registry condition: {expression}"
+        return bool(registry_values[match[1]])
+
+    assert condition_matches(middleware.get("if", "")) is True
+    for step in (benchmark, verification, upload):
+        assert condition_matches(step["if"]) is expected
+    producer = benchmark["run"]
+    assert 'mktemp -d "$RUNNER_TEMP/layerx-ten-line.XXXXXXXX"' in producer
+    assert 'mkdir "$ten_line_directory/evidence"' in producer
+    for variable, suffix in (
+        ("PAXEER_X_TEN_LINE_ARTIFACTS", "artifacts.json"),
+        ("PAXEER_X_EVIDENCE_DIR", "evidence"),
+    ):
+        assert (
+            f"printf '{variable}=%s/{suffix}\\n' "
+            '"$ten_line_directory" >> "$GITHUB_ENV"'
+        ) in producer
+        assert variable not in workflow.get("env", {})
+        assert variable not in job.get("env", {})
+        for step in steps[steps.index(benchmark) + 1 : steps.index(upload) + 1]:
+            assert variable not in step.get("env", {})
+            assert "$GITHUB_ENV" not in step.get("run", "")
+    assert (
+        'PAXEER_X_TEN_LINE_ARTIFACTS="$ten_line_directory/artifacts.json" '
+        "make platform-build-ten-line"
+    ) in producer
+    assert upload["uses"].startswith("actions/upload-artifact@")
+    assert upload["with"]["path"] == (
+        "${{ env.PAXEER_X_EVIDENCE_DIR }}/**/published-measurement/ten-line-counts.json"
+    )
+    assert upload["with"]["if-no-files-found"] == "error"
 
 
 def test_scheduled_platform_jobs_guard_live_inputs():
