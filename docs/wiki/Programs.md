@@ -179,10 +179,19 @@ or establish finality.
 Public JSON-RPC uses the root of `https://api-mainnet-beta.paxeer.network`
 and `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`, chain ID `125` (`0x7d`). See
-[Public JSON-RPC](PublicRpc.md). Hosted `px_*` methods are a separate service
-contract in `services/platform/hosted/gateway/openrpc.json`, not public node
-methods. The gateway's `px_getCapabilities` probes `getCurrentFeeSchedule()`
-at `0x101D`; when Programs is unavailable it refuses direct Programs
+[Public JSON-RPC](PublicRpc.md).
+
+The node serves the `px` namespace at its root and answers from node state.
+`px_getBalances` and `px_getCapabilities` are node reads and do not require a
+hosted gateway.
+Only `px_register` and `px_requestFunds` are hosted operations.
+After parameter validation, node calls to either operation return JSON-RPC
+`-32004` with `error.data.code: "hosted_gateway_service_required"`.
+
+The gateway's method schemas are defined in
+`services/platform/hosted/gateway/openrpc.json`. Both the node's and gateway's
+`px_getCapabilities` probe `getCurrentFeeSchedule()` at `0x101D` for Programs
+availability. When Programs is unavailable the gateway refuses direct Programs
 transaction submissions with JSON-RPC `-32003` and data code
 `surface_unavailable`. Obtain gateway availability from its operator.
 
