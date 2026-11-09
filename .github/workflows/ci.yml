@@ -128,6 +128,12 @@ jobs:
         run: rustup toolchain install 1.91.1 --profile minimal --target wasm32-unknown-unknown
       - name: Build program reference fixtures
         run: make programs-reference-fixtures
+      - name: Check program reference fixtures for drift
+        run: >-
+          git diff --exit-code --
+          programs/crates/layerx-programs-registry/tests/fixtures/naming
+          programs/crates/layerx-programs-registry/tests/fixtures/lxt721
+          programs/fixtures/pay5
 
   repository-audit:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}

@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'apps/explorer/**'
+      - 'docs/explorer/ENVS.md'
       - 'services/explorer/**'
       - 'docker/explorer-*/**'
       - 'tools/release/version.json'
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - 'apps/explorer/**'
+      - 'docs/explorer/ENVS.md'
       - 'services/explorer/**'
       - 'docker/explorer-*/**'
       - 'precompiles/**'
