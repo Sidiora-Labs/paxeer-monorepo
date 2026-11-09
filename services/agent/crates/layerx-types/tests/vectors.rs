@@ -2,6 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use layerx_types::vectors::checkpoint::{
+    checkpoint_vector_path, load_checkpoint_vectors, CHECKPOINT_VECTOR_CASES,
+};
 use layerx_types::vectors::{
     coverage_report, Corpus, CorpusError, DERIVED_PROTOCOL_VERSION, TYPE_PROTOCOL_VERSIONS,
 };
@@ -92,6 +95,42 @@ fn repository_corpora_are_loaded_and_fully_accounted() {
     assert_eq!(report.exercised.len(), 10);
     assert!(report.unused.is_empty());
     assert_eq!(report.render().lines().count(), 10);
+}
+
+#[test]
+fn checkpoint_vectors_load_without_the_settlement_document() {
+    let repository = std::env::temp_dir().join(format!(
+        "layerx-vectors-checkpoint-without-settlement-{}",
+        std::process::id()
+    ));
+    assert!(fs::create_dir(&repository).is_ok());
+    for case_name in CHECKPOINT_VECTOR_CASES {
+        copy_input(
+            &repository,
+            &checkpoint_vector_path(Path::new(""), case_name),
+        );
+    }
+    let settlement_document = repository.join("contracts/config/checkpoint-settlement.json");
+    assert!(!settlement_document.exists());
+    let expected = load_checkpoint_vectors(&repository_root());
+    let loaded = load_checkpoint_vectors(&repository);
+    assert!(fs::remove_dir_all(&repository).is_ok());
+
+    let Ok(expected) = expected else {
+        panic!("published checkpoint vectors failed to load");
+    };
+    let Ok(loaded) = loaded else {
+        panic!("checkpoint vectors failed to load without the settlement document");
+    };
+    assert_eq!(loaded.len(), CHECKPOINT_VECTOR_CASES.len());
+    assert_eq!(
+        loaded
+            .iter()
+            .map(|vector| vector.case_name.as_str())
+            .collect::<Vec<_>>(),
+        CHECKPOINT_VECTOR_CASES
+    );
+    assert_eq!(loaded, expected);
 }
 
 #[test]

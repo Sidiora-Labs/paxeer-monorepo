@@ -397,6 +397,26 @@ fn activity_from_unsigned(envelope: &UnsignedEnvelope) -> Activity {
     }
 }
 
+fn activity_from_signed(envelope: &Envelope) -> Activity {
+    Activity {
+        protocol_version: envelope.protocol_version(),
+        network_id: envelope.network_id(),
+        kind: envelope.activity_type(),
+        actor_did: envelope.actor_did().as_bytes().to_vec(),
+        authority: envelope.authority().as_bytes().to_vec(),
+        account_sequence: envelope.account_sequence(),
+        timestamp_bound: TimestampBound {
+            not_before: envelope.timestamp_bound().not_before(),
+            not_after: envelope.timestamp_bound().not_after(),
+        },
+        idempotency_key: envelope.idempotency_key().bytes(),
+        fee_limit: envelope.fee_limit().value(),
+        payload_hash: envelope.payload_hash(),
+        payload: envelope.payload().as_bytes().to_vec(),
+        signature: Some(envelope.signature().as_bytes().to_vec()),
+    }
+}
+
 #[cfg(test)]
 #[path = "../tests/support/corpus.rs"]
 mod replay_corpus;
@@ -450,25 +470,5 @@ mod replay_registry_tests {
         let retired =
             ActivityType::new(ModuleId::Budget, 11).unwrap_or_else(|error| panic!("{error:?}"));
         assert!(!corpus.replay.activity_types.contains(&retired));
-    }
-}
-
-fn activity_from_signed(envelope: &Envelope) -> Activity {
-    Activity {
-        protocol_version: envelope.protocol_version(),
-        network_id: envelope.network_id(),
-        kind: envelope.activity_type(),
-        actor_did: envelope.actor_did().as_bytes().to_vec(),
-        authority: envelope.authority().as_bytes().to_vec(),
-        account_sequence: envelope.account_sequence(),
-        timestamp_bound: TimestampBound {
-            not_before: envelope.timestamp_bound().not_before(),
-            not_after: envelope.timestamp_bound().not_after(),
-        },
-        idempotency_key: envelope.idempotency_key().bytes(),
-        fee_limit: envelope.fee_limit().value(),
-        payload_hash: envelope.payload_hash(),
-        payload: envelope.payload().as_bytes().to_vec(),
-        signature: Some(envelope.signature().as_bytes().to_vec()),
     }
 }

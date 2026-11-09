@@ -43,7 +43,7 @@ func repairM484Transcript(t *testing.T, name string) ([]byte, Record) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writers := regexp.MustCompile(`(?s)jq -n --arg chain .*?> "\$record"`).FindAll(source, -1)
+	writers := regexp.MustCompile(`(?s)jq -n --arg chain .*?> "\$work/record.json"`).FindAll(source, -1)
 	if transcript.WriterIndex < 0 || transcript.WriterIndex >= len(writers) {
 		t.Fatalf("%s has no recorded writer %d", transcript.Script, transcript.WriterIndex)
 	}
