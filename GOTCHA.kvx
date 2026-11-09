@@ -19730,3 +19730,73 @@ fix = "Task 22.39.287 rewrites the case against the regenerated names (gotcha 30
 title = "The .NET SDK of the qualification environment cannot target the framework the platform SDK projects declare"
 symptom = "Task 17.5.7 attempt 7: dotnet restore of sdk/platform/dotnet/LayerX.Sdk.csproj fails with NETSDK1045, the current .NET SDK 8.0.427 does not support targeting .NET 10.0, while LayerX.Sdk.csproj:3 and tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj:5 declare net10.0; no task has declared the dotnet profile so far, so the gap surfaced only in the aggregate gate"
 fix = "The qualification environment installs the SDK channel the project files target before the platform sample installation; decision 3123"
+
+[gotcha.3982]
+title = "The native approval journey is refused inside the admission after its own preview succeeded"
+symptom = "Task 18.1747.1 attempt 10 at 3d07ef2a7e45: with the transaction sender bound and the owner admitted, native_approval_clock_units still fails at tests/repair_22_33_63.rs:2391 with Agent(Refused) in phase Preparing; the daemon log of the verification shows three successful preview exchanges (opcode 66, status 0, 1166 payload bytes): the direct quote of the case, the preview of the Preparing step, and the preview the admission runs itself at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:5238, while the admission exchange (opcode 67 at :5293) never reaches the daemon, so the refusal is one of the five steps between them: the comparison of the admission preview purpose with the signed purpose at :5240, the Ed25519 verification of the consent signature at :5247, encode_native_send_prepare_v2 at :5254 (native_send.rs:570 request checks and the local grant validate), the envelope credential at :5265 and the envelope encoding at :5272"
+fix = "The case reproduces those five steps with the public pieces and prints the first that refuses; decision 3124"
+
+[gotcha.3983]
+title = "The native library make of a cgo repair fails because the qualification environment installs cmake only for cargo commands"
+symptom = "Task 22.39.250 attempt 1 at ec990cbc8521: make -s paxd-native-libs fails with cmake not found (build exit 2, log /out/logs/build-1.log) because chain.mk:123 builds evmone through cmake, while the qualification environment installed cmake only for a cargo command whose lock names a cmake crate or for a command naming chain.mk, and the native library prewarm ran before that install"
+fix = "The qualification environment installs cmake before the native library prewarm and for any command naming paxd-native-libs"
+
+[gotcha.3984]
+title = "Every retired-reference repair asks for catalogue allowances that its touches list never admits"
+symptom = "Attempt 1 of tasks 22.39.246, 22.39.247, 22.39.248, 22.39.250, 22.39.251, 22.39.258, 22.39.259, 22.39.261, 22.39.264, 22.39.265, 22.39.266 and 22.39.268: do_2 of each repair asks for allowed_references entries in tools/paxeer-x/retired_callers.json while no touches list names the catalogue, so the model sessions recorded the findings in the repair record and declined the catalogue edit (decision 3116 class); 22.39.248 and 22.39.259 ran no gate at all"
+fix = "Every retired-reference repair task admits the catalogue in its touches; decision 3125"
+
+[gotcha.3985]
+title = "The kernel findings of the retired-reference scan name live identifiers that carry a retired name as a prefix and the reserve account name that genesis replay still parses"
+symptom = "Tasks 22.39.246 and 22.39.247 attempt 1 at d5a0c9940685: 53 of the 60 findings name live kernel identifiers that carry a retired name as a prefix, lxp_grant_encode and lxp_grant_id_compute (include/layerx/lxp_authority.h:80 to :85), lxp_verified_receipt_authority_facts (lxp_module.h:37), lxp_replay_engine (programs.h:12) and lxp_programs_fee_governance_stage (programs.h:265), because the scanner matches a symbol inside an underscore-joined name by design (self-test case at tools/paxeer-x/tests/retired_callers_test.py:613); the remaining seven name the account system:paxeer-reserve in the kernel name table (src/ledger/lx_account_id.c:149 to :153, src/protocol/lxp_genesis.c:473, src/state/lxp_identity.c:35), which genesis and history replay still parse"
+fix = "Allowed references by directory with the symbol list; the kernel keeps the reserve account name for replay; decision 3125"
+
+[gotcha.3986]
+title = "The schema retirement markers are the findings of the human schema repair and the schema-check case asserts them"
+symptom = "Task 22.39.261 attempt 1 at 1b7ae12e2570 removed the retired settlement_domain entries from services/human/schema/human-api/journeys.kvx, movement.kvx and six golden vectors; the schema-check case verification_level_retires_settlement_values_and_maps_rungs (services/human/tools/schema-check/tests/journey_vocabulary.rs:201) asserts that EvidenceRef and EvidenceMaterial list the field as optional with the retired marker, because the markers are the schema record of the retirement (baseline.kvx:855 to :864); all 76 findings are such markers"
+fix = "The schema edits are reverted and the markers become allowed references; decision 3125"
+
+[gotcha.3987]
+title = "The platform CLI RPC fixture drifted from the gateway contract after two issue landings"
+symptom = "Task 22.39.266 attempt 1 at 574ea4cc57b3: positional_requests_match_published_contract (tools/platform/cli/src/rpc.rs:665) asserts tools/platform/cli/tests/fixtures/openrpc.json equal to services/platform/hosted/gateway/openrpc.json; the gateway contract changed on 2026-11-09 through task 18.1764.1 (activityIds required in the inclusion evidence, b539296c37) and task 18.1632.1 (f0bad9ec3f) while the fixture last followed task 22.39.118 (a08a60044b), so the case is red on main before the attempt edits"
+fix = "The fixture follows the gateway contract inside 22.39.266 (gotcha 3046)"
+
+[gotcha.3988]
+title = "The agent SDK TypeScript cases are red on main after the gateway contract and the inclusion evidence changed"
+symptom = "Task 22.39.258 attempt 1 at 110b460fb3f7: pnpm run test:self-contained fails in four files the attempt never touched: px.test.ts (px_methods_list_is_the_hosted_gateway_px_set, receipt_keys_shape and python_px_matches_ts expect a px method set without the four px_getInference methods task 22.38.12 added to the gateway contract (6ac9c39c3d), which services/agent/sdk/python/layerx_sdk/px.py lacks; px_amounts_decode_up_to_uint256), web-search-sequencer.test.ts (21 cases build receipts without the activityIds inclusion field src/verifier.ts:626 requires since task 18.1764.1 and fail with hash_mismatch or receive receipt-unverified where they expect settlement-payer-mismatch and settlement-receipt-mismatch), repair-22-31-148.test.ts (commit_inclusion_refuses_unrelated_valid_commit receives null where it expects bytes) and proof_gas_station.test.ts (the import of sdk/wallet/src/modules/gas-station.ts finds no viem package because the wallet workspace is not installed)"
+fix = "Task 22.39.288 brings the cases and the Python px surface to the producers and installs the wallet workspace; decision 3126"
+
+[gotcha.3989]
+title = "Nine hosted human provisioning cases are red on main for reasons outside the retired-reference repair"
+symptom = "Task 22.39.264 attempt 1 at 797c2ed99d56: python3 -m pytest -q services/platform/hosted/human fails nine cases the attempt never touched: test_material asserts lines of the hosted bring-up script under services/platform/hosted/tests that the script no longer carries (HUMAN_WEB_URL derived from HUMAN_WEB_HOST, the explorer index secret publication) and runs bootstrap.py, which exits non-zero; test_provision expects a human-identity container in services/platform/hosted/node/deployment.yaml, whose containers are native-home and paxd, parses an owner registration that arrives as a list, and with test_owner_request needs the identity provider binary that make human-test-hosted-provisioning builds and the qualification environment never built; 59 cases pass"
+fix = "Task 22.39.289 brings the three case files to the current script, deployment and registration shape and builds the provider; 22.39.264 verifies the rest of the tree; decision 3126"
+
+[gotcha.3990]
+title = "The reference ramp verification names a library target the package does not have"
+symptom = "Task 22.39.265 attempt 1 at 2bb0dda2e731: cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --lib exits 101 with no library targets found; services/platform/ramps/reference is a binary package whose two unit cases live in src/main.rs"
+fix = "The verification runs the binary targets"
+
+[gotcha.3991]
+title = "The programs runtime unit suite is red on main in the hand-built v3 terminal vector"
+symptom = "Task 22.39.251 attempt 1 at 4cf37a697dc4 changed only the record, and cargo test --locked -p layerx-programs-runtime --lib fails in traced_abi_one_execution_v3_is_not_candidate_evidence (programs/crates/layerx-programs-runtime/src/terminal.rs:1263, traced ABI1 producer vector rejected): the hand-built v3 payload at :1250 no longer passes decode_terminal_payload (:225) on main although the decoder file last changed on 2026-11-05 (a8b57f6565); 246 cases pass"
+fix = "The attempt locates the first rejecting check and rebuilds the vector from the producer layout at src/execute.rs:3649 without relaxing the decoder"
+
+[gotcha.3992]
+title = "The wallet gateway suite needs a node the qualification environment does not provide"
+symptom = "Task 22.39.268 attempt 1 at ffdbfa83942b: pnpm --dir services/wallet/gateway run test fails 68 cases in 25 files (28 in test/agent-precompiles-scheduler.test.ts, 20 in test/agent.test.ts) with no healthy RPC endpoint, provisioning is not configured, Set EIP712_NODE_RPC_URL or HYPERPAXEER_RPC_URL to a real node serving the merge precompile at 0x0908, a server process that exits before serving, and status 500 where 200, 202, 404 or 503 is expected; no other task runs the suite, so it has never been green in the qualification environment"
+fix = "Task 22.39.290 makes the suite self-contained; 22.39.268 requires it; decision 3126"
+
+[gotcha.3993]
+title = "Twenty-one lint sites remain in the programs runtime cases after the sixth attempt"
+symptom = "Task 22.39.235 attempt 6 at 24dd6e16c37b (two builds, two verifications, two repairs): cargo clippy --all-targets -D warnings still reports 21 sites: tests/determinism.rs:15 (needless pass by value) and :20 (format from an iterator); tests/repair_22_33_218.rs:443, :499 and :627 (unwrap_err); tests/repair_22_33_229.rs:2 to :11 and :16 (doc markdown without code marks), :70, :78, :122 and :152 (unwrap_err) and :165 (assert on a constant)"
+fix = "Attempt 7 repairs the 21 sites"
+
+[gotcha.3994]
+title = "The production receipt qualification refuses the recorded launchpad packet by design"
+symptom = "Task 22.39.242 attempt 5: the three comparison helpers of decision 3119 compare the recorded packet with deployment.Current() after clearing the role runtime hashes (services/launchpad/indexer/internal/receipt/repair_53_test.go:54 to :75), yet the ten cases still fail with receipt qualification rejected (repair_53_test.go:517, :518, :524 and :562, repair_m999_test.go:368, repair_m995_test.go:318) because they build the qualification through receipt.NewRPCQualification (repair_53_test.go:247, repair_m999_test.go:366, repair_m995_test.go:316), whose attestation path (internal/receipt/rpc.go:530 to :556) requires the manifest to equal deployment.Approved(activationHeight) including every role runtime hash; the recorded packet carries the live chain roles (gotcha 3974)"
+fix = "The cases qualify the recorded packet through NewPrivateFixtureRPCQualification with the recorded roles; decision 3127"
+
+[gotcha.3995]
+title = "The agent SDK TypeScript build runs before the package dependencies of its own directory are installed"
+symptom = "Task 22.39.258 attempts 1 and 2 (110b460fb3f7, fe32a21a6e97): pnpm --dir services/agent/sdk/typescript run build fails with tsc not found because services/agent/sdk/typescript carries its own package-lock.json and the qualification environment installed only the repository root workspace; attempt 1 recovered by installing inside the attempt at the cost of a repair cycle, attempt 2 stopped at the build"
+fix = "The build commands of 22.39.258 and 22.39.288 install the directory with npm ci before the TypeScript build"
