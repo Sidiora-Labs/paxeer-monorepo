@@ -22,7 +22,7 @@ declaring_constant = "pcommon.MergeUpgrade"
 constant_site = "precompiles/common/precompiles.go:30"
 handler = "mergeUpgradePlan"
 precompile_gate = "mergePrecompileGate"
-store_added = ["sequencer", "layerxledger", "layerxauth", "layerxpay", "layerxprograms", "layerxagent", "layerxhost"]
+store_added = ["sequencer", "layerxledger", "layerxauth", "layerxpay", "layerxchains", "layerxprograms", "layerxagent", "lxphost"]
 store_deleted = []
 
 [plan.v7.0-anchor-store-delete]
