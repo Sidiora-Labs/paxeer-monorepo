@@ -1,0 +1,37 @@
+[task.22.39.181]
+base = "68c8887a9520542d2878da3d6a44920ddd71b4b1"
+generation_head = "8c5a7acd059a88796c193d07d122b8805fee29bb"
+tool = "tools/ci/consensus_ledger_rows.py"
+generation_command = "python3 tools/ci/consensus_ledger_rows.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 8c5a7acd059a88796c193d07d122b8805fee29bb"
+appended_row_count = 181
+v7_row_count = 182
+historical_row_count = 4
+proof = "Rows are produced from Git history using the gate discovery functions; existing v7 and historical rows are retained. The referenced runner records supply the exact verified revision without embedding a self-referential commit hash in its own tree."
+tests = "test_v7_ledger_covers_history_from_latest_v6120_commit; test_rows_include_only_unlisted_non_test_consensus_changes; test_rows_follow_history_order_and_include_merge_only_edits; test_custom_ledger_and_invalid_revisions; test_subject_cell_escapes_pipes_and_all_newline_forms"
+
+[evidence.build]
+runner = "hf-build"
+command = "python3 -m py_compile tools/ci/consensus_ledger_rows.py tools/ci/consensus_commit_gate.py tools/ci/tests/test_consensus_ledger_rows.py"
+revision_ref = "/out/run/gates.jsonl: kind=build, n=2, field=revision"
+exit_ref = "/out/run/gates.jsonl: kind=build, n=2, field=exit"
+required_exit = 0
+log = "/out/logs/build-2.log"
+
+[evidence.verify]
+runner = "hf-done"
+command = "cg spec done 22.39.181 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s tools/ci/tests/repair_22_39_181.kvx && python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD && python3 -m pytest -q tools/ci/tests/test_consensus_commit_gate.py tools/ci/tests/test_consensus_ledger_rows.py tests/ci/test_release_docs_gap_markers.py"
+gate_command = "python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD"
+revision_ref = "/out/run/gates.jsonl: kind=verify, n=2, field=revision"
+exit_ref = "/out/run/gates.jsonl: kind=verify, n=2, field=exit"
+required_exit = 0
+log = "/out/logs/verify-2.log"
+
+[repair.1]
+revision = "b4c3d647e19ae2e51ede0f01a0f98c26dbdd1a9f"
+command = "cg spec done 22.39.181 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The consensus gate and 15 tests passed; the new exact-inventory assertion omitted the required existing v7 row because its commit precedes the exclusive base."
+repair = "Include the preserved commit through the production consensus-path discovery, prove it is an ancestor of the base and assert its entire original row verbatim; retain exact set, count and path equality for all rows."
+initial_build_ref = "/out/run/gates.jsonl: kind=build, n=1; /out/logs/build-1.log"
