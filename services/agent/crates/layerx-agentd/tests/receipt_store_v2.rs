@@ -1,14 +1,21 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use k256::ecdsa::SigningKey;
+mod support;
+
 use layerx_agentd::receipt::{
-    serve_evidence, store_verified_if_absent, ReceiptStoreError, TransactionReceiptEvidence,
-    TransactionReceiptMetadata,
+    serve_evidence, store_verified_if_absent, AuthenticatedTransactionReceipt, ReceiptStoreError,
 };
 use layerx_agentd::store::{ObjectKind, Store, TenantId, TenantKey};
+use layerx_client::rpc::commit::decode_validators;
+use layerx_client::rpc::receipt::{
+    lookup_authenticated, lookup_authenticated_with_commit, Lookup, LookupContext,
+};
+use layerx_client::rpc::receipt_commit::ReceiptCommitEvidence;
+use layerx_client::sequencer::decode_receipt_keys;
+use layerx_programs::chain_proof::{merkle::SimpleProof, ChainProofVerifier};
 use layerx_proof::merkle::{encode_proof, Proof};
 use layerx_types::rung::Rung;
-use sha2::{Digest, Sha256};
+use serde_json::{json, Value};
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -33,50 +40,124 @@ fn evidence_key(tenant: TenantId, hash: [u8; 32]) -> TenantKey {
     .unwrap_or_else(|error| panic!("key: {error}"))
 }
 
-fn record(hash: [u8; 32], status: bool, rung: Rung) -> TransactionReceiptEvidence {
-    let mut bloom = [0; 256];
-    for (value, byte) in (0_u8..=255).zip(bloom.iter_mut()) {
-        *byte = value;
+fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
+    value.unwrap_or_else(|error| panic!("receipt evidence: {error:?}"))
+}
+
+fn unhex(value: &Value) -> Vec<u8> {
+    must(hex::decode(
+        value.as_str().unwrap().trim_start_matches("0x"),
+    ))
+}
+
+fn committed_case() -> Value {
+    let recording: Value = must(serde_json::from_str(include_str!(
+        "../../layerx-client/tests/fixtures/repair_22_33_1546_node.json"
+    )));
+    recording["receipt"].clone()
+}
+
+fn record(case: &Value, rung: Rung) -> AuthenticatedTransactionReceipt {
+    let view = &case["view"];
+    let hash: [u8; 32] = must(unhex(&view["txHash"]).try_into());
+    let keys = must(decode_receipt_keys(&json!({"keys": [case["key"]]})));
+    let mut exchanges = vec![
+        (
+            "pax_sequencerReceipt",
+            json!([view["txHash"]]),
+            Some(view.clone()),
+        ),
+        (
+            "eth_getTransactionReceipt",
+            json!([view["txHash"]]),
+            Some(case["landing"].clone()),
+        ),
+    ];
+    if rung == Rung::Committed {
+        let height = case["height"].as_u64().unwrap();
+        exchanges.extend([
+            (
+                "px_getCommit",
+                json!([height.to_string()]),
+                Some(case["material"].clone()),
+            ),
+            (
+                "px_getValidators",
+                json!([height.to_string()]),
+                Some(case["validators"].clone()),
+            ),
+            (
+                "eth_getBlockByNumber",
+                json!([format!("{height:#x}"), true]),
+                Some(case["block"].clone()),
+            ),
+        ]);
     }
-    let canonical_receipt = [
-        &[
-            0xf9,
-            0x01,
-            0x08,
-            if status { 1 } else { 0x80 },
-            0x82,
-            0x52,
-            0x08,
-            0xb9,
-            0x01,
-            0x00,
-        ][..],
-        &bloom,
-        &[0xc0],
-    ]
-    .concat();
-    let key =
-        SigningKey::from_slice(&[7; 32]).unwrap_or_else(|error| panic!("signing key: {error}"));
-    let digest: [u8; 32] = Sha256::digest(&canonical_receipt).into();
-    let (signature, recovery) = key
-        .sign_prehash_recoverable(&digest)
-        .unwrap_or_else(|error| panic!("receipt signature: {error}"));
-    let mut receipt_signature = [0; 65];
-    receipt_signature[..64].copy_from_slice(&signature.to_bytes());
-    receipt_signature[64] = recovery.to_byte() + 27;
-    TransactionReceiptEvidence {
-        metadata: TransactionReceiptMetadata {
-            transaction_hash: hash,
-            block_height: 12,
-            tx_index: 1,
-            status,
-            gas_used: 21_000,
-            logs_bloom: bloom,
-            receipt_signature,
-            rung,
-        },
-        canonical_receipt,
-    }
+    let (endpoint, server) = support::serve(exchanges);
+    let context = LookupContext {
+        receipt_keys: &keys,
+    };
+    let lookup = if rung == Rung::Committed {
+        let trust = ChainProofVerifier {
+            chain_id: case["material"]["signedHeader"]["header"]["chain_id"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+            validators: must(decode_validators(&case["validators"])),
+        };
+        let batch = unhex(&case["batch"]);
+        let ids: Vec<[u8; 32]> = case["activityIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|id| must(unhex(id).try_into()))
+            .collect();
+        let b64 = |value: &Value| must(openssl::base64::decode_block(value.as_str().unwrap()));
+        let proof = SimpleProof {
+            total: must(case["proof"]["total"].as_str().unwrap().parse()),
+            index: must(case["proof"]["index"].as_str().unwrap().parse()),
+            leaf_hash: must(b64(&case["proof"]["leaf_hash"]).try_into()),
+            aunts: case["proof"]["aunts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|aunt| must(b64(aunt).try_into()))
+                .collect(),
+        };
+        must(lookup_authenticated_with_commit(
+            &endpoint,
+            hash,
+            context,
+            &ReceiptCommitEvidence {
+                verifier: &trust,
+                covering_height: case["height"].as_u64().unwrap(),
+                batch_transaction: &batch,
+                transaction_proof: &proof,
+                activity_ids: &ids,
+            },
+        ))
+    } else {
+        must(lookup_authenticated(&endpoint, hash, context))
+    };
+    must(server.join());
+    let Lookup::Verified(verified) = lookup else {
+        panic!("authenticated receipt required")
+    };
+    assert_eq!(verified.rung(), rung);
+    must(AuthenticatedTransactionReceipt::from_authenticated(
+        &verified,
+    ))
+}
+
+fn receipted_record(success: bool) -> AuthenticatedTransactionReceipt {
+    let recording: Value = must(serde_json::from_str(include_str!(
+        "../../layerx-agentd-host/src/repair_22_31_363_receipts.json"
+    )));
+    let case = &recording[if success { "success" } else { "reverted" }];
+    record(
+        &json!({"view": case["receiptJson"], "key": case["pinnedKey"], "landing": null}),
+        Rung::Receipted,
+    )
 }
 
 #[test]
@@ -85,11 +166,17 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
     let owner = tenant("receipt-owner");
     let other = tenant("another-owner");
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    for (hash, status, rung) in [
-        ([0x42; 32], true, Rung::Receipted),
-        ([0x43; 32], false, Rung::Committed),
+    let committed = record(&committed_case(), Rung::Committed);
+    let receipted = record(&committed_case(), Rung::Receipted);
+    for (capability, status, rung) in [
+        (receipted_record(true), true, Rung::Receipted),
+        (receipted_record(false), false, Rung::Receipted),
+        (committed.clone(), true, Rung::Committed),
     ] {
-        let expected = record(hash, status, rung);
+        let expected = capability.evidence().clone();
+        let hash = expected.metadata.transaction_hash;
+        assert_eq!(expected.metadata.status, status);
+        assert_eq!(expected.metadata.rung, rung);
         assert_eq!(
             serve_evidence(&durable, owner.clone(), hash)
                 .unwrap_or_else(|error| panic!("{error:?}")),
@@ -114,21 +201,20 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
                 owner.clone(),
                 hash,
                 &expected.canonical_receipt,
-                &expected,
+                &capability,
             )
             .unwrap_or_else(|error| panic!("store receipt: {error:?}"));
             assert_eq!(stored, expected);
         }
         if rung == Rung::Committed {
-            let mut weaker = expected.clone();
-            weaker.metadata.rung = Rung::Receipted;
+            let weaker = &receipted;
             assert_eq!(
                 store_verified_if_absent(
                     &mut durable,
                     owner.clone(),
                     hash,
-                    &weaker.canonical_receipt,
-                    &weaker
+                    &weaker.evidence().canonical_receipt,
+                    weaker
                 )
                 .unwrap_or_else(|error| panic!("{error:?}")),
                 expected
@@ -158,25 +244,27 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
             None
         );
 
-        let mut conflicting = expected.clone();
-        conflicting.metadata.gas_used += 1;
+        let mut conflicting = encoded.clone();
+        conflicting[59..67].copy_from_slice(&(expected.metadata.gas_used + 1).to_be_bytes());
+        must(durable.put_local(key.clone(), conflicting));
         assert!(matches!(
             store_verified_if_absent(
                 &mut durable,
                 owner.clone(),
                 hash,
-                &conflicting.canonical_receipt,
-                &conflicting
+                &expected.canonical_receipt,
+                &capability
             ),
             Err(ReceiptStoreError::Store(_))
         ));
+        must(durable.put_local(key.clone(), encoded.clone()));
         assert!(matches!(
             store_verified_if_absent(
                 &mut durable,
                 owner.clone(),
                 [0x99; 32],
                 &expected.canonical_receipt,
-                &expected
+                &capability
             ),
             Err(ReceiptStoreError::Corrupt)
         ));
@@ -186,7 +274,7 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
                 owner.clone(),
                 hash,
                 b"altered receipt",
-                &expected
+                &capability
             ),
             Err(ReceiptStoreError::Corrupt)
         ));
@@ -260,34 +348,41 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
             .put_local(key, encoded)
             .unwrap_or_else(|error| panic!("{error:?}"));
     }
-    let receipted = record([0x42; 32], true, Rung::Receipted);
-    let mut committed = receipted.clone();
-    committed.metadata.rung = Rung::Committed;
+    let owner = tenant("upgrade-owner");
+    let hash = receipted.evidence().metadata.transaction_hash;
     assert_eq!(
-        store_verified_if_absent(
+        must(store_verified_if_absent(
             &mut durable,
             owner.clone(),
-            [0x42; 32],
-            &committed.canonical_receipt,
-            &committed,
-        )
-        .unwrap_or_else(|error| panic!("{error:?}")),
-        committed
+            hash,
+            &receipted.evidence().canonical_receipt,
+            &receipted
+        )),
+        *receipted.evidence()
     );
     assert_eq!(
-        store_verified_if_absent(
+        must(store_verified_if_absent(
             &mut durable,
             owner.clone(),
-            [0x42; 32],
-            &receipted.canonical_receipt,
-            &receipted,
-        )
-        .unwrap_or_else(|error| panic!("{error:?}")),
-        committed
+            hash,
+            &committed.evidence().canonical_receipt,
+            &committed
+        )),
+        *committed.evidence()
     );
     assert_eq!(
-        serve_evidence(&durable, owner, [0x42; 32]).unwrap_or_else(|error| panic!("{error:?}")),
-        Some(committed)
+        must(store_verified_if_absent(
+            &mut durable,
+            owner.clone(),
+            hash,
+            &receipted.evidence().canonical_receipt,
+            &receipted
+        )),
+        *committed.evidence()
+    );
+    assert_eq!(
+        must(serve_evidence(&durable, owner, hash)),
+        Some(committed.evidence().clone())
     );
     drop(durable);
     std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("{error:?}"));
@@ -297,8 +392,9 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
 fn version_one_receipt_evidence_is_refused() {
     let root = directory();
     let owner = tenant("receipt-owner");
-    let hash = [0x55; 32];
-    let current = record(hash, true, Rung::Receipted);
+    let capability = receipted_record(true);
+    let current = capability.evidence();
+    let hash = current.metadata.transaction_hash;
     let mut legacy = b"LXRE\x01".to_vec();
     legacy.extend_from_slice(&hash);
     legacy.extend_from_slice(&[0x66; 32]);
@@ -332,7 +428,7 @@ fn version_one_receipt_evidence_is_refused() {
         owner.clone(),
         hash,
         &current.canonical_receipt,
-        &current,
+        &capability,
     )
     .unwrap_err();
     assert_eq!(error.reason(), "receipt.evidence_version");

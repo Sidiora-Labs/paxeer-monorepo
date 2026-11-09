@@ -1,0 +1,9 @@
+Ran 2 tests for services/interop/contracts/ethereum-mirror/test/MirrorCheckpoint.t.sol:MirrorCheckpointTest
+[FAIL: revert: stale-root] testRejectsStaleCheckpointRoot() (gas: 21731)
+[FAIL. Reason: assertion failed: 3 != 4] testCheckpointIndexAdvances() (gas: 31290)
+Suite result: FAILED. 0 passed; 2 failed; 0 skipped
+
+Failing tests:
+Ran 2 tests for services/interop/contracts/ethereum-mirror/test/MirrorCheckpoint.t.sol:MirrorCheckpointTest
+[FAIL: revert: stale-root] testRejectsStaleCheckpointRoot() (gas: 21731)
+[FAIL. Reason: assertion failed: 3 != 4] testCheckpointIndexAdvances() (gas: 31290)

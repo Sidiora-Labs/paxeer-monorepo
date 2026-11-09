@@ -113,6 +113,7 @@ def test_docs_root_architecture_uses_root_node_rpc_hosts():
     assert {url.hostname for url in urls} == {
         "api-mainnet-beta.paxeer.network",
         "api1.mainnet-beta.paxeer.network",
+        "api2.mainnet-beta.paxeer.network",
         "api14.mainnet-beta.paxeer.network",
     }
     assert all(url.scheme == "https" and url.path in ("", "/") for url in urls)
@@ -253,7 +254,7 @@ def test_docs_root_architecture_build_and_start_match_production():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert make_rule(makefile, "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build"]
+    assert make_rule(makefile, "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     dependencies, recipe = make_rule(makefile, "paxd-build")
     assert dependencies == ["paxd-native-libs"]
     assert "jq -er .version tools/release/version.json" in recipe

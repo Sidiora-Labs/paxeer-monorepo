@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 import shlex
 import subprocess
 
@@ -50,18 +51,35 @@ def test_explorer_gate_runs_sig_provider():
         for line in source.splitlines()
         if line.startswith("run_leg ")
     ]
-    manifest = "services/explorer/services/sig-provider/Cargo.toml"
-    signature_legs = [leg for leg in legs if manifest in leg]
-    assert len(signature_legs) == 1
-    leg = signature_legs[0]
-    assert leg[3] == "$repo_root"
+    loops = re.findall(
+        r"^for service in ([^;\n]+); do\n(.*?)^done$",
+        source, flags=re.M | re.S,
+    )
+    workspace_loops = [(shlex.split(services), body) for services, body in loops
+                       if 'run_leg ' in body]
+    assert len(workspace_loops) == 1
+    services, body = workspace_loops[0]
+    assert services == ["libs", "smart-contract-verifier", "sig-provider"]
+    workspace_legs = [shlex.split(line, comments=True)
+                      for line in body.splitlines() if line.strip()]
+    assert len(workspace_legs) == 1
+    leg = workspace_legs[0]
+    assert leg[:4] == [
+        "run_leg", "$service", "$service workspace tests",
+        "$repo_root/services/explorer/services/$service",
+    ]
     assert leg[4:] == [
         "cargo",
         "test",
         "--locked",
-        "--manifest-path",
-        manifest,
         "--workspace",
     ]
-    frontend_index = next(i for i, item in enumerate(legs) if item[1] == "frontend-vitest")
-    assert legs.index(leg) == frontend_index + 1
+    frontend = next(item for item in legs if item[1] == "frontend-vitest")
+    assert legs[-1] == frontend
+    assert re.search(
+        r"^run_leg frontend-vitest[^\n]*\nfor service in "
+        r"libs smart-contract-verifier sig-provider; do\n", source, flags=re.M,
+    )
+    for service in services:
+        manifest = ROOT / "services/explorer/services" / service / "Cargo.toml"
+        assert manifest.is_file(), manifest

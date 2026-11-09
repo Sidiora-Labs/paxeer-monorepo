@@ -2764,7 +2764,8 @@ mod offer_tests {
         config["data_dir"] = json!(data);
         config["evm"]["chain_id"] = json!(125);
         let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
-        config["evm"]["endpoint"] = json!(format!("http://{}", listener.local_addr()?));
+        config["gateway"]["endpoint"] = json!(format!("http://{}", listener.local_addr()?));
+        config["evm"]["endpoint"] = config["gateway"]["endpoint"].clone();
         let recording: Value =
             serde_json::from_str(include_str!("../tests/fixtures/gateway/metered.json"))?;
         let ledger = std::thread::spawn(move || {
@@ -2787,7 +2788,7 @@ mod offer_tests {
                 })
                 .collect();
             rules.extend(payer_rules);
-            for _ in 0..26 {
+            for _ in 0..10 {
                 let (mut stream, _) = listener.accept().expect("ledger connection");
                 let mut raw = Vec::new();
                 let request = loop {
@@ -2860,7 +2861,8 @@ mod offer_tests {
         let required = gate
             .payment_required(&request, Some(payer))
             .map_err(|response| format!("offers refused with {}", response.status))?;
-        assert_eq!(required.accepts.len(), 8);
+        assert_eq!(required.accepts.len(), 4);
+        assert!(required.accepts.iter().all(|offer| offer.scheme == "exact"));
         assert!(required
             .accepts
             .iter()

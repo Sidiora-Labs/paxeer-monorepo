@@ -41,7 +41,12 @@ GERMAN = ROOT / "docs" / "readme" / "README.de.md"
 ENGLISH_TITLES = [
     PREAMBLE_TITLE,
     "What is Paxeer X Network?",
+    "Integrated network topology",
     "Documentation",
+    "Quick start: connect to chain 125",
+    "Submit a transaction and follow its committed receipt",
+    "Accounts and native funding",
+    "Receipt and proof verification",
     "Client SDKs",
     "Specification",
     "EVM and Native Precompiles",
@@ -57,7 +62,7 @@ ENGLISH_TITLES = [
     "Downloading and Shallow-Cloning the Monorepo",
     "License",
 ]
-ENGLISH_LEVELS = [0, 2, 2, 3, 2, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2]
+ENGLISH_LEVELS = [0, 2, 3, 2, 3, 3, 3, 3, 3, 2, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2]
 GERMAN_TITLES = [
     PREAMBLE_TITLE,
     "Was Paxeer X Network ist",
@@ -149,7 +154,7 @@ class SectionSplitterTests(unittest.TestCase):
     def test_bodies_hold_the_content_below_each_heading(self) -> None:
         sections = {section.title: section for section in split_sections(SOURCE)}
         self.assertIn("Apache License, Version 2.0", sections["License"].body)
-        self.assertIn("eth_chainId", sections["Documentation"].body)
+        self.assertIn("eth_chainId", sections["Quick start: connect to chain 125"].body)
         self.assertIn("make paxd-build", sections["Build"].body)
         self.assertIn("`rust-toolchain.toml`", sections["Overview"].body)
         self.assertIn("Paxeer X Network", sections[PREAMBLE_TITLE].body)
@@ -187,11 +192,12 @@ class SanitizeTests(unittest.TestCase):
     def test_code_fence_commands_and_prose_survive(self) -> None:
         sections = {section.title: section for section in split_sections(SOURCE)}
         documentation = sanitize(sections["Documentation"].body)
-        self.assertIn("curl --max-time 10", documentation)
-        self.assertIn("eth_chainId", documentation)
-        self.assertIn("https://api1.mainnet-beta.paxeer.network", documentation)
-        self.assertNotIn("```", documentation)
-        self.assertIn("Public node JSON-RPC uses the root URL", documentation)
+        quick_start = sanitize(sections["Quick start: connect to chain 125"].body)
+        self.assertIn("curl --max-time 10", quick_start)
+        self.assertIn("eth_chainId", quick_start)
+        self.assertIn("https://api1.mainnet-beta.paxeer.network", quick_start)
+        self.assertNotIn("```", quick_start)
+        self.assertIn("Public node JSON-RPC uses the root URL", quick_start)
         self.assertIn("docs/wiki/Quickstart.md", documentation)
 
     def test_tables_keep_paths_and_link_targets(self) -> None:

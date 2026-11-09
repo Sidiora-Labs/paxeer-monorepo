@@ -1,0 +1,48 @@
+[repair.22.39.176]
+acceptance = "22998.1"
+base_revision = "f48747a77ba91b44713e8cbe2cb3b378aff95779"
+previous_attempt_revision = "a09f8e4d1a94f847e305dd3b9ba3eb3569e3d67c"
+decision = "3010, 3011"
+gotcha = "3707, 3708"
+consumer = "sdk/platform/go/cmd/conformance/main.go::runVectors"
+fixture = "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json"
+producer = "rpc/repair_22_31_491.kvx"
+case_ids = ["V2-layerxledger-revert", "V2-pax-transfer-insufficient-funds"]
+previous_count = 1
+corrected_count = 2
+implementation = "Retain the previous attempt's exact count of two V2 cases and verify both through verifyVectorReceipt and matchVectorReceipt. Add the preexecution refusal shape before successful execution, requiring status zero, no decoded revert code, reason or payload, receipt result code one, empty return data, no logs and a decoded non-empty vmError. Preserve the receipted revert and successful execution branches, byte and digest checks, V3 refusal table, other group counts and fixture bytes."
+test = "sdk/platform/go/cmd/conformance/vectors_test.go::TestConformanceCommandPassesVectorFiles"
+
+[shape.receipted_revert]
+producer = "sdk/platform/go/sequencer_receipt_test.go::TestSequencerReceiptV2RevertDecodesReason"
+contract = "A case carrying lxpCode requires status zero and a decoded revert with that exact code."
+
+[shape.preexecution_refusal]
+producer = "sdk/platform/go/sequencer_receipt_test.go::TestSequencerReceiptPreexecutionRefusal"
+contract = "A case without lxpCode requires status zero, no decoded revert code, reason or payload, receipt result code one, empty return data, no logs and a non-empty vmError decoded from its receiptJson. A mismatch names the preexecution refusal shape."
+
+[shape.successful_execution]
+producer = "sdk/platform/go/sequencer_receipt_test.go::TestSequencerReceiptV1CasesVerifyReceipted"
+contract = "Other cases without lxpCode require status one and no revert."
+
+[qualification]
+build_command = "cd sdk/platform/go && go build ./... && go vet ./..."
+verify_command = "cg spec done 22.39.176 -f layerx-merge --root /work/paxeer-monorepo"
+build_reference = "/out/run/gates.jsonl: kind=build, final candidate revision"
+verify_reference = "/out/run/gates.jsonl: kind=verify, final candidate revision"
+evidence = "The hf-build and hf-done ledger entries record the exact candidate revision, executed command, exit code and private log path. Only their recorded results establish qualification; no unexecuted gate or expected receipt outcome is claimed."
+
+[finding.matcher_expectation]
+task = "22.39.176"
+file = "sdk/platform/go/cmd/conformance/main.go"
+symbol = "matchVectorReceipt"
+observed = "At revision a4e7b0ddaa635460443edc004bdf28f538f7d81d, cg spec done 22.39.176 -f layerx-merge --root /work/paxeer-monorepo exited 1 (private log /out/logs/verify-1.log): TestConformanceCommandPassesVectorFiles reached V2-pax-transfer-insufficient-funds and failed with expected successful execution; the same revision passed cd sdk/platform/go && go build ./... && go vet ./... with exit 0 (private log /out/logs/build-1.log)."
+assumption = "The existing matcher assumes success when lxpCode is absent, but the producer's preexecution refusal has failed status and no ledger result code; correcting that expectation requires changing the per-case verification path that this task explicitly requires preserving, so the failure is recorded without a repair or rerun."
+severity = "blocker"
+resolution = "Historical attempt-1 finding; decision 3011 authorizes the explicit preexecution refusal branch in this continuation."
+
+[gotcha.preexecution_refusal_representation]
+file = "sdk/platform/go/sequencer_receipt_test.go"
+symbol = "TestSequencerReceiptPreexecutionRefusal"
+observed = "The SDK producer asserts a non-nil Revert with empty Code and Reason, and verify.go::decodeReceiptRevert always returns a pointer even for empty return data; the task wording instead specifies no revert."
+implementation = "Interpret no revert as no decoded revert code, reason or payload, following the named SDK producer's real type representation; reject any non-empty Revert.Code, Revert.Reason or Revert.ReturnData. An absent Revert also carries no decoded content. No SDK, fixture or test changes are needed."

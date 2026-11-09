@@ -78,6 +78,7 @@ class MakefileWaveSixTest(unittest.TestCase):
                 "make",
                 "-n",
                 "build",
+                "layerx-genesis-build",
                 "test",
                 "core-test-all",
                 "core-qualification-environment",
@@ -104,7 +105,8 @@ class MakefileWaveSixTest(unittest.TestCase):
             with self.subTest(retired=retired):
                 offending = [line for line in result.stdout.splitlines() if retired in line]
                 self.assertEqual(offending, [], "\n".join(offending))
-        self.assertIn("'make build layerx-genesis-build'", result.stdout)
+        self.assertIn("cmd/layerx-genesis/main.c", result.stdout)
+        self.assertIn("-o build/bin/layerx-genesis-build", result.stdout)
         commands = result.stdout.replace("\\\n", " ").splitlines()
         python_suites = (
             "tests/ci/test_real_node_build_ownership.py",

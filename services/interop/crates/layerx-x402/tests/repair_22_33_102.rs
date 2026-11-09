@@ -405,14 +405,29 @@ fn finding_16_buyer_refuses_unbound_construction() {
             .payment_required()
             .unwrap();
         let buyer = buyer(scheme);
-        for payload in [
-            json!({}),
-            json!({"idempotencyKey": "75".repeat(32)}),
-            json!({"idempotencyKey": "00".repeat(32)}),
-            json!({"idempotencyKey": "not-hex"}),
-            json!({"idempotencyKey": 74}),
-            json!({"idempotencyKey": null}),
-            json!([]),
+        for (payload, refusal) in [
+            (json!({}), X402Error::PaymentIdentityMissing),
+            (
+                json!({"idempotencyKey": "75".repeat(32)}),
+                X402Error::PaymentIdentityMismatch,
+            ),
+            (
+                json!({"idempotencyKey": "00".repeat(32)}),
+                X402Error::PaymentIdentityMalformed,
+            ),
+            (
+                json!({"idempotencyKey": "not-hex"}),
+                X402Error::PaymentIdentityMalformed,
+            ),
+            (
+                json!({"idempotencyKey": 74}),
+                X402Error::PaymentIdentityMalformed,
+            ),
+            (
+                json!({"idempotencyKey": null}),
+                X402Error::PaymentIdentityMalformed,
+            ),
+            (json!([]), X402Error::InvalidPayload),
         ] {
             let result = buyer.build_payment(
                 &signal.header,
@@ -420,10 +435,7 @@ fn finding_16_buyer_refuses_unbound_construction() {
                 &mut ConstructionTranscript(payload),
                 &TraceId::mint([1; 16]),
             );
-            assert_eq!(
-                result.map_err(Traced::into_error),
-                Err(X402Error::InvalidPayload)
-            );
+            assert_eq!(result.map_err(Traced::into_error), Err(refusal));
         }
     }
 }

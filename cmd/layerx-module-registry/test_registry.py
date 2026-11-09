@@ -23,7 +23,7 @@ def check_registry(binary):
 
     expected = {'schema_version': 2, 'assets': [{'asset': asset, 'symbol': 'LXT',
                  'currency': 'LXT', 'decimals': 18}], 'modules': [
-                 {'module': 1, 'ordinals': [1, 2, 3, 4, 5, 9, 10, 11]},
+                 {'module': 1, 'ordinals': [1, 2, 3, 4, 5, 10, 11]},
                  {'module': 7, 'ordinals': [1, 2, 3, 5, 6, 8, 10, 11]},
                  {'module': 9, 'ordinals': [1, 2, 3, 4, 5, 6, 7, 9, 10]}]}
     assert json.loads(run(base)) == expected

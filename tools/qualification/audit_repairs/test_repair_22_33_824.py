@@ -213,7 +213,7 @@ def test_doc_readme_current_build_activation_and_repository_paths():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     upgrades = source("node/upgrades.go")

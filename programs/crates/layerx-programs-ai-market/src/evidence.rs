@@ -21,6 +21,7 @@
 //!   than the sealed one, refuses `EVIDENCE_BINDING`.
 #[cfg(target_arch = "wasm32")]
 use crate::codec::Sha256State as Sha256;
+use crate::types::GuestIndex as _;
 use crate::{
     admission::{AdmissionTable, Participant},
     codec::{self as wire, EventCommon, ReportBody, ValidatedEnvelope},
@@ -318,20 +319,25 @@ impl ArtifactContext {
     #[must_use]
     pub fn bytes(&self) -> [u8; 128] {
         let mut out = [0; 128];
-        out[..32].copy_from_slice(self.chain.as_bytes());
-        out[32..64].copy_from_slice(self.program.as_bytes());
-        out[64..96].copy_from_slice(self.market.as_bytes());
-        out[96..].copy_from_slice(self.policy.as_bytes());
+        out.guest_index_mut(..32)
+            .guest_copy_from_slice(self.chain.as_bytes());
+        out.guest_index_mut(32..64)
+            .guest_copy_from_slice(self.program.as_bytes());
+        out.guest_index_mut(64..96)
+            .guest_copy_from_slice(self.market.as_bytes());
+        out.guest_index_mut(96..)
+            .guest_copy_from_slice(self.policy.as_bytes());
         out
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> ArtifactResult<Self> {
-        Ok(Self {
-            chain: r.chain_domain()?,
-            program: r.program_id()?,
-            market: r.market_id()?,
-            policy: r.policy_digest()?,
-        })
+        Ok(
+            crate::codec::read_record!(r, Self {  }; chain = r.chain_domain()?;
+                program: ProgramId,
+                market: MarketId,
+                policy: PolicyDigest
+            ),
+        )
     }
 }
 
@@ -485,27 +491,31 @@ pub fn encode_manifest(value: &ArtifactManifest<'_>, out: &mut [u8]) -> Artifact
         return Err(ArtifactError::Malformed);
     }
     let mut w = Writer::new(out);
-    w.put(MAGIC)?;
-    w.u16(VERSION)?;
-    w.u8(value.kind as u8)?;
-    w.u8(value.privacy as u8)?;
-    w.u32(0)?;
-    w.put(&value.context.bytes())?;
-    w.u64(value.epoch)?;
-    w.put(value.publisher.as_bytes())?;
-    w.put(&value.subject)?;
-    w.u64(value.byte_length)?;
-    w.u32(CHUNK_BYTES)?;
-    w.u32(value.chunk_count)?;
-    w.put(&value.content_root)?;
+    crate::codec::write_fields!(w;
+        put: MAGIC;
+        u16: VERSION;
+        u8: value.kind as u8;
+        u8: value.privacy as u8;
+        u32: 0_u32;
+        put: &value.context.bytes();
+        u64: value.epoch;
+        id32: value.publisher.as_bytes();
+        put: &value.subject;
+        u64: value.byte_length;
+        u32: CHUNK_BYTES;
+        u32: value.chunk_count;
+        put: &value.content_root;
+    )?;
     w.u16(u16::try_from(value.parents.len()).map_err(|_| ArtifactError::Malformed)?)?;
     for parent in &value.parents {
         parent?.write(&mut w)?;
     }
-    w.put(&value.declaration_root)?;
-    w.put(&value.reproduction_root)?;
-    w.put(&value.access_policy_root)?;
-    w.u64(value.not_after_height)?;
+    crate::codec::write_fields!(w;
+        put: &value.declaration_root;
+        put: &value.reproduction_root;
+        put: &value.access_policy_root;
+        u64: value.not_after_height;
+    )?;
     w.put(&[0; 16])?;
     Ok(w.len())
 }
@@ -531,9 +541,9 @@ pub fn decode_manifest(input: &[u8]) -> ArtifactResult<ArtifactManifest<'_>> {
     r.reserved(4)?;
     let context = ArtifactContext::read(&mut r)?;
     let epoch = r.u64()?;
-    let publisher = r.principal_id()?;
-    let subject = r.fixed()?;
-    let byte_length = r.u64()?;
+    let (publisher, subject, byte_length) = crate::codec::read_values!(&mut r;
+        publisher = r.principal_id()?; subject: Fixed32, byte_length: U64,
+    );
     if r.u32()? != CHUNK_BYTES {
         return Err(ArtifactError::Malformed);
     }
@@ -547,6 +557,10 @@ pub fn decode_manifest(input: &[u8]) -> ArtifactResult<ArtifactManifest<'_>> {
         count,
         bytes: r.take(count * PARENT_BYTES)?,
     };
+    let (declaration_root, reproduction_root, access_policy_root, not_after_height) = crate::codec::read_values!(&mut r; seed = publisher;
+        declaration_root: Fixed32, reproduction_root: Fixed32,
+        access_policy_root: Fixed32, not_after_height: U64,
+    );
     let manifest = ArtifactManifest {
         kind,
         privacy,
@@ -558,10 +572,10 @@ pub fn decode_manifest(input: &[u8]) -> ArtifactResult<ArtifactManifest<'_>> {
         chunk_count,
         content_root,
         parents,
-        declaration_root: r.fixed()?,
-        reproduction_root: r.fixed()?,
-        access_policy_root: r.fixed()?,
-        not_after_height: r.u64()?,
+        declaration_root,
+        reproduction_root,
+        access_policy_root,
+        not_after_height,
     };
     r.reserved(16)?;
     r.finish()?;
@@ -597,6 +611,7 @@ pub enum SubjectContext {
 ///
 /// # Errors
 /// Returns `InvalidContext` when the context differs or the epoch/subject does not match `subject`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_manifest_context(
     manifest: &ArtifactManifest<'_>,
     expected: &ArtifactContext,
@@ -675,11 +690,13 @@ pub fn encode_envelope(value: &PublisherEnvelope<'_>, out: &mut [u8]) -> Artifac
     }
     let mut w = Writer::new(out);
     w.put(&length_u32(value.manifest.len())?)?;
-    w.put(value.manifest)?;
-    w.u16(SIGNATURE_SCHEME_ED25519)?;
-    w.u64(value.generation.get())?;
-    w.put(&value.key.0)?;
-    w.put(&value.signature.0)?;
+    crate::codec::write_fields!(w;
+        put: value.manifest;
+        u16: SIGNATURE_SCHEME_ED25519;
+        u64: value.generation.get();
+        put: &value.key.0;
+        put: &value.signature.0;
+    )?;
     Ok(w.len())
 }
 
@@ -725,6 +742,7 @@ pub fn decode_envelope(input: &[u8]) -> ArtifactResult<PublisherEnvelope<'_>> {
 /// Returns `VerificationFailure::Artifact` with the `decode_manifest` refusals or
 /// `SignatureInvalid` when the signature does not verify; `VerificationFailure::Host` when the host
 /// verifier fails (wasm32 only).
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn verify_publisher(
     envelope: &PublisherEnvelope<'_>,
 ) -> Result<VerifiedPublisher, VerificationFailure> {
@@ -852,12 +870,14 @@ pub fn encode_declaration(value: &Declaration<'_>, out: &mut [u8]) -> ArtifactRe
         return Err(ArtifactError::Malformed);
     }
     let mut w = Writer::new(out);
-    w.u16(VERSION)?;
-    w.put(value.publisher.as_bytes())?;
-    w.u8(value.rights as u8)?;
-    w.u16(value.purpose_mask)?;
-    w.u16(value.restriction_mask)?;
-    w.u64(value.valid_until_height)?;
+    crate::codec::write_fields!(w;
+        u16: VERSION;
+        id32: value.publisher.as_bytes();
+        u8: value.rights as u8;
+        u16: value.purpose_mask;
+        u16: value.restriction_mask;
+        u64: value.valid_until_height;
+    )?;
     w.u16(u16::try_from(value.documents.len()).map_err(|_| ArtifactError::Malformed)?)?;
     for document in &value.documents {
         document?.write(&mut w)?;
@@ -895,7 +915,7 @@ pub fn decode_declaration(input: &[u8]) -> ArtifactResult<Declaration<'_>> {
     }
     let documents = Items::Encoded {
         count,
-        bytes: &input[start..r.offset()],
+        bytes: input.guest_index(start..r.offset()),
     };
     let declaration = Declaration {
         publisher,
@@ -980,9 +1000,11 @@ pub fn encode_reproduction(value: &Reproduction) -> ArtifactResult<[u8; REPRODUC
     ] {
         w.put(root)?;
     }
-    w.u64(value.observed_units)?;
-    w.u8(value.status as u8)?;
-    w.put(&value.repeated_result_root)?;
+    crate::codec::write_fields!(w;
+        u64: value.observed_units;
+        u8: value.status as u8;
+        put: &value.repeated_result_root;
+    )?;
     w.put(&[0; 16])?;
     Ok(out)
 }
@@ -999,18 +1021,36 @@ pub fn decode_reproduction(input: &[u8]) -> ArtifactResult<Reproduction> {
     }
     let mut r = Reader::new(input);
     version(&mut r)?;
+    let (
+        task,
+        request_root,
+        model_root,
+        input_root,
+        result_root,
+        evaluator_program_record_root,
+        environment_root,
+        method_root,
+        seed_root,
+        metric_schema_root,
+        observed_units,
+    ) = crate::codec::read_values!(&mut r;
+        task = r.task_id()?;
+        request_root: Fixed32, model_root: Fixed32, input_root: Fixed32, result_root: Fixed32,
+        evaluator_program_record_root: Fixed32, environment_root: Fixed32, method_root: Fixed32,
+        seed_root: Fixed32, metric_schema_root: Fixed32, observed_units: U64,
+    );
     let value = Reproduction {
-        task: r.task_id()?,
-        request_root: r.fixed()?,
-        model_root: r.fixed()?,
-        input_root: r.fixed()?,
-        result_root: r.fixed()?,
-        evaluator_program_record_root: r.fixed()?,
-        environment_root: r.fixed()?,
-        method_root: r.fixed()?,
-        seed_root: r.fixed()?,
-        metric_schema_root: r.fixed()?,
-        observed_units: r.u64()?,
+        task,
+        request_root,
+        model_root,
+        input_root,
+        result_root,
+        evaluator_program_record_root,
+        environment_root,
+        method_root,
+        seed_root,
+        metric_schema_root,
+        observed_units,
         status: ReproductionStatus::decode(r.u8()?)?,
         repeated_result_root: r.fixed()?,
     };
@@ -1048,6 +1088,7 @@ pub fn chunk_count(byte_length: u64) -> ArtifactResult<u32> {
 /// # Errors
 /// Returns `Malformed` when `index` is not below `count` or the chunk offset is out of range;
 /// `LengthMismatch` when the final chunk would be empty or longer than `CHUNK_BYTES`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn expected_chunk_length(byte_length: u64, count: u32, index: u32) -> ArtifactResult<u32> {
     if index >= count {
         return Err(ArtifactError::Malformed);
@@ -1095,6 +1136,7 @@ pub fn content_root(byte_length: u64, count: u32, tree_root: &[u8; 32]) -> [u8; 
     )
 }
 /// Reduces leaves in place; an unpaired final node is paired with itself.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn tree_root(leaves: &mut [[u8; 32]]) -> [u8; 32] {
     let mut width = leaves.len();
     if width == 0 {
@@ -1103,17 +1145,17 @@ pub fn tree_root(leaves: &mut [[u8; 32]]) -> [u8; 32] {
     while width > 1 {
         let next = width.div_ceil(2);
         for i in 0..next {
-            let left = leaves[2 * i];
+            let left = *leaves.guest_index(2 * i);
             let right = if 2 * i + 1 < width {
-                leaves[2 * i + 1]
+                *leaves.guest_index(2 * i + 1)
             } else {
                 left
             };
-            leaves[i] = node_root(&left, &right);
+            *leaves.guest_index_mut(i) = node_root(&left, &right);
         }
         width = next;
     }
-    leaves[0]
+    *leaves.guest_index(0)
 }
 /// Number of proof siblings implied by successive ceil(n/2) levels.
 #[must_use]
@@ -1131,6 +1173,7 @@ pub fn proof_sibling_count(count: u32) -> usize {
 /// # Errors
 /// Returns `Malformed` when `object` exceeds `MAX_OBJECT_BYTES`; `CapacityUnavailable` when
 /// `scratch` holds fewer leaves than chunks.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn object_content_root(object: &[u8], scratch: &mut [[u8; 32]]) -> ArtifactResult<[u8; 32]> {
     let byte_length = u64::try_from(object.len()).map_err(|_| ArtifactError::Malformed)?;
     let count = chunk_count(byte_length)?;
@@ -1138,7 +1181,7 @@ pub fn object_content_root(object: &[u8], scratch: &mut [[u8; 32]]) -> ArtifactR
         .get_mut(..count as usize)
         .ok_or(ArtifactError::CapacityUnavailable)?;
     for (index, chunk) in object.chunks(CHUNK_BYTES as usize).enumerate() {
-        leaves[index] = chunk_leaf(
+        *leaves.guest_index_mut(index) = chunk_leaf(
             u32::try_from(index).map_err(|_| ArtifactError::Malformed)?,
             chunk,
         )?;
@@ -1160,6 +1203,7 @@ impl<'s> ContentAssembler<'s> {
     /// # Errors
     /// Propagates `ArtifactManifest::validate` refusals; returns `CapacityUnavailable` when
     /// `scratch` holds fewer leaves than chunks.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn new(
         manifest: &ArtifactManifest<'_>,
         scratch: &'s mut [[u8; 32]],
@@ -1182,13 +1226,14 @@ impl<'s> ContentAssembler<'s> {
     /// Propagates `expected_chunk_length` refusals; returns `LengthMismatch` when the chunk length
     /// differs, `Malformed` when it exceeds `CHUNK_BYTES`, `IntegrityConflict` when a different
     /// chunk was already delivered at `index`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn deliver(&mut self, index: u32, chunk: &[u8]) -> ArtifactResult<bool> {
         let expected = expected_chunk_length(self.byte_length, self.count, index)?;
         if chunk.len() != expected as usize {
             return Err(ArtifactError::LengthMismatch);
         }
         let leaf = chunk_leaf(index, chunk)?;
-        let slot = &mut self.leaves[index as usize];
+        let slot = self.leaves.guest_index_mut(index as usize);
         if *slot == [0; 32] {
             *slot = leaf;
             Ok(true)
@@ -1240,9 +1285,11 @@ pub fn encode_chunk_proof(value: &ChunkProof<'_>, out: &mut [u8]) -> ArtifactRes
         return Err(ArtifactError::Malformed);
     }
     let mut w = Writer::new(out);
-    w.u16(VERSION)?;
-    w.put(&value.manifest_root.bytes())?;
-    w.u32(value.index)?;
+    crate::codec::write_fields!(w;
+        u16: VERSION;
+        put: &value.manifest_root.bytes();
+        u32: value.index;
+    )?;
     w.put(&length_u32(value.chunk.len())?)?;
     w.put(value.chunk)?;
     w.u8(u8::try_from(value.siblings.len()).map_err(|_| ArtifactError::Malformed)?)?;
@@ -1291,6 +1338,7 @@ pub fn decode_chunk_proof(input: &[u8]) -> ArtifactResult<ChunkProof<'_>> {
 /// Propagates `decode_manifest` and `expected_chunk_length` refusals; returns `RootMismatch` when
 /// the manifest root or recomputed content root differs, `LengthMismatch` when the chunk length is
 /// wrong, `Malformed` for a wrong sibling count or a self-paired sibling that is not the node.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn verify_chunk_proof(proof: &ChunkProof<'_>, manifest_bytes: &[u8]) -> ArtifactResult<()> {
     let manifest = decode_manifest(manifest_bytes)?;
     if manifest_root(manifest_bytes)? != proof.manifest_root {
@@ -1342,22 +1390,27 @@ pub struct EvidenceTask {
 impl<'a> Item<'a> for EvidenceTask {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self> {
+        let (task, request_root, result_root, execution_root) = crate::codec::read_values!(r;
+            task = r.task_id()?; request_root: Fixed32, result_root: Fixed32, execution_root: Fixed32,
+        );
         Ok(Self {
-            task: r.task_id()?,
-            request_root: r.fixed()?,
-            result_root: r.fixed()?,
-            execution_root: r.fixed()?,
+            task,
+            request_root,
+            result_root,
+            execution_root,
             status: TerminalStatus::decode(r.u8()?)?,
             reproduction_root: r.fixed()?,
         })
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()> {
-        w.put(self.task.as_bytes())?;
-        w.put(&self.request_root)?;
-        w.put(&self.result_root)?;
-        w.put(&self.execution_root)?;
-        w.u8(self.status as u8)?;
+        crate::codec::write_fields!(w;
+            id32: self.task.as_bytes();
+            put: &self.request_root;
+            put: &self.result_root;
+            put: &self.execution_root;
+            u8: self.status as u8;
+        )?;
         Ok(w.put(&self.reproduction_root)?)
     }
 }
@@ -1377,13 +1430,18 @@ pub struct WorkerGroup<'a> {
 impl<'a> Item<'a> for WorkerGroup<'a> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>) -> ArtifactResult<Self> {
-        let worker = r.worker_id()?;
-        let generation = r.version()?;
-        let model_root = r.fixed()?;
-        let deployment_root = r.fixed()?;
-        let score = r.score()?;
-        let reason_code = r.u16()?;
-        let reason_artifact_root = r.fixed()?;
+        let (
+            worker,
+            generation,
+            model_root,
+            deployment_root,
+            score,
+            reason_code,
+            reason_artifact_root,
+        ) = crate::codec::read_values!(r; worker = r.worker_id()?;
+            generation: Version, model_root: Fixed32, deployment_root: Fixed32,
+            score: Score, reason_code: U16, reason_artifact_root: Fixed32,
+        );
         let count = usize::from(r.u16()?);
         if count > MAX_TASKS {
             return Err(ArtifactError::Malformed);
@@ -1408,13 +1466,15 @@ impl<'a> Item<'a> for WorkerGroup<'a> {
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> ArtifactResult<()> {
-        w.put(self.worker.as_bytes())?;
-        w.u64(self.generation.get())?;
-        w.put(&self.model_root)?;
-        w.put(&self.deployment_root)?;
-        w.u32(self.score.get())?;
-        w.u16(self.reason_code)?;
-        w.put(&self.reason_artifact_root)?;
+        crate::codec::write_fields!(w;
+            id32: self.worker.as_bytes();
+            u64: self.generation.get();
+            put: &self.model_root;
+            put: &self.deployment_root;
+            u32: self.score.get();
+            u16: self.reason_code;
+            put: &self.reason_artifact_root;
+        )?;
         w.u16(u16::try_from(self.tasks.len()).map_err(|_| ArtifactError::Malformed)?)?;
         for task in &self.tasks {
             task?.write(w)?;
@@ -1488,10 +1548,10 @@ impl EvidenceManifest<'_> {
                     return Err(ArtifactError::Malformed);
                 }
                 previous_task = Some(task.task);
-                if total >= MAX_TASKS || seen[..total].contains(&task.task.bytes()) {
+                if total >= MAX_TASKS || seen.guest_index(..total).contains(&task.task.bytes()) {
                     return Err(ArtifactError::Malformed);
                 }
-                seen[total] = task.task.bytes();
+                *seen.guest_index_mut(total) = task.task.bytes();
                 total += 1;
                 nonzero(&task.request_root)?;
                 let missing = task.result_root == [0; 32] || task.execution_root == [0; 32];
@@ -1544,12 +1604,14 @@ pub fn encode_evidence_manifest(
     let mut w = Writer::new(out);
     w.u16(VERSION)?;
     w.put(&encode_binding(&value.binding)?)?;
-    w.put(value.task_policy.as_bytes())?;
-    w.put(value.task_set.as_bytes())?;
-    w.put(value.rubric.as_bytes())?;
-    w.put(&value.dataset_root)?;
-    w.put(&value.benchmark_root)?;
-    w.u8(value.mode as u8)?;
+    crate::codec::write_fields!(w;
+        id32: value.task_policy.as_bytes();
+        id32: value.task_set.as_bytes();
+        id32: value.rubric.as_bytes();
+        put: &value.dataset_root;
+        put: &value.benchmark_root;
+        u8: value.mode as u8;
+    )?;
     w.u16(u16::try_from(value.groups.len()).map_err(|_| ArtifactError::Malformed)?)?;
     for group in &value.groups {
         group?.write(&mut w)?;
@@ -1575,11 +1637,9 @@ pub fn decode_evidence_manifest<'a>(
     let mut r = Reader::new(input);
     version(&mut r)?;
     let binding = decode_binding(r.take(BINDING_BYTES)?)?;
-    let task_policy = r.policy_digest()?;
-    let task_set = r.digest32()?;
-    let rubric = r.rubric_digest()?;
-    let dataset_root = r.fixed()?;
-    let benchmark_root = r.fixed()?;
+    let (task_policy, task_set, rubric, dataset_root, benchmark_root) = crate::codec::read_values!(&mut r; task_policy = r.policy_digest()?;
+        task_set: Digest32, rubric: RubricDigest, dataset_root: Fixed32, benchmark_root: Fixed32,
+    );
     let mode = AssessmentMode::decode(r.u8()?)?;
     let count = usize::from(r.u16()?);
     if count == 0 || count > MAX_WORKERS {
@@ -1597,7 +1657,7 @@ pub fn decode_evidence_manifest<'a>(
     }
     let groups = Items::Encoded {
         count,
-        bytes: &input[start..r.offset()],
+        bytes: input.guest_index(start..r.offset()),
     };
     r.reserved(16)?;
     r.finish()?;
@@ -1665,15 +1725,17 @@ impl EvidenceSeal {
     pub fn encode(&self) -> CodecResult<[u8; SEAL_RECORD_BYTES]> {
         let mut out = [0; SEAL_RECORD_BYTES];
         let mut w = Writer::new(&mut out);
-        w.put(self.evaluator.as_bytes())?;
-        w.u64(self.grant.get())?;
-        w.u64(self.key_version.get())?;
-        w.put(self.root.as_bytes())?;
-        w.put(self.task_policy.as_bytes())?;
-        w.put(self.task_set.as_bytes())?;
-        w.put(self.rubric.as_bytes())?;
-        w.u8(self.mode as u8)?;
-        w.u64(self.height)?;
+        crate::codec::write_fields!(w;
+            id32: self.evaluator.as_bytes();
+            u64: self.grant.get();
+            u64: self.key_version.get();
+            id32: self.root.as_bytes();
+            id32: self.task_policy.as_bytes();
+            id32: self.task_set.as_bytes();
+            id32: self.rubric.as_bytes();
+            u8: self.mode as u8;
+            u64: self.height;
+        )?;
         if w.len() != SEAL_RECORD_BYTES {
             return Err(NON_CANONICAL);
         }
@@ -1687,14 +1749,18 @@ impl EvidenceSeal {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
+        let (evaluator, grant, key_version, root, task_policy, task_set, rubric) = crate::codec::read_values!(&mut r; evaluator = r.evaluator_id()?;
+            grant: Version, key_version: Version, root: EvidenceRoot,
+            task_policy: PolicyDigest, task_set: Digest32, rubric: RubricDigest,
+        );
         let seal = Self {
-            evaluator: r.evaluator_id()?,
-            grant: r.version()?,
-            key_version: r.version()?,
-            root: r.evidence_root()?,
-            task_policy: r.policy_digest()?,
-            task_set: r.digest32()?,
-            rubric: r.rubric_digest()?,
+            evaluator,
+            grant,
+            key_version,
+            root,
+            task_policy,
+            task_set,
+            rubric,
             mode: AssessmentMode::decode(r.u8()?).map_err(|_| NON_CANONICAL)?,
             height: r.u64()?,
         };
@@ -1761,12 +1827,17 @@ impl<'a> SealRegion<'a> {
         let records = r.take(count * SEAL_RECORD_BYTES)?;
         let rest = feature_bytes.get(r.offset()..).ok_or(NON_CANONICAL)?;
         let lap_len = crate::laps::region_length(rest)?;
-        let (laps, rest) = rest.split_at(lap_len);
+        let (laps, rest) = rest.guest_split_at(lap_len);
         if count == 0 && rest.is_empty() && laps.is_empty() {
             return Err(NON_CANONICAL);
         }
         let mut previous = None;
-        for record in records.chunks_exact(SEAL_RECORD_BYTES) {
+        for record in records
+            .as_chunks::<{ SEAL_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
+        {
             let evaluator = EvidenceSeal::decode(record)?.evaluator;
             if previous.is_some_and(|p| p >= evaluator) {
                 return Err(NON_CANONICAL);
@@ -1785,9 +1856,11 @@ impl<'a> SealRegion<'a> {
     }
     pub(crate) fn write_lap_prefix(&self, out: &mut [u8]) -> CodecResult<usize> {
         let mut w = Writer::new(out);
-        w.u64(self.epoch)?;
-        w.u8((self.records.len() / SEAL_RECORD_BYTES) as u8)?;
-        w.put(self.records)?;
+        crate::codec::write_fields!(w;
+            u64: self.epoch;
+            u8: (self.records.len() / SEAL_RECORD_BYTES) as u8;
+            put: self.records;
+        )?;
         Ok(w.len())
     }
     const fn of(&self, epoch: u64) -> &'a [u8] {
@@ -1800,7 +1873,10 @@ impl<'a> SealRegion<'a> {
     /// Seals of `epoch`; seals of any other epoch read as absent.
     pub fn seals(&self, epoch: u64) -> impl Iterator<Item = CodecResult<EvidenceSeal>> + 'a {
         self.of(epoch)
-            .chunks_exact(SEAL_RECORD_BYTES)
+            .as_chunks::<{ SEAL_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
             .map(EvidenceSeal::decode)
     }
     /// The seal of `evaluator` in `epoch`.
@@ -1830,7 +1906,13 @@ impl<'a> SealRegion<'a> {
             return Err(CAPACITY);
         }
         let mut at = current.len();
-        for (index, record) in current.chunks_exact(SEAL_RECORD_BYTES).enumerate() {
+        for (index, record) in current
+            .as_chunks::<{ SEAL_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
+            .enumerate()
+        {
             if EvidenceSeal::decode(record)?.evaluator > seal.evaluator {
                 at = index * SEAL_RECORD_BYTES;
                 break;
@@ -1839,11 +1921,13 @@ impl<'a> SealRegion<'a> {
         let mut w = Writer::new(out);
         w.u64(epoch)?;
         w.u8(u8::try_from(count + 1).map_err(|_| ARITHMETIC)?)?;
-        w.put(&current[..at])?;
+        w.put(current.guest_index(..at))?;
         w.put(&seal.encode()?)?;
-        w.put(&current[at..])?;
-        w.put(self.laps)?;
-        w.put(self.rest)?;
+        crate::codec::write_fields!(w;
+            put: &(*(current).guest_index(at..));
+            put: self.laps;
+            put: self.rest;
+        )?;
         Ok(w.len())
     }
 }
@@ -1851,7 +1935,11 @@ impl<'a> SealRegion<'a> {
 /// Committed F01 section whose header revision equals the shared revision.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
@@ -1866,8 +1954,11 @@ fn frozen_binding<'a>(
     section: &PolicySection<'_>,
     known: Option<RewardState<'a>>,
 ) -> CodecResult<(FrozenBinding, RewardState<'a>)> {
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
+        *state
+            .feature_sections
+            .guest_index(Section::ReputationAdmission.index()),
+    )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
     let rewards = settlement_rewards(state, known)?;
     let row = match rewards.row(epoch) {
@@ -1902,6 +1993,7 @@ pub fn sealed_evidence(
 }
 
 /// [`sealed_evidence`] reusing the reward state `known` the caller already validated.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn sealed_evidence_with<'a>(
     state: &SharedState<'a>,
     epoch: u64,
@@ -1912,6 +2004,16 @@ pub(crate) fn sealed_evidence_with<'a>(
     if frozen.epoch != epoch {
         return Err(WRONG_EPOCH);
     }
+    sealed_evidence_for_binding(state, frozen, evaluator)
+}
+
+/// Reads the canonical seal using the caller's validated opened-epoch binding.
+pub(crate) fn sealed_evidence_for_binding(
+    state: &SharedState<'_>,
+    frozen: FrozenBinding,
+    evaluator: EvaluatorId,
+) -> CodecResult<Presence<RegisteredEvidence>> {
+    let epoch = frozen.epoch;
     let region = SealRegion::decode(state.control.feature_bytes)?;
     if region.epoch > epoch && !region.records.is_empty() {
         return Err(NON_CANONICAL);
@@ -1948,6 +2050,7 @@ struct SealPayload {
     mode: AssessmentMode,
 }
 impl SealPayload {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn parse(payload: &[u8]) -> CodecResult<Self> {
         if payload.len() != SEAL_PAYLOAD_BYTES {
             return Err(NON_CANONICAL);
@@ -2009,7 +2112,11 @@ impl Call<'_> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn authenticate(&self) -> CodecResult<FrozenEvaluator> {
         let e = &self.envelope.envelope;
-        let identity = self.opened.state.feature_sections[Section::IdentityRoster.index()];
+        let identity = *self
+            .opened
+            .state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index());
         let region = evaluator_region(identity)?;
         let snapshot = region.snapshot().ok_or(F03_NO_GRANT)?;
         if snapshot.epoch != self.opened.frozen.epoch {
@@ -2043,7 +2150,11 @@ impl Call<'_> {
             &region,
             &frozen,
             self.opened.frozen.epoch,
-            self.opened.state.feature_sections[Section::ReputationAdmission.index()],
+            *self
+                .opened
+                .state
+                .feature_sections
+                .guest_index(Section::ReputationAdmission.index()),
         )?;
         Ok(frozen)
     }
@@ -2100,6 +2211,18 @@ pub(crate) fn check_frozen_evaluator(
     epoch: u64,
     membership: &[u8],
 ) -> CodecResult<()> {
+    check_frozen_grant(region, frozen, epoch)?;
+    let membership = crate::reputation_transition::joint_table(membership)?;
+    let admission = AdmissionTable::decode(membership)?;
+    check_frozen_membership(frozen, &admission)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn check_frozen_grant(
+    region: &crate::evaluators::authority::EvaluatorRegion,
+    frozen: &FrozenEvaluator,
+    epoch: u64,
+) -> CodecResult<()> {
     let evaluator = frozen.entry.evaluator;
     let live = region.get(evaluator).ok_or(NON_CANONICAL)?;
     if live.grant.status == GrantStatus::Revoked || region.excluded(evaluator) {
@@ -2120,7 +2243,14 @@ pub(crate) fn check_frozen_evaluator(
     if live.grant.signing_key != frozen.entry.public_key {
         return Err(KEY_MISMATCH);
     }
-    let admission = AdmissionTable::decode(membership)?;
+    Ok(())
+}
+
+fn check_frozen_membership(
+    frozen: &FrozenEvaluator,
+    admission: &AdmissionTable,
+) -> CodecResult<()> {
+    let evaluator = frozen.entry.evaluator;
     match admission.get(Participant::Evaluator(evaluator)) {
         Some(meta) if meta.revoked() => Err(REVOKED),
         Some(meta) if meta.admitted() && meta.owner == frozen.entry.owner => Ok(()),
@@ -2128,7 +2258,19 @@ pub(crate) fn check_frozen_evaluator(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn check_frozen_evaluator_in_table(
+    region: &crate::evaluators::authority::EvaluatorRegion,
+    frozen: &FrozenEvaluator,
+    epoch: u64,
+    admission: &AdmissionTable,
+) -> CodecResult<()> {
+    check_frozen_grant(region, frozen, epoch)?;
+    check_frozen_membership(frozen, admission)
+}
+
 /// Commits `seal` at the next revision and evaluator sequence and emits `EvidenceSealed`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn commit(
     call: &Call<'_>,
     seal: &EvidenceSeal,
@@ -2203,6 +2345,7 @@ fn commit(
 /// `F09_EVIDENCE_SEAL_CONFLICT` for a different claim of an already sealed evaluator;
 /// `CAPACITY` and `F01_CAPACITY_UNAVAILABLE`. On any error `current` is unchanged and the
 /// outputs must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -2360,6 +2503,7 @@ fn proof_integrity(proof: &EvidenceProof<'_>) -> ArtifactResult<()> {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn proof_context(proof: &EvidenceProof<'_>, manifest: &EvidenceManifest<'_>) -> ArtifactResult<()> {
     let seal = &proof.seal;
     let claimed = EvaluatorBinding {
@@ -2383,6 +2527,7 @@ fn proof_context(proof: &EvidenceProof<'_>, manifest: &EvidenceManifest<'_>) -> 
 
 /// Report score pairs equal the manifest worker groups and every manifest task matches its F02
 /// record exactly; the F02 records name no other task.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn proof_records(proof: &EvidenceProof<'_>, manifest: &EvidenceManifest<'_>) -> ArtifactResult<()> {
     let mut scores = proof.report.scores.entries();
     let mut tasks = 0usize;
@@ -2423,6 +2568,7 @@ fn proof_binding(proof: &EvidenceProof<'_>) -> ArtifactResult<()> {
 }
 
 /// Every publisher envelope verifies and attributes a root one proven task binds.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn proof_signatures(proof: &EvidenceProof<'_>) -> Conclusion {
     if proof.publishers.is_empty() {
         return Conclusion::Unproven;
@@ -2462,14 +2608,15 @@ pub fn verify_evidence_proof(proof: &EvidenceProof<'_>) -> Conclusions {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn require_sealed_artifact_chunk_root(
     state: &SharedState<'_>,
     epoch: u64,
     manifest_bytes: &[u8],
     batch: &crate::laps::ReceiptBatch,
 ) -> CodecResult<Digest32> {
-    let (_, admission) =
-        crate::reputation_transition::split_joint(state.section(Section::ReputationAdmission)?)?;
+    let admission =
+        crate::reputation_transition::joint_table(state.section(Section::ReputationAdmission)?)?;
     let view = state.replace_section(Section::ReputationAdmission, admission)?;
     let state = &view;
     let unsealed = crate::errors::F11_BATCH_UNSEALED;

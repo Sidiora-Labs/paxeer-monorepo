@@ -205,7 +205,7 @@ def test_frontend_health_base_path_matches_built_route_and_response():
         "node", "server.js"
     ]
     assert frontend["image"] == (
-        "ghcr.io/sidiora-labs/paxeer-x-explorer-frontend:${EXPLORER_IMAGE_TAG:-latest}"
+        "ghcr.io/sidiora-labs/paxeer-x-explorer-frontend:${EXPLORER_IMAGE_TAG:?Set EXPLORER_IMAGE_TAG to a published explorer tag}"
     )
 
 

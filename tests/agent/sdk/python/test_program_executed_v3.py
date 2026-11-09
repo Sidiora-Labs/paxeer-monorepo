@@ -29,6 +29,12 @@ class ProgramExecutedV3Test(unittest.TestCase):
         )
         parsed = _execution(document, "executed")
         self.assertEqual(parsed["module_version"], 4)
+        self.assertEqual(parsed["authority"], document["authority"])
+        for field in document["authority"]:
+            changed = deepcopy(document)
+            del changed["authority"][field]
+            with self.subTest(missing_authority=field), self.assertRaises(ValueError):
+                _execution(changed, "executed")
         for field in ("module_version", "guest_abi_version", "result_code"):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 _execution({**document, field: True}, "executed")

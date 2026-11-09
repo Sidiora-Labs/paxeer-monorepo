@@ -1,3 +1,6 @@
+#[path = "support/native_replay.rs"]
+mod native_replay;
+
 use ed25519_dalek::SigningKey;
 use layerx_programs_ai_market::{
     codec::{self, derive_market, encode_envelope, Envelope, ResultStatus},
@@ -126,9 +129,30 @@ fn manifest() -> Checked<Manifest> {
     let [wasm, binary, chain] = lines[..] else {
         return Err(harness(format!("manifest has {} lines", lines.len())));
     };
+    let resolve = |value: &str| -> Checked<String> {
+        let artifact = PathBuf::from(value);
+        let artifact = if artifact.is_absolute() {
+            artifact
+        } else {
+            path.parent()
+                .ok_or_else(|| harness("manifest directory"))?
+                .join(artifact)
+        };
+        let resolved = artifact.canonicalize().map_err(|error| {
+            harness(format!(
+                "{}: {error}; manifest {}",
+                artifact.display(),
+                path.display()
+            ))
+        })?;
+        if !resolved.is_file() {
+            return Err(harness(format!("{} is not a file", resolved.display())));
+        }
+        Ok(resolved.to_string_lossy().into_owned())
+    };
     Ok(Manifest {
-        wasm: wasm.to_owned(),
-        harness: binary.to_owned(),
+        wasm: resolve(wasm)?,
+        harness: resolve(binary)?,
         chain: fixed(&unhex(chain)?)?,
     })
 }
@@ -214,13 +238,14 @@ struct Line {
     balance_before: u64,
     balance_after: u64,
     fee: u64,
+    occupancy_fee: u64,
     rewards_balance: u64,
     events: Vec<NativeEvent>,
 }
 
 fn parse_line(text: &str) -> Checked<Line> {
     let t: Vec<&str> = text.split_whitespace().collect();
-    if t.len() != 18 || t[0] != "call" {
+    if t.len() != 19 || t[0] != "call" {
         return Err(harness(format!("unexpected line {text}")));
     }
     Ok(Line {
@@ -238,6 +263,7 @@ fn parse_line(text: &str) -> Checked<Line> {
         balance_before: number(t[13])?,
         balance_after: number(t[14])?,
         fee: number(t[15])?,
+        occupancy_fee: number(t[18])?,
         rewards_balance: number(t[16])?,
         events: native_events(&unhex(t[17])?)?,
     })
@@ -249,15 +275,37 @@ enum Terminal {
 }
 
 fn terminal(line: &Line, program: ProgramId) -> Checked<Terminal> {
-    let decoded = decode_terminal_payload(line.kind, line.abi, &line.terminal)
+    let detail = if line
+        .terminal
+        .starts_with(layerx_programs_runtime::terminal::PRE_RUNTIME_FAILURE)
+    {
+        line.terminal.as_slice()
+    } else {
+        layerx_wire::receipt::decode_applied_terminal(&line.terminal)
+            .map_err(|error| harness(format!("applied terminal {error:?}")))?
+            .0
+    };
+    let decoded = decode_terminal_payload(line.kind, line.abi, detail)
         .map_err(|e| harness(format!("terminal {e:?}")))?;
+    if let TerminalDetail::Failure(layerx_programs_runtime::terminal::FailureTerminal::Program(
+        failure,
+    )) = &decoded.detail
+    {
+        assert_eq!(failure.program().bytes(), program.bytes());
+        assert_eq!(failure.class(), RefusalClass::Rejected);
+        assert_eq!(line.result_code, PROGRAM_REFUSED);
+        return Ok(Terminal::Rejected(failure.reason().bytes().to_vec()));
+    }
     let TerminalDetail::Execution(ExecutionTerminal::CandidateV4 {
         program: producer,
         outcome,
         ..
     }) = decoded.detail
     else {
-        return Err(harness("terminal is not a CandidateV4 execution"));
+        return Err(harness(format!(
+            "terminal is not a CandidateV4 execution: {:?}",
+            decoded.detail
+        )));
     };
     assert_eq!(producer, program.bytes());
     match outcome {
@@ -303,7 +351,9 @@ impl Native {
             .arg(&m.wasm)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .spawn()?;
+            .stderr(Stdio::inherit())
+            .spawn()
+            .map_err(|error| harness(format!("{}: {error}", m.harness)))?;
         let input = child.stdin.take().ok_or_else(|| harness("stdin"))?;
         let stdout = child.stdout.take().ok_or_else(|| harness("stdout"))?;
         let mut output = BufReader::new(stdout);
@@ -311,7 +361,16 @@ impl Native {
         output.read_line(&mut ready)?;
         let t: Vec<&str> = ready.split_whitespace().collect();
         if t.len() != 9 || t[0] != "ready" {
-            return Err(harness(format!("bring-up line {ready}")));
+            drop(input);
+            let failure = child.wait_with_output()?;
+            return Err(harness(format!(
+                "bring-up {} with bundle {} ({} bytes): {}; stdout {ready:?}; stderr {}",
+                m.harness,
+                m.wasm,
+                std::fs::metadata(&m.wasm)?.len(),
+                failure.status,
+                String::from_utf8_lossy(&failure.stderr),
+            )));
         }
         let principal =
             |i: usize| -> Checked<PrincipalId> { Ok(PrincipalId::new(fixed(&unhex(t[i])?)?)?) };
@@ -437,14 +496,41 @@ impl Native {
 
     fn submit(&mut self, actor: usize, height: u64, envelope: &[u8]) -> Checked<Vec<u8>> {
         let expected = self.expected(actor, height, envelope)?;
+        if self.state.is_none() {
+            native_replay::assert_native_call(
+                &CallContext {
+                    chain: self.chain,
+                    program: self.program,
+                    principal: self.principals[actor],
+                    height,
+                },
+                None,
+                envelope,
+            );
+        }
         let input = self.input.as_mut().ok_or_else(|| harness("closed"))?;
+        native_replay::prepare_native_call(input, &mut self.output, height)?;
         writeln!(input, "{actor} {height} {}", hex(envelope))?;
         input.flush()?;
         let mut text = String::new();
         if self.output.read_line(&mut text)? == 0 {
             return Err(harness("native harness stopped"));
         }
-        let line = parse_line(&text)?;
+        let mut line = parse_line(&text)?;
+        line.occupancy_fee = native_replay::occupancy_fee(
+            line.kind,
+            line.abi,
+            &line.terminal,
+            self.principals[actor].bytes(),
+            line.occupancy_fee,
+        )?;
+        assert_eq!(
+            line.status, 0,
+            "native execution of {:#06x} at height {height}, actor {actor}, refused {}, application result {}, kernel status {}, receipt.result_code {}",
+            codec::decode_envelope(envelope)?.envelope.operation.selector(),
+            expected.refused,
+            hex(&expected.result), line.status, line.result_code,
+        );
         self.check_common(&line);
         let terminal = terminal(&line, self.program)?;
         match (&expected.applied, expected.refused, terminal) {
@@ -454,7 +540,7 @@ impl Native {
                 assert_eq!(&line.state, state);
                 assert!(line.state.len() <= MAX_STATE_BYTES);
                 assert_eq!(line.application_blobs, 2);
-                assert!(line.witness > 0);
+                assert_eq!(line.witness, 0);
                 self.check_event(&line, actor, *operation, event)?;
                 self.state = Some(line.state);
             }
@@ -479,7 +565,10 @@ impl Native {
         assert!(line.blobs_after - line.blobs_before <= self.staged_cap);
         assert!(line.blobs_after <= self.blob_cap);
         assert!(line.kv_after <= self.kv_cap);
-        assert_eq!(line.balance_after, line.balance_before - line.fee);
+        assert_eq!(
+            line.balance_after,
+            line.balance_before - line.fee - line.occupancy_fee
+        );
         let rewards = *self.rewards_balance.get_or_insert(line.rewards_balance);
         assert_eq!(line.rewards_balance, rewards);
     }

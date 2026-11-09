@@ -25,7 +25,7 @@ RECORDING = Path(__file__).with_name("mcp_recovery_transcript.json")
 sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 
-TRANSCRIPT_SHA256 = "5b366b9ce6190ee46c6b8ab5808312a41f794397185c531b88b7dd4669c9546a"
+TRANSCRIPT_SHA256 = "6fdc46bf3275c6ef2c7cf9d24010bea6e925e3e8190ffa8470ed2135e916fb67"
 # Public recording coordinates, never operational credentials.
 CREDENTIAL = {
     "tenant": "recorded-mcp-tenant",

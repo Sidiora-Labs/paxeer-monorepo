@@ -109,7 +109,14 @@ def test_f036_current_paxd_recipes_and_actual_container_checks():
     assert "containers-check: docker\\/.* check ok" in text
     assert "n++" in text and '"$tests"' in text
     assert "chmod 700" in text and 'exit "$code"' in text
-    assert "docker/platform-node/Dockerfile" in checker.split("# Retired service name:", 1)[1]
+    assert "platform-node" not in {row[0] for row in recipes}
+    assert "docker/platform-node/Dockerfile" not in {row[1] for row in recipes}
+    refusal = subprocess.run(
+        ["bash", "tools/containers/check.sh", "platform-node"],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    assert refusal.returncode == 2, refusal.stdout + refusal.stderr
+    assert refusal.stderr == "containers-check: unknown service platform-node\n"
 
 
 def assert_rust_corpus(selector, expected):

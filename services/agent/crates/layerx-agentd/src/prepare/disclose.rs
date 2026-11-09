@@ -1,7 +1,8 @@
 //! Disclosure binding for the exact type-2 transaction and its sender.
 
-use layerx_crypto::disclosure::{call::bind_call, Disclosure, DisclosureError};
+use layerx_crypto::disclosure::DisclosureError;
 use layerx_crypto::evm_transaction::{decode_unsigned, Eip1559Call, EvmTransactionError};
+use layerx_crypto::payments::{bind_call, Disclosure};
 
 use super::evm::{CallBindingError, Prepared};
 

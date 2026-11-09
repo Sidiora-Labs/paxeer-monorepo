@@ -58,6 +58,10 @@ fn ledger_payment_call_wraps_the_send_payload_in_send_bytes(
     assert_eq!(disclosed.disclosure, bind_call(call, options.from)?);
     assert_eq!(disclosed.disclosure.actor, options.from);
     assert_eq!(disclosed.disclosure.signing_digest()?, call.signing_hash());
+    assert_eq!(disclosed.disclosure.reencode()?, call.encode_unsigned());
+    disclosed
+        .disclosure
+        .validate_canonical(&call.encode_unsigned())?;
     assert_eq!(
         disclosed.disclosure.construct_method()?,
         Some(ConstructMethod::LedgerSend { payload })

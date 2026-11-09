@@ -1,4 +1,9 @@
-import { readFileSync } from 'node:fs';
+import {
+  authenticatedReceipt,
+  committedReceipt,
+  committedVector,
+  receiptWireKeys,
+} from './support/receipt-recordings.js';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { expect, expectTypeOf, test } from 'vitest';
@@ -38,27 +43,34 @@ async function kernel_client_reads_account_and_balances_through_px_methods(): Pr
     for await (const chunk of req) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     requests.push({ method: body.method, params: body.params });
-    const result = body.method === 'px_getAccount'
-      ? { ...account, paxeer: { ...account.paxeer, height: 16 } }
-      : { ...balances, height: 16 };
-    const response = error !== null
-      ? { error }
-      : body.method === 'px_getAccount' || body.method === 'px_getBalances'
-        ? { result: malformed ? {} : result }
-        : { error: { code: -32601, message: 'Method not found' } };
+    const result =
+      body.method === 'px_getAccount'
+        ? { ...account, paxeer: { ...account.paxeer, height: 16 } }
+        : { ...balances, height: 16 };
+    const response =
+      error !== null
+        ? { error }
+        : body.method === 'px_getAccount' || body.method === 'px_getBalances'
+          ? { result: malformed ? {} : result }
+          : { error: { code: -32601, message: 'Method not found' } };
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, ...response }));
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
-    const endpoint = new EndpointClient({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` });
+    const endpoint = new EndpointClient({
+      url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    });
     const availability = new KernelAvailability(endpoint, { ttlMs: 60_000 });
     availability.record({ available: true, reason: 'available' });
     const kernel = new KernelClient(endpoint, availability);
     expectTypeOf(kernel.getAccount).returns.toEqualTypeOf<Promise<KernelRead<ChainAccount>>>();
     expectTypeOf(kernel.getBalances).returns.toEqualTypeOf<Promise<KernelRead<Balances>>>();
     await expect(kernel.getAccount(address)).resolves.toEqual({ available: true, result: account });
-    await expect(kernel.getBalances(address)).resolves.toEqual({ available: true, result: balances });
+    await expect(kernel.getBalances(address)).resolves.toEqual({
+      available: true,
+      result: balances,
+    });
     expect(requests).toEqual([
       { method: 'px_getAccount', params: [address] },
       { method: 'px_getBalances', params: [address] },
@@ -88,22 +100,35 @@ async function kernel_client_reads_account_and_balances_through_px_methods(): Pr
       await expect(kernel.getBalances(address)).resolves.toEqual(unavailable);
       expect(requests).toHaveLength(count);
     }
-    expect(requests).toEqual(Array.from({ length: 4 }, () => [
-      { method: 'px_getAccount', params: [address] },
-      { method: 'px_getBalances', params: [address] },
-    ]).flat());
+    expect(requests).toEqual(
+      Array.from({ length: 4 }, () => [
+        { method: 'px_getAccount', params: [address] },
+        { method: 'px_getBalances', params: [address] },
+      ]).flat()
+    );
   } finally {
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
   }
 }
 
-test(kernel_client_reads_account_and_balances_through_px_methods, kernel_client_reads_account_and_balances_through_px_methods);
+test(
+  kernel_client_reads_account_and_balances_through_px_methods,
+  kernel_client_reads_account_and_balances_through_px_methods
+);
 
 async function kernel_client_reads_the_pending_nonce_and_sequencer_receipt(): Promise<void> {
   const address = `0x${'ab'.repeat(20)}`;
-  const receipts = JSON.parse(
-    readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8')
-  ) as Record<'submitted' | 'receipted' | 'committed', SequencerReceiptAnswer>;
+  const receipts = {
+    submitted: {
+      rung: 'submitted',
+      txHash: committedReceipt.txHash,
+      nonce: committedReceipt.nonce,
+    },
+    receipted: committedVector.receiptJson,
+    committed: committedReceipt,
+  } satisfies Record<'submitted' | 'receipted' | 'committed', SequencerReceiptAnswer>;
   const hash = receipts.submitted.txHash;
   const requests: { method: string; params: unknown[] }[] = [];
   let nonce: unknown = '0x0';
@@ -114,19 +139,26 @@ async function kernel_client_reads_the_pending_nonce_and_sequencer_receipt(): Pr
     for await (const chunk of req) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     requests.push({ method: body.method, params: body.params });
-    const response = error !== null
-      ? { error }
-      : body.method === 'eth_getTransactionCount'
-        ? { result: nonce }
-        : body.method === 'pax_sequencerReceipt'
-          ? { result: receipt }
-          : { error: { code: -32601, message: 'Method not found' } };
+    const response =
+      error !== null
+        ? { error }
+        : body.method === 'eth_getTransactionCount'
+          ? { result: nonce }
+          : body.method === 'pax_sequencerReceipt'
+            ? { result: receipt }
+            : body.method === 'px_getReceiptKeys'
+              ? { result: receiptWireKeys(receipts.committed) }
+              : body.method === 'eth_getRawTransactionByHash' && body.params[0] === hash
+                ? { result: committedVector.rawTransaction }
+                : { error: { code: -32601, message: 'Method not found' } };
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, ...response }));
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
-    const endpoint = new EndpointClient({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` });
+    const endpoint = new EndpointClient({
+      url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    });
     const availability = new KernelAvailability(endpoint, { ttlMs: 60_000 });
     availability.record({ available: true, reason: 'available' });
     const kernel = new KernelClient(endpoint, availability);
@@ -143,27 +175,32 @@ async function kernel_client_reads_the_pending_nonce_and_sequencer_receipt(): Pr
       ['0xffffffffffffffff', '18446744073709551615'],
     ]) {
       nonce = quantity;
-      await expect(kernel.getSequence(address)).resolves.toEqual({ available: true, result: decimal });
+      await expect(kernel.getSequence(address)).resolves.toEqual({
+        available: true,
+        result: decimal,
+      });
     }
-    for (const result of [
-      receipts.submitted,
-      {
-        ...receipts.receipted,
-        blockNumber: receipts.committed.blockNumber,
-        blockHash: receipts.committed.blockHash,
-      },
-      receipts.committed,
-      null,
-    ]) {
+    for (const result of [receipts.submitted, receipts.receipted, receipts.committed, null]) {
       receipt = result;
-      await expect(kernel.getReceipt(hash)).resolves.toEqual({ available: true, result });
+      await expect(kernel.getReceipt(hash)).resolves.toEqual({
+        available: true,
+        result: result === null ? null : authenticatedReceipt(result),
+      });
     }
     expect(requests).toEqual([
       ...Array.from({ length: 3 }, () => ({
         method: 'eth_getTransactionCount',
         params: [address, 'pending'],
       })),
-      ...Array.from({ length: 4 }, () => ({ method: 'pax_sequencerReceipt', params: [hash] })),
+      ...[receipts.submitted, receipts.receipted, receipts.committed, null].flatMap((answer) => [
+        { method: 'pax_sequencerReceipt', params: [hash] },
+        ...(answer && answer.rung !== 'submitted'
+          ? [
+              { method: 'px_getReceiptKeys', params: [] },
+              { method: 'eth_getRawTransactionByHash', params: [hash] },
+            ]
+          : []),
+      ]),
     ]);
 
     const beforeInvalid = requests.length;
@@ -203,11 +240,20 @@ async function kernel_client_reads_the_pending_nonce_and_sequencer_receipt(): Pr
       await expect(kernel.getReceipt(hash)).resolves.toEqual(unavailable);
       expect(requests).toHaveLength(count);
     }
-    expect(requests.every(({ method }) =>
-      method === 'eth_getTransactionCount' || method === 'pax_sequencerReceipt'
-    )).toBe(true);
+    expect(
+      requests.every(({ method }) =>
+        [
+          'eth_getTransactionCount',
+          'pax_sequencerReceipt',
+          'px_getReceiptKeys',
+          'eth_getRawTransactionByHash',
+        ].includes(method)
+      )
+    ).toBe(true);
   } finally {
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
   }
 }
 

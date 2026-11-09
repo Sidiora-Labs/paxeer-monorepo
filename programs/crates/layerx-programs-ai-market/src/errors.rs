@@ -1,4 +1,5 @@
 //! Frozen application and independent offchain error spaces. Native errors are untouched.
+use crate::types::GuestIndex as _;
 #[cfg(not(target_arch = "wasm32"))]
 use core::fmt;
 use core::num::NonZeroU8;
@@ -22,9 +23,15 @@ impl ApplicationError {
             .ok_or(NON_CANONICAL)
     }
     #[must_use]
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub const fn code(self) -> u16 {
         APPLICATION_ERROR_CODES[self.0.get() as usize - 1]
+    }
+    #[must_use]
+    #[cfg(target_arch = "wasm32")]
+    #[inline(never)]
+    pub fn code(self) -> u16 {
+        *APPLICATION_ERROR_CODES.guest_index(self.0.get() as usize - 1)
     }
     /// Looks up an application error by feature and name, aliases included.
     ///
@@ -1148,7 +1155,7 @@ pub enum OffchainSpace {
 /// Returns `NON_CANONICAL` for code 0 or a code past the end of the table.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn offchain_error(space: OffchainSpace, code: u16) -> CodecResult<&'static str> {
-    let table = OFFCHAIN_ERROR_TABLES[space as usize];
+    let table = *OFFCHAIN_ERROR_TABLES.guest_index(space as usize);
     let index = code.checked_sub(1).ok_or(NON_CANONICAL)?;
     table.get(usize::from(index)).copied().ok_or(NON_CANONICAL)
 }

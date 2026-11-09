@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch,
@@ -32,6 +33,7 @@ pub struct LapReceipt<'a> {
     pub peer_countersignatures: u32,
 }
 impl LapReceipt<'_> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(&self) -> CodecResult<()> {
         let peers = self.layer_range_digests.len();
         if peers == 0
@@ -48,6 +50,7 @@ impl LapReceipt<'_> {
         }
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         let mut w = Writer::new(out);
@@ -68,19 +71,21 @@ impl LapReceipt<'_> {
         w.u32(self.peer_countersignatures)?;
         Ok(w.len())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn signing_digest(&self) -> CodecResult<Digest32> {
         let mut unsigned = *self;
         unsigned.host_signature = Signature64([1; 64]);
         let mut out = [0; RECEIPT_FIXED_BYTES + 32 * MAX_DEAL_PEERS];
         let n = unsigned.encode(&mut out)?;
         let signature_at = n - 68;
-        out[signature_at..signature_at + 64].fill(0);
-        codec::domain_hash("PAXAI/lap-signing/v1", &out[..n])
+        out.guest_index_mut(signature_at..signature_at + 64).fill(0);
+        codec::domain_hash("PAXAI/lap-signing/v1", out.guest_index(..n))
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn digest(&self) -> CodecResult<Digest32> {
         let mut out = [0; RECEIPT_FIXED_BYTES + 32 * MAX_DEAL_PEERS];
         let n = self.encode(&mut out)?;
-        codec::domain_hash("PAXAI/lap-receipt/v1", &out[..n])
+        codec::domain_hash("PAXAI/lap-receipt/v1", out.guest_index(..n))
     }
 }
 
@@ -95,6 +100,7 @@ pub struct ReceiptBatch {
     pub countersign_quorum: u32,
 }
 impl ReceiptBatch {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(&self) -> CodecResult<()> {
         if self
             .last_lap_index
@@ -132,16 +138,18 @@ impl ReceiptBatch {
                 }
             }
             previous = Some(receipt.cumulative_tokens);
-            nodes[i] = receipt.digest()?.bytes();
+            *nodes.guest_index_mut(i) = receipt.digest()?.bytes();
             bitmap &= receipt.peer_countersignatures;
         }
         let mut count = receipts.len();
         while count > 1 {
             for i in 0..count.div_ceil(2) {
                 let mut pair = [0; 64];
-                pair[..32].copy_from_slice(&nodes[i * 2]);
-                pair[32..].copy_from_slice(&nodes[(i * 2 + 1).min(count - 1)]);
-                nodes[i] = codec::domain_hash("PAXAI/lap-node/v1", &pair)?.bytes();
+                pair.guest_index_mut(..32)
+                    .guest_copy_from_slice(nodes.guest_index(i * 2));
+                pair.guest_index_mut(32..)
+                    .guest_copy_from_slice(nodes.guest_index((i * 2 + 1).min(count - 1)));
+                *nodes.guest_index_mut(i) = codec::domain_hash("PAXAI/lap-node/v1", &pair)?.bytes();
             }
             count = count.div_ceil(2);
         }
@@ -150,35 +158,39 @@ impl ReceiptBatch {
             first_lap_index: first.lap_index,
             last_lap_index: receipts.last().ok_or(NON_CANONICAL)?.lap_index,
             cumulative_tokens: previous.ok_or(NON_CANONICAL)?,
-            batch_digest: Digest32::new(nodes[0])?,
+            batch_digest: Digest32::new(*nodes.guest_index(0))?,
             countersign_quorum: bitmap.count_ones(),
         })
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; BATCH_BYTES]> {
         self.validate()?;
         let mut out = [0; BATCH_BYTES];
         let mut w = Writer::new(&mut out);
-        w.put(self.deal_id.as_bytes())?;
-        w.u64(self.first_lap_index)?;
-        w.u64(self.last_lap_index)?;
-        w.u64(self.cumulative_tokens)?;
-        w.put(self.batch_digest.as_bytes())?;
-        w.u32(self.countersign_quorum)?;
+        crate::codec::write_fields!(w;
+            id32: self.deal_id.as_bytes();
+            u64: self.first_lap_index;
+            u64: self.last_lap_index;
+            u64: self.cumulative_tokens;
+            id32: self.batch_digest.as_bytes();
+            u32: self.countersign_quorum;
+        )?;
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn summary_digest(&self) -> CodecResult<Digest32> {
         codec::domain_hash("PAXAI/lap-batch/v1", &self.encode()?)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
-        let value = Self {
-            deal_id: r.digest32()?,
-            first_lap_index: r.u64()?,
-            last_lap_index: r.u64()?,
-            cumulative_tokens: r.u64()?,
-            batch_digest: r.digest32()?,
-            countersign_quorum: r.u32()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; deal_id = r.digest32()?;
+            first_lap_index: U64,
+            last_lap_index: U64,
+            cumulative_tokens: U64,
+            batch_digest: Digest32,
+            countersign_quorum: U32
+        );
         r.finish()?;
         value.validate()?;
         Ok(value)
@@ -190,6 +202,7 @@ pub struct SettleLapsRequest<'a> {
     pub artifact_manifest: &'a [u8],
 }
 impl SettleLapsRequest<'_> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.artifact_manifest.len() > evidence::MAX_MANIFEST_BYTES {
             return Err(CAPACITY);
@@ -216,17 +229,21 @@ impl LapSettlement {
     pub fn meter_reading(&self) -> u64 {
         self.batch.cumulative_tokens
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; SETTLEMENT_BYTES]> {
         let mut out = [0; SETTLEMENT_BYTES];
         let mut w = Writer::new(&mut out);
         w.put(&self.batch.encode()?)?;
-        w.put(self.task_set.as_bytes())?;
-        w.u64(self.epoch)?;
-        w.u64(self.config)?;
-        w.put(self.roster.as_bytes())?;
-        w.u128(self.settled_amount_owed)?;
+        crate::codec::write_fields!(w;
+            id32: self.task_set.as_bytes();
+            u64: self.epoch;
+            u64: self.config;
+            id32: self.roster.as_bytes();
+            u128: self.settled_amount_owed;
+        )?;
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let record = Self {
@@ -243,6 +260,7 @@ impl LapSettlement {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
     if !bytes.starts_with(REGION_MAGIC) {
         return Ok(0);
@@ -255,7 +273,12 @@ pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
     }
     let rows = r.take(count * SETTLEMENT_BYTES)?;
     let mut previous = None;
-    for row in rows.chunks_exact(SETTLEMENT_BYTES) {
+    for row in rows
+        .as_chunks::<{ SETTLEMENT_BYTES }>()
+        .0
+        .iter()
+        .map(|chunk| chunk.as_slice())
+    {
         let record = LapSettlement::decode(row)?;
         if previous.is_some_and(|id| id >= record.batch.deal_id) {
             return Err(NON_CANONICAL);
@@ -264,6 +287,7 @@ pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
     }
     Ok(r.offset())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn rows(bytes: &[u8]) -> CodecResult<&[u8]> {
     let n = region_length(bytes)?;
     if n == 0 {
@@ -272,10 +296,16 @@ fn rows(bytes: &[u8]) -> CodecResult<&[u8]> {
     if n != bytes.len() {
         return Err(NON_CANONICAL);
     }
-    Ok(&bytes[9..])
+    Ok(bytes.guest_index(9..))
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn get(bytes: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
-    for row in rows(bytes)?.chunks_exact(SETTLEMENT_BYTES) {
+    for row in rows(bytes)?
+        .as_chunks::<{ SETTLEMENT_BYTES }>()
+        .0
+        .iter()
+        .map(|chunk| chunk.as_slice())
+    {
         let record = LapSettlement::decode(row)?;
         if record.batch.deal_id == deal {
             return Ok(Some(record));
@@ -283,6 +313,7 @@ fn get(bytes: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
     }
     Ok(None)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn settlement_from_state(current: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
     let state = state::decode_shared_state(current)?;
     get(
@@ -290,6 +321,7 @@ pub fn settlement_from_state(current: &[u8], deal: Digest32) -> CodecResult<Opti
         deal,
     )
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_region(bytes: &[u8], record: &LapSettlement, out: &mut [u8]) -> CodecResult<usize> {
     let rows = rows(bytes)?;
     let exists = get(bytes, record.batch.deal_id)?.is_some();
@@ -301,7 +333,12 @@ fn write_region(bytes: &[u8], record: &LapSettlement, out: &mut [u8]) -> CodecRe
     w.put(REGION_MAGIC)?;
     w.u8(count as u8)?;
     let mut inserted = false;
-    for row in rows.chunks_exact(SETTLEMENT_BYTES) {
+    for row in rows
+        .as_chunks::<{ SETTLEMENT_BYTES }>()
+        .0
+        .iter()
+        .map(|chunk| chunk.as_slice())
+    {
         let id = LapSettlement::decode(row)?.batch.deal_id;
         if !inserted && id >= record.batch.deal_id {
             w.put(&record.encode()?)?;
@@ -325,6 +362,7 @@ pub enum Outcome {
     },
     Retained(RetainedResult),
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_settle_laps(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -424,16 +462,17 @@ pub fn apply_settle_laps(
     let n = write_region(
         region.lap_settlements(),
         &record,
-        &mut features[prefix_len..],
+        features.guest_index_mut(prefix_len..),
     )?;
-    let mut w = Writer::new(&mut features[prefix_len + n..]);
+    let mut w = Writer::new(features.guest_index_mut(prefix_len + n..));
     w.put(region.rest())?;
     let feature_len = prefix_len + n + w.len();
     let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
     policy.header.state_revision = revision;
     let n = policy.encode(policy_out)?;
-    let mut candidate = state.replace_section(Section::PolicyLifecycle, &policy_out[..n])?;
-    candidate.control.feature_bytes = &features[..feature_len];
+    let mut candidate =
+        state.with_section(Section::PolicyLifecycle, policy_out.guest_index(..n))?;
+    candidate.control.feature_bytes = features.guest_index(..feature_len);
     let record_bytes = record.encode()?;
     let result = codec::result_digest(&record_bytes)?;
     if candidate.record_success(&request, ctx.height, result)? != ReplayDecision::Apply

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Offline check of .github/workflows/xweb-test.yml: the workflow triggers on
-# pull requests and pushes to main; it carries one concurrency group per ref with
+# pull requests and pushes to main; it separates push revisions from pull request refs with
 # cancel-in-progress; its path filters are exactly the trees the kept xweb
 # inventory covers and the trees its legs exercise, each naming a path this
 # repository holds under the current layerx-merge task authority; its four jobs are the four legs, each
@@ -79,12 +79,15 @@ FILTERS = [
     "contracts/test/CW1155ERC1155PointerTest.t.sol",
     "contracts/test/CW721ERC721PointerTest.t.sol",
     "Makefile",
+    "chain.mk",
+    "go.mod",
+    "go.sum",
+    "foundry.paxeer.toml",
+    "services/wallet/attestor/**",
+    "services/interop/crates/layerx-interop-gateway/**",
+    "precompiles/common/**",
+    "precompiles/utils/**",
     "include/layerx/programs.h",
-    "src/modules/programs/call.c",
-    "tests/modules/**",
-    "tests/sequencer/**",
-    "tests/network/**",
-    "tests/fixtures/web/**",
     "programs/crates/layerx-programs-runtime/**",
     "programs/sdk/rust/**",
     "services/agent/sdk/typescript/src/web-search.ts",
@@ -100,8 +103,10 @@ KEPT_XWEB_PATHS = [path.removesuffix("/**") for path in FILTERS]
 
 TRIGGERS = ["pull_request", "push"]
 PUSH_BRANCHES = ["main"]
-CONCURRENCY_PREFIX = "xweb-test-"
-REF_EXPRESSION = "${{ github.ref }}"
+CONCURRENCY_GROUP = (
+    "${{ github.workflow }}-${{ github.event_name }}-"
+    "${{ github.event_name == 'push' && github.sha || github.ref }}"
+)
 
 # The four legs: job id -> the job name, the tool phrases the name carries and
 # the positions in the reviewed xweb command inventory of the commands the job runs.
@@ -281,13 +286,13 @@ def check_concurrency(document):
         refuse("the workflow carries no concurrency group")
         return
     group = str(concurrency.get("group", ""))
-    if group != CONCURRENCY_PREFIX + REF_EXPRESSION:
+    if group != CONCURRENCY_GROUP:
         refuse(
-            "the concurrency group is %r, not one group per ref %r"
-            % (group, CONCURRENCY_PREFIX + REF_EXPRESSION)
+            "the concurrency group is %r, not the push-revision/pull-request-ref group %r"
+            % (group, CONCURRENCY_GROUP)
         )
     else:
-        note("the concurrency group %s is one group per ref" % group)
+        note("the concurrency group %s separates push revisions and pull request refs" % group)
     if concurrency.get("cancel-in-progress") is not True:
         refuse(
             "the concurrency group carries cancel-in-progress %r, not true"
@@ -618,6 +623,15 @@ def check_installers(root, jobs):
                     "rust-toolchain.toml pins" % (job_id, rust.group(1) if rust else "?")
                 )
         if re.search(r"(?<![\w-])go test\b", joined):
+            if "make paxd-native-libs" not in installs:
+                refuse("the job %s omits make paxd-native-libs before its Go test" % job_id)
+            else:
+                note("the job %s builds make paxd-native-libs before its Go test" % job_id)
+            if not {"build-essential", "libssl-dev"} <= apt_packages(installs):
+                refuse("the job %s omits the Go native library build dependencies" % job_id)
+            wanted = "rustup toolchain install %s " % (rust.group(1) if rust else "?")
+            if not any(line.startswith(wanted) for line in installs):
+                refuse("the job %s omits the pinned Rust toolchain for its Go native libraries" % job_id)
             step = uses.get("actions/setup-go")
             version = str((step or {}).get("with", {}).get("go-version"))
             if step is None:
@@ -830,8 +844,8 @@ MUTATIONS = {
         1,
     ),
     "shared-group": (
-        "  group: xweb-test-${{ github.ref }}\n",
-        "  group: xweb-test\n",
+        "  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}\n",
+        "  group: ${{ github.workflow }}\n",
         1,
     ),
     "extra-filter": (
@@ -895,6 +909,12 @@ MUTATIONS = {
         "",
         1,
     ),
+    "missing-native-build": (
+        "      - name: Build native libraries\n"
+        "        run: make paxd-native-libs\n\n",
+        "",
+        1,
+    ),
     "floating-foundry": (
         "          version: v1.8.1\n",
         "          version: stable\n",
@@ -942,7 +962,7 @@ python3 "$WORK/check.py" "$WORKFLOW" "$REPO_ROOT" \
 for entry in \
     "continue-on-error|continue-on-error" \
     "no-cancel|cancel-in-progress" \
-    "shared-group|one group per ref" \
+    "shared-group|push-revision/pull-request-ref group" \
     "extra-filter|docs/**" \
     "missing-directory|modules/xweb-absent/**" \
     "narrowed-crates|services/agent/crates/layerx-mcp/**" \
@@ -955,6 +975,7 @@ for entry in \
     "working-directory|working-directory" \
     "bare-cd|changes directory outside a subshell" \
     "missing-installer|actions/setup-go" \
+    "missing-native-build|make paxd-native-libs" \
     "floating-foundry|moving channel" \
     "conditional-step|condition"; do
     mutation=${entry%%|*}
@@ -965,8 +986,8 @@ for entry in \
     output=$(python3 "$WORK/check.py" "$WORK/$mutation.yml" "$REPO_ROOT" 2>&1) || status=$?
     [ "$status" -eq 2 ] \
         || fail "the check did not refuse the $mutation mutation (exit $status): $output"
-    printf '%s\n' "$output" | grep -F 'refused:' | grep -qF -- "$keyword" \
+    printf '%s\n' "$output" | grep -F 'refused:' | grep -F -- "$keyword" >/dev/null \
         || fail "the check refused the $mutation mutation without naming $keyword: $output"
 done
 
-printf 'xweb-workflow-check: the xweb workflow carries the feature path filters, one concurrency group per ref, the four legs running the gate commands from the repository root and no excused step, and refuses every mutation of them\n' >&2
+printf 'xweb-workflow-check: the xweb workflow carries the feature path filters, concurrency by push revision and pull request ref, the four legs running the gate commands from the repository root and no excused step, and refuses every mutation of them\n' >&2

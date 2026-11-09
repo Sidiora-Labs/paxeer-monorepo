@@ -1,4 +1,4 @@
-"""Audit 22.30.83: native tests, real RPC, descriptor adoption and durable recovery."""
+"""Native lifecycle and current single-node deployment contracts for audit 22.30.83."""
 import hashlib
 import http.client
 import importlib.util

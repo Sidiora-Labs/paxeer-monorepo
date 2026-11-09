@@ -8,8 +8,8 @@
   "author": "Blockscout",
   "license": "GPL-3.0",
   "engines": {
-    "node": "18.x",
-    "npm": "8.x"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {},
   "dependencies": {

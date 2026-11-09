@@ -53,9 +53,21 @@ func NewDriver(cfg DriverConfig) (*Driver, error) {
 	return &Driver{cfg: cfg}, nil
 }
 
-func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
+func (d *Driver) OnCommit(height int64, appHash []byte) error {
+	return d.OnCommitContext(context.Background(), height, appHash)
+}
+
+// OnCommitContext releases COMMITTED and the following OPEN without waiting for
+// the standby's local consensus commit. Each release is bounded by the caller
+// and the configured replication timeout, including the local WAL sync wait.
+// The lease holder independently replicates LEASE records through RenewAt; they
+// do not advance the committed sequence or replace the OPEN of the next block.
+func (d *Driver) OnCommitContext(ctx context.Context, height int64, appHash []byte) (err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if d.halted != nil {
 		return fmt.Errorf("%w: %w", ErrDriverHalted, d.halted)
 	}
@@ -88,7 +100,7 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 		}
 	}()
 	committed := &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(committedHash)}
-	if _, err = d.cfg.Replicator.Release(context.Background(), committed); err != nil {
+	if err = d.release(ctx, committed); err != nil {
 		return fmt.Errorf("sequencer: driver release committed: %w", err)
 	}
 	d.cfg.Metrics.SetSealedHeight(height)
@@ -132,7 +144,7 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	if overflow {
 		return errors.New("sequencer: open base fee exceeds uint256")
 	}
-	if _, err = d.cfg.Replicator.Release(context.Background(), &wal.Open{
+	if err = d.release(ctx, &wal.Open{
 		Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
 		ProposerAddress: baseSequential(d.cfg.Executor.Executor).proposer,
 	}); err != nil {
@@ -144,4 +156,14 @@ func (d *Driver) OnCommit(height int64, appHash []byte) (err error) {
 	}
 	d.cfg.Metrics.SetOpenSeq(lastSeq)
 	return nil
+}
+
+func (d *Driver) release(ctx context.Context, entry wal.Entry) error {
+	if !d.cfg.Replicator.Standalone() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.cfg.Replicator.timeout)
+		defer cancel()
+	}
+	_, err := d.cfg.Replicator.Release(ctx, entry)
+	return err
 }

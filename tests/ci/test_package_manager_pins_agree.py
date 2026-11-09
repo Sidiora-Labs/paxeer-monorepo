@@ -22,13 +22,15 @@ DOCKERFILE_WORKSPACES = (
 IMAGE_DEPENDENCIES_FIXTURE = (
     ROOT / "apps/launchpad/qualification/image-dependencies/fixture"
 )
-WORKFLOW_REPAIR_LINES = (
-    (".github/workflows/bridge-test.yml", 143),
-    (".github/workflows/ci.yml", 271),  # Task inventory line 267.
-    (".github/workflows/ci.yml", 302),  # Task inventory line 298.
-    (".github/workflows/wallet-go-test.yml", 74),
-    (".github/workflows/platform.yml", 195),
-)
+# Keep the inventory lines as evidence, but identify producers by their owning
+# jobs: reusable workflow extraction and earlier setup steps can shift lines.
+WORKFLOW_REPAIR_JOBS = {
+    (".github/workflows/bridge-test.yml", "bridge-app"): 143,
+    (".github/workflows/ci.yml", "js-pnpm-tests"): 271,  # Inventory line 267.
+    (".github/workflows/ci.yml", "js-wallet-gateway-tests"): 302,  # Inventory line 298.
+    (".github/workflows/wallet-go-test.yml", "attestor"): 74,
+    (".github/workflows/platform.yml", "connected-middleware"): 195,
+}
 WORKFLOW_PNPM_INSTALL = re.compile(
     r"\bnpm\s+install\s+(?:--global|-g)\s+[\"']?(pnpm@[^\s\"';&|]+)"
     r"|--package=[\"']?(pnpm@[^\s\"';&|]+)"
@@ -124,6 +126,7 @@ def _run_directory(step, job, workflow, row):
 
 def _workflow_pnpm_cases():
     cases = {}
+    recorded_locations = {}
     for path in sorted((ROOT / ".github/workflows").iterdir()):
         if path.suffix not in {".yml", ".yaml"}:
             continue
@@ -148,9 +151,9 @@ def _workflow_pnpm_cases():
                 ]
                 # The repaired matrix line reads each instance's own manifest.
                 # Other manifest-driven installs are outside the literal-pin sweep.
-                location = (str(path.relative_to(ROOT)), run_node.start_mark.line + 1)
+                identity = (str(path.relative_to(ROOT)), job_name)
                 if (
-                    location in WORKFLOW_REPAIR_LINES
+                    identity in WORKFLOW_REPAIR_JOBS
                     and command == MANIFEST_PNPM_INSTALL
                 ):
                     installs.append((0, None))
@@ -162,6 +165,11 @@ def _workflow_pnpm_cases():
                         line += 1
                     location = (str(path.relative_to(ROOT)), line)
                     assert location not in cases, f"Multiple pnpm activations at {location}"
+                    if identity in WORKFLOW_REPAIR_JOBS:
+                        assert identity not in recorded_locations, (
+                            f"Multiple pnpm activations in recorded job {identity}"
+                        )
+                        recorded_locations[identity] = location
                     cases[location] = pytest.param(
                         workflow,
                         job_name,
@@ -170,10 +178,11 @@ def _workflow_pnpm_cases():
                         location,
                         id=f"{location[0]}:{line}-{job_name}",
                     )
-    assert set(WORKFLOW_REPAIR_LINES) <= cases.keys(), (
+    assert set(WORKFLOW_REPAIR_JOBS) <= recorded_locations.keys(), (
         "Missing recorded workflow pnpm install"
     )
-    return [cases.pop(location) for location in WORKFLOW_REPAIR_LINES] + list(cases.values())
+    recorded = [cases.pop(recorded_locations[identity]) for identity in WORKFLOW_REPAIR_JOBS]
+    return recorded + list(cases.values())
 
 
 @pytest.mark.parametrize(

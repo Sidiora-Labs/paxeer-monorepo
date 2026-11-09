@@ -880,9 +880,9 @@ else:
 ' "$check" "$account_address")"
 	fi
 	case "$verdict" in
-	pass\ *) echo "pass $check owner=$owner url=$url ${verdict#pass }" ;;
+	pass\ *) printf 'pass %s owner=%s url=%s %s\n' "$check" "$owner" "$url" "${verdict#pass }" ;;
 	*)
-		echo "fail $check owner=$owner url=$url ${verdict#fail }"
+		printf 'fail %s owner=%s url=%s %s\n' "$check" "$owner" "$url" "${verdict#fail }"
 		failures=$((failures + 1))
 		;;
 	esac

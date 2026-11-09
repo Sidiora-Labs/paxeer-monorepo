@@ -386,10 +386,19 @@ fn auth_lifecycle_call_discloses_the_governance_payload() -> Result<(), Box<dyn 
         altered.idempotency_key[0] ^= 1;
         assert!(altered.signing_digest().is_err());
     }
+    let mut payload = vec![0x71, 2, 0, 4];
+    payload.resize(92, 0x23);
+    let transaction = call(0x101c, selector, &lifecycle_args(&payload, idempotency_key));
+    assert_eq!(
+        bind_call(&transaction, SENDER)?.construct_method()?,
+        Some(ConstructMethod::AuthLifecycle {
+            payload,
+            idempotency_key,
+        })
+    );
     for (tag, ordinal, variant, fields, length) in [
         (0x71, 5, 1, 3, 52),
         (0x1a, 1, 0, 2, 68),
-        (0x71, 2, 0, 4, 92),
         (0x71, 1, 1, 2, 68),
         (0x71, 1, 0, 1, 68),
         (0x71, 1, 0, 2, 67),
@@ -934,6 +943,8 @@ fn daemon_precompile_constructors_bind() -> Result<(), Box<dyn std::error::Error
         assert_eq!(disclosure.signing_digest()?, transaction.signing_hash());
         let canonical = transaction.encode_unsigned();
         assert_eq!(reencode(&disclosure)?, canonical);
+        assert_eq!(disclosure.reencode()?, canonical);
+        disclosure.validate_canonical(&canonical)?;
         validate_canonical(&disclosure, &canonical)?;
         validate_call(&transaction, &disclosure, SENDER)?;
         let mut different_sender = SENDER;

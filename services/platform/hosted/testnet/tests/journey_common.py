@@ -63,10 +63,10 @@ def authorization(config):
 
 
 class JourneyRpc:
-    HOSTED_METHODS = frozenset({"px_requestFunds", "px_getBalances"})
+    HOSTED_METHODS = frozenset({"px_requestFunds", "px_register"})
     NODE_METHODS = frozenset({
         "eth_chainId", "eth_getBalance", "eth_getTransactionCount", "eth_gasPrice",
-        "eth_estimateGas", "eth_sendRawTransaction", "pax_sequencerReceipt",
+        "eth_estimateGas", "eth_sendRawTransaction", "pax_sequencerReceipt", "px_getBalances",
     })
 
     def __init__(self, gateway, ca, auth_config, output, *, node, node_auth_config=None):

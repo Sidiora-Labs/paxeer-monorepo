@@ -225,7 +225,7 @@ fn external_signing_is_the_key_free_default() {
     );
     assert_eq!(package.signing_preimage, prepared.transaction.signing_hash);
     assert_eq!(
-        package.disclosure_digest.0,
+        package.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
 }
@@ -295,7 +295,7 @@ fn session_key_self_signing_is_distinct_and_audited() {
     assert_eq!(signed.audit.revocation_sequence, issued.revocation_sequence);
     assert_eq!(issued.permitted_activity_types, vec![send_type()]);
     assert_eq!(
-        signed.audit.disclosure_digest.0,
+        signed.audit.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
     assert_eq!(

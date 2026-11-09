@@ -360,7 +360,7 @@ func TestSidioraFeeTokenUpgradeServesThePrecompileOnlyAfterIt(t *testing.T) {
 
 	a.RegisterUpgradeHandlers()
 	require.True(t, a.UpgradeKeeper.HasHandler(sidioraFeeTokenUpgrade))
-	registerSidioraRemoteAsset(t, a, ctx, 1)
+	registerSidioraRemoteAsset(t, a, ctx, layerxbridgetypes.SidioraHomeChainID)
 	a.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: sidioraFeeTokenUpgrade, Height: upgradeHeight})
 	require.Equal(t, upgradeHeight, a.UpgradeKeeper.GetDoneHeight(ctx, sidioraFeeTokenUpgrade))
 

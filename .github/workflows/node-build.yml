@@ -33,9 +33,11 @@ jobs:
       - name: Install native dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          build-essential clang jq libssl-dev libsqlite3-dev
+          build-essential clang cmake jq libssl-dev libsqlite3-dev
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal
+      - name: Build evmone library
+        run: make -s evmone-lib
       - name: Build native libraries
         run: make paxd-native-libs
 
@@ -55,7 +57,7 @@ jobs:
       - name: Install native dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          build-essential clang jq libssl-dev libsqlite3-dev
+          build-essential clang cmake jq libssl-dev libsqlite3-dev
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal
       - name: Download Go modules
@@ -83,7 +85,7 @@ jobs:
       - name: Install native dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          build-essential clang jq libssl-dev libsqlite3-dev
+          build-essential clang cmake jq libssl-dev libsqlite3-dev
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal
       - name: Test the kernel host
@@ -105,15 +107,27 @@ jobs:
       - name: Install native dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          build-essential clang jq libssl-dev libsqlite3-dev
+          build-essential clang cmake jq libssl-dev libsqlite3-dev python3-venv
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal
+      - name: Build evmone library
+        run: make -s evmone-lib
       - name: Build native libraries
         run: make paxd-native-libs
       - name: Test node packages
         env:
           CGO_ENABLED: '1'
-        run: go test ./node/...
+        # Known failures and retiring task: tests/ci/data/node_go_test_baseline.json
+        # Retired baseline cases run in the full node suite.
+        run: go test -timeout 15m -count=1 ./node/...
+      - name: Run native Python qualification tests
+        env:
+          CGO_ENABLED: '1'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/qualification-native"
+          export PATH="$RUNNER_TEMP/qualification-native/bin:$PATH"
+          python3 -m pip install -r tools/qualification/requirements.txt
+          python3 -m pytest -q tools/qualification -m native
 
   node-build-gate:
     if: always()

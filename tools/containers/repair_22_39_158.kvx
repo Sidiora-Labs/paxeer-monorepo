@@ -1,0 +1,43 @@
+[repair.22.39.158]
+base_revision = "0a3c76a053748816607834a7a91201e6b8c103fd"
+previous_candidate = "02ab95dc5e3d"
+decisions = ["2857", "2896", "2907", "2908", "2910", "2918"]
+scope = "tests/ci/data/tools_python_suite_baseline.json and the seven declared tools/containers paths only; inherited workflow bookkeeping is preserved."
+inventory = "Classify the two Rosetta node recipes and two vendored Hyperfide recipes as out of scope; remove absent simd-dlv, Rosetta node Dockerfile and platform-node recipes from the inventory."
+reference_scan = "ROOT_RECIPE_REFERENCE matches explicit recipe file options, recipe assignments and path list entries, including quoted paths; bare Dockerfile string literals in the image-context producer are data."
+kernel_contract = "The merged kernel schedules no human-entrypoint role; assert its exact unprivileged kernel_runtime.py launch and image wiring, and require both Human entrypoint role cases to declare the same eight supported roles. Preserve the movement refusal and retired service assertions."
+baseline = "Remove all four tools/containers nodeids from tests/ci/data/tools_python_suite_baseline.json; no test is deselected, skipped or marked expected to fail."
+
+[producer.kernel_init]
+path = "docker/kernel/init.sh"
+lines = "7-10 accept full and native profiles; 19-23 constrain the provisioned home; 29-30 exec setpriv with UID/GID 4020 and python3 /opt/layerx/kernel_runtime.py --home."
+image = "docker/kernel/Dockerfile:342-345 copies the runtime and init script and declares kernel-init as entrypoint; 348-351 maps the full profile onto the same assembly."
+entrypoint = "docker/human-service/entrypoint.sh:14-27 admits service, onboarding-bootstrap, components, identity, security, agent, kms and onboarding-signer; 97-234 dispatches the same role set and refuses unknown roles with exit 64."
+
+[producer.image_context]
+path = "services/platform/hosted/tests/beta_runtime.go"
+lines = "184 and 190 assign the context-local recipe basename; 202 declares the prepared builder archive contents; 271-274 project the explorer recipe and ignore into its context root."
+regression = "test_root_recipe_reference_scan_only_matches_recipe_paths runs the real shell pattern through grep against the real Go producer and checks root paths, moved paths, suffix boundaries and quoting; the image build test asserts all four declared recipe results."
+
+[producer.inventory]
+path = "tools/containers/check.sh"
+lines = "92-135 declares OUT_OF_SCOPE; 112 keeps simd-env; 113-114 names the historical and paxd Rosetta node recipes; 116-117 names the vendored fleet-control and environment-modal-sandbox recipes; 134 keeps Redis."
+list_consumer = "tools/containers/test_out_of_scope_list.py:17 assert_reviewed_out_of_scope asserts the exact thirty-five producer rows in order, retaining the consensus/test/docker/Dockerfile exclusion."
+count_consumer = "tools/containers/test_repair_22_33_776.py:30 test_container_inventory_decodes_the_real_shell_payload independently decodes the actual shell assignment and asserts thirty-five rows and the consensus exclusion."
+regression = "Keep the grammar-neutral commentary case and all missing, unreviewed, duplicate, reordered, consensus, retired-human and path-content rejection cases unchanged."
+resolution = "Gotcha 3627 and decision 2918 authorize both inventory consumer modules in this continuation; their current-tree assertions resolve the prior blocker without weakening the exact list or parser checks."
+
+[qualification]
+build_evidence = "/out/run/gates.jsonl, kind=build; the final build entry records revision, exact command, exit code and private /out/logs/build-*.log."
+verify_evidence = "/out/run/gates.jsonl, kind=verify; the final verify entry records revision, cg spec done command, exit code and private /out/logs/verify-*.log."
+verified_revision_source = "The final same-revision build and verify entries in /out/run/gates.jsonl name the verified candidate only when both gates exit zero; a failed verification is implemented-not-qualified."
+gate_order = "Run hf-build and then hf-done with Docker buildx present; never run the verify command by hand."
+
+[qualification.initial]
+revision = "7fe7b3bfa2b7201511d984ad10d316d52bae96d0"
+command = "cg spec done 22.39.158 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "45 tests and 85 subtests passed; four failures expose the recorded inventory conflict, and two image cases expose audit prose mistaken for commands and inactive release-stage COPY inputs."
+repair = "Exclude historical audit KVX data from reference scans, require an executable command boundary for unflagged docker build, and check COPY inputs in the final target and its transitive FROM/COPY stage dependencies."
+inventory_history = "The initial gate encountered the old list and count in consumer modules outside the original scope; this continuation includes both modules and follows the current producer under decision 2918."

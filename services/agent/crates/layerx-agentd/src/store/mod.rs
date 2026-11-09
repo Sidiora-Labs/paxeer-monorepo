@@ -1287,7 +1287,7 @@ impl Store {
 
 #[cfg(test)]
 mod batch_removing_tests {
-    use std::os::unix::fs::DirBuilderExt;
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
 
     use super::{ObjectKind, Store, StoreError, TenantId, TenantKey};
 
@@ -1332,6 +1332,16 @@ mod batch_removing_tests {
     #[test]
     fn update_local_batch_removing_rolls_back_both_lists_on_failed_persist() {
         let directory = Directory::new("rollback");
+        let metadata = std::fs::symlink_metadata(&directory.0)
+            .unwrap_or_else(|error| panic!("private directory metadata: {error}"));
+        assert!(metadata.is_dir());
+        assert_eq!(metadata.mode() & 0o7777, 0o700);
+        assert_eq!(metadata.uid(), rustix::process::geteuid().as_raw());
+        assert_eq!(
+            std::fs::canonicalize(&directory.0)
+                .unwrap_or_else(|error| panic!("canonical directory: {error}")),
+            directory.0
+        );
         let mut store = Store::open(&directory.0).unwrap_or_else(|error| panic!("open: {error}"));
         let (kept, removed) = (key(b"kept"), key(b"removed"));
         store

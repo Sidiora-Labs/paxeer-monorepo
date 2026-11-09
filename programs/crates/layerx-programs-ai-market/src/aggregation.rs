@@ -20,6 +20,7 @@
 //! - Finalize terminalizes the F06 row in the same transition and appends one history row;
 //!   history rows whose F06 epoch row is no longer retained are dropped (shared retention).
 //! - The host derives `AuthorityContext::aggregate_sealed` from [`progress`].
+use crate::types::GuestIndex as _;
 use crate::{
     admission::{AdmissionTable, Participant},
     aggregation_codec::{
@@ -72,6 +73,7 @@ pub struct Median {
 /// # Errors
 /// Returns `CAPACITY` for more than `MAX_VOTES` scores and `ARITHMETIC` when the comparison
 /// count overflows or exceeds `MAX_COMPARISONS_PER_WORKER`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn lower_median(scores: &[Score]) -> CodecResult<Median> {
     if scores.len() > MAX_VOTES {
         return Err(CAPACITY);
@@ -86,10 +88,10 @@ pub fn lower_median(scores: &[Score]) -> CodecResult<Median> {
         let mut j = i;
         while j > 0 {
             comparisons = comparisons.checked_add(1).ok_or(ARITHMETIC)?;
-            if sorted[j - 1] <= sorted[j] {
+            if *sorted.guest_index(j - 1) <= *sorted.guest_index(j) {
                 break;
             }
-            sorted.swap(j - 1, j);
+            sorted.guest_swap(j - 1, j);
             j -= 1;
         }
     }
@@ -100,7 +102,7 @@ pub fn lower_median(scores: &[Score]) -> CodecResult<Median> {
     let selected = if n < QUORUM {
         Presence::Absent
     } else {
-        Presence::Present(Score::new(sorted[(n - 1) / 2])?)
+        Presence::Present(Score::new(*sorted.guest_index((n - 1) / 2))?)
     };
     Ok(Median {
         support,
@@ -115,6 +117,7 @@ pub fn lower_median(scores: &[Score]) -> CodecResult<Median> {
 /// Returns `CAPACITY` for more than `MAX_VOTES` votes, `NON_CANONICAL` for a missing vote slot
 /// or an invalid output and `F05_REPORT_INVARIANT` when evaluators are not strictly ascending;
 /// propagates `lower_median` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn aggregate_votes(votes: &WorkerVotes) -> CodecResult<WorkerAggregate> {
     if votes.len() > MAX_VOTES {
         return Err(CAPACITY);
@@ -129,7 +132,7 @@ pub fn aggregate_votes(votes: &WorkerVotes) -> CodecResult<WorkerAggregate> {
         last = Some(vote.evaluator);
         *slot = vote.score;
     }
-    let median = lower_median(&scores[..votes.len()])?;
+    let median = lower_median(scores.guest_index(..votes.len()))?;
     let (status, score) = match median.selected {
         Presence::Absent => (QualityStatus::InsufficientQuorum, 0),
         Presence::Present(s) if s.get() == 0 => (QualityStatus::ScoredZero, 0),
@@ -189,6 +192,7 @@ pub fn total_weight(outputs: &[WorkerAggregate]) -> CodecResult<u64> {
 /// # Errors
 /// Returns `ARITHMETIC` when `total` exceeds `MAX_TOTAL_WEIGHT` or `weight` exceeds `total` or
 /// 1,000,000.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn display_share_ppm(weight: u32, total: u64) -> CodecResult<Presence<u32>> {
     if total > MAX_TOTAL_WEIGHT || u64::from(weight) > total || weight > 1_000_000 {
         return Err(ARITHMETIC);
@@ -252,6 +256,7 @@ impl Chunk {
 /// Returns `CAPACITY` for more than `MAX_WORKERS` workers, `NON_CANONICAL` for an unordered
 /// roster and `STALE_CURSOR` when `cursor` is past the roster end; propagates
 /// `aggregate_worker` and `add_weight` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn aggregate_chunk(
     view: &AggregationInputView<'_>,
     cursor: u16,
@@ -261,7 +266,10 @@ pub fn aggregate_chunk(
     if workers.len() > MAX_WORKERS {
         return Err(CAPACITY);
     }
-    if workers.windows(2).any(|p| p[0].worker >= p[1].worker) {
+    if workers
+        .windows(2)
+        .any(|p| p.guest_index(0).worker >= p.guest_index(1).worker)
+    {
         return Err(NON_CANONICAL);
     }
     let start = usize::from(cursor);
@@ -271,7 +279,7 @@ pub fn aggregate_chunk(
     let end = workers.len().min(start + WORKERS_PER_CHUNK);
     let mut outputs = [None; WORKERS_PER_CHUNK];
     let mut sum = running_weight;
-    for (slot, worker) in outputs.iter_mut().zip(&workers[start..end]) {
+    for (slot, worker) in outputs.iter_mut().zip(workers.guest_index(start..end)) {
         let output = aggregate_worker(view, *worker)?;
         sum = add_weight(sum, output)?;
         *slot = Some(output);
@@ -331,6 +339,7 @@ impl EpochWeights {
 ///
 /// # Errors
 /// Propagates `aggregate_chunk` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn aggregate_epoch(view: &AggregationInputView<'_>) -> CodecResult<EpochWeights> {
     let mut outputs = [None; MAX_WORKERS];
     let mut cursor = 0u16;
@@ -341,7 +350,7 @@ pub fn aggregate_epoch(view: &AggregationInputView<'_>) -> CodecResult<EpochWeig
             break;
         }
         for i in 0..chunk.len() {
-            outputs[usize::from(cursor) + i] = Some(chunk.output(i)?);
+            *outputs.guest_index_mut(usize::from(cursor) + i) = Some(chunk.output(i)?);
         }
         cursor = chunk.cursor();
         total = chunk.running_weight();
@@ -385,6 +394,7 @@ struct Record<'a> {
 }
 
 /// Splits the bytes after the F06 reward state into the F05 current record and its history.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn split_tail(tail: &[u8]) -> CodecResult<(Option<Record<'_>>, &[u8])> {
     if tail.is_empty() {
         return Ok((None, &[]));
@@ -445,20 +455,29 @@ struct View<'a> {
     history: &'a [u8],
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn view(current: &[u8]) -> CodecResult<View<'_>> {
     let state = decode_shared_state(current)?;
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
     let admission = AdmissionTable::decode(
         crate::reputation_transition::split_joint(
-            state.feature_sections[Section::ReputationAdmission.index()],
+            *state
+                .feature_sections
+                .guest_index(Section::ReputationAdmission.index()),
         )?
         .1,
     )?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let settlement = state.feature_sections[Section::SettlementClaims.index()];
+    let settlement = *state
+        .feature_sections
+        .guest_index(Section::SettlementClaims.index());
     let (rewards, tail) = settlement
         .split_at_checked(REWARD_STATE_BYTES)
         .ok_or(WRONG_EPOCH)?;
@@ -477,7 +496,9 @@ fn view(current: &[u8]) -> CodecResult<View<'_>> {
         roster: row.roster,
     };
     let reports = crate::evaluators::admission::ReportRegion::decode(
-        state.feature_sections[Section::CurrentReports.index()],
+        *state
+            .feature_sections
+            .guest_index(Section::CurrentReports.index()),
     )?;
     let (record, history) = split_tail(tail)?;
     Ok(View {
@@ -508,6 +529,7 @@ impl<'a> View<'a> {
         }
     }
     /// The opened epoch's sealed record; `None` before its seal.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn sealed(&self) -> CodecResult<Option<Record<'a>>> {
         let Some(record) = self.record else {
             return Ok(None);
@@ -545,6 +567,7 @@ impl<'a> View<'a> {
             }
         }
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn progress(&self, sealed: Option<Record<'_>>) -> CodecResult<Progress> {
         let worker_count = match sealed {
             Some(record) if record.phase == AggregationPhase::Terminal => record.outputs,
@@ -610,8 +633,12 @@ impl FrozenRoster {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn frozen_roster(view: &View<'_>) -> CodecResult<FrozenRoster> {
-    let identity = view.state.feature_sections[Section::IdentityRoster.index()];
+    let identity = *view
+        .state
+        .feature_sections
+        .guest_index(Section::IdentityRoster.index());
     let captured = crate::epoch::captured_roster(&view.state)?.ok_or(WRONG_ROSTER)?;
     if captured.binding != view.frozen {
         return Err(WRONG_ROSTER);
@@ -683,11 +710,20 @@ impl<'a> PackedInputs<'a> {
 
 /// Live eligibility at the seal: the evaluator's grant is not revoked, its revocation does
 /// not exclude the frozen epoch and its F08 membership is present and not revoked.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn eligible_inputs<'a>(view: &View<'a>) -> CodecResult<PackedInputs<'a>> {
-    let region = evaluator_region(view.state.feature_sections[Section::IdentityRoster.index()])?;
+    let region = evaluator_region(
+        *view
+            .state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
     let admission = AdmissionTable::decode(
         crate::reputation_transition::split_joint(
-            view.state.feature_sections[Section::ReputationAdmission.index()],
+            *view
+                .state
+                .feature_sections
+                .guest_index(Section::ReputationAdmission.index()),
         )?
         .1,
     )?;
@@ -713,6 +749,7 @@ fn eligible_inputs<'a>(view: &View<'a>) -> CodecResult<PackedInputs<'a>> {
 }
 
 /// The sealed rows, read back from the admitted region by their sealed digests.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn sealed_inputs<'a>(view: &View<'a>, current: &DecodedCurrent) -> CodecResult<PackedInputs<'a>> {
     let mut inputs = Inputs::new();
     for i in 0..current.report_count() {
@@ -749,30 +786,30 @@ impl Progress {
         }
     }
     fn begin_response(&self) -> CodecResult<Response> {
-        Response::write(|w| {
-            w.put(self.sealed_input()?.as_bytes())?;
-            w.u16(self.cursor)?;
-            w.u16(self.worker_count)
-        })
+        Response::write(crate::codec::field_list!(
+            put: self.sealed_input()?.as_bytes();
+            u16: self.cursor;
+            u16: self.worker_count;
+        ))
     }
     fn process_response(&self) -> CodecResult<Response> {
-        Response::write(|w| {
-            w.put(self.sealed_input()?.as_bytes())?;
-            w.u16(self.cursor)?;
-            w.u16(self.worker_count)?;
-            w.u64(self.running_weight)
-        })
+        Response::write(crate::codec::field_list!(
+            put: self.sealed_input()?.as_bytes();
+            u16: self.cursor;
+            u16: self.worker_count;
+            u64: self.running_weight;
+        ))
     }
     fn finalize_response(&self) -> CodecResult<Response> {
         let Presence::Present(root) = self.root else {
             return Err(NON_CANONICAL);
         };
-        Response::write(|w| {
-            w.put(self.sealed_input()?.as_bytes())?;
-            w.put(root.as_bytes())?;
-            w.u16(self.worker_count)?;
-            w.u64(self.running_weight)
-        })
+        Response::write(crate::codec::field_list!(
+            put: self.sealed_input()?.as_bytes();
+            put: root.as_bytes();
+            u16: self.worker_count;
+            u64: self.running_weight;
+        ))
     }
 }
 
@@ -809,10 +846,10 @@ pub struct Response {
 }
 impl Response {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
-    fn write(fill: impl FnOnce(&mut Writer<'_>) -> CodecResult<()>) -> CodecResult<Self> {
+    fn write(fields: &[codec::WriteField<'_>]) -> CodecResult<Self> {
         let mut bytes = [0; FINALIZE_RESPONSE_BYTES];
         let mut w = Writer::new(&mut bytes);
-        fill(&mut w)?;
+        w.fields(fields)?;
         let len = w.len();
         Ok(Self { bytes, len })
     }
@@ -856,6 +893,7 @@ struct Call<'c> {
 }
 impl Call<'_> {
     /// Permissionless native relayer, domain, expiry and the exact frozen bindings.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn check_envelope(&self) -> CodecResult<()> {
         let e = &self.envelope.envelope;
         let frozen = &self.view.frozen;
@@ -878,6 +916,7 @@ impl Call<'_> {
         Ok(())
     }
     /// Writes `settlement` and the next F01 revision into `next`, then the operation event.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn commit(
         &self,
         settlement: &[u8],
@@ -897,9 +936,9 @@ impl Call<'_> {
         section.header.state_revision = revision;
         let policy_len = section.encode(policy_out)?;
         let mut feature_sections: [&[u8]; 5] = view.state.feature_sections;
-        feature_sections[Section::PolicyLifecycle.index()] =
+        *feature_sections.guest_index_mut(Section::PolicyLifecycle.index()) =
             policy_out.get(..policy_len).ok_or(CAPACITY)?;
-        feature_sections[Section::SettlementClaims.index()] = settlement;
+        *feature_sections.guest_index_mut(Section::SettlementClaims.index()) = settlement;
         let candidate = SharedState {
             revision,
             feature_sections,
@@ -942,6 +981,7 @@ struct Out<'o> {
 }
 
 /// Splits caller scratch into the settlement output and the remaining outputs.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn split_outputs<'o>(
     scratch: &'o mut [u8],
     next: &'o mut [u8],
@@ -971,16 +1011,17 @@ fn write_settlement<'o>(
     let (reward_out, tail) = out
         .split_at_mut_checked(REWARD_STATE_BYTES)
         .ok_or(CAPACITY)?;
-    reward_out.copy_from_slice(rewards);
+    reward_out.guest_copy_from_slice(rewards);
     let record_len = record(tail)?;
     let end = record_len.checked_add(history.len()).ok_or(ARITHMETIC)?;
     tail.get_mut(record_len..end)
         .ok_or(CAPACITY)?
-        .copy_from_slice(history);
+        .guest_copy_from_slice(history);
     let total = REWARD_STATE_BYTES.checked_add(end).ok_or(ARITHMETIC)?;
     out.get(..total).ok_or(CAPACITY)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn begin(
     call: &Call<'_>,
     next: &mut [u8],
@@ -1070,6 +1111,7 @@ fn outputs_of(current: &DecodedCurrent) -> CodecResult<[Option<WorkerAggregate>;
     Ok(outputs)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn process(
     call: &Call<'_>,
     next: &mut [u8],
@@ -1144,6 +1186,7 @@ fn process(
 
 /// History after this epoch's terminal row: rows whose F06 epoch is still retained, then the
 /// new row.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn next_history(
     view: &View<'_>,
     retained: &RewardState<'_>,
@@ -1167,6 +1210,7 @@ fn next_history(
     Ok((rows, count + 1))
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn finalize(
     call: &Call<'_>,
     next: &mut [u8],
@@ -1284,6 +1328,7 @@ fn finalize(
 /// terminalization refusals (`F06_EPOCH_TERMINAL`, `F06_AGGREGATION_MISMATCH`,
 /// `RETENTION_FULL`, ...); `CAPACITY`, `ARITHMETIC` and `F01_CAPACITY_UNAVAILABLE`. On any
 /// error `current` is unchanged and the outputs must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

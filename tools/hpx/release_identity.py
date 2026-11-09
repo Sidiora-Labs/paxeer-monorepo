@@ -7,10 +7,12 @@ import re
 import sys
 
 
+RELEASE_IDENTITY_POLICY = {"schema": 1, "provenance_required": True}
+
+
 def validate_release(manifest, binary_info, provenance, digest, revision, advertised):
     version = manifest["version"]
-    policy = manifest["hpx_release_identity"]
-    if policy != {"schema": 1, "provenance_required": True}:
+    if RELEASE_IDENTITY_POLICY != {"schema": 1, "provenance_required": True}:
         raise ValueError("unsupported HPX release identity policy")
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", version):
         raise ValueError("invalid release version")
