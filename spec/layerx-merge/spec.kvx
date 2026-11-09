@@ -192102,7 +192102,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.283]
 title = "Regenerate the stale lockfile of the agent workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -304148,7 +304148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.282]
 title = "Admit and export programs-module rows in the lxphost store genesis"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
