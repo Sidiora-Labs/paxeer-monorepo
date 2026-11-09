@@ -344466,7 +344466,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1609.1]
 title = "Issue #1609: Correct the false registry-source missing-contract audit finding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344526,7 +344526,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1606.1]
 title = "Issue #1606: Correct the platform audit’s contract resolution and documentation findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344587,7 +344587,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1603.1]
 title = "Issue #1603: Align benchmark audit notes with their recorded findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344645,7 +344645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1596.1]
 title = "Issue #1596: Correct the FullCommitQC header-limit citations in the audit finding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344703,7 +344703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1593.1]
 title = "Issue #1593: Correct the sequencer and consensus contract reviews in audit record 22.30.43"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344823,7 +344823,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1589.1]
 title = "Issue #1589: Correct the launchpad audit contract-link resolution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344883,7 +344883,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1586.1]
 title = "Issue #1586: Correct the contract-drift audit citations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344941,7 +344941,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.393]
 title = "Triage issue #1923 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344972,7 +344972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.392]
 title = "Triage issue #1922 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
