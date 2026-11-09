@@ -1,0 +1,49 @@
+[issue.1774]
+number = 1774
+title = "[Coherence] The room profile codec in 22.38.1 omits fields that later tasks read from the room profile"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "RoomProfile and its codec at programs/crates/layerx-programs-ai-market/src/policy.rs:422 encode only the original eight fields, while spec/layerx-merge/interfaces.kvx:775168 promises maximum tokens and spec/layerx-merge/spec.kvx:188829, spec/layerx-merge/spec.kvx:188799, spec/layerx-merge/spec.kvx:188858, spec/layerx-merge/spec.kvx:188949 and spec/layerx-merge/spec.kvx:189195 require maximum tokens, queue depth, liveness timeout, acknowledgement window and relative tolerance respectively; programs/crates/layerx-programs-ai-market/src/canary.rs:42 supplies tolerance only in a separate canary wrapper, leaving the shared profile incomplete."
+close_comment = "The shared room profile still lacks maximum tokens, queue depth, liveness timeout, acknowledgement window and canary tolerance; canary challenges currently carry tolerance separately. A follow-up will add these settings to the canonical profile and preserve them through room storage, reads and challenge resolution."
+
+[task.18.1774.1]
+title = "Issue #1774: Encode every room profile setting required by inference consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181774.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend RoomProfile, its validation and its canonical encode/decode in programs/crates/layerx-programs-ai-market/src/policy.rs:422 with maximum generated tokens, queue depth, liveness timeout, acknowledgement window and canary relative tolerance in basis points; use explicit integer types and time units, require positive limits and windows, allow tolerance from 0 through 10000, and retain the queue default of 32 required by spec/layerx-merge/spec.kvx:188799 without synthesizing missing fields during decoding; include every setting in the market policy digest and explicitly version the changed wire formats so incomplete old records are refused rather than silently defaulted."
+do_2 = "Propagate the expanded profile through the existing reader/writer and InitialField implementation at programs/crates/layerx-programs-ai-market/src/codec.rs:264, OpenRoomRequest and RoomRecord at programs/crates/layerx-programs-ai-market/src/rooms.rs:350 and programs/crates/layerx-programs-ai-market/src/rooms.rs:96, and OpenRoom payload metadata at programs/crates/layerx-programs-ai-market/src/dispatch.rs:880; derive affected exact lengths from the profile length, update room and canary record sizing and format identifiers without widening capacity bounds, and make CanaryRoomProfile and challenge resolution at programs/crates/layerx-programs-ai-market/src/canary.rs:42 and programs/crates/layerx-programs-ai-market/src/canary.rs:931 use the decoded shared profile tolerance as the single source of truth; update the existing profile constructors and exact-length assertions in the declared integration tests and SDK test."
+do_3 = "Extend the real MarketPolicy codec tests at programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:469 to assert all five settings round-trip, each changes the digest, invalid limits and tolerance are refused, and truncation, trailing bytes and unsupported versions remain rejected; add f11_room_profile_survives_room_view_restart in f11_rooms_and_deals.rs to submit an encoded OpenRoomRequest through dispatch, persist and restore shared state and read all five settings back through RoomView; add canary_uses_decoded_room_profile_tolerance_after_restart in f11_canary_challenge.rs to use a profile emitted by the real policy codec through commit, challenge, reveal and resolution after restart, proving zero tolerance requires equality and a nonzero tolerance changes the observable hit or miss result; preserve all existing refusal assertions."
+symbols = ["RoomProfile", "CanaryRoomProfile", "OpenRoomRequest", "f11_market_policy_round_trips_every_room_profile_field", "f11_room_profile_survives_room_view_restart", "canary_uses_decoded_room_profile_tolerance_after_restart"]
+touches = ["programs/crates/layerx-programs-ai-market/src/policy.rs", "programs/crates/layerx-programs-ai-market/src/codec.rs", "programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/canary.rs", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs", "programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs", "programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs", "programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs", "programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs", "programs/crates/layerx-programs-ai-market/tests/f11_views.rs", "services/agent/crates/layerx-sdk/tests/inference_market.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs::f11_market_policy_round_trips_every_room_profile_field", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs::f11_room_profile_refuses_invalid_bounds_and_zero_settlement_account", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::f11_room_profile_survives_room_view_restart", "programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs::canary_uses_decoded_room_profile_tolerance_after_restart"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_family_table --test f11_rooms_and_deals --test f11_canary_challenge"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181774]
+title = "The canonical room profile supplies every setting required by inference consumers"
+ac_1 = "Given the fields required by spec/layerx-merge/spec.kvx:188829, spec/layerx-merge/spec.kvx:188799, spec/layerx-merge/spec.kvx:188858, spec/layerx-merge/spec.kvx:188949 and spec/layerx-merge/spec.kvx:189195, the policy codec at programs/crates/layerx-programs-ai-market/src/policy.rs:452 must preserve maximum generated tokens, queue depth, liveness timeout, acknowledgement window and canary tolerance with validated bounds, bind every setting into the policy digest and expose identical values through persisted room reads after restart; canary resolution must consume that decoded tolerance, with zero requiring equality, and incomplete or unsupported encodings must refuse explicitly."
+
+[acceptance.18.1774.1]
+feature = "18"
+req = "181774.1"
+scenario = "Given a valid room profile containing all five inference settings, when the real policy and OpenRoom codecs produce a room that is persisted, restored and read through RoomView and its decoded profile is used in a canary challenge, then every setting remains identical and resolution applies the encoded tolerance, while invalid or incomplete profiles are refused."
+contract = "contracts/inference-market.md#f11-operations"
+test = "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::f11_room_profile_survives_room_view_restart; programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs::canary_uses_decoded_room_profile_tolerance_after_restart (planned)"
+qualification = "UNRUN"
