@@ -1,6 +1,6 @@
 use crate::types::GuestIndex as _;
 use crate::{
-    codec::{self, EventCommon, Reader, ValidatedEnvelope, Writer},
+    codec::{self, Reader, ValidatedEnvelope, Writer},
     dispatch,
     errors::*,
     evidence::{self, SealRegion},
@@ -12,12 +12,12 @@ use crate::{
 };
 
 pub const LAP_BATCH_MAX: usize = 64;
-pub const BATCH_BYTES: usize = 92;
+pub const BATCH_BYTES: usize = 96;
 pub const SETTLE_FIXED_BYTES: usize = BATCH_BYTES + 2;
 pub const SCRATCH_BYTES: usize =
     Section::PolicyLifecycle.payload_cap() + 2 * Section::Control.payload_cap();
 pub(crate) const REGION_MAGIC: &[u8; 8] = b"LAPSETT1";
-const SETTLEMENT_BYTES: usize = BATCH_BYTES + 32 + 8 + 8 + 32 + 16;
+const SETTLEMENT_BYTES: usize = BATCH_BYTES + 32 + 8 + 8 + 32 + 16 + 8 * MAX_DEAL_PEERS;
 const RECEIPT_FIXED_BYTES: usize = 32 + 8 * 4 + 1 + 64 + 4;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -98,6 +98,7 @@ pub struct ReceiptBatch {
     pub cumulative_tokens: u64,
     pub batch_digest: Digest32,
     pub countersign_quorum: u32,
+    pub missing_countersigners: u32,
 }
 impl ReceiptBatch {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -160,6 +161,7 @@ impl ReceiptBatch {
             cumulative_tokens: previous.ok_or(NON_CANONICAL)?,
             batch_digest: Digest32::new(*nodes.guest_index(0))?,
             countersign_quorum: bitmap.count_ones(),
+            missing_countersigners: !bitmap & peer_mask(first.layer_range_digests.len()),
         })
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -174,6 +176,7 @@ impl ReceiptBatch {
             u64: self.cumulative_tokens;
             id32: self.batch_digest.as_bytes();
             u32: self.countersign_quorum;
+            u32: self.missing_countersigners;
         )?;
         Ok(out)
     }
@@ -189,7 +192,7 @@ impl ReceiptBatch {
             last_lap_index: U64,
             cumulative_tokens: U64,
             batch_digest: Digest32,
-            countersign_quorum: U32
+            countersign_quorum: U32, missing_countersigners: U32
         );
         r.finish()?;
         value.validate()?;
@@ -224,6 +227,7 @@ pub struct LapSettlement {
     pub config: u64,
     pub roster: RosterDigest,
     pub settled_amount_owed: u128,
+    pub slashed_laps: [u64; MAX_DEAL_PEERS],
 }
 impl LapSettlement {
     pub fn meter_reading(&self) -> u64 {
@@ -241,19 +245,26 @@ impl LapSettlement {
             id32: self.roster.as_bytes();
             u128: self.settled_amount_owed;
         )?;
+        for mask in self.slashed_laps {
+            w.u64(mask)?;
+        }
         Ok(out)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
-        let record = Self {
+        let mut record = Self {
             batch: ReceiptBatch::decode(r.take(BATCH_BYTES)?)?,
             task_set: r.digest32()?,
             epoch: r.u64()?,
             config: r.u64()?,
             roster: r.roster_digest()?,
             settled_amount_owed: r.u128()?,
+            slashed_laps: [0; MAX_DEAL_PEERS],
         };
+        for mask in &mut record.slashed_laps {
+            *mask = r.u64()?;
+        }
         Version::new(record.config)?;
         r.finish()?;
         Ok(record)
@@ -376,7 +387,7 @@ pub fn apply_settle_laps(
         return Err(UNKNOWN_OPERATION);
     }
     let state = state::decode_shared_state(current)?;
-    let mut policy = crate::canary::check_call(ctx, e, &state)?;
+    let policy = crate::canary::check_call(ctx, e, &state)?;
     if policy.header.lifecycle != ACTIVE {
         return Err(WRONG_PHASE);
     }
@@ -427,7 +438,11 @@ pub fn apply_settle_laps(
         return Ok(Outcome::Retained(retained));
     }
     let peers = deal.layers.iter().flatten().count() as u32;
-    if batch.countersign_quorum < peers.saturating_sub(1) || batch.countersign_quorum > peers {
+    if batch.countersign_quorum < peers.saturating_sub(1)
+        || batch.countersign_quorum > peers
+        || batch.missing_countersigners & !peer_mask(peers as usize) != 0
+        || batch.missing_countersigners.count_ones() + batch.countersign_quorum != peers
+    {
         return Err(UNAUTHORIZED);
     }
     let region = SealRegion::decode(state.control.feature_bytes)?;
@@ -447,6 +462,7 @@ pub fn apply_settle_laps(
         epoch: e.epoch,
         config: e.config,
         roster: deal.roster_digest,
+        slashed_laps: [0; MAX_DEAL_PEERS],
         settled_amount_owed: u128::from(batch.cumulative_tokens)
             .checked_mul(deal.agreed_price_per_thousand_tokens)
             .ok_or(ARITHMETIC)?
@@ -467,37 +483,73 @@ pub fn apply_settle_laps(
     let mut w = Writer::new(features.guest_index_mut(prefix_len + n..));
     w.put(region.rest())?;
     let feature_len = prefix_len + n + w.len();
-    let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    policy.header.state_revision = revision;
-    let n = policy.encode(policy_out)?;
-    let mut candidate =
-        state.with_section(Section::PolicyLifecycle, policy_out.guest_index(..n))?;
+    let settlement = state.section(Section::SettlementClaims)?;
+    let mut candidate = state;
     candidate.control.feature_bytes = features.guest_index(..feature_len);
     let record_bytes = record.encode()?;
-    let result = codec::result_digest(&record_bytes)?;
-    if candidate.record_success(&request, ctx.height, result)? != ReplayDecision::Apply
-        || candidate.revision != revision
-    {
-        return Err(NON_CANONICAL);
-    }
-    crate::registry::check_f01_capacity(n, candidate.encoded_len()?)?;
-    let state_len = state::encode_shared_state(&candidate, next, control)?;
-    let event_len = codec::encode_event_frame(
-        dispatch::SettleLaps,
-        &EventCommon {
-            market: e.market,
-            epoch: e.epoch,
-            config: Version::new(e.config)?,
-            revision,
-            request: envelope.request_digest()?,
-            result,
-        },
+    match crate::rewards::finish_room_transition(
+        ctx.height,
+        envelope,
+        candidate,
+        policy,
+        settlement,
         &record_bytes,
+        Some(&request),
+        policy_out,
+        control,
+        next,
         event,
+    )? {
+        crate::rooms::Outcome::Applied {
+            revision,
+            state_len,
+            event_len,
+        } => Ok(Outcome::Applied {
+            revision,
+            state_len,
+            event_len,
+        }),
+        _ => Err(NON_CANONICAL),
+    }
+}
+
+fn peer_mask(count: usize) -> u32 {
+    u32::MAX >> (MAX_DEAL_PEERS - count)
+}
+
+impl LapSettlement {
+    pub(crate) fn was_slashed(&self, peer: usize, lap: u64) -> bool {
+        lap.checked_sub(self.batch.first_lap_index)
+            .filter(|offset| *offset < 64)
+            .is_some_and(|offset| self.slashed_laps.guest_index(peer) & (1u64 << offset) != 0)
+    }
+}
+
+pub(crate) fn record_slash(
+    state: &state::SharedState<'_>,
+    mut record: LapSettlement,
+    peer: usize,
+    lap: u64,
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    let offset = lap
+        .checked_sub(record.batch.first_lap_index)
+        .ok_or(UNAUTHORIZED)?;
+    if lap > record.batch.last_lap_index || offset >= 64 {
+        return Err(UNAUTHORIZED);
+    }
+    if record.was_slashed(peer, lap) {
+        return Err(CONFLICT);
+    }
+    *record.slashed_laps.guest_index_mut(peer) |= 1u64 << offset;
+    let region = SealRegion::decode(state.control.feature_bytes)?;
+    let prefix = region.write_lap_prefix(out)?;
+    let n = write_region(
+        region.lap_settlements(),
+        &record,
+        out.guest_index_mut(prefix..),
     )?;
-    Ok(Outcome::Applied {
-        revision,
-        state_len,
-        event_len,
-    })
+    let mut w = Writer::new(out.guest_index_mut(prefix + n..));
+    w.put(region.rest())?;
+    Ok(prefix + n + w.len())
 }

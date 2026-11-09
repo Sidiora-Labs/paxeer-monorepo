@@ -315,6 +315,26 @@ impl Market {
         payload: &[u8],
         at: u64,
     ) -> Vec<u8> {
+        if op == dispatch::PostBid {
+            let mut r = codec::Reader::new(payload);
+            let room = r.digest32().unwrap();
+            let bid = r.digest32().unwrap();
+            r.take(48).unwrap();
+            let amount = r.u128().unwrap();
+            if layerx_programs_ai_market::bonds::bond_from_state(&self.bytes, bid)
+                .unwrap()
+                .is_none()
+            {
+                self.call(
+                    dispatch::LockBond,
+                    who,
+                    &layerx_programs_ai_market::bonds::LockBondRequest { room, bid, amount }
+                        .encode()
+                        .unwrap(),
+                    at,
+                );
+            }
+        }
         let e = self.envelope(op, who, payload);
         producers::apply(&mut self.bytes, &e, who, at).unwrap();
         e
