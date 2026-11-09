@@ -36554,3 +36554,11 @@ symbol = "parity-stale.kvx"
 observed = "Attempt 1 at 83c457fc182d: build exit 0; verification exit 1: the validator refused stale.24 because its replacement test every_published_activity_and_receipt_round_trips_exactly is not in structures.rs; log /out/logs/verify-1.log."
 assumption = "The 239 dispositions of the attempt are sound; one aged first-round entry blocks the validator."
 severity = "high"
+
+[finding.22.39.168.1]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 1 at 933ff2d7d58e: build exit 0; verification exit 1: nine wiring test cases failed on the pre-retirement baseline expectations before any module test ran, and two api entries of owner 22.39.154 were removed; log /out/logs/verify-1.log."
+assumption = "The wiring test and the verification contradict each other until the test asserts the retirement state; the module repairs of the attempt are unverified."
+severity = "high"
