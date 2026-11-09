@@ -671,6 +671,13 @@
   ],
   "allowed_references": [
     {
+      "path": "services/agent/crates/layerx-wire/src/hash.rs",
+      "symbols": [
+        "EvmPayoutBinding"
+      ],
+      "citation": "Decisions 3104 and 3122: the human binding journey is retired, but this wire domain remains live for compatibility with LXP_DOMAIN_EVM_PAYOUT_BINDING in include/layerx/lxp_protocol.h and lxp_identity_evm_binding_digest in src/state/lxp_identity.c."
+    },
+    {
       "path": "tools/paxeer-x/retired_callers.json",
       "symbols": [
         "/v1/agent/authorized-batch",
