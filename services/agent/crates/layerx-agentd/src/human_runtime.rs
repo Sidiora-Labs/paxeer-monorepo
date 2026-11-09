@@ -12124,7 +12124,7 @@ fn install_capability<A: HumanAuthorityBoundary>(
     out.fixed(&request.capability_id);
     out.u64(observed.observed_sequence);
     out.u8(rung);
-    out.fixed(&agent_evidence_digest(
+    out.fixed(&capability_install_evidence_digest(
         request.action_key,
         request.capability_id,
         observed.observed_sequence,
@@ -12232,6 +12232,22 @@ fn decode_capability_action(
 fn persisted_terminal_receipt_matches(canonical: &[u8], expected: [u8; 32]) -> bool {
     crate::protocol_evidence::canonical_receipt_reference(canonical)
         .is_ok_and(|reference| reference == expected)
+}
+
+fn capability_install_evidence_digest(
+    action_key: [u8; 32],
+    capability_id: [u8; 32],
+    observed_sequence: u64,
+    rung: u8,
+) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-human/agent-create/agent-evidence/v1");
+    digest.update([5_u8]);
+    digest.update(action_key);
+    digest.update(capability_id);
+    digest.update(observed_sequence.to_be_bytes());
+    digest.update([rung]);
+    digest.finalize().into()
 }
 
 fn agent_evidence_digest(

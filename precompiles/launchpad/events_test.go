@@ -203,7 +203,7 @@ func TestLogsMatchContractEvents(t *testing.T) {
 			position++
 			if v.role == "Router" || v.role == "FeesRouter" {
 				require.NoError(t, p.emitAt(evm, v.role, precompile, v.name, v.values...))
-				if v.name != "RoleGranted" && v.name != "RoleRevoked" {
+				if v.role == "Router" && v.name != "RoleGranted" && v.name != "RoleRevoked" {
 					v.address = precompile
 				}
 				assertEventVector(t, db, v, position, false)
@@ -263,6 +263,10 @@ func testNativeEventRefusals(t *testing.T, p PrecompileExecutor, evm *vm.EVM, db
 			"launchpad: pool event requires a pool address")
 	}
 	require.EqualError(t, p.emitAt(evm, "Router", pool, "Buy"), "launchpad: invalid Router event surface "+pool.Hex())
+	for _, address := range []common.Address{{}, pool} {
+		require.EqualError(t, p.emitAt(evm, "FeesRouter", address, "FeesClaimed"),
+			"launchpad: invalid FeesRouter event surface "+address.Hex())
+	}
 	require.EqualError(t, p.emitAt(evm, "SidioraPool", pool, "PauseToggled"),
 		"launchpad: PauseToggled expects 1 event arguments, got 0")
 	require.EqualError(t, p.emitAt(evm, "SidioraPool", pool, "PauseToggled", true, false),

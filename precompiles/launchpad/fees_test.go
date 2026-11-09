@@ -642,6 +642,55 @@ func (e *feeTestEnv) setStrategy(old, next types.FeeStrategy) {
 	require.Equal(e.t, next, market.FeeStrategy)
 }
 
+func TestFeesRouterLogOrigins(t *testing.T) {
+	precompile := common.HexToAddress(types.LaunchpadAddress)
+	for _, calledAt := range []common.Address{precompile, launchpadkeeper.Generation2Surfaces[types.RoleFeesRouter]} {
+		t.Run(calledAt.Hex(), func(t *testing.T) {
+			e := newFeeTestEnv(t)
+			one := big.NewInt(1)
+			old, next := uint8(types.FeeStrategyClaim), uint8(types.FeeStrategyBurn)
+			start := e.logCount()
+			ret, _, err := e.evm.Call(e.owner, calledAt,
+				e.input(types.RoleFeesRouter, "setFeeStrategy", one, next), feeTestCallGas, uint256.NewInt(0))
+			require.NoError(t, err, "setFeeStrategy at %s reverted with %x", calledAt, ret)
+			out, err := e.abis[types.RoleFeesRouter].Methods["setFeeStrategy"].Outputs.Unpack(ret)
+			require.NoError(t, err)
+			require.Empty(t, out)
+			logs := e.logsSince(start)
+			require.Len(t, logs, 3)
+			e.requireLog(logs[0], e.roles.SidioraNFT, types.RoleFeeRights, "FeeStrategyChanged", one, old, next)
+			requireFamilyLog(t, e.evm, logs[1], "FeeStrategyChanged", common.BytesToHash(e.pool.Bytes()), one, old, next)
+			e.requireLog(logs[2], e.roles.FeesRouter, types.RoleFeesRouter, "FeeStrategyChanged", one, old, next)
+
+			event := e.abis[types.RoleFeesRouter].Events["FeeStrategyChanged"]
+			roleCount := 0
+			for _, log := range logs {
+				require.NotEmpty(t, log.Topics)
+				if log.Topics[0] != event.ID || log.Address == e.roles.SidioraNFT {
+					continue
+				}
+				require.Equal(t, e.roles.FeesRouter, log.Address)
+				roleCount++
+				decoded := map[string]interface{}{}
+				require.NoError(t, event.Inputs.NonIndexed().UnpackIntoMap(decoded, log.Data))
+				var indexed abi.Arguments
+				for _, input := range event.Inputs {
+					if input.Indexed {
+						indexed = append(indexed, input)
+					}
+				}
+				require.NoError(t, abi.ParseTopicsIntoMap(decoded, indexed, log.Topics[1:]))
+				require.Equal(t, map[string]interface{}{"nftId": one, "oldStrategy": old, "newStrategy": next}, decoded)
+			}
+			require.Equal(t, 1, roleCount)
+			right, found, err := e.k.GetFeeRight(e.stateDB.Ctx(), e.roles.SidioraNFT, 1)
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, types.FeeStrategyBurn, right.Strategy)
+		})
+	}
+}
+
 // TestDirectOverloadsReachTheirRole sends the two FeeAccumulator address
 // overloads, which abi.json declares after the FeesRouter fee-right
 // overloads of the same names, and one FeesRouter fee-right overload straight
