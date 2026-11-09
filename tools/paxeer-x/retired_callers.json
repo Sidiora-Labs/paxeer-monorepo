@@ -1208,6 +1208,67 @@
         "EvmPayoutBinding"
       ],
       "citation": "Decisions 3104 and 3122: the human binding journey is retired, but this wire domain remains live for compatibility with LXP_DOMAIN_EVM_PAYOUT_BINDING in include/layerx/lxp_protocol.h and lxp_identity_evm_binding_digest in src/state/lxp_identity.c."
+    },
+    {
+      "path": "include/layerx",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/ledger",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/protocol",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/state",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/ledger",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "src/protocol",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "src/state",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
     }
   ]
 }
