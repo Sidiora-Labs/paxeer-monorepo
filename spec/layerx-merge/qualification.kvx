@@ -36458,3 +36458,11 @@ symbol = "repair_22_33_223.rs"
 observed = "Attempt 14 at c35ee22bb79c (base fa374671b962): build exit 0 twice, dependents exit 0 twice, verification exit 1 twice: 21 cases passed and three failed (every_routed_operation_fits_the_protocol_cpu_fuel_cap, roster_state_fuel_scaling, maximum_state_fuel_scaling) on cpu refusals of OPEN_EPOCH at 24/6 and 32/8, FinalizeAggregation at 16/4 and above and the fourth ProcessAggregation chunk at 32/8; log /out/logs/verify-2.log."
 assumption = "The refusals are the per-participant costs the sweep slopes show, not the rescans attempt 14 removed; the fixture is sound since no admission refusal occurred."
 severity = "high"
+
+[finding.22.39.177.5]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+symbol = "activity_codec.rs"
+observed = "Attempt 4 at 1e0231e12e70 (base a26369c7eda6): build exit 0; verification exit 1: activity_codec, authority_from_prestate and proof_arbiter_crate passed (two filtered), repair_22_33_215 failed two cases, registry_authority_signature_drives_both_call_envelopes and registry_replay_signatures_reconstruct_and_verify_adjacent_steps, with inner runtime result Witness(Encoding) at the boundary pair replay; log /out/logs/verify-1.log."
+assumption = "The two cases fail on the producer defect of decision 3029 that 22.39.183 owns; the retirement tree is complete."
+severity = "high"
