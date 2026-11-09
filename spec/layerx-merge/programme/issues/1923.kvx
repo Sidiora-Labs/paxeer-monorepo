@@ -1,0 +1,48 @@
+[issue.1923]
+number = 1923
+title = "[Coherence] No per-crate task covers the layerx-agentd example target, so the final whole-workspace task still meets its lints"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The split introduced by commit 016028d4d52f5a21537f09c55c2f765d34bed486 still omits the example at services/agent/crates/layerx-agentd/examples/review_audit_export.rs:6, auto-discovered by services/agent/crates/layerx-agentd/Cargo.toml:1: task 22.39.222 is pending at spec/layerx-merge/spec.kvx:187361, owns only src at spec/layerx-merge/spec.kvx:187372 and lints only --lib at spec/layerx-merge/spec.kvx:187376, the four groups select only tests at spec/layerx-merge/spec.kvx:187163, spec/layerx-merge/spec.kvx:187193, spec/layerx-merge/spec.kvx:187223 and spec/layerx-merge/spec.kvx:187253, and the later decision 3057 at spec/layerx-merge/spec.kvx:11457 leaves this omission intact, so Makefile:1997 still first includes the example in the final lint task whose cross-member repair restriction remains at spec/layerx-merge/spec.kvx:187634; Makefile:2380 checks the example without Clippy and does not settle the lint coverage gap."
+close_comment = "The audit reviewer example is still missing from the daemon's per-crate lint coverage. The correction will include examples in the daemon library task's build, lint command and owned paths, with a regression check that preserves coverage before the final lint target."
+
+[task.18.1923.1]
+title = "Issue #1923: Include the audit reviewer example in daemon lint coverage"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181923.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend the pending task 22.39.222 at spec/layerx-merge/spec.kvx:187359 and its capability at spec/layerx-merge/spec.kvx:43559 to cover the library and examples: add --examples alongside --lib to its build, inventory and verification commands, add services/agent/crates/layerx-agentd/examples to both touches lists, and update the title and inventory wording accordingly; retain --locked, --no-deps and -D warnings in the lint commands, all existing source ownership, the repair restrictions and the existing dependency from 22.39.211 at spec/layerx-merge/spec.kvx:187610."
+do_2 = "Add test_agent_daemon_example_lint_coverage to spec/layerx-merge/programme/tests/test_decision_bindings.py using the existing programme.kvx.load import at line 5 to inspect the actual specification: assert that task 22.39.222 builds and lints the library and examples, its inventory selects the same targets, its capability matches the verification and ownership, both touches lists cover the existing review_audit_export.rs, and 22.39.211 requires 22.39.222; keep the public Makefile:1997 all-targets lint and every existing assertion unchanged."
+symbols = ["test_agent_daemon_example_lint_coverage"]
+touches = ["spec/layerx-merge/spec.kvx", "spec/layerx-merge/programme/tests/test_decision_bindings.py"]
+tests = ["spec/layerx-merge/programme/tests/test_decision_bindings.py::test_agent_daemon_example_lint_coverage"]
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_decision_bindings.py"
+verify_cmd = "PYTHONPATH=spec/layerx-merge python3 -m pytest spec/layerx-merge/programme/tests/test_decision_bindings.py::test_agent_daemon_example_lint_coverage -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181923]
+title = "The daemon's per-crate lint coverage includes its audit reviewer example"
+ac_1 = "Task 22.39.222 and its capability select --lib --examples for the build and lint coverage currently restricted at spec/layerx-merge/spec.kvx:187375, spec/layerx-merge/spec.kvx:187376 and spec/layerx-merge/spec.kvx:43564, own services/agent/crates/layerx-agentd/examples/review_audit_export.rs:6 through their examples touches entry, and remain a prerequisite of 22.39.211 at spec/layerx-merge/spec.kvx:187610, as asserted by test_agent_daemon_example_lint_coverage."
+
+[acceptance.18.1923.1]
+feature = "18"
+req = "181923.1"
+scenario = "Given the daemon's audit reviewer example and the per-crate lint split, when the specification coverage check reads the daemon library task and its capability, then both include examples in their lint coverage and owned paths, the build includes examples, and the final lint task requires the daemon library task."
+contract = "contracts/programme.md#decisions"
+test = "spec/layerx-merge/programme/tests/test_decision_bindings.py::test_agent_daemon_example_lint_coverage (planned)"
+qualification = "UNRUN"

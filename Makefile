@@ -262,8 +262,9 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_harness
 
 .PHONY: test-tests-python
-test-tests-python:
-	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
+test-tests-python: $(LIBRARY)
+	LAYERX_TEST_LIBRARY="$(abspath $(LIBRARY))" \
+		python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
 		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci tools/ci/tests
 	bash tools/ci/tests/publish-images.test.sh
@@ -2659,9 +2660,14 @@ specgen-lint:
 	go vet ./tools/specgen
 	go run ./tools/specgen -root . -check
 
-.PHONY: test-core-ports core-test-all
+.PHONY: test-payer-grant-archive test-core-ports core-test-all
 
-test-core-ports: $(BUILD_DIR)/tests/kernel/codec/lxp_test_handover_retired \
+test-payer-grant-archive: $(LIBRARY)
+	LAYERX_TEST_LIBRARY="$(abspath $(LIBRARY))" \
+		python3 -m pytest -q tests/ci/test_core_test_all_wired.py -k payer_grant_archive
+
+test-core-ports: test-payer-grant-archive \
+	$(BUILD_DIR)/tests/kernel/codec/lxp_test_handover_retired \
 	$(BUILD_DIR)/tests/kernel/codec/lxp_test_state_feed_unbound \
 	$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_payer_grant \
 	$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_prepare_workers

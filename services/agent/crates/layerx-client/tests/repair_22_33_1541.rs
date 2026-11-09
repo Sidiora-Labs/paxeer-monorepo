@@ -505,6 +505,176 @@ fn assert_bounded(start: Instant) {
     );
 }
 
+struct HandshakePeer {
+    url: String,
+    release: mpsc::Sender<()>,
+    worker: Option<std::thread::JoinHandle<()>>,
+}
+impl HandshakePeer {
+    fn start(complete: bool, cancellation: Option<Arc<AtomicBool>>) -> Self {
+        let (server, url) = listener();
+        let url = url.replacen("http://", "ws://", 1);
+        must(server.set_nonblocking(true));
+        let (release, released) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let accept_deadline = Instant::now() + Duration::from_secs(2);
+            let stream = loop {
+                match server.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(
+                            Instant::now() < accept_deadline,
+                            "handshake never connected"
+                        );
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("accept: {error:?}"),
+                }
+            };
+            must(stream.set_read_timeout(Some(Duration::from_secs(2))));
+            must(stream.set_write_timeout(Some(Duration::from_secs(2))));
+            let handshake = tungstenite::accept_hdr(
+                stream,
+                |request: &tungstenite::handshake::server::Request, response| {
+                    assert_eq!(request.method(), "GET");
+                    assert_eq!(request.uri().path(), "/");
+                    if complete {
+                        std::thread::sleep(Duration::from_millis(200));
+                    } else {
+                        if let Some(flag) = &cancellation {
+                            std::thread::sleep(Duration::from_millis(150));
+                            flag.store(true, Ordering::Release);
+                        }
+                        must(released.recv_timeout(Duration::from_secs(2)));
+                    }
+                    Ok(response)
+                },
+            );
+            if complete {
+                let mut socket = must(handshake);
+                let request = must(socket.read());
+                let request: Value = must(serde_json::from_str(must(request.to_text())));
+                assert_eq!(
+                    request,
+                    json!({"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["newHeads"]})
+                );
+                must(
+                    socket.send(Message::Text(
+                        json!({"jsonrpc":"2.0","id":1,"result":"delayed-sub"})
+                            .to_string()
+                            .into(),
+                    )),
+                );
+                must(socket.send(Message::Text(json!({"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"delayed-sub","result":{"number":"0x10"}}}).to_string().into())));
+                let request = must(socket.read());
+                let request: Value = must(serde_json::from_str(must(request.to_text())));
+                assert_eq!(
+                    request,
+                    json!({"jsonrpc":"2.0","id":2,"method":"eth_unsubscribe","params":["delayed-sub"]})
+                );
+                must(
+                    socket.send(Message::Text(
+                        json!({"jsonrpc":"2.0","id":2,"result":true})
+                            .to_string()
+                            .into(),
+                    )),
+                );
+                assert!(matches!(must(socket.read()), Message::Close(_)));
+            } else {
+                drop(handshake);
+            }
+            assert!(
+                matches!(server.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            );
+        });
+        Self {
+            url,
+            release,
+            worker: Some(worker),
+        }
+    }
+
+    fn finish(mut self) {
+        let _ = self.release.send(());
+        must(self.worker.take().expect("worker").join());
+    }
+}
+impl Drop for HandshakePeer {
+    fn drop(&mut self) {
+        let _ = self.release.send(());
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
+#[test]
+fn subscription_handshake_survives_cancellation_polls() {
+    for cancellation in [None, Some(Arc::new(AtomicBool::new(false)))] {
+        let peer = HandshakePeer::start(true, None);
+        let options = WaitOptions {
+            timeout: Duration::from_secs(2),
+            cancellation: cancellation.clone(),
+        };
+        let start = Instant::now();
+        let mut subscription = must(subscription::subscribe_with_options(
+            &peer.url,
+            &[],
+            SubscriptionTopic::NewHeads,
+            &options,
+        ));
+        assert!(start.elapsed() >= Duration::from_millis(150));
+        assert_eq!(
+            must(subscription.next_with_options(&options)),
+            json!({"number":"0x10"})
+        );
+        must(subscription.close_with_options(&options));
+        assert!(start.elapsed() < Duration::from_secs(2));
+        if let Some(flag) = cancellation {
+            assert!(!flag.load(Ordering::Acquire));
+        }
+        peer.finish();
+    }
+}
+
+#[test]
+fn subscription_handshake_can_be_cancelled() {
+    let cancellation = Arc::new(AtomicBool::new(false));
+    let peer = HandshakePeer::start(false, Some(cancellation.clone()));
+    let options = WaitOptions {
+        timeout: Duration::from_secs(2),
+        cancellation: Some(cancellation.clone()),
+    };
+    let start = Instant::now();
+    let result =
+        subscription::subscribe_with_options(&peer.url, &[], SubscriptionTopic::NewHeads, &options);
+    let elapsed = start.elapsed();
+    assert!(cancellation.load(Ordering::Acquire));
+    assert!(matches!(result, Err(SequencerError::Unavailable)));
+    assert!(elapsed >= Duration::from_millis(150));
+    assert!(elapsed < Duration::from_secs(1));
+    peer.finish();
+}
+
+#[test]
+fn subscription_handshake_honors_absolute_deadline() {
+    let peer = HandshakePeer::start(false, None);
+    let cancellation = Arc::new(AtomicBool::new(false));
+    let options = WaitOptions {
+        timeout: Duration::from_millis(300),
+        cancellation: Some(cancellation.clone()),
+    };
+    let start = Instant::now();
+    let result =
+        subscription::subscribe_with_options(&peer.url, &[], SubscriptionTopic::NewHeads, &options);
+    let elapsed = start.elapsed();
+    assert!(matches!(result, Err(SequencerError::Unavailable)));
+    assert!(!cancellation.load(Ordering::Acquire));
+    assert!(elapsed >= Duration::from_millis(250));
+    assert!(elapsed < Duration::from_secs(1));
+    peer.finish();
+}
+
 #[test]
 fn subscription_control_traffic_cannot_extend_subscribe_deadline() {
     let peer = WebSocketPeer::start(ControlPhase::Subscribe);

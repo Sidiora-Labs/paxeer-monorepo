@@ -1,0 +1,48 @@
+[issue.1914]
+number = 1914
+title = "[Coherence] The market sandbox evidence producer still writes raw boundary leaves, but the market leaf verifier now accepts only the record-header envelope"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The capture producer still writes raw proof leaves at programs/crates/layerx-programs-arbiter/examples/market_sandbox_capture.rs:149 and decodes raw execution leaves as envelopes at :286 and :302, whereas programs/crates/layerx-programs-arbiter/src/market.rs:47 requires a record-header envelope and :699 maps its absence to Encoding, and programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs:330 loads those files unchanged for the verdict assertions at :649."
+close_comment = "Market sandbox captures still omit the record header required by boundary verification and decode raw leaves as envelopes. A repair is required to emit header-wrapped proof files and decode captured leaves with their record header while preserving raw-leaf Merkle roots."
+
+[task.18.1914.1]
+title = "Issue #1914: Carry record headers in market capture boundary proofs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181914.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update programs/crates/layerx-programs-arbiter/examples/market_sandbox_capture.rs:142 so proof receives the genuine execution record header and writes header.boundary_envelope for every initial, final, pre and post proof emitted at :413; replace every raw-leaf decode_untrusted in prepare at :286, :302, :304, :325 and :329 with decode_with_header using execution.record.header(), including the deliberately incorrect claim, and preserve the raw captured files at :401 and Merkle hashing over raw claimed leaves at :346 as required by programs/crates/layerx-programs-arbiter/src/market.rs:48 and spec/layerx-merge/spec.kvx:11289."
+do_2 = "Extend programs/crates/layerx-programs-arbiter/tests/repair_22_39_183.rs using its real market consumer inclusion at :8: add market_capture_files_cross_market_boundary_verifier, exercising the example's runtime capture preparation and proof writer on genuine integer and terminal-trap executions plus an incorrect intermediate transition; reload the emitted files and sibling paths into BoundaryProof, pass them through market::verify_market_boundary and SandboxStepJudge, assert correct integer and trap transitions and an incorrect transition, assert the original raw-leaf roots and extracted headers, and retain rejection checks for raw proof files, mismatched headers and corrupted paths without constructing signed market evidence."
+symbols = ["proof", "prepare", "market_capture_files_cross_market_boundary_verifier"]
+touches = ["programs/crates/layerx-programs-arbiter/examples/market_sandbox_capture.rs", "programs/crates/layerx-programs-arbiter/tests/repair_22_39_183.rs"]
+tests = ["programs/crates/layerx-programs-arbiter/tests/repair_22_39_183.rs::market_capture_files_cross_market_boundary_verifier"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --example market_sandbox_capture"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test repair_22_39_183 market_capture_files_cross_market_boundary_verifier -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181914]
+title = "Market capture proof files carry the authentic record header and preserve raw-leaf commitments"
+ac_1 = "Given genuine runtime integer and terminal-trap records and a provider claim with an incorrect intermediate transition, the capture path at programs/crates/layerx-programs-arbiter/examples/market_sandbox_capture.rs:275 decodes raw leaves with their record header and the proof writer at :149 emits header envelopes accepted by the market leaf verifier at programs/crates/layerx-programs-arbiter/src/market.rs:665, with Merkle paths over the original raw claimed leaves, correct positive transitions, an incorrect negative transition, and rejection of raw transports, mismatched headers and corrupted paths."
+
+[acceptance.18.1914.1]
+feature = "18"
+req = "181914.1"
+scenario = "Given genuine runtime market sandbox captures for integer, terminal-trap and incorrect-transition claims, when the capture tool writes proof files and the market boundary consumer reloads and verifies them, then record headers accompany all proof leaves, raw-leaf roots remain unchanged, valid proofs reach the expected transition result and malformed proofs are refused."
+contract = "contracts/programs.md#arbiter-crate"
+test = "programs/crates/layerx-programs-arbiter/tests/repair_22_39_183.rs::market_capture_files_cross_market_boundary_verifier (planned)"
+qualification = "UNRUN"

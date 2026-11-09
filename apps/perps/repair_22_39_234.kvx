@@ -1,0 +1,63 @@
+[repair]
+task = "22.39.234"
+requirement = "22998.1"
+base_revision = "027bfa65e2a8c1dcc27852c4ea1d6414ec78c44e"
+resolution = "Pin perps @types/react to 18.3.31, matching the wallet workspace perps importer; map react, react/jsx-runtime and react/jsx-dev-runtime to the perps declarations for all compiler inputs, including linked wallet SDK declarations."
+dependency = "@paxeer/wallet (../../sdk/wallet) declares development @types/react ^19.0.0 and resolves 19.3.0; its optional React peer supports >=18.0.0. Retain the SDK React 19 development dependency while compiling the React 18 application against its own declarations."
+
+[baseline]
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+source = "GOTCHA.kvx gotcha.3770 and decision 3068; historical inventory at base 93249965659c, not a fresh gate on this task base."
+errors = 183
+TS2786 = 160
+TS2769 = 17
+TS2339 = 6
+perps_lock_versions = "18.3.28, 19.3.0"
+wallet_lock_version = "18.3.31 (../../apps/perps importer in services/wallet/pnpm-lock.yaml)"
+installed_react18_declaration = "/work/paxeer-monorepo/services/wallet/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index.d.ts"
+installed_react19_declaration = "/work/paxeer-monorepo/services/wallet/node_modules/.pnpm/@types+react@19.3.0/node_modules/@types/react/index.d.ts"
+path_provenance = "Readlink inspection on the unchanged task base: apps/perps/node_modules/@types/react resolves React 18 and sdk/wallet/node_modules/@types/react resolves React 19 after runner preparation; no fresh TS2786 diagnostic log is available."
+
+[evidence]
+revision = "The final hf-done ledger row identifies the verified candidate revision; references avoid changing the candidate after qualification."
+build_command = "pnpm --dir apps/perps install --frozen-lockfile --offline && pnpm --dir apps/perps exec tsc --noEmit"
+build_reference = "/out/run/gates.jsonl: final kind=build row, including revision, command, exit and private log /out/logs/build-N.log."
+verify_command = "test -s apps/perps/repair_22_39_234.kvx && pnpm --dir apps/perps exec tsc --noEmit && pnpm --dir apps/perps exec node --test --import tsx tests/spot-release-gate.test.ts"
+verify_reference = "/out/run/gates.jsonl: final kind=verify row for cg spec done 22.39.234 -f layerx-merge --root /work/paxeer-monorepo, including revision, command, exit and private log /out/logs/verify-N.log."
+criterion = "Existing spot-release-gate.test.ts asserts closed/open routing, market selection, navigation and rendered spot mode behavior with every assertion unchanged and a real query client supplied to the markets Harness. Only a passing hf-done qualifies the task."
+
+[gotchas]
+baseline_order = "The baseline-run instruction conflicts with the explicit implementation-before-testing order and allowed-gate budget. Preserve historical counts with provenance; do not claim a fresh baseline run."
+workspace_resolution = "Runner preparation installs services/wallet, which links perps and the wallet SDK to different React type major versions; a direct perps pin alone does not constrain imports resolved inside linked SDK declarations."
+lockfile = "The perps lockfile lacked the SDK jsdom and react-dom development entries already present in its manifest. Copy their exact resolution and missing transitive closure from services/wallet/pnpm-lock.yaml so the declared frozen install can run without unrelated dependency upgrades."
+
+[qualification.attempt_1]
+status = "implemented_not_qualified"
+revision = "41d24507ad36deb16262627ca71df611f4a10099"
+build_command = "pnpm --dir apps/perps install --frozen-lockfile --offline && pnpm --dir apps/perps exec tsc --noEmit"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.234 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+result = "The frozen offline install and both declared type checks passed. The unchanged spot-release test ran two cases: one passed and markets_mode_handler_switches_to_spot failed with No QueryClient set, use QueryClientProvider to set one. No test was weakened or skipped."
+stop = "Record the unrelated existing test failure without chasing it: its Harness renders MarketsPage with RouterContext.Provider but no QueryClientProvider. Test and component source are outside scope; no task-scoped repair can supply the missing provider. The evidence revision is the actual gated candidate; this appended finding has not been gated."
+
+[finding.query_client_provider]
+task = "22.39.234"
+file = "apps/perps/tests/spot-release-gate.test.ts"
+symbol = "Harness"
+observed = "At revision 41d24507ad36deb16262627ca71df611f4a10099, cg spec done 22.39.234 -f layerx-merge --root /work/paxeer-monorepo exited 1 (private log /out/logs/verify-1.log): markets_mode_handler_switches_to_spot renders MarketsPage without QueryClientProvider and fails in usePerpsMarkets with No QueryClient set after tsc passed."
+assumption = "The unchanged test must supply the real query provider required by the markets page in a separately scoped repair; React type resolution does not provide runtime query context."
+severity = "blocker"
+
+[continuation]
+attempt = 2
+base_revision = "36d4f17d46b13214e8020f75aff34feb0eb5f8c4"
+previous_attempt_revision = "3455fe6fb96627bf215762b3ae43748dd16ea189"
+authority = "Decision 3068, gotcha.3795 and task do_4 extend the touches to apps/perps/tests/spot-release-gate.test.ts; retain the attempt-1 React type pin, three compiler paths and lockfile."
+fixture = "Wrap Harness in the real QueryClientProvider with a fresh QueryClient for each renderToStaticMarkup invocation and clear it in finally, following tests/mobile-markets.test.ts; all existing assertions execute unchanged."
+producer = "Since e924a72638, MarketsPage reaches useMarketsRows -> usePerpsMarkets -> useQuery and requires query context before the mode handler can switch to spot."
+finding_resolution = "The attempt-1 missing-provider finding above is historical and is addressed by the now-authorized fixture change; runtime query context and React declaration resolution are both exercised by the declared verification."
+build_reference = "/out/run/gates.jsonl: final kind=build row supplies the exact candidate revision, declared build command, exit and private log; it must pass at the same revision as the final verify row."
+verify_reference = "/out/run/gates.jsonl: final kind=verify row supplies the verified candidate revision, cg spec done command, exit and private log; only exit 0 qualifies this continuation."

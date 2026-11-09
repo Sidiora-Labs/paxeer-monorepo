@@ -1,0 +1,48 @@
+[issue.1892]
+number = 1892
+title = "[Coherence] The new qualification finding for task 22.39.117 names the chain read-adapter test as its file and symbol, but the failure it records is in the shared/redis package"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit e418f06937b55373d7365307e91ae0c0687e7c55 introduced finding 22.39.117.4, whose file and symbol still name the chain test at spec/layerx-merge/qualification.kvx:36400 and spec/layerx-merge/qualification.kvx:36401 despite its Redis-only failure description at spec/layerx-merge/qualification.kvx:36402; the same chain identifiers appear in the earlier finding at spec/layerx-merge/qualification.kvx:36296 and spec/layerx-merge/qualification.kvx:36297, while the actual namespace checks belong to TestRealRedisPrimitives at sdk/launchpad/shared/redis/primitives_test.go:37 and sdk/launchpad/shared/redis/primitives_test.go:44, TestRealRedisAbsentFloorAndEncodedBound at sdk/launchpad/shared/redis/primitives_test.go:141 and sdk/launchpad/shared/redis/primitives_test.go:148, and TestRealPolicySnapshotOrdering at sdk/launchpad/shared/redis/snapshot_policy_test.go:31 and sdk/launchpad/shared/redis/snapshot_policy_test.go:38, rather than TestPhase2ReadAdapterRealRegisteredPool at sdk/launchpad/shared/chain/client_test.go:569."
+close_comment = "Finding 22.39.117.4 incorrectly attributes the Redis namespace failures to the chain read-adapter test. Task 18.1892.1 corrects the file and symbol to the Redis primitives test and identifies the other affected Redis cases while preserving the recorded result."
+
+[task.18.1892.1]
+title = "Issue #1892: Attribute the Redis namespace finding to its failing tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181892.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct only finding 22.39.117.4 in spec/layerx-merge/qualification.kvx:36398: replace file at :36400 with sdk/launchpad/shared/redis/primitives_test.go and symbol at :36401 with TestRealRedisPrimitives, whose namespace check is sdk/launchpad/shared/redis/primitives_test.go:44; extend the assumption at :36403 to identify TestRealRedisAbsentFloorAndEncodedBound at sdk/launchpad/shared/redis/primitives_test.go:141 and TestRealPolicySnapshotOrdering at sdk/launchpad/shared/redis/snapshot_policy_test.go:31 as the other two affected cases, keeping its interpretation and one-sentence form."
+do_2 = "Use a focused grep over the exact finding block to assert the corrected file and symbol and both companion test names in the assumption; preserve the task id, observed sentence, recorded revision, result and evidence reference at spec/layerx-merge/qualification.kvx:36399 and :36402, all other findings and the existing Redis assertions."
+symbols = []
+touches = ["spec/layerx-merge/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Pzq '\\[finding\\.22\\.39\\.117\\.4\\]\\ntask = \\x2222\\.39\\.117\\x22\\nfile = \\x22sdk/launchpad/shared/redis/primitives_test\\.go\\x22\\nsymbol = \\x22TestRealRedisPrimitives\\x22\\nobserved = [^\\n]+\\nassumption = [^\\n]*TestRealRedisAbsentFloorAndEncodedBound[^\\n]*TestRealPolicySnapshotOrdering[^\\n]*\\n' spec/layerx-merge/qualification.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181892]
+title = "The Redis namespace finding identifies the affected Redis tests"
+ac_1 = "Finding 22.39.117.4 at spec/layerx-merge/qualification.kvx:36398 names sdk/launchpad/shared/redis/primitives_test.go and TestRealRedisPrimitives in file and symbol, identifies TestRealRedisAbsentFloorAndEncodedBound and TestRealPolicySnapshotOrdering in its assumption, and preserves the original observation at :36402; these identities match the namespace checks at sdk/launchpad/shared/redis/primitives_test.go:44, sdk/launchpad/shared/redis/primitives_test.go:148 and sdk/launchpad/shared/redis/snapshot_policy_test.go:38."
+
+[acceptance.18.1892.1]
+feature = "18"
+req = "181892.1"
+scenario = "Given finding 22.39.117.4 records three Redis namespace failures, when its file and symbol are used to locate the failure, then they identify the Redis primitives test, its assumption identifies the other two Redis cases, and the original observation remains intact."
+contract = "contracts/programme.md#programme-artifacts"
+test = "Focused grep of finding.22.39.117.4 in spec/layerx-merge/qualification.kvx via verify_cmd (planned)"
+qualification = "UNRUN"

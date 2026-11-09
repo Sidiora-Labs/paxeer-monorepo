@@ -6,7 +6,7 @@ use super::ChainProofError;
 #[must_use]
 pub fn hash_from_byte_slices(items: &[&[u8]]) -> [u8; 32] {
     match items.len() {
-        0 => Sha256::digest([]).into(),
+        0 => Sha256::digest([]),
         1 => leaf_hash(items[0]),
         length => {
             let split = 1_usize << (length - 1).ilog2();
@@ -46,7 +46,7 @@ fn leaf_hash(leaf: &[u8]) -> [u8; 32] {
     let mut hash = Sha256::new();
     hash.update([0x00]);
     hash.update(leaf);
-    hash.finalize().into()
+    hash.finalize()
 }
 
 fn inner_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
@@ -54,7 +54,7 @@ fn inner_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
     hash.update([0x01]);
     hash.update(left);
     hash.update(right);
-    hash.finalize().into()
+    hash.finalize()
 }
 
 fn root_from_aunts(

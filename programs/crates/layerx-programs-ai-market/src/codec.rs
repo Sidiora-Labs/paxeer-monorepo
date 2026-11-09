@@ -265,6 +265,11 @@ impl crate::types::InitialField for crate::policy::RoomProfile {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn initial(seed: crate::types::CheckedIdentityBytes<'_>) -> Self {
         Self {
+            max_generated_tokens: 0,
+            queue_depth: crate::policy::DEFAULT_QUEUE_DEPTH,
+            liveness_timeout_ms: 0,
+            acknowledgement_window_ms: 0,
+            canary_relative_tolerance_bps: 0,
             minimum_bond: 0,
             canary_ratio_bps: 0,
             lap_size_tokens: 0,

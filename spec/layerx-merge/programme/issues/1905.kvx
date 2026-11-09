@@ -1,0 +1,7 @@
+[issue.1905]
+number = 1905
+title = "[Coherence] The disposition of 11.31.2.a2 cites a function open_with_network that does not exist on main"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "The closure evidence produced by the done task at spec/layerx-merge/spec.kvx:350661 must replace open_with_network in spec/layerx-merge/dispositions/d11-6.kvx:124 with PaymentGate::new_with_network_id, declared at services/interop/crates/x-websearch/src/payment.rs:1190 with network_id: u32 at line 1192, while preserving the resolved status because PaymentGate::new rejects an unresolved network ID at line 1183 and services/interop/crates/x-websearch/src/main.rs:443 passes the startup-resolved ID to that constructor."
+close_comment = "The closure evidence for finding 11.31.2.a2 should name PaymentGate::new_with_network_id instead of open_with_network. The resolved status remains valid: the constructor accepts the resolved network ID as u32, and PaymentGate::new rejects an unresolved configured value."

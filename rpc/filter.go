@@ -903,7 +903,7 @@ func (a *FilterAPI) NewPendingTransactionFilter(
 	defer a.filtersMu.Unlock()
 
 	curFilterID := ethrpc.NewID()
-	a.filters[curFilterID] = filter{
+	f := filter{
 		typ: PendingTransactionsSubscription,
 		cancelFunc: func() {
 			cancel()
@@ -912,6 +912,10 @@ func (a *FilterAPI) NewPendingTransactionFilter(
 		lastAccess: time.Now(),
 		pending:    sub,
 	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		f.domainScope = &scope
+	}
+	a.filters[curFilterID] = f
 	return curFilterID, nil
 }
 
@@ -988,9 +992,19 @@ func (a *FilterAPI) GetFilterChanges(
 		if err != nil {
 			return nil, err
 		}
-		hashes := make([]common.Hash, len(txs))
-		for i, tx := range txs {
-			hashes[i] = tx.hash
+		hashes := make([]common.Hash, 0, len(txs))
+		byHeight := make(map[uint64]map[common.Hash]bool)
+		for _, tx := range txs {
+			if filter.domainScope != nil {
+				allowed, err := a.pendingTransactionInScope(ctx, tx, *filter.domainScope, byHeight)
+				if err != nil {
+					return nil, err
+				}
+				if !allowed {
+					continue
+				}
+			}
+			hashes = append(hashes, tx.hash)
 		}
 		return hashes, nil
 	case LogsSubscription:
@@ -1025,6 +1039,36 @@ func (a *FilterAPI) GetFilterChanges(
 	default:
 		return nil, errors.New("unknown filter type")
 	}
+}
+
+func (a *FilterAPI) pendingTransactionInScope(ctx context.Context, tx receiptedTx, scope DomainScope, byHeight map[uint64]map[common.Hash]bool) (bool, error) {
+	if a.logFetcher.watermarks != nil && a.logFetcher.watermarks.pending != nil {
+		if pending, ok := a.logFetcher.watermarks.pending.PendingTx(tx.hash); ok {
+			if pending.Height < 1 || pending.Height != tx.height {
+				return false, fmt.Errorf("receipted transaction %s does not match transaction height %d", tx.hash, pending.Height)
+			}
+			decoded, err := a.logFetcher.txConfigProvider(pending.Height).TxDecoder()(pending.TxBytes)
+			if err != nil {
+				return false, fmt.Errorf("decode receipted transaction %s: %w", tx.hash, err)
+			}
+			msg := evmtypes.GetEVMTransactionMessage(decoded)
+			if msg == nil {
+				return false, fmt.Errorf("receipted transaction %s has no EVM message", tx.hash)
+			}
+			etx, _ := msg.AsTransaction()
+			if etx == nil || etx.Hash() != tx.hash {
+				return false, fmt.Errorf("receipted transaction %s has a mismatched EVM hash", tx.hash)
+			}
+			return domainAllowsTransaction(ctx, a.domainIndex, etx), nil
+		}
+	}
+	height := uint64(tx.height) //nolint:gosec // the receipt feed requires a positive height
+	allowed, cached := byHeight[height]
+	if !cached {
+		allowed = domainHashSet(a.domainIndex, a.logFetcher.ctxProvider(LatestCtxHeight), scope, height)
+		byHeight[height] = allowed
+	}
+	return allowed[tx.hash], nil
 }
 
 // pendingFilterChanges returns the committed logs up to the filter's base

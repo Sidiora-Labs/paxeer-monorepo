@@ -19,7 +19,9 @@ fn declarations(source: &str) -> BTreeMap<String, String> {
         {
             section = name;
         } else {
-            let (key, value) = line.split_once('=').expect("schema declaration");
+            let (key, value) = line
+                .split_once('=')
+                .unwrap_or_else(|| panic!("schema declaration"));
             assert!(!section.is_empty(), "declaration must belong to a section");
             let path = format!("{section}.{}", key.trim());
             assert!(
@@ -34,7 +36,7 @@ fn declarations(source: &str) -> BTreeMap<String, String> {
 }
 
 #[test]
-fn v1_schema_declares_no_kernel_verification_level() {
+fn v1_schema_declares_no_kernel_verification_level() -> Result<(), String> {
     let current = declarations(AGENT_API_V1_SOURCE);
     let baseline = declarations(BASELINE);
     assert_eq!(
@@ -57,7 +59,7 @@ fn v1_schema_declares_no_kernel_verification_level() {
         &previous,
         &next,
     )
-    .expect("the golden schema is compatible within major two");
+    .map_err(|error| format!("the golden schema is compatible within major two: {error:?}"))?;
 
     let operations: Vec<_> = current
         .iter()
@@ -103,6 +105,8 @@ fn v1_schema_declares_no_kernel_verification_level() {
             "native send validation retains {retired}"
         );
     }
+
+    Ok(())
 }
 
 #[test]

@@ -1,9 +1,9 @@
+use crate::support;
 use layerx_crypto::authority_grant::{authority_grant_call, AuthorityGrant, NativeFeeBudget};
 use layerx_crypto::disclosure::call::{bind_call, reencode};
+use layerx_crypto::disclosure::DisclosureError;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_crypto::signer::Signer;
-mod support;
-use layerx_crypto::disclosure::DisclosureError;
 use layerx_wire::hash;
 use sha2::{Digest as _, Sha256};
 
@@ -38,7 +38,8 @@ const FIXTURES: &[Fixture] = &[
 ];
 
 #[test]
-fn original_native_fee_grants_preserve_owner_signatures_and_native_ids() {
+fn original_native_fee_grants_preserve_owner_signatures_and_native_ids(
+) -> Result<(), Box<dyn std::error::Error>> {
     for fixture in FIXTURES {
         let grant = AuthorityGrant::decode(fixture.grant)
             .unwrap_or_else(|error| panic!("grant: {error:?}"));
@@ -49,17 +50,20 @@ fn original_native_fee_grants_preserve_owner_signatures_and_native_ids() {
         hasher.update(fixture.grant);
         assert_eq!(hasher.finalize().as_slice(), fixture.id);
         let options = support::call_options(7);
-        let produced = authority_grant_call(&grant, &options).expect("merged grant producer");
+        let produced = authority_grant_call(&grant, &options)
+            .map_err(|error| format!("merged grant producer: {error:?}"))?;
         let account = layerx_crypto::account_derivation::derive_from_seed(&[7; 64], 0)
-            .expect("transaction account");
+            .map_err(|error| format!("transaction account: {error:?}"))?;
         let raw = produced
             .call
-            .sign(account.evm_secret().expect("EVM key"))
-            .expect("signed submission");
-        let (received, signature) = decode_signed(&raw).expect("transaction transport");
+            .sign(account.evm_secret().ok_or("EVM key")?)
+            .map_err(|error| format!("signed submission: {error:?}"))?;
+        let (received, signature) =
+            decode_signed(&raw).map_err(|error| format!("transaction transport: {error:?}"))?;
         assert_eq!(recover_sender(&received, &signature), Ok(options.from));
         assert_eq!(support::signer().evm_address(), Some(options.from));
-        let disclosed = bind_call(&received, options.from).expect("grant consumer");
+        let disclosed = bind_call(&received, options.from)
+            .map_err(|error| format!("grant consumer: {error:?}"))?;
         assert_eq!(disclosed.authority_grant, Some(grant));
         assert_eq!(disclosed.authority, options.from);
         assert_eq!(reencode(&disclosed), Ok(received.encode_unsigned()));
@@ -69,12 +73,14 @@ fn original_native_fee_grants_preserve_owner_signatures_and_native_ids() {
         received_id.update(
             disclosed
                 .authority_grant
-                .expect("bound grant")
+                .ok_or("bound grant")?
                 .encode()
-                .expect("body"),
+                .map_err(|error| format!("body: {error:?}"))?,
         );
         assert_eq!(received_id.finalize().as_slice(), fixture.id);
     }
+
+    Ok(())
 }
 
 #[test]
@@ -122,13 +128,17 @@ fn fee_scope_wire_requires_zero_initial_counters_and_canonical_bounds() {
 }
 
 #[test]
-fn every_fee_field_is_bound_into_the_signing_disclosure() {
+fn every_fee_field_is_bound_into_the_signing_disclosure() -> Result<(), Box<dyn std::error::Error>>
+{
     let fixture = &FIXTURES[4];
-    let original = AuthorityGrant::decode(fixture.grant).expect("native grant vector");
+    let original = AuthorityGrant::decode(fixture.grant)
+        .map_err(|error| format!("native grant vector: {error:?}"))?;
     let grant = original;
     let options = support::call_options(7);
-    let produced = authority_grant_call(&grant, &options).expect("merged grant producer");
-    let disclosure = bind_call(&produced.call, options.from).expect("grant consumer");
+    let produced = authority_grant_call(&grant, &options)
+        .map_err(|error| format!("merged grant producer: {error:?}"))?;
+    let disclosure = bind_call(&produced.call, options.from)
+        .map_err(|error| format!("grant consumer: {error:?}"))?;
     let mutations: &[fn(&mut NativeFeeBudget)] = &[
         |fee| fee.asset[0] ^= 1,
         |fee| fee.maximum_per_activity += 1,
@@ -151,13 +161,15 @@ fn every_fee_field_is_bound_into_the_signing_disclosure() {
             hash.update(&encoded);
             assert_ne!(hash.finalize().as_slice(), fixture.id);
             let account = layerx_crypto::account_derivation::derive_from_seed(&[7; 64], 0)
-                .expect("owner transaction key");
+                .map_err(|error| format!("owner transaction key: {error:?}"))?;
             let raw = produced
                 .call
-                .sign(account.evm_secret().expect("EVM key"))
-                .expect("original grant transaction signature");
-            let (_, signature) = decode_signed(&raw).expect("original transport");
-            let altered = authority_grant_call(&grant, &options).expect("altered grant call");
+                .sign(account.evm_secret().ok_or("EVM key")?)
+                .map_err(|error| format!("original grant transaction signature: {error:?}"))?;
+            let (_, signature) =
+                decode_signed(&raw).map_err(|error| format!("original transport: {error:?}"))?;
+            let altered = authority_grant_call(&grant, &options)
+                .map_err(|error| format!("altered grant call: {error:?}"))?;
             assert_ne!(altered.call.signing_hash(), produced.call.signing_hash());
             assert_ne!(recover_sender(&altered.call, &signature), Ok(options.from));
             assert!(layerx_crypto::disclosure::call::validate_call(
@@ -177,10 +189,17 @@ fn every_fee_field_is_bound_into_the_signing_disclosure() {
     let mut removed = disclosure;
     let mut grant = original;
     grant.fee_budget = None;
-    assert_ne!(grant.encode().expect("no fee budget"), fixture.grant);
+    assert_ne!(
+        grant
+            .encode()
+            .map_err(|error| format!("no fee budget: {error:?}"))?,
+        fixture.grant
+    );
     removed.authority_grant = Some(grant);
     assert_eq!(
         reencode(&removed),
         Err(DisclosureError::FieldMismatch("authority_grant"))
     );
+
+    Ok(())
 }

@@ -15,6 +15,7 @@
 package feeds_test
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -318,3 +319,179 @@ for (let connection=0; connection<2; connection++) {
 }
 console.log(JSON.stringify({epoch,topics:topics.length,connections:2}));
 `
+
+func TestMarketsNullableSnapshotsReachMountedView(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	databaseURL := os.Getenv("PERPS_DATA_TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Fatal("PERPS_DATA_TEST_DATABASE_URL is required")
+	}
+	db, err := store.Open(databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	proofWebsocketExec(t, db, "DROP SCHEMA IF EXISTS perps CASCADE")
+	if err := store.Migrate(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	proofWebsocketExec(t, db, `UPDATE perps.markets SET listed_at=now() WHERE market_id < 8`)
+	proofWebsocketExec(t, db, `INSERT INTO perps.blocks(number,hash,parent_hash,time,proposer,tx_count)
+ VALUES (10,$1,$1,now(),repeat('0',40),0)`, make([]byte, 32))
+	proofWebsocketExec(t, db, `INSERT INTO perps.cursors(name,height,hash) VALUES ('head',100,$1)`, make([]byte, 32))
+	address := make([]byte, 20)
+	address[19] = 1
+	for id := 0; id < 8; id++ {
+		proofWebsocketFact(t, db, "fills", "fill", 2, id,
+			[]string{"market_id", "maker_order_id", "taker_order_id", "maker", "taker", "taker_is_long", "price", "size_usd", "maker_fee_usd", "taker_fee_usd"},
+			id, 1, 2, address, address, true, "100000000000000000000", fmt.Sprintf("%d000000000000000000", 1200+id), "0", "0")
+		proofWebsocketFact(t, db, "open_interest", "oi", 3, id,
+			[]string{"market_id", "long_oi", "short_oi", "delta_usd", "is_increase"},
+			id, fmt.Sprintf("%d000000000000000000", 100+id), "50000000000000000000", "0", true)
+		if id < 7 {
+			// Deliberately beyond the exact integer range of a JS number, with a
+			// nonzero final decimal digit and both signs across sibling rows.
+			rate := "123456789012345678901"
+			if id%2 == 1 {
+				rate = "-" + rate
+			}
+			proofWebsocketFact(t, db, "funding_settlements", "settled", 4, id,
+				[]string{"market_id", "funding_rate", "long_payment", "short_payment"}, id, rate, "0", "0")
+		}
+	}
+	setPhase := func(phase int) {
+		proofWebsocketExec(t, db, `DELETE FROM perps.mark_prices`)
+		for id := 0; id < 8; id++ {
+			mask := 7
+			if phase == 1 {
+				mask = id
+			}
+			if phase == 2 {
+				mask = 0
+			}
+			if mask&1 == 0 {
+				price := fmt.Sprintf("%d000000000000000000", 100+id+phase)
+				proofWebsocketFact(t, db, "mark_prices", "mark", 20+phase, id,
+					[]string{"market_id", "mark_price", "index_price", "mid_price"}, id, price, price, price)
+			}
+			var opening any
+			if mask&2 == 0 {
+				opening = "100000000000000000000"
+			}
+			updated := 10
+			if mask&4 != 0 {
+				updated = 11
+			}
+			proofWebsocketExec(t, db, `INSERT INTO perps.market_stats_rolling
+    (market_id,volume_24h,volume_7d,volume_30d,trades_count,open_interest_long,open_interest_short,last_price,open_24h,updated_block)
+    VALUES ($1,0,700000000000000000000,900000000000000000000,1,0,0,$2,$3,$4)
+    ON CONFLICT (market_id) DO UPDATE SET last_price=EXCLUDED.last_price,open_24h=EXCLUDED.open_24h,updated_block=EXCLUDED.updated_block`,
+				id, fmt.Sprintf("%d000000000000000000", id+110), opening, updated)
+		}
+	}
+	setPhase(0)
+	broker, err := natsserver.NewServer(&natsserver.Options{Host: "127.0.0.1", Port: natsserver.RANDOM_PORT, JetStream: true, StoreDir: t.TempDir(), NoLog: true, NoSigs: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	go broker.Start()
+	defer func() { broker.Shutdown(); broker.WaitForShutdown() }()
+	if !broker.ReadyForConnections(5 * time.Second) {
+		t.Fatal("JetStream did not start")
+	}
+	nc, err := nats.Connect(broker.ClientURL())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer nc.Close()
+	js, err := jetstream.New(nc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamConfig := stream.Config(125)
+	streamConfig.Replicas = 1
+	if _, err := js.CreateStream(ctx, streamConfig); err != nil {
+		t.Fatal(err)
+	}
+	node, err := ethclient.DialContext(ctx, "http://127.0.0.1:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer node.Close()
+	metrics, err := telemetry.New(config.Gateway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := gateway.NewServer(ctx, gateway.Options{DB: db, NATS: nc, Chain: 125, Node: node, AuthSecret: strings.Repeat("p", 32), Metrics: metrics, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(svc.Handler())
+	defer server.Close()
+	runCtx, stop := context.WithCancel(ctx)
+	stopped := make(chan error, 1)
+	go func() { stopped <- svc.Run(runCtx) }()
+	defer func() {
+		stop()
+		if err := <-stopped; err != nil && !errors.Is(err, context.Canceled) {
+			t.Errorf("gateway Run: %v", err)
+		}
+	}()
+	for !svc.Ready() {
+		select {
+		case <-ctx.Done():
+			t.Fatal("gateway did not become ready")
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	_, source, _, _ := runtime.Caller(0)
+	root := filepath.Clean(filepath.Join(filepath.Dir(source), "../../../../.."))
+	cmd := exec.CommandContext(ctx, "node", "--import", "tsx", "--test", "--test-concurrency=1", "--test-reporter=tap", "--test-name-pattern=^(marketsNullableSnapshotsReachMountedView|marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults)$", "tests/proof_widgets.test.ts")
+	cmd.Dir = filepath.Join(root, "apps/perps")
+	controlDir := t.TempDir()
+	cmd.Env = append(os.Environ(), "NEXT_PUBLIC_PERPS_GATEWAY_URL="+server.URL, "NEXT_PUBLIC_MARKET_PROXY_HOST="+server.URL, "PROOF_NULLABLE_MARKETS=1", "PROOF_PHASE_DIR="+controlDir)
+	output, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stderr, transcript strings.Builder
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if cmd.ProcessState == nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
+	}()
+	scanner := bufio.NewScanner(output)
+	phases := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		transcript.WriteString(line + "\n")
+		if strings.Contains(line, "PROOF_ADVANCE=") {
+			var phase int
+			part := line[strings.Index(line, "PROOF_ADVANCE="):]
+			if _, err := fmt.Sscanf(part, "PROOF_ADVANCE=%d", &phase); err != nil || phase != phases+1 || phase > 3 {
+				t.Fatalf("invalid phase request %s", line)
+			}
+			setPhase(phase)
+			phases = phase
+			if err := os.WriteFile(filepath.Join(controlDir, fmt.Sprint(phase)), []byte(fmt.Sprint(phase)), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Wait(); err != nil {
+		t.Fatalf("mounted markets consumer: %v\n%s\n%s", err, transcript.String(), stderr.String())
+	}
+	if phases != 3 || !strings.Contains(transcript.String(), "# pass 2") {
+		t.Fatalf("both consumer proofs must execute through all phases:\n%s", transcript.String())
+	}
+}

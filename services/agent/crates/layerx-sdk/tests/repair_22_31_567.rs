@@ -3,17 +3,17 @@
 mod fixtures;
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use fixtures::{options, policy, run, Node};
+use fixtures::{Node, options, policy, run};
 use layerx_client::rpc::receipt_commit::SequenceBatch;
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::payments::Payment;
 use layerx_crypto::signer::LocalSigner;
 use layerx_programs_registry::chain_proof::{
+    ChainProofVerifier,
     header::{ChainHeader, HeaderBlockId, HeaderTime, HeaderVersion},
     merkle::SimpleProof,
     validators::{TrustedValidator, ValidatorSet},
-    vote::{vote_sign_bytes, BlockId, PartSetHeader, Timestamp},
-    ChainProofVerifier,
+    vote::{BlockId, PartSetHeader, Timestamp, vote_sign_bytes},
 };
 use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
 use layerx_sdk::rpc_verification::node_commit::{
@@ -22,7 +22,7 @@ use layerx_sdk::rpc_verification::node_commit::{
 use layerx_sdk::rpc_verification::{ReceiptPolicy, VerifiedRpcReceipt};
 use layerx_sdk::wallet::Wallet;
 use layerx_types::rung::Rung;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
 use std::time::Duration;
 
@@ -228,7 +228,7 @@ impl CommitFixture {
         summary["blockHash"] = json!(format!("0x{}", hex(&block_hash)));
         let record = json!({"receiptJson":summary.clone(), "activityIds":[format!("0x{}", hex(&activity))],
             "commit":{"signed_header":signed},
-            "batch":{"height":height.to_string(), "tx":format!("0x{}",hex(&batch_transaction)),
+            "batch":{"height":height.to_string(), "activityIds":[format!("0x{}", hex(&activity))], "tx":format!("0x{}",hex(&batch_transaction)),
                 "proof":{"total":proof.total, "index":proof.index,
                     "leafHash":format!("0x{}",hex(&proof.leaf_hash)), "aunts":[]}}});
         if !state["committed_by_height"].is_object() {
@@ -339,8 +339,11 @@ fn malformed_or_unbound_served_proofs_are_refused() {
             json!([format!("0x{}", hex(&[0; 32]))]),
         ),
         ("/batch/tx", json!("0x00")),
-        ("/activityIds/0", json!(format!("0x{}", hex(&[0x88; 32])))),
-        ("/activityIds", json!([])),
+        (
+            "/batch/activityIds/0",
+            json!(format!("0x{}", hex(&[0x88; 32]))),
+        ),
+        ("/batch/activityIds", json!([])),
     ] {
         let mut changed = original.clone();
         *changed.pointer_mut(path).expect("served field") = replacement;

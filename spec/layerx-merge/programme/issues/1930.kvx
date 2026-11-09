@@ -1,0 +1,54 @@
+[issue.1930]
+number = 1930
+title = "[P2] Reconcile Autobahn runner requirements across repair plans"
+revision = "86ae60188357c8c436f0f6e5deac9888cdfd2160"
+verdict = "task"
+evidence = "The exact-ROUTED Autobahn requirement at spec/layerx-merge/programme/issues/1838.kvx:18, :19 and :40 remains in spec/layerx-merge/spec.kvx:348092 and :25298 and contradicts the hosted ubuntu-24.04 requirement at spec/layerx-merge/programme/issues/1850.kvx:18 and :41 and spec/layerx-merge/spec.kvx:25269, whose owned paths at :347886 omit the shared helper at tests/ci/test_go_build_tags_wired.py:25 called for Autobahn at :107; although #1850 now depends on #1843 at spec/layerx-merge/spec.kvx:347878 and commit 305150c0f6031532daac5ced3910c674165055e7 already corrected launchpad's runner assertion at tests/ci/test_launchpad_test_workflow.py:55, neither change reconciles the two pending repairs with the routed Autobahn job at .github/workflows/paxeer-go-test.yml:187 or its Docker dependency through chain.mk:530, tests/integration/autobahn/autobahn_test.go:215 and chain.mk:436."
+close_comment = "The repair plans still require incompatible runners for Autobahn. One consolidated repair will enforce hosted Ubuntu for its Docker dependency, retain exact routed checks for the other three jobs, and verify the affected workflow checks together."
+
+[task.18.1930.1]
+title = "Issue #1930: Consolidate Autobahn runner repairs under one exact per-job contract"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["18.1843.1"]
+reqs = ["181930.1"]
+capabilities = []
+interfaces = []
+do_1 = "Consolidate the still-pending repairs 18.1838.1 and 18.1850.1 at spec/layerx-merge/spec.kvx:348083 and :347873 into this task, preserving their requirements and decision 3077 at :11575; reconcile req.181838 at :25296 and acceptance.18.1838.1 at :335540 with req.181850 at :25267 and acceptance.18.1850.1 at :335484 so the final contract is exact ROUTED for tagged-tests, hpx-registry and launchpad-test and exact ubuntu-24.04 for Autobahn, then retire the two conflicting task plans as superseded with this replacement identified, retaining historical evidence and never marking their unrun gates passed; the triage reports remain historical records."
+do_2 = "Implement the combined runner repair at .github/workflows/paxeer-go-test.yml:187, scripts/ci/runner-routing-check.sh:16 and tests/ci/test_workflow_runs_on_routed.py:34 and :37: pin only Autobahn to ubuntu-24.04, add its docker-command exclusion, move its assertion from RESTORED_JOBS to HOSTED_JOBS, and preserve the Make entrypoint at .github/workflows/paxeer-go-test.yml:201, timeout, environment, unconditional steps and fork behavior."
+do_3 = "Change assert_required_job at tests/ci/test_go_build_tags_wired.py:25 to require an explicit expected runner at every call site (:54, :107 and :137), with exact equality to ROUTED from tests/ci/test_workflow_runs_on_routed.py:12 for tagged-tests and hpx-registry and exact equality to ubuntu-24.04 for Autobahn; retain every other wiring assertion, keep the already-correct launchpad assertion at tests/ci/test_launchpad_test_workflow.py:55, and carry 18.1838.1's directive-only correction of tools/hpx/registry/go.mod:3 to 1.25.8 so its existing version-equality assertion at tests/ci/test_go_build_tags_wired.py:147 remains intact."
+do_4 = "Extend container_runtime_use at scripts/ci/runner-routing-check.sh:120 to recognize the actual make -f chain.mk autobahn-integration-test dependency through chain.mk:530, tests/integration/autobahn/autobahn_test.go:167 and :215, and chain.mk:426; preserve direct-runtime, matrix, environment and explicit-runtime-provisioning checks, and preserve all block-production, transfer, fault-tolerance and recovery assertions at tests/integration/autobahn/autobahn_test.go:291."
+do_5 = "Add test_workflow_runner_contracts_match_required_runners in tests/ci/test_launchpad_test_workflow.py using BaseLoader on the real YAML and four explicit expected-runner cases, checking Autobahn's exact docker-command exclusion and the other three jobs' exact ROUTED expression and absence from exclusions; add test_autobahn_hosted_runner_preserves_multinode_entrypoint in tests/ci/test_workflow_runs_on_routed.py and test_autobahn_make_go_multinode_dependency, test_autobahn_routed_make_without_runtime_is_refused and test_autobahn_routed_make_with_runtime_is_accepted in tests/ci/test_runner_routing_container_runtime.py, using the real checker and checked-in workflow, Makefile and Go source to prove the indirect dependency is refused without setup and accepted with the existing complete unconditional setup."
+do_6 = "Run the four focused CI test modules together, including both existing Go helper consumers, launchpad's existing package and command checks, all four expected-runner cases, hosted and routed classifications, the real repository routing check and the container-runtime regressions; each runner assertion must enforce one exact job-specific value, never accept a choice of routed or hosted values, and preserve every existing test and assertion."
+symbols = ["assert_required_job", "container_runtime_use", "RESTORED_JOBS", "HOSTED_JOBS", "test_workflow_runner_contracts_match_required_runners", "test_autobahn_hosted_runner_preserves_multinode_entrypoint", "test_autobahn_make_go_multinode_dependency", "test_autobahn_routed_make_without_runtime_is_refused", "test_autobahn_routed_make_with_runtime_is_accepted"]
+touches = ["spec/layerx-merge/spec.kvx", ".github/workflows/paxeer-go-test.yml", "scripts/ci/runner-routing-check.sh", "tests/ci/test_go_build_tags_wired.py", "tests/ci/test_launchpad_test_workflow.py", "tests/ci/test_workflow_runs_on_routed.py", "tests/ci/test_runner_routing_container_runtime.py", "tools/hpx/registry/go.mod"]
+tests = ["tests/ci/test_go_build_tags_wired.py::test_go_test_matrix_covers_build_tags", "tests/ci/test_go_build_tags_wired.py::test_hpx_registry_go_test_wired", "tests/ci/test_launchpad_test_workflow.py::test_launchpad_workflow_covers_every_package_with_a_test_script", "tests/ci/test_launchpad_test_workflow.py::test_workflow_runner_contracts_match_required_runners", "tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on", "tests/ci/test_workflow_runs_on_routed.py::test_hosted_job_keeps_runner_and_exclusion_reason", "tests/ci/test_workflow_runs_on_routed.py::test_autobahn_hosted_runner_preserves_multinode_entrypoint", "tests/ci/test_workflow_runs_on_routed.py::test_repository_runner_routing_check_passes", "tests/ci/test_runner_routing_container_runtime.py::RunnerRoutingContainerRuntime::test_autobahn_make_go_multinode_dependency", "tests/ci/test_runner_routing_container_runtime.py::RunnerRoutingContainerRuntime::test_autobahn_routed_make_without_runtime_is_refused", "tests/ci/test_runner_routing_container_runtime.py::RunnerRoutingContainerRuntime::test_autobahn_routed_make_with_runtime_is_accepted"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_go_build_tags_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_workflow_runs_on_routed.py tests/ci/test_runner_routing_container_runtime.py && sh -n scripts/ci/runner-routing-check.sh"
+verify_cmd = "python3 -m pytest -q tests/ci/test_go_build_tags_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_workflow_runs_on_routed.py tests/ci/test_runner_routing_container_runtime.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181930]
+title = "Autobahn and routed workflow jobs have compatible repair plans and exact runner assertions"
+ac_1 = "The contradictory pending plans at spec/layerx-merge/spec.kvx:348092 and :347882 have one qualified replacement, and req.181838 at :25298 and acceptance.18.1838.1 at :335543 agree with req.181850 at :25269: Autobahn requires exact ubuntu-24.04 and a docker-command exclusion, while tagged-tests, hpx-registry and launchpad-test require the exact fork-safe ROUTED expression at tests/ci/test_workflow_runs_on_routed.py:12."
+ac_2 = "The helper at tests/ci/test_go_build_tags_wired.py:25 and all three callers at :54, :107 and :137 enforce explicit job-specific equality, the four-case regression covers the real YAML and exclusion table, and the combined focused verification includes every affected workflow test without weakening existing matrix, command, trigger, module-version, action-pin or unconditional-execution assertions."
+ac_3 = "The runtime guard at scripts/ci/runner-routing-check.sh:120 recognizes the Make to Go to Docker dependency at chain.mk:530, tests/integration/autobahn/autobahn_test.go:215 and chain.mk:426, rejects its routed consumer without runtime setup and accepts complete unconditional runtime provisioning, while the hosted Autobahn job retains its existing integration entrypoint and assertions."
+
+[acceptance.18.1930.1]
+feature = "18"
+req = "181930.1"
+scenario = "Given conflicting Autobahn runner repair plans and a Make to Go to Docker dependency, when the consolidated repair and four focused workflow test modules are qualified together, then Autobahn requires hosted ubuntu-24.04 with its justified exclusion, the other three jobs require the exact routed expression, and the indirect-runtime guard and existing integration assertions remain enforced."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tests/ci/test_launchpad_test_workflow.py::test_workflow_runner_contracts_match_required_runners (planned)"
+qualification = "UNRUN"

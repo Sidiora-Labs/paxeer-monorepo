@@ -3,10 +3,10 @@
 //! Qualification revision, command, exit code and private log are recorded by hf-done.
 //!
 //! registry-withdrawal-verifier-removed is proved by
-//! withdrawal_fixture::paid_withdrawal_receipt_verifies_without_the_signed_activity,
-//! retained_withdrawal_outcome_decodes_the_real_fixture, and
-//! retained_withdrawal_path_refuses_changed_bytes_and_batch_authority.
-//! Wiring request: domain 9, spec/layerx-merge/interfaces.kvx: retire 9.rs-proof-receipt-withdrawal-verify and its stale caller edges; publish receipt::verify_outcome plus receipt::withdrawal::WithdrawalOutcome with tests/withdrawal.rs and this integration target as retained consumer evidence.
+//! `withdrawal_fixture::paid_withdrawal_receipt_verifies_without_the_signed_activity`,
+//! `retained_withdrawal_outcome_decodes_the_real_fixture`, and
+//! `retained_withdrawal_path_refuses_changed_bytes_and_batch_authority`.
+//! Wiring request: domain 9, spec/layerx-merge/interfaces.kvx: retire 9.rs-proof-receipt-withdrawal-verify and its stale caller edges; publish `receipt::verify_outcome` plus `receipt::withdrawal::WithdrawalOutcome` with tests/withdrawal.rs and this integration target as retained consumer evidence.
 //!
 //! Baseline verification was not run: the explicit gate order allows hf-build
 //! only after full implementation and hf-done after that build. No previous gate

@@ -170,7 +170,7 @@ func (p PrecompileExecutor) associate(ctx sdk.Context, method *abi.Method, args 
 	vBig = new(big.Int).Add(vBig, utils.Big27)
 
 	customMessageHash := crypto.Keccak256Hash([]byte(customMessage))
-	evmAddr, paxAddr, pubkey, err := helpers.GetAddresses(vBig, rBig, sBig, customMessageHash)
+	evmAddr, paxAddr, pubkey, err := helpers.GetAddressesForContext(ctx, vBig, rBig, sBig, customMessageHash)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (p PrecompileExecutor) associate(ctx sdk.Context, method *abi.Method, args 
 	}
 
 	// Associate Addresses:
-	associationHelper := helpers.NewAssociationHelper(p.evmKeeper, p.bankKeeper, p.accountKeeper)
+	associationHelper := helpers.NewAssociationHelper(p.evmKeeper, p.bankKeeper, p.accountKeeper, "v5.7.5")
 	err = associationHelper.AssociateAddresses(ctx, paxAddr, evmAddr, pubkey)
 	if err != nil {
 		return nil, err

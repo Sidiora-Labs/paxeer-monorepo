@@ -1,0 +1,48 @@
+[issue.1854]
+number = 1854
+title = "[Coherence] The Go qualification test for the C# behaviour tests still requires LayerX.Sdk.Tests.csproj to target net8.0, so it now fails"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "sdk/platform/dotnet/repair_m1368_test.go:150 still rejects every framework except net8.0, but sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj:5 targets net10.0 with the required production reference at line 17 following commit 470b673003ed4191ad947f71e1d661c7793b9838, consistent with the .NET 10 floor enforced by tests/ci/test_runtime_targets_supported.py:24."
+close_comment = "The Go qualification helper still rejects the supported .NET 10 test project because it requires net8.0. The repair is specified in task 18.1854.1 to require net10.0 while retaining the production SDK reference and all existing behavior assertions."
+
+[task.18.1854.1]
+title = "Issue #1854: Align the C# behavior qualification framework assertion with .NET 10"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181854.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update repairM1368Case in sdk/platform/dotnet/repair_m1368_test.go:150 to require net10.0, matching sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj:5 and tests/ci/test_runtime_targets_supported.py:24; retain XML parsing, the single ../../LayerX.Sdk.csproj reference requirement, enabled Fact validation and repair-record mapping."
+do_2 = "Use all eight existing TestRepairM_1368 cases in sdk/platform/dotnet/repair_m1368_test.go:159-405 as regression coverage of the shared helper against the actual net10.0 project and its production SDK reference, preserving every production-source and C# behavior assertion; these Go tests qualify source contracts and do not establish C# runtime execution."
+symbols = ["repairM1368Case"]
+touches = ["sdk/platform/dotnet/repair_m1368_test.go"]
+tests = ["sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_program_deployment_limit", "sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_programs_legacy_constructor", "sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_stream_history_growth", "sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_agent_envelope_tests", "sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_agent_probe_registration_gap", "sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_portable_positive_vector_count", "sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_portable_consensus_test_trust", "sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_retired_program_transport_test_path"]
+planned_paths = []
+build_cmd = "go build ./sdk/platform/dotnet/..."
+verify_cmd = "go test -count=1 ./sdk/platform/dotnet/ -run '^(TestRepairM_1368_program_deployment_limit|TestRepairM_1368_programs_legacy_constructor|TestRepairM_1368_stream_history_growth|TestRepairM_1368_agent_envelope_tests|TestRepairM_1368_agent_probe_registration_gap|TestRepairM_1368_portable_positive_vector_count|TestRepairM_1368_portable_consensus_test_trust|TestRepairM_1368_retired_program_transport_test_path)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181854]
+title = "The C# source qualification accepts the supported .NET 10 test project"
+ac_1 = "Given the net10.0 target and single production SDK reference in sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj:5 and :17, when the eight existing TestRepairM_1368 cases invoke repairM1368Case at sdk/platform/dotnet/repair_m1368_test.go:133, then qualification accepts that framework and reference and still checks enabled Facts, repair-record mappings and every existing behavior assertion."
+
+[acceptance.18.1854.1]
+feature = "18"
+req = "181854.1"
+scenario = "Given the supported net10.0 C# test project referencing the production SDK, when all eight TestRepairM_1368 source qualification cases run, then they pass without rejecting the supported framework and retain the project wiring and behavior assertions."
+contract = "contracts/platform-sdk.md#sdk-dotnet"
+test = "sdk/platform/dotnet/repair_m1368_test.go::TestRepairM_1368_program_deployment_limit (planned)"
+qualification = "UNRUN"

@@ -12,7 +12,7 @@ use self::independent::chain_proof::{
     tx::verify_tx,
     validators::{TrustedValidator, ValidatorSet},
     vote::{BlockId, CommitSig, PartSetHeader},
-    ChainProofError, ChainProofVerifier, Commit,
+    ChainProofError, ChainProofVerifier, Commit, VerifiedChainHead,
 };
 use self::independent::{verify_ed25519, Sha256};
 use layerx_agent_api::prepare::CanonicalBytes;
@@ -29,28 +29,54 @@ use layerx_types::json::{decode_hex, parse, JsonValue};
 pub const RECORDED: &str = include_str!("../fixtures/committed-landing-block.json");
 
 pub fn document() -> JsonValue {
-    parse(RECORDED).expect("committed node recording")
+    parse(RECORDED).unwrap_or_else(|error| panic!("committed node recording: {error:?}"))
 }
 
 fn quantity(value: &JsonValue, field: &str) -> u64 {
-    u64::from_str_radix(value.str_at(field).unwrap().strip_prefix("0x").unwrap(), 16).unwrap()
+    u64::from_str_radix(
+        value
+            .str_at(field)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("required value")),
+        16,
+    )
+    .unwrap_or_else(|error| panic!("required value: {error:?}"))
 }
 
 pub fn produced() -> VerifiedRead<ProofBundle> {
     let recording = document();
-    let value = recording.field("bundle").unwrap();
-    let bytes = |name| CanonicalBytes::new(value.hex_at(name).unwrap()).unwrap();
+    let value = recording
+        .field("bundle")
+        .unwrap_or_else(|| panic!("required value"));
+    let bytes = |name| {
+        CanonicalBytes::new(
+            value
+                .hex_at(name)
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+    };
     let height = quantity(value, "receiptJson.height");
     VerifiedRead::new(
         ProofBundle {
-            format: value.str_at("format").unwrap().into(),
+            format: value
+                .str_at("format")
+                .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                .into(),
             verification_level: Rung::Committed,
             raw_transaction: bytes("rawTransaction"),
             signed_receipt: bytes("signedReceipt"),
-            receipt_digest: value.hex_array_at("receiptDigest").unwrap(),
+            receipt_digest: value
+                .hex_array_at("receiptDigest")
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
             receipt_key: ReceiptKeyEntry {
-                key_id: value.hex_array_at("receiptKey.keyId").unwrap(),
-                public_key: value.hex_array_at("receiptKey.publicKey").unwrap(),
+                key_id: value
+                    .hex_array_at("receiptKey.keyId")
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
+                public_key: value
+                    .hex_array_at("receiptKey.publicKey")
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
                 first_height: quantity(value, "receiptKey.firstHeight"),
                 last_height: quantity(value, "receiptKey.lastHeight"),
             },
@@ -66,7 +92,9 @@ pub fn produced() -> VerifiedRead<ProofBundle> {
             value_height: height,
             relative_to: RelativeTo::Block {
                 height,
-                hash: recording.hex_array_at("executionBlockHash").unwrap(),
+                hash: recording
+                    .hex_array_at("executionBlockHash")
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
             },
         },
     )
@@ -198,34 +226,41 @@ fn hex_text(bytes: &[u8]) -> Result<Vec<u8>, String> {
 fn recorded_proof(recording: &JsonValue, name: &str) -> SimpleProof {
     // Transaction proofs commit SHA256(tx), whereas result proofs commit the
     // deterministic protobuf result directly. Keep the node's leaf_hash.
-    let p = recording.field(name).unwrap();
+    let p = recording
+        .field(name)
+        .unwrap_or_else(|| panic!("required value"));
     SimpleProof {
         total: p
             .str_at("total")
-            .unwrap()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
             .parse::<u64>()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
             .try_into()
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
         index: p
             .str_at("index")
-            .unwrap()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
             .parse::<u64>()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
             .try_into()
-            .unwrap(),
-        leaf_hash: decode_base64(p.str_at("leaf_hash").unwrap())
-            .try_into()
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        leaf_hash: decode_base64(
+            p.str_at("leaf_hash")
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        )
+        .try_into()
+        .unwrap_or_else(|error| panic!("required value: {error:?}")),
         aunts: p
             .array_at("aunts")
-            .unwrap()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
             .iter()
             .map(|a| {
                 let JsonValue::String(text) = a else {
                     panic!("recorded aunt string")
                 };
-                decode_base64(text).try_into().unwrap()
+                decode_base64(text)
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
             })
             .collect(),
     }
@@ -242,12 +277,13 @@ fn decode_base64(text: &str) -> Vec<u8> {
         let digit = alphabet
             .iter()
             .position(|b| *b == byte)
-            .expect("base64 digit");
-        word = (word << 6) | digit as u32;
+            .unwrap_or_else(|| panic!("base64 digit"));
+        word = (word << 6)
+            | u32::try_from(digit).unwrap_or_else(|error| panic!("base64 alphabet index: {error}"));
         bits += 6;
         if bits >= 8 {
             bits -= 8;
-            out.push((word >> bits) as u8);
+            out.push((word >> bits).to_le_bytes()[0]);
         }
     }
     out
@@ -263,10 +299,21 @@ fn rlp(payload: &[u8], list: bool) -> Vec<u8> {
     }
     let prefix = if list { 0xc0 } else { 0x80 };
     let mut result = if payload.len() < 56 {
-        vec![prefix + payload.len() as u8]
+        vec![
+            prefix
+                + u8::try_from(payload.len())
+                    .unwrap_or_else(|error| panic!("short RLP length: {error}")),
+        ]
     } else {
-        let length = minimal_integer(payload.len() as u128);
-        let mut r = vec![prefix + 55 + length.len() as u8];
+        let length = minimal_integer(
+            u128::try_from(payload.len()).unwrap_or_else(|error| panic!("RLP length: {error}")),
+        );
+        let mut r = vec![
+            prefix
+                + 55
+                + u8::try_from(length.len())
+                    .unwrap_or_else(|error| panic!("RLP length prefix: {error}")),
+        ];
         r.extend(length);
         r
     };
@@ -339,40 +386,16 @@ pub fn verify(read: &VerifiedRead<ProofBundle>) -> Result<(), String> {
     hasher.update(unsigned);
     let digest = hasher.finalize();
     check(bundle.receipt_digest == digest)?;
-    let required = |value: &Option<CanonicalBytes>| {
-        value.as_ref().cloned().ok_or("missing evidence".to_owned())
-    };
-    let header = ChainHeader::decode(required(&bundle.block_header)?.as_bytes()).map_err(err)?;
-    let commit = commit(required(&bundle.commit)?.as_bytes()).map_err(err)?;
-    let served_validators = validators(required(&bundle.validator_set)?.as_bytes()).map_err(err)?;
-    let pinned_validators =
-        validators(required(&trusted.value.validator_set)?.as_bytes()).map_err(err)?;
-    check(served_validators == pinned_validators)?;
-    let verifier = ChainProofVerifier {
-        chain_id: "committed-fixture".into(),
-        validators: pinned_validators,
-    };
-    let head = verifier.verify_head(&header, &commit).map_err(err)?;
-    check(head.header_hash() == recording.hex_array_at("commitmentBlockHash").unwrap())?;
-    let execution =
-        ChainHeader::decode(&recording.hex_at("executionHeader").unwrap()).map_err(err)?;
-    let execution_commit =
-        self::commit(&recording.hex_at("executionCommit").unwrap()).map_err(err)?;
-    let landing = verifier
-        .verify_head(&execution, &execution_commit)
-        .map_err(err)?;
-    check(
-        header.height == execution.height + 1
-            && header.last_block_id.hash == landing.header_hash()
-            && execution.next_validators_hash == header.validators_hash
-            && landing.header_hash() == recording.hex_array_at::<32>("executionBlockHash").unwrap()
-            && read.freshness == trusted.freshness,
-    )?;
-    let transaction = recording.hex_at("transaction").unwrap();
+    let (head, landing) = consensus_heads(read, &trusted, &recording)?;
+    let transaction = recording
+        .hex_at("transaction")
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     let tx_proof = recorded_proof(&recording, "transactionProof");
     verify_tx(&landing, &transaction, &tx_proof).map_err(err)?;
     check(legacy_transaction(&transaction)? == bundle.raw_transaction.as_bytes())?;
-    let batch = recording.hex_at("batchTransaction").unwrap();
+    let batch = recording
+        .hex_at("batchTransaction")
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     let batch_proof = recorded_proof(&recording, "batchProof");
     verify_tx(&landing, &batch, &batch_proof).map_err(err)?;
     let batch = SequenceBatch::decode(&batch).map_err(|e| format!("{e:?}"))?;
@@ -402,37 +425,7 @@ pub fn verify(read: &VerifiedRead<ProofBundle>) -> Result<(), String> {
         &digest,
         &batch.signature,
     ))?;
-    let inclusion = required(&bundle.receipt_inclusion)?;
-    let inclusion = parse(std::str::from_utf8(inclusion.as_bytes()).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("{e:?}"))?;
-    check(
-        inclusion.str_at("algorithm").unwrap() == "comet-abci-results-v1"
-            && inclusion.u64_at("height").unwrap() == read.freshness.value_height,
-    )?;
-    let result =
-        decode_hex(&format!("0x{}", inclusion.str_at("result").unwrap())).map_err(str::to_owned)?;
-    let proof = SimpleProof {
-        total: inclusion.u64_at("total").unwrap().try_into().unwrap(),
-        index: inclusion.u64_at("index").unwrap().try_into().unwrap(),
-        leaf_hash: decode_hex(&format!("0x{}", inclusion.str_at("leaf_hash").unwrap()))
-            .unwrap()
-            .try_into()
-            .unwrap(),
-        aunts: inclusion
-            .array_at("aunts")
-            .unwrap()
-            .iter()
-            .map(|a| {
-                let JsonValue::String(text) = a else {
-                    panic!("hex aunt")
-                };
-                decode_hex(&format!("0x{text}"))
-                    .unwrap()
-                    .try_into()
-                    .unwrap()
-            })
-            .collect(),
-    };
+    let (result, proof) = result_inclusion(bundle, read.freshness.value_height)?;
     check(
         proof.index == i64::from(summary.tx_index())
             && proof.index == tx_proof.index
@@ -456,12 +449,138 @@ pub fn verify(read: &VerifiedRead<ProofBundle>) -> Result<(), String> {
             && integer(&response, 1).map_err(err)? == summary.gas_used()
             && data(&response, 2).map_err(err)?.is_empty()
             && protocol.result_code() == 0
-            && data(&response, 3).map_err(err)?.len() == summary.return_data_len() as usize
+            && data(&response, 3).map_err(err)?.len()
+                == usize::try_from(summary.return_data_len()).map_err(|e| e.to_string())?
             && Sha256::digest(data(&response, 3).map_err(err)?) == protocol.activity_root()
             && Sha256::digest(data(&response, 2).map_err(err)?) == summary.vm_error_hash(),
     )?;
+    let logs = decoded_logs(&response)?;
+    verify_logs(&receipt, logs).map_err(|e| format!("{e:?}"))?;
+    Ok(())
+}
+
+fn required_evidence(value: Option<&CanonicalBytes>) -> Result<&CanonicalBytes, String> {
+    value.ok_or("missing evidence".to_owned())
+}
+
+fn consensus_heads(
+    read: &VerifiedRead<ProofBundle>,
+    trusted: &VerifiedRead<ProofBundle>,
+    recording: &JsonValue,
+) -> Result<(VerifiedChainHead, VerifiedChainHead), String> {
+    let err = |e: ChainProofError| e.to_string();
+    let bundle = &read.value;
+    let header = ChainHeader::decode(required_evidence(bundle.block_header.as_ref())?.as_bytes())
+        .map_err(err)?;
+    let commit = commit(required_evidence(bundle.commit.as_ref())?.as_bytes()).map_err(err)?;
+    let served_validators =
+        validators(required_evidence(bundle.validator_set.as_ref())?.as_bytes()).map_err(err)?;
+    let pinned_validators =
+        validators(required_evidence(trusted.value.validator_set.as_ref())?.as_bytes())
+            .map_err(err)?;
+    check(served_validators == pinned_validators)?;
+    let verifier = ChainProofVerifier {
+        chain_id: "committed-fixture".into(),
+        validators: pinned_validators,
+    };
+    let head = verifier.verify_head(&header, &commit).map_err(err)?;
+    check(
+        head.header_hash()
+            == recording
+                .hex_array_at("commitmentBlockHash")
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+    )?;
+    let execution = ChainHeader::decode(
+        &recording
+            .hex_at("executionHeader")
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+    )
+    .map_err(err)?;
+    let execution_commit = self::commit(
+        &recording
+            .hex_at("executionCommit")
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+    )
+    .map_err(err)?;
+    let landing = verifier
+        .verify_head(&execution, &execution_commit)
+        .map_err(err)?;
+    check(
+        header.height == execution.height + 1
+            && header.last_block_id.hash == landing.header_hash()
+            && execution.next_validators_hash == header.validators_hash
+            && landing.header_hash()
+                == recording
+                    .hex_array_at::<32>("executionBlockHash")
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            && read.freshness == trusted.freshness,
+    )?;
+    Ok((head, landing))
+}
+
+fn result_inclusion(bundle: &ProofBundle, height: u64) -> Result<(Vec<u8>, SimpleProof), String> {
+    let inclusion = required_evidence(bundle.receipt_inclusion.as_ref())?;
+    let inclusion = parse(std::str::from_utf8(inclusion.as_bytes()).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("{e:?}"))?;
+    check(
+        inclusion
+            .str_at("algorithm")
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            == "comet-abci-results-v1"
+            && inclusion
+                .u64_at("height")
+                .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                == height,
+    )?;
+    let result = decode_hex(&format!(
+        "0x{}",
+        inclusion
+            .str_at("result")
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+    ))
+    .map_err(str::to_owned)?;
+    let proof = SimpleProof {
+        total: inclusion
+            .u64_at("total")
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .try_into()
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        index: inclusion
+            .u64_at("index")
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .try_into()
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        leaf_hash: decode_hex(&format!(
+            "0x{}",
+            inclusion
+                .str_at("leaf_hash")
+                .unwrap_or_else(|error| panic!("required value: {error:?}"))
+        ))
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+        .try_into()
+        .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        aunts: inclusion
+            .array_at("aunts")
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .iter()
+            .map(|a| {
+                let JsonValue::String(text) = a else {
+                    panic!("hex aunt")
+                };
+                decode_hex(&format!("0x{text}"))
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            })
+            .collect(),
+    };
+    Ok((result, proof))
+}
+
+fn decoded_logs(response: &[(u32, ProtoValue<'_>)]) -> Result<Vec<SequencerLog>, String> {
+    let err = |e: ChainProofError| e.to_string();
     let mut logs = Vec::new();
-    for (number, value) in &response {
+    for (number, value) in response {
         if *number != 5 {
             continue;
         }
@@ -490,50 +609,5 @@ pub fn verify(read: &VerifiedRead<ProofBundle>) -> Result<(), String> {
             integer(&log, 4).map_err(err)?,
         ));
     }
-    verify_logs(&receipt, logs).map_err(|e| format!("{e:?}"))?;
-    Ok(())
-}
-
-/// Both ends call the same public request/response codecs used by daemon RPC
-/// adapters and SDK consumers. The peer is a loopback socket, not a codec double.
-pub fn round_trip(
-    target: layerx_agent_api::proof::ProofBundleTarget,
-    requested: Rung,
-) -> VerifiedRead<ProofBundle> {
-    use layerx_agent_api::read::ReadRequest;
-    use std::io::{Read, Write};
-    use std::net::{Shutdown, TcpListener, TcpStream};
-    use std::time::Duration;
-    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-    let address = listener.local_addr().unwrap();
-    let selector = target.encode().unwrap();
-    let request =
-        ReadRequest::proof_bundle(selector.as_bytes().to_vec(), requested.name()).unwrap();
-    let server = std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
-        stream
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        let mut incoming = Vec::new();
-        stream.read_to_end(&mut incoming).unwrap();
-        let server_request = ReadRequest::proof_bundle(incoming, requested.name()).unwrap();
-        let response = produced();
-        server_request.check_proof_response(&response).unwrap();
-        stream
-            .write_all(response.encode_json().unwrap().as_bytes())
-            .unwrap();
-    });
-    let mut stream = TcpStream::connect(address).unwrap();
-    stream
-        .set_read_timeout(Some(Duration::from_secs(5)))
-        .unwrap();
-    stream.write_all(selector.as_bytes()).unwrap();
-    stream.shutdown(Shutdown::Write).unwrap();
-    let mut response = String::new();
-    stream.read_to_string(&mut response).unwrap();
-    server.join().unwrap();
-    let observed = VerifiedRead::<ProofBundle>::decode_json(&response).unwrap();
-    request.check_proof_response(&observed).unwrap();
-    assert_eq!(observed, produced());
-    observed
+    Ok(logs)
 }

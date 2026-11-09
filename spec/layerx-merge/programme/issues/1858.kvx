@@ -1,0 +1,48 @@
+[issue.1858]
+number = 1858
+title = "[Coherence] The rewritten launchpad and sdk/wallet test steps are no longer recognised by the JavaScript suite-runner guard in ci.yml, so 12 packages read as having no runner"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The parser introduced by commit b05c9aead54f8b9a822d9020097add4f53f60adb remains unchanged at tests/ci/test_js_suites_have_runner.py:123 and :156, rejecting Python commands and treating --filter as the script at :188, while the eleven-package launchpad matrix still uses --filter at .github/workflows/launchpad-test.yml:76 and the wallet matrix still invokes its Python wrapper at .github/workflows/wallet-test.yml:29, whose real Vitest command is tools/ci/run_wallet_vitest.py:51, leaving those twelve test packages unrecognised by the inventory enforced at .github/workflows/ci.yml:241."
+close_comment = "The JavaScript suite inventory still misses the eleven launchpad test packages and the wallet SDK despite their configured test runners. A focused parser repair will recognise the launchpad selectors and wallet wrapper while preserving rejection of commands that do not run tests."
+
+[task.18.1858.1]
+title = "Issue #1858: Recognise launchpad selectors and the wallet Vitest wrapper in the suite inventory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181858.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update command_packages in tests/ci/test_js_suites_have_runner.py:113 to resolve the relative pnpm --filter selector against the --dir workspace, normalise parent-directory components, and consume the accompanying --fail-if-no-match option before identifying the test script; recognise the exact wallet wrapper invocation from .github/workflows/wallet-test.yml:29 by its resolved repository path and real Vitest command at tools/ci/run_wallet_vitest.py:51 and :66, without granting coverage to arbitrary Python scripts or adding package exclusions."
+do_2 = "Add test_js_launchpad_and_wallet_runners_recognised in tests/ci/test_js_suites_have_runner.py alongside test_js_test_scripts_have_runner at :272; use the tracked manifests and real workflow_coverage at :200 to assert coverage of all eleven launchpad matrix packages listed at .github/workflows/launchpad-test.yml:44 and sdk/wallet, verify each expanded test command selects exactly its intended package, and assert builds, quoted commands, error-masked commands, unmatched filters and unrelated Python scripts add no coverage while preserving every existing inventory assertion and exclusion."
+symbols = ["command_packages", "test_js_launchpad_and_wallet_runners_recognised"]
+touches = ["tests/ci/test_js_suites_have_runner.py"]
+tests = ["tests/ci/test_js_suites_have_runner.py::test_js_launchpad_and_wallet_runners_recognised"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_js_suites_have_runner.py"
+verify_cmd = "python3 -m pytest tests/ci/test_js_suites_have_runner.py::test_js_launchpad_and_wallet_runners_recognised -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181858]
+title = "The JavaScript suite inventory recognises the launchpad and wallet SDK test runners"
+ac_1 = "Given the actual launchpad matrix and filtered test step at .github/workflows/launchpad-test.yml:44 and :76 and wallet wrapper step at .github/workflows/wallet-test.yml:29 and :72, workflow_coverage in tests/ci/test_js_suites_have_runner.py:200 includes all eleven launchpad package manifests and sdk/wallet/package.json, each expanded test command contributes only its intended package, and non-test, unmatched, unrelated or error-masked commands contribute no coverage without weakening the inventory assertion at tests/ci/test_js_suites_have_runner.py:278."
+
+[acceptance.18.1858.1]
+feature = "18"
+req = "181858.1"
+scenario = "Given the tracked package manifests and the launchpad and wallet workflow matrices, when the suite inventory parses the expanded test commands, then all twelve affected packages have runner coverage, each command selects only its intended package, and builds, quoted commands, error-masked commands, unmatched filters and unrelated Python scripts provide no coverage."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tests/ci/test_js_suites_have_runner.py::test_js_launchpad_and_wallet_runners_recognised (planned)"
+qualification = "UNRUN"

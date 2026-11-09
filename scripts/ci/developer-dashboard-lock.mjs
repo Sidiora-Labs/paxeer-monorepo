@@ -7,7 +7,7 @@ const lock = JSON.parse(readFileSync("apps/web/package-lock.json", "utf8"));
 for (const dependencies of [dashboard.dependencies, dashboard.devDependencies]) {
   for (const [name, expected] of Object.entries(dependencies)) {
     if (name === "@layerx/ui") {
-      assert.equal(expected, "file:../../../../apps/web/packages/layerx-ui");
+      assert.equal(expected, "file:../../../../../apps/web/packages/layerx-ui");
       assert.equal(lock.packages["packages/layerx-ui"]?.name, name);
       continue;
     }

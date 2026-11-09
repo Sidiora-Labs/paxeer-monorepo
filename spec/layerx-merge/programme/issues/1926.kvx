@@ -1,0 +1,7 @@
+[issue.1926]
+number = 1926
+title = "[Coherence] The bridge README and every per-chain README still describe five placeholder attestors at threshold 3, while the repair record marks the README wiring request as fulfilled"
+revision = "86ae60188357c8c436f0f6e5deac9888cdfd2160"
+verdict = "duplicate"
+evidence = "Issue #1912 at spec/layerx-merge/programme/issues/input/1912.md:5 and :48 describes the same stale signer instructions still present at contracts/bridge/README.md:79 and :80, contracts/bridge/evm/chains/ethereum/README.md:11 and :39 and contracts/bridge/solana/chains/solana/README.md:13 and :52, despite the governed single signer at threshold 1 in services/bridge/deploy/attestors.json:3 and :5 and contracts/bridge/evm/chains/ethereum/config.json:16 and :18; commit f285b9e530ea3163b04289754c95a1a725cf9673 reconciled the nine configurations and cleared the wiring request at services/bridge/deploy/repair_22_31_402.kvx:16 and :17 without updating those READMEs, and spec/layerx-merge/programme/issues/1912.kvx already assigns their correction to task 18.1912.1."
+close_comment = "Duplicate of #1912, which tracks correcting the bridge runbook and all nine chain pages to describe the governed single signer at threshold 1. The obsolete five-signer, threshold-3 and repeated-byte manifest instructions remain to be corrected under that issue, despite the repair record marking the wiring fulfilled."

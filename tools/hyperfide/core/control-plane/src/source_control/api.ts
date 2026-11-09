@@ -525,14 +525,24 @@ export function createSourceApi(dependencies: SourceApiDependencies) {
                 metadata.ancestryIndex(context, parseObjectId(id)),
               pathIdentity: async (revision: QueryRevision, path: string) => {
                 if (path === "") return revision.root_tree_id;
-                const entry = await dependencies.trees.lookup(
-                  request.scope,
-                  revision.root_tree_id,
-                  path,
-                );
-                return entry
-                  ? entry.kind + ":" + entry.mode + ":" + entry.object_id
-                  : null;
+                try {
+                  const entry = await dependencies.trees.lookup(
+                    request.scope,
+                    revision.root_tree_id,
+                    path,
+                  );
+                  return entry
+                    ? entry.kind + ":" + entry.mode + ":" + entry.object_id
+                    : null;
+                } catch (error) {
+                  if (
+                    error instanceof SourceControlError &&
+                    error.code === "PATH_CONFLICT" &&
+                    error.message === "A path ancestor is not a directory"
+                  )
+                    return null;
+                  throw error;
+                }
               },
               revision: (id: string) =>
                 metadata.readRevision(context, parseObjectId(id)),
