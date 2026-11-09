@@ -160596,7 +160596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.281]
 title = "Darken the light muted explorer label to meet the 3:1 contrast of the design brief"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -304118,7 +304118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.285]
 title = "Repair the retired references of the anchor module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
