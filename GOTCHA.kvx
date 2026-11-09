@@ -18695,3 +18695,93 @@ fix = "Decision 3070: the persistence of completed job results is proven by a mo
 title = "The drift test of the UCP checkout fixture compares two file lists that hold the same entries in different orders"
 symptom = "Task 18.1639.1 attempt 1 at fb2ca1f9175f (base 93249965659c) wrote the classification in sdk/platform/pipeline.kvx and the case ucp_checkout_fixture_classification_survives_check_and_write in sdk/platform/generators/tests/drift.rs, and the case failed at its OutputState equality: the two platform-conformance states carry the same files with the same digests, the regenerated one in the order the writer emits and the expected one in the order the test collected (git ls-files order against the sorted declaration order)."
 fix = "18.1639.1 attempt 2 compares the states through one ordering, the sorted path order the pipeline writer uses, and keeps the assertion otherwise unchanged."
+
+[gotcha.3775]
+title = "The explorer node-fetch allow-list test is red on main because three later specification files import node-fetch without an allow-list entry"
+symptom = "Task 18.1712.1 attempt 1 at e00b671ac7e4 (base 93249965659c) passed its build and failed its verification in the case nodeFetchImportsStayServerOnly of apps/explorer/repair-22-31-512.spec.ts: the case walks every file that imports node-fetch and requires each to be listed in nodeTestModules, and three files added after the list was written are not listed, nextjs/pages-tests/api/repair-22-35-10.spec.ts line 4 and ui/snippets/searchBar/repair-22-35-10.spec.tsx line 5 (22.35.10, 2026-11-06) and ui/pages/PaxeerXInference.spec.tsx line 4 (22.38.33, 2026-11-07). The failure is independent of the tree of the attempt and the allow-list file is outside its touches."
+fix = "Attempt 2 adds the three test modules to nodeTestModules with the allow-list file in the touches, under decision 2908."
+
+[gotcha.3776]
+title = "The chain indicators chart specification still passes the days property the producer removed, so the explorer type check fails"
+symptom = "Task 18.1720.1 attempt 1 at c4355decafc5 (base 93249965659c) removed the days property of ChainIndicatorsChart.tsx for the calendar-day window design and failed its build: apps/explorer/ui/home/indicators/ChainIndicatorsChart.spec.tsx line 53 (on main since 9a7c1d9479, 2026-10-21) still renders the component with days={ 14 }, so tsc reported TS2322 and the verification never ran. The specification file was outside the touches, so the attempt could not follow its own producer change into the consumer test (gotcha 3046)."
+fix = "Attempt 2 carries the specification file in its touches and rewrites the trims-the-series case to the calendar-day window."
+
+[gotcha.3777]
+title = "The launchpad render tests fail under the receipt qualification rule the baseline already records, so the status issue task waits for the retiring task"
+symptom = "Task 18.1695.1 attempt 1 at d2f97ccb678d (base 93249965659c) passed its build and failed both verification cases with receipt qualification rejected: TestRenderedProductionDocumentsBoot at render_test.go line 145 and TestIndexerStatus1695 at status_1695_test.go line 244, both through receipt.NewRPCQualification over the recorded production documents. tests/ci/data/launchpad_go_test_baseline.json records TestRenderedProductionDocumentsBoot as known failing for exactly this reason with retiring task 22.39.162 (wave 2, pending), and the new status test boots the same documents through the same rule."
+fix = "18.1695.1 requires 22.39.162 and moves to wave 2; attempt 2 continues after the retiring task lands."
+
+[gotcha.3778]
+title = "The explorer backend test environment has no Redis service, so every controller test that touches the session store fails with a persistence error"
+symptom = "Tasks 18.1673.1 attempt 1 at 47e42319140a and 18.1651.1 attempt 1 at d1ee7253d734 (both base 93249965659c) passed their builds and failed their verifications with BlockScoutWeb.Plug.RedisCookie.PersistenceError (18.1673.1 in confirm OTP successfully; 18.1651.1 in get watchlist id at address_controller_test.exs line 440). services/explorer/deploy/tools/mix-in-builder.sh runs mix inside the pinned Elixir builder container joined to the network namespace of one postgres:16 database container and starts nothing else; the session store of the backend endpoint (endpoint.ex line 68) writes through Redix, which services/explorer/backend/apps/explorer/lib/explorer/application.ex line 96 starts from ACCOUNT_REDIS_URL with the default redis://127.0.0.1:6379. The second verification of 18.1651.1 also showed a failure the attempt did not touch: get EIP-1967 proxy contract info (line 329) returns an empty implementations list on main."
+fix = "Decision 3071 and task 22.39.236 add a Redis container beside the database container; 18.1673.1 and 18.1651.1 require it, and the verification of 18.1651.1 names its three tests while the proxy failure is recorded as a qualification finding."
+
+[gotcha.3779]
+title = "The web search receipt fixtures of the TypeScript SDK test carry a settlement operation the client refuses, and the test casts a literal the compiler rejects"
+symptom = "Task 18.1713.1 attempt 1 at fca0ac74d127 (base 93249965659c) failed its first build because the script ran tsc through a package manager that is not installed for that directory, then compiled with one error, TS2352 at test/web-search.test.ts line 166 column 35 (a conversion between two object literal types with no overlap), and its verification failed twenty-nine of thirty-three cases with WebSearchError settlement-operation-mismatch thrown at services/agent/sdk/typescript/src/web-search.ts line 359, where the client requires receipt moduleId 12 and operation 2; the receipts the attempt wrote for its fixtures carry other values. The check is unchanged from main (line 358 there)."
+fix = "Attempt 2 writes fixture receipts that carry the settlement module and operation of the producer and replaces the cast with a typed literal."
+
+[gotcha.3780]
+title = "Four issue task gates name a package manager the directory does not use, so the gates fail before the tests run"
+symptom = "Task 18.1718.1 attempt 1 at 0daffc77f779 failed its build with ERR_PNPM_OTHER_PM_EXPECTED because apps/explorer is a yarn workspace (precedent gates of 22.33.274 use yarn). Task 18.1766.1 attempt 1 at 9402211da8e3 failed with webpack not found because services/explorer/backend/apps/block_scout_web/assets is installed with npm from its package-lock.json (precedent npm ci --ignore-scripts). Task 18.1711.1 attempt 1 at 80a88738417b failed with tsc not found because services/platform/middleware/conformance is an npm package whose build script is tsc -p tsconfig.json (precedent build of its sibling tasks). Task 18.1770.1 attempt 1 at 2a88ca65780f failed its build because apps/explorer/deploy/tools/envs-validator carries a yarn.lock and the pnpm install of its modules was refused (ERR_PNPM_OTHER_PM_EXPECTED), so vite could not resolve property-expr from the yup package (precedent gate of 22.33.499: yarn install with the frozen lock, then yarn). All four trees are complete; only the commands were wrong."
+fix = "Decision 3072 fixes the rule; the four gates move to the package manager of their lock files and the attempts requalify at their revisions."
+
+[gotcha.3781]
+title = "The agent daemon proof tests start the local node, whose script builds the node binary through the chain make file, which the gate shell cannot build without cmake"
+symptom = "Task 18.1743.1 attempt 1 at 37960b88eacc (base 93249965659c) passed its build and failed its verification: tests/proof_serve_errors.rs includes proof_native_reads.rs, whose cases start tools/qualification/localnode/v6120-node.sh (line 587), and the script builds paxd with make -f chain.mk install when PAXD is not executable (lines 332 to 345); that target builds evmone from source with cmake (gotcha 3769), so the node never started and the startup log was not collected. Task 21.95.1 passed the same build in its own build command (make -f chain.mk install before cargo) when the gate shell had cmake for that build."
+fix = "Decision 3073: a gate whose tests start the local node builds the node binary in its build command; the gate shell provides cmake for that build, and 18.1743.1 requalifies with the build command of 21.95.1."
+
+[gotcha.3782]
+title = "The platform CLI bootstrap test passes a UUID where the trace identifier parser requires the trc_ prefix and thirty-two hexadecimal digits"
+symptom = "Task 18.1747.1 attempt 1 at 492b07abcd86 (base 93249965659c) passed its build and panicked in tools/platform/cli/tests/repair_22_33_63.rs line 1648 with bootstrap peer: Malformed: the test calls TraceId::parse on 00000000-0000-4000-8000-000000000001, and TraceId::parse (trace.rs lines 12, 13 and 38 to 46) accepts only the prefix trc_ followed by thirty-two lowercase hexadecimal digits."
+fix = "Attempt 2 builds the identifier in the format of the producer."
+
+[gotcha.3783]
+title = "The px_listAssets method accepts an explicit null cursor, which the OpenRPC contract declares invalid"
+symptom = "Task 18.1665.1 attempt 1 at 3dd4b2d997c5 (base 93249965659c) passed its build and failed its verification twice: px_node_root_account_test.go line 687 expects error code -32602 for a request whose cursor is JSON null and received no error, and line 589 expected eight items and received none. rpc/px_assets.go ListAssets (lines 193 to 199) validates only a non-nil cursor, so a null cursor passes as if absent."
+fix = "Attempt 2 refuses a null cursor with invalid params and repairs the count case at its source."
+
+[gotcha.3784]
+title = "The subscription test fixture commits a block whose served header carries a zero state root, so the new-heads event is dropped as inconsistent"
+symptom = "Task 18.1643.1 attempt 1 at efcb96016b69 (base 93249965659c) passed its build and failed rpc/subscribe_test.go line 405: the expected stateRoot 0xc216... was the zero hash in the served header, and the log recorded dropping invalid newHeads event at height 1: new head block 1 hash does not match committed event. The fixture passes a ResponseFinalizeBlock whose AppHash is the state root to notifier.OnBlockCommitted while the header the server reads for height 1 was stored without that root, so the notifier and the header disagree."
+fix = "Attempt 2 wires the fixture so the committed header carries the state root the notifier announces, and asserts the value of the producer (gotcha 3046)."
+
+[gotcha.3785]
+title = "The gRPC query error test imports the auth transaction package, which imports the application through the ante handler and closes an import cycle"
+symptom = "Task 18.1678.1 attempt 1 at 6b398503dc8c (base 93249965659c) failed its build: query_grpc_error_test.go imports sdk/x/auth/tx, which imports x/auth/ante, x/params/keeper and baseapp, and baseapp imports the package under test, so go reported an import cycle and nothing compiled."
+fix = "Attempt 2 builds the request bytes without importing the x modules."
+
+[gotcha.3786]
+title = "Three lint attempts of the agent crates left the lints the gate names, in test support files and in the new test files themselves"
+symptom = "Task 22.39.217 attempt 2 at 21824c558755 declares the support/assertions.rs module twice in tests/repair_22_33_1558.rs and misses backticks in its documentation; task 22.39.219 attempt 2 at 9ef634b1ba16 leaves unnecessary semicolons at tests/committed_caps.rs lines 26, 80 and 84; task 22.39.221 attempt 2 at 119dfedb86cb leaves unnecessary parentheses at tests/support/independent/field25519.rs line 440, ten missing semicolons in tests/repair_22_31_214.rs (lines 740 to 871), backticks in proof_agent_api.rs lines 5 and 65 and tests/support/independent/edwards25519.rs lines 173 to 186, and a reference to an Option at tests/support/committed_landing.rs line 462. Each list is in the clippy output of its verification log."
+fix = "Each attempt continues on the named sites."
+
+[gotcha.3787]
+title = "Two attempts regenerated a shared Cargo.lock outside their planned paths and were held at collection"
+symptom = "Task 22.39.215 attempt 2 and task 18.1664.1 attempt 1 were held because services/agent/Cargo.lock and services/platform/Cargo.lock changed with their trees: a dependency edit in a member crate regenerates the shared lock of its Cargo workspace, as decision 2829 records for 22.31.547."
+fix = "The planned paths of both tasks carry the shared lock file and the attempts are released after the record is corrected."
+
+[gotcha.3788]
+title = "Two issue tasks changed the same retired-endpoint test file and the second one conflicts on merge"
+symptom = "Task 18.1729.1 attempt 1 was held because its change to tools/platform/cli/tests/repair_22_33_1496.rs conflicts with the change of 18.1728.1 published at 2c8a047541 on 2026-11-09; both tasks touch the same test file for neighbouring retired endpoints."
+fix = "Attempt 2 merges main and resolves the file so both repairs stand."
+
+[gotcha.3789]
+title = "The batch activity receipt test fails in its genuine mode because the SDK refuses the committed-wait response of the live node"
+symptom = "Task 18.1764.1 attempt 1 at c87168c7be37 (base 6b1a7b90506d) passed its build; its first verification failed at rpc/px_node_root_kernel_test.go line 134 with invalid bank recipient (a fixture send to a recipient the bank refuses), and after the repair the second verification failed at line 724: the Rust test committed_wait_uses_unfiltered_batch_activity_ids of services/agent/crates/layerx-sdk/tests/issue_1764.rs panicked at line 113 with genuine: InvalidResponse, so RpcClient.wait_for refused the response the proxied live node returned for the unaltered mode before any tampering mode ran. The refusal comes from one of the response parsers of rpc_commit.rs or rpc_verification.rs that the attempt changed, and the error names no field."
+fix = "Attempt 2 makes the parser follow the response shape of the node (gotcha 3046), names the refused field in the error, and keeps the tampering modes."
+
+[gotcha.3790]
+title = "Three perps issue tasks fail their type check on the main defect the perps type resolution task repairs"
+symptom = "Tasks 18.1676.1 attempt 1 at a2aeeabdfeca and 18.1655.1 attempt 1 at a1cc2ede1dd0 (both base 93249965659c) and 18.1656.1 attempt 1 at 7136e0b39e36 (base 027bfa65e2a8) failed their builds in the perps type check with the JSX component type errors of gotcha 3770, none in their changed files."
+fix = "The three tasks require 22.39.234 under decision 3068 and continue after it lands."
+
+[gotcha.3791]
+title = "The committed platform pipeline inventory misses eight conformance fixtures, so a live capture classifies more files than the inventory declares"
+symptom = "Task 18.1639.1 attempt 2 at 18d40c7ffbb0 (base 027bfa65e2a8) passed its build and failed its verification at tests/drift.rs line 955: the live capture of the platform-conformance output lists fifty-two handwritten files while the committed sdk/platform/pipeline.kvx declares forty-four; the eight files the capture adds are fixtures/fiat-receipts-v1.json, fixtures/generate_kernel_receipt_fixture.mjs, fixtures/kernel-receipt-v1.json, fixtures/native-program-binding-v4.json, fixtures/refresh_native_program_binding.py, fixtures/refresh_receipt_vectors.py, fixtures/vector-v6-sponsored-bind.json and fixtures/vector-v7-named-payee.json, all present under sdk/platform/conformance and added after the inventory was last regenerated. The generated file digests are equal on both sides."
+fix = "Attempt 3 declares the eight files handwritten in the committed inventory, the form the live capture produces."
+
+[gotcha.3792]
+title = "The wallet repair proof gate asserts five result counts and prints none, so its failure names no count"
+symptom = "Task 18.1662.1 attempt 1 at 90883a34f5d7 (base 027bfa65e2a8) passed its build and failed its verification with a bare AssertionError: the verification pipes the vitest JSON report into a python assertion over success and the total, passed, failed, pending and todo counts, and prints nothing before asserting, so the log shows neither which count differs nor which of the nine cases (six in repair-22-33-181.test.ts, three in repair-22-33-209.test.ts) failed or was skipped."
+fix = "The verification runs the suite once with the verbose reporter and prints the five counts before the assertion; attempt 2 reads them and repairs the cases."
