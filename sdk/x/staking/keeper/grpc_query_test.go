@@ -1,7 +1,9 @@
 package keeper_test
 
 import (
+	"bytes"
 	gocontext "context"
+	"encoding/binary"
 	"fmt"
 	"math/bits"
 	"testing"
@@ -806,6 +808,126 @@ func createValidators(t *testing.T, ctx sdk.Context, app *paxapp.App, powers []i
 	applyValidatorSetUpdates(t, ctx, app.StakingKeeper, -1)
 
 	return addrs, valAddrs, vals
+}
+
+func TestRedelegationsSparsePageContinuation(t *testing.T) {
+	for _, gap := range []int{int(query.MaxScanLimit), int(query.MaxScanLimit) + 1} {
+		t.Run(fmt.Sprintf("nonmatches_%d", gap), func(t *testing.T) {
+			f := repair310Open(t, t.TempDir())
+			t.Cleanup(func() { require.NoError(t, f.store.Close()) })
+			f.ctx = f.ctx.WithBlockHeight(1).WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+			k, ctx := f.staking, f.ctx
+			source := repair310Validator(t, k, ctx, 240).UpdateStatus(types.Bonded)
+			k.SetValidator(ctx, source)
+			destination := repair310Validator(t, k, ctx, 241)
+			distractor := repair310Validator(t, k, ctx, 242)
+			server := keeper.NewMsgServerImpl(k)
+			delegators := make([]sdk.AccAddress, gap+4)
+			keys := make([][]byte, len(delegators))
+			for i := range delegators {
+				delegators[i] = make(sdk.AccAddress, 20)
+				binary.BigEndian.PutUint64(delegators[i][12:], uint64(i+1))
+			}
+			produce := func(i int) {
+				f.fund(t, delegators[i], sdk.NewInt(100))
+				messageCtx := ctx.WithBlockTime(ctx.BlockTime().Add(time.Duration(i) * time.Nanosecond)).WithEventManager(sdk.NewEventManager())
+				goCtx := sdk.WrapSDKContext(messageCtx)
+				_, err := server.Delegate(goCtx, types.NewMsgDelegate(delegators[i], source.GetOperator(), sdk.NewInt64Coin(k.BondDenom(ctx), 100)))
+				require.NoError(t, err)
+				target := distractor
+				if i <= 1 || i >= gap+2 {
+					target = destination
+				}
+				response, err := server.BeginRedelegate(goCtx, types.NewMsgBeginRedelegate(delegators[i], source.GetOperator(), target.GetOperator(), sdk.NewInt64Coin(k.BondDenom(ctx), 10)))
+				require.NoError(t, err)
+				require.Equal(t, messageCtx.BlockTime().Add(k.UnbondingTime(ctx)), response.CompletionTime)
+				key := types.GetREDKey(delegators[i], source.GetOperator(), target.GetOperator())
+				require.True(t, ctx.KVStore(k.GetStoreKey()).Has(key))
+				keys[i] = key[len(types.RedelegationKey):]
+			}
+			for i := 1; i <= gap+2; i++ {
+				produce(i)
+			}
+			helper := baseapp.NewQueryServerTestHelper(ctx, paxapp.MakeEncodingConfig().InterfaceRegistry)
+			types.RegisterQueryServer(helper, keeper.Querier{Keeper: k})
+			client := types.NewQueryClient(helper)
+			for _, offset := range []uint64{0, 1} {
+				indices := []int{1, gap + 2}
+				if offset > 0 {
+					produce(0)
+					produce(gap + 3)
+					indices = []int{0, 1, gap + 2, gap + 3}
+				}
+				iterator := sdk.KVStorePrefixIterator(ctx.KVStore(k.GetStoreKey()), types.RedelegationKey)
+				first, end := 1, gap+3
+				if offset > 0 {
+					first, end = 0, gap+4
+				}
+				for i := first; i < end; i++ {
+					require.True(t, iterator.Valid())
+					require.Equal(t, keys[i], iterator.Key()[len(types.RedelegationKey):], "fixture must have the declared gap in store order")
+					iterator.Next()
+				}
+				require.False(t, iterator.Valid())
+				require.NoError(t, iterator.Close())
+				for _, reverse := range []bool{false, true} {
+					t.Run(fmt.Sprintf("offset_%d/reverse_%t", offset, reverse), func(t *testing.T) {
+						order := append([]int(nil), indices...)
+						if reverse {
+							for i, j := 0, len(order)-1; i < j; i, j = i+1, j-1 {
+								order[i], order[j] = order[j], order[i]
+							}
+						}
+						order = order[int(offset):]
+						request := &types.QueryRedelegationsRequest{
+							DstValidatorAddr: destination.OperatorAddress,
+							Pagination:       &query.PageRequest{Offset: offset, Limit: 1, CountTotal: false, Reverse: reverse},
+						}
+						seen := make(map[string]bool)
+						for page, index := range order {
+							response, err := client.Redelegations(gocontext.Background(), request)
+							require.NoError(t, err)
+							require.NotNil(t, response.Pagination)
+							require.Zero(t, response.Pagination.Total)
+							require.Len(t, response.RedelegationResponses, 1)
+							row := response.RedelegationResponses[0]
+							require.Equal(t, delegators[index].String(), row.Redelegation.DelegatorAddress)
+							require.Equal(t, source.OperatorAddress, row.Redelegation.ValidatorSrcAddress)
+							require.Equal(t, destination.OperatorAddress, row.Redelegation.ValidatorDstAddress)
+							require.False(t, seen[row.Redelegation.DelegatorAddress], "a match must appear only once")
+							seen[row.Redelegation.DelegatorAddress] = true
+							require.Len(t, row.Entries, 1)
+							require.True(t, sdk.NewInt(10).Equal(row.Entries[0].Balance))
+							next := response.Pagination.NextKey
+							if page == len(order)-1 {
+								require.Empty(t, next, "the final match must exhaust the query")
+								break
+							}
+							require.NotEmpty(t, next, "a full sparse page must retain its continuation")
+							if reverse {
+								require.Negative(t, bytes.Compare(next, keys[index]))
+							} else {
+								require.Positive(t, bytes.Compare(next, keys[index]))
+							}
+							if page == 0 {
+								rawIndex := index + int(query.MaxScanLimit) + 1
+								if reverse {
+									rawIndex = index - int(query.MaxScanLimit) - 1
+								}
+								require.Equal(t, keys[rawIndex], next, "resume at the unprocessed raw key at the scan cap")
+							}
+							request.Pagination = &query.PageRequest{Key: next, Limit: 1, CountTotal: false, Reverse: reverse}
+						}
+						require.Len(t, seen, len(order))
+						request.Pagination = &query.PageRequest{Offset: offset, Limit: 1, CountTotal: true, Reverse: reverse}
+						response, err := client.Redelegations(gocontext.Background(), request)
+						require.ErrorContains(t, err, fmt.Sprintf("scanned more than %d entries past the end of the page", query.MaxScanLimit))
+						require.Nil(t, response)
+					})
+				}
+			}
+		})
+	}
 }
 
 func testRedelegationPartialFilters(t *testing.T) {

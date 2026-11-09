@@ -1,0 +1,48 @@
+[issue.1915]
+number = 1915
+title = "[Coherence] Adding two golden rows breaks the existing bring-up golden tests, which require exactly the five merge-plan cases"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit de3e229f407c4881cb39d7eae63608de6249afc2 remains in the task revision with custody-release and anchor-retired at spec/layerx-merge/programme/data/goldens/merge-bringup.kvx:39 and :46, but spec/layerx-merge/programme/tests/test_bringup_goldens.py:26 and spec/layerx-merge/programme/tests/test_bringup_run.py:15 still require exactly five sections and the latter at :29 requires only ./node commands, while spec/layerx-merge/programme/tests/test_custody_golden.py:24 selects only its two rows and spec/layerx-merge/contracts/programme.md:379 requires the five original names to be present rather than exclusive."
+close_comment = "The bring-up checks still reject the custody release and anchor retirement cases added to the golden inventory. Update both checks to validate all seven cases with their exact package commands, preserving merge-plan refusal coverage and requiring real execution and evidence for every case."
+
+[task.18.1915.1]
+title = "Issue #1915: Validate the complete seven-case bring-up golden inventory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181915.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update spec/layerx-merge/programme/tests/test_bringup_goldens.py:15-47 to describe all seven cases explicitly, including the exact package, test, source path and command flags for custody-release and anchor-retired from spec/layerx-merge/programme/data/goldens/merge-bringup.kvx:39-49; retain exact inventory equality, source-symbol validation, integer zero exits, accepted genesis assertions and all refusal text checks."
+do_2 = "Update spec/layerx-merge/programme/tests/test_bringup_run.py:15-35 to require the same seven-case inventory and validate each row against an explicit expected package, test name and flags, allowing -v exactly where declared; preserve the accepted-case rehearsal and run all seven rows through activation.run_goldens at spec/layerx-merge/programme/activation.py:169, retaining the per-case exit, evidence, RUN, PASS and nonempty-test checks at test_bringup_run.py:45-59 without duplicate -v flags."
+symbols = ["CASE_TESTS", "test_golden_cases_cover_every_refusal", "test_bringup_goldens_pass_on_merged_revision"]
+touches = ["spec/layerx-merge/programme/tests/test_bringup_goldens.py", "spec/layerx-merge/programme/tests/test_bringup_run.py"]
+tests = ["spec/layerx-merge/programme/tests/test_bringup_goldens.py::test_golden_cases_cover_every_refusal", "spec/layerx-merge/programme/tests/test_bringup_goldens.py::test_refusal_texts_match_handler", "spec/layerx-merge/programme/tests/test_bringup_run.py::test_bringup_goldens_pass_on_merged_revision"]
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_bringup_goldens.py spec/layerx-merge/programme/tests/test_bringup_run.py"
+verify_cmd = "PYTHONPATH=spec/layerx-merge python3 -m pytest spec/layerx-merge/programme/tests/test_bringup_goldens.py::test_golden_cases_cover_every_refusal spec/layerx-merge/programme/tests/test_bringup_goldens.py::test_refusal_texts_match_handler spec/layerx-merge/programme/tests/test_bringup_run.py::test_bringup_goldens_pass_on_merged_revision -q"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181915]
+title = "Bring-up golden checks validate and execute all seven declared cases"
+ac_1 = "The checks in spec/layerx-merge/programme/tests/test_bringup_goldens.py:24 and spec/layerx-merge/programme/tests/test_bringup_run.py:13 validate exactly the five merge-plan cases plus custody-release and anchor-retired from spec/layerx-merge/programme/data/goldens/merge-bringup.kvx:1-49, asserting each exact package, named test, flags and zero expected exit; the run check executes every row through run_goldens and proves one evidence line and actual passing Go test output per row while retaining the accepted-case rehearsal and all existing genesis and refusal assertions."
+
+[acceptance.18.1915.1]
+feature = "18"
+req = "181915.1"
+scenario = "Given the seven declared bring-up goldens, when the inventory and merged-revision checks run, then every exact package command is validated, all seven real cases pass with one evidence line each, and the accepted-case rehearsal and original refusal checks remain enforced."
+contract = "contracts/programme.md#programme"
+test = "spec/layerx-merge/programme/tests/test_bringup_run.py::test_bringup_goldens_pass_on_merged_revision (planned)"
+qualification = "UNRUN"

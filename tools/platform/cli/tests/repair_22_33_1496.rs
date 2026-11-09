@@ -2,7 +2,9 @@
 //! test_retired_endpoint_program_calls -> test_retired_endpoint_program_calls
 //! program_capture_path_gap -> program_capture_path_gap
 //! test_retired_endpoint_program_lifecycle -> test_retired_endpoint_program_lifecycle
-//! program_lifecycle_third_shape -> program_lifecycle_third_shape
+//! program_lifecycle_third_shape -> program_lifecycle_third_shape proves calldata,
+//! receipt authentication and ordinary-call refusal; lifecycle execution and
+//! resultant state still require the producer transcripts requested below.
 //! test_retired_endpoint_program_registry -> test_retired_endpoint_program_registry
 //! proof_rpc_expected_failure -> proof_rpc_expected_failure
 //! test_retired_endpoint_rpc_identity -> test_retired_endpoint_rpc_identity
@@ -474,6 +476,7 @@ pub fn test_retired_endpoint_program_lifecycle() -> Proof {
 
 #[test]
 pub fn program_lifecycle_third_shape() -> Proof {
+    let mut lifecycle_topics = Vec::new();
     for (ordinal, fee, source) in [
         (1, "0", include_str!("../../../../sdk/platform/conformance/fixtures/native-program-deploy-v4.json")),
         (2, "1000", include_str!("../../../../sdk/platform/conformance/fixtures/native-program-upgrade-v4.json")),
@@ -486,6 +489,7 @@ pub fn program_lifecycle_third_shape() -> Proof {
         let payload = encoding::hex_decode("lifecycle payload",
             vector["payload_hex"].as_str().expect("unprefixed payload"))?;
         let calldata = programs::lifecycle_calldata(ordinal, &payload, fee)?;
+        lifecycle_topics.push(programs::lifecycle_event_topic(&calldata)?);
         assert_eq!(format!("0x{}", encoding::hex_encode(&calldata)),
             vector["evm"]["calldata"]);
     }
@@ -524,18 +528,76 @@ pub fn program_lifecycle_third_shape() -> Proof {
                 "{refusal}"
             );
         } else {
-            let rendered = programs::lifecycle_receipt_result_verified(hash, &receipt, &policy)?;
-            assert_eq!(rendered["sequencer_receipt"], recorded["receiptJson"]);
-            assert_eq!(rendered["rung"], "receipted");
-            assert_eq!(rendered["state"], "completed");
-            assert_eq!(rendered["result_code"], 0);
-            assert_eq!(rendered["return_data"], receipt["returnData"]);
-            assert_eq!(rendered["vm_error"], "");
+            let raw = bytes(&recorded["rawTransaction"]);
+            let (call, signature) = decode_signed(&raw).map_err(|e| e.to_string())?;
+            assert_eq!(call.chain_id, 125);
+            assert_eq!(
+                format!("0x{}", encoding::hex_encode(&call.to)),
+                receipt["to"]
+            );
+            assert_eq!(
+                format!(
+                    "0x{}",
+                    encoding::hex_encode(
+                        &recover_sender(&call, &signature).map_err(|e| e.to_string())?
+                    )
+                ),
+                receipt["from"]
+            );
+            assert_eq!(
+                &call.data[..4],
+                &[0x54, 0xbd, 0x2b, 0x48],
+                "Programs call selector"
+            );
+            assert!(programs::lifecycle_event_topic(&call.data).is_err());
+            let logs = receipt["logs"].as_array().expect("authenticated logs");
+            assert_eq!(logs.len(), 1);
+            assert_eq!(
+                logs[0]["address"],
+                "0x000000000000000000000000000000000000101d"
+            );
+            assert_eq!(
+                logs[0]["topics"],
+                json!([
+                    "0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0",
+                    format!("0x{}", encoding::hex_encode(&call.data[4..36])),
+                ]),
+                "ProgramCallOutcome for the called program"
+            );
+            let protocol = verified
+                .protocol()
+                .expect("authenticated Programs execution");
+            assert_eq!(protocol.module_id(), 12);
+            assert_eq!(protocol.operation(), 2);
+            assert_eq!(receipt["status"], "0x1");
+            assert_eq!(receipt["vmError"], "");
+            let refusal = programs::lifecycle_receipt_result_verified(hash, &receipt, &policy)
+                .expect_err("an ordinary Programs call cannot prove lifecycle completion");
+            assert!(
+                refusal.contains("omitted an authenticated program lifecycle event"),
+                "{refusal}"
+            );
             let pending = programs::lifecycle_receipt_result_verified(hash, &Value::Null, &policy)?;
             assert_eq!(
                 pending,
                 json!({"txHash":hash,"rung":"submitted","state":"pending"})
             );
+            let submitted = json!({"txHash":hash,"rung":"submitted"});
+            assert_eq!(
+                programs::lifecycle_receipt_result_verified(hash, &submitted, &policy)?,
+                pending
+            );
+            let submitted = json!({"txHash":hash,"rung":"submitted","nonce":receipt["nonce"]});
+            assert_eq!(
+                programs::lifecycle_receipt_result_verified(hash, &submitted, &policy)?,
+                json!({"txHash":hash,"rung":"submitted","state":"pending","nonce":receipt["nonce"]})
+            );
+            assert!(programs::lifecycle_receipt_result_verified(
+                hash,
+                &json!({"txHash":hash,"rung":"submitted","nonce":"0x00"}),
+                &policy,
+            )
+            .is_err());
             for rung in ["receipted", "committed"] {
                 assert!(
                     programs::lifecycle_receipt_result_verified(
@@ -547,9 +609,37 @@ pub fn program_lifecycle_third_shape() -> Proof {
                     "terminal labels are not authenticated execution"
                 );
             }
-            let mut changed = receipt.clone();
-            changed["status"] = json!("0x0");
-            assert!(programs::lifecycle_receipt_result_verified(hash, &changed, &policy).is_err());
+            let mut damaged = canonical;
+            *damaged.last_mut().expect("signature byte") ^= 1;
+            for (field, replacement) in [
+                ("status", json!("0x0")),
+                ("txHash", json!(format!("0x{}", "00".repeat(32)))),
+                (
+                    "receipt",
+                    json!(format!("0x{}", encoding::hex_encode(&damaged))),
+                ),
+            ] {
+                let mut changed = receipt.clone();
+                changed[field] = replacement;
+                let refusal = programs::lifecycle_receipt_result_verified(hash, &changed, &policy)
+                    .expect_err("tampered execution facts must fail authentication");
+                assert!(
+                    refusal.contains("lifecycle receipt verification failed"),
+                    "{refusal}"
+                );
+            }
+            for topic in &lifecycle_topics {
+                let mut changed = receipt.clone();
+                changed["logs"][0]["topics"][0] = json!(format!("0x{topic}"));
+                let refusal = programs::lifecycle_receipt_result_verified(hash, &changed, &policy)
+                    .expect_err(
+                        "relabelling a signed call log cannot authenticate a lifecycle event",
+                    );
+                assert!(
+                    refusal.contains("lifecycle receipt verification failed"),
+                    "{refusal}"
+                );
+            }
         }
     }
     Ok(())

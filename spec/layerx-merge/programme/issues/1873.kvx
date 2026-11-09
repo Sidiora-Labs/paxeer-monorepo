@@ -1,0 +1,7 @@
+[issue.1873]
+number = 1873
+title = "[P2] Quote the node test alternatives in task 22.39.155"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "spec/layerx-merge/spec.kvx:216302 retains the workflow-inventory pytest check and encloses all three Go -run alternatives in one single-quoted, anchored expression followed by ./node/, with the quoting correction explicitly recorded at node/repair_22_39_155.kvx:63."
+close_comment = "Task 22.39.155 now quotes the full three-test expression, so Go receives all alternatives as one -run argument and ./node/ as the package. The workflow-inventory pytest check remains in the verification command."
