@@ -1,0 +1,86 @@
+[repair.22.39.245]
+criterion = "22998.1"
+decision = "3104"
+starting_revision = "5af393259eb284c3fabc4d6db0be395da6c20294"
+verified_revision = "/out/run/gates.jsonl: the final passing build and verify rows name the same candidate revision, including this record."
+qualification = "Only hf-build and hf-done qualify this task; this record claims success only when both final ledger rows pass at the same revision."
+
+[findings.before]
+revision = "b352db3185"
+source = "GOTCHA.kvx [gotcha.3938], [gotcha.3939] and [gotcha.3940] preserve the recorded main-tree inventory; no baseline gate is rerun."
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py"
+findings = 2139
+files = 452
+excluded_by_inventory = ["GOTCHA.kvx", "CHANGELOG.md", "CODEMAP.md"]
+router_method_findings = 184
+route_catalogue_findings = 123
+deleted_tree_findings = 3
+scope = "The recorded whole-main-tree count includes live packages delegated to tasks 22.39.246 through 22.39.278; it is not a baseline measurement of the bounded paths at this task's starting revision."
+
+[catalogue.documentation]
+history = ["spec/layerx-merge/programme/**", "spec/release-v6-12-0/**", "spec/monorepo-layout/**"]
+records = ["repair_*.kvx", "services/platform/hosted/authority/src/repair_22_31_207/**", "services/platform/ramps/toolkit/src/repair_22_31_211/**"]
+vendored = ["tools/hyperfide/**", "core/deps/geth/signer/fourbyte/**", "programs/vendor/**", "apps/launchpad/web/public/charting_library/**"]
+reason = "Every new entry carries a one-sentence reason; programme includes its reconcile tree, and basename repair-record patterns apply at the root and at every package depth."
+schema = "A documentation entry names either a canonical path or a canonical filename/tree pattern plus its reason; all existing catalogue fields remain intact."
+safety = "Ordinary path entries continue excluding only Markdown and KVX text, while explicit record and vendored patterns exclude the recorded data of every suffix; checker coverage, deleted-tree overlaps, duplicate entries, malformed patterns and missing tracked matches are refused."
+
+[catalogue.router]
+component = "router-joins"
+removed_symbols = ["px_getUnifiedHistory", "px_getNetwork", "px_listAssets"]
+reason = "The replacement retains these public method names with one-source answers, so the retirement entry remains with an empty symbol list."
+
+[catalogue.deleted_trees]
+removed = ["tests/daemon", "services/agent/crates/layerx-wire"]
+reason = "Decision 542 retires only C daemon cases while the recorded Python cases remain live; decisions 910 and 921 retain the generic wire crate and retire only its activity codec."
+record_from = "services/agent/crates/layerx-client/src/lni/repair_22_33_1544.kvx"
+record_to = "services/agent/crates/layerx-client/repair_22_33_1544.kvx"
+record_move = "Move the existing record byte-for-byte and remove the empty lni directory; the lni deleted-tree assertion stays enforced."
+
+[catalogue.allowed_references]
+custody = ["modules/layerxcustody", "precompiles/layerxcustody", "api/layerxcustody", "contracts/src/precompiles/ILayerXCustody.sol"]
+anchor = ["modules/layerxanchor", "precompiles/layerxanchor", "api/layerxanchor", "contracts/src/precompiles/ILayerXAnchor.sol"]
+exchange = ["modules/layerxexchange", "precompiles/layerxexchange", "api/layerxexchange"]
+verify = ["precompiles/layerxverify", "contracts/src/precompiles/ILayerXVerify.sol"]
+reason = "Each own-tree symbol allowance cites the removal that disables it at merge and preserves historical replay without permitting references from neighboring packages."
+historical_dependencies = "The exchange tree retains its custody dependency; custody retains its private deposit helper and historical anchor ABI reference; anchor retains its own checkpoint event and status method also named by the mirror inventory."
+retained_replacements = "Exact-line allowances preserve withdrawal ABI-vector provenance, its explicit retired-producer refusal and ABI decoding comment, the AI market EIP-1559 signing replacement and committed-block rank, and the disabled exchange precompile's historical LXP_DA_MISSING error translation."
+retained_qualification = ["tools/paxeer-x/build/104.30.2.mk", "tools/paxeer-x/build/104.32.4.mk", "tools/paxeer-x/gates/104.29.5.sh", "tools/paxeer-x/gates/104.32.4.sh"]
+qualification_reason = "Exact-line allowances and adjacent explanations retain the offline settlement export and governed fee schedule qualification; retirement of the fee relay does not retire these suites or their runners."
+
+[routes]
+file = "tools/paxeer-x/route-catalogue.json"
+removed_entries = 28
+programs = "Remove four retired /v1/programs mutation ingress entries under programs-ingress (11037); EVM transactions to 0x101D replace them."
+archive = "Remove fifteen entries sourced from the deleted services/platform/relay_archive/runtime.py under replica (11012)."
+explorer = "Remove six retired kernel anchor/receipt page entries and their six data-page allowlist references under explorer-kernel-views (11048)."
+human = "Remove three entries sourced from the deleted layerx-explorer-index crate under human-two-domain (11047)."
+dependency = "Replace the retired transport name in the core-boundary dependency description with merged node JSON-RPC; retain the three public router methods."
+
+[regressions]
+coverage = "The real temporary-git self-tests cover basename records at root and nested depths, vendored code and bundles, package-local filters, live neighboring files, own-tree symbol boundaries, retained router calls, detection of the retired activity codec inside the live wire crate, and deleted-tree refusal even when only an excluded record remains."
+preserved = "All existing self-test cases remain; the exact documentation inventory assertion now includes every newly authorized record and vendored pattern."
+
+[findings.after]
+scope = "The main working tree restricted to the exact --path list of the declared verify_cmd; this task does not claim a clean whole-repository scan."
+required_findings = 0
+measured_count = "/out/run/gates.jsonl: final passing verify row and its private log; scan exit zero proves zero findings because every finding produces a diagnostic and exit one."
+comparison = "The historical whole-main-tree inventory is 2139 findings in 452 files before catalogue scoping; the required after count for this task's bounded documentation, vendor, disabled-component and formerly deleted trees is zero, with other live packages left to their own declared repairs."
+
+[qualification]
+build_command = "python3 -m py_compile tools/paxeer-x/tests/retired_callers_test.py"
+verify_command = "cg spec done 22.39.245 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "/out/run/gates.jsonl: final kind=build and kind=verify rows carry exact revision, command, exit and private log locations; no standalone verify or extra scan is run."
+gates = "hf-done runs the nonempty-record and absent-lni assertions, every self-test, the exact declared --deleted scan and graph checks."
+
+[gotcha.scope]
+observed = "Root GOTCHA.kvx and spec files are outside the task's explicit edit scope, and baseline verification would violate its ordered gate budget."
+resolution = "Preserve the existing workflow bookkeeping and historical inventory, record task-local findings here, and run only the allowed gates after implementation."
+
+[repair.first_qualification]
+revision = "8ef850ddbbe11dd750363acb252d30f2be889ff1"
+command = "cg spec done 22.39.245 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build passed and 118 self-test assertions passed before a new deleted-tree regression used the LNI tree, which the catalogue tracks as retiring under task 9.24.7, so its exact diagnostic assertion failed before the main scan ran."
+repair = "Use the actual paxeer-verifier deleted tree for the unchanged deleted-tree assertion, add a separate exact assertion for LNI's pending-retirement diagnostic, and retain precise allowances for replacement/provenance references identified while reading the bounded package sources."
