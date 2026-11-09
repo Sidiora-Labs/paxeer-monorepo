@@ -1,7 +1,7 @@
-//! Repair record 22.31.221: f01 -> receipt_sequence_and_height_survive_reopen;
-//! f04 -> market_finality_requires_same_root_node_evidence;
-//! f06 -> gateway_bank_coins_round_trip; f07 -> gateway_flat_assets_round_trip;
-//! f08 -> gateway_history_preserves_envelope; f09 -> gateway_uint256_boundaries.
+//! Repair record 22.31.221: f01 -> `receipt_sequence_and_height_survive_reopen`;
+//! f04 -> `market_finality_requires_same_root_node_evidence`;
+//! f06 -> `gateway_bank_coins_round_trip`; f07 -> `gateway_flat_assets_round_trip`;
+//! f08 -> `gateway_history_preserves_envelope`; f09 -> `gateway_uint256_boundaries`.
 //! Baseline verify was not run: the explicit gate order prohibits running it before
 //! implementation; the new target did not exist in the starting tree.
 //! Existing client integration fixtures are migrated to the gateway carriers in scope.
@@ -10,7 +10,7 @@
 //! Wiring: gateway domain must expose verified custody configuration before the
 //! agent withdrawal registry can enable custody operations from asset-table metadata.
 //! Wiring: node domain must expose the lxphost namespace head/manifest proof alongside
-//! ProgramRead, with the authenticated host store root and Comet H/state H-1 coordinates.
+//! `ProgramRead`, with the authenticated host store root and Comet H/state H-1 coordinates.
 //! Gateway peers use its committed Go ABI vectors and production Rust ABI codec;
 //! node peers use real receipt, batch, ICS23 and Comet encodings/signatures, over loopback.
 use base64::Engine as _;
@@ -52,9 +52,9 @@ use std::sync::{
 use std::time::Duration;
 
 // This is the gateway's real native ABI codec, not a replacement test decoder.
-#[allow(dead_code)]
-#[path = "../../../../platform/hosted/gateway/src/evm.rs"]
-mod gateway_evm;
+use layerx_platform_gateway::evm as gateway_evm;
+#[path = "support/gateway_evm_22_39_219.rs"]
+mod gateway_evm_tests;
 
 const HEIGHT: u64 = 150;
 const KEY_ID: [u8; 32] = [1; 32];
@@ -75,10 +75,13 @@ fn sha256(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 fn hex(bytes: &[u8]) -> String {
-    format!(
-        "0x{}",
-        bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
-    )
+    use std::fmt::Write as _;
+    let mut text = String::with_capacity(2 + bytes.len() * 2);
+    text.push_str("0x");
+    for byte in bytes {
+        let _ = write!(text, "{byte:02x}");
+    }
+    text
 }
 fn unhex(text: &str) -> Vec<u8> {
     text.strip_prefix("0x")
@@ -195,20 +198,20 @@ fn gateway_bank_coins_round_trip() {
         .map(|(denom, amount)| json!({"denom":denom,"amount":gateway_evm::uint256_decimal(amount)}))
         .collect();
     assert_eq!(json!(coins), vector["out"]["response"]);
-    let served = json!({"account":identity(),"height":150,"balances":coins});
-    let expected = served.clone();
+    let response_body = json!({"account":identity(),"height":150,"balances":coins});
+    let expected = response_body.clone();
     let n = AtomicU64::new(0);
     let server = Server::start(move |r| {
         assert_eq!(r["method"], "px_getBalances");
         assert_eq!(r["params"], json!([hex(&[0x12; 20])]));
         match n.fetch_add(1, Ordering::SeqCst) {
-            0 => json!({"result":served}),
+            0 => json!({"result":response_body}),
             1 => json!({"result":{"account":identity(),"height":151,"balances":[]}}),
             2 => {
-                json!({"error":{"code":-32001,"message":"Paxeer read unavailable","data":{"code":"unbound_did"}}})
+                json!({"error":{"code":-32_001,"message":"Paxeer read unavailable","data":{"code":"unbound_did"}}})
             }
             _ => {
-                let mut bad = served.clone();
+                let mut bad = response_body.clone();
                 bad["balances"][0]["amount"] = json!("01");
                 json!({"result":bad})
             }
@@ -245,7 +248,7 @@ fn gateway_uint256_boundaries() {
     let words = [power, [255; 32], [0; 32]];
     let n = AtomicU64::new(0);
     let server = Server::start(move |r| {
-        let i = n.fetch_add(1, Ordering::SeqCst) as usize;
+        let i = must(usize::try_from(n.fetch_add(1, Ordering::SeqCst)));
         match string(&r["method"]) {
             "px_getAccount" => {
                 let balance = if i < 3 {
@@ -332,11 +335,12 @@ fn gateway_flat_assets_round_trip() {
     let ledger = json!({"asset_id":id,"kind":"ledger","denom":null,"name":asset.name,"symbol":asset.symbol,"decimals":asset.decimals,"supply":asset.total_units.to_string(),"paused":asset.paused,"verification":"authenticated_committed_snapshot"});
     let bank = json!({"asset_id":"bank:upax","kind":"bank","denom":"upax","name":"Paxeer","symbol":"PAX","decimals":18,"supply":MAX256});
     let absent = json!({"asset_id":"bank:unavailable","kind":"bank","denom":"unavailable","name":null,"symbol":null,"decimals":null,"supply":null});
-    let served = json!({"height":150,"joined_limit":16,"assets":[ledger.clone(),bank,absent]});
+    let response_body =
+        json!({"height":150,"joined_limit":16,"assets":[ledger.clone(),bank,absent]});
     let server = Server::start(move |r| {
         assert_eq!(r["method"], "px_listAssets");
         assert_eq!(r["params"], json!([]));
-        json!({"result":served})
+        json!({"result":response_body})
     });
     let px = PxEndpoint::from(server.endpoint());
     let table = must(px.list_assets());
@@ -561,7 +565,14 @@ fn word(value: u64) -> [u8; 32] {
 fn ledger_abi_fixture() -> Vec<u8> {
     let mut out = vec![0; 384];
     out[..32].fill(0xab);
-    for (index, value) in [(3, 18), (4, 1000000), (7, 1), (8, 0), (10, 1), (11, 12345)] {
+    for (index, value) in [
+        (3, 18),
+        (4, 1_000_000),
+        (7, 1),
+        (8, 0),
+        (10, 1),
+        (11, 12_345),
+    ] {
         out[index * 32..index * 32 + 32].copy_from_slice(&word(value));
     }
     out[160..192].fill(0x22);
@@ -594,9 +605,9 @@ fn node_commit(height: u64, app_hash: [u8; 32], data_hash: [u8; 32]) -> NodeComm
     let header = ChainHeader {
         version: HeaderVersion { block: 11, app: 1 },
         chain_id: "paxeer-repair-125".to_owned(),
-        height: height as i64,
+        height: must(i64::try_from(height)),
         time: HeaderTime {
-            seconds: 1700000000,
+            seconds: 1_700_000_000,
             nanos: 0,
         },
         last_block_id: HeaderBlockId {
@@ -622,7 +633,7 @@ fn node_commit(height: u64, app_hash: [u8; 32], data_hash: [u8; 32]) -> NodeComm
         },
     };
     let timestamp = Timestamp {
-        seconds: 1700000000,
+        seconds: 1_700_000_000,
         nanos: 0,
     };
     let signature = signer
@@ -716,13 +727,111 @@ impl Drop for Directory {
 
 #[test]
 fn receipt_sequence_and_height_survive_reopen() {
+    let fixture = receipt_fixture();
+    let evidence = ReceiptCommitEvidence {
+        verifier: &fixture.node.verifier,
+        covering_height: 150,
+        batch_transaction: &fixture.batch_bytes,
+        transaction_proof: &fixture.proof,
+        activity_ids: &[fixture.tx_hash],
+    };
+    let server = receipt_server(fixture.raw.clone(), fixture.view.clone(), &fixture.node);
+    let endpoint = server.endpoint();
+    let registry = must(layerx_types::payload::ModuleRegistry::new(&[]));
+    let directory = Directory::open();
+    let journal = must(OperationJournal::open(&directory.0));
+    let mut record = must(OperationRecord::from_signed_transaction(
+        fixture.raw.clone(),
+        [0x55; 32],
+        10_000,
+    ));
+    must(journal.record_signed(&record));
+    assert_eq!(
+        must(journal.submit(&mut record, &endpoint)),
+        OperationState::Pending
+    );
+    assert_eq!(
+        must(journal.resolve(
+            &mut record,
+            &endpoint,
+            LookupContext {
+                receipt_keys: std::slice::from_ref(&fixture.key)
+            }
+        )),
+        OperationState::Executed
+    );
+    assert_eq!(record.global_sequence(), Some(7));
+    assert_eq!(record.execution_height(), Some(150));
+    assert_eq!(record.receipt_root(), Some(fixture.resulting_root));
+    drop(journal);
+    drop(record);
+    let journal = must(OperationJournal::open(&directory.0));
+    let mut record = must(journal.load(&fixture.tx_hash, &registry));
+    assert_eq!(record.execution_height(), Some(150));
+    assert_eq!(record.global_sequence(), Some(7));
+    for height in [7, 149, 150, 999] {
+        let unverified = must(CommitFinality::new(height, [2; 32], [3; 32], [4; 32]));
+        assert_eq!(
+            journal.finalize(&mut record, &unverified),
+            Err(AiClientError::FinalityMismatch)
+        );
+        assert_eq!(record.state(), OperationState::Executed);
+    }
+    let lookup = must(lookup_authenticated_with_commit(
+        &endpoint,
+        fixture.tx_hash,
+        LookupContext {
+            receipt_keys: std::slice::from_ref(&fixture.key),
+        },
+        &evidence,
+    ));
+    let Lookup::Verified(receipt) = lookup else {
+        panic!("receipt")
+    };
+    assert_eq!(receipt.canonical_bytes(), fixture.canonical);
+    let finality = must(CommitFinality::from_verified_receipt(&receipt));
+    assert_foreign_receipt_root_refused(&fixture);
+    assert_old_receipt_covering_height_refused(&fixture);
+    assert_second_journal_finalizes(&fixture, &endpoint, &evidence, &registry, &finality);
+    assert_eq!(
+        must(journal.finalize(&mut record, &finality)),
+        OperationState::Finalized
+    );
+    let bytes = must(record.encode());
+    assert_eq!(&bytes[..8], b"PAXAIOP3");
+    drop(journal);
+    drop(record);
+    let journal = must(OperationJournal::open(&directory.0));
+    let record = must(journal.load(&fixture.tx_hash, &registry));
+    assert_eq!(record.state(), OperationState::Finalized);
+    assert_eq!(record.execution_height(), Some(150));
+    assert_eq!(record.checkpoint(), Some(fixture.node.head.header_hash()));
+    assert_legacy_record_refuses_finality(&fixture, &bytes, &journal, &registry, &finality);
+    assert_eq!(server.finish(), 14);
+}
+
+struct ReceiptFixture {
+    raw: Vec<u8>,
+    tx_hash: [u8; 32],
+    view: Value,
+    canonical: Vec<u8>,
+    key: ReceiptKeyEntry,
+    batch: SequenceBatch,
+    batch_bytes: Vec<u8>,
+    data_root: [u8; 32],
+    node: NodeCommit,
+    proof: SimpleProof,
+    resulting_root: [u8; 32],
+}
+
+fn receipt_fixture() -> ReceiptFixture {
     let raw = must(
         Eip1559Call {
             chain_id: 125,
             nonce: 41,
             max_priority_fee_per_gas: 1,
             max_fee_per_gas: 1,
-            gas_limit: 100000,
+            gas_limit: 100_000,
             to: [7; 20],
             data: vec![],
         }
@@ -760,70 +869,24 @@ fn receipt_sequence_and_height_survive_reopen() {
         leaf_hash: data_root,
         aunts: vec![],
     };
-    let evidence = ReceiptCommitEvidence {
-        verifier: &node.verifier,
-        covering_height: 150,
-        batch_transaction: &batch_bytes,
-        transaction_proof: &proof,
-        activity_ids: &[tx_hash],
-    };
-    let server = receipt_server(raw.clone(), view.clone(), &node);
-    let endpoint = server.endpoint();
-    let registry = must(layerx_types::payload::ModuleRegistry::new(&[]));
-    let directory = Directory::open();
-    let journal = must(OperationJournal::open(&directory.0));
-    let mut record = must(OperationRecord::from_signed_transaction(
-        raw.clone(),
-        [0x55; 32],
-        10000,
-    ));
-    must(journal.record_signed(&record));
-    assert_eq!(
-        must(journal.submit(&mut record, &endpoint)),
-        OperationState::Pending
-    );
-    assert_eq!(
-        must(journal.resolve(
-            &mut record,
-            &endpoint,
-            LookupContext {
-                receipt_keys: &[key.clone()]
-            }
-        )),
-        OperationState::Executed
-    );
-    assert_eq!(record.global_sequence(), Some(7));
-    assert_eq!(record.execution_height(), Some(150));
-    assert_eq!(record.receipt_root(), Some(resulting_root));
-    drop(journal);
-    drop(record);
-    let journal = must(OperationJournal::open(&directory.0));
-    let mut record = must(journal.load(&tx_hash, &registry));
-    assert_eq!(record.execution_height(), Some(150));
-    assert_eq!(record.global_sequence(), Some(7));
-    for height in [7, 149, 150, 999] {
-        let unverified = must(CommitFinality::new(height, [2; 32], [3; 32], [4; 32]));
-        assert_eq!(
-            journal.finalize(&mut record, &unverified),
-            Err(AiClientError::FinalityMismatch)
-        );
-        assert_eq!(record.state(), OperationState::Executed);
-    }
-    let lookup = must(lookup_authenticated_with_commit(
-        &endpoint,
+    ReceiptFixture {
+        raw,
         tx_hash,
-        LookupContext {
-            receipt_keys: &[key.clone()],
-        },
-        &evidence,
-    ));
-    let Lookup::Verified(receipt) = lookup else {
-        panic!("receipt")
-    };
-    assert_eq!(receipt.canonical_bytes(), canonical);
-    let finality = must(CommitFinality::from_verified_receipt(&receipt));
+        view,
+        canonical,
+        key,
+        batch,
+        batch_bytes,
+        data_root,
+        node,
+        proof,
+        resulting_root,
+    }
+}
+
+fn assert_foreign_receipt_root_refused(fixture: &ReceiptFixture) {
     // Inclusion alone is insufficient: a valid batch commit with a foreign receipt root refuses.
-    let mut wrong = batch.clone();
+    let mut wrong = fixture.batch.clone();
     wrong.resulting_root = [99; 32];
     wrong.signature = SigningKey::from_bytes(&[8; 32])
         .sign(&must(wrong.signing_digest("paxeer-repair-125")))
@@ -837,41 +900,44 @@ fn receipt_sequence_and_height_survive_reopen() {
         leaf_hash: wrong_data,
         aunts: vec![],
     };
-    let wrong_server = receipt_server(raw.clone(), view.clone(), &wrong_node);
+    let wrong_server = receipt_server(fixture.raw.clone(), fixture.view.clone(), &wrong_node);
     let wrong_evidence = ReceiptCommitEvidence {
         verifier: &wrong_node.verifier,
         covering_height: 150,
         batch_transaction: &wrong_bytes,
         transaction_proof: &wrong_proof,
-        activity_ids: &[tx_hash],
+        activity_ids: &[fixture.tx_hash],
     };
     assert!(matches!(
         lookup_authenticated_with_commit(
             &wrong_server.endpoint(),
-            tx_hash,
+            fixture.tx_hash,
             LookupContext {
-                receipt_keys: &[key.clone()]
+                receipt_keys: std::slice::from_ref(&fixture.key)
             },
             &wrong_evidence
         ),
         Err(layerx_client::rpc::receipt::ReceiptError::Coverage(_))
     ));
     assert_eq!(wrong_server.finish(), 5);
-    let old_node = node_commit(7, [0x33; 32], data_root);
-    let old_server = receipt_server(raw.clone(), view.clone(), &old_node);
+}
+
+fn assert_old_receipt_covering_height_refused(fixture: &ReceiptFixture) {
+    let old_node = node_commit(7, [0x33; 32], fixture.data_root);
+    let old_server = receipt_server(fixture.raw.clone(), fixture.view.clone(), &old_node);
     let old_evidence = ReceiptCommitEvidence {
         verifier: &old_node.verifier,
         covering_height: 7,
-        batch_transaction: &batch_bytes,
-        transaction_proof: &proof,
-        activity_ids: &[tx_hash],
+        batch_transaction: &fixture.batch_bytes,
+        transaction_proof: &fixture.proof,
+        activity_ids: &[fixture.tx_hash],
     };
     assert!(matches!(
         lookup_authenticated_with_commit(
             &old_server.endpoint(),
-            tx_hash,
+            fixture.tx_hash,
             LookupContext {
-                receipt_keys: &[key.clone()]
+                receipt_keys: std::slice::from_ref(&fixture.key)
             },
             &old_evidence
         ),
@@ -880,65 +946,72 @@ fn receipt_sequence_and_height_survive_reopen() {
         ))
     ));
     assert_eq!(old_server.finish(), 2);
+}
+
+fn assert_second_journal_finalizes(
+    fixture: &ReceiptFixture,
+    endpoint: &SequencerEndpoint,
+    evidence: &ReceiptCommitEvidence<'_>,
+    registry: &layerx_types::payload::ModuleRegistry,
+    finality: &CommitFinality,
+) {
     let second_directory = Directory::open();
     let second_journal = must(OperationJournal::open(&second_directory.0));
     let mut second = must(OperationRecord::from_signed_transaction(
-        raw.clone(),
+        fixture.raw.clone(),
         [0x55; 32],
-        10000,
+        10_000,
     ));
-    must(second_journal.submit(&mut second, &endpoint));
+    must(second_journal.submit(&mut second, endpoint));
     assert_eq!(
         must(second_journal.resolve_with_commit(
             &mut second,
-            &endpoint,
+            endpoint,
             LookupContext {
-                receipt_keys: &[key]
+                receipt_keys: &[fixture.key]
             },
-            &evidence
+            evidence
         )),
         OperationState::Executed
     );
     drop(second_journal);
     drop(second);
     let second_journal = must(OperationJournal::open(&second_directory.0));
-    let mut second = must(second_journal.load(&tx_hash, &registry));
+    let mut second = must(second_journal.load(&fixture.tx_hash, registry));
     assert_eq!(second.execution_height(), Some(150));
     assert_eq!(
-        must(second_journal.finalize(&mut second, &finality)),
+        must(second_journal.finalize(&mut second, finality)),
         OperationState::Finalized
     );
-    assert_eq!(
-        must(journal.finalize(&mut record, &finality)),
-        OperationState::Finalized
-    );
-    let bytes = must(record.encode());
-    assert_eq!(&bytes[..8], b"PAXAIOP3");
-    drop(journal);
-    drop(record);
-    let journal = must(OperationJournal::open(&directory.0));
-    let record = must(journal.load(&tx_hash, &registry));
-    assert_eq!(record.state(), OperationState::Finalized);
-    assert_eq!(record.execution_height(), Some(150));
-    assert_eq!(record.checkpoint(), Some(node.head.header_hash()));
+}
+
+fn assert_legacy_record_refuses_finality(
+    fixture: &ReceiptFixture,
+    bytes: &[u8],
+    journal: &OperationJournal,
+    registry: &layerx_types::payload::ModuleRegistry,
+    finality: &CommitFinality,
+) {
     // A real older-format record carries the signed transaction but none of the new evidence.
-    let end = bytes.len() - 4 - raw.len();
+    let end = bytes.len() - 4 - fixture.raw.len();
     let start = end - (9 + 33 + 33 + 153);
     let mut legacy = bytes[..start].to_vec();
     legacy[..8].copy_from_slice(b"PAXAIOP2");
     legacy.extend_from_slice(&bytes[end..]);
-    must(std::fs::write(journal.record_path(&tx_hash), legacy));
-    let mut migrated = must(journal.load(&tx_hash, &registry));
+    must(std::fs::write(
+        journal.record_path(&fixture.tx_hash),
+        legacy,
+    ));
+    let mut migrated = must(journal.load(&fixture.tx_hash, registry));
     assert_eq!(migrated.state(), OperationState::Executed);
     assert_eq!(migrated.global_sequence(), Some(7));
     assert_eq!(migrated.execution_height(), None);
     assert_eq!(migrated.receipt_root(), None);
     assert_eq!(migrated.checkpoint(), None);
     assert_eq!(
-        journal.finalize(&mut migrated, &finality),
+        journal.finalize(&mut migrated, finality),
         Err(AiClientError::FinalityMismatch)
     );
-    assert_eq!(server.finish(), 14);
 }
 
 fn market_state(rubric: u8) -> Vec<u8> {
@@ -994,7 +1067,7 @@ fn market_state(rubric: u8) -> Vec<u8> {
         config: 1,
         roster: Presence::Absent,
         sequence: 1,
-        expiry: 1000000,
+        expiry: 1_000_000,
         request: must(RequestId::new([1; 32])),
         payload: &payload,
         authentication: Authentication::Native,
@@ -1028,10 +1101,10 @@ fn market_state(rubric: u8) -> Vec<u8> {
 fn varint(mut value: usize) -> Vec<u8> {
     let mut out = vec![];
     while value >= 128 {
-        out.push((value as u8 & 127) | 128);
+        out.push(must(u8::try_from(value & 127)) | 128);
         value >>= 7;
     }
-    out.push(value as u8);
+    out.push(must(u8::try_from(value)));
     out
 }
 fn proto_bytes(field: u8, value: &[u8], out: &mut Vec<u8>) {
@@ -1055,14 +1128,16 @@ fn membership(key: &[u8], value: &[u8], prefix: &[u8]) -> (Vec<u8>, [u8; 32]) {
     preimage.extend_from_slice(&sha256(value));
     (commitment, sha256(&preimage))
 }
-fn namespace_proof(state: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<ProofOp>, [u8; 32], [u8; 32]) {
+type NamespaceProof = (Vec<u8>, Vec<u8>, Vec<ProofOp>, [u8; 32], [u8; 32]);
+
+fn namespace_proof(state: &[u8]) -> NamespaceProof {
     let mut manifest = vec![0, 1];
     manifest.extend_from_slice(&1_u32.to_be_bytes());
     let key = layerx_programs_ai_market::SHARED_STATE_KEY;
-    manifest.extend_from_slice(&(key.len() as u16).to_be_bytes());
+    manifest.extend_from_slice(&must(u16::try_from(key.len())).to_be_bytes());
     manifest.extend_from_slice(key);
     manifest.extend_from_slice(&sha256(state));
-    manifest.extend_from_slice(&(state.len() as u32).to_be_bytes());
+    manifest.extend_from_slice(&must(u32::try_from(state.len())).to_be_bytes());
     let mut head = vec![0, 1];
     head.extend_from_slice(&1_u32.to_be_bytes());
     head.extend_from_slice(&sha256(&manifest));

@@ -19600,3 +19600,43 @@ fix = "The next attempt adds its label to the labels map that is now on main"
 title = "Two held lint repairs changed the shared agent lockfile outside their declared paths"
 symptom = "Task 22.39.219 attempt 8 at 2e98b54e1701 and task 22.39.224 attempt 5 at 9a0db072f933 passed their builds and verifications but changed services/agent/Cargo.lock, which neither task declared, because dependency edits of a member crate regenerate the shared lockfile (as for 22.31.547 under decision 2829); both results are held"
 fix = "The planned paths of both tasks now carry the lockfile and the held results are released"
+
+[gotcha.3956]
+title = "The chain select trigger of the explorer search results carries no accessible name because the toolkit select never forwards trigger properties"
+symptom = "Task 18.1717.1 attempt 7 at adfd8670f810: build exit 0; searchResultsRoutesKeepOneHeaderAndLiveSearch fails at LayoutSearchResults.spec.tsx:228 because the single combobox inside the filters has no accessible name (label null, text All chains) and the query by the names Select chain or All chains finds nothing; apps/explorer/toolkit/chakra/select.tsx:255 to :263 renders SelectControl without the triggerProps that SelectControl spreads on its trigger (:49), so ui/shared/externalChains/ChainSelect.tsx cannot name its trigger; log /out/logs/verify-1.log"
+fix = "Decision 3112: the toolkit select forwards trigger properties and the chain select names its trigger Chain"
+
+[gotcha.3957]
+title = "The launchpad Go wiring test still asserts a literal runner image after the workflow moved to the routed runner expression"
+symptom = "Task 22.39.168 attempt 4 at 5234eca6cedb: build exit 0; the verification stops at tests/ci/test_launchpad_go_tests_wired.py:51 because test_launchpad_workflow_has_go_job asserts runs-on equals ubuntu-latest while .github/workflows/launchpad-test.yml:80 carries the routed runner expression (the fork guard, vars.CI_LINUX_RUNNER and the ubuntu-24.04 fallback) since the routed form was restored on the workflows (commit e0a5a9cb96) and issue 1843; the other forty-one wiring cases pass and no Go module ran; the test file is among the touches of the task; log /out/logs/verify-1.log"
+fix = "Decision 3113: the wiring test asserts the routed form through the shared runner check"
+
+[gotcha.3958]
+title = "The human protocol clock-unit cases stay red while the runtime file they need lies outside the task scope"
+symptom = "Task 18.1747.1 attempt 8 at 9a0e0f27767: native_approval_clock_units and native_producer_clock_units of services/human/crates/layerx-human-service/tests/repair_22_33_63.rs fail as in attempt 7; the model session declined the edit of src/server/agent_runtime.rs that the attempt-8 note asks for because the touches list names only the test file and its record; the daemon reader of opcode 66 at services/agent/crates/layerx-agentd/src/human.rs:2722 to :2727 already reads the consent signature as 64 fixed bytes, so the runtime of the human service is the only side to change"
+fix = "The touches list now names the runtime file and the attempt repairs the service runtime as decision 3109 states"
+
+[gotcha.3959]
+title = "The agent daemon source repair fails its dependents check on the gateway test target that task 22.39.279 repairs"
+symptom = "Task 22.39.222 attempt 4 at 86962ecb44c2: build exit 0; the dependents check compiles services/platform/hosted/gateway/tests/repair_22_33_1336.rs and fails at line 28 with E0063 (missing field read_windows), the defect of gotcha 3952, exit 7"
+fix = "The task now requires 22.39.279, which landed, and continues after a rebase"
+
+[gotcha.3960]
+title = "The parity inventory passes 45 of 50 rows; four red rows lack toolchains the qualification environment provides only for commands that name them, and one gateway test collides on its Redis directory"
+symptom = "Task 17.4.6 attempt 4 at 4d0f034118e2: run_all records 45 passing rows; construct.existing-router-gateway-authority-and-indexer fails in the gateway test one_source_reads, where px_get_balances_reads_bank_all_balances_at_one_height panics at services/platform/hosted/gateway/tests/one_source_reads.rs:41 with test Redis directory must be created: File exists (os error 17), the name being the process id and a timestamp that two starts within one clock tick share; construct.existing-wallet-human-service-and-explorer-playwright and construct.new-signed-receipt-logs-new-case find no Playwright under apps/wallet, construct.existing-wallet-human-service-and-explorer-vitest finds no Vitest, and construct.new-explorer-signature finds no mix for services/explorer/backend; the qualification environment installs Node packages, browser libraries and the explorer builder only for build or verification commands that name pnpm, playwright or services/explorer/deploy/tools/mix-in-builder.sh, and the build command of the task named only py_compile"
+fix = "Task 22.39.280 makes the Redis directory unique per start; the build command of 17.4.6 now names the package installs, the browser install and the explorer builder, and run_all runs Elixir rows through the explorer builder script (decision 3115)"
+
+[gotcha.3961]
+title = "The V1 programs deploy of the committed fixture reverts LXP_ERR_VERSION_UNSUPPORTED because the chain it starts carries no programs metering records"
+symptom = "Task 18.1667.1 attempt 7 at b7c9341c45af: the recorder now decodes the Error string of the revert; the deploy (activity 0x00090001, ABI 1, the state commitment protocol version) reverts LXP_ERR_VERSION_UNSUPPORTED; the precompile case TestProgramsDeployRegistersProgram passes only after the metering helper above it in precompiles/layerxprograms/method_deploy_test.go writes progmet/active/v1 and progmet/history/v1/1 into module 9 of the store, as tests/daemon/recorder/main.go:425 to :441 does for its chain together with the fee records; on main no message server implements MsgUpdateMeteringSchedule (the type exists in precompiles/layerxprograms/types/tx.pb.go only), the public testnet genesis manifest under tests/fixtures carries the metering record, and a chain started from genesis.json receives module records through the lxphost store genesis (StoreGenesis.Records of modules/lxphost/genesis.go, applied by InitGenesis at modules/lxphost/module.go:70)"
+fix = "Decision 3114: the fixture writes the four programs records into the lxphost genesis of the chain it starts, with its own authority, before the first block"
+
+[gotcha.3962]
+title = "The budget spend of the restart case is refused LXP_ERR_NON_CANONICAL after the keeper-created budget admits the plain transfer"
+symptom = "Task 18.1724.1 attempt 7 at 8e28238080ce: the budget is created through the keeper call sequence of TestBudgetCreateAndFund, CheckWrite admits budgetSpend, the 25 wei transfer to the recipient is accepted with result code 0, and the budgetSpend call of the pay precompile (budget id, recipient, 25) is refused with code 45, LXP_ERR_NON_CANONICAL, at receipt_equality_test.go:467; the budget module refuses NON_CANONICAL at src/modules/budget/lx_budget_module.c:508 when the budget account kind is not agent-budget or the recipient kind is not agent-main (agent-asset only for a native source), at :559 when the capability record has another shape and at :577 when the consumed amount exceeds the maximum; the passing reference is TestBudgetSpendWithinPeriodLimit of modules/layerxpay/keeper/budget_spend_test.go:72"
+fix = "The attempt compares the account kinds and the capability record of the restart setup with those of the keeper spend case and repairs the first that differs"
+
+[gotcha.3963]
+title = "The eight surface epochs of the launchpad producer record were aligned to the current runtime hash, which the migration case must see refused"
+symptom = "Task 22.39.242 attempt 3 at 5128ff63d2c1: the record now carries the current runtime hash on the eight surface epochs; TestRepair_53_migrated_role_epochs requires each of the eight original surface epochs to fail exact code attestation (repair_53_test.go:478, the error is nil) while the active epoch the authority resolves for the same address attests the installed migration runtime (:470 to :473); the four qualification cases still fail at identity.go:444, rehydrate historical creation, for the pre-activation market at height 33963716 that proveHistoricalMarket checks"
+fix = "The original epochs keep the obsolete approved identity, which migratedRoleEpoch (:484) normalises into the admitted execution epoch, and the historical creation of the record is re-recorded against the fields proveHistoricalMarket compares"

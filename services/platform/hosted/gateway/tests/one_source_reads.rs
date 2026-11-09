@@ -19,6 +19,8 @@ const CHAIN_ID: &str = "0x7d";
 const LATEST_BLOCK: &str = "0x10";
 const ACCOUNT: &str = "0x102132435465768798a9bacbdcedfe0f1e2d3c4b";
 
+static REDIS_DIRECTORY_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 struct RedisProcess {
     child: Child,
     directory: PathBuf,
@@ -30,12 +32,13 @@ struct RedisProcess {
 impl RedisProcess {
     fn start() -> Self {
         let unique = format!(
-            "layerx-one-source-redis-{}-{}",
+            "layerx-one-source-redis-{}-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_nanos()
+                .as_nanos(),
+            REDIS_DIRECTORY_COUNTER.fetch_add(1, Ordering::Relaxed)
         );
         let directory = std::env::temp_dir().join(unique);
         fs::create_dir(&directory)
