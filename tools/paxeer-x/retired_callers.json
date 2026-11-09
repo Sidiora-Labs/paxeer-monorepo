@@ -1134,6 +1134,42 @@
       "citation": "The verify removal (11001) retires this component at merge while its own disabled implementation or contract interface retains these names."
     },
     {
+      "path": "src/modules/asset",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "src/modules/governance",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "src/modules/programs",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "tests/replay",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
       "path": "tools/paxeer-x/build/104.30.2.mk",
       "lines": [
         "\tcontracts/config/checkpoint-settlement.json"
