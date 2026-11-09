@@ -107,7 +107,7 @@ function horizontalHeaderGroupsAndSearch() {
   const navigation = within(header).getByLabelText('Main navigation');
   expect(Array.from(navigation.querySelectorAll('[data-label="nav-group"]')).map((group) => group.textContent?.trim()))
     .toEqual([ 'Explore', 'Network', 'Developers' ]);
-  expect(within(header).getByPlaceholderText('Search or ask').tagName).toBe('INPUT');
+  expect(within(header).getByLabelText('Search or ask').tagName).toBe('INPUT');
   expect(header.querySelector('kbd')?.textContent).toMatch(/^(⌘K|Ctrl K)$/);
   const networkName = config.chain.name;
   if (!networkName) {
@@ -129,7 +129,8 @@ function verticalSettingUsesTheSameHeader() {
   expect(container.querySelectorAll('[data-label="desktop-header"]')).toHaveLength(1);
   expect(container.querySelector('[data-label="utility-bar"]')).toBeNull();
   expect(container.querySelector('[data-label="content-search"]')).toBeNull();
-  expect(container.querySelector('[data-label="desktop-header"] input[placeholder="Search or ask"]')).toBeTruthy();
+  const header = container.querySelector('[data-label="desktop-header"]') as HTMLElement;
+  expect(within(header).getByLabelText('Search or ask')).toBeTruthy();
   expect(within(container).getByRole('main').textContent).toBe('Explorer page');
   expect(SideBar()).toBeNull();
 }
@@ -175,14 +176,17 @@ async function groupPanelsUseTheHookLinks() {
 
 test(groupPanelsUseTheHookLinks, groupPanelsUseTheHookLinks);
 
-function searchShortcutFocusesTheRealInput() {
+async function searchShortcutFocusesTheRealInput() {
   const { container } = renderShell(<HeaderDesktop/>);
-  const input = within(container).getByPlaceholderText('Search or ask');
+  const header = container.querySelector('[data-label="desktop-header"]') as HTMLElement;
+  // jsdom does not apply the media query that shows the header at the wrapper's desktop viewport.
+  header.style.display = 'block';
+  const input = within(header).getByLabelText('Search or ask');
   fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-  expect(document.activeElement).toBe(input);
+  await waitFor(() => expect(document.activeElement).toBe(input));
   input.blur();
   fireEvent.keyDown(window, { key: 'k', metaKey: true });
-  expect(document.activeElement).toBe(input);
+  await waitFor(() => expect(document.activeElement).toBe(input));
 }
 
 test(searchShortcutFocusesTheRealInput, searchShortcutFocusesTheRealInput);
