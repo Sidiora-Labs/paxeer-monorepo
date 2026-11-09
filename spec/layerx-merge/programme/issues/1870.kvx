@@ -1,0 +1,49 @@
+[issue.1870]
+number = 1870
+title = "[Coherence] The cancelled-release assertion is satisfied by the new early context check, not by context propagation into the WAL release"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "node/sequencer/commit_release_test.go:205-209 cancels before entry and only exercises node/sequencer/driver.go:68-70, leaving the releases at node/sequencer/driver.go:103 and node/sequencer/driver.go:147 untested for in-progress cancellation, while node/sequencer/standby.go:429-438 sets a socket deadline but neither watches cancellation nor maps read failures to the context error; commit 045cbd6efe2440c316e3bca8ef136c2ddd2411f5 preserves the early-cancellation assertion."
+close_comment = "The existing cancellation assertion covers cancellation before a commit release starts. The follow-up adds coverage during both COMMITTED and OPEN releases and makes pending acknowledgement reads honor caller cancellation and preserve its error so the driver halts."
+
+[task.18.1870.1]
+title = "Issue #1870: Honor and prove caller cancellation during both commit releases"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181870.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add TestDriverCommitContextCancellationDuringRelease in node/sequencer/driver_test.go using the real application, driver, WAL and standby fixtures at node/sequencer/driver_test.go:50-125; cover COMMITTED and OPEN separately with a context that is live on entry to OnCommitContext and is cancelled or expires only after the selected release has begun, exercising node/sequencer/driver.go:103,147,161-168 rather than the entry guard at node/sequencer/driver.go:68-70."
+do_2 = "In Replicator.exchange at node/sequencer/standby.go:417-460, interrupt pending socket I/O when the supplied context is cancelled and preserve context.Canceled or context.DeadlineExceeded as the cause of cancellation-related failures through Replicator.Release and OnCommitContext; retain ErrNoAck wrapping, real transport errors, the configured timeout, and connection cleanup without leaking cancellation callbacks."
+do_3 = "Coordinate cancellation and deadline expiry with delivery of the actual targeted WAL frame through a TCP relay to the real standby, holding its real acknowledgement; use caller deadlines shorter than the replication timeout and bounded channel synchronization, without fabricated frames or acknowledgements, fake executors, or sleep-based timing. For each release and each context error, assert the target entry reached the real WAL and standby, OnCommitContext returns that error before the replication timeout, and a subsequent call with a live context returns ErrDriverHalted carrying the original error without adding WAL entries, as required by node/sequencer/driver.go:71-73,97-105,147-151; COMMITTED failure must not release OPEN. Preserve the pre-entry cancellation assertion at node/sequencer/commit_release_test.go:205-209 and the release-order and halt assertions at node/sequencer/driver_test.go:181-238."
+symbols = ["exchange", "TestDriverCommitContextCancellationDuringRelease"]
+touches = ["node/sequencer/standby.go", "node/sequencer/driver_test.go"]
+tests = ["node/sequencer/driver_test.go::TestDriverCommitContextCancellationDuringRelease"]
+planned_paths = []
+build_cmd = "go build ./node/sequencer/"
+verify_cmd = "go test -count=1 ./node/sequencer/ -run '^TestDriverCommitContextCancellationDuringRelease$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181870]
+title = "Commit release tests prove caller cancellation after release begins"
+ac_1 = "For each of COMMITTED and OPEN at node/sequencer/driver.go:103,147, a regression test enters OnCommitContext with a live context, observes the selected real release before cancelling or expiring the context while its acknowledgement is pending, asserts the caller's error and persistent ErrDriverHalted state from node/sequencer/driver.go:71-73,97-101, and detects replacing the caller context with context.Background() in either release path."
+
+[acceptance.18.1870.1]
+feature = "18"
+req = "181870.1"
+scenario = "Given a live caller context and a real driver, WAL and standby, when cancellation or deadline expiry occurs during COMMITTED or OPEN release before its acknowledgement completes, then the commit returns the caller's context error before the replication timeout, the driver stays halted without further WAL writes, and a failed COMMITTED release never releases OPEN."
+contract = "contracts/sequencer.md#sequencer-wal"
+test = "node/sequencer/driver_test.go::TestDriverCommitContextCancellationDuringRelease (planned)"
+qualification = "UNRUN"

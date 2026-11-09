@@ -1,0 +1,7 @@
+[issue.1899]
+number = 1899
+title = "[Coherence] Disposition 22.31.269.1 says commit a1783a03b0 removed the workspace-root test copy, but that commit added the file and the crate test still compiles it in"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "The dispositions of completed task 22.39.186 (spec/layerx-merge/spec.kvx:351312) at spec/layerx-merge/dispositions/d22-18.kvx:104 and spec/layerx-merge/dispositions/d22-18.kvx:124 must describe the retained completeness-test module rather than claim its removal: commit a1783a03b080d1e9dc499e3351f323246336887a added services/explorer/services/libs/tests/repair_22_31_269.rs, whose health_response_shape_requires_complete_models test at services/explorer/services/libs/tests/repair_22_31_269.rs:4 is included by services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs:238, as explicitly documented at services/explorer/services/libs/blockscout-client/swaggers/overrides/repair_22_31_269.kvx:24."
+close_comment = "The shared repair_22_31_269.rs file remains active as the completeness-test module included by the client crate's integration target; commit a1783a03b0 added it. Disposition 22.31.269.1 needs to replace its removal claim with this inclusion relationship, and 22.31.269.5 needs to cite that relationship as its current-state evidence."

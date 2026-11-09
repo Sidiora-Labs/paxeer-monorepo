@@ -1,0 +1,48 @@
+[issue.1855]
+number = 1855
+title = "[Coherence] The platform SDK contract still says the .NET project targets net8.0"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "contracts/platform-sdk.md:223 still promises net8.0, but sdk/platform/dotnet/LayerX.Sdk.csproj:3 targets net10.0, .github/workflows/platform.yml:1399 creates a net10.0 release consumer and tests/ci/test_runtime_targets_supported.py:24 enforces the .NET 10 floor introduced by commit 470b673003ed4191ad947f71e1d661c7793b9838."
+close_comment = "The .NET SDK targets net10.0 and requires a .NET 10 consumer. A documentation correction will replace the contract's stale net8.0 target with net10.0."
+
+[task.18.1855.1]
+title = "Issue #1855: Document the .NET SDK's net10.0 target"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181855.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change only the target framework in contracts/platform-sdk.md:223 from net8.0 to net10.0 to match sdk/platform/dotnet/LayerX.Sdk.csproj:3 and the release consumer at .github/workflows/platform.yml:1399."
+do_2 = "Check that the SDK dotnet paragraph in contracts/platform-sdk.md states that the linked .NET project targets net10.0."
+symbols = []
+touches = ["contracts/platform-sdk.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fx 'The [.NET project](../sdk/platform/dotnet/LayerX.Sdk.csproj) targets `net10.0` and' contracts/platform-sdk.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181855]
+title = "The platform SDK contract states the .NET SDK's actual target framework"
+ac_1 = "The SDK dotnet paragraph at contracts/platform-sdk.md:223 states net10.0, matching sdk/platform/dotnet/LayerX.Sdk.csproj:3 and the release consumer at .github/workflows/platform.yml:1399."
+
+[acceptance.18.1855.1]
+feature = "18"
+req = "181855.1"
+scenario = "Given the .NET SDK project and release consumer target net10.0, when an integrator reads the SDK dotnet contract, then it states that the .NET project targets net10.0."
+contract = "contracts/platform-sdk.md#sdk-dotnet"
+test = "contracts/platform-sdk.md::grep -Fx net10.0 target statement (planned)"
+qualification = "UNRUN"
