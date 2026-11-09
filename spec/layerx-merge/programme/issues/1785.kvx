@@ -1,0 +1,7 @@
+[issue.1785]
+number = 1785
+title = "[Coherence] The code of conduct still sends private conduct reports to the old Paxeer-X-Network advisory form while SECURITY.md now points at paxeer-monorepo"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit ddb58b95525e8fa3b2cc9ae8fd9e17df87663be7 corrected both references: CODE_OF_CONDUCT.md:39 now uses the same paxeer-monorepo private advisory URL as SECURITY.md:9, RELEASE.md:122 clones paxeer-monorepo and RELEASE.md:123 enters its directory, consistent with .github/ISSUE_TEMPLATE/config.yml:7, SUPPORT.md:6 and CITATION.cff:15, with regression checks at tests/ci/test_docs_canonical_repository_links.py:54 and tests/ci/test_docs_canonical_repository_links.py:112."
+close_comment = "The code of conduct now directs private conduct reports to the paxeer-monorepo advisory form, matching the security policy. The release verification instructions also clone paxeer-monorepo and enter the matching directory, so both reported references are already corrected."
