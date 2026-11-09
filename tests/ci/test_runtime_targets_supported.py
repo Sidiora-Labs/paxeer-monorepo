@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import re
+import tomllib
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -93,3 +94,119 @@ def test_workflow_dotnet_version_supported():
     for index in consumers:
         assert "if" not in steps[index], "Public SDK checks must run unconditionally"
         assert not steps[index].get("continue-on-error", False)
+
+
+def _assert_runtime_floor(version, minimum, location):
+    assert re.fullmatch(r"\d+(?:\.\d+){0,2}", version), (
+        f"{location}: invalid runtime version {version!r}"
+    )
+    parts = tuple(map(int, version.split(".")))
+    parts += (0,) * (3 - len(parts))
+    floor = minimum + (0,) * (3 - len(minimum))
+    assert parts >= floor, f"{location}: {version} is below the {minimum} floor"
+
+
+def test_node_engine_floors_supported():
+    packages = (
+        "services/explorer/backend/apps/explorer/package.json",
+        "services/explorer/backend/apps/block_scout_web/assets/package.json",
+        "sdk/names/package.json",
+        "services/wallet/package.json",
+    )
+    for relative in packages:
+        package = json.loads((ROOT / relative).read_text(encoding="utf-8"))
+        engine = package["engines"]["node"]
+        assert isinstance(engine, str), f"{relative}: Node engine must be a string"
+        match = re.fullmatch(r">=\s*(\d+(?:\.\d+){0,2})", engine.strip())
+        assert match is not None, f"{relative}: invalid Node floor {engine!r}"
+        _assert_runtime_floor(match[1], (22,), relative)
+
+    relative = "services/explorer/backend/.tool-versions"
+    declarations = [
+        line.partition("#")[0].strip()
+        for line in (ROOT / relative).read_text(encoding="utf-8").splitlines()
+        if re.match(r"\s*nodejs\b", line)
+    ]
+    assert len(declarations) == 1, f"{relative}: expected one Node declaration"
+    match = re.fullmatch(r"nodejs\s+(\d+\.\d+\.\d+)", declarations[0])
+    assert match is not None, f"{relative}: invalid Node version {declarations[0]!r}"
+    _assert_runtime_floor(match[1], (22,), relative)
+
+
+def test_requires_python_supported():
+    relative = "sdk/chainflow/python/pyproject.toml"
+    project = tomllib.loads((ROOT / relative).read_text(encoding="utf-8"))
+    requirement = project["project"]["requires-python"]
+    assert isinstance(requirement, str), f"{relative}: requires-python must be a string"
+    match = re.fullmatch(r">=\s*(\d+\.\d+(?:\.\d+)?)", requirement.strip())
+    assert match is not None, f"{relative}: invalid Python floor {requirement!r}"
+    _assert_runtime_floor(match[1], (3, 11), relative)
+
+    relative = ".github/workflows/paxeer-integration-test.yml"
+    workflow = yaml.safe_load((ROOT / relative).read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["integration-tests"]["steps"]
+    installs = [
+        step
+        for step in steps
+        if step.get("uses", "").partition("@")[0] == "actions/setup-python"
+    ]
+    assert installs, f"{relative}: integration tests must explicitly install Python"
+    for step in installs:
+        version = step.get("with", {}).get("python-version")
+        assert isinstance(version, str), f"{relative}: missing explicit Python version"
+        assert re.fullmatch(r"\d+\.\d+(?:\.\d+)?", version), (
+            f"{relative}: invalid Python interpreter version {version!r}"
+        )
+        _assert_runtime_floor(version, (3, 12), relative)
+
+
+def test_go_directives_supported():
+    paths = (
+        "sdk/platform/go/go.mod",
+        "services/platform/examples/samples/first-payment-go/go.mod",
+        "sdk/chainflow/go/go.mod",
+        "sdk/chainflow/go/go.work",
+        "tools/hpx/registry/go.mod",
+    )
+    for relative in paths:
+        declarations = [
+            line.partition("//")[0].strip()
+            for line in (ROOT / relative).read_text(encoding="utf-8").splitlines()
+            if re.match(r"\s*go\b", line)
+        ]
+        assert len(declarations) == 1, f"{relative}: expected one Go directive"
+        match = re.fullmatch(r"go\s+(\d+\.\d+(?:\.\d+)?)", declarations[0])
+        assert match is not None, f"{relative}: invalid Go directive {declarations[0]!r}"
+        _assert_runtime_floor(match[1], (1, 25), relative)
+
+
+def test_nvmrc_matches_image_node():
+    relative = "apps/wallet/.nvmrc"
+    version = (ROOT / relative).read_text(encoding="utf-8").strip()
+    assert re.fullmatch(r"\d+\.\d+\.\d+", version), (
+        f"{relative}: expected an explicit Node version, got {version!r}"
+    )
+    relative = "docker/wallet-pwa/Dockerfile"
+    stages = {}
+    for index, line in enumerate(
+        (ROOT / relative).read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not re.match(r"\s*FROM\b", line, re.IGNORECASE):
+            continue
+        location = f"{relative}:{index}"
+        match = re.fullmatch(
+            r"\s*FROM\s+node:(\d+\.\d+\.\d+)"
+            r"(?:-[a-zA-Z0-9_.-]+)?(?:@sha256:[0-9a-f]{64})?"
+            r"\s+AS\s+(\w+)\s*",
+            line,
+            re.IGNORECASE,
+        )
+        assert match is not None, f"{location}: expected a versioned Node image"
+        assert match[2] not in stages, f"{location}: duplicate stage {match[2]}"
+        assert match[1] == version, (
+            f"{location}: Node {match[1]} differs from apps/wallet/.nvmrc {version}"
+        )
+        stages[match[2]] = match[1]
+    assert set(stages) == {"sdk", "builder", "runner"}, (
+        f"{relative}: expected sdk, builder and runner Node images"
+    )
