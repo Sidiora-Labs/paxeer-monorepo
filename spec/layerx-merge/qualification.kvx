@@ -36450,3 +36450,59 @@ symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
 observed = "Attempt 5 at d115388f9b (base e418f06937): build exit 0; verification exit 1: every sdk/launchpad module passed and services/launchpad/api/internal/app failed three cases, two for the absent compiled artifact BeaconProxy.json and one for the unset CORE_API_TEST_POSTGRES_URL; log /out/logs/verify-1.log."
 assumption = "The failures are environment inputs the public job provides; the task tree is complete."
 severity = "high"
+
+[finding.22.33.223.13]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 14 at c35ee22bb79c (base fa374671b962): build exit 0 twice, dependents exit 0 twice, verification exit 1 twice: 21 cases passed and three failed (every_routed_operation_fits_the_protocol_cpu_fuel_cap, roster_state_fuel_scaling, maximum_state_fuel_scaling) on cpu refusals of OPEN_EPOCH at 24/6 and 32/8, FinalizeAggregation at 16/4 and above and the fourth ProcessAggregation chunk at 32/8; log /out/logs/verify-2.log."
+assumption = "The refusals are the per-participant costs the sweep slopes show, not the rescans attempt 14 removed; the fixture is sound since no admission refusal occurred."
+severity = "high"
+
+[finding.22.39.177.5]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+symbol = "activity_codec.rs"
+observed = "Attempt 4 at 1e0231e12e70 (base a26369c7eda6): build exit 0; verification exit 1: activity_codec, authority_from_prestate and proof_arbiter_crate passed (two filtered), repair_22_33_215 failed two cases, registry_authority_signature_drives_both_call_envelopes and registry_replay_signatures_reconstruct_and_verify_adjacent_steps, with inner runtime result Witness(Encoding) at the boundary pair replay; log /out/logs/verify-1.log."
+assumption = "The two cases fail on the producer defect of decision 3029 that 22.39.183 owns; the retirement tree is complete."
+severity = "high"
+
+[finding.22.39.209.1]
+task = "22.39.209"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "agent_rpc_adapters.rs"
+observed = "Attempt 1 at 6c2da1a64f69 (base a26369c7eda6): build exit 0; verification exit 1: the record and the grep passed and cargo clippy failed with eight errors in services/agent/crates/layerx-types (five missing Errors sections, two unused self arguments, one item after statements), none in layerx-agentd; log /out/logs/verify-1.log."
+assumption = "The daemon crate itself is lint-clean at the attempt tree; the failures belong to the types crate the gate reached through the workspace."
+severity = "high"
+
+[finding.22.39.117.6]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 6 at b7b8ec69ce77 (base 47b44760f795): build exit 0; verification exit 1: every launchpad package passed except sdk/launchpad/shared/db/production, where TestPhase2ConcurrentIndexesAndRecovery failed in its cleanup with private migration database cleanup failed, context deadline exceeded (online_indexes_test.go line 39) after a 2.05 s lock wait; log /out/logs/verify-1.log."
+assumption = "The environment now mirrors the public job completely; the one failure is a three-second fixture deadline on a forced database drop."
+severity = "high"
+
+[finding.22.39.209.2]
+task = "22.39.209"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "agent_rpc_adapters.rs"
+observed = "Attempt 2 at 50823218f0a3: build exit 0; verification exit 1: the bounded clippy gate reported 1440 errors inside layerx-agentd under the workspace lints; log /out/logs/verify-1.log."
+assumption = "The change of the task is complete; the lint state of the crate on main is the failure and belongs to the lint owner task."
+severity = "high"
+
+[finding.17.1.8.1]
+task = "17.1.8"
+file = "spec/layerx-merge/programme/tests/test_custody_golden.py::test_custody_and_anchor_goldens_pass"
+symbol = "test_custody_golden.py::test_custody_and_anchor_goldens_pass"
+observed = "Attempt 1 at 9380fccc111a: build exit 0; verification exit 1: both goldens failed at the link step of their Go packages (build/liblayerx.a and the programs host archive absent); log /out/logs/verify-1.log."
+assumption = "The goldens are complete; only the profile of the task kept the kernel archives out of its gate shell."
+severity = "high"
+
+[finding.17.2.7.1]
+task = "17.2.7"
+file = "spec/layerx-merge/programme/tests/test_refusal_run.py::test_every_refusal_runs_and_passes"
+symbol = "test_refusal_run.py::test_every_refusal_runs_and_passes"
+observed = "Attempt 1 at a7575c8f63c0: build exit 0; verification exit 1: all six refusal rows failed at the link step of their Go packages (build/liblayerx.a and the programs host archive absent); log /out/logs/verify-1.log."
+assumption = "The runner is complete; only the profile of the task kept the kernel archives out of its gate shell."
+severity = "high"

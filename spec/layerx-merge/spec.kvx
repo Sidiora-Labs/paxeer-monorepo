@@ -11332,6 +11332,48 @@ value = "The qualification environment of a command that runs the launchpad modu
 basis = "Gotcha 3733, decisions 3023 and 3030"
 affects = ["22.39.117"]
 
+[decision.3037]
+title = "The fuel of an ai-market chunked handler is independent of the roster size and the cursor, a roster-wide handler stays at or under 900000 fuel at the full roster, and a refused row is sized by the slope of the roster sweep"
+value = "In programs/crates/layerx-programs-ai-market a handler that processes a fixed chunk of reports (ProcessAggregation, eight reports per call) reads the reports of its chunk and the running aggregate section only, carries the running aggregate in its own section so that no call decodes the reports or the per-participant results of earlier chunks, and checks every roster-wide section by length and digest only, so its measured fuel at the 32/8 roster is within ten percent of the first chunk at 16/4 and the chunks of one roster differ by the per-report cost only. A handler that writes a roster-wide section once (OPEN_EPOCH, BeginAggregation, FinalizeAggregation) encodes that section once, digests each written section once and never per participant, consumes the committed sections it needs once through the section reader, and validates only the records it appended or replaced, never the whole reputation or admission state; its measured fuel at the 32/8 roster is at most 900000, a margin of ten percent under the protocol cap of 1000000. The true cost of a row the cap refuses is stated from the roster sweep as the fuel per added participant the admitted rows imply and the implied fuel at the full roster, recorded in the task record before and after the repair, because the attempted fuel of a refusal is only the stopping position. The cap, the chunk size, the sweep rows, the assertion names and every public operation, status code and query result stay unchanged, and no handler becomes multi-step under this decision."
+basis = "Gotcha 3734, decisions 3005, 3009, 3014 and 3025"
+affects = ["22.33.223"]
+
+[decision.3038]
+title = "A test binary that includes a producer module by path shares the qualification of that producer: its cases that fail on the producer defect are excluded from the retirement gate by exact name and proven by the repair gate, which runs that binary"
+value = "When a test binary of programs/crates/layerx-programs-arbiter includes the proof producer module with the path attribute (tests/repair_22_33_215.rs includes tests/proof_arbiter_crate.rs), the cases of that binary that fail on the defect a producer repair owns (the raw-leaf decode of decision 3029, repaired by 22.39.183) are producer-qualified cases in the sense of decisions 3015 and 3034: the retirement task names them in its verification by exact name as skipped, and the repair task lists them in a do item and runs their binary in its verification, so every case the retirement skips is proven by the repair at the same revision. The producer encoding, the included module and the assertions of both binaries stay unchanged; a retirement task never repairs the consumer and never weakens a case."
+basis = "Gotcha 3735, decisions 3015, 3029 and 3034"
+affects = ["22.39.177", "22.39.183"]
+
+[decision.3039]
+title = "A clippy gate scoped to one crate lints that crate only, and the agent lint target of the public job is owned by one task that brings every workspace member under the workspace lints without weakening them"
+value = "A task whose verification runs cargo clippy on the crate it changes passes no-deps, so the gate reports the crate in its touches and never a workspace member another task owns; the workspace lints stay as declared. The lint target the public agent job runs (clippy over the services/agent workspace with all targets and warnings denied, then the dependency policy script) is owned by one task of the agent owner that repairs every reported lint at its source: a missing Errors section is written as the condition under which the function returns its error, an item after statements moves above them, and an unused self on a public method kept for its callers carries the allowance the daemon already uses at admin.rs line 327 with a reason; no lint level changes, no blanket allowance is added at crate or module level, and the record lists every lint by crate, file and line with its repair. The public job and the Makefile target stay unchanged."
+basis = "Gotcha 3736, decisions 2908 and 3023, the red public job finding class of gotchas 3052 and 3053"
+affects = ["22.39.209", "22.39.211"]
+
+[decision.3040]
+title = "A launchpad test that creates a private database drops it the way the coordinator test helper of its package does, with FORCE under the thirty-second package deadline, and logs a drop failure instead of failing the test"
+value = "In sdk/launchpad/shared/db/production a test fixture that creates a private database for one test drops it in its cleanup with DROP DATABASE IF EXISTS and WITH (FORCE) after closing its own pool, under a context deadline of thirty seconds like the other operations of the package, and reports a failure of the drop with t.Logf as coordinatortest.go line 334 does, because the assertions of the test have completed by then and a slow drop on a shared database server is not a product defect. The assertions, the lock-wait measurements and the migration coordinator code (online_indexes.go, whose two-second cleanup contexts guard the coordinator itself and stay as they are) do not change. The task whose gate runs the package owns the cleanup under decision 2908."
+basis = "Gotcha 3737, decisions 2908, 3023 and 3036"
+affects = ["22.39.117"]
+
+[decision.3041]
+title = "A programme task whose verification runs Go tests of a kernel-linked package carries the go-cgo profile"
+value = "A task under spec/layerx-merge/programme whose verification runs go test over a package that links modules/lxphost (the custody, exchange and ledger keepers and the merge precompiles among them) carries the go-cgo profile so the kernel archives of decision 1709 exist before its gate; the profile is the only change and the attempt continues from its tree. The programme tooling itself (evidence.run, parity.count_go_tests, run_refusals) stays unchanged."
+basis = "Gotcha 3738, decision 1709"
+affects = ["17.1.8", "17.2.7"]
+
+[decision.3042]
+title = "The bridge signer set is the single governed address with threshold one, and every assertion of the placeholder manifest retires"
+value = "The release owner governed the bridge signer set on 2026-11-09: services/bridge/deploy/attestors.json carries the one signer address 0x12598F221f1e645322C7665537D4Ab130281f51d with threshold 1 and no pending marker (commit ada7f254a1), and check-attestor-manifest.py accepts it. The nine committed chain configurations under contracts/bridge/evm/chains and contracts/bridge/solana/chains carry the same signer list and threshold so AttestorManifest.Check agrees with the manifest; the tests and records that asserted the placeholder manifest (the audit repair tests of 22.31.392, 22.31.402 and 22.31.446, the repair records of 22.31.402 and 22.31.446, the service operator runbook gap rows and the release document markers test) assert the governed manifest instead; and the proposal tooling emits the set-attestors proposal from it. A wider signer set is a later governance change through the same manifest and the same tests."
+basis = "Owner ruling of 2026-11-09, decision 2522, the repair records of 22.31.402 and 22.31.446"
+affects = ["22.39.212"]
+
+[decision.3043]
+title = "A task confined to one crate of the agent workspace verifies with the build and the library tests of that crate while the lint owner task is pending, and carries no lint clause"
+value = "Until 22.39.211 lands and brings every member of services/agent under the workspace lints, a task whose touches lie inside one member crate and whose change is not a lint repair verifies with its record checks, the build of the crate and cargo test of its library (skipping the test that reaches a live server identity), never with a clippy clause: the crates fail the workspace lints on main through no fault of the task, and decision 3039 bounds a lint gate to its crate only where the crate is already clean. The workspace lints stay as declared and the lint owner repairs every reported lint at its source."
+basis = "Gotcha 3739, decisions 2908 and 3039"
+affects = ["22.39.209", "22.39.211"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -40222,6 +40264,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.212]
+title = "Align the bridge chain configurations, tests and release records with the governed signer manifest"
+reqs = ["22998.1"]
+touches = ["contracts/bridge/evm/chains", "contracts/bridge/solana/chains", "services/bridge/deploy/repair_22_31_402.kvx", "services/bridge/deploy/repair_22_31_446.kvx", "services/bridge/deploy/proposals", "services/bridge/deploy/chainconfig", "services/bridge/deploy/appenv", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_446.py", "docs/release/7.0.0-service-operator-runbook.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_446.py", "tests/ci/test_release_docs_gap_markers.py"]
+verification_contract = "python3 services/bridge/deploy/check-attestor-manifest.py && test -s services/bridge/deploy/repair_22_39_212.kvx && test 0 -eq $(grep -rl PLACEHOLDER:attestor contracts/bridge/evm/chains contracts/bridge/solana/chains services/bridge/deploy/attestors.json | wc -l) && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_446.py tests/ci/test_release_docs_gap_markers.py && go test ./services/bridge/deploy/..."
+do_1 = "do_1 Decision 3042. The committed manifest services/bridge/deploy/attestors.json now carries the one governed signer address with threshold 1 and no pending marker, and check-attestor-manifest.py accepts it. Set the attestors list and threshold of the nine committed chain configurations (the config.json of the ethereum, base, arbitrum, optimism, bnb, polygon, avalanche and hyperevm directories under contracts/bridge/evm/chains, and contracts/bridge/solana/chains/solana/config.json) to the same signer list and threshold, changing no other field, so AttestorManifest.Check agrees with the manifest; the Go loader, the check script and every refusal rule stay unchanged."
+symbols = []
+
+[capability.22.39.211]
+title = "Bring the agent workspace lint target to green under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-types/src/repair_22_39_211.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml --workspace --all-targets -- -D warnings && sh services/agent/tools/dependency-policy.sh"
+do_1 = "do_1 Gotcha 3736, decision 3039. The public agent job runs make agent-lint (cargo clippy over the services/agent workspace with all targets and warnings denied, then services/agent/tools/dependency-policy.sh) and is red on main: services/agent/crates/layerx-types/src/chain.rs fails five missing Errors sections (lines 24, 99, 121 and 160, and historical/verify.rs line 8), the unused self of chain_id at line 86 and of rung at historical/verify.rs line 23, and the nested function take after statements at line 164. Run the lint target once on the unchanged merged main tree first and record every reported lint by crate, file and line in the task record."
+symbols = []
 
 [capability.22.39.210]
 title = "Carry the receipt VmError text, precompile suffix included, in the EVM transaction response"
@@ -183672,6 +183732,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.211]
+title = "Bring the agent workspace lint target to green under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.209"]
+reqs = ["22998.1"]
+capabilities = ["22.39.211"]
+interfaces = []
+do_1 = "do_1 Gotcha 3736, decision 3039. The public agent job runs make agent-lint (cargo clippy over the services/agent workspace with all targets and warnings denied, then services/agent/tools/dependency-policy.sh) and is red on main: services/agent/crates/layerx-types/src/chain.rs fails five missing Errors sections (lines 24, 99, 121 and 160, and historical/verify.rs line 8), the unused self of chain_id at line 86 and of rung at historical/verify.rs line 23, and the nested function take after statements at line 164. Run the lint target once on the unchanged merged main tree first and record every reported lint by crate, file and line in the task record."
+do_2 = "do_2 Repair every reported lint at its source across the workspace members: write each missing Errors section as the condition under which the function returns its error, move an item declared after statements above them, and keep a public method with an unused self for its callers under the allowance the daemon already uses at admin.rs line 327 with a reason naming the callers; replace an unwrap or expect that a lint reports with the error path of the crate. No lint level changes in the workspace manifest, no blanket allowance at crate or module level, no public signature changes, and no test assertion changes; the Makefile target and the public job stay unchanged."
+do_3 = "do_3 Record every lint with its repair in services/agent/crates/layerx-types/src/repair_22_39_211.kvx, run the build once and the verification once at the final revision and record both by reference. If after the allowed repair cycles the lint target still reports errors, record the remaining count by crate and stop the attempt."
+symbols = []
+touches = ["services/agent/crates"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-types/src/repair_22_39_211.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml --workspace"
+verify_cmd = "test -s services/agent/crates/layerx-types/src/repair_22_39_211.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml --workspace --all-targets -- -D warnings && sh services/agent/tools/dependency-policy.sh"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.209]
 title = "Remove the unused binding named level in the agent RPC adapters so the agent lint target passes"
 status = "pending"
@@ -183688,7 +183778,7 @@ touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
-verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx && test 0 -eq $(grep -c 'let level = crate::' services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs) && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- -D warnings"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_209.kvx && test 0 -eq $(grep -c 'let level = crate::' services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs) && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --skip checks_the_actual_server_identity"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -183700,6 +183790,8 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3736, decision 3039): the attempt-1 tree 6c2da1a64f69 stands unchanged (the binding removed, the record). The verification now lints layerx-agentd alone with no-deps, so the eight pedantic errors of layerx-types, owned by 22.39.211, no longer stop the gate; no source change is needed beyond the record naming the bounded gate and the task that owns the workspace lint target. Merge main, run the build once and the verification once at the final revision and record both by reference; if the daemon library itself reports a lint, repair it inside agent_rpc_adapters.rs within the one allowed cycle and rerun once."
+do_4 = "Attempt 3 (continue, gotcha 3739, decisions 3039 and 3043): the attempt-2 tree 50823218f0a3 stands unchanged (the removed binding at agent_rpc_adapters.rs, the record). The verification of the task now runs the record checks and the library tests of the daemon crate in place of the lint clause, because the crate fails the workspace lints on main and 22.39.211 owns that repair; change no file, repair no lint. Run the build once and the verification once at the final revision and record both by reference; if a library test fails on its own assertion, record the failing name with the task that owns the test and stop within the one allowed cycle."
 
 [task.22.39.183]
 title = "Make the arbiter decode kernel boundary leaves through the record header the runtime producer authenticates"
@@ -183719,7 +183811,7 @@ touches = ["programs/crates/layerx-programs-arbiter/src/step.rs", "programs/crat
 tests = ["programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"]
 planned_paths = ["programs/crates/layerx-programs-arbiter/tests/repair_22_39_183.rs", "programs/crates/layerx-programs-arbiter/src/repair_22_39_183.kvx"]
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --tests"
-verify_cmd = "test -s programs/crates/layerx-programs-arbiter/src/repair_22_39_183.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test proof_arbiter_crate --test repair_22_39_183 --test activity_codec && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib portable_replay"
+verify_cmd = "test -s programs/crates/layerx-programs-arbiter/src/repair_22_39_183.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test proof_arbiter_crate --test repair_22_39_183 --test activity_codec --test repair_22_33_215 && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib portable_replay"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-programs"
@@ -183732,10 +183824,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue after 22.39.177 lands; gotcha 3730, decisions 3029 and 3034): the attempt-1 tree 08733aed93 stands (the shared boundary leaf consumer through the runtime record header, the path commitment over the raw leaf hash, repair_22_39_183.kvx). Merge main once 22.39.177 is on it so the arbiter crate compiles, then make the two cases of tests/proof_arbiter_crate.rs that 22.39.177 excluded, runtime_producer_records_integer_steps_and_terminal_traps and authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice, pass with their assertions unchanged through the shared consumer; record both names as restored in src/repair_22_39_183.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair the consumer within the one allowed cycle and rerun once."
+do_6 = "do_6 Decision 3038, gotcha 3735. The contract-consumer binary tests/repair_22_33_215.rs includes the proof producer module by path, and its cases registry_authority_signature_drives_both_call_envelopes and registry_replay_signatures_reconstruct_and_verify_adjacent_steps fail on the raw-leaf decode this task repairs (inner runtime result Witness(Encoding) at the boundary pair replay, producer module lines 1317 and 1538). This task owns those two cases beside the two of do_3: the verification runs that binary, both cases pass at the final revision through the shared helper without any change to their assertions, and the record names the four cases with the helper that makes them pass."
 
 [task.22.39.177]
 title = "Move the arbiter crate to the historical activity codec paths of layerx-wire so the programs workspace builds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.33.215"]
@@ -183750,7 +183843,7 @@ touches = ["programs/crates/layerx-programs-arbiter/src/admission.rs", "programs
 tests = ["programs/crates/layerx-programs-arbiter/tests/activity_codec.rs", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs", "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs", "programs/crates/layerx-programs-arbiter/tests/repair_22_33_215.rs"]
 planned_paths = ["programs/crates/layerx-programs-arbiter/src/repair_22_39_177.kvx"]
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --tests && mkdir -p build && (make -s paxai-host-boundary-build > build/paxai-host-boundary.log 2>&1 || true) && test -s build/paxai-host-boundary/ai_market.wasm"
-verify_cmd = "test -s programs/crates/layerx-programs-arbiter/src/repair_22_39_177.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test activity_codec --test authority_from_prestate --test proof_arbiter_crate --test repair_22_33_215 -- --skip canonical_native_authority_matches_authenticated_historical_facts --skip runtime_producer_records_integer_steps_and_terminal_traps --skip authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice && test 0 -eq $(grep -rlE 'layerx_wire::(activity|sign)([^_a-zA-Z0-9]|$)|layerx_wire::hash::(payload_hash|activity_id|canonical_activity|canonical_payload)([^_a-zA-Z0-9]|$)|layerx_wire::[{]([^}]*[^_a-zA-Z0-9])?(activity|sign)[^_a-zA-Z0-9]' programs tools sdk tests apps daemon services --include=*.rs | grep -vE 'crates/layerx-wire/|boundary-check|api-gen|no_kernel_codec' | wc -l)"
+verify_cmd = "test -s programs/crates/layerx-programs-arbiter/src/repair_22_39_177.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test activity_codec --test authority_from_prestate --test proof_arbiter_crate --test repair_22_33_215 -- --skip canonical_native_authority_matches_authenticated_historical_facts --skip runtime_producer_records_integer_steps_and_terminal_traps --skip authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice --skip registry_authority_signature_drives_both_call_envelopes --skip registry_replay_signatures_reconstruct_and_verify_adjacent_steps && test 0 -eq $(grep -rlE 'layerx_wire::(activity|sign)([^_a-zA-Z0-9]|$)|layerx_wire::hash::(payload_hash|activity_id|canonical_activity|canonical_payload)([^_a-zA-Z0-9]|$)|layerx_wire::[{]([^}]*[^_a-zA-Z0-9])?(activity|sign)[^_a-zA-Z0-9]' programs tools sdk tests apps daemon services --include=*.rs | grep -vE 'crates/layerx-wire/|boundary-check|api-gen|no_kernel_codec' | wc -l)"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-programs"
@@ -183766,6 +183859,7 @@ do_4 = "Attempt 2 (requalify, gotcha 3713, decisions 2496 and 3015): the attempt
 do_5 = "Attempt 3 (continue, gotcha 3721, decisions 3006, 3015 and 3024): the attempt-2 tree 791076fd4c6d is the starting point (the historical activity codec and signing preimage paths, the retirement of the layerx_wire::activity and layerx_wire::sign uses, the record). Bisect the seventeen-line change of src/admission.rs and the six-line change of tests/proof_arbiter_crate.rs against the base: every boundary leaf the runtime producer records and every replay witness the bounded replay consumer verifies must keep the kernel portable boundary encoding, byte for byte as on main, and only the activity codec and the signing preimage go through the historical module. Restore the boundary bytes at the producing site so runtime_producer_records_integer_steps_and_terminal_traps (line 1794) and authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice (line 1538) pass unchanged; the test file changes only where the retirement of a path requires an import, and no assertion changes. Keep the retirement grep and the three passing targets. Record the bisected site and the producer of the boundary encoding in src/repair_22_39_177.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_6 = "Attempt 4 (continue after 22.39.183 lands; gotcha 3727, decisions 3015, 3024 and 3029): the attempt-3 tree 677da57e8c4b stands unchanged (the historical activity codec and signing preimage paths, the retirement of the layerx_wire::activity and layerx_wire::sign uses, the record with its boundary comparison). Merge main once 22.39.183 is on it, so the proof corpus transports boundary leaves as the producer defines and the two cases of gotcha 3721 pass through the corrected arbiter consumers; resolve any overlap in tests/proof_arbiter_crate.rs in favour of the 22.39.183 transport and keep only the retired-path import changes of this task. Extend src/repair_22_39_177.kvx with the revision of 22.39.183 the attempt merged. Run the build once and the verification once at the final revision and record both by reference; if the retirement grep or a case fails, repair it within the one allowed cycle and rerun once."
 do_7 = "Attempt 4 (continue, gotchas 3730 and 3731, decisions 3015, 3024, 3029 and 3034): the attempt-3 tree 677da57e8c4b stands unchanged (the two arbiter consumers on the historical module, the retired imports gone, the record). The verification of this task now excludes the two cases of tests/proof_arbiter_crate.rs that 22.39.183 owns and restores, runtime_producer_records_integer_steps_and_terminal_traps and authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice, by exact name; this task no longer requires 22.39.183. Record the two excluded names and the task that restores them in src/repair_22_39_177.kvx. Merge main, run the build once and the verification once at the final revision and record both by reference."
+do_8 = "Attempt 5 (continue, gotcha 3735, decisions 3015, 3034 and 3038): the attempt-4 tree 1e0231e12e70 stands unchanged (the historical module path for the activity codec and the signing preimage, the record, the two producer cases excluded). The verification now also excludes registry_authority_signature_drives_both_call_envelopes and registry_replay_signatures_reconstruct_and_verify_adjacent_steps of tests/repair_22_33_215.rs by exact name, because both fail inside the included producer module on the raw-leaf decode 22.39.183 repairs; no assertion and no test file changes, and the record names the four excluded cases with the task that proves them (22.39.183). Merge main, run the build once and the verification once at the final revision and record both by reference; if a further case fails on a Witness(Encoding) replay result inside the included producer module, record its exact name for the repair task and stop the attempt rather than repairing the consumer here."
 
 [task.22.39.175]
 title = "Move the fuzz test of the agent envelope codec to the historical module of layerx-wire and widen the retired-path grep to the grouped use form"
@@ -194983,6 +195077,7 @@ do_19 = "Attempt 11 (continue, gotcha 3702, decisions 2729, 2900 and 3005): the 
 do_20 = "Attempt 12 (continue, gotcha 3706, decisions 3005, 3009 and 2938): start from the attempt-11 tree daa08d3a6167 (the bounded reads, the bounded CANCEL_TASK and SEAL_TASK_SET, the in-place aggregation edit, the 170-row record) and merge main first, taking the main side of any guest function that 22.39.167 or 22.38.7 changed, then regenerate the guest with build-guest.sh. Remove check_preserved_sections from state.rs with its two calls (epoch.rs line 802 in the task opening and tasks.rs line 794 in the admission finish); the produced frame comes from replace_encoded_section and the input slices, so no unchanged section is decoded or hashed again, and where a producer keeps a self-check it compares lengths only. Then measure OPEN_EPOCH at height 1408 and ADMIT_TASK at height 1410 by the sweep of decision 3009: run the fuel case over journeys of sixteen, thirty-two, forty-eight and sixty-four tasks with the same 32/8 roster, record for each size the measured fuel of the two operations and the fuel per added task, and state the implied fuel of each refused row of attempt 11 in tests/repair_22_33_223.kvx beside the attempt-11 rows. If after the removal a row still exceeds the cap at the full journey, use the sweep to name the section read or write that grows with the journey, bound that path to the sections the operation touches within the one allowed repair cycle, and rerun once; never raise the cap, shrink the journey or weaken an assertion. The wiring request for a diagnostic runtime execution is closed by decision 3009 and recorded as such. Run the build once and the verification once at the final revision and record both by reference; if rows still exceed after the one repair cycle, record them and stop."
 do_21 = "Attempt 13 (continue, gotcha 3712, decisions 3005, 3009 and 3014): the attempt-12 tree 013e3cee50c3 stands (check_preserved_sections removed with its two calls, the bounded admission rows, the record). Before any change, run the roster-size sweep of decision 3014 at the sixteen-task journey with rosters of 8 participants and 2 evaluators, 16 and 4, 24 and 6 and 32 and 8 for OPEN_EPOCH, the eight RevealScore rows and the six aggregation rows, and record attempted fuel per row and roster size in the task record. Then bound the three handlers to the sections the operation touches: open_epoch of src/epoch.rs (line 893) and its handler in the routing module read the roster and the epoch header through the section reader instead of the whole 63175-byte state input; reveal_score of src/commit_reveal.rs (line 607) reads the commitment of the revealing participant and its chunk only; aggregate of src/epoch.rs (line 1438) with src/aggregation.rs reads the per-chunk vote sections and re-hashes no unchanged section. Regenerate the guest with build-guest.sh at the final tree, keep the decision 2900 record of failing names by target before and after, and leave the cap and the clamp as they are. Run the build once and the verification once at the final revision and record both by reference; if a row still exceeds the cap, repair it within the one allowed cycle and rerun once, and record the attempted fuel of every row that remains."
 do_22 = "Attempt 14 (continue, gotcha 3722, decisions 3014 and 3025): the attempt-13 tree f3500b77dd19 is the starting point. In tests/fuel_budget.rs make the sweep fixture seal the task set before any evidence step, so the sealed_task_set step no longer answers with application error 2305 through the F08 view and every routed execution of the sweep is admitted and measured; the assertion of every_routed_operation_fits_the_protocol_cpu_fuel_cap (line 1873) keeps its name and its requirement that every routed execution produce measured fuel. In the guest, bring OPEN_EPOCH, BeginAggregation, ProcessAggregation and FinalizeAggregation under the cap of 1000000 cpu fuel with margin at the roster sizes 16, 24 and 32 by removing their per-roster rescans, one pass over the roster per handler through the shared helpers; the sweep rows of roster_state_fuel_scaling (line 2828) and maximum_state_fuel_scaling (line 2777) keep recording the attempted fuel, the cap stays, no assertion changes and no public operation, status code or query result changes. Record the fuel of each of the four handlers before and after at the three roster sizes in the task record. Run the build once and the verification once at the final revision and record both by reference; if a sweep row still exceeds the cap, repair the handler within the one allowed cycle and rerun once."
+do_23 = "Attempt 15 (continue, gotcha 3734, decisions 3005, 3009, 3014, 3025 and 3037): the attempt-14 tree c35ee22bb79c is the starting point (the sealed sweep fixture, the one-pass opening, the merged chunk reader, the shared record writers, the record). Before any change, state in the task record for each of the four handlers the fuel per added participant the roster sweep rows at 8/2, 16/4, 24/6 and 32/8 imply and the implied fuel at 32 participants and 8 evaluators (OPEN_EPOCH about 62000 per participant and about 1.78 million at the full roster from the 8/2 and 16/4 rows, BeginAggregation about 25600 per participant, a ProcessAggregation chunk about 21900 per added roster participant plus about 59000 per earlier chunk at the full roster, FinalizeAggregation refused from 16/4), and repair against those slopes rather than against the stopping position of a refusal. A ProcessAggregation chunk reads the eight reports of its chunk and the running aggregate section only, carries the running aggregate in its own section so no call decodes the reports or per-participant results of earlier chunks, and checks the roster-wide sections by length and digest only, so its fuel at 32/8 is within ten percent of the first chunk at 16/4 and the chunks of one roster differ by the per-report cost only. OPEN_EPOCH encodes the roster projection once and digests each written section once, never per participant, with no per-participant hashing, re-encoding or validation of sections it does not write, at most 900000 fuel at 32/8. BeginAggregation and FinalizeAggregation read the committed sections they consume once through the section reader, write the aggregate header and the reputation records of the roster once, and validate only the records they appended or replaced (the whole-state reputation validation the attempt-14 record describes is replaced by the validation of the appended records), at most 900000 fuel each at 32/8. The cap, the chunk size of eight, the sweep rows, the recorded attempted fuel, every assertion name and every public operation, status code and query result stay unchanged, and no handler is made multi-step in this task. Regenerate the guest with build-guest.sh after the change. Record the rows at the four rosters for the four handlers before and after with the implied slopes in the task record. Run the build once and the verification once at the final revision and record both by reference; if a row still refuses, repair its handler within the allowed cycles and rerun once, and if a handler still exceeds the cap at 32/8 after them, record its implied fuel from the slope and stop the attempt."
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"
@@ -211943,9 +212038,40 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.212]
+title = "Align the bridge chain configurations, tests and release records with the governed signer manifest"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.31.446"]
+reqs = ["22998.1"]
+capabilities = ["22.39.212"]
+interfaces = []
+do_1 = "do_1 Decision 3042. The committed manifest services/bridge/deploy/attestors.json now carries the one governed signer address with threshold 1 and no pending marker, and check-attestor-manifest.py accepts it. Set the attestors list and threshold of the nine committed chain configurations (the config.json of the ethereum, base, arbitrum, optimism, bnb, polygon, avalanche and hyperevm directories under contracts/bridge/evm/chains, and contracts/bridge/solana/chains/solana/config.json) to the same signer list and threshold, changing no other field, so AttestorManifest.Check agrees with the manifest; the Go loader, the check script and every refusal rule stay unchanged."
+do_2 = "do_2 Rewrite the audit repair tests that assert the placeholder manifest (tools/qualification/audit_repairs/test_repair_22_31_392.py, test_repair_22_31_402.py and test_repair_22_31_446.py) to assert the governed manifest: the manifest and the nine configurations agree on live canonical signers and threshold, no committed file names a placeholder slot, the deployment entry script passes the manifest guard and stops at the next refusal of its environment, and the refusal cases of the check script keep their fixtures; keep every test name that still proves a fact and record each removed case with the fact that replaced it."
+do_3 = "do_3 Update the records services/bridge/deploy/repair_22_31_402.kvx and repair_22_31_446.kvx: the owner decision is closed with the governed signer set and threshold, the status reflects the live manifest, and the wiring request for the manifest is fulfilled; update docs/release/7.0.0-service-operator-runbook.md so the attestor manifest leaves its gap rows and markers (the manifest check exits 0 on the committed file) and align tests/ci/test_release_docs_gap_markers.py with the remaining gaps."
+do_4 = "do_4 Run the proposal tooling tests under services/bridge/deploy and confirm the set-attestors proposal is emitted from the governed manifest; record the signer list, the threshold, the nine configuration paths and the retired assertions in services/bridge/deploy/repair_22_39_212.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["contracts/bridge/evm/chains", "contracts/bridge/solana/chains", "services/bridge/deploy/repair_22_31_402.kvx", "services/bridge/deploy/repair_22_31_446.kvx", "services/bridge/deploy/proposals", "services/bridge/deploy/chainconfig", "services/bridge/deploy/appenv", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_446.py", "docs/release/7.0.0-service-operator-runbook.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_446.py", "tests/ci/test_release_docs_gap_markers.py"]
+planned_paths = ["services/bridge/deploy/repair_22_39_212.kvx"]
+build_cmd = "go build ./services/bridge/deploy/... && python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_446.py"
+verify_cmd = "python3 services/bridge/deploy/check-attestor-manifest.py && test -s services/bridge/deploy/repair_22_39_212.kvx && test 0 -eq $(grep -rl PLACEHOLDER:attestor contracts/bridge/evm/chains contracts/bridge/solana/chains services/bridge/deploy/attestors.json | wc -l) && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_392.py tools/qualification/audit_repairs/test_repair_22_31_402.py tools/qualification/audit_repairs/test_repair_22_31_446.py tests/ci/test_release_docs_gap_markers.py && go test ./services/bridge/deploy/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.210]
 title = "Carry the receipt VmError text, precompile suffix included, in the EVM transaction response"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = []
@@ -212412,6 +212538,7 @@ do_4 = "Attempt 3 (continue, gotcha 3718, decisions 2908, 3013 and 3021): the at
 do_5 = "Attempt 4 (requalify, gotcha 3720, decisions 2917, 3021 and 3023): the attempt-3 tree 76bb1147bf8a stands unchanged (the quarantine read-back comparing affected pools by length and elements, the database regression test, the baseline file, the record). The qualification environment now supplies the key-value store with the logical databases the public job declares, the EVM binaries on PATH and the owned authorization chain on 28545 exported as L34_ANVIL_URL, so the three packages that stopped for want of them run. Before every gate run reproduce the fresh database service as decision 2917 requires. Run the build once and the verification once at the same revision and record both by reference; if a case fails for a reason inside the tree, repair it within the one allowed cycle and rerun once."
 do_6 = "Attempt 5 (requalify, gotcha 3728, decisions 2917, 3023 and 3030): the attempt-4 tree 0addf46863ce stands unchanged (the shared module changes of the attempt: the chain client test, the database client and its tests, the production allocation test, the coverage measure test, the record). The qualification environment now exports the namespace and schema literals of the public job (L09_NAMESPACE among them) beside the redis and postgres variables, so the three shared/redis cases run against their private namespace instead of refusing. Reproduce the fresh database service as decision 2917 requires, run the build once and the verification once at the same tree and record both by reference; if a case fails for a reason inside the tree, repair it within the one allowed cycle and rerun once."
 do_7 = "Attempt 6 (requalify, gotcha 3733, decisions 3023, 3030 and 3036): the attempt-5 tree d115388f9b stands unchanged. The qualification environment now provisions every connection variable the public launchpad job declares (the API database, redis and message bus variables among them), runs the message bus on port 24222, and compiles contracts/launchpad before the gates. Merge main, run the build once and the verification once at the final revision and record both by reference; if a case fails for a reason inside the task tree, repair it within the one allowed cycle and rerun once, and if it fails for want of a further environment input, record the input name and stop."
+do_8 = "Attempt 7 (continue, gotcha 3737, decisions 2908, 3036 and 3040): the attempt-6 tree b7b8ec69ce77 stands unchanged (the Go 1.27.3 pin, the four service variables, the tidied indexer module, the baseline entries, the record). In sdk/launchpad/shared/db/production/online_indexes_test.go make the cleanup of phase2MigrationFixture (lines 33 to 40) follow coordinatortest.go line 334: close the pool, then drop the private database with DROP DATABASE IF EXISTS and WITH (FORCE) under a thirty-second context, and report a drop failure with t.Logf; no assertion, no lock-wait measurement and no change in online_indexes.go. Record the corrected cleanup with the precedent it follows in the task record. Before every gate run reproduce the fresh database service as decision 2917 requires. Merge main, run the build once and the verification once at the final revision and record both by reference; if a further case fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
@@ -251816,7 +251943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.0.9]
 title = "Gate domain 6 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5", "21.11.1", "21.13.1", "21.21.1", "21.23.1", "21.49.1", "21.50.1", "21.75.1", "21.76.1", "21.77.1", "21.88.1", "21.89.1", "21.90.1", "21.91.1", "21.123.1", "21.124.1", "21.172.1", "22.25.4"]
@@ -317723,7 +317850,7 @@ planned_paths = ["spec/layerx-merge/programme/data/goldens/merge-bringup.kvx", "
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_custody_golden.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_custody_golden.py::test_custody_and_anchor_goldens_pass -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Remove the two golden rows."
 max_builds = 1
@@ -317733,6 +317860,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3738, decisions 1709 and 3041): the attempt-1 tree 9380fccc111a stands unchanged (the custody-release and anchor-retired golden rows in merge-bringup.kvx, test_custody_golden.py). The task now carries the go-cgo profile, whose gate shell builds build/liblayerx.a and the programs host archive before the gate, so the two Go tests the goldens run link; change no file unless a golden fails on its own assertion. Run the build once and the verification once at the final revision and record both by reference; if a golden fails on its assertion rather than at the link step, record the failing case with the task that owns the test and stop within the one allowed cycle."
 
 [task.17.1.9]
 title = "Capture the receipt order equals block order golden"
@@ -317967,7 +318095,7 @@ planned_paths = ["spec/layerx-merge/programme/retired.py", "spec/layerx-merge/pr
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/retired.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_refusal_run.py::test_every_refusal_runs_and_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Revert retired.py."
 max_builds = 1
@@ -317977,6 +318105,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3738, decisions 1709 and 3041): the attempt-1 tree a7575c8f63c0 stands unchanged (run_refusals in retired.py, test_refusal_run.py). The task now carries the go-cgo profile, whose gate shell builds build/liblayerx.a and the programs host archive before the gate, so the six refusal packages link; change no file unless a refusal fails on its own assertion. Run the build once and the verification once at the final revision and record both by reference; if a refusal row fails on its assertion rather than at the link step, record the failing row with the task that owns the test and stop within the one allowed cycle."
 
 [task.17.2.8]
 title = "Prove no retired caller remains on the merged revision"
@@ -335857,7 +335986,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.208]
 title = "Write the closure dispositions of domains 14, 16, 17, 18 and 21 for 124 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -335888,7 +336017,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.207]
 title = "Write the closure dispositions of domains 10, 11, 12 and 13 for 108 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -335919,7 +336048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.206]
 title = "Write the closure dispositions of domains 4, 5, 6, 7 and 8 for 117 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -335950,7 +336079,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.205]
 title = "Write the closure dispositions of domains 1, 2 and 3 for 109 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -335981,7 +336110,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.204]
 title = "Write the closure dispositions 9-14 for 100 findings of domain 9"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336012,7 +336141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.203]
 title = "Write the closure dispositions 22-35 for 72 findings of the remaining 22 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336043,7 +336172,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.202]
 title = "Write the closure dispositions 22-34 for 73 findings of the remaining 22 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336074,7 +336203,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.201]
 title = "Write the closure dispositions 22-33 for 101 findings of the 22.99 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336105,7 +336234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.200]
 title = "Write the closure dispositions 22-32 for 101 findings of the 22.39 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336136,7 +336265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.199]
 title = "Write the closure dispositions 22-31 for 102 findings of the 22.39 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336167,7 +336296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.198]
 title = "Write the closure dispositions 22-30 for 104 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336198,7 +336327,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.197]
 title = "Write the closure dispositions 22-29 for 104 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336229,7 +336358,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.196]
 title = "Write the closure dispositions 22-28 for 104 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336260,7 +336389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.195]
 title = "Write the closure dispositions 22-27 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336291,7 +336420,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.194]
 title = "Write the closure dispositions 22-26 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336322,7 +336451,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.193]
 title = "Write the closure dispositions 22-25 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336353,7 +336482,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.192]
 title = "Write the closure dispositions 22-24 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336384,7 +336513,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.191]
 title = "Write the closure dispositions 22-23 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336415,7 +336544,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.190]
 title = "Write the closure dispositions 22-22 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336446,7 +336575,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.189]
 title = "Write the closure dispositions 22-21 for 104 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336477,7 +336606,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.188]
 title = "Write the closure dispositions 22-20 for 104 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336508,7 +336637,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.187]
 title = "Write the closure dispositions 22-19 for 105 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336539,7 +336668,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.186]
 title = "Write the closure dispositions 22-18 for 105 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336570,7 +336699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.185]
 title = "Write the closure dispositions 22-17 for 105 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336601,7 +336730,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.184]
 title = "Repair the nine closure dispositions that cite no location or name a missing or self-referencing follow-up"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
