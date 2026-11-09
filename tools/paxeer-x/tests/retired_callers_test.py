@@ -210,7 +210,9 @@ def match_line(path, number, text, patterns, allowances):
     return [
         (path, number, component, symbol)
         for component, symbol, pattern in patterns
-        if pattern.search(text) and not allowed(path, text, symbol, allowances)
+        if symbol in text
+        and pattern.search(text)
+        and not allowed(path, text, symbol, allowances)
     ]
 
 
@@ -221,6 +223,7 @@ def git(root, arguments, data=None):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
+        env={**os.environ, "LC_ALL": "C"} if arguments[0] == "grep" else None,
     )
     require(
         (
@@ -295,7 +298,7 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
                     continue
                 if os.path.lexists(root / tree):
                     findings.append((tree, 1, name, "deleted tree still exists"))
-    files = [
+    files = {
         path
         for path in tracked
         if (not filters or any(not scope or below(path, scope) for scope in filters))
@@ -306,7 +309,7 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
             and any(below(path, tree) for tree in documentation)
         )
         and not any(below(path, tree) for tree in deleted_trees)
-    ]
+    }
     patterns = [
         (name, symbol, symbol_pattern(symbol))
         for name in selected
@@ -315,9 +318,34 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
     if not files:
         return sorted(set(findings))
     literals = sorted({symbol for _, symbol, _ in patterns})
-    pathspecs = [":(top,literal)" + path for path in files]
-    pattern_bytes = ("\n".join(literals) + "\n").encode()
-    for start in range(0, len(pathspecs), 128):
+    pathspecs = [":(top,literal)" + (path or ".") for path in filters]
+    retiring_trees = {
+        tree for entry in components.values() for tree in entry.get("retiring_trees", {})
+    }
+    pathspecs.extend(
+        ":(top,exclude,literal)" + path
+        for path in sorted({CATALOGUE_PATH} | deleted_trees | retiring_trees)
+    )
+    pathspecs.extend(
+        ":(top,exclude,glob)**/" + directory + "/**"
+        for directory in ("test", "tests", "testdata", "__tests__")
+    )
+    pathspecs.extend(
+        ":(top,exclude,glob)" + tree + "/**/*" + suffix
+        for tree in ("spec/layerx-merge", "docs")
+        for suffix in sorted(DOCUMENTATION_SUFFIXES)
+    )
+    for tree in documentation:
+        if PurePosixPath(tree).suffix in DOCUMENTATION_SUFFIXES:
+            pathspecs.append(":(top,exclude,literal)" + tree)
+        escaped_tree = re.sub(r"([\\*?\[\]])", r"\\\1", tree)
+        pathspecs.extend(
+            ":(top,exclude,glob)" + escaped_tree + "/**/*" + suffix
+            for suffix in sorted(DOCUMENTATION_SUFFIXES)
+        )
+    with tempfile.NamedTemporaryFile(prefix="retired-callers-patterns-") as patterns_file:
+        patterns_file.write(("\n".join(literals) + "\n").encode())
+        patterns_file.flush()
         result = git(
             root,
             [
@@ -331,27 +359,27 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
                 "-z",
                 "-F",
                 "-f",
-                "-",
+                patterns_file.name,
                 "--",
-                *pathspecs[start : start + 128],
+                *pathspecs,
             ],
-            pattern_bytes,
         )
-        output = result.stdout
-        offset = 0
-        while offset < len(output):
-            path_end = output.find(b"\x00", offset)
-            line_end = output.find(b"\x00", path_end + 1)
-            text_end = output.find(b"\n", line_end + 1)
-            require(
-                path_end >= offset and line_end > path_end and text_end > line_end,
-                "malformed git grep output",
-            )
-            path = os.fsdecode(output[offset:path_end])
-            number = int(output[path_end + 1 : line_end])
-            text = output[line_end + 1 : text_end].decode(
-                "utf-8", errors="surrogateescape"
-            )
+    output = result.stdout
+    offset = 0
+    while offset < len(output):
+        path_end = output.find(b"\x00", offset)
+        line_end = output.find(b"\x00", path_end + 1)
+        text_end = output.find(b"\n", line_end + 1)
+        require(
+            path_end >= offset and line_end > path_end and text_end > line_end,
+            "malformed git grep output",
+        )
+        path = os.fsdecode(output[offset:path_end])
+        number = int(output[path_end + 1 : line_end])
+        text = output[line_end + 1 : text_end].decode(
+            "utf-8", errors="surrogateescape"
+        )
+        if path in files:
             findings.extend(
                 match_line(
                     path,
@@ -361,7 +389,7 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
                     catalogue.get("allowed_references", []),
                 )
             )
-            offset = text_end + 1
+        offset = text_end + 1
     return sorted(set(findings))
 
 
@@ -634,6 +662,28 @@ def self_test(catalogue):
         [("precompiles/setup.go", 81, "verify", "layerxverify")],
         "kept line number is not a blanket exclusion",
     )
+    with tempfile.TemporaryDirectory(prefix="retired-callers-filter-") as directory:
+        root = Path(directory)
+        git(root, ["init", "-q"])
+        retired = components["paxeer-verifier"]["deleted_trees"][0]
+        retired_file = (
+            retired if PurePosixPath(retired).suffix else retired + "/src/lib.rs"
+        )
+        write_tracked(
+            root,
+            {
+                retired_file: "layerxverify\n",
+                "live_test.rs": "layerxverify\n",
+                **documentation_files(catalogue, "layerxverify\n"),
+                CATALOGUE_PATH: json.dumps(catalogue) + "\n",
+                "live.rs": "use layerxverify;\n",
+            },
+        )
+        check_equal(
+            scan(root, catalogue, ["verify"], []),
+            [("live.rs", 1, "verify", "layerxverify")],
+            "single grep filters deleted trees tests documentation and catalogue",
+        )
     with tempfile.TemporaryDirectory(prefix="retired-callers-") as directory:
         root = Path(directory)
         git(root, ["init", "-q"])
