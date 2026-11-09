@@ -34,30 +34,38 @@ pub struct VerifiedModuleInventory {
 }
 
 impl VerifiedModuleInventory {
+    #[must_use]
     pub const fn module_id(&self) -> u16 {
         self.module_id
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.state_root
     }
+    #[must_use]
     pub fn records(&self) -> &[(Vec<u8>, Vec<u8>)] {
         &self.records
     }
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.records.is_empty()
     }
 }
 
 impl VerifiedPrefix {
+    #[must_use]
     pub const fn module_id(&self) -> u16 {
         self.module_id
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.state_root
     }
+    #[must_use]
     pub fn records(&self) -> &[(Vec<u8>, Vec<u8>)] {
         &self.records
     }
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.records.is_empty()
     }
@@ -74,6 +82,9 @@ pub enum RangeError {
 }
 
 impl ModuleRangeWitness {
+    /// # Errors
+    /// Refuses empty or oversized prefixes, incomplete or unordered module inventories,
+    /// invalid witness positions, and roots that do not match `state_root`.
     pub fn verify_prefix(
         &self,
         state_root: [u8; 32],
@@ -103,6 +114,9 @@ impl ModuleRangeWitness {
         })
     }
 
+    /// # Errors
+    /// Refuses oversized inventories, invalid module identifiers, unordered leaves,
+    /// inconsistent witness positions, and mismatched subtree or composite roots.
     pub fn verify_full_module(
         &self,
         state_root: [u8; 32],
@@ -178,6 +192,9 @@ impl ModuleRangeWitness {
     }
 }
 
+/// # Errors
+/// Refuses oversized account inventories, missing account-tree anchors,
+/// unordered accounts, invalid witness positions, and mismatched roots.
 pub fn verify_account_tree(
     witnesses: &[StateWitness],
     universal: &ModuleRangeWitness,
@@ -239,6 +256,9 @@ pub fn verify_account_tree(
     Ok(())
 }
 
+/// # Errors
+/// Refuses a module count outside the kernel registry, unencodable module
+/// identifiers, and a composite root unequal to `expected_root`.
 pub fn verify_composite_roots(
     roots: &[[u8; 32]],
     expected_root: [u8; 32],
