@@ -4,6 +4,7 @@ import base64
 import csv
 import hashlib
 import io
+import tomllib
 from pathlib import Path
 import zipfile
 
@@ -16,15 +17,17 @@ REQUIRES = ("fastapi>=0.110", "layerx-sdk>=0.1.0")
 
 
 def _metadata() -> bytes:
+    with Path(__file__).with_name("pyproject.toml").open("rb") as manifest:
+        license_expression = tomllib.load(manifest)["project"]["license"]
     requires = "".join(f"Requires-Dist: {value}\n" for value in REQUIRES)
     return (
-        "Metadata-Version: 2.3\n"
+        "Metadata-Version: 2.4\n"
         "Name: layerx-fastapi\n"
         f"Version: {VERSION}\n"
         "Summary: Receipt-gated x402 FastAPI integration for the LayerX protocol\n"
         "Requires-Python: >=3.11\n"
         f"{requires}"
-        "License: See the LayerX repository LICENSE\n"
+        f"License-Expression: {license_expression}\n"
         "\n"
     ).encode()
 
