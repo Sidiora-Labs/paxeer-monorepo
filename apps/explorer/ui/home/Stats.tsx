@@ -20,13 +20,12 @@ function formatCount(value: string | number | null | undefined) {
 }
 
 const StatsHistory = React.memo(function StatsHistory() {
-  const chartQuery = useChartDataQuery('daily_txs');
+  const chartQuery = useChartDataQuery('daily_txs', HISTORY_DAYS);
   return (
     <ChainIndicatorsChart
       isLoading={ false }
       title={ `${ config.chain.name } transaction history in ${ HISTORY_DAYS } days` }
       chartQuery={ chartQuery }
-      days={ HISTORY_DAYS }
     />
   );
 });
