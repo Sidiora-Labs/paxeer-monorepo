@@ -277,10 +277,16 @@ build-linux:
 DOCKER_PLATFORM ?= $(shell if [ "$$(uname -m)" = "arm64" ]; then echo "linux/arm64"; else echo "linux/amd64"; fi)
 export DOCKER_PLATFORM
 
+# Compose and local producers share explicit source-revision image identities.
+LOCALNODE_IMAGE_TAG ?= local-$(COMMIT)
+X_WEBSEARCH_IMAGE_TAG ?= local-$(COMMIT)
+LOCALNODE_IMAGE = ghcr.io/sidiora-labs/localnode:$(LOCALNODE_IMAGE_TAG)
+CLUSTER_IMAGE_ENV = LOCALNODE_IMAGE_TAG=$(LOCALNODE_IMAGE_TAG) X_WEBSEARCH_IMAGE_TAG=$(X_WEBSEARCH_IMAGE_TAG)
+
 # Build docker image for detected platform
 build-docker-node:
 	@echo "Building for $(DOCKER_PLATFORM)..."
-	@docker build -f docker/localnode/Dockerfile --tag pax-chain/localnode . --platform $(DOCKER_PLATFORM)
+	@docker build -f docker/localnode/Dockerfile --tag pax-chain/localnode --tag $(LOCALNODE_IMAGE) . --platform $(DOCKER_PLATFORM)
 .PHONY: build-docker-node
 
 build-rpc-node:
@@ -409,7 +415,7 @@ kill-pax-node:
 kill-rpc-node:
 	docker ps --filter name=pax-rpc-node --filter status=running -aq | xargs docker kill 2> /dev/null || true
 
-CLUSTER_ENV_VARS = DOCKER_PLATFORM=$(DOCKER_PLATFORM) USERID=$(shell id -u) GROUPID=$(shell id -g) \
+CLUSTER_ENV_VARS = $(CLUSTER_IMAGE_ENV) DOCKER_PLATFORM=$(DOCKER_PLATFORM) USERID=$(shell id -u) GROUPID=$(shell id -g) \
 	GOCACHE=$(shell go env GOCACHE) NUM_ACCOUNTS=10 \
 	INVARIANT_CHECK_INTERVAL=$(INVARIANT_CHECK_INTERVAL) \
 	UPGRADE_VERSION_LIST=$(UPGRADE_VERSION_LIST) \
@@ -466,7 +472,7 @@ docker-cluster-start-ci: docker-cluster-stop ensure-integration-ci-images
 
 # Stop 4-node docker containers
 docker-cluster-stop:
-	@cd docker && DOCKER_PLATFORM=$(DOCKER_PLATFORM) USERID=$(shell id -u) GROUPID=$(shell id -g) GOCACHE=$(shell go env GOCACHE) docker compose down
+	@cd docker && $(CLUSTER_ENV_VARS) docker compose down
 .PHONY: localnet-stop
 
 # Start 4-node cluster with Prometheus and Grafana monitoring
@@ -485,7 +491,7 @@ docker-cluster-start-monitoring: docker-cluster-stop-monitoring build-docker-nod
 
 # Stop monitoring containers (Prometheus and Grafana) and cluster
 docker-cluster-stop-monitoring:
-	@cd docker && DOCKER_PLATFORM=$(DOCKER_PLATFORM) USERID=$(shell id -u) GROUPID=$(shell id -g) GOCACHE=$(shell go env GOCACHE) docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down
+	@cd docker && $(CLUSTER_ENV_VARS) docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down
 .PHONY: docker-cluster-stop-monitoring
 
 # Run GIGA EVM integration tests with a GIGA-enabled cluster
@@ -543,7 +549,7 @@ docker-cluster-start-giga-mixed: docker-cluster-stop build-docker-node
 		else \
 			DETACH_FLAG=""; \
 		fi; \
-		DOCKER_PLATFORM=$(DOCKER_PLATFORM) USERID=$(shell id -u) GROUPID=$(shell id -g) GOCACHE=$(shell go env GOCACHE) NUM_ACCOUNTS=10 INVARIANT_CHECK_INTERVAL=${INVARIANT_CHECK_INTERVAL} UPGRADE_VERSION_LIST=${UPGRADE_VERSION_LIST} MOCK_BALANCES=${MOCK_BALANCES} GIGA_EXECUTOR=${GIGA_EXECUTOR} GIGA_OCC=${GIGA_OCC} RECEIPT_BACKEND=${RECEIPT_BACKEND} AUTOBAHN=${AUTOBAHN} GIGA_STORAGE=${GIGA_STORAGE} \
+		$(CLUSTER_ENV_VARS) \
 		docker compose -f docker-compose.yml -f docker-compose.giga-mixed.yml up $$DETACH_FLAG
 .PHONY: docker-cluster-start-giga-mixed
 

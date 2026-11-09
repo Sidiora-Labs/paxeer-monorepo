@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 import re
 import runpy
+import shlex
+from string import Template
 import subprocess
 
 import pytest
@@ -16,6 +18,8 @@ COMPOSE_FILES = (
     "services/explorer/deploy/docker-compose.local.yml",
     "tools/ops/monitoring/docker-compose.yml",
 )
+NODE_REPOSITORY = "ghcr.io/sidiora-labs/localnode"
+WEBSEARCH_REPOSITORY = "ghcr.io/sidiora-labs/x-websearch"
 
 
 def workflow(name):
@@ -124,6 +128,254 @@ def test_no_old_repository_name_in_workflows():
             text = go_import.sub("", text)
         assert "paxeer-x-network" not in text.lower(), relative
         assert "ghcr.io/paxeer-network/" not in text.lower(), relative
+
+
+def image_environment(tmp_path):
+    environment = dict(os.environ)
+    for name in (
+        "LOCALNODE_IMAGE_TAG",
+        "X_WEBSEARCH_IMAGE_TAG",
+        "MAKEFLAGS",
+        "MFLAGS",
+        "COMPOSE_FILE",
+        "COMPOSE_ENV_FILES",
+    ):
+        environment.pop(name, None)
+    environment.update(
+        PROJECT_HOME=str(ROOT),
+        GO_PKG_PATH=str(tmp_path / "go"),
+        GOCACHE=str(tmp_path / "gocache"),
+        X_WEBSEARCH_HOME=str(tmp_path / "websearch"),
+        USERID=str(os.getuid()),
+        GROUPID=str(os.getgid()),
+        GRAFANA_ADMIN_PASSWORD_FILE=str(tmp_path / "grafana-password"),
+    )
+    return environment
+
+
+def make_commands(target, environment, overrides=()):
+    # Only print the real callers and producers, including stop prerequisites.
+    result = subprocess.run(
+        [
+            "make", "--no-print-directory", "--dry-run", "-f", "chain.mk",
+            target, *overrides,
+        ],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return [
+        shlex.split(line)
+        for line in result.stdout.replace("\\\n", " ").splitlines()
+        if line.strip()
+    ]
+
+
+def build_alias(commands):
+    builds = [command for command in commands if command[:2] == ["docker", "build"]]
+    assert len(builds) == 1, commands
+    tags = [
+        builds[0][index + 1]
+        for index, token in enumerate(builds[0])
+        if token == "--tag"
+    ]
+    assert "pax-chain/localnode" in tags
+    aliases = [tag for tag in tags if tag.startswith(NODE_REPOSITORY + ":")]
+    assert len(aliases) == 1, tags
+    assert builds[0][builds[0].index("-f") + 1] == "docker/localnode/Dockerfile"
+    return aliases[0]
+
+
+def ci_image_contract(run_id):
+    integration = workflow("paxeer-integration-test.yml")
+    registry = runpy.run_path(str(WORKFLOWS / "scripts/integration_registry.py"))
+    config = registry["registry_config"]()
+    assert config["packages"]["localnode"] == "pax-chain-integration-test-localnode"
+    environment = registry["image_environment"](
+        config, "Sidiora-Labs/paxeer-monorepo", run_id
+    )
+    tag = integration["env"]["LOCALNODE_IMAGE_TAG"].replace(
+        "${{ github.run_id }}", str(run_id)
+    )
+    assert tag == f"ci-{run_id}"
+    environment["LOCALNODE_IMAGE_TAG"] = tag
+    steps = integration["jobs"]["integration-tests"]["steps"]
+    load = next(
+        step
+        for step in steps
+        if step.get("name") == "Load prebuilt paxd and pull Docker images"
+    )
+    commands = [
+        shlex.split(Template(line).substitute(environment))
+        for line in load["run"].splitlines()
+    ]
+    source = environment["GHCR_LOCALNODE_RUN_IMAGE"]
+    aliases = [
+        command[3]
+        for command in commands
+        if command[:3] == ["docker", "tag", source]
+        and command[3].startswith(NODE_REPOSITORY + ":")
+    ]
+    assert len(aliases) == 1, commands
+    alias = aliases[0]
+    assert alias == f"{NODE_REPOSITORY}:{tag}"
+    assert commands.index(["docker", "pull", source]) < commands.index(
+        ["docker", "tag", source, alias]
+    )
+    assert ["docker", "tag", source, "pax-chain/localnode"] in commands
+    assert ["docker", "pull", environment["GHCR_RPCNODE_RUN_IMAGE"]] in commands
+    assert ["docker", "tag", environment["GHCR_RPCNODE_RUN_IMAGE"], "pax-chain/rpcnode"] in commands
+    start = next(
+        step for step in steps
+        if step.get("name") == "Start 4 node docker cluster"
+    )
+    assert steps.index(load) < steps.index(start)
+    assert "make -f chain.mk docker-cluster-start-ci" in start["run"]
+    prepare = integration["jobs"]["prepare-cluster"]["steps"]
+    build = next(
+        step for step in prepare
+        if step.get("name") == "Build localnode image (cached)"
+    )
+    tags = build["with"]["tags"].replace(
+        "${{ env.LOCALNODE_IMAGE_TAG }}", tag
+    ).splitlines()
+    assert "pax-chain/localnode" in tags
+    assert alias in tags
+    return environment, alias
+
+
+def test_cluster_image_identity_contract(tmp_path):
+    environment = image_environment(tmp_path)
+    revision = subprocess.check_output(
+        ["git", "log", "-1", "--format=%H"], cwd=ROOT, text=True
+    ).strip()
+    alias = build_alias(make_commands("build-docker-node", environment))
+    assert alias == f"{NODE_REPOSITORY}:local-{revision}"
+    websearch = yaml.safe_load((ROOT / "docker/docker-compose.yml").read_text())["services"]["x-websearch"]
+    assert websearch["build"] == {
+        "context": "..",
+        "dockerfile": "docker/x-websearch/Dockerfile",
+    }
+    _, first = ci_image_contract("101")
+    _, second = ci_image_contract("202")
+    assert first != second
+
+
+@pytest.mark.parametrize(
+    "target,overlay,run_id,overrides",
+    [
+        ("docker-cluster-start", None, None, ()),
+        ("docker-cluster-start-skipbuild", None, None, ()),
+        ("docker-cluster-start-ci", None, "101", ()),
+        ("docker-cluster-start-ci", None, "202", ()),
+        ("docker-cluster-start-monitoring", "monitoring", None, ()),
+        ("docker-cluster-start-giga-mixed", "giga-mixed", None, ()),
+        ("docker-cluster-stop", None, None, ()),
+        ("docker-cluster-stop-monitoring", "monitoring", None, ()),
+        (
+            "docker-cluster-start",
+            None,
+            None,
+            (
+                "LOCALNODE_IMAGE_TAG=local-experiment",
+                "X_WEBSEARCH_IMAGE_TAG=search-experiment",
+            ),
+        ),
+    ],
+)
+def test_compose_image_identity_contract(tmp_path, target, overlay, run_id, overrides):
+    environment = image_environment(tmp_path)
+    assert "LOCALNODE_IMAGE_TAG" not in environment
+    assert "X_WEBSEARCH_IMAGE_TAG" not in environment
+    if run_id:
+        ci_environment, expected_node = ci_image_contract(run_id)
+        environment.update(ci_environment)
+    else:
+        expected_node = build_alias(
+            make_commands("build-docker-node", environment, overrides)
+        )
+    revision = subprocess.check_output(
+        ["git", "log", "-1", "--format=%H"], cwd=ROOT, text=True
+    ).strip()
+    expected_websearch = f"{WEBSEARCH_REPOSITORY}:local-{revision}"
+    if overrides:
+        expected_websearch = f"{WEBSEARCH_REPOSITORY}:search-experiment"
+    commands = make_commands(target, environment, overrides)
+    callers = []
+    for command in commands:
+        for index in range(len(command) - 1):
+            if command[index : index + 2] != ["docker", "compose"]:
+                continue
+            assignments = {}
+            cursor = index - 1
+            while cursor >= 0 and re.match(r"[A-Z_][A-Z0-9_]*=", command[cursor]):
+                name, value = command[cursor].split("=", 1)
+                assignments[name] = value
+                cursor -= 1
+            assert assignments["LOCALNODE_IMAGE_TAG"] == expected_node.split(":")[-1]
+            assert assignments["X_WEBSEARCH_IMAGE_TAG"] == expected_websearch.split(":")[-1]
+            action = next(
+                token for token in command[index + 2 :] if token in {"up", "down"}
+            )
+            options = command[index + 2 : command.index(action, index + 2)]
+            callers.append((action, options))
+            # Run the real Compose executable in config-only mode for every service.
+            # Per-service rendering also proves all four nodes, even if --images
+            # deduplicates identical references in a full-project listing.
+            for service, expected in [
+                *[(f"node{node}", expected_node) for node in range(4)],
+                ("x-websearch", expected_websearch),
+            ]:
+                result = subprocess.run(
+                    ["docker", "compose", *options, "config", "--images", service],
+                    cwd=ROOT / "docker",
+                    env={**environment, **assignments},
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                assert result.returncode == 0, result.stderr
+                assert result.stdout.splitlines() == [expected], (
+                    target, service, result.stdout
+                )
+    if "start" in target:
+        assert [action for action, _ in callers] == ["down", "up"]
+        if not run_id:
+            assert build_alias(commands) == expected_node
+    else:
+        assert [action for action, _ in callers] == ["down"]
+    if overlay:
+        assert callers[-1][1] == [
+            "-f", "docker-compose.yml", "-f", f"docker-compose.{overlay}.yml"
+        ]
+
+
+@pytest.mark.parametrize("missing", ["LOCALNODE_IMAGE_TAG", "X_WEBSEARCH_IMAGE_TAG"])
+@pytest.mark.parametrize("value", [None, ""])
+def test_direct_compose_requires_nonempty_image_tags(tmp_path, missing, value):
+    environment = image_environment(tmp_path)
+    environment.update(
+        LOCALNODE_IMAGE_TAG="local-explicit",
+        X_WEBSEARCH_IMAGE_TAG="search-explicit",
+    )
+    if value is None:
+        environment.pop(missing)
+    else:
+        environment[missing] = value
+    result = subprocess.run(
+        ["docker", "compose", "-f", "docker-compose.yml", "config", "--images"],
+        cwd=ROOT / "docker",
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode != 0
+    assert missing in result.stderr
+    assert "required variable" in result.stderr
 
 
 @pytest.mark.parametrize("relative", COMPOSE_FILES)
