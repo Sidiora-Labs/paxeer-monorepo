@@ -160047,7 +160047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1826.1]
 title = "Issue #1826: Export the install-status error constructor through the public SDK entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
