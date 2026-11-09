@@ -97,7 +97,7 @@ export async function openRpcTranscript(history = false) {
   const receiptStorageSnapshots: string[][] = [];
   const writes: Array<{ from: Address; to: Address; data: Hex }> = [];
   const orderRecords = new Map<bigint, OrderTranscript>();
-  const transactions = new Map<Hex, { from: Address; to: Address; data: Hex }>();
+  const transactions = new Map<Hex, { from: Address; to: Address; data: Hex; chainId: number }>();
   const receipts = new Map<Hex, Record<string, unknown>>();
   const logs: Array<Record<string, unknown>> = [];
   const ranges: Array<{ from: bigint; to: bigint; topics: unknown }> = [];
@@ -106,7 +106,30 @@ export async function openRpcTranscript(history = false) {
     corruptSettlement: false,
     noncanonical: false,
     receiptReads: 0,
+    sendRequests: 0,
+    chainId: 125,
+    account: owner as Address,
+    walletOutcome: 'accept' as
+      | 'accept'
+      | 'reject'
+      | 'invalid'
+      | 'unknown'
+      | 'timeout'
+      | 'lost-hash',
   };
+  let signing: { entered: () => void; wait: Promise<void> } | undefined;
+  function pauseSignature() {
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    signing = { entered, wait };
+    return { entered: started, release };
+  }
   function log(
     abi: Abi,
     eventName: string,
@@ -242,8 +265,14 @@ export async function openRpcTranscript(history = false) {
         response.setHeader('Content-Type', 'application/json');
         response.end(JSON.stringify({ jsonrpc: '2.0', id: input.id, result }));
       };
-      if (input.method === 'eth_chainId') return send('0x7d');
-      if (input.method === 'eth_accounts') return send([owner]);
+      const reject = (code: number, message: string) => {
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({ jsonrpc: '2.0', id: input.id, error: { code, message } }));
+      };
+      if (input.method === 'eth_chainId') return send(numberToHex(control.chainId));
+      if (input.method === 'eth_accounts') return send([control.account]);
+      if (input.method === 'wallet_sendTransaction')
+        return reject(-32601, 'Wallet namespace not supported');
       if (input.method === 'eth_getCode') return send(code);
       if (input.method === 'eth_blockNumber') return send(numberToHex(head));
       if (input.method === 'eth_getBlockByNumber') {
@@ -280,6 +309,7 @@ export async function openRpcTranscript(history = false) {
           from: tx.from,
           to: tx.to,
           input: tx.data,
+          chainId: numberToHex(tx.chainId),
           blockNumber: numberToHex(head),
           blockHash: blockHash(head),
           transactionIndex: '0x0',
@@ -402,10 +432,24 @@ export async function openRpcTranscript(history = false) {
         }
       }
       if (input.method === 'eth_sendTransaction') {
+        control.sendRequests++;
+        if (signing) {
+          const paused = signing;
+          signing = undefined;
+          paused.entered();
+          await paused.wait;
+        }
+        if (control.walletOutcome === 'reject')
+          return reject(4001, 'Signature rejected by wallet user');
+        if (control.walletOutcome === 'invalid')
+          return reject(-32602, 'Invalid transaction parameters; transaction not accepted');
+        if (control.walletOutcome === 'unknown')
+          return reject(-32603, 'Wallet submission outcome unknown');
+        if (control.walletOutcome === 'timeout') return;
         const tx = params[0] as { from: Address; to: Address; data: Hex };
         writes.push(tx);
         const hash = txHash(writes.length);
-        transactions.set(hash, tx);
+        transactions.set(hash, { ...tx, chainId: 125 });
         let event: Record<string, unknown>;
         if (tx.to.toLowerCase() === orders) {
           const decoded = decodeFunctionData({ abi: advancedOrdersAbi, data: tx.data });
@@ -476,6 +520,10 @@ export async function openRpcTranscript(history = false) {
         }
         logs.push(event);
         receipts.set(hash, receipt(hash, tx.to, head, [event]));
+        if (control.walletOutcome === 'lost-hash') {
+          request.socket.destroy();
+          return;
+        }
         return send(hash);
       }
       throw new Error(`Unrecorded RPC: ${input.method}`);
@@ -538,6 +586,8 @@ export async function openRpcTranscript(history = false) {
     storage,
     values,
     writes,
+    transactions,
+    pauseSignature,
     ranges,
     control,
     receipts,

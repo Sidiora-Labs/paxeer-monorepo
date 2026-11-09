@@ -326,27 +326,49 @@ func TestABISelectorsGasAndEvent(t *testing.T) {
 	h := newHarness(t, 5)
 	require.Equal(t, ethcommon.HexToAddress("0x0000000000000000000000000000000000000907"), h.precompile.Address())
 	a := h.precompile.GetABI()
-	require.Len(t, a.Methods, 4)
+	require.Len(t, a.Methods, 6)
+	executor := &teeattestor.PrecompileExecutor{}
+	type outputField struct {
+		name, kind string
+	}
 	for _, row := range []struct {
-		name, signature, selector string
-		base                      uint64
+		name, signature, selector, mutability string
+		base, perByte                         uint64
+		outputs                               []outputField
 	}{
-		{"verify", "verify(uint8,bytes)", "5fa55ca7", 46000},
-		{"verifyAndExpect", "verifyAndExpect(uint8,bytes,bytes32)", "71ded4b3", 46000},
-		{"rootOf", "rootOf(uint8,uint256)", "01ec24b8", 1000},
-		{"rootCount", "rootCount(uint8)", "26f02502", 1000},
+		{"verify", "verify(uint8,bytes)", "5fa55ca7", "view", 46000, 3,
+			[]outputField{{"att", "(uint8,bytes32,bytes32,uint64,bool)"}}},
+		{"verifyAndExpect", "verifyAndExpect(uint8,bytes,bytes32)", "71ded4b3", "view", 46000, 3,
+			[]outputField{{"att", "(uint8,bytes32,bytes32,uint64,bool)"}}},
+		{"rootOf", "rootOf(uint8,uint256)", "01ec24b8", "view", 1000, 3,
+			[]outputField{{"root", "bytes"}}},
+		{"rootCount", "rootCount(uint8)", "26f02502", "view", 1000, 3,
+			[]outputField{{"count", "uint256"}}},
+		{"bindPeer", "bindPeer(uint8,bytes,bytes32,bytes32,bytes32)", "c7c179e5", "nonpayable", 106000, 30,
+			[]outputField{{"bound", "bool"}}},
+		{"peerBinding", "peerBinding(bytes32)", "c3c05f2e", "view", 1000, 3,
+			[]outputField{{"family", "uint8"}, {"modelDigest", "bytes32"}, {"runtimeDigest", "bytes32"}, {"blockHeight", "uint64"}}},
 	} {
+		require.Contains(t, a.Methods, row.name)
 		method := a.Methods[row.name]
 		require.Equal(t, row.signature, method.Sig)
 		require.Equal(t, row.selector, hex.EncodeToString(method.ID))
 		require.Equal(t, crypto.Keccak256([]byte(row.signature))[:4], method.ID)
-		require.Equal(t, "view", method.StateMutability)
-		require.Len(t, method.Outputs, 1)
+		require.Equal(t, row.mutability, method.StateMutability)
+		require.Len(t, method.Outputs, len(row.outputs))
+		for i, output := range row.outputs {
+			require.Equal(t, output.name, method.Outputs[i].Name)
+			require.Equal(t, output.kind, method.Outputs[i].Type.String())
+		}
 		for _, size := range []int{4, 36, 260, 1024} {
 			input := make([]byte, size)
 			copy(input, method.ID)
-			require.Equal(t, row.base+3*uint64(size), h.precompile.RequiredGas(input))
-			require.Equal(t, row.base+3*uint64(size), h.precompile.GetExecutor().RequiredGas(input[4:], &method))
+			require.Equal(t, row.base+row.perByte*uint64(size), h.precompile.RequiredGas(input))
+			require.Equal(t, row.base+row.perByte*uint64(size), executor.RequiredGas(input[4:], &method))
+			switch row.name {
+			case "verify", "verifyAndExpect", "rootOf", "rootCount":
+				require.Equal(t, row.base+3*uint64(size), h.precompile.GetExecutor().RequiredGas(input[4:], &method))
+			}
 		}
 		resolved, err := h.precompile.MethodById(method.ID)
 		require.NoError(t, err)
@@ -357,13 +379,15 @@ func TestABISelectorsGasAndEvent(t *testing.T) {
 		require.Equal(t, "att", output.Name)
 		require.Equal(t, uint8(abi.TupleTy), output.Type.T)
 		require.Equal(t, []string{"family", "mrtd", "reportData", "timestamp", "debug"}, output.Type.TupleRawNames)
+		require.Len(t, output.Type.TupleElems, 5)
 		for i, kind := range []string{"uint8", "bytes32", "bytes32", "uint64", "bool"} {
 			require.Equal(t, kind, output.Type.TupleElems[i].String())
 		}
 	}
 	require.Equal(t, "bytes", a.Methods["rootOf"].Outputs[0].Type.String())
 	require.Equal(t, "uint256", a.Methods["rootCount"].Outputs[0].Type.String())
-	require.Len(t, a.Events, 1)
+	require.Len(t, a.Events, 2)
+	require.Contains(t, a.Events, "AttestationVerified")
 	event := a.Events["AttestationVerified"]
 	signature := "AttestationVerified(uint8,bytes32,bytes32,uint64,bool)"
 	require.Equal(t, signature, event.Sig)
@@ -377,6 +401,24 @@ func TestABISelectorsGasAndEvent(t *testing.T) {
 	}{
 		{"family", "uint8", true}, {"mrtd", "bytes32", true}, {"reportData", "bytes32", false},
 		{"timestamp", "uint64", false}, {"debug", "bool", false},
+	} {
+		require.Equal(t, field.name, event.Inputs[i].Name)
+		require.Equal(t, field.kind, event.Inputs[i].Type.String())
+		require.Equal(t, field.indexed, event.Inputs[i].Indexed)
+	}
+	require.Contains(t, a.Events, "PeerAttestationBound")
+	event = a.Events["PeerAttestationBound"]
+	signature = "PeerAttestationBound(bytes32,uint8,bytes32,bytes32)"
+	require.Equal(t, signature, event.Sig)
+	require.Equal(t, crypto.Keccak256Hash([]byte(signature)), event.ID)
+	require.False(t, event.Anonymous)
+	require.Len(t, event.Inputs, 4)
+	for i, field := range []struct {
+		name, kind string
+		indexed    bool
+	}{
+		{"peerKey", "bytes32", true}, {"family", "uint8", false},
+		{"modelDigest", "bytes32", false}, {"runtimeDigest", "bytes32", false},
 	} {
 		require.Equal(t, field.name, event.Inputs[i].Name)
 		require.Equal(t, field.kind, event.Inputs[i].Type.String())

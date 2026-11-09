@@ -2241,6 +2241,8 @@ No interface block names this anchor; the citing criteria and rules below define
 
 ## ci-formats
 
+Issue-template correction (#1783): the ci-formats inventory is reconciled from `spec/layerx-merge/interfaces.kvx` (SHA-256: `97158c20c5e93ce3fa2896d2453ce3169aa6980f32b63fcc4a70d15e9c56f898`), retaining five issue templates among 14 file-format interfaces.
+
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
 | <code>interface.16.fmt-gh-actionlint-yaml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/actionlint.yaml:1</code> | <code>.github/actionlint.yaml: self-hosted-runner:</code> |
@@ -2249,12 +2251,9 @@ No interface block names this anchor; the citing criteria and rules below define
 | <code>interface.16.fmt-gh-codeowners</code> | <code>file_format</code> | <code>stable</code> | <code>.github/CODEOWNERS:1</code> | <code>.github/CODEOWNERS: path ownership table</code> |
 | <code>interface.16.fmt-gh-codeql-codeql-config-yml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/codeql/codeql-config.yml:1</code> | <code>.github/codeql/codeql-config.yml: name: Paxeer X Network CodeQL config</code> |
 | <code>interface.16.fmt-gh-dependabot-yml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/dependabot.yml:1</code> | <code>.github/dependabot.yml: version: 2</code> |
-| <code>interface.16.fmt-gh-issue-template-bug-report-md</code> | <code>file_format</code> | <code>stable</code> | <code>.github/ISSUE_TEMPLATE/bug_report.md:1</code> | <code>.github/ISSUE_TEMPLATE/bug_report.md: ---</code> |
 | <code>interface.16.fmt-gh-issue-template-bug-yml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/ISSUE_TEMPLATE/bug.yml:1</code> | <code>.github/ISSUE_TEMPLATE/bug.yml: name: LayerX Network bug report</code> |
 | <code>interface.16.fmt-gh-issue-template-config-yml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/ISSUE_TEMPLATE/config.yml:1</code> | <code>.github/ISSUE_TEMPLATE/config.yml: blank_issues_enabled: false</code> |
-| <code>interface.16.fmt-gh-issue-template-enahancement-yml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/ISSUE_TEMPLATE/enahancement.yml:1</code> | <code>.github/ISSUE_TEMPLATE/enahancement.yml: name: Enhancement</code> |
 | <code>interface.16.fmt-gh-issue-template-feature-yml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/ISSUE_TEMPLATE/feature.yml:1</code> | <code>.github/ISSUE_TEMPLATE/feature.yml: name: LayerX Network feature request</code> |
-| <code>interface.16.fmt-gh-issue-template-general-issue-md</code> | <code>file_format</code> | <code>stable</code> | <code>.github/ISSUE_TEMPLATE/general_issue.md:1</code> | <code>.github/ISSUE_TEMPLATE/general_issue.md: ---</code> |
 | <code>interface.16.fmt-gh-issue-template-question-yml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/ISSUE_TEMPLATE/question.yml:1</code> | <code>.github/ISSUE_TEMPLATE/question.yml: name: LayerX Network question</code> |
 | <code>interface.16.fmt-gh-issue-template-security-md</code> | <code>file_format</code> | <code>stable</code> | <code>.github/ISSUE_TEMPLATE/security.md:1</code> | <code>.github/ISSUE_TEMPLATE/security.md: ---</code> |
 | <code>interface.16.fmt-gh-labeler-yml</code> | <code>file_format</code> | <code>stable</code> | <code>.github/labeler.yml:1</code> | <code>.github/labeler.yml: area:protocol:</code> |
@@ -2270,12 +2269,9 @@ No interface block names this anchor; the citing criteria and rules below define
 | <code>interface.16.fmt-gh-codeql-codeql-config-yml</code> | notes | Code scanning config used by .github/workflows/codeql.yml. References paths missing at HEAD: services/explorer/backend/deps, services/explorer/backend/_build. |
 | <code>interface.16.fmt-gh-codeql-codeql-config-yml</code> | overridden_by | override.J58.55 |
 | <code>interface.16.fmt-gh-dependabot-yml</code> | notes | Dependency update config. |
-| <code>interface.16.fmt-gh-issue-template-bug-report-md</code> | notes | Issue form or template. |
 | <code>interface.16.fmt-gh-issue-template-bug-yml</code> | notes | Issue form or template. |
 | <code>interface.16.fmt-gh-issue-template-config-yml</code> | notes | Issue form or template. |
-| <code>interface.16.fmt-gh-issue-template-enahancement-yml</code> | notes | Issue form or template. |
 | <code>interface.16.fmt-gh-issue-template-feature-yml</code> | notes | Issue form or template. |
-| <code>interface.16.fmt-gh-issue-template-general-issue-md</code> | notes | Issue form or template. |
 | <code>interface.16.fmt-gh-issue-template-question-yml</code> | notes | Issue form or template. |
 | <code>interface.16.fmt-gh-issue-template-security-md</code> | notes | Issue form or template. |
 | <code>interface.16.fmt-gh-labeler-yml</code> | notes | Path-to-label rules applied by .github/workflows/labeler.yml. |

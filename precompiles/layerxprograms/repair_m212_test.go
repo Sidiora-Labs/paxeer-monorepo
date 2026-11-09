@@ -26,9 +26,11 @@ import (
 
 func repairM212Merge(t *testing.T, h *harness) *app.PrecompileKeepers {
 	t.Helper()
-	application := *testkeeper.EVMTestApp
+	application := testkeeper.EVMTestApp
+	previousHost := application.LayerXHost
+	defer func() { application.LayerXHost = previousHost }()
 	application.LayerXHost = h.host
-	keepers := app.NewPrecompileKeepers(&application)
+	keepers := app.NewPrecompileKeepers(application)
 	var contract lp.HostKeepers = keepers
 	require.Same(t, h.host, contract.LayerXHost())
 	require.Same(t, &application.XWebKeeper, contract.XWebK())
@@ -158,10 +160,15 @@ func TestRepairM_212_RetiredCustodyWiring(t *testing.T) {
 	keepers := repairM212Merge(t, h)
 	// This adapter has no custody keeper at all; the constructor and transfer
 	// resolve the real registered host asset to its native bank mirror denom.
-	application := *testkeeper.EVMTestApp
+	application := testkeeper.EVMTestApp
+	previousHost, previousCustody := application.LayerXHost, application.LayerXCustodyKeeper
+	defer func() {
+		application.LayerXHost = previousHost
+		application.LayerXCustodyKeeper = previousCustody
+	}()
 	application.LayerXHost = h.host
 	application.LayerXCustodyKeeper = nil
-	keepers = app.NewPrecompileKeepers(&application)
+	keepers = app.NewPrecompileKeepers(application)
 	merged, err := lp.NewMergePrecompile(keepers, precompiles.MergeUpgrade)
 	require.NoError(t, err)
 	h.precompile = merged.(*pcommon.Precompile)

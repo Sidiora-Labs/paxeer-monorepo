@@ -38,6 +38,7 @@
     "test:vitest:ci": "vitest run",
     "test:telemetry": "vitest run instrumentation.node.spec.ts repair-22-33-423.spec.ts",
     "test:archive-receipts": "vitest run types/api/repair-22-33-517.spec.ts",
+    "test:fetch-boundary": "vitest run nextjs/utils/repair-22-33-543.spec.ts repair-22-31-512.spec.ts",
     "favicon:generate:dev": "./tools/scripts/favicon-generator.dev.sh",
     "og-image:generate:dev": "./tools/scripts/og-image-generator.dev.sh",
     "sitemap:generate:dev": "./tools/scripts/sitemap-generator.dev.sh",

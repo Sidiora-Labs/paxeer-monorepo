@@ -313192,7 +313192,7 @@ signature = "func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context,
 callers = ["services/agent/crates/layerx-client/src/sequencer.rs:5", "services/agent/crates/layerx-client/tests/sequencer.rs:176", "services/agent/crates/layerx-proof/src/sequencer_logs.rs:111", "services/agent/sdk/python/layerx_sdk/x402_rpc.py:195", "services/agent/sdk/typescript/src/ai_market.ts:3092", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex:6", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs:42", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:150", "services/interop/crates/layerx-gas-station/src/rate.rs:530", "services/interop/crates/layerx-gas-station/src/rpc.rs:78", "services/interop/crates/layerx-gas-station/tests/rate.rs:323", "services/interop/crates/layerx-gas-station/tests/service.rs:168", "services/interop/crates/layerx-gas-station/tests/station.rs:259", "services/platform/hosted/ai-evaluator/src/main.rs:1050", "services/platform/hosted/gateway/src/main.rs:4523", "services/platform/hosted/testnet/tests/wallet-receipt-journey.py:66", "tools/qualification/paxeer-x/paid-web-contract.py:836", "tools/qualification/paxeer-x/router-authority-schema.py:13", "tools/qualification/paxeer-x/wallet-402-caps.py:663"]
 status = "stable"
 contract = "contracts/evm-rpc.md#pax-sequencerreceipt"
-notes = "pax_sequencerReceipt; HTTP only; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 \"served by sequencer\" (rpc/sequencer_receipt.go:49, :99)"
+notes = "pax_sequencerReceipt; HTTP and WebSocket; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 \"served by sequencer\" (rpc/sequencer_receipt.go:49, :99)"
 
 [interface.7.rpc-pax-setreceiptlogfeed]
 kind = "jsonrpc_method"
@@ -760704,16 +760704,6 @@ status = "stable"
 contract = "contracts/operations.md#ci-formats"
 notes = "Dependency update config."
 
-[interface.16.fmt-gh-issue-template-bug-report-md]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/bug_report.md"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/bug_report.md: ---"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
 [interface.16.fmt-gh-issue-template-bug-yml]
 kind = "file_format"
 path = ".github/ISSUE_TEMPLATE/bug.yml"
@@ -760734,31 +760724,11 @@ status = "stable"
 contract = "contracts/operations.md#ci-formats"
 notes = "Issue form or template."
 
-[interface.16.fmt-gh-issue-template-enahancement-yml]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/enahancement.yml"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/enahancement.yml: name: Enhancement"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
 [interface.16.fmt-gh-issue-template-feature-yml]
 kind = "file_format"
 path = ".github/ISSUE_TEMPLATE/feature.yml"
 line = 1
 signature = ".github/ISSUE_TEMPLATE/feature.yml: name: LayerX Network feature request"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
-[interface.16.fmt-gh-issue-template-general-issue-md]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/general_issue.md"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/general_issue.md: ---"
 callers = []
 status = "stable"
 contract = "contracts/operations.md#ci-formats"
