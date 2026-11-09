@@ -1,0 +1,48 @@
+[issue.1597]
+number = 1597
+title = "[Coherence] The stale pending-policy finding for rpc/AGENTS.md points at the uncle rule instead of the pending rule"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.52.kvx:1543 still assigns line 7 to the Pending finding and :1860 repeats that attribution although its pinned revision at :5, commit 6d2c32a65a1c7989a6a37abf5965929de9769ae4, places Pending on line 6 and No Uncle on line 7; documentation rewrite d5cd06f85e505b95e5a24b4300f14e970058fd6d and repair 032bd6fe981da4abd23cb4e0b887c8c9eaa84271 updated the guidance now at rpc/AGENTS.md:11 and covered it at rpc/repair_m1147_test.go:177 without correcting either audit reference."
+close_comment = "The audit record still misidentifies the historical Pending bullet as line 7; the correction should identify line 6 at the audit revision in both the finding and its documentation note. Current RPC guidance already documents open/idle pending behavior, so the follow-up is limited to correcting the audit record."
+
+[task.18.1597.1]
+title = "Issue #1597: Correct the historical Pending anchor in the RPC audit record"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181597.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.52.kvx:1543 from line = 7 to line = 6 in finding.rpc-agents-pending-policy-stale and change the matching doc.28 note at :1860 to identify line 6; these are historical anchors against the audit revision 6d2c32a65a1c7989a6a37abf5965929de9769ae4 recorded at :5, not anchors against the rewritten rpc/AGENTS.md. Retain the audit revision, finding text, severity, file counts and other anchors."
+do_2 = "Check that the named Pending finding has line = 6 and that its doc.28 note consistently says line 6; retain the current RPC guidance at rpc/AGENTS.md:11 and the pending consumer coverage at rpc/repair_m1147_test.go:177 without changing RPC behavior or uncle handling."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.52.kvx"]
+tests = ["spec/layerx-merge/programme/audit/records/22.30.52.kvx::pending_policy_anchor"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "awk '/^[[]finding[.]rpc-agents-pending-policy-stale[]]$/ {finding=1; next} finding && /^line = / {ok=($3==6); exit} END {exit !ok}' spec/layerx-merge/programme/audit/records/22.30.52.kvx && grep -Fq 'Read in full: line 6 claims universal pending/latest equivalence' spec/layerx-merge/programme/audit/records/22.30.52.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181597]
+title = "The RPC audit identifies the historical Pending rule accurately"
+ac_1 = "The Pending finding at spec/layerx-merge/programme/audit/records/22.30.52.kvx:1541 and its doc.28 note at :1857 both identify line 6 at the recorded audit revision, rather than the No Uncle rule on line 7; the focused check requires the corrected finding field and matching documentation note."
+
+[acceptance.18.1597.1]
+feature = "18"
+req = "181597.1"
+scenario = "Given the RPC audit record and its pinned source revision, when the Pending finding and its documentation note are read, then both identify the historical Pending bullet on line 6 and do not direct the correction to the No Uncle bullet on line 7."
+contract = "contracts/programme.md#programme-artifacts"
+test = "spec/layerx-merge/programme/audit/records/22.30.52.kvx::pending_policy_anchor (planned)"
+qualification = "UNRUN"

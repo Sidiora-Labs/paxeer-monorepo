@@ -1,0 +1,48 @@
+[issue.1596]
+number = 1596
+title = "[Coherence] The full-commit-header-limit finding cites the wrong line in autobahn.proto for the 100-header cap"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The finding at spec/layerx-merge/programme/audit/records/22.30.47.kvx:672 still cites autobahn.proto:152 and pb/autobahn.wireguard.go:68, but the 100-header declarations are at consensus/internal/autobahn/autobahn.proto:141 and consensus/internal/autobahn/pb/autobahn.wireguard.go:67, while autobahn.proto:152 is TimeoutQC.latest_prepare_qc and the generated file's line 68 closes the rule map; commit c9e6cf37c69a733679999d2b53380667325e815f repaired the runtime limit at consensus/autobahn/types/commit_qc.go:71 and :93 with oversized-certificate assertions at consensus/autobahn/types/repair_92_test.go:371 and :376, but left the citation defect intact."
+close_comment = "The full-commit-header-limit finding needs its references corrected to consensus/internal/autobahn/autobahn.proto:141 and consensus/internal/autobahn/pb/autobahn.wireguard.go:67. The existing 100-header protocol bound and its rejection checks remain in place."
+
+[task.18.1596.1]
+title = "Issue #1596: Correct the FullCommitQC header-limit citations in the audit finding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181596.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct only the header-cap references in the observed field of finding.full-commit-header-limit at spec/layerx-merge/programme/audit/records/22.30.47.kvx:672, replacing autobahn.proto:152 and pb/autobahn.wireguard.go:68 with autobahn.proto:141 and pb/autobahn.wireguard.go:67, which locate the declarations at consensus/internal/autobahn/autobahn.proto:141 and consensus/internal/autobahn/pb/autobahn.wireguard.go:67 at the report revision; preserve the audit's historical revision, observations, severity and repair proposal."
+do_2 = "The focused documentation check requires the corrected citation pair and rejects the old pair in the audit record; the schema bound and runtime behavior remain as defined at consensus/internal/autobahn/autobahn.proto:141 and consensus/autobahn/types/commit_qc.go:71 and :93, with existing oversized-certificate rejection assertions at consensus/autobahn/types/repair_92_test.go:371 and :376."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.47.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'autobahn.proto:141 and pb/autobahn.wireguard.go:67 cap headers at 100.' spec/layerx-merge/programme/audit/records/22.30.47.kvx && ! grep -Fq 'autobahn.proto:152 and pb/autobahn.wireguard.go:68' spec/layerx-merge/programme/audit/records/22.30.47.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181596]
+title = "The FullCommitQC audit finding cites the actual header-cap declarations"
+ac_1 = "The observed field at spec/layerx-merge/programme/audit/records/22.30.47.kvx:672 cites autobahn.proto:141 and pb/autobahn.wireguard.go:67 for the 100-header cap, matching consensus/internal/autobahn/autobahn.proto:141 and consensus/internal/autobahn/pb/autobahn.wireguard.go:67 at the report revision, and no longer contains the old citation pair."
+
+[acceptance.18.1596.1]
+feature = "18"
+req = "181596.1"
+scenario = "Given the full-commit-header-limit audit finding, when its header-cap references are checked, then the references identify the FullCommitQC headers declaration and generated header rule rather than the TimeoutQC field or the closing rule-map brace."
+contract = "contracts/programme.md#decisions"
+test = "grep of spec/layerx-merge/programme/audit/records/22.30.47.kvx for the corrected citation pair and absence of the old pair (planned)"
+qualification = "UNRUN"
