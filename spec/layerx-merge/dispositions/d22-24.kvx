@@ -1,0 +1,527 @@
+# Closure dispositions for the ordered findings in programme/closure/22.39.192.ids.
+# Product evidence is read from main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.22.33.1410.2]
+finding = "22.33.1410.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1413.1]
+finding = "22.33.1413.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1418.1]
+finding = "22.33.1418.1"
+status = "resolved"
+evidence = "On main, services/platform/workspace.kvx:3 declares services/platform as the primary root and the SDK, tools and documentation roots separately, while services/platform/tools/workspace-gate/src/main.rs:5 selects this canonical manifest. Commit 9d985aaf3b reconciled the split layout and retained the missing-path refusals in tests/gate.rs:94."
+
+[disposition.22.33.1418.2]
+finding = "22.33.1418.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1422.1]
+finding = "22.33.1422.1"
+status = "resolved"
+evidence = "On main, modules/layerxauth/types/repair_m1422_test.go:68 compares decoded SDK amounts with IsEqual, and lines 75 and 79 compare input and output coin sets through their own equality methods. Commit 751e6e95c7 retains the stored authorization, balance, rollover and atomic refusal assertions with these typed comparisons."
+
+[disposition.22.33.1423.1]
+finding = "22.33.1423.1"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/repair_m1423_test.go:370 requires LXP_IDEMPOTENT_REPLAY for a reused payExact reference and preserves the host and bank state, then line 373 sends a fresh reference and checks the new balances. Commit da61cc5f62 landed these replay and sequence assertions."
+
+[disposition.22.33.1423.2]
+finding = "22.33.1423.2"
+status = "resolved"
+evidence = "On main, sdk/x/auth/client/cli/tx_sign.go:69 receives both the factory and error from NewFactoryCLI and returns the error before using the factory. Commit d56c2b440d carries this fallible constructor contract through the auth, genutil, staking, evidence, EVM and token-factory CLI callers."
+
+[disposition.22.33.1425.1]
+finding = "22.33.1425.1"
+status = "resolved"
+evidence = "On main, sdk/x/auth/client/cli/tx_sign.go:69 receives both the factory and error from NewFactoryCLI and returns the error before using the factory. Commit d56c2b440d carries this fallible constructor contract through the auth, genutil, staking, evidence, EVM and token-factory CLI callers."
+
+[disposition.22.33.1425.2]
+finding = "22.33.1425.2"
+status = "resolved"
+evidence = "On main, precompiles/layerxagent/oracle/repair_m1425_test.go:356 supplies the block header and hash, then calls SetSealedStateToCommit before Commit at line 358. Commit c50d8e936c landed the reopen proof that checks the persisted commit identity, price, observation sequence and source digest."
+
+[disposition.22.33.1425.3]
+finding = "22.33.1425.3"
+status = "resolved"
+evidence = "On main, precompiles/layerxagent/oracle/repair_m1425_test.go:353 assigns the value returned by block.Header.ToProto through an explicit dereference. Commit c50d8e936c landed the matching header type together with the committed-application reopen proof at line 368."
+
+[disposition.22.33.1426.1]
+finding = "22.33.1426.1"
+status = "resolved"
+evidence = "On main, sdk/x/auth/client/cli/tx_sign.go:69 receives both the factory and error from NewFactoryCLI and returns the error before using the factory. Commit d56c2b440d carries this fallible constructor contract through the auth, genutil, staking, evidence, EVM and token-factory CLI callers."
+
+[disposition.22.33.1436.1]
+finding = "22.33.1436.1"
+status = "resolved"
+evidence = "On main, tools/platform/release/tests/repair_22_33_1436.rs:12 imports the release implementation and line 16 imports the manifest fixture, with archive digest refusal coverage at line 173. Commit 176f00d607 landed this release-artifact proof without a dependency on the separate TLS-boundary binary."
+
+[disposition.22.33.1438.1]
+finding = "22.33.1438.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1438.2]
+finding = "22.33.1438.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1438.3]
+finding = "22.33.1438.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/repair_22_33_1438.kvx:1 records the gateway documentation repair and its node, hosted OpenRPC and authenticated-finality proving cases. Commit ec03220878 supplies the record, and tests/repair_22_33_1438.rs:283 retains the block-commit finality proof."
+
+[disposition.22.33.1439.1]
+finding = "22.33.1439.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_33_1439.rs:402 configures the node RPC pool, and line 524 starts the source session before lines 586 and 589 record its observed and indexed heads. Commit 2243a98786 landed the gateway history and readiness proofs with these live-source prerequisites."
+
+[disposition.22.33.1440.1]
+finding = "22.33.1440.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_33_1440.rs:72 scopes environment access, while the readiness and asset-page proofs at lines 433 and 595 retain their independent assertions. Commit ac3a6069b6 aligned the published decimal schema with the contract checker and kept the dependency recovery and bounded pagination cases."
+
+[disposition.22.33.1444.1]
+finding = "22.33.1444.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/tests/repair_22_33_1444.rs:704 advances limiter admissions past QUERY_IDLE_MS, and line 721 churns principals while line 722 asserts that retained cardinality stays at most two. Commit 0631f61a32 landed this proof alongside the live-quota and CapacityExceeded assertions."
+
+[disposition.22.33.1444.2]
+finding = "22.33.1444.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1445.1]
+finding = "22.33.1445.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1445.2]
+finding = "22.33.1445.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1445.3]
+finding = "22.33.1445.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/src/transport.rs:324 sets each write timeout from the remaining aggregate deadline and rechecks it after each bounded write; line 402 also chunks the request and checks time between writes. Commit 158e0a8714 landed this write-side enforcement and the request_writes_obey_total_deadline proof."
+
+[disposition.22.33.1446.1]
+finding = "22.33.1446.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/src/paxeer.rs:1130 observes Comet readiness separately from EVM progress, returning IndexDisabled only for the explicit disabled-index state at line 1154. Commit 0631f61a32 landed the daemon_step ordering at line 1173 so EVM fallback remains available while Comet stays unready."
+
+[disposition.22.33.1446.2]
+finding = "22.33.1446.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1446.3]
+finding = "22.33.1446.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/tests/support/repair_22_33_1446.rs:1552 opens the store and registers the tenant before starting the Paxeer and Comet sources and calling daemon_step. Commit d9919baccd landed the disabled-index fallback proof with this bootstrap order and its source-order assertions."
+
+[disposition.22.33.1464.1]
+finding = "22.33.1464.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs:201 encodes shared state through encode_shared_state using the production section capacity. Commit b6a28edff2 landed this canonical producer path with the worker admission, retained-job and restart checks at line 1795."
+
+[disposition.22.33.1464.2]
+finding = "22.33.1464.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1465.1]
+finding = "22.33.1465.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxai-worker/tests/support/participant.rs:336 drives the participant TLS path into the same-store chain proof, and line 492 reopens the service before consuming the next observation. Commit 914805aa8c landed the protocol-aligned admission, chain-commit and restart cases."
+
+[disposition.22.33.1465.2]
+finding = "22.33.1465.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1465.3]
+finding = "22.33.1465.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxai-worker/src/discovery.rs:135 splits the joint ReputationAdmission section before decoding AdmissionTable; membership.rs:290 uses the same split for membership verification. Commit 4fb7216d39 landed both consumer changes while preserving authenticated admission checks."
+
+[disposition.22.33.1465.4]
+finding = "22.33.1465.4"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxai-worker/tests/repair_22_33_1465.rs:6 invokes the participant TLS same-store commit and restart proof, and line 11 invokes cancellation across store reopen. Commit 914805aa8c carries both proofs and their shared participant implementation on main."
+
+[disposition.22.33.1476.1]
+finding = "22.33.1476.1"
+status = "environment"
+evidence = "On main, services/platform/middleware/agent/test/repair-22-33-1476.test.mjs:126 checks the verified result from the agent-spend example, then lines 132 through 140 assert that reopening preserves the result with exactly one budget commit and one submission. Commit c378ce64e4 retains this producer-byte and durable-reservation behavior."
+
+[disposition.22.33.1477.1]
+finding = "22.33.1477.1"
+status = "resolved"
+evidence = "On main, services/platform/middleware/buyer/src/index.ts:427 forwards resolveValidators with the resolver contract, and test/repair-22-33-1477.test.mjs:40 requires grant schemes to refuse an authentic exact-payment event. Commit 3a5c15925c landed the typed resolver adapter and the native grant-draw proof."
+
+[disposition.22.33.1478.1]
+finding = "22.33.1478.1"
+status = "environment"
+evidence = "On main, services/platform/middleware/seller/test/repair-22-33-1478.test.mjs:74 requires a successful paid response and line 89 verifies the retained receipt at the committed rung after reopen. Commit c6a356340c retains the seller public exports and durable committed-payment behavior."
+
+[disposition.22.33.1478.2]
+finding = "22.33.1478.2"
+status = "resolved"
+evidence = "On main, services/platform/middleware/seller/test/grant-draw.test.mjs:76 encodes the log fields with the native event widths, and seller/src/index.ts:13 re-exports the ledger helpers. Commit c6a356340c landed the corrected grant-draw payload and public export coverage."
+
+[disposition.22.33.1478.3]
+finding = "22.33.1478.3"
+status = "resolved"
+evidence = "On main, package-lock.json:3038 records the agent-spend workspace with the integrations, middleware and SDK dependencies declared by services/platform/examples/agent-spend/package.json:11. Commit 6d10c58d39 reconciled these dependency declarations while retaining the example entry point."
+
+[disposition.22.33.1478.4]
+finding = "22.33.1478.4"
+status = "resolved"
+evidence = "On main, services/platform/middleware/seller/test/repair-22-33-1478.test.mjs:64 gives SellerMiddleware the authenticated commitment resolver, and lines 97 through 99 require the reopened record to retain the receipt digest and inclusion evidence. Commit c6a356340c landed the full committed-evidence path through the public seller consumer."
+
+[disposition.22.33.1478.5]
+finding = "22.33.1478.5"
+status = "resolved"
+evidence = "On main, services/platform/middleware/seller/test/committed-fixture.mjs:43 verifies the recorded signed receipt against its raw transaction before deriving the authenticated next commit. Commit 74ef78b42b supplied the native EIP-1559 committed recording consumed here, and c6a356340c retained its seller reopen proof."
+
+[disposition.22.33.1478.6]
+finding = "22.33.1478.6"
+status = "resolved"
+evidence = "On main, services/platform/middleware/seller/test/committed-fixture.mjs:27 decodes a null vote signature as empty bytes while preserving BlockIDFlag. Commit b2f3b1adf9 landed this shared decoder, and repair-22-33-1478.test.mjs:28 asserts that decoded vote flags, addresses and signatures match the recording."
+
+[disposition.22.33.1478.7]
+finding = "22.33.1478.7"
+status = "resolved"
+evidence = "On main, services/platform/middleware/seller/src/index.ts:389 carries landing height and block hash by reference in the settlement header and line 473 compares the verifier receipt digest, as landed by c6a356340c. Commit f4a1a45834 also keeps a paid order unchanged on a refused later payment at middleware/merchant/src/index.ts:240."
+
+[disposition.22.33.1478.8]
+finding = "22.33.1478.8"
+status = "resolved"
+evidence = "On main, sdk/integrations/express/src/index.ts:460 uses the verified receipt digest for the receipt-backed response check, as landed by 451e8ff9ed. Commit 797a092bfa makes services/platform/middleware/conformance/src/receipts.ts:208 publish that same digest and reconciles the full RPC receipt response."
+
+[disposition.22.33.1479.1]
+finding = "22.33.1479.1"
+status = "environment"
+evidence = "On main, services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs:49 requires authenticated voting power above two thirds and the correct landing height, then line 64 rejects mutated committed evidence. Commit b32474c131 retains these conformance checks against the repository middleware and SDK."
+
+[disposition.22.33.1479.2]
+finding = "22.33.1479.2"
+status = "environment"
+evidence = "On main, services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs:49 requires authenticated voting power above two thirds and the correct landing height, then line 64 rejects mutated committed evidence. Commit b32474c131 retains these conformance checks against the repository middleware and SDK."
+
+[disposition.22.33.1479.3]
+finding = "22.33.1479.3"
+status = "resolved"
+evidence = "On main, services/platform/middleware/conformance/src/scenarios.ts:383 checks the seller decision kind and line 384 narrows it to released before reading resource and settlement fields. Commit b111eb8217 landed this discriminated-union handling while retaining the payment-required and refusal scenarios."
+
+[disposition.22.33.1480.1]
+finding = "22.33.1480.1"
+status = "environment"
+evidence = "On main, services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs:189 registers the root-node router proof and line 190 registers recovery from the daemon serializer output. Commit ec16ecbbdf retains the separate hosted identity and root RPC contracts with the source-backed conformance service."
+
+[disposition.22.33.1480.2]
+finding = "22.33.1480.2"
+status = "resolved"
+evidence = "On main, services/platform/middleware/agent/src/daemon.ts:222 resolves a signed daemon receipt against its exact raw transaction and governed keys before returning portable evidence. Commit ec16ecbbdf landed this resume path, with conformance/test/repair-22-33-1480.test.mjs:172 requiring the reopened reservation to become committed exactly once."
+
+[disposition.22.33.1480.3]
+finding = "22.33.1480.3"
+status = "resolved"
+evidence = "On main, package-lock.json:3038 records the agent-spend workspace with the integrations, middleware and SDK dependencies declared by services/platform/examples/agent-spend/package.json:11. Commit 6d10c58d39 reconciled these dependency declarations while retaining the example entry point."
+
+[disposition.22.33.1481.1]
+finding = "22.33.1481.1"
+status = "resolved"
+evidence = "On main, services/platform/middleware/seller/src/commitment.ts:19 carries the SDK committed-receipt inclusion through its typed evidence interface, and seller/test/committed-fixture.mjs:43 verifies the raw transaction and receipt together. Commit 0c87b70fab landed the widened inclusion contract across seller and agent middleware."
+
+[disposition.22.33.1481.2]
+finding = "22.33.1481.2"
+status = "resolved"
+evidence = "On main, services/platform/middleware/buyer/src/index.ts:427 adapts resolveValidators through the configured commitment resolver and preserves its network and height inputs. Commit 3a5c15925c landed the adapter with the buyer grant-draw and public export proofs."
+
+[disposition.22.33.1481.3]
+finding = "22.33.1481.3"
+status = "resolved"
+evidence = "On main, services/platform/middleware/conformance/src/scenarios.ts:383 checks the seller decision kind and line 384 narrows it to released before reading resource and settlement fields. Commit b111eb8217 landed this discriminated-union handling while retaining the payment-required and refusal scenarios."
+
+[disposition.22.33.1481.4]
+finding = "22.33.1481.4"
+status = "resolved"
+evidence = "On main, services/platform/middleware/conformance/src/scenarios.ts:383 checks the seller decision kind and line 384 narrows it to released before reading resource and settlement fields. Commit b111eb8217 landed this discriminated-union handling while retaining the payment-required and refusal scenarios."
+
+[disposition.22.33.1483.1]
+finding = "22.33.1483.1"
+status = "environment"
+evidence = "On main, services/platform/perps-data/internal/source/repair_m1483_test.go:192 checks startup and source-health transitions, while line 294 retains follower recovery through the production store. Commit fe51a0c007 retains the PostgreSQL-backed source and its credential-redaction and recovery behavior."
+
+[disposition.22.33.1483.2]
+finding = "22.33.1483.2"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/migrations/0016_spot_board_omissions.sql:3 creates the account-keyed omission table with its address-length constraint, and line 8 creates the singleton generation table with a nonnegative omission count. Commit cdb6399b59 landed this production migration."
+
+[disposition.22.33.1484.1]
+finding = "22.33.1484.1"
+status = "environment"
+evidence = "On main, services/platform/perps-data/internal/publish/repair_m1484_test.go:23 opens the production store and line 33 applies its migrations before exercising the delivery outbox and JetStream envelope boundary. Commit 66b36e8c43 also retains the maximum transport-header budget check at line 50."
+
+[disposition.22.33.1490.1]
+finding = "22.33.1490.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:1 declares the boundary package, with its native library at line 8 and binary at line 12; services/platform/Cargo.toml:12 retains that workspace member. Commit d5401ed95b restored the manifest, and the current package exposes the native node tooling."
+
+[disposition.22.33.1492.1]
+finding = "22.33.1492.1"
+status = "resolved"
+evidence = "On main, tools/platform/cli/src/a2a.rs:488 refuses unauthenticated POST requests before body routing, and the lifecycle proof in tests/repair_22_33_1492.rs:1329 checks the signed producer receipt against the encoded call. Commit 7884cd3f83 landed these authentication, calldata and rejected-outcome repairs."
+
+[disposition.22.33.1493.1]
+finding = "22.33.1493.1"
+status = "resolved"
+evidence = "On main, tools/platform/cli/src/register.rs:248 asserts the optional email_or_verification_token parameter in the gateway registration document. Commit c239354b90 landed the current registration contract assertion together with the signer-key and registration-signature checks."
+
+[disposition.22.33.1494.1]
+finding = "22.33.1494.1"
+status = "resolved"
+evidence = "On main, tools/platform/cli/tests/repair_22_33_1494.rs:930 uses a Unix socket for the nonregular-key-file refusal and line 638 retains the committed-receipt wallet proof. Commit 3f380f6199 landed the fee-estimate transaction shaping and nonblocking key-input checks without deleting the sibling proof target."
+
+[disposition.22.33.1495.1]
+finding = "22.33.1495.1"
+status = "resolved"
+evidence = "On main, tools/platform/cli/tests/repair_22_33_1495.rs:1242 exercises chains through the root RPC endpoint and line 1266 retains retired lx method refusal. Commit 29f97a268a landed the current producer paths and the Duration import in tests/mcp_daemon_bound.rs."
+
+[disposition.22.33.1496.1]
+finding = "22.33.1496.1"
+status = "resolved"
+evidence = "On main, tools/platform/cli/tests/repair_22_33_1496.rs:301 consumes recorded receipts through the authenticated root client and line 563 supplies the hosted wallet peer separately. Commit abcc9570f2 aligned the client type and producer receipt vectors while retaining the retired-route and malformed-shape refusals."
+
+[disposition.22.33.1497.1]
+finding = "22.33.1497.1"
+status = "resolved"
+evidence = "On main, tools/platform/cli/tests/repair_22_33_1497.rs:273 compares the derived EVM address with decoded fixed-width fixture bytes rather than address spelling. Commit af4bacd767 landed this identity check with the root-node wallet fee, read, write and watch proofs."
+
+[disposition.22.33.1501.1]
+finding = "22.33.1501.1"
+status = "resolved"
+evidence = "On main, sdk/x/auth/client/cli/tx_sign.go:69 receives both the factory and error from NewFactoryCLI and returns the error before using the factory. Commit d56c2b440d carries this fallible constructor contract through the auth, genutil, staking, evidence, EVM and token-factory CLI callers."
+
+[disposition.22.33.1503.1]
+finding = "22.33.1503.1"
+status = "resolved"
+evidence = "On main, sdk/x/auth/client/cli/tx_sign.go:69 receives both the factory and error from NewFactoryCLI and returns the error before using the factory. Commit d56c2b440d carries this fallible constructor contract through the auth, genutil, staking, evidence, EVM and token-factory CLI callers."
+
+[disposition.22.33.1510.10]
+finding = "22.33.1510.10"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2325 reads the activity identifier before the tracked submission and optional receipt, then checks their executed-state agreement. Commit 88d72d85cf landed this daemon-layout decoder and reuses it in track_released at line 4348."
+
+[disposition.22.33.1510.11]
+finding = "22.33.1510.11"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/policy/approval.rs:228 restores terminal decisions and line 298 inserts them into the approval registry. Commit 8fd479bd96 landed the rejection replay path, with services/human/crates/layerx-human-service/tests/decide.rs:497 asserting that reopen retains the exact daemon-written decision."
+
+[disposition.22.33.1510.12]
+finding = "22.33.1510.12"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/policy/approval.rs:688 persists the releasing terminal decision, and lines 228 through 250 replay it into the registry. Commit 8fd479bd96 landed rejected-decision durability, with services/human/crates/layerx-human-service/tests/decide.rs:512 requiring the reopened approval to remain Rejected."
+
+[disposition.22.33.1510.1]
+finding = "22.33.1510.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/human_runtime.rs:1487 converts the verification level to its shared rung and line 1497 writes that rung rank into the budget snapshot. Commit a349c0fb8c landed the shared producer and Human decoder contract for budget-state recovery."
+
+[disposition.22.33.1510.2]
+finding = "22.33.1510.2"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/support/approval_owner.rs:41 uses the production AgentRuntime, and line 1025 checks budget recovery through the committed node reads. Commit 8fd479bd96 landed the daemon-backed approval fixture and retained the snapshot proof in tests/repair_22_33_1510.rs:11."
+
+[disposition.22.33.1510.3]
+finding = "22.33.1510.3"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs:11 checks reservation totals before and after daemon snapshot recovery through the Human decoder. Commit 8fd479bd96 landed the authority transcript and same-store recovery fixture used by this proof."
+
+[disposition.22.33.1510.4]
+finding = "22.33.1510.4"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/decide_nonces.rs:183 passes decision_time to approval lookup, and its DecisionRequest at line 281 carries current_time. Commit 185d6896fc updated both this file and repair_22_31_159.rs to the time-bearing approval-service contract."
+
+[disposition.22.33.1510.5]
+finding = "22.33.1510.5"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/budget/program_sources.rs:49 checks budget verification through budget_state_is_committed, and human_runtime.rs:10158 uses the same decoder. Commit 4e8983196e landed these checks and makes the Human boundary preserve a daemon Refused outcome distinctly."
+
+[disposition.22.33.1510.6]
+finding = "22.33.1510.6"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/human_runtime.rs:10230 derives the approval budget-after rung with receipt_rung_code from the shared verification label, and services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4326 decodes the committed rung. Commit 2c7ff10428 corrected the budget-after producer rank."
+
+[disposition.22.33.1510.7]
+finding = "22.33.1510.7"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/support/approval_owner.rs:601 canonicalizes the temporary root and line 603 creates the owned store directory with mode 0700. Commit 8fd479bd96 retains the protected-store preconditions in both approval and decision recovery proofs."
+
+[disposition.22.33.1510.8]
+finding = "22.33.1510.8"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/policy/approval.rs:252 replays released terminal records, preserving the resulting submission reference at line 286. Commit b51940d1ea landed released-approval restoration, and 8fd479bd96 retains the Human decision proof across reopen at tests/decide.rs:497."
+
+[disposition.22.33.1510.9]
+finding = "22.33.1510.9"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/policy/approval.rs:286 restores the released approval submission reference, and services/human/crates/layerx-human-service/tests/decide.rs:514 requires tracking that same reference after reopen. Commit 30523e9c9a landed release-reference resolution through TRACK to its verified receipt."
+
+[disposition.22.33.1513.1]
+finding = "22.33.1513.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1513.2]
+finding = "22.33.1513.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:79 calls the public authority response contract, and tests/human_projection_facts.rs:554 imports the production budget-state API. Commit 9397b65f47 landed both consumer migrations, removing the incompatible private-module shims."
+
+[disposition.22.33.1513.3]
+finding = "22.33.1513.3"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/session_control.rs:291 exposes observability_stats through its protected observability state, as landed by bfc86ded84. Commit b6d38a9897 also moves the native-send preparation digest beside its wire type in src/agent_rpc_wire.rs:851, eliminating the duplicate-type call in the RPC proof."
+
+[disposition.22.33.152.1]
+finding = "22.33.152.1"
+status = "resolved"
+evidence = "On main, apps/wallet/src/repair-22-33-152.test.ts:5 consumes proveHostedIntentReopen and asserts a canonical plan digest with nonempty legs. Commit 8bc98225c0 landed the producer-recording proof, and d15bd08924 retains it as a named Vitest function through the wallet test repair."
+
+[disposition.22.33.1523.1]
+finding = "22.33.1523.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-wire/Cargo.toml:12 declares layerx-client and line 13 declares layerx-crypto with its default custody feature, supplying the imports in tests/repair_22_33_1523.rs:35. Commit 879a9288f5 landed these dependencies with the real signed-transaction, disclosure and wire-decoder proofs."
+
+[disposition.22.33.1525.1]
+finding = "22.33.1525.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1528.1]
+finding = "22.33.1528.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/repair_22_33_1528.rs:40 drives kernel authorizations through transport, receipt consumption and reopen, and line 322 retains focused authority decoding. Commit df0d995746 isolates these support proofs from the unrelated signing suite; tests/evm_signing.rs remains covered by repair_22_33_1536.rs:53."
+
+[disposition.22.33.1528.2]
+finding = "22.33.1528.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1529.1]
+finding = "22.33.1529.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/repair_22_33_1529.rs:5 includes budget-schema coverage and line 19 includes the protocol restart proof alongside disclosure, identity and policy cases. Commit 95d57d63c8 landed their current native-producer fixtures and retained all eight named consumer modules."
+
+[disposition.22.33.1530.1]
+finding = "22.33.1530.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1532.1]
+finding = "22.33.1532.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1533.1]
+finding = "22.33.1533.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1533.2]
+finding = "22.33.1533.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:79 calls the public authority response contract, and tests/human_projection_facts.rs:554 imports the production budget-state API. Commit 9397b65f47 landed both consumer migrations, removing the incompatible private-module shims."
+
+[disposition.22.33.1533.3]
+finding = "22.33.1533.3"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851 owns the native-send preparation digest next to NativeSendPrepareRequestV2, and src/agent_rpc_dispatch.rs:563 forwards to that type-local method. Commit b6d38a9897 landed this type-identity repair, while d16f69787a removes the remaining duplicate library includes from the integration targets."
+
+[disposition.22.33.1533.4]
+finding = "22.33.1533.4"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs:244 consumes the node-recorded receipt corpus, while tests/repair_22_31_220.rs:606 expects the typed NotReady outcome for an absent program receipt. Commit 08a6418214 landed both contract-aligned consumers without weakening receipt or quorum verification."
+
+[disposition.22.33.1535.1]
+finding = "22.33.1535.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1535.2]
+finding = "22.33.1535.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs:76 canonicalizes the protected directory before opening the store, and line 714 exercises the registry source with mutual TLS and bound responses. Commit 3035563ed2 landed the store-root and authenticated client-identity fixtures."
+
+[disposition.22.33.1535.3]
+finding = "22.33.1535.3"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:79 calls the public authority response contract, and tests/human_projection_facts.rs:554 imports the production budget-state API. Commit 9397b65f47 landed both consumer migrations, removing the incompatible private-module shims."
+
+[disposition.22.33.1535.4]
+finding = "22.33.1535.4"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851 owns the native-send preparation digest next to NativeSendPrepareRequestV2, and src/agent_rpc_dispatch.rs:563 forwards to that type-local method. Commit b6d38a9897 landed this type-identity repair, while d16f69787a removes the remaining duplicate library includes from the integration targets."
+
+[disposition.22.33.1536.1]
+finding = "22.33.1536.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."
+
+[disposition.22.33.1536.2]
+finding = "22.33.1536.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:79 calls the public authority response contract, and tests/human_projection_facts.rs:554 imports the production budget-state API. Commit 9397b65f47 landed both consumer migrations, removing the incompatible private-module shims."
+
+[disposition.22.33.1536.3]
+finding = "22.33.1536.3"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851 owns the native-send preparation digest next to NativeSendPrepareRequestV2, and src/agent_rpc_dispatch.rs:563 forwards to that type-local method. Commit b6d38a9897 landed this type-identity repair, while d16f69787a removes the remaining duplicate library includes from the integration targets."
+
+[disposition.22.33.1536.4]
+finding = "22.33.1536.4"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/approval.rs:101 derives allowed amounts from the actual preparation, and tests/finality_rungs.rs:491 retains the authenticated two-thirds quorum cases. Commit d9c7e8ec0c landed the current approval defaults, ICS23 export fixtures and header-bound finality proofs."
+
+[disposition.22.33.1536.5]
+finding = "22.33.1536.5"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/native_send_producer.rs:681 reads purpose.consent_public_key, matching NativeSendPurposeV2. Commit d6543a4874 landed this producer-test field migration while retaining its consent-key binding assertions."
+
+[disposition.22.33.1536.6]
+finding = "22.33.1536.6"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/handshake_gate.rs:280 requires NoReceiptKeys for an empty governed-key set, and line 303 requires the same refusal after reconnect. Commit d9c7e8ec0c landed the keys-object fixtures together with the authenticated ICS23 export and header-bound quorum cases."
+
+[disposition.22.33.1536.7]
+finding = "22.33.1536.7"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/export.rs:768 decodes storage witnesses and verifies each against the app root, as landed by 1c847ed905. Commit d9c7e8ec0c retains the oversized voting-power refusal under header verification at tests/finality_rungs.rs:516 and the separate u128 quorum proof at line 538."
+
+[disposition.22.33.1536.8]
+finding = "22.33.1536.8"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_node_budgets.rs:209 carries feeDenom and paymentDenom in the signed receipt, and line 528 retains refusal of a missing payment denomination. Commit d9c7e8ec0c landed the combined budget receipt proof over dbd4e68ed9, with the full denomination contract retained by ef0e8c5d4f."
+
+[disposition.22.33.1536.9]
+finding = "22.33.1536.9"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_node_budgets.rs:209 carries feeDenom and paymentDenom in the signed receipt, and line 528 retains refusal of a missing payment denomination. Commit d9c7e8ec0c landed the combined budget receipt proof over dbd4e68ed9, with the full denomination contract retained by ef0e8c5d4f."
+
+[disposition.22.33.1537.1]
+finding = "22.33.1537.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/outbox_recover.rs:378 checks the reopened current-evidence inventory and line 387 verifies it under the governed node keys before write admission. Commit dbd4e68ed9 landed these current-receipt recovery checks while retaining reservations for the tenant without evidence at line 401."
+
+[disposition.22.33.1537.2]
+finding = "22.33.1537.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 reads the retained boundary deployment document, and line 76 calls handle_connection with its permit and deadline. Commit 7435b17141 restored the document and reconciled the consumers with the boundary TLS interface."

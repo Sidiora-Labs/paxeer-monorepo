@@ -1,0 +1,106 @@
+# Source: main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.8.1.1.1.a2]
+finding = "8.1.1.1.a2"
+status = "resolved"
+evidence = "Commit c0b6a66b0c ports indexer finality evidence to the block-commit fields; services/platform/hosted/indexer/src/ai_market.rs:344 now constructs FinalityEvidence with block_height, block_hash, app_hash and store_proof_digest."
+
+[disposition.8.1.1.a2]
+finding = "8.1.1.a2"
+status = "environment"
+evidence = "services/platform/hosted/gateway/src/main.rs:75 stores receipt keys directly in Config, and its receipt_keys accessor at line 230 works independently of a component URL. services/platform/hosted/gateway/tests/degraded.rs:724 covers this chain-only configuration."
+
+[disposition.8.1.4.1.a2]
+finding = "8.1.4.1.a2"
+status = "resolved"
+evidence = "Commit 9a7022b28 ports the client's FinalityEvidence to block-commit fields, retained at services/agent/crates/layerx-client/src/ai_market.rs:622. Commit 6dad93a337 fixes the relay fixture, whose services/platform/hosted/gateway/tests/paxeer_failover.rs:555 assertion requires an upstream request."
+
+[disposition.8.1.4.a2]
+finding = "8.1.4.a2"
+status = "resolved"
+evidence = "Commit 6dad93a337 sets the chain fixture ID to 0x7d at services/platform/hosted/gateway/tests/paxeer_failover.rs:15 and flushes its TLS close_notify at line 322; the receipt relay test retains exact response-byte equality at line 547 and a positive upstream request count at line 555."
+
+[disposition.8.1.5.1.a2]
+finding = "8.1.5.1.a2"
+status = "resolved"
+evidence = "Commit c0b6a66b0c ports webhook binding accesses to store_proof_digest; services/platform/hosted/webhooks/src/ai_market.rs:1140 compares it with the verified commit, line 1179 includes it in event identity, and line 1311 exposes that binding fact."
+
+[disposition.8.1.5.2.a2]
+finding = "8.1.5.2.a2"
+status = "resolved"
+evidence = "Commit c0b6a66b0c replaces the retired settlement-document verifier with pinned-validator block-commit verification; services/platform/hosted/indexer/src/ai_reputation.rs:375 requires FinalityAuthority and line 419 authenticates the program state against the supplied commit."
+
+[disposition.8.1.5.a2]
+finding = "8.1.5.a2"
+status = "resolved"
+evidence = "Commit c0b6a66b0c ports the indexer and gateway to v2 block-commit bindings; services/platform/hosted/indexer/src/ai_market.rs:344 constructs the new evidence and services/platform/hosted/indexer/src/ai_views.rs:137 serializes block_height, block_hash, app_hash and store_proof_digest for the gateway view."
+
+[disposition.8.1.6.a2]
+finding = "8.1.6.a2"
+status = "resolved"
+evidence = "Commits c0b6a66b0c and 60ba879e70 replace obsolete webhook binding fields and certificate verification with committed evidence; services/platform/hosted/webhooks/src/ai_market.rs:1115 checks the verified commit against the snapshot binding, including height, block hash, app hash and store-proof digest."
+
+[disposition.8.11.1.a2]
+finding = "8.11.1.a2"
+status = "resolved"
+evidence = "Commits 1866e77a11 and 6b9420582 port the SDK and daemon read types; services/agent/crates/layerx-sdk/src/agent_envelope.rs:1729 decodes requested_rung and line 1763 carries it into the proof-bundle request instead of the removed verification-level field."
+
+[disposition.8.14.5.1.a2]
+finding = "8.14.5.1.a2"
+status = "resolved"
+evidence = "Commit 1866e77a11 ports SDK envelopes and decoders to the rung-based read interface; services/agent/crates/layerx-sdk/src/agent_envelope.rs:1729 reads requested_rung and line 1765 validates the typed proof-bundle response against the request."
+
+[disposition.8.22.1.a2]
+finding = "8.22.1.a2"
+status = "resolved"
+evidence = "Commit 1923cc0b53 adapts verifyRpcPayment to portable signed sequencer receipts; services/platform/middleware/seller/src/rpc.ts:156 now imports portable node evidence and line 163 calls verifyPaymentReceipt with requirements, receipt keys and commitments."
+
+[disposition.8.22.2.a2]
+finding = "8.22.2.a2"
+status = "resolved"
+evidence = "Commit 3f7657bab ports the seller commitment callers; services/platform/middleware/seller/src/index.ts:572 passes the verified receipt, network, rung and resolver to verifyPaymentCommitment, and services/platform/middleware/seller/src/rpc.ts:163 uses the portable-receipt verification signature."
+
+[disposition.8.26.4.a2]
+finding = "8.26.4.a2"
+status = "resolved"
+evidence = "Commit 94cb28443 replaces the buyer's retired seller imports and canonicalReceipt shape; services/platform/middleware/buyer/src/index.ts:39 imports PortableReceiptV2 and line 463 verifies receipt evidence with the configured keys and commitments."
+
+[disposition.8.28.2.a2]
+finding = "8.28.2.a2"
+status = "resolved"
+evidence = "Commit 36d3be0028 ports the ramp library and its callers together; services/platform/ramps/toolkit/src/clients.rs:1064 invokes the ledger-call compilers, line 1321 builds ReceiptEvidence from the transaction and signed receipt, and services/platform/ramps/toolkit/src/engine.rs:332 consumes receipt_digest, height and rung."
+
+[disposition.8.28.3.1.a2]
+finding = "8.28.3.1.a2"
+status = "resolved"
+evidence = "Commit 4caa8d010 ports LayerxClient configuration and consuming methods together at services/platform/ramps/toolkit/src/clients.rs:941; prepare_payment at line 1052 and submit_prepared at line 1166 use the sequencer and signer fields retained by that client."
+
+[disposition.8.28.3.a2]
+finding = "8.28.3.a2"
+status = "resolved"
+evidence = "Commit 4caa8d010 replaces the production relay-client methods alongside their fields; services/platform/ramps/toolkit/src/clients.rs:941 declares the sequencer-backed client, line 1052 prepares payments and line 1321 builds the portable receipt evidence."
+
+[disposition.8.33.3.a2]
+finding = "8.33.3.a2"
+status = "environment"
+evidence = "services/agent/sdk/typescript/package.json:19 exports dist/src/index.js and line 33 defines the TypeScript build that produces it. The marketplace receipt-outcome module consumes that compiled SDK interface."
+
+[disposition.8.34.1.1.a2]
+finding = "8.34.1.1.a2"
+status = "resolved"
+evidence = "Commit 45176f36b deletes services/platform/middleware/seller/src/checkpoint.ts and its index.ts re-export; the current seller API at services/platform/middleware/seller/src/index.ts:572 verifies committed payment evidence without the removed checkpoint attestation types."
+
+[disposition.8.34.1.a2]
+finding = "8.34.1.a2"
+status = "resolved"
+evidence = "Commit 633198f73 makes layerXReceiptDigest normalize the canonical 0x prefix at services/platform/middleware/merchant/src/index.ts:508 before requiring exactly 64 lowercase hexadecimal digits at line 509."
+
+[disposition.8.44.1.a2]
+finding = "8.44.1.a2"
+status = "environment"
+evidence = "sdk/platform/swift/Package.swift:1 declares Swift tools version 5.9, and line 5 defines the LayerXSDK library with iOS 15 and macOS 12 platform support and its declared package dependencies."
+
+[disposition.8.51.2.a2]
+finding = "8.51.2.a2"
+status = "resolved"
+evidence = "Commit c0b7a87ce removes the unconditional retention predicate from the release-verification artifact step, retained without an if condition at .github/workflows/platform.yml:1469; the workflow keeps the published-package integration line-count artifact."

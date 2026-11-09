@@ -1,0 +1,528 @@
+[meta]
+source_revision = "a26369c7eda603cb28bcdd8cef55c35df7d248ee"
+ids = "spec/layerx-merge/programme/closure/22.39.190.ids"
+
+[disposition.22.33.100.1]
+finding = "22.33.100.1"
+status = "resolved"
+evidence = "0f2268dc6d landed exact Quantity construction at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and exact balance comparisons at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:54; wallet balances still narrow through the production operation boundary to Amount, including the maximal u128 case."
+
+[disposition.22.33.1000.1]
+finding = "22.33.1000.1"
+status = "resolved"
+evidence = "81ce5e05f9 added the historical Treasury proxy and implementation epoch to the receipt source at services/launchpad/indexer/internal/processor/repair_m1000_test.go:95, using the admitted deployment identities and ABI revision for provenance checks."
+
+[disposition.22.33.1000.2]
+finding = "22.33.1000.2"
+status = "resolved"
+evidence = "81ce5e05f9 made the indexer consume committed batch and Treasury responses at services/launchpad/indexer/internal/processor/repair_m1000_test.go:110 and services/launchpad/indexer/internal/processor/repair_m1000_test.go:120; unrecorded reads are explicitly refused at services/launchpad/indexer/internal/processor/repair_m1000_test.go:274."
+
+[disposition.22.33.1000.3]
+finding = "22.33.1000.3"
+status = "resolved"
+evidence = "81ce5e05f9 committed block-hash-pinned token decimals responses in services/launchpad/indexer/internal/processor/testdata/repair_m1000_batches.json:66, which the receipt generation path reads through the committed response packet at services/launchpad/indexer/internal/processor/repair_m1000_test.go:110."
+
+[disposition.22.33.1005.1]
+finding = "22.33.1005.1"
+status = "resolved"
+evidence = "438ee0f28f reads the runner parser output through the singular reporter option at apps/launchpad/web/src/widgets/trading/transaction-controls/repair-22-33-1005.test.ts:629, while retaining checks for run mode, both report formats, the output file and the resolved production configuration."
+
+[disposition.22.33.1008.1]
+finding = "22.33.1008.1"
+status = "resolved"
+evidence = "17f3c834e0 raised the shared launchpad workspace to Go 1.27.0 at services/launchpad/go.work:6 and removed the nested notifications workspace, giving the API, social, user, statistics and chart services the same module-version floor as notifications."
+
+[disposition.22.33.1008.2]
+finding = "22.33.1008.2"
+status = "resolved"
+evidence = "17f3c834e0 raised the shared launchpad workspace to Go 1.27.0 at services/launchpad/go.work:6 and removed the nested notifications workspace, giving the API, social, user, statistics and chart services the same module-version floor as notifications."
+
+[disposition.22.33.1026.1]
+finding = "22.33.1026.1"
+status = "resolved"
+evidence = "61e5937564 checks the disclosure component imports against existing exported primitives at apps/launchpad/qualification/account-ui/test_repair_22_33_1026.py:139, resolving each relative module to a real file before checking its exports and served bytes."
+
+[disposition.22.33.1028.1]
+finding = "22.33.1028.1"
+status = "resolved"
+evidence = "cc56950b59 gives the social identity principal a current proof timestamp and a future access expiry at services/launchpad/social/internal/devsocial/repair_m1028_test.go:721, and verifies each issued principal through both request/session and interaction guards at services/launchpad/social/internal/devsocial/repair_m1028_test.go:708."
+
+[disposition.22.33.1028.2]
+finding = "22.33.1028.2"
+status = "resolved"
+evidence = "17f3c834e0 raised the shared launchpad workspace to Go 1.27.0 at services/launchpad/go.work:6 and removed the nested notifications workspace, giving the API, social, user, statistics and chart services the same module-version floor as notifications."
+
+[disposition.22.33.1028.3]
+finding = "22.33.1028.3"
+status = "resolved"
+evidence = "17f3c834e0 raised the shared launchpad workspace to Go 1.27.0 at services/launchpad/go.work:6 and removed the nested notifications workspace, giving the API, social, user, statistics and chart services the same module-version floor as notifications."
+
+[disposition.22.33.103.1]
+finding = "22.33.103.1"
+status = "resolved"
+evidence = "0f2268dc6d landed exact Quantity construction at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and exact balance comparisons at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:54; wallet balances still narrow through the production operation boundary to Amount, including the maximal u128 case."
+
+[disposition.22.33.1034.1]
+finding = "22.33.1034.1"
+status = "resolved"
+evidence = "c8fd4f515a linked the codec audit binaries with the programs runtime, native runtime libraries and OpenSSL at Makefile:1293, and made test-codec invoke the binding, retired-ordinal, header and fee cases at Makefile:1300."
+
+[disposition.22.33.1034.2]
+finding = "22.33.1034.2"
+status = "resolved"
+evidence = "c8fd4f515a retained the sequencer signing-key assertion and signed refusal-receipt round trip in tests/codec/lxp_test_fee_meter_refused.c:455; fa9aa7b81c releases unused codec arena reservations before verifying the decoded transport receipt at tests/codec/lxp_test_fee_meter_refused.c:308, preserving the exact result code."
+
+[disposition.22.33.104.1]
+finding = "22.33.104.1"
+status = "resolved"
+evidence = "0f2268dc6d landed exact Quantity construction at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and exact balance comparisons at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:54; wallet balances still narrow through the production operation boundary to Amount, including the maximal u128 case."
+
+[disposition.22.33.1040.1]
+finding = "22.33.1040.1"
+status = "resolved"
+evidence = "17f3c834e0 raised the shared launchpad workspace to Go 1.27.0 at services/launchpad/go.work:6 and removed the nested notifications workspace, giving the API, social, user, statistics and chart services the same module-version floor as notifications."
+
+[disposition.22.33.1041.1]
+finding = "22.33.1041.1"
+status = "resolved"
+evidence = "17f3c834e0 raised the shared launchpad workspace to Go 1.27.0 at services/launchpad/go.work:6 and removed the nested notifications workspace, giving the API, social, user, statistics and chart services the same module-version floor as notifications."
+
+[disposition.22.33.1046.1]
+finding = "22.33.1046.1"
+status = "environment"
+evidence = "The SDK generator explicitly requires a complete immutable contract bundle and names missing manifest inputs at sdk/launchpad/packages/sdk/scripts/generate.py:22; its digest and schema checks remain at sdk/launchpad/packages/sdk/scripts/generate.py:146, and the consumer proof produces pinned inputs through the real generator at sdk/launchpad/packages/sdk/scripts/test_repair_22_33_1046.py:47."
+
+[disposition.22.33.1047.1]
+finding = "22.33.1047.1"
+status = "resolved"
+evidence = "c7e2631c74 made the SDK proof import the emitted operations and public decoder at sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs:12 and compare the versioned release output digests at sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs:24; the package manifest contains no workspace-protocol dependency."
+
+[disposition.22.33.1047.2]
+finding = "22.33.1047.2"
+status = "resolved"
+evidence = "c7e2631c74 retained standalone SDK module imports at sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs:12 and removed workspace-protocol requirements from sdk/launchpad/packages/sdk/package.json, so the package consumes its declared dependencies and emitted public surface."
+
+[disposition.22.33.1047.3]
+finding = "22.33.1047.3"
+status = "resolved"
+evidence = "c7e2631c74 validates generation against immutable release manifests at sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs:27 and uses the committed REST OpenAPI contract at sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs:50 to check schema decoding and the real operations client."
+
+[disposition.22.33.1049.1]
+finding = "22.33.1049.1"
+status = "resolved"
+evidence = "17f3c834e0 raised the shared launchpad workspace to Go 1.27.0 at services/launchpad/go.work:6 and removed the nested notifications workspace, giving the API, social, user, statistics and chart services the same module-version floor as notifications."
+
+[disposition.22.33.1049.2]
+finding = "22.33.1049.2"
+status = "resolved"
+evidence = "288549a707 feeds migration-compatible candle units through the history source at services/launchpad/trading-charts/internal/app/repair_m1049_test.go:44 and asserts the versioned history response at services/launchpad/trading-charts/internal/app/repair_m1049_test.go:229, including snapshot identity, schema version and ETag."
+
+[disposition.22.33.105.1]
+finding = "22.33.105.1"
+status = "resolved"
+evidence = "dae7450abf rejects missing, malformed and conflicting native idempotency keys before constructing the buyer payment payload at services/interop/crates/layerx-x402/src/buyer.rs:612, with the missing-key and conflict cases retained at services/interop/crates/layerx-x402/tests/repair_22_33_105.rs:13."
+
+[disposition.22.33.105.2]
+finding = "22.33.105.2"
+status = "resolved"
+evidence = "dae7450abf landed the buyer identity validation at services/interop/crates/layerx-x402/src/buyer.rs:612 and retained the settlement transport, facilitator capture and reopened transcript consumer paths at services/interop/crates/layerx-x402/tests/repair_22_33_105.rs:25 and services/interop/crates/layerx-x402/tests/repair_22_33_105.rs:41."
+
+[disposition.22.33.1054.1]
+finding = "22.33.1054.1"
+status = "resolved"
+evidence = "100372da8c replaced build-output provenance with tracked precompile ABI paths at sdk/launchpad/packages/sidiora-launchpad-v3/provenance.json:5; sdk/launchpad/packages/sidiora-launchpad-v3/test/repair-22-33-1054.test.mjs:28 reads those ABI files and checks their exported layouts against the source provenance."
+
+[disposition.22.33.1062.1]
+finding = "22.33.1062.1"
+status = "resolved"
+evidence = "17f3c834e0 raised the shared launchpad workspace to Go 1.27.0 at services/launchpad/go.work:6 and removed the nested notifications workspace, giving the API, social, user, statistics and chart services the same module-version floor as notifications."
+
+[disposition.22.33.1062.2]
+finding = "22.33.1062.2"
+status = "resolved"
+evidence = "3b32481244 passes the explicit sealed-export byte bound to GetBytes at services/launchpad/user/internal/account/jobs_http.go:349; services/launchpad/user/internal/account/jobs_http.go:315 defines the bound as 16 MiB plus the nonce and authentication tag."
+
+[disposition.22.33.1066.1]
+finding = "22.33.1066.1"
+status = "resolved"
+evidence = "37f16c98e3 preserves retired release references as retired-reference records and refuses to qualify them as current at tools/launchpad/production/feature-acceptance/repair_m1066_test.go:55, while retaining the complete 55-feature inventory at tools/launchpad/production/feature-acceptance/repair_m1066_test.go:94."
+
+[disposition.22.33.1067.1]
+finding = "22.33.1067.1"
+status = "resolved"
+evidence = "baa5808297 routes specification loading through the reference policy at tools/launchpad/production/feature-acceptance/build_inventory.py:16, whose programme KVX reader is loaded at tools/launchpad/production/feature-acceptance/spec_references.py:12; the metadata and retired-reference assertions remain at tools/launchpad/production/feature-acceptance/tests/test_repair_22_33_1067.py:96."
+
+[disposition.22.33.1072.1]
+finding = "22.33.1072.1"
+status = "environment"
+evidence = "The RocksDB MVCC package declares its rocksdbBackend constraint at storage/db_engine/rocksdb/mvcc/repair_m1072_test.go:1 and its persistence contract reopens the database and checks the committed version, value and stream entry at storage/db_engine/rocksdb/mvcc/repair_m1072_test.go:66."
+
+[disposition.22.33.1072.2]
+finding = "22.33.1072.2"
+status = "environment"
+evidence = "The RocksDB MVCC persistence path retains version and value checks across close and reopen at storage/db_engine/rocksdb/mvcc/repair_m1072_test.go:66, and a failed WAL append must leave the accepted version unchanged at storage/db_engine/rocksdb/mvcc/repair_m1072_test.go:110."
+
+[disposition.22.33.1072.3]
+finding = "22.33.1072.3"
+status = "environment"
+evidence = "The RocksDB MVCC contract checks the reopened database version and accepted value at storage/db_engine/rocksdb/mvcc/repair_m1072_test.go:128 and keeps rejected writes absent at storage/db_engine/rocksdb/mvcc/repair_m1072_test.go:132, preserving the last accepted WAL state across restart."
+
+[disposition.22.33.1076.1]
+finding = "22.33.1076.1"
+status = "resolved"
+evidence = "56c0f69099 connects programs-call commitment and startup/reopen checks to their retained producer proofs at tests/daemon/test_repair_22_33_1076.py:50 and tests/daemon/test_repair_22_33_1076.py:54; the receipt consumer also binds the activity ID to the submitted transaction hash at tests/daemon/test_repair_22_33_1076.py:86."
+
+[disposition.22.33.1076.2]
+finding = "22.33.1076.2"
+status = "resolved"
+evidence = "99a76e1542 made committed records use the application hash of their own height; node/sequencer/driver.go:83 obtains CommittedAppHash(height) and node/sequencer/driver.go:102 stores that hash in the WAL committed record, keeping it distinct from the header hash of the previous height."
+
+[disposition.22.33.1076.3]
+finding = "22.33.1076.3"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1076.4]
+finding = "22.33.1076.4"
+status = "resolved"
+evidence = "99a76e1542 made committed records use the application hash of their own height; node/sequencer/driver.go:83 obtains CommittedAppHash(height) and node/sequencer/driver.go:102 stores that hash in the WAL committed record, keeping it distinct from the header hash of the previous height."
+
+[disposition.22.33.1092.1]
+finding = "22.33.1092.1"
+status = "resolved"
+evidence = "1ea788ff88 landed independent committed-fixture recorder endpoints at daemon/committed-fixture/repair_m1092_test.go:395, requiring distinct transaction hashes; the current standby bootstrap also checks the restored application commit hash at daemon/committed-fixture/repair_m1092_test.go:179."
+
+[disposition.22.33.11.1]
+finding = "22.33.11.1"
+status = "resolved"
+evidence = "529ed5a1f8 installs the DOM element constructors needed by the modal renderer at apps/perps/tests/repair-22-33-11.test.ts:253 and obtains an authenticated session before setting up the embedded connector at apps/perps/tests/repair-22-33-11.test.ts:801, retaining the connection and signing path."
+
+[disposition.22.33.1129.1]
+finding = "22.33.1129.1"
+status = "resolved"
+evidence = "a8fd6f4f77 validates each Pax address with the fallible parser and each Ethereum address with IsHexAddress at engine/deps/xevm/types/genesis.go:20, so malformed address associations return explicit genesis errors before stream import applies them."
+
+[disposition.22.33.113.1]
+finding = "22.33.113.1"
+status = "resolved"
+evidence = "1bef1de872 derives the fiat payment reference from the provider facts and checks that exact reference in both encoded calldata and sequencer evidence at services/interop/crates/layerx-fiat/tests/support/producer_path.rs:118 and services/interop/crates/layerx-fiat/tests/support/producer_path.rs:140."
+
+[disposition.22.33.113.2]
+finding = "22.33.113.2"
+status = "resolved"
+evidence = "1bef1de872 makes the fiat proof read its dedicated sequenced journeys at services/interop/crates/layerx-fiat/tests/support/producer_path.rs:28 and asserts that the payment encoder reference equals the recorded sequencer payment reference at services/interop/crates/layerx-fiat/tests/support/producer_path.rs:141."
+
+[disposition.22.33.1132.1]
+finding = "22.33.1132.1"
+status = "resolved"
+evidence = "753122c4d4 makes budget validation admit a zero active period limit only with a nonzero configured limit and zero spending at src/modules/budget/lx_budget_create.c:29, and initializes an omitted configured limit from the period limit at src/modules/budget/lx_budget_create.c:61, preserving closure-state validation."
+
+[disposition.22.33.1135.1]
+finding = "22.33.1135.1"
+status = "resolved"
+evidence = "fa9aa7b81c landed pinned Unicode 15.0.0 normalization tables at src/codec/lxp_codec.c:221 and canonical UTF-8 admission at src/codec/lxp_codec.c:2603, together with tests/vectors/codec/NormalizationTest-15.0.0.txt, tests/vectors/codec/UNICODE-LICENSE.txt and tests/repair_22_33_1135.kvx."
+
+[disposition.22.33.1135.2]
+finding = "22.33.1135.2"
+status = "resolved"
+evidence = "fa9aa7b81c landed pinned Unicode 15.0.0 normalization tables at src/codec/lxp_codec.c:221 and canonical UTF-8 admission at src/codec/lxp_codec.c:2603, together with tests/vectors/codec/NormalizationTest-15.0.0.txt, tests/vectors/codec/UNICODE-LICENSE.txt and tests/repair_22_33_1135.kvx."
+
+[disposition.22.33.1138.1]
+finding = "22.33.1138.1"
+status = "resolved"
+evidence = "1c16917749 restored the final namespace contract at src/ledger/lx_account_registry.c:594: module-value account opens are refused, while system reserve and withdrawals accounts admit GENESIS or GOVERNANCE and refuse CREDIT at src/ledger/lx_account_registry.c:605; tests/ledger/test_account_id.c:161 checks that authority distinction."
+
+[disposition.22.33.114.1]
+finding = "22.33.114.1"
+status = "resolved"
+evidence = "977b5dfb10 added the AP2 and p256 test dependencies, retained at services/interop/crates/layerx-portable/Cargo.toml:18, and services/interop/crates/layerx-portable/tests/repair_22_33_114.rs:4 includes the concrete external-verification cases rather than a substitute verifier."
+
+[disposition.22.33.1140.1]
+finding = "22.33.1140.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1140.2]
+finding = "22.33.1140.2"
+status = "resolved"
+evidence = "846408dc54 sets the production default EVM chain ID to 125 at modules/evm/config/config.go:10 and removes foreign mappings; 99a76e1542 supplies the same-height committed application hash now consumed by node/sequencer/driver.go:83 and stored at node/sequencer/driver.go:102."
+
+[disposition.22.33.1141.1]
+finding = "22.33.1141.1"
+status = "resolved"
+evidence = "846408dc54 fixes the native EVM chain ID at modules/evm/config/config.go:10, and 99a76e1542 fixes committed-record hash selection at node/sequencer/driver.go:83; node/repair_m1141_test.go:24 retains delivery, refusal, OCC, genesis and receipt-key rotation coverage."
+
+[disposition.22.33.1141.2]
+finding = "22.33.1141.2"
+status = "resolved"
+evidence = "e8d4fb1e7a landed node/repair_m1141_test.go:24 with the sequenced delivery, refusal, OCC, empty-genesis and rotation cases, and node/repair_m1141_test.go:20 retains the native proof-node receipt path alongside migration configuration checks."
+
+[disposition.22.33.1142.1]
+finding = "22.33.1142.1"
+status = "resolved"
+evidence = "b348b5ced1 compares sorted precompile address sets rather than contract-instance internals at node/repair_m1142_test.go:39, while node/repair_m1142_test.go:63 retains ABI calls that verify the restored implementations and activation refusals."
+
+[disposition.22.33.1142.2]
+finding = "22.33.1142.2"
+status = "resolved"
+evidence = "b348b5ced1 compares ABI integer values numerically through big.Int.Cmp at node/repair_m1142_test.go:56, retaining length, dynamic-type and non-nil checks before requiring equality of every decoded result."
+
+[disposition.22.33.1143.1]
+finding = "22.33.1143.1"
+status = "resolved"
+evidence = "15b2d2452f landed the exact upgrade-plan and handler checks at node/repair_m1143_test.go:11, including the anchor-store deletion transition from pending to done and the current versus retired plan distinctions at node/repair_m1143_test.go:19."
+
+[disposition.22.33.115.1]
+finding = "22.33.115.1"
+status = "resolved"
+evidence = "198f55c61b asserts that UCP payment calldata contains the checkout gateway key at services/interop/crates/layerx-ucp/tests/repair_22_33_115.rs:78 and completes checkout against the matching native payment topic at services/interop/crates/layerx-ucp/tests/support/producer_checkout.rs:315."
+
+[disposition.22.33.115.2]
+finding = "22.33.115.2"
+status = "resolved"
+evidence = "198f55c61b binds the native checkout encoding to its gateway key at services/interop/crates/layerx-ucp/tests/repair_22_33_115.rs:64 and consumes the dedicated UCP receipt vector at services/interop/crates/layerx-ucp/tests/support/producer_checkout.rs:27, preserving the unrelated-reference refusal."
+
+[disposition.22.33.115.3]
+finding = "22.33.115.3"
+status = "resolved"
+evidence = "ecdfc23549 landed the UCP checkout receipt vector at sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json; 198f55c61b consumes that exact vector at services/interop/crates/layerx-ucp/tests/support/producer_checkout.rs:27 and requires its payment reference to equal the checkout gateway key at services/interop/crates/layerx-ucp/tests/support/producer_checkout.rs:315."
+
+[disposition.22.33.115.4]
+finding = "22.33.115.4"
+status = "resolved"
+evidence = "ecdfc23549 landed the UCP checkout receipt vector at sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json; 198f55c61b consumes that exact vector at services/interop/crates/layerx-ucp/tests/support/producer_checkout.rs:27 and requires its payment reference to equal the checkout gateway key at services/interop/crates/layerx-ucp/tests/support/producer_checkout.rs:315."
+
+[disposition.22.33.1151.1]
+finding = "22.33.1151.1"
+status = "resolved"
+evidence = "79a31cc8ea compares the contract query transaction hash with the producer hash converted to raw bytes at consensus/cmd/contract_tests/repair_m1151_test.go:170, while preserving the request headers, original expectations and returned transaction checks."
+
+[disposition.22.33.1163.1]
+finding = "22.33.1163.1"
+status = "resolved"
+evidence = "b7dcf52fe5 closes the source store before rebasing its files at storage/db_engine/litt/cli/rebase_test.go:194 and checks that the live lock is released while the permanent guard remains, retaining both path and overlap rebase cases at storage/db_engine/litt/cli/repair_m1163_test.go:352."
+
+[disposition.22.33.1165.1]
+finding = "22.33.1165.1"
+status = "resolved"
+evidence = "207179f783 retains immediate expiry visibility checks for both direct and cached reads at storage/db_engine/litt/repair_m1165_test.go:339, then waits for the asynchronous segment deletion and requires the files to disappear at storage/db_engine/litt/repair_m1165_test.go:351."
+
+[disposition.22.33.117.1]
+finding = "22.33.117.1"
+status = "resolved"
+evidence = "0f2268dc6d landed exact Quantity construction at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and exact balance comparisons at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:54; wallet balances still narrow through the production operation boundary to Amount, including the maximal u128 case."
+
+[disposition.22.33.1177.1]
+finding = "22.33.1177.1"
+status = "resolved"
+evidence = "fa8a45c744 registers persisted Pebble stores before pruning at storage/tools/cmd/paxdb/operations/prune.go:64, keeping the head unchanged and passing the requested boundary to backend.Prune at storage/tools/cmd/paxdb/operations/prune.go:73; storage/tools/cmd/paxdb/operations/repair_m1177_test.go:250 requires earliest version 3 while preserving its boundary value."
+
+[disposition.22.33.1191.1]
+finding = "22.33.1191.1"
+status = "resolved"
+evidence = "a7fa68d948 compares the transaction and response hashes as raw byte slices at consensus/test/e2e/runner/repair_m1191_test.go:239, retaining accepted-count, mempool-size and exact rejection-code assertions in the load contract."
+
+[disposition.22.33.12.1]
+finding = "22.33.12.1"
+status = "environment"
+evidence = "The perps footer starts with unknown health and distinguishes confirmed, unavailable and stale status at apps/perps/tests/repair-22-33-12.test.ts:137, while the withdrawal entry retains its requested action with the active chain-125 wallet connection at apps/perps/tests/repair-22-33-12.test.ts:194."
+
+[disposition.22.33.12.2]
+finding = "22.33.12.2"
+status = "environment"
+evidence = "The perps shell preserves withdrawal navigation through the active wallet connection at apps/perps/tests/repair-22-33-12.test.ts:194 and exercises mobile dialog focus at apps/perps/tests/repair-22-33-12.test.ts:255, while failed health reads produce an unavailable status instead of an operational indicator at apps/perps/tests/repair-22-33-12.test.ts:137."
+
+[disposition.22.33.1201.1]
+finding = "22.33.1201.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1204.1]
+finding = "22.33.1204.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1204.2]
+finding = "22.33.1204.2"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1205.1]
+finding = "22.33.1205.1"
+status = "resolved"
+evidence = "044c26f529 declares the denom-hash HTTP parameter as trace=** at interchain/proto/ibc/applications/transfer/v1/query.proto:31 and carries that wildcard into interchain/modules/apps/transfer/types/query.pb.gw.go:546, allowing the complete multi-hop denomination path through the gateway."
+
+[disposition.22.33.1205.2]
+finding = "22.33.1205.2"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1206.1]
+finding = "22.33.1206.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1206.2]
+finding = "22.33.1206.2"
+status = "resolved"
+evidence = "08d666338e decodes producer metric labels as a map at interchain/modules/apps/transfer/repair_m1206_test.go:411 and checks the denom entry at interchain/modules/apps/transfer/repair_m1206_test.go:421, retaining the production transfer metrics and timeout/refund assertions."
+
+[disposition.22.33.1208.1]
+finding = "22.33.1208.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1208.2]
+finding = "22.33.1208.2"
+status = "resolved"
+evidence = "f722f13307 landed the legacy staking proof at precompiles/staking/legacy/v614/repair_m1208_test.go:233 and its merge activation setup at precompiles/staking/legacy/v614/repair_m1208_test.go:171, retaining exact validator-key refusal and before-payment behavior across historical and active implementations."
+
+[disposition.22.33.121.1]
+finding = "22.33.121.1"
+status = "resolved"
+evidence = "4b7352a9d9 funds an independent pool purchase before checking the protected swap minimum at apps/wallet/src/lib/swap/repair-22-33-121.test.ts:400 and decodes the resulting refusal as SlippageExceeded at apps/wallet/src/lib/swap/repair-22-33-121.test.ts:428, with both token balances required unchanged."
+
+[disposition.22.33.1212.1]
+finding = "22.33.1212.1"
+status = "resolved"
+evidence = "11429c988c uses a five-percent commission when encoding validator creation at precompiles/staking/legacy/v65/repair_m1212_test.go:180 and retains valid-key, invalid-key and historical replay cases at precompiles/staking/legacy/v65/repair_m1212_test.go:237 and precompiles/staking/legacy/v65/repair_m1212_test.go:292."
+
+[disposition.22.33.1214.1]
+finding = "22.33.1214.1"
+status = "resolved"
+evidence = "85d0bb24ba compares complete protobuf messages through their type URL and marshaled bytes at interchain/modules/core/keeper/repair_m1214_test.go:29, using protobuf equality without reflecting into message caches and retaining aggregate query registration checks."
+
+[disposition.22.33.1225.1]
+finding = "22.33.1225.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1225.2]
+finding = "22.33.1225.2"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1225.3]
+finding = "22.33.1225.3"
+status = "resolved"
+evidence = "10600acc82 builds the governance transaction configuration with the application codec and interface registry at interchain/modules/core/repair_m1225_test.go:50, so ClientUpdateProposal crosses the JSON and protobuf codecs with its production type registrations intact."
+
+[disposition.22.33.1227.1]
+finding = "22.33.1227.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1228.1]
+finding = "22.33.1228.1"
+status = "resolved"
+evidence = "90f4829d36 registers a bonded guarantor, requires its pending status, then activates it before using the custody recovery checkpoint at modules/layerxcustody/keeper/genesis_retire_test.go:226; modules/layerxcustody/keeper/repair_m1228_test.go:17 retains the complete retirement export, import and reopen contract."
+
+[disposition.22.33.1228.2]
+finding = "22.33.1228.2"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.123.1]
+finding = "22.33.123.1"
+status = "resolved"
+evidence = "316d78dd94 landed the push persistence proof at apps/wallet/src/lib/repair-22-33-123.test.ts:52, which reopens the production push and deletion repositories, and retains ownership-signature validation of subscribe and unsubscribe requests at apps/wallet/src/lib/repair-22-33-123.test.ts:119."
+
+[disposition.22.33.123.2]
+finding = "22.33.123.2"
+status = "resolved"
+evidence = "a32c26bb72 moved the five EthereumJS dependencies into the wallet application manifest at apps/wallet/package.json:61 and solc at apps/wallet/package.json:82, unifying the swap fixture dependency root with the application while retaining the production fixture execution."
+
+[disposition.22.33.1236.1]
+finding = "22.33.1236.1"
+status = "resolved"
+evidence = "b465ced427 landed the module fixture repair and its retained case mapping at tests/modules/paxeer_x_metered_end_boundary.py:17; tests/modules/test_asset_withdraw_activity.c:98 sends canonical activity bytes through decoding and kernel dispatch, with commit or rollback determined by the actual result."
+
+[disposition.22.33.1236.2]
+finding = "22.33.1236.2"
+status = "resolved"
+evidence = "b465ced427 binds an actual asset and registered transfer table in the native module fixture, as recorded at tests/modules/paxeer_x_metered_end_boundary.py:53; tests/modules/test_asset_withdraw_activity.c:112 now drives the real kernel dispatch and commits its ledger result."
+
+[disposition.22.33.1236.3]
+finding = "22.33.1236.3"
+status = "resolved"
+evidence = "1c16917749 restores genesis admission of reserve and withdrawals accounts through src/ledger/lx_account_registry.c:594 and src/ledger/lx_account_registry.c:605; b465ced427 carries that final authority contract into the withdrawal fixture, retaining CREDIT refusal rather than rejecting legitimate system-account creation."
+
+[disposition.22.33.1236.4]
+finding = "22.33.1236.4"
+status = "resolved"
+evidence = "1c16917749 restores system-account admission for genesis and governance at src/ledger/lx_account_registry.c:605; b465ced427 routes the escrow-open activity through native_submit at tests/modules/test_escrow_invariants.c:368 and retains the resulting state and balance assertions."
+
+[disposition.22.33.1236.5]
+finding = "22.33.1236.5"
+status = "resolved"
+evidence = "b465ced427 adopts the final genesis/governance system-account contract in the withdrawal fixture, documented at tests/modules/paxeer_x_metered_end_boundary.py:58 and enforced by src/ledger/lx_account_registry.c:605 from 1c16917749; CREDIT authority still receives unauthorized-debit refusal."
+
+[disposition.22.33.1236.6]
+finding = "22.33.1236.6"
+status = "resolved"
+evidence = "b465ced427 separates canonical wire storage from execution arena storage at tests/modules/test_asset_withdraw_activity.c:33, sizes the execution buffer for two maximum activities plus decode space, and reinitializes both arenas for each native submission at tests/modules/test_asset_withdraw_activity.c:97."
+
+[disposition.22.33.1237.1]
+finding = "22.33.1237.1"
+status = "resolved"
+evidence = "7450c59fbe landed the perps module cases registered through tests/modules/test_perps_book.c:785, including fill-to-position, full-position, maker-skip, mixed-price liquidation and scaled-reserve order fills, with their actual ledger and position assertions preserved."
+
+[disposition.22.33.124.1]
+finding = "22.33.124.1"
+status = "resolved"
+evidence = "a92eadd8e8 constructs absolute RPC and explorer URLs for each selected tenant at apps/wallet/src/lib/queries/repair-22-33-124.test.ts:249 and retains both equal-address isolation and switch-during-reconciliation cases at apps/wallet/src/lib/queries/repair-22-33-124.test.ts:262 and apps/wallet/src/lib/queries/repair-22-33-124.test.ts:326."
+
+[disposition.22.33.1240.1]
+finding = "22.33.1240.1"
+status = "resolved"
+evidence = "cfd9f126bb landed the CLI integer-boundary proof at modules/evm/client/cli/repair_m1240_test.go:77, which round-trips exact signed and unsigned ABI values and keeps out-of-range refusal assertions at modules/evm/client/cli/repair_m1240_test.go:117."
+
+[disposition.22.33.1240.2]
+finding = "22.33.1240.2"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1242.1]
+finding = "22.33.1242.1"
+status = "resolved"
+evidence = "a874cef595 uses the validated default minimum and maximum fee parameters together at modules/evm/keeper/domain_fees_test.go:194 before creating the fee domain, preserving exact operator payout, collector remainder, fee conservation and recovery through modules/evm/keeper/repair_m1242_test.go:24."
+
+[disposition.22.33.1242.2]
+finding = "22.33.1242.2"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1242.3]
+finding = "22.33.1242.3"
+status = "resolved"
+evidence = "a874cef595 derives precompile version expectations from every version file at modules/evm/keeper/keeper_test.go:119 and maps the current implementation to the latest upgrade at modules/evm/keeper/keeper_test.go:139, retaining exact address-by-height assertions instead of a stale literal version."
+
+[disposition.22.33.1244.1]
+finding = "22.33.1244.1"
+status = "resolved"
+evidence = "92fa15c484 uses the production tmed25519.GenerateSecretKey constructor for the recovery validator at modules/evm/repair_m1244_test.go:200; modules/evm/repair_m1244_test.go:214 reopens the application and requires the same commit ID, decided block hash and recovered keeper state."
+
+[disposition.22.33.1244.2]
+finding = "22.33.1244.2"
+status = "resolved"
+evidence = "92fa15c484 landed the ordinary and streamed EVM restart cases at modules/evm/repair_m1244_test.go:221 and modules/evm/repair_m1244_test.go:225 together with the ante-pipeline guide checks at modules/evm/repair_m1244_test.go:236, preserving the complete reopen assertions."
+
+[disposition.22.33.1244.3]
+finding = "22.33.1244.3"
+status = "resolved"
+evidence = "92fa15c484 landed modules/evm/repair_m1244.kvx with the EVM repair and its ordinary/streamed recovery cases at modules/evm/repair_m1244_test.go:221; the recovered application must retain both its commit ID and decided block identity at modules/evm/repair_m1244_test.go:215."
+
+[disposition.22.33.1249.1]
+finding = "22.33.1249.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1254.1]
+finding = "22.33.1254.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."
+
+[disposition.22.33.1255.1]
+finding = "22.33.1255.1"
+status = "resolved"
+evidence = "d56c2b440d propagated the fallible transaction factory through the auth, genutil, staking, EVM and token-factory CLI callers; sdk/x/auth/client/cli/tx_sign.go:69 now takes both Factory and error and returns construction errors before signing."

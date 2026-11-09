@@ -10,6 +10,5 @@ evidence = "Commit 28fb1aae3d610d3de9c09f93747702e3aa998101 migrates the session
 
 [disposition.9.35.18.1]
 finding = "9.35.18.1"
-status = "open"
-evidence = "On main, services/agent/crates/layerx-agent-api/src/read.rs:912 encodes hashes with a 0x prefix and services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1837 uses that serializer, while its assertion at services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2564 still expects a bare hash. The activity submission helper at services/agent/crates/layerx-agentd/src/human_runtime.rs:19684 also still reads onboarding.activity and decodes it with the Governance registry at line 19699."
-follow_up = "9.98.2"
+status = "resolved"
+evidence = "Commit a1ea1c8a65 repaired the daemon freshness assertion and sponsored registration consumer on main, and 71a71152c2 moved the remaining wire codec calls behind historical. services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2599 now expects the 0x-prefixed block hash, while services/agent/crates/layerx-agentd/src/human_runtime.rs:20104 embeds sponsored.activity and validates its registration and embedded consent instead of decoding onboarding.activity as Governance."

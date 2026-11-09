@@ -1,0 +1,144 @@
+[disposition.18.0.1.1]
+finding = "18.0.1.1"
+status = "resolved"
+evidence = "Commit dd45681609 made issue closure recognize both done and superseded tasks on main. spec/layerx-merge/programme/issue_closure.py:15 examines every domain-18 task except the closure itself, and spec/layerx-merge/programme/issue_closure.py:21 returns only tasks outside those closed statuses."
+
+[disposition.18.0.1.2]
+finding = "18.0.1.2"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/programme/issue_closure.py:15 derives the checked task set from all domain-18 task sections rather than a fixed issue list and spec/layerx-merge/programme/issue_closure.py:21 accepts done and superseded. Commit dd45681609 landed the closure implementation after the issue repairs."
+
+[disposition.18.1129.1.2.a2]
+finding = "18.1129.1.2.a2"
+status = "resolved"
+evidence = "Commit d20d224d8a repaired both ends of the x402 settlement evidence on main. services/interop/crates/layerx-x402/src/buyer.rs:809 accepts the model's bare 32-byte hex identifier, and services/interop/crates/layerx-x402/src/seller.rs:385 includes authenticated settlement logs in the returned evidence."
+
+[disposition.18.1131.1.2.a2]
+finding = "18.1131.1.2.a2"
+status = "resolved"
+evidence = "Commit c4a51d8243 ported the handshake fixture to the current startup configuration on main. services/agent/crates/layerx-agentd/tests/handshake_gate.rs:148 supplies node_endpoint and expected_chain_id instead of the removed protocol-version and sequencer-authority fields."
+
+[disposition.18.1526.1.1]
+finding = "18.1526.1.1"
+status = "resolved"
+evidence = "Commit bc2f49c623 repaired the explorer's Chakra wrappers on main. apps/explorer/toolkit/chakra/stat.tsx:6 now wraps the installed namespace's Root with the stat recipe and carries no Stat.Group reference."
+
+[disposition.18.1526.1.2]
+finding = "18.1526.1.2"
+status = "resolved"
+evidence = "Commit fa62e54d29 replaced the fixed manifest-directory hop on main. apps/explorer/instrumentation.node.spec.ts:23 walks ancestor directories until the package.json name matches the requested telemetry dependency and refuses when it reaches the filesystem root without a match."
+
+[disposition.18.1562.1.10]
+finding = "18.1562.1.10"
+status = "resolved"
+evidence = "Commit 0ef0b587be made the source-built AI market guest follow the production size-optimization pass on main. rpc/sequencer_receipt_vectors_test.go:1946 applies the pass and rpc/sequencer_receipt_vectors_test.go:1949 retains the 524288-byte deployment bound including its 104-byte overhead."
+
+[disposition.18.1562.1.11]
+finding = "18.1562.1.11"
+status = "resolved"
+evidence = "Commit 0ef0b587be corrected the AI-market receipt fixture's fee asset, occupancy lifecycle and account registration on main. rpc/sequencer_receipt_vectors_test.go:602 selects the occupancy asset for fees, and rpc/sequencer_receipt_vectors_test.go:806 re-registers the ABI-5 account with profile 1 after the earlier profile-2 opt-in."
+
+[disposition.18.1562.1.12]
+finding = "18.1562.1.12"
+status = "resolved"
+evidence = "On main, rpc/sequencer_receipt_vectors_test.go:598 gives the main fee account a balance of 1000000000 while the Fund call at rpc/sequencer_receipt_vectors_test.go:834 declares a fee limit of 100000000. Commit 0ef0b587be landed this fixture with separate occupancy fee and reward assets."
+
+[disposition.18.1562.1.13]
+finding = "18.1562.1.13"
+status = "resolved"
+evidence = "Commit 0ef0b587be changed the authority-bearing Fund fixture to callWithReceipts on main. rpc/sequencer_receipt_vectors_test.go:833 passes the canonical balance-sight receipt and its block height, preserving the authority digest in the capability bytes."
+
+[disposition.18.1562.1.14]
+finding = "18.1562.1.14"
+status = "resolved"
+evidence = "Commit 0ef0b587be bound the AI-market authority decoder to the node's produced transfer set on main. services/agent/sdk/typescript/src/ai_market.ts:3697 requires both authorized legs and applied legs to hash to the same wrapper root, with no premise that the two roots differ."
+
+[disposition.18.1562.1.1]
+finding = "18.1562.1.1"
+status = "environment"
+evidence = "On main, modules/lxphost/host.go:246 selects the ABI-5 programs module when configured, and rpc/sequencer_receipt_vectors_test.go:506 selects that ABI for the AI-market reward receipt. The product path retains a real authority-bearing Fund response at rpc/sequencer_receipt_vectors_test.go:851."
+
+[disposition.18.1562.1.2]
+finding = "18.1562.1.2"
+status = "resolved"
+evidence = "Commit 0ef0b587be aligned the AI-market CREATE fixture with the guest codec on main. rpc/sequencer_receipt_vectors_test.go:753 encodes the configuration version as a nonzero big-endian u64, and rpc/sequencer_receipt_vectors_test.go:772 keeps the 307-byte policy and exact CREATE record length checks."
+
+[disposition.18.1562.1.3]
+finding = "18.1562.1.3"
+status = "resolved"
+evidence = "On main, rpc/sequencer_receipt_vectors_test.go:723 upgrades the deployed account to the programs guest ABI selected by the source guest and rpc/sequencer_receipt_vectors_test.go:729 asserts the stored ABI version before CREATE. Commit 0ef0b587be landed the deploy-then-upgrade fixture."
+
+[disposition.18.1562.1.4]
+finding = "18.1562.1.4"
+status = "resolved"
+evidence = "Commit 4fc7db6573 added ABI-5 registration to the hosted kernel on main. modules/lxphost/host.go:246 selects programs_module_registration_v5 for that configured ABI, and b408a0bf72 connected the network upgrade to the ABI choice."
+
+[disposition.18.1562.1.5]
+finding = "18.1562.1.5"
+status = "resolved"
+evidence = "The hosted kernel on main registers the configured ABI-5 programs interface at modules/lxphost/host.go:246 following 4fc7db6573. The AI-market reward fixture selects ABI 5 at rpc/sequencer_receipt_vectors_test.go:506 and upgrades the deployed program before CREATE at rpc/sequencer_receipt_vectors_test.go:723, landed in 0ef0b587be."
+
+[disposition.18.1562.1.6]
+finding = "18.1562.1.6"
+status = "environment"
+evidence = "On main, services/agent/sdk/typescript/src/ai_market.ts:3427 decodes the authority-bearing programs wrapper and services/agent/sdk/typescript/src/ai_market.ts:3697 binds its authorized and applied transfer roots. rpc/sequencer_receipt_vectors_test.go:1950 retains the node-produced reward receipt as the SDK decoder input."
+
+[disposition.18.1562.1.7]
+finding = "18.1562.1.7"
+status = "resolved"
+evidence = "Commit e3221769d7 repaired the AI-market Fund execution path and its kernel gas accounting on main. The authority-bearing receipt fixture now uses the production 10000000 kernel allowance at rpc/sequencer_receipt_vectors_test.go:510 and requires a successful Fund result at rpc/sequencer_receipt_vectors_test.go:846, landed in 0ef0b587be."
+
+[disposition.18.1562.1.8]
+finding = "18.1562.1.8"
+status = "resolved"
+evidence = "Commit d56c2b440d propagated the fallible transaction factory constructor through the command-line consumers on main. modules/evm/client/cli/tx.go:97 captures the factory error and returns it before accessing Keybase, preserving constructor failures instead of using an invalid factory."
+
+[disposition.18.1562.1.9]
+finding = "18.1562.1.9"
+status = "resolved"
+evidence = "Commit e3221769d7 repaired the production AI-market Fund path within the kernel allowance on main. modules/lxphost/host.go:124 captures the actual programs kernel gas used, and rpc/sequencer_receipt_vectors_test.go:846 retains the successful Fund result assertion with the authority wrapper required at rpc/sequencer_receipt_vectors_test.go:851."
+
+[disposition.18.1575.1.1]
+finding = "18.1575.1.1"
+status = "resolved"
+evidence = "Commit 34215a11c3 reconciled sweep headers with their target blocks on main. The subsequent consensus inventory in 223aa5a17f records 162 targets, 161 passed and one failed at spec/layerx-merge/programme/sweeps/go-consensus.kvx:4, preserving the failed target in the summary."
+
+[disposition.18.1575.1.2]
+finding = "18.1575.1.2"
+status = "resolved"
+evidence = "Commit 34215a11c3 reconciled the pytest-collection header with its target blocks on main. The later inventory in 40e6842398 records 85 targets, 79 passed and six failed at spec/layerx-merge/programme/sweeps/python-pytest-collect.kvx:4, retaining failures instead of counting them as passes."
+
+[disposition.18.1578.1.1]
+finding = "18.1578.1.1"
+status = "resolved"
+evidence = "Commit 76589ba862 made each native-read producer decode identify its exact method and expected fields on main. services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:434 checks chain id separately, services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:440 checks the committed block, and services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:457 checks the receipt-key object."
+
+[disposition.18.1578.1.2]
+finding = "18.1578.1.2"
+status = "resolved"
+evidence = "Commit 76589ba862 removed inherited node-starting tests from the shared daemon read module on main. services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:648 constructs the native route with genesis validator trust and a result source, and services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:534 retains the same consumer state across reopening."
+
+[disposition.18.1578.1.3]
+finding = "18.1578.1.3"
+status = "resolved"
+evidence = "Commit d6543a4874 ported the Human native-send producer assertion to the V2 consent key on main. services/human/crates/layerx-human-service/tests/native_send_producer.rs:681 compares first.purpose.consent_public_key with the authenticated session owner key, without reading a removed purpose.owner_public_key field."
+
+[disposition.18.1578.1.4]
+finding = "18.1578.1.4"
+status = "resolved"
+evidence = "Commit 76589ba862 bound the native-read route to the producer's genesis validator set and Comet result source on main at services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:699. services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:480 retains authenticated receipt, proof, checkpoint and availability observations and compares them after reopening at services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:535."
+
+[disposition.18.1578.1.5]
+finding = "18.1578.1.5"
+status = "resolved"
+evidence = "Commit 76589ba862 removed the OpenSSL-based validator-key decoding from the shared daemon native-read support on main; services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:664 validates the genesis key type and decodes its base64 bytes without that crate import. The native route binds those validators and the result source at services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:699."
+
+[disposition.18.849.1.3.a2]
+finding = "18.849.1.3.a2"
+status = "resolved"
+evidence = "Commit 99b6f9e978 replaced image library downloads with the repository's pinned libraries on main. docker/layerx/Dockerfile:53 copies all three architecture-specific wasm libraries and docker/layerx/Dockerfile:60 obtains their expected digests from the checksum manifest before strict verification."
+
+[disposition.18.869.1.3.a2]
+finding = "18.869.1.3.a2"
+status = "resolved"
+evidence = "On main, docker/layerx/Dockerfile:53 copies the three wasm libraries from their retained repository paths and docker/layerx/Dockerfile:64 verifies their pinned checksums, as landed by 99b6f9e978. The image runtime at docker/layerx/Dockerfile:102 uses Ubuntu 24.04 with libssl3t64."
