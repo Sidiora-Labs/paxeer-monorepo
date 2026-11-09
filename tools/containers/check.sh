@@ -129,7 +129,6 @@ tools/wasm-tools/ci/docker/x86_64-musl/Dockerfile
 consensus/spec/ivy-proofs/Dockerfile
 consensus/test/e2e/docker/Dockerfile
 services/explorer/backend/.devcontainer/Dockerfile
-storage/db_engine/litt/util/testdata/ssh-test.Dockerfile
 # Auxiliary Redis cache image: checked by docker/redis/tests/redis-image.test.sh.
 docker/redis/Dockerfile
 '
