@@ -39122,3 +39122,11 @@ symbol = "activity-transport.ts"
 observed = "Attempt 1 at 775c80605006: build exit 0; verification exit 1: pnpm --dir apps/launchpad/web run test fails in ten files (chart-datafeed-recovery, connected-journeys, repair-22-33-1011, repair-22-33-900, trade-journey, creation-journey, coin-failure-frames, chart-udf-wire, runtime-authority-production, runtime.integration) before the retired-callers scan ran; log /out/logs/verify-1.log."
 assumption = "The record-only change has nothing in the web suite to verify; the scan is the gate of the task."
 severity = "high"
+
+[finding.22.39.235.7]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 7 at 56fc622cfe85: build exit 0; second verification exit 101: cargo clippy -D warnings refuses tests/repair_22_33_218.rs:443, :501 and :631 (this could be rewritten as let...else) and the test target does not compile; log /out/logs/verify-2.log."
+assumption = "The three sites are the last refusals of the crate."
+severity = "high"

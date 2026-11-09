@@ -19960,3 +19960,8 @@ fix = "The attempt names error 2825 from src/errors.rs, restores the bid path of
 title = "A retired-reference repair of the launchpad web application is verified by the whole web suite it did not touch"
 symptom = "Task 22.39.272 attempt 1 at 775c80605006 (base 04cbe6eed4): the attempt found every reference an allowed one and wrote only apps/launchpad/repair_22_39_272.kvx, and the verification ran the whole launchpad web suite, which is red on main for the causes of gotcha 4013 (chart-datafeed-recovery, coin-failure-frames, chart-udf-wire, runtime-authority-production, repair-22-33-900, connected-journeys, trade-journey, creation-journey, runtime.integration, repair-22-33-1011); the retired-callers scan itself was never reached"
 fix = "The verification of this task is the typecheck and the retired-callers scan; the web suite belongs to 22.39.95; decision 3130"
+
+[gotcha.4028]
+title = "The programs runtime lint attempt replaced three unwrap_err sites with two-arm matches the lint wants as let-else"
+symptom = "Task 22.39.235 attempt 7 at 56fc622cfe85: after the attempt-6 note the only remaining refusals of cargo clippy -D warnings are tests/repair_22_33_218.rs:443, :501 and :631, where the match on the refusal result (Err(refusal) => refusal, Ok(_) => panic!) is refused as manual_let_else; the twenty-one sites of the note are otherwise repaired"
+fix = "The three sites become let-else bindings with the panic in the else arm; decision 3139"

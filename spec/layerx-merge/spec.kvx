@@ -11944,6 +11944,12 @@ value = "Every file a task adds under a generated root of sdk/platform (a record
 basis = "Gotcha 4022: the record of 22.39.287 left the lock check red on main"
 affects = ["22.39.294"]
 
+[decision.3139]
+title = "A refusal binding with a single error arm is written as let-else"
+value = "A case that binds the Err of a two-outcome result and panics on the Ok writes let Err(refusal) = expr else panic with the message, which the workspace lints accept; a match with one binding arm and one diverging arm is not written"
+basis = "Gotcha 4028: the match form the attempt chose is refused by manual_let_else"
+affects = ["22.39.235"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -193552,6 +193558,7 @@ do_6 = "Attempt 4 (continue, gotcha 3934, decision 3089): the attempt-3 tree f3d
 do_7 = "Attempt 5 (continue after 22.39.279 lands, gotcha 3952, decision 3111): the attempt-4 tree 717742d6533d stands unchanged (the twenty repaired lint sites, the record); the task now requires 22.39.279, which adds the missing field to the gateway test target the dependents check compiles. Rebase on main once that task is on it, change nothing, run the build once, the verification once and the dependents check once at the final revision; if clippy reports a new site after the rebase, repair it and add it to the record."
 do_8 = "Attempt 6 (continue, gotcha 3969): the attempt-5 tree b8e4850b4acc stands (ten repaired sites, the record). Repair the remaining sites of the test targets of programs/crates/layerx-programs-runtime: the fifteen doc-markdown sites in tests/repair_22_33_259.rs and tests/repair_22_31_266.rs (backticks around identifiers in doc comments), items_after_statements in tests/repair_22_31_259.rs, assigning_clones in tests/repair_22_31_577.rs, and any further site the clippy run reports inside this crate; the dead-code warnings printed for programs/sdk/rust belong to the dependency, are not errors and are not touched. Add the sites to the record. Run the build once and the verification once at the final revision."
 do_9 = "Attempt 7 (continue, gotcha 3993): the attempt-6 tree 24dd6e16c37b stands (the runtime lint repairs, the record). Repair the 21 remaining sites and nothing else: tests/determinism.rs:15 takes the argument by reference and :20 collects the iterator without format; tests/repair_22_33_218.rs:443, :499 and :627 and tests/repair_22_33_229.rs:70, :78, :122 and :152 match the error variant instead of unwrap_err; tests/repair_22_33_229.rs:2 to :11 and :16 put the identifiers of the doc comment in code marks; :165 asserts the computed condition instead of a constant. Keep the case semantics unchanged and add the sites to the record. Run the build once and the verification once at the final revision."
+do_10 = "Attempt 8 (continue, gotcha 4028, decision 3139): the attempt-7 tree 56fc622cfe85 stands. Rewrite the three bindings at tests/repair_22_33_218.rs:443, :501 and :631 as let-else: let Err(refusal) = expr else panic with the existing message; change nothing else, add the three sites to the record. Run the build once and the verification once at the final revision."
 
 [task.18.1758.1]
 title = "Issue #1758: Preserve capability-install replay compatibility across reply encoding changes"
