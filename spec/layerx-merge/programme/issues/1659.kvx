@@ -1,0 +1,49 @@
+[issue.1659]
+number = 1659
+title = "Replay held-job diagnostic bypasses retry handling during database outages"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The diagnostic introduced by commit bbfe819c82aa62bccf0821cf2232131f78821327 remains unprotected: services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex:36 invokes log_held_jobs before the retry timer at line 47, its held_jobs call at line 56 reaches Repo.query! at services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs:26 outside the run_step rescue at line 69, and immediate replay at price_acceptance_replay.ex:20 plus transient restart at line 6 under services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_updates_supervisor.ex:29 can repeat the failure; services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs:119 covers node failures and warning throttling but no database outage."
+close_comment = "A failed held-job query can terminate price acceptance replay before its retry timer is scheduled. A repair is required to keep diagnostics non-fatal during database outages, preserve useful held-job warnings and verify recovery on the scheduled retry."
+
+[task.18.1659.1]
+title = "Issue #1659: Preserve price acceptance replay retries when held-job diagnostics fail"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181659.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex:52 handle database query failures locally around the held_jobs diagnostic at line 56, report diagnostic unavailability explicitly and return usable replay state so the step result at line 35 still controls the normal completion, batch interval and bounded error retry at lines 38-48; do not convert a failed query into an empty held-job result or suppress errors from the replay step, and preserve the successful count, lowest block, error and warning throttle at lines 55-59."
+do_2 = "Extend services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs:119 with declared regression functions replay_database_outage_recovers and replay_held_warnings_survive_database_outage registered through ExUnit tests: use the real PriceAcceptanceReplay, PriceAcceptanceBackfill and PostgreSQL query path with temporary database query unavailability and guaranteed restoration, without test doubles; cover startup with last_held_warning_at nil and a subsequent outage when the diagnostic is due, monitor the original runner and backfill worker for survival, assert retries respect the configured interval without a restart loop, then restore query availability and prove timer-driven replay resumes and completes without manually sending replay."
+do_3 = "In those regression tests assert durable queue and observation state is preserved during each outage and advances correctly after recovery, and capture a successful held-job diagnostic after availability returns to assert count, lowest block and error remain useful and warnings are still limited to once per minute; preserve the existing assertions at services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs:125 and line 166."
+symbols = ["log_held_jobs", "replay_database_outage_recovers", "replay_held_warnings_survive_database_outage"]
+touches = ["services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs"]
+tests = ["services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs::replay_database_outage_recovers", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs::replay_held_warnings_survive_database_outage"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app indexer mix compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/repair_22_31_490_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181659]
+title = "Held-job diagnostics preserve database outage recovery for price acceptance replay"
+ac_1 = "Given the replay callback at services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_acceptance_replay.ex:34 and the database diagnostic at services/explorer/backend/apps/explorer/priv/repo/migrations/scripts/price_acceptance_backfill.exs:25, a diagnostic query failure during startup or a subsequent replay leaves the original runner and backfill worker alive, preserves durable progress and the configured retry interval, and allows timer-driven replay to finish after database recovery while successful diagnostics retain the warning details and one-minute throttle at price_acceptance_replay.ex:55."
+
+[acceptance.18.1659.1]
+feature = "18"
+req = "181659.1"
+scenario = "Given real durable price acceptance jobs and a running replay worker, when database queries temporarily fail on initial replay with a nil warning timestamp or during a later due diagnostic and then recover, then the same worker survives, retries on its configured interval, preserves durable progress during the outage, completes replay after recovery and retains useful throttled held-job warnings."
+contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
+test = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs::replay_database_outage_recovers and replay_held_warnings_survive_database_outage (planned)"
+qualification = "UNRUN"

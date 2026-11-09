@@ -1,0 +1,50 @@
+[issue.1676]
+number = 1676
+title = "[Coherence] The balance boundary wraps the whole overview panel, so every refresh and every balance failure hides unrelated stats and controls"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "apps/perps/src/page-modules/portfolio/balances.ts:47 resets both sources to loading on every refresh, apps/perps/src/page-modules/portfolio/PortfolioBalanceBoundary.tsx:13 hides its children until both sources are ready, and apps/perps/src/page-modules/portfolio/index.tsx:149 wraps the whole overview despite its independent statistics hooks at apps/perps/src/page-modules/portfolio/index.tsx:81 and apps/perps/src/page-modules/portfolio/index.tsx:82, so the refresh handler at apps/perps/src/page-modules/portfolio/index.tsx:118 hides unrelated statistics and controls; apps/perps/tests/repair-22-33-578.test.ts:143 tests only the isolated balance boundary and does not cover overview visibility."
+close_comment = "Balance loading and failures still hide the entire portfolio overview, including independently loaded statistics and controls. A focused follow-up will limit the balance boundary to the balances strip and keep the overview visible during refresh, failure and retry."
+
+[task.18.1676.1]
+title = "Issue #1676: Keep portfolio statistics and controls visible during balance refresh and failure"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181676.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove the overview-wide PortfolioBalanceBoundary at apps/perps/src/page-modules/portfolio/index.tsx:149 and pass the current balance snapshot and retry handler through required, typed PortfolioOverviewPanel and TotalValueCard props; render the existing boundary around only the balances strip at apps/perps/src/widgets/portfolio/PortfolioOverviewPanel.tsx:217, outside the refresh control at line 205, statistics grid at line 237 and account actions at line 253, leaving the independently loaded charts and performance grid mounted."
+do_2 = "Preserve PortfolioBalanceBoundary's source-specific loading, error and retry behavior at apps/perps/src/page-modules/portfolio/PortfolioBalanceBoundary.tsx:13 and the reader's empty unresolved balances, account isolation and generation checks in balances.ts:45 and balances.ts:75; retain all existing safety assertions in apps/perps/tests/repair-22-33-578.test.ts:134 and replace its overview-wide wiring assertion at line 264 with assertions proving the boundary encloses only the balance strip."
+do_3 = "Add and register the declared test function portfolioBalanceIsolationKeepsOverviewVisible in apps/perps/tests/repair-22-33-578.test.ts using the real PortfolioBalanceReader, production overview components and existing transport fixture: assert initial loading, successful values, a delayed refresh, each individual source failure, both failures and retry recovery retain independent PnL, trade and position statistics, daily performance, Refresh, privacy and account controls while only balance content shows loading or error, and an account change never reveals the prior account's balances."
+do_4 = "Update the overviewProps fixtures in apps/perps/tests/exact-money.test.ts:14 and apps/perps/tests/repair-22-33-198.test.ts:165 to provide the required balance snapshot and retry props, retaining every daily-history, precision and privacy assertion; run the focused overview and balance tests together."
+symbols = ["PortfolioPage", "PortfolioOverviewPanel", "TotalValueCard", "portfolioBalanceIsolationKeepsOverviewVisible"]
+touches = ["apps/perps/src/page-modules/portfolio/index.tsx", "apps/perps/src/widgets/portfolio/PortfolioOverviewPanel.tsx", "apps/perps/tests/repair-22-33-578.test.ts", "apps/perps/tests/exact-money.test.ts", "apps/perps/tests/repair-22-33-198.test.ts"]
+tests = ["apps/perps/tests/repair-22-33-578.test.ts::portfolioBalanceIsolationKeepsOverviewVisible", "apps/perps/tests/repair-22-33-578.test.ts::portfolioRpcZeroFailedSourcesAndRetry", "apps/perps/tests/repair-22-33-578.test.ts::portfolioRpcZeroAccountSwitchIgnoresInFlightReads", "apps/perps/tests/repair-22-33-578.test.ts::portfolioRpcZeroSupersededRefreshAndTrueZero", "apps/perps/tests/repair-22-33-578.test.ts::portfolioOrdersDiamondAvailabilityMatchesNativeVenue", "apps/perps/tests/exact-money.test.ts::portfolioPageShowsDailyPnlErrorAndSkippedDays", "apps/perps/tests/repair-22-33-198.test.ts::f020_overviewDisclosesEstimateAndHistoryLimits", "apps/perps/tests/repair-22-33-198.test.ts::f021_privacyConcealsHoldingsAndDerivedPercentages"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/perps exec node --test --test-concurrency=1 --import tsx --test-name-pattern='portfolioBalanceIsolation|portfolioRpcZero|portfolioOrdersDiamond|portfolioPageShowsDailyPnlErrorAndSkippedDays|f020_|f021_' tests/repair-22-33-578.test.ts tests/exact-money.test.ts tests/repair-22-33-198.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181676]
+title = "Balance availability affects only the portfolio balances strip"
+ac_1 = "Given the overview composition at apps/perps/src/page-modules/portfolio/index.tsx:149 and the balances strip at apps/perps/src/widgets/portfolio/PortfolioOverviewPanel.tsx:217, initial balance loading, refresh, either or both balance-source failures and retry keep independent PnL, position and trade statistics, daily performance and overview controls visible, while the strip alone shows source-specific loading or error and never invents zero balances or exposes balances from a previous account."
+
+[acceptance.18.1676.1]
+feature = "18"
+req = "181676.1"
+scenario = "Given a connected portfolio with independent statistics and daily performance, when balance reads load, refresh, fail or retry, then those statistics and overview controls remain visible and only the balances strip changes availability state without showing invented or previous-account balances."
+contract = "contracts/perps-client.md#widgets"
+test = "apps/perps/tests/repair-22-33-578.test.ts::portfolioBalanceIsolationKeepsOverviewVisible (planned)"
+qualification = "UNRUN"

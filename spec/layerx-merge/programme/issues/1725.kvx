@@ -1,0 +1,7 @@
+[issue.1725]
+number = 1725
+title = "[Coherence] Decision 2628 holds only some of the eligible open Rust tasks whose gates compile the red Human service test target; 22.33.1537 and 22.31.539 still run"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit d6543a487465f65cbe98c55bb51984fa85cbd35d replaced the stale purpose field with consent_public_key, retained at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681 and matching services/agent/crates/layerx-agent-api/src/native_send.rs:17; spec/layerx-merge/spec.kvx:190057 marks repair 22.31.558 done, :190665 includes that repair in 22.31.539's requirements, :192971 acknowledges the repaired shared failure for 22.33.1537, and :190662, :192928 and :192975 mark 22.31.539, 22.33.1537 and 22.33.1536 done, so no cited open task remains exposed to that stale-field failure."
+close_comment = "The Human native-send producer test now uses the V2 consent_public_key field, removing the shared compile error described here. Task 22.31.539 includes the repair dependency, and both affected tasks are complete."
