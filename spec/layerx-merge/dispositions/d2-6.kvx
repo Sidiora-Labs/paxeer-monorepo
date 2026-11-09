@@ -1,0 +1,206 @@
+# Product evidence on main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.2.10.5.1.a2]
+finding = "2.10.5.1.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxledger/views_test.go:177 expects LXP_NO_PAYER_GRANT from the retired grant view instead of comparing a grant amount with a zero big.Int; commit ea039363ee aligned the view coverage with the retired grant reader."
+
+[disposition.2.10.5.2.a2]
+finding = "2.10.5.2.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxledger/layerxledger.go:90 resolves Keeper.Actor only for non-constant methods, allowing unbound callers to reach the view handlers; commit b73d902df9 landed this dispatch repair."
+
+[disposition.2.10.5.a2]
+finding = "2.10.5.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxledger/layerxledger.go:90 restricts actor resolution to writes and dispatches constant methods through ledgerMethods at line 99; commit b73d902df9 landed the public-view behavior."
+
+[disposition.2.11.1.1.a2]
+finding = "2.11.1.1.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxauth/harness_test.go:31 embeds the concrete application PrecompileKeepers, retaining the launchpad accessor alongside LayerXAuthK; commit 63c32fa830 landed the constructor fixture repair."
+
+[disposition.2.11.1.a2]
+finding = "2.11.1.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxauth/errors.go:33 maps the governance module's ErrPausedScope while preserving the registered error identity through Unwrap; commit 63c32fa830 replaced the removed auth error reference."
+
+[disposition.2.11.2.1.a2]
+finding = "2.11.2.1.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxauth/grants_test.go:267 revokes the fee-bearing predecessor and lines 272-277 check its revocation sequence before successor issuance at line 308; commit f7a1bd1260 landed the revoked-predecessor coverage, extended by commit 7b3abd9582."
+
+[disposition.2.11.2.2.a2]
+finding = "2.11.2.2.a2"
+status = "resolved"
+evidence = "On main, src/modules/governance/lxp_governance.c:481 resolves the occupancy schedule and asset through the Programs runtime before comparing the fee-budget asset, rather than using an unfilled runtime field; commit 347d7fca57 landed the governed-asset resolution."
+
+[disposition.2.11.2.3.a2]
+finding = "2.11.2.3.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:1283 loads the Programs fee records for governance activities, and modules/lxphost/ctx.go:174 loads the active fee record and its versioned history; commit b42f9fa504 landed this scoped loading."
+
+[disposition.2.11.2.a2]
+finding = "2.11.2.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxauth/grants_test.go:267 revokes the predecessor before grantSessionSuccessor and line 319 checks inheritance of its fee budget; commit f7a1bd1260 landed successor coverage for the kernel's revoked-session rule."
+
+[disposition.2.11.4.a2]
+finding = "2.11.4.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxauth/layerxauth.go:88 resolves an actor only for non-constant methods, so unbound callers can read grants, session keys and capability scopes; commit 7ac8f2d73f landed the view dispatch repair."
+
+[disposition.2.22.4.1.a2]
+finding = "2.22.4.1.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:257 registers budget and escrow, and modules/layerxpay/keeper/execute_test.go:168 submits escrowOpen through the keeper; commits 44edbdfbc2 and 2c48362b3d landed the registration and supported submit coverage."
+
+[disposition.2.22.4.2.a2]
+finding = "2.22.4.2.a2"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/execute_test.go:133 builds its submit case around a funded escrow and line 168 submits escrowOpen, using the escrow registration in modules/lxphost/host.go:260; commit 2c48362b3d landed this fixture."
+
+[disposition.2.22.4.3.a2]
+finding = "2.22.4.3.a2"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/execute.go:50 sets AccountSequence to the host identity sequence and bounds NotBefore/NotAfter from block time to block time plus the configured window; commit 2c48362b3d landed the corrected envelope construction."
+
+[disposition.2.22.4.4.a2]
+finding = "2.22.4.4.a2"
+status = "resolved"
+evidence = "On main, src/protocol/lxp_module_ctx.c:897 verifies the custody-staging activity signature only when asset binding_authority is absent; commit d26df9dce2 landed the bound-authority custody repair."
+
+[disposition.2.22.4.a2]
+finding = "2.22.4.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:1035 exposes TimestampWindowMs and modules/layerxpay/keeper/execute.go:41 reads that method when constructing an activity; commit 2c48362b3d landed the reader and its keeper consumer."
+
+[disposition.2.24.2.a2]
+finding = "2.24.2.a2"
+status = "resolved"
+evidence = "On main, src/modules/budget/lx_budget_module.c:286 conditionally verifies the activity signature according to asset_runtime.binding_authority; commit 4606c88a8e landed the budget signer repair for bound activity submission."
+
+[disposition.2.24.3.a2]
+finding = "2.24.3.a2"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/budget_pull.go:17 returns ErrBudgetPullRetired without drawing funds, and the host no longer exposes the retired payer-grant read; commits 1c81ed3691 and 984636931a removed the pull/read path that could report inconsistent draw totals."
+
+[disposition.2.24.5.1.a2]
+finding = "2.24.5.1.a2"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/budget_views.go:51 returns sdk.ZeroInt() directly for an exhausted allowance, preserving the canonical zero representation; commit 1d8ccad987 landed that behavior."
+
+[disposition.2.24.5.2.a2]
+finding = "2.24.5.2.a2"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/budget_views_test.go:245 expects the defunded per-period limit to be 400 and line 246 checks remaining funds of 280; commit 1d8ccad987 landed the assertions matching the kernel defund rule."
+
+[disposition.2.24.5.a2]
+finding = "2.24.5.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:257 registers the budget module and line 260 registers escrow alongside it, allowing budget record creation through the shared host; commit 44edbdfbc2 landed those registrations."
+
+[disposition.2.25.1.a2]
+finding = "2.25.1.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:269 registers stream and line 272 registers service in the hosted kernel; commit 1ab8d66454 landed both registrations for the native pay activity families."
+
+[disposition.2.26.4.a2]
+finding = "2.26.4.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:272 registers service, and modules/layerxpay/keeper/service_dispute_test.go:75 opens a service dispute through the keeper before resolving its escrow-linked result; commit 1ab8d66454 landed the missing module registration."
+
+[disposition.2.27.1.1.a2]
+finding = "2.27.1.1.a2"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/msg_server.go:20 wraps sdkerrors.ErrUnauthorized for an authority mismatch before accepting parameter updates; commit 0d179df2e7 landed the supported SDK error contract."
+
+[disposition.2.27.1.a2]
+finding = "2.27.1.a2"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/msg_server.go:20 rejects a foreign authority with sdkerrors.ErrUnauthorized, without referring to the absent governance ErrInvalidSigner; commit 0d179df2e7 landed the authority check."
+
+[disposition.2.28.4.a2]
+finding = "2.28.4.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxpay/layerxpay.go:227 dispatches escrow writes to escrowHandlers, whose escrowOpen branch in precompiles/layerxpay/escrow.go:83 selects EscrowOpened; commit d5b037bbf0 landed the escrow dispatch and event handlers."
+
+[disposition.2.28.8.a2]
+finding = "2.28.8.a2"
+status = "resolved"
+evidence = "On main, precompiles/layerxpay/layerxpay.go:344 routes service views to serviceViewHandlers and precompiles/layerxpay/service_views.go:13 maps ArtifactSize into the ABI's ArtifactSizeBytes field; commit 0330d08729 landed the service view adapter."
+
+[disposition.2.3.4.a2]
+finding = "2.3.4.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:324 assigns asset_runtime.binding_authority from the resolved host authority and src/modules/asset/lx_asset_execution.h:126 honors that flag; commit 95cf1c458d landed bound-authority asset execution."
+
+[disposition.2.3.6.a2]
+finding = "2.3.6.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/execute.go:13 types Result.Events as []lxphost.ReceiptEvent while modules/layerxledger/keeper/events.go:8 declares the separate decoded Event structure; commit 5e468268cf landed the non-conflicting event types."
+
+[disposition.2.32.7.a2]
+finding = "2.32.7.a2"
+status = "resolved"
+evidence = "On main, modules/layerxagent/keeper/msg_server.go:30 wraps sdkerrors.ErrUnauthorized when the message authority differs from the configured authority; commit a8f87bdaf8 landed the supported authority error."
+
+[disposition.2.34.2.a2]
+finding = "2.34.2.a2"
+status = "resolved"
+evidence = "On main, node/precompiles.go:178 exposes LayerXAgentK on PrecompileKeepers, returning the application's agent keeper to registered constructors; commit c833bda08a landed this application interface."
+
+[disposition.2.4.2.1.a2]
+finding = "2.4.2.1.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/execute.go:57 takes the receipt directly from host.Execute and line 61 returns its events without a post-execution idempotency lookup; commit c72fcb164c landed this receipt path."
+
+[disposition.2.4.2.2.a2]
+finding = "2.4.2.2.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/supply_test.go:80 asserts an empty kernel event list for mint and line 82 decodes Transfer from receipt.Transfers, with corresponding burn assertions at line 144; commit 43f3d9a1f6 landed the receipt-based event coverage."
+
+[disposition.2.4.2.a2]
+finding = "2.4.2.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/events.go:21 defines LedgerEvents and line 13 defines EventArgs, supplying the decoder used by the supply methods; commit 5e468268cf landed both declarations."
+
+[disposition.2.4.4.a2]
+finding = "2.4.4.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/send_test.go:111 requires an empty kernel event list and line 113 derives the send Transfer through LedgerEvents from the receipt; commit d163405ab3 landed these transfer assertions."
+
+[disposition.2.4.5.1.a2]
+finding = "2.4.5.1.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/payexact_test.go:50 checks the returned kernel receipt and its transfer directly, without the retired stored-receipt reader; commit 49c795b681 removed that lookup, and commit bccd05dc88 aligned duplicate-payment assertions with the current payment-reference guard."
+
+[disposition.2.4.5.a2]
+finding = "2.4.5.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/execute.go:57 returns the kernel execution receipt instead of reading a removed idempotency row; commit c72fcb164c landed the shared receipt repair used by PayExact."
+
+[disposition.2.4.7.a2]
+finding = "2.4.7.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/draw.go:19 refuses the retired draw API with ErrNoPayerGrant; commit 52fda45db6 removed src/ledger/lxp_receive.c and commit 984636931a removed the draw path's dependency on the retired grant reader."
+
+[disposition.2.5.2.a2]
+finding = "2.5.2.a2"
+status = "resolved"
+evidence = "On main, modules/layerxledger/keeper/pause.go:15 implements checkPause by reading stored Params and passing the pause state to the governance scope check; commit b76044b03e landed this write guard."
+
+[disposition.2.6.1.a2]
+finding = "2.6.1.a2"
+status = "resolved"
+evidence = "On main, modules/layerxauth/keeper/keeper.go:40 validates Params and persists ParamsKey without invoking a host retention setter; commit 3bcb01ac49 landed the keeper parameter implementation."
+
+[disposition.2.6.4.1.a2]
+finding = "2.6.4.1.a2"
+status = "resolved"
+evidence = "On main, modules/layerxauth/keeper/execute_test.go:76 asserts returned receipts and unchanged grants under replay without reading a retired stored idempotency result; commit 90bda704ad removed that reader and commit 41642833f9 aligned the replay cases with current refusal semantics."
+
+[disposition.2.6.4.a2]
+finding = "2.6.4.a2"
+status = "resolved"
+evidence = "On main, modules/layerxauth/keeper/execute_test.go:136 asserts ErrSequenceReused with kernel code -301, and line 142 checks that the grant remains unchanged instead of comparing receipt roots; commit 75ee11a074 landed the refusal assertions, updated by commit 41642833f9 to preserve the unchanged host state."

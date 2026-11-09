@@ -1,0 +1,501 @@
+# Product evidence on main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.9.1.1.1.a2]
+finding = "9.1.1.1.a2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agent-api/src/read.rs:104 defines Freshness with chain_head, value_height and RelativeTo::Block, and services/agent/crates/layerx-agentd/src/export.rs:105 reports an achieved_rung. Commits 05dcc12439, 1866e77a11 and 6b9420582f ported the mirror, SDK and daemon consumers to these types."
+
+[disposition.9.1.1.a2]
+finding = "9.1.1.a2"
+status = "resolved"
+evidence = "Commit 05dcc12439 ported the mirror read consumers on main, and f0aa4ee07e subsequently removed its kernel node source entirely. services/interop/crates/layerx-mirror/src/lib.rs:3 now exposes the committed source and services/interop/crates/layerx-mirror/src/publisher.rs:648 carries MirrorFreshness for publication progress."
+
+[disposition.9.1.2.a2]
+finding = "9.1.2.a2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agent-api/src/identity.rs:1120 carries ProtocolBudgetView.achieved_rung and services/agent/crates/layerx-sdk/tests/sdk.rs:280 builds tracked submissions with Rung. Commits 05dcc12439, 1866e77a11 and 6b9420582f migrated the downstream mirror, SDK and daemon consumers."
+
+[disposition.9.1.6.a2]
+finding = "9.1.6.a2"
+status = "resolved"
+evidence = "Commit 05dcc12439 made the mirror configuration self-contained, and services/interop/crates/layerx-mirror/src/runtime.rs:1432 now renders the Paxeer RPC configuration directly with a first height and freshness budget. The native checkpoint-policy source was later removed by f0aa4ee07e, so this configuration no longer reads a node.checkpoint_policy from the deployment example on main."
+
+[disposition.9.1.7.1.a2]
+finding = "9.1.7.1.a2"
+status = "resolved"
+evidence = "Commit ecdaab902b refreshed the committed-proof dependency edge on main. services/agent/Cargo.lock:850 now declares layerx-committed-proof with serde_json in its dependency list at line 854."
+
+[disposition.9.1.7.2.a2]
+finding = "9.1.7.2.a2"
+status = "resolved"
+evidence = "Commit 1866e77a11 migrated the SDK envelope consumers on main, with the later wire-name alignment in af16a1da63. services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs:1352 declares owned Vec<Vec<u8>> frames and line 1427 assigns ReadRequest.requested_rung using Rung::Receipted."
+
+[disposition.9.1.7.3.a2]
+finding = "9.1.7.3.a2"
+status = "resolved"
+evidence = "Commit 1866e77a11 removed the SDK certificate-finality path on main; services/agent/crates/layerx-sdk/src/rpc_verification.rs:7 now imports receipt inclusion and pinned SequencerAuthorization. The retained native terminal check at services/agent/crates/layerx-sdk/src/program_http.rs:2379 requires its signed corpus, and services/platform/tests/support/tls_boundary.rs:175 keeps the real TLS boundary for server identity checks."
+
+[disposition.9.1.7.4.a2]
+finding = "9.1.7.4.a2"
+status = "resolved"
+evidence = "Commit 6c4902c134 removed the guarantor checkpoint verifier and embedded settlement parser on main, and 4c97395b2d removed the client's certificate finality suite. services/agent/crates/layerx-proof/src/lib.rs:3 now exposes evidence, inclusion and receipt verification without checkpoint or settlement modules."
+
+[disposition.9.1.7.5.a2]
+finding = "9.1.7.5.a2"
+status = "environment"
+evidence = "On main, services/agent/crates/layerx-sdk/src/program_http.rs:2379 requires a native signed terminal corpus and services/platform/tests/support/tls_boundary.rs:175 selects the real boundary executable. The SDK retains exact profile and authority validation rather than accepting absent corpus bytes or bypassing server identity checks."
+
+[disposition.9.1.7.6.a2]
+finding = "9.1.7.6.a2"
+status = "resolved"
+evidence = "Commit cd8fcfa863 moved the terminal callback fixture to the surviving event callback and 888f49041a aligned its refusal tag on main. tests/programs/test_terminal_v5.c:164 now requires a callback failure to report LXP_ERR_PROGRAM_REFUSED with no effects and a zero transfer root."
+
+[disposition.9.1.7.a2]
+finding = "9.1.7.a2"
+status = "resolved"
+evidence = "Commit 1866e77a11 migrated SDK tests to rungs on main, and 22bb29ae70 subsequently replaced their kernel receipt verification. services/agent/crates/layerx-sdk/tests/offline_export.rs:275 now verifies receipt inclusion with explicit SequencerAuthorization and asserts Rung::Receipted instead of building the removed verification-level export shape."
+
+[disposition.9.11.1.a2]
+finding = "9.11.1.a2"
+status = "resolved"
+evidence = "Commit 051d11e3a7 migrated subscription cursors and their consumers on main. services/agent/crates/layerx-agentd/src/events/subscription.rs:41 declares block_height, tx_index and log_index, and services/agent/crates/layerx-agentd/src/events/deliver.rs:819 constructs the API cursor with the same three coordinates."
+
+[disposition.9.12.2.a2]
+finding = "9.12.2.a2"
+status = "environment"
+evidence = "On main, services/agent/crates/layerx-agentd/src/boot.rs:250 refuses readiness with GateError::NoReceiptKeys when the node supplies no receipt keys. services/agent/crates/layerx-agentd/tests/handshake_gate.rs:93 constructs an empty-key response and line 277 exercises that readiness boundary without requiring the public node to have an empty key set."
+
+[disposition.9.12.3.a2]
+finding = "9.12.3.a2"
+status = "resolved"
+evidence = "Commit 5609ec8024 migrated startup configuration and its evidence reader on main. services/agent/crates/layerx-agentd/src/protocol_evidence.rs:237 loads the configured receipt_key_source, while services/agent/crates/layerx-agentd/src/config.rs:493 explicitly recognizes expected_protocol_version and sequencer_authority_source as retired configuration names."
+
+[disposition.9.2.1.a2]
+finding = "9.2.1.a2"
+status = "resolved"
+evidence = "Commit 2d784c531b introduced the EVM preparation path, and 1a58241e71 removed the remaining legacy core preparation helpers on main. services/agent/crates/layerx-agentd/src/prepare/mod.rs:150 now defines the call-bound Prepared with its signing_hash and line 430 exports it as EvmPrepared."
+
+[disposition.9.2.2.a2]
+finding = "9.2.2.a2"
+status = "resolved"
+evidence = "Commit c03f97f8e7 migrated daemon signing to secp256k1 on main, and 1a58241e71 removed its legacy authorization carrier. services/agent/crates/layerx-agentd/src/sign.rs:272 accepts a 65-byte external signature and line 294 verifies against the 20-byte signer address carried by SigningPreparation."
+
+[disposition.9.22.1.a2]
+finding = "9.22.1.a2"
+status = "resolved"
+evidence = "Commit 248f109c1d retired the eth_getProof account-proof reader and moved its remaining consumers to storage witnesses on main. services/agent/crates/layerx-client/src/rpc/account.rs:39 now defines read failures as Rpc, MalformedValue or Submitted, and services/agent/crates/layerx-client/src/sequencer.rs:358 decodes a storage witness bound to the requested address and slots."
+
+[disposition.9.22.4.1.a2]
+finding = "9.22.4.1.a2"
+status = "resolved"
+evidence = "Commit 7b7e48513e landed borrowing payment adapters on main. services/agent/crates/layerx-client/src/rpc/payments.rs:46 takes &PxEndpoint for list_assets and line 51 uses the same borrowed endpoint for get_asset, while estimate_fee retains &SequencerEndpoint for estimate_gas."
+
+[disposition.9.22.4.2.a2]
+finding = "9.22.4.2.a2"
+status = "resolved"
+evidence = "Commit ecdaab902b restored the committed-proof lock edge and 7b7e48513e landed the payment adapters on main. services/agent/Cargo.lock:854 includes serde_json for layerx-committed-proof, and services/agent/crates/layerx-client/src/rpc/payments.rs:46 reads assets through a borrowed PxEndpoint."
+
+[disposition.9.22.4.a2]
+finding = "9.22.4.a2"
+status = "resolved"
+evidence = "Commit 7b7e48513e made the payment RPC asset readers borrow the owning PxEndpoint on main. services/agent/crates/layerx-client/src/rpc/payments.rs:46 delegates directly to endpoint.list_assets and line 62 keeps gas estimation on &SequencerEndpoint, avoiding any conversion from a borrowed sequencer endpoint."
+
+[disposition.9.23.7.1.a2]
+finding = "9.23.7.1.a2"
+status = "resolved"
+evidence = "Commit 9a7022b287 migrated market snapshot finality to block commits, and fa39fb9556 removed the old ai_market_client.rs suite on main. services/agent/crates/layerx-client/src/ai_market.rs:622 now constructs FinalityEvidence for the current snapshot path, and line 2205 submits signed operations through submit_signed."
+
+[disposition.9.23.7.2.a2]
+finding = "9.23.7.2.a2"
+status = "resolved"
+evidence = "Commit fa39fb9556 moved market operation signing and submission to EIP-1559 calls on main. services/agent/crates/layerx-client/src/ai_market.rs:1507 now calls sign_disclosed_call with the call, disclosure and sender, and line 2205 submits the signed bytes through submit_signed."
+
+[disposition.9.23.7.a2]
+finding = "9.23.7.a2"
+status = "resolved"
+evidence = "Commit 9a7022b287 migrated market snapshot evidence to block commits on main. services/agent/crates/layerx-client/src/ai_market.rs:622 constructs the current FinalityEvidence and the module imports its commit-based snapshot helpers at line 29, rather than constructing removed checkpoint and settlement fields."
+
+[disposition.9.24.1.1.a2]
+finding = "9.24.1.1.a2"
+status = "resolved"
+evidence = "Commit 1ea64199b9 made the native budget corpus self-producing on main. services/agent/crates/layerx-client/tests/committed_caps.rs:25 compiles tests/qualification/lxp_wallet_caps_vectors.c with the budget codec and at line 58 executes that producer before decoding its output."
+
+[disposition.9.24.1.2.a2]
+finding = "9.24.1.2.a2"
+status = "resolved"
+evidence = "Commit 3fab521367 restored the archive link closure for the still-used kernel members on main. The surviving budget-vector consumer at services/agent/crates/layerx-client/tests/committed_caps.rs:25 now compiles the native producer directly with lx_budget_codec.c and lx_budget_create.c under commit 1ea64199b9, so it does not depend on unrelated archive members."
+
+[disposition.9.24.1.3.a2]
+finding = "9.24.1.3.a2"
+status = "resolved"
+evidence = "Commit 1ea64199b9 removed the external corpus-path dependency from the surviving budget vectors on main. services/agent/crates/layerx-client/tests/committed_caps.rs:25 compiles the native producer, line 58 runs it, and vectors caches the parsed producer result in OnceLock."
+
+[disposition.9.24.1.a2]
+finding = "9.24.1.a2"
+status = "resolved"
+evidence = "Commit cb6a7330ac removed the seven kernel capability and prestate transport test files on main. services/agent/crates/layerx-client/tests/committed_caps.rs:1 retains the native budget codec checks, and its vectors function at line 10 now obtains real native producer output directly."
+
+[disposition.9.24.4.a2]
+finding = "9.24.4.a2"
+status = "resolved"
+evidence = "Commit c0f7d1c62f removed the LNI read and stream suites on main, while 1ea64199b9 supplied the retained native budget corpus directly. services/agent/crates/layerx-client/tests/committed_caps.rs:25 now compiles the producer and line 58 executes it before the malformed-input and arithmetic-bound checks consume the vectors."
+
+[disposition.9.24.7.1]
+finding = "9.24.7.1"
+status = "resolved"
+evidence = "Commit 9f1a443340 removed LNI framing, schema and handshake after the consumer migrations on main. services/agent/crates/layerx-client/src/lib.rs:13 now exposes the generic frame module, and services/agent/crates/layerx-client/src/rpc/history.rs:58 aliases ReadContext to CommittedBlockContext without importing lni::schema::Version."
+
+[disposition.9.25.1.1.a2]
+finding = "9.25.1.1.a2"
+status = "resolved"
+evidence = "Commit 036a1da1b6 deleted the kernel-era client evidence module after its consumers migrated on main. services/agent/crates/layerx-client/src/lib.rs:9 now exports rpc, sequencer and storage_witness without evidence, and services/agent/crates/layerx-agentd/src/export.rs:11 obtains receipt keys and StorageWitness from the sequencer API."
+
+[disposition.9.26.3.1]
+finding = "9.26.3.1"
+status = "resolved"
+evidence = "Commit 809b987fbc removed the settlement document types and migrated the proof support on main. services/agent/crates/layerx-types/tests/vectors.rs:101 now loads checkpoint vectors from a repository without the settlement document and services/agent/crates/layerx-proof/src/lib.rs:3 exposes no settlement module, following the verifier retirement in 6c4902c134."
+
+[disposition.9.27.2.1.a2]
+finding = "9.27.2.1.a2"
+status = "resolved"
+evidence = "Commit 6b9420582f migrated daemon export consumers to rungs, followed by the current proof-only export path in 1c847ed905. services/agent/crates/layerx-agentd/src/export.rs:105 carries VerificationReport.achieved_rung, and line 321 reports Rung::Committed after receipt and state-witness verification on main."
+
+[disposition.9.27.2.a2]
+finding = "9.27.2.a2"
+status = "resolved"
+evidence = "Commit f58bfd2388 moved complete-export verification to requested and achieved rungs on main. services/agent/crates/layerx-agentd/src/export.rs:105 now declares achieved_rung as the shared Rung type, whose definition remains in services/agent/crates/layerx-types/src/rung.rs:12 rather than being duplicated in the export consumer."
+
+[disposition.9.27.4.1]
+finding = "9.27.4.1"
+status = "resolved"
+evidence = "Commit 6c4902c134 removed the guarantor certificate verifier and its remaining consumer references on main. services/agent/crates/layerx-proof/src/lib.rs:3 exposes inclusion, receipt and state verification without checkpoint, and services/agent/crates/layerx-proof/tests/inclusion.rs:128 retains the assertion that proof evidence cannot reach the committed rung."
+
+[disposition.9.27.4.2]
+finding = "9.27.4.2"
+status = "resolved"
+evidence = "Commit 6c4902c134 aligned the retained terminal corpus checks while retiring the certificate verifier on main. services/agent/crates/layerx-proof/tests/terminal_v4.rs:95 now iterates the published positive and revert corpora with explicit case counts and line 101 asserts each count before verifying the receipts."
+
+[disposition.9.27.7.a2]
+finding = "9.27.7.a2"
+status = "resolved"
+evidence = "Commit 52458800f8 removed retired daemon and kernel-finality test paths from the workflow check on main, following the suite deletion in 4c97395b2d. scripts/ci/xweb-workflow-check.sh:894 now names the surviving x-websearch crate command rather than the removed finality_evidence.rs test."
+
+[disposition.9.29.1.1]
+finding = "9.29.1.1"
+status = "resolved"
+evidence = "Commit 71a71152c2 moved the retired wire activity codec behind its historical module and updated the crypto consumers on main. services/agent/crates/layerx-crypto/src/onboarding.rs:7 imports historical::activity, while services/agent/crates/layerx-wire/tests/structures.rs:7 retains canonical receipt round trips without importing the retired root activity module."
+
+[disposition.9.3.1.a2]
+finding = "9.3.1.a2"
+status = "resolved"
+evidence = "Commit 06862bc6c2 migrated the outbox states and their daemon consumers on main. services/agent/crates/layerx-agentd/src/shutdown.rs:42 now maps WriteStage::Acknowledged to SubmissionState::Submitted, so the lifecycle no longer references an outbox Acknowledged variant."
+
+[disposition.9.3.2.a2]
+finding = "9.3.2.a2"
+status = "resolved"
+evidence = "Commit d7ffdc755f supplied the replay error consumed by the height-based idempotency migration in a510da8876. services/agent/crates/layerx-agent-api/src/error.rs:116 constructs idempotent_replay with result -302 and reason idempotent_replay, and services/agent/crates/layerx-agentd/src/idempotency.rs:213 calls that constructor on main."
+
+[disposition.9.32.1.a2]
+finding = "9.32.1.a2"
+status = "resolved"
+evidence = "Commits 0a296da5e5 and b6f48e0794 migrated RPC submission and the wallet caller on main. services/agent/crates/layerx-sdk/src/wallet.rs:308 obtains the sender's identity sequence and line 399 submits raw signed transaction bytes through RpcClient::send_raw_transaction, declared at services/agent/crates/layerx-sdk/src/rpc.rs:1452."
+
+[disposition.9.32.4.a2]
+finding = "9.32.4.a2"
+status = "resolved"
+evidence = "Commit b621e52087 migrated receipt verification to pinned ReceiptKeys and 22bb29ae70 later retired receipt_fixture.rs with the kernel receipt verifier on main. services/agent/crates/layerx-sdk/tests/offline_export.rs:275 retains receipt-inclusion verification with explicit authorization and checks the achieved Receipted rung."
+
+[disposition.9.33.10.a2]
+finding = "9.33.10.a2"
+status = "resolved"
+evidence = "Commit 85185607b5 migrated exchange order calls and their TypeScript consumers on main, with the current ABI coverage in cb50180548. services/agent/sdk/typescript/test/precompile-calls.test.ts:145 now passes accountId and checks its encoded word alongside the supported account-less form at line 142."
+
+[disposition.9.33.13.1.a2]
+finding = "9.33.13.1.a2"
+status = "resolved"
+evidence = "Commit ccec3dfd1a removed EncodedActivity and exposed typed perps precompile calls on main. services/agent/sdk/typescript/test/precompile-calls.test.ts:163 now builds an open position with EVM collateralToken and numeric marketId, and line 165 cancels by the numeric order id."
+
+[disposition.9.33.13.a2]
+finding = "9.33.13.a2"
+status = "resolved"
+evidence = "Commits ccec3dfd1a and b69843349f migrated perps call consumers and removed the TypeScript checkpoint verifier on main. services/agent/sdk/typescript/test/precompile-calls.test.ts:163 checks the EVM perps open-position call and line 165 checks cancelOrder(uint256), while the SDK no longer requires CheckpointAttestation."
+
+[disposition.9.33.2.a2]
+finding = "9.33.2.a2"
+status = "resolved"
+evidence = "Commit 76e691de99 migrated estimateFee consumers to typed EIP-1559 calls on main. services/agent/sdk/typescript/test/rpc.test.ts:38 now checks an invalid destination by modifying feeCall.to, and line 39 checks an oversized feeCall.data rather than passing raw activity bytes."
+
+[disposition.9.33.4.a2]
+finding = "9.33.4.a2"
+status = "resolved"
+evidence = "Commit 1869fb8c87 migrated the subscription API and its consumers on main. services/agent/sdk/typescript/test/rpc.test.ts:157 maps heads to newHeads and line 161 maps account to an address-filtered logs subscription, preserving refusal checks for missing accounts and invalid cursors."
+
+[disposition.9.33.5.a2]
+finding = "9.33.5.a2"
+status = "resolved"
+evidence = "Commit c2eb2c78f0 removed the TypeScript anchor-head surface on main. services/agent/sdk/typescript/src/px.ts:31 declares the surviving PX_METHODS and line 434 decodes PxNetworkHead, without declaring decodePxAnchorHead or PxAnchorHead."
+
+[disposition.9.34.5.a2]
+finding = "9.34.5.a2"
+status = "resolved"
+evidence = "Commit 80742029d5 replaced x402 activity binding with transaction binding on main. services/agent/sdk/typescript/src/x402/activity.ts:16 declares bindDrawTransaction, decodes the signed EIP-1559 transaction and checks the ledger draw call, chain id and zero value before returning its transaction hash."
+
+[disposition.9.35.19.1]
+finding = "9.35.19.1"
+status = "resolved"
+evidence = "Commit 41390400af migrated the retained preparation consumers on main. services/agent/crates/layerx-agentd/tests/w7_core_time.rs:103 now returns EvmPrepared from its helper and line 136 verifies the call binding before the preparation is registered."
+
+[disposition.9.35.19.2]
+finding = "9.35.19.2"
+status = "resolved"
+evidence = "Commit 93caf955b1 refreshed the agent workspace lock for the client and SDK dependency changes on main. services/agent/Cargo.lock:850 retains layerx-committed-proof with its serde_json dependency, and subsequent lock updates include the manifests used by the daemon."
+
+[disposition.9.35.19.3]
+finding = "9.35.19.3"
+status = "resolved"
+evidence = "Commit 220f30f862 restored tests/fixtures/authority/provider-subject/consent.activity on main. services/agent/crates/layerx-agentd/src/human_runtime.rs:20131 now embeds that file and compares it to the signed consent decoded from the sponsored registration activity."
+
+[disposition.9.35.19.4]
+finding = "9.35.19.4"
+status = "resolved"
+evidence = "Commit 41390400af migrated expiry registration callers to call-bound preparation on main. services/agent/crates/layerx-agentd/tests/prepare_expiry.rs:79 now builds evm::Prepared, verifies its binding at line 102 and passes that preparation to register at line 153."
+
+[disposition.9.35.19.5]
+finding = "9.35.19.5"
+status = "resolved"
+evidence = "Commit ef0e8c5d4f supplied paymentDenom and the corrected receipt and history fixtures on main. services/agent/crates/layerx-agentd/src/human_runtime.rs:24035 now includes the payment denomination in retained settlement receipts and line 23310 expects six eth_blockNumber reads across the two proven history windows."
+
+[disposition.9.35.19.6]
+finding = "9.35.19.6"
+status = "resolved"
+evidence = "Commit ef0e8c5d4f repaired the receipt fixtures used by retained settlement on main. services/agent/crates/layerx-agentd/src/human_runtime.rs:24109 now checks settlement after a head advance and line 24140 checks settlement replay without duplicate budget consumption, while services/platform/tests/support/tls_boundary.rs:175 retains the real TLS identity boundary."
+
+[disposition.9.35.19.7]
+finding = "9.35.19.7"
+status = "resolved"
+evidence = "Commit 41390400af migrated native-effect, program, policy and expiry consumers to call-bound preparation on main. services/agent/crates/layerx-agentd/src/prepare/expiry.rs:128 reads the disclosure's payload expiry and services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:683 constructs a signed chain binding for the EVM send path."
+
+[disposition.9.35.19.8]
+finding = "9.35.19.8"
+status = "resolved"
+evidence = "Commit 41390400af migrated the remaining native-send repair target on main. services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs:84 now returns EvmPrepared and line 519 reconstructs that type with the call signing hash before verifying its binding at line 527."
+
+[disposition.9.35.19.9]
+finding = "9.35.19.9"
+status = "resolved"
+evidence = "Commit 41390400af made program budget source selection use call-bound EVM actor semantics on main. services/agent/crates/layerx-agentd/src/budget/program_sources.rs:755 validates the preparation binding and compares the disclosure actor bytes with prepared.from, rather than interpreting that address as a DID."
+
+[disposition.9.35.20.1]
+finding = "9.35.20.1"
+status = "resolved"
+evidence = "Commit ec8daa000c exposed the call-bound budget readers for the Human API on main. services/agent/crates/layerx-agentd/src/budget/mod.rs:43 re-exports read_native_effect_budget_sources_call and read_program_budget_sources_call, and services/agent/crates/layerx-agentd/src/budget/program_sources.rs:421 validates the EVM preparation before resolving sources."
+
+[disposition.9.35.20.2]
+finding = "9.35.20.2"
+status = "resolved"
+evidence = "Commit ec8daa000c aligned the EVM write-path store setup with protected storage on main. services/agent/crates/layerx-agentd/tests/write_path_evm.rs:25 canonicalizes the parent directory and line 29 creates its private store root with mode 0700 before opening it."
+
+[disposition.9.35.22.1]
+finding = "9.35.22.1"
+status = "resolved"
+evidence = "Commit 38bcfe3ee8 migrated the remaining authorization consumers to ledger calls on main. services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs:84 now returns EvmPrepared and line 519 restores the call-bound object, while services/agent/crates/layerx-agentd/tests/prepare.rs:4 imports prepare_bound and EvmPreparationState instead of the retired preparation constructors."
+
+[disposition.9.35.22.2]
+finding = "9.35.22.2"
+status = "resolved"
+evidence = "Commit 38bcfe3ee8 aligned preparation timestamps with the node producer on main. services/agent/crates/layerx-agentd/tests/human_node_preparation.rs:114 now expects protocol_timestamp 1700000000000 and line 121 expects 1700000012000 for the later block, preserving millisecond resolution."
+
+[disposition.9.35.22.3]
+finding = "9.35.22.3"
+status = "resolved"
+evidence = "Commit 38bcfe3ee8 aligned durable recovery with authenticated receipt storage on main. services/agent/tests/limits/exactly_once.rs:1642 now requires one with_current_evidence entry and line 1645 checks its activity identity against the stored receipt metadata."
+
+[disposition.9.35.22.4]
+finding = "9.35.22.4"
+status = "resolved"
+evidence = "Commit 38bcfe3ee8 reconciled recovery inventory with the current receipt producer on main. services/agent/tests/limits/exactly_once.rs:1642 places the recovered receipt in with_current_evidence, and line 1647 requires without_evidence to be empty while retaining the canonical receipt comparison."
+
+[disposition.9.35.22.5]
+finding = "9.35.22.5"
+status = "resolved"
+evidence = "Commit 38bcfe3ee8 aligned retained expiry with the payload expiry bound on main. services/agent/crates/layerx-agentd/src/prepare/expiry.rs:124 stores the minimum of disclosure.expiry.not_after and payload_expires_at, so expiry registration cannot outlive the bound disclosed by the call."
+
+[disposition.9.35.22.6]
+finding = "9.35.22.6"
+status = "resolved"
+evidence = "Commit 38bcfe3ee8 separated the durable outbox and idempotency stores in the recovery case on main. services/agent/crates/layerx-agentd/tests/proof_agentd.rs:454 creates the outbox root and line 455 creates an independent idempotency_root, which the replay checks open at line 474."
+
+[disposition.9.35.22.7]
+finding = "9.35.22.7"
+status = "resolved"
+evidence = "Commit 38bcfe3ee8 aligned wind-down settlement with the call's EVM authority on main. services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:90 compares disclosure.authority with prepared.from after verifying the native signed submission, while the reservation actor is derived separately from its owner DID at line 130."
+
+[disposition.9.35.23.1]
+finding = "9.35.23.1"
+status = "resolved"
+evidence = "Commit 9ea9d61a02 aligned the registration consumer with the published optional verification-token parameter on main. services/agent/crates/layerx-sdk/src/rpc.rs:1718 checks the exact registration schema, services/agent/crates/layerx-sdk/src/agent_envelope.rs:1468 rebinds the served call to its expected sender, and services/platform/tests/support/tls_boundary.rs:175 retains the real TLS identity boundary."
+
+[disposition.9.35.24.1]
+finding = "9.35.24.1"
+status = "resolved"
+evidence = "Commit 1a58241e71 completed the daemon preparation consumer migration and removed the legacy signing helpers on main. services/agent/crates/layerx-agentd/tests/prepare.rs:4 now imports prepare_bound with EvmPreparationState, and services/agent/crates/layerx-agentd/src/prepare/mod.rs:430 exports the EVM preparation type used by the migrated consumers."
+
+[disposition.9.35.24.2]
+finding = "9.35.24.2"
+status = "resolved"
+evidence = "Commit 1a58241e71 migrated the external SDK and human-intents preparation consumers on main. services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:81 now uses prepare::evm::prepare_activity and services/human/crates/layerx-human-service/tests/session_keys.rs:257 constructs SigningPreparation with an EvmPrepared transaction."
+
+[disposition.9.35.24.3]
+finding = "9.35.24.3"
+status = "resolved"
+evidence = "Commit 1a58241e71 ported the seven human-service journey consumers to the EVM preparation path on main. services/human/crates/layerx-human-service/tests/session_keys.rs:251 now derives the disclosure with bind_call and line 257 stores the EvmPrepared together with the actor's EVM address."
+
+[disposition.9.35.24.4]
+finding = "9.35.24.4"
+status = "resolved"
+evidence = "Commit 1a58241e71 migrated the remaining call-disclosure consumers on main. services/agent/crates/layerx-agentd/src/budget/native_binding.rs:26 now validates the retained EvmPrepared against SigningPreparation.transaction and its actor address, and services/agent/crates/layerx-agentd/src/prepare/mod.rs:150 carries the actual call-bound preparation rather than the legacy authorization fields."
+
+[disposition.9.35.24.5]
+finding = "9.35.24.5"
+status = "resolved"
+evidence = "Commit 1a58241e71 completed the preparation deletion and protected approval-event store setup on main. services/agent/crates/layerx-agentd/tests/approval_events.rs:418 creates its store with mode 0700, while services/platform/tests/support/tls_boundary.rs:175 keeps the real TLS boundary and server identity checks."
+
+[disposition.9.35.24.6]
+finding = "9.35.24.6"
+status = "resolved"
+evidence = "Commit fc12a863fb anchored local daemon event cursors to chain coordinates on main, before the preparation migration landed in 1a58241e71. services/agent/crates/layerx-agentd/src/events/deliver.rs:806 reads the durable event anchor and line 819 emits its block, transaction and log coordinates; services/agent/crates/layerx-agentd/tests/approval_events.rs:355 requires strict cursor increase across delivery."
+
+[disposition.9.35.5.a2]
+finding = "9.35.5.a2"
+status = "resolved"
+evidence = "Commit 05dcc12439 migrated the mirror read dependencies, 1866e77a11 migrated SDK consumers and 98d64cd4f5 landed EIP-1559 program HTTP decoding on main. services/agent/crates/layerx-sdk/src/program_http.rs:2377 retains the native terminal corpus check and services/interop/crates/layerx-mirror/src/lib.rs:3 now exposes the committed mirror source after kernel node-source retirement."
+
+[disposition.9.35.7.1]
+finding = "9.35.7.1"
+status = "resolved"
+evidence = "Commit f2ca9f35ed removed the crypto kernel activity surface after migrating its consumers on main. services/agent/crates/layerx-crypto/tests/signer.rs:11 now imports BindSigner and sign_disclosed_call, and services/agent/crates/layerx-crypto/tests/support/signing.rs:3 uses the surviving Disclosure and BindMessage types."
+
+[disposition.9.35.7.2]
+finding = "9.35.7.2"
+status = "resolved"
+evidence = "Commit f2ca9f35ed migrated signer support and the repair test away from removed codec items on main. services/agent/crates/layerx-crypto/tests/support/signing.rs:3 now imports Disclosure, BindMessage and SigningRequest, while services/agent/crates/layerx-crypto/tests/signer.rs:68 constructs a signing request from a produced EVM call."
+
+[disposition.9.35.7.3]
+finding = "9.35.7.3"
+status = "resolved"
+evidence = "Commit 5bc0e4ad56 restored the relayer's tracked EVM dependency lock and f2ca9f35ed repaired the retained disclosure case on main. services/agent/crates/layerx-crypto/tests/disclosure_call.rs:391 separately accepts the valid update payload and line 399 retains malformed lifecycle rows, including unsupported ordinal five."
+
+[disposition.9.36.1.a2]
+finding = "9.36.1.a2"
+status = "resolved"
+evidence = "Commit 33ede3794d removed the Python anchor-head exports and stubs on main. services/agent/sdk/python/layerx_sdk/__init__.py:165 now exports history_cursor and history_params, and services/agent/sdk/python/layerx_sdk/px.pyi:173 declares decode_px_network_head followed by the block-position history cursor without the retired anchor declarations."
+
+[disposition.9.4.1.a2]
+finding = "9.4.1.a2"
+status = "resolved"
+evidence = "Commit 356d3b2c47 migrated finality and its remaining daemon callers on main. services/agent/crates/layerx-agentd/src/admin.rs:582 now calls wait_for_rung, and services/agent/crates/layerx-agentd/src/human_runtime.rs:12847 augments evidence through the current verified-receipt and block finality path."
+
+[disposition.9.5.1.a2]
+finding = "9.5.1.a2"
+status = "resolved"
+evidence = "Commit 05dcc12439 aligned the mirror read types with the API and f0aa4ee07e subsequently retired its kernel node source on main. services/agent/crates/layerx-agent-api/src/read.rs:104 now defines chain_head and value_height freshness, and services/interop/crates/layerx-mirror/src/publisher.rs:648 carries independent committed publication freshness."
+
+[disposition.9.5.2.a2]
+finding = "9.5.2.a2"
+status = "resolved"
+evidence = "Commit 05dcc12439 migrated the mirror dependency and e72b9e5ef8 landed block-position account history on main. services/agent/crates/layerx-agent-api/src/read.rs:104 carries block-relative freshness and services/agent/crates/layerx-client/src/rpc/history.rs:13 delegates current account history to SequencerEndpoint, without the removed checkpoint-relative read shape."
+
+[disposition.9.5.3.a2]
+finding = "9.5.3.a2"
+status = "resolved"
+evidence = "Commit e841fd6945 supplied the block-head and receipt-root data required by daemon availability on main. services/agent/crates/layerx-client/src/sequencer.rs:215 now carries SequencerBlock.receipts_root, line 560 declares block_number and line 1170 decodes receiptsRoot from the node block response."
+
+[disposition.9.6.2.a2]
+finding = "9.6.2.a2"
+status = "resolved"
+evidence = "Commit 64ab4a5c39 migrated the approval audit producer to version-three metadata on main. services/agent/crates/layerx-agentd/src/approval/events.rs:113 now sets tx_hash, nonce and rung to None for policy-decision entries while retaining the canonical event digest and approval identity."
+
+[disposition.9.98.2.1]
+finding = "9.98.2.1"
+status = "resolved"
+evidence = "Commit a1ea1c8a65 regenerated the provider-subject activity fixtures and aligned the registration consumer on main. services/agent/crates/layerx-agentd/src/human_runtime.rs:20104 now embeds sponsored.activity, decodes it through the historical codec at line 20116 and validates the sponsored registration against its outer activity before checking the embedded consent."
+
+[disposition.9.98.2.2]
+finding = "9.98.2.2"
+status = "resolved"
+evidence = "Commit 220f30f862 restored tests/fixtures/authority/provider-subject/consent.activity on main. services/agent/crates/layerx-agentd/src/human_runtime.rs:20131 embeds that canonical signed consent and compares it with registration.signed_consent, so the include resolves to the same producer artifact the registration carries."
+
+[disposition.9.98.4.10]
+finding = "9.98.4.10"
+status = "resolved"
+evidence = "Commit ef0e8c5d4f repaired the retained receipt and proven-history fixtures on main. services/agent/crates/layerx-agentd/src/human_runtime.rs:24109 checks settlement after a head advance, and line 23310 expects six eth_blockNumber calls across the two history reads while retaining the proven amount and count assertions."
+
+[disposition.9.98.4.11]
+finding = "9.98.4.11"
+status = "resolved"
+evidence = "Commit 75df69e084 migrated lifecycle verification to signed EIP-1559 calls, with current call-bound integration completed by 41390400af. services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:33 decodes the signed transaction, recovers its sender and binds its disclosure before checking the native lifecycle payload on main."
+
+[disposition.9.98.4.12]
+finding = "9.98.4.12"
+status = "resolved"
+evidence = "Commit 5806a45f02 refreshed the platform workspace lock on main for the runtime-clock dependency graph. services/platform/Cargo.lock:1716 declares layerx-runtime-clock in the same lock as layerx-programs-ai-market at line 1635, and services/agent/crates/layerx-agentd/src/human_runtime.rs:24109 retains the committed-node settlement consumer."
+
+[disposition.9.98.4.13]
+finding = "9.98.4.13"
+status = "resolved"
+evidence = "Commit c047504e3a repaired retained native-preparation binding and 1a58241e71 completed its EVM-only form on main. services/agent/crates/layerx-agentd/src/budget/native_binding.rs:26 now compares the retained preparation with SigningPreparation.transaction and returns prepared.call rather than decoding an envelope carrier as a transaction."
+
+[disposition.9.98.4.14]
+finding = "9.98.4.14"
+status = "resolved"
+evidence = "Commit ef0e8c5d4f aligned the proof read and program adapter consumers on main. services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs:203 now checks relative_to as the block height and 0x-prefixed block hash, and services/agent/crates/layerx-agentd/tests/program_adapters_rungs.rs:49 opens the store root directly so Store creates its protected directory."
+
+[disposition.9.98.4.15]
+finding = "9.98.4.15"
+status = "resolved"
+evidence = "Commit ef0e8c5d4f migrated receipt-store cases to authenticated ingress on main. services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs:127 obtains authenticated receipt evidence through lookup_authenticated_with_commit and line 425 retains the receipt.evidence_version refusal assertion for the malformed evidence version."
+
+[disposition.9.98.4.1]
+finding = "9.98.4.1"
+status = "resolved"
+evidence = "Commit ef0e8c5d4f aligned receipt fixtures and signatures with the exact receipt field set on main. services/agent/crates/layerx-agentd/tests/human_node_receipts.rs:140 now checks the producer's paymentDenom and line 205 looks up the outbox transaction through pax_sequencerReceipt, retaining success and failure receipt cases."
+
+[disposition.9.98.4.2]
+finding = "9.98.4.2"
+status = "resolved"
+evidence = "Commit ef0e8c5d4f aligned daemon program and human receipt consumers with authenticated receipts on main. services/agent/crates/layerx-agentd/src/ops/program.rs:2556 signs the receipt digest and line 2563 verifies that signature before its JSON response includes paymentDenom at line 2567."
+
+[disposition.9.98.4.3]
+finding = "9.98.4.3"
+status = "resolved"
+evidence = "Commit 0f2268dc6d migrated the human-service balance consumer to the gateway Quantity type on main. services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 constructs Quantity values and line 24 converts through for_operation before comparing the planned Amount."
+
+[disposition.9.98.4.4]
+finding = "9.98.4.4"
+status = "resolved"
+evidence = "Commit 0f2268dc6d repaired the dependent human-service balance assertions on main. services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:41 supplies Quantity directly to AssetBalance.amount and line 54 compares network.balance with that same exact quantity."
+
+[disposition.9.98.4.5]
+finding = "9.98.4.5"
+status = "resolved"
+evidence = "Commit 1a3c69501c migrated hosted public asset reads to the current client types on main. services/platform/hosted/core/src/public_reads.rs:136 now handles optional asset symbol, name and decimals, while the kernel settlement indexer consumer was removed before the client evidence module retirement in 036a1da1b6."
+
+[disposition.9.98.4.6]
+finding = "9.98.4.6"
+status = "resolved"
+evidence = "Commit 9397b65f47 restored the daemon's authority budget-state consumers and 6c7e27fb0d later replaced their source inclusion with the authority library on main. services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:19 now uses the production HumanAuthorityBoundary and UnifiedAgentOwner, and services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:1 consumes the daemon budget API directly."
+
+[disposition.9.98.4.7]
+finding = "9.98.4.7"
+status = "resolved"
+evidence = "Commits ef0e8c5d4f and c047504e3a repaired the history evidence and retained settlement bindings on main. services/agent/crates/layerx-agentd/src/human_runtime.rs:23337 requires ItemUnproven for an unproven page, while line 24140 checks that a settled receipt cannot consume budget again after reopening the durable store."
+
+[disposition.9.98.4.8]
+finding = "9.98.4.8"
+status = "environment"
+evidence = "On main, services/agent/crates/layerx-agentd/src/human_runtime.rs:23233 consumes proven receipt history and checks its covered window, successful amount and activity ids. The retained settlement path at line 24109 uses the original observed preparation height and a later verified commit to settle the held budget."
+
+[disposition.9.98.4.9]
+finding = "9.98.4.9"
+status = "resolved"
+evidence = "Commit 75df69e084 migrated native lifecycle binding and ef0e8c5d4f aligned the history fixture with current node reads on main. services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:49 accepts disclosed ProgramDeploy, ProgramUpgrade and ProgramWindDown payloads, and services/agent/crates/layerx-agentd/src/human_runtime.rs:23300 retains the four px_getHistory-call expectation."

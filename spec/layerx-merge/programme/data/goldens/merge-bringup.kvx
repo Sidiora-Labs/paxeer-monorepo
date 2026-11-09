@@ -33,3 +33,17 @@ test = "TestUpgradesSequencerGenesisAtActivation"
 command = "go test ./node -run '^TestUpgradesSequencerGenesisAtActivation$' -count=1"
 expect_exit = 0
 expect_text = "sequencer genesis"
+
+# decision.642 supersedes the no-settlement bond return of carried decision 4:
+# ReleaseRetired cancels pending claims and releases every balance to the authority.
+[golden.custody-release]
+test = "TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority"
+command = "go test ./modules/layerxcustody/keeper -run '^TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority$' -count=1 -v"
+expect_exit = 0
+
+# decision.631 keeps reads served between v7.0 and the store-delete plan (5.7.1).
+# After v7.0-anchor-store-delete, 0x1014 refuses every selector.
+[golden.anchor-retired]
+test = "TestEveryAnchorSelectorRetired"
+command = "go test ./precompiles/layerxanchor -run '^TestEveryAnchorSelectorRetired$' -count=1 -v"
+expect_exit = 0

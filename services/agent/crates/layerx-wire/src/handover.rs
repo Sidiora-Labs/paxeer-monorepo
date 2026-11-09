@@ -32,8 +32,9 @@ pub fn decode_genesis_trust(bytes: &[u8]) -> Result<GenesisTrust<'_>, HandoverEr
         .try_into()
         .map_err(|_| HandoverError::Encoding)?;
     let governance_witness = reader.span(GENESIS_TRUST_MAX_BYTES)?;
-    let count = u32::from_be_bytes(reader.array()?);
-    if network_id == 0 || count == 0 || count as usize > ModuleId::ALL.len() {
+    let count =
+        usize::try_from(u32::from_be_bytes(reader.array()?)).map_err(|_| HandoverError::Bounds)?;
+    if network_id == 0 || count == 0 || count > ModuleId::ALL.len() {
         return Err(HandoverError::Bounds);
     }
     let mut modules = Vec::new();

@@ -14,7 +14,6 @@ use crate::{BoundaryProof, MarketStepVerdict, VerifiedMarketSandbox};
 
 const MAX_BYTES: u32 = 1_048_576;
 const MAX_BOUNDARIES: u32 = 4096;
-const MAX_SIBLINGS: usize = 12;
 const ARGUMENT_DOMAIN: &[u8] = b"LXP/arbiter-bisection-argument/v1\0";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,32 +37,19 @@ impl TraceCommitment {
         Ok(self)
     }
     pub fn open_leaf(&self, proof: &BoundaryProof) -> Option<PortableBoundary> {
-        if proof.index >= self.boundary_count
-            || proof.leaf.is_empty()
-            || proof.leaf.len() > self.maximum_bytes as usize
-            || proof.siblings.len() > MAX_SIBLINGS
-        {
-            return None;
-        }
-        let mut node = replay_leaf_hash(proof.index, &proof.leaf).ok()?;
-        let mut index = proof.index;
-        let mut count = self.boundary_count;
-        for sibling in &proof.siblings {
-            if count <= 1 || ((index ^ 1) >= count && sibling != &node) {
-                return None;
-            }
-            node = if index & 1 == 0 {
-                replay_node_hash(node, *sibling)
-            } else {
-                replay_node_hash(*sibling, node)
-            };
-            index /= 2;
-            count = count.div_ceil(2);
-        }
-        if count != 1 || node != self.root {
-            return None;
-        }
-        PortableBoundary::decode_untrusted(&proof.leaf, self.maximum_bytes as usize).ok()
+        crate::market::verify_boundary(
+            proof,
+            self.boundary_count,
+            self.root,
+            self.maximum_bytes,
+            |header| {
+                if header.identity.trace_policy.maximum_commitments() < self.boundary_count {
+                    return Err(crate::ReplayError::Leaf);
+                }
+                Ok(())
+            },
+        )
+        .ok()
     }
 }
 
@@ -169,6 +155,19 @@ impl StepJudge for SandboxStepJudge<'_> {
         else {
             return false;
         };
+        let identity = before.header.identity;
+        if before.header != after.header
+            || identity.module_code_hash != self.authority.code_hash
+            || identity.input_digest != self.authority.input_digest
+            || identity.runtime_version != self.authority.runtime_version
+            || identity.abi_version != self.authority.abi_version
+            || identity.fee_schedule_version != self.authority.fee_schedule_version
+            || identity.metering_schedule_version != self.authority.metering_schedule_version
+            || identity.host_base_state_root != self.authority.baseline_state_root
+            || identity.trace_policy.interval() != 1
+        {
+            return false;
+        }
         if final_trap != before.trap.is_some() {
             return false;
         }
@@ -555,7 +554,29 @@ mod tests {
     const WINDOW: u64 = 6;
     const OPENED: u64 = 1_000;
 
+    struct TransportedTrace {
+        committed: CommittedTrace,
+        header: layerx_programs_runtime::replay_record::ReplayRecordHeader,
+    }
+    impl TransportedTrace {
+        fn root(&self) -> [u8; 32] {
+            self.committed.root()
+        }
+        fn boundary_count(&self) -> u32 {
+            self.committed.boundary_count()
+        }
+        fn proof(&self, index: u32) -> Option<BoundaryProof> {
+            let mut proof = self.committed.proof(index)?;
+            proof.leaf = self
+                .header
+                .boundary_envelope(&proof.leaf, MAX_BYTES as usize)
+                .ok()?;
+            Some(proof)
+        }
+    }
+
     struct Execution {
+        header: layerx_programs_runtime::replay_record::ReplayRecordHeader,
         module: ValidatedModule,
         authority: MarketSandboxReplayAuthority,
         leaves: Vec<Vec<u8>>,
@@ -613,8 +634,12 @@ mod tests {
                 .boundary_leaves
                 .iter()
                 .map(|leaf| {
-                    PortableBoundary::decode_untrusted(leaf, MAX_BYTES as usize)
-                        .expect("captured boundary")
+                    PortableBoundary::decode_with_header(
+                        leaf,
+                        MAX_BYTES as usize,
+                        execution.record.header(),
+                    )
+                    .expect("captured boundary")
                 })
                 .collect();
             let committed =
@@ -625,6 +650,7 @@ mod tests {
                 execution.record.boundary_count()
             );
             Self {
+                header: execution.record.header().clone(),
                 module,
                 authority,
                 leaves: execution.boundary_leaves,
@@ -634,7 +660,14 @@ mod tests {
             }
         }
 
-        fn game(&self, trace: &CommittedTrace) -> BisectionGame<SandboxStepJudge<'_>> {
+        fn commit(&self, leaves: Vec<Vec<u8>>) -> Result<TransportedTrace, GameError> {
+            Ok(TransportedTrace {
+                committed: CommittedTrace::new(leaves)?,
+                header: self.header.clone(),
+            })
+        }
+
+        fn game(&self, trace: &TransportedTrace) -> BisectionGame<SandboxStepJudge<'_>> {
             let judge = SandboxStepJudge::new(
                 &self.module,
                 &self.authority,
@@ -681,7 +714,7 @@ mod tests {
 
     fn play<J: StepJudge>(
         game: &mut BisectionGame<J>,
-        trace: &CommittedTrace,
+        trace: &TransportedTrace,
         mut challenger: impl FnMut(u32, &PortableBoundary) -> bool,
     ) -> Settlement {
         let mut height = OPENED;
@@ -787,7 +820,9 @@ mod tests {
     fn honest_defender_wins_against_every_lying_challenger_strategy() {
         let execution = Execution::run(&integer_guest(), "compute");
         assert_eq!(execution.terminal_status, 0);
-        let trace = CommittedTrace::new(execution.leaves.clone()).expect("honest trace");
+        let trace = execution
+            .commit(execution.leaves.clone())
+            .expect("honest trace");
         assert!(trace.boundary_count() >= 8);
         let rounds = max_rounds(trace.boundary_count());
         for strategy in 0..(1u32 << rounds) {
@@ -816,11 +851,12 @@ mod tests {
     fn honest_challenger_defeats_every_lying_defender_divergence() {
         let execution = Execution::run(&integer_guest(), "compute");
         let count = execution.leaves.len();
-        let honest_root = CommittedTrace::new(execution.leaves.clone())
+        let honest_root = execution
+            .commit(execution.leaves.clone())
             .expect("honest trace")
             .root();
         for from in 0..count {
-            let trace = CommittedTrace::new(execution.lie(from)).expect("lying trace");
+            let trace = execution.commit(execution.lie(from)).expect("lying trace");
             assert_ne!(trace.root(), honest_root);
             let mut game = execution.game(&trace);
             let settlement = play(&mut game, &trace, |position, claimed| {
@@ -842,7 +878,7 @@ mod tests {
         }
         let mut arguments = std::collections::BTreeSet::new();
         for from in 1..count {
-            let trace = CommittedTrace::new(execution.lie(from)).expect("lying trace");
+            let trace = execution.commit(execution.lie(from)).expect("lying trace");
             let mut game = execution.game(&trace);
             let settlement = play(&mut game, &trace, |position, claimed| {
                 execution.honest(position, claimed)
@@ -863,7 +899,9 @@ mod tests {
             })
             .expect("storage write host call changes host state")
             + 1;
-        let honest = CommittedTrace::new(execution.leaves.clone()).expect("honest trace");
+        let honest = execution
+            .commit(execution.leaves.clone())
+            .expect("honest trace");
         let pre = honest.proof(call as u32 - 1).expect("host call pre");
         let post = honest.proof(call as u32).expect("host call post");
         let mut game = execution.game(&honest);
@@ -876,7 +914,9 @@ mod tests {
             (call as u32 - 1, call as u32)
         );
 
-        let lying = CommittedTrace::new(execution.lie(call)).expect("lying host effect");
+        let lying = execution
+            .commit(execution.lie(call))
+            .expect("lying host effect");
         let mut game = execution.game(&lying);
         let settlement = play(&mut game, &lying, |position, claimed| {
             execution.honest(position, claimed)
@@ -909,7 +949,9 @@ mod tests {
             last.reencode_untrusted(MAX_BYTES as usize)
                 .expect("terminal trap bytes")
         );
-        let honest = CommittedTrace::new(execution.leaves.clone()).expect("honest trap trace");
+        let honest = execution
+            .commit(execution.leaves.clone())
+            .expect("honest trap trace");
         let mut game = execution.game(&honest);
         let settlement = play(&mut game, &honest, |_, _| true);
         assert_eq!(settlement.verdict, ArbiterVerdict::Provider);
@@ -918,17 +960,18 @@ mod tests {
 
         let mut denied = execution.truth.clone();
         denied.last_mut().expect("terminal boundary").trap = None;
-        let denied = CommittedTrace::new(
-            denied
-                .iter()
-                .map(|boundary| {
-                    boundary
-                        .reencode_untrusted(MAX_BYTES as usize)
-                        .expect("canonical denial")
-                })
-                .collect(),
-        )
-        .expect("trap-denying trace");
+        let denied = execution
+            .commit(
+                denied
+                    .iter()
+                    .map(|boundary| {
+                        boundary
+                            .reencode_untrusted(MAX_BYTES as usize)
+                            .expect("canonical denial")
+                    })
+                    .collect(),
+            )
+            .expect("trap-denying trace");
         let mut game = execution.game(&denied);
         let settlement = play(&mut game, &denied, |position, claimed| {
             execution.honest(position, claimed)
@@ -941,7 +984,9 @@ mod tests {
     #[test]
     fn absent_party_loses_by_default_at_the_declared_deadline() {
         let execution = Execution::run(&integer_guest(), "compute");
-        let trace = CommittedTrace::new(execution.leaves.clone()).expect("honest trace");
+        let trace = execution
+            .commit(execution.leaves.clone())
+            .expect("honest trace");
 
         let mut game = execution.game(&trace);
         assert_eq!(game.awaiting(), Some(Awaiting::Reveal(0)));

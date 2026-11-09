@@ -1,0 +1,159 @@
+[disposition.16.12.1.a2]
+finding = "16.12.1.a2"
+status = "resolved"
+evidence = "Commit 912eaef5c8 removed CheckpointRegistry.sol and its import of the retired publication verifier from main. foundry.toml:18 retains the normal source exclusions, while foundry.toml:19 grants only the retained names-vector and build paths after eb25003722."
+
+[disposition.16.21.1.a2]
+finding = "16.21.1.a2"
+status = "environment"
+evidence = "On main, tests/lxp_test_harness.c:67 implements the single-case command selector and returns 2 for invalid arguments, while tests/lxp_test_harness.c:64 returns 2 for an unknown case; 03384e35be landed the named-case implementation."
+
+[disposition.16.22.2.a2]
+finding = "16.22.2.a2"
+status = "environment"
+evidence = "Both unused network and fuzzing testutil sources are absent on main following b6efab0099. tests/ci/test_retired_testutil_network.py:4 retains checks for their absence and for imports of either retired package."
+
+[disposition.16.23.1.a2]
+finding = "16.23.1.a2"
+status = "resolved"
+evidence = "Commit 99ef770d03 removed the handover trust artifact generation from the genesis CLI on main. cmd/layerx-genesis/lxp_genesis_build_cli.c:447 constructs the retained snapshot and registration output paths without calling lxp_genesis_handover_trust_build."
+
+[disposition.16.24.4.a2]
+finding = "16.24.4.a2"
+status = "resolved"
+evidence = "On main, tools/loadtest/config/settings.go:27 declares MinTPS, MaxP99Latency and MinTotalTxs, added by ea696d97e5. tools/loadtest/config/config.go:56 merges profile bounds into those fields with explicit settings taking precedence, as landed in 9b95453d84."
+
+[disposition.16.24.5.1.a2]
+finding = "16.24.5.1.a2"
+status = "resolved"
+evidence = "Commit 2ccc6e017d added positive bounds to all seven paxload profiles and removed the test-only BoundsConfig alias on main. tools/loadtest/profiles/evm_transfer.json:3 declares a minimum average TPS of 5 and maximum p99 latency of 5000 milliseconds, and tools/loadtest/profiles/profiles_test.go:196 uses config.BoundsConfig directly."
+
+[disposition.16.24.5.a2]
+finding = "16.24.5.a2"
+status = "resolved"
+evidence = "On main, tools/loadtest/profiles/evm_transfer.json:3 includes explicit TPS and p99 bounds, and tools/loadtest/profiles/profiles_test.go:196 requires every JSON profile to declare positive bounds. Commit 2ccc6e017d landed all seven profile declarations."
+
+[disposition.16.25.2.a2]
+finding = "16.25.2.a2"
+status = "environment"
+evidence = "On main, tools/benchmark/benchmark-compare.sh:291 compares each candidate's TPS against the baseline with the configured regression limit, accumulates missing-data or regression failures and exits with that result at tools/benchmark/benchmark-compare.sh:314; 3f8a00d0d2 landed the comparison behavior."
+
+[disposition.16.26.1.a2]
+finding = "16.26.1.a2"
+status = "resolved"
+evidence = "Commit 32e5ecd12e retained the self-contained benchmark ERC721 implementation on main. tools/benchmark/loadtest/contracts/evm/src/ERC721.sol:149 defines MyNFT over that base with mint and owner-checked burn, preserving the benchmark binding's surface."
+
+[disposition.16.26.2.a2]
+finding = "16.26.2.a2"
+status = "environment"
+evidence = "The univ2 deployment script and generated swapper binding are absent on main following c445632da2. tools/benchmark/loadtest/message_types_test.go:50 retains explicit rejection of the retired univ2 message type alongside unknown-type validation."
+
+[disposition.16.26.3.a2]
+finding = "16.26.3.a2"
+status = "resolved"
+evidence = "Commit 678f178d3e removed the retired wasm OCC constants from the message-type implementation and its valid-type list on main. tools/benchmark/loadtest/message_types_test.go:9 now lists only retained types, while tools/benchmark/loadtest/message_types_test.go:20 still requires unknown-type rejection."
+
+[disposition.16.27.1.a2]
+finding = "16.27.1.a2"
+status = "environment"
+evidence = "The two nested paxload workflow files are absent on main after a1633d0e18. tests/ci/test_retired_loadtest_workflows.py:4 retains explicit absence checks for build-and-test.yml and containerize.yaml."
+
+[disposition.16.31.5.a2]
+finding = "16.31.5.a2"
+status = "resolved"
+evidence = "Commit da96a386ba added exclude to the shared retired-suite scanner on main. tests/ci/retired_tests.py:20 accepts root-relative exclusions and tests/ci/retired_tests.py:41 skips excluded paths before checking source suffixes or symbols."
+
+[disposition.16.32.7.a2]
+finding = "16.32.7.a2"
+status = "resolved"
+evidence = "On main, tests/ci/retired_tests.py:20 accepts exclude and tests/ci/retired_tests.py:41 omits files beneath the resolved excluded roots before scanning; da96a386ba landed this shared implementation for the data-availability retirement checks."
+
+[disposition.16.32.8.a2]
+finding = "16.32.8.a2"
+status = "resolved"
+evidence = "Commit da96a386ba added root-relative directory exclusions to the retired-suite scanner on main. tests/ci/retired_tests.py:41 filters excluded trees before symbol matching, allowing the bundle retirement check to distinguish its retired callers from separately retained suites."
+
+[disposition.16.33.2.a2]
+finding = "16.33.2.a2"
+status = "environment"
+evidence = "The retired state-diff source is absent on main after 70a3e98191. tests/ci/test_retired_state_withdraw_web.py:11 checks that absence while retaining the withdrawal and web-program symbol checks for the surviving suites."
+
+[disposition.16.33.3.a2]
+finding = "16.33.3.a2"
+status = "resolved"
+evidence = "On main, tests/ci/retired_tests.py:20 accepts the oracle retirement check's exclude keyword and tests/ci/retired_tests.py:41 prunes the excluded paths before matching symbols; da96a386ba landed the helper repair."
+
+[disposition.16.35.1.a2]
+finding = "16.35.1.a2"
+status = "environment"
+evidence = "The daemon-driven budget and escrow module drivers were removed from main by 24f29bc55f. tests/fixtures/custody/paxeer-light-v1/README:43 now identifies the retained daemon credit/profile comparison as the live reader of the frozen vectors, without the retired custody-proof build target."
+
+[disposition.16.36.3.a2]
+finding = "16.36.3.a2"
+status = "environment"
+evidence = "The websearch context check no longer depends on the retired settlement document on main, as retained by tests/ci/test_retired_websearch_settlement.py:7. Commit 1fa3dee32d removed that input, and 2dbc538e5c moved the context module to tests/ci/test_websearch_context.py."
+
+[disposition.16.4.1.a2]
+finding = "16.4.1.a2"
+status = "resolved"
+evidence = "Commit 46181daf14 removed the retired kernel web adapter/root workflow inputs and aligned the workflow validator on main. .github/workflows/xweb-test.yml:11 now follows the retained chain xweb module and precompile paths, and tools/paxeer-x/retired_callers.json:184 distinguishes the retired oracle/web roots from the kernel-web component."
+
+[disposition.16.7.1.a2]
+finding = "16.7.1.a2"
+status = "resolved"
+evidence = "On main, tools/bringup/docs-names.sh:5 reads the layerx-merge specification and tools/bringup/docs-names.sh:6 reads the canonical public RPC inventory; 7dd04942b1 moved the documentation-name checks to the active specification, and 6fce495bf8 aligned the reader with that inventory."
+
+[disposition.16.8.5.a2]
+finding = "16.8.5.a2"
+status = "resolved"
+evidence = "Commit e5de41013e restored the historical release description on main. RELEASE.md:15 names the v6.12.0 migration, SID holder migration and SID mint-authority move and identifies node/upgrades_v6120.go as their handler."
+
+[disposition.16.9.2.1.a2]
+finding = "16.9.2.1.a2"
+status = "resolved"
+evidence = "Commit a203b94b29 aligned the service catalogue reader with the authoritative service blocks on main. tools/paxeer-x/candidate.py:149 accepts dependency strings or lists, and tools/paxeer-x/candidate.py:162 requires the complete 40-service catalogue."
+
+[disposition.16.9.2.a2]
+finding = "16.9.2.a2"
+status = "resolved"
+evidence = "On main, tools/paxeer-x/tests/test_service_catalogue.py:20 requires 40 services and tools/paxeer-x/candidate.py:162 uses the same count; a203b94b29 landed the reader and its coverage together."
+
+[disposition.16.90.1.1]
+finding = "16.90.1.1"
+status = "environment"
+evidence = "On main, tools/paxeer-x/tests/test_retired_catalogue_deleted.py:68 separates guarantor-runtime, lni, replica and intent-ingester retirement checks by their declared source roots; 784d4181c2 landed the catalogue checks, and the catalogue keeps the remaining lni tree explicitly pending at tools/paxeer-x/tests/test_retired_catalogue_deleted.py:26."
+
+[disposition.16.90.1.2]
+finding = "16.90.1.2"
+status = "resolved"
+evidence = "Commit 784d4181c2 replaced the agent README's deleted-tree references with the current node boundary on main. services/agent/README.md:11 describes JSON-RPC and authenticated gateway clients, and services/agent/README.md:48 identifies layerx-client as the node and gateway client crate."
+
+[disposition.16.90.1.3]
+finding = "16.90.1.3"
+status = "resolved"
+evidence = "Commit 784d4181c2 renamed the host-side node integration references on main. services/agent/crates/layerx-agentd/host-tests/node_integration.rs:19 uses NodeRpcConfig for the current node boundary, with no retired protocol alias at that declaration."
+
+[disposition.16.90.1.4]
+finding = "16.90.1.4"
+status = "resolved"
+evidence = "Commit 784d4181c2 renamed the retired protocol references in the agent runtime sources on main. services/agent/crates/layerx-agentd/src/human_runtime.rs:1 identifies the authenticated Human-to-agent boundary, and services/agent/crates/layerx-client/src/lib.rs:3 exposes node JSON-RPC reads and transactions."
+
+[disposition.16.90.1.5]
+finding = "16.90.1.5"
+status = "resolved"
+evidence = "Commit ba398e5457 passed the explicit approval time into the MCP consumer on main, visible as current_time at services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs:652, and 185d6896fc updated the Human decision consumers. The agent boundary checker is retained as a declared historical exception at tools/paxeer-x/retired_callers.json:835."
+
+[disposition.16.90.1.6]
+finding = "16.90.1.6"
+status = "resolved"
+evidence = "Commit 784d4181c2 changed the client crate description to the generic bounded transport at services/agent/crates/layerx-client/src/lib.rs:6 and recorded the historical documentation references in the catalogue. The explicit documentation allowances remain at tools/paxeer-x/retired_callers.json:844 and tools/paxeer-x/retired_callers.json:851 on main."
+
+[disposition.16.93.2.a2]
+finding = "16.93.2.a2"
+status = "environment"
+evidence = "On main, tools/containers/check.sh:92 retains the reviewed container exclusion list without consensus/test/docker/Dockerfile; tools/containers/test_out_of_scope_list.py:19 preserves that exact omission, introduced by 7dbde908e4."
+
+[disposition.16.94.1.a2]
+finding = "16.94.1.a2"
+status = "resolved"
+evidence = "Commit d1e5055450 limited the replay retirement assertion to its owned kernel suites on main. tests/ci/test_claims_and_replay_removed.py:35 now checks the retired idempotency program's absence and requires LXP_ERR_SEQUENCE_REUSED from the retained state-commitment transition."
