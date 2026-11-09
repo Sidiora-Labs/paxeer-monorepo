@@ -401,14 +401,18 @@ impl Registry {
                 .into_iter()
                 .map(|(id, handle)| {
                     let result = handle.join().unwrap_or(Err("probe_failed"));
+                    let configured = self.bindings.contains_key(id)
+                        || self.upstreams.values().any(|upstream| upstream.service == id)
+                        || (id == "mcp-a2a" && !self.mcp.is_empty())
+                        || result != Err("not_configured");
                     (
                         id.to_owned(),
-                        json!({"ready": result.is_ok(), "reason": result.err().unwrap_or("ready")}),
+                        json!({"configured": configured, "ready": result.is_ok(), "reason": result.err().unwrap_or("ready")}),
                     )
                 })
                 .collect::<BTreeMap<_, _>>()
         });
-        json!({"complete": states.values().all(|v| v["ready"] == true), "services": states})
+        json!({"complete": states.values().all(|v| v["configured"] == false || v["ready"] == true), "services": states})
     }
 }
 
