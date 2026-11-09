@@ -38538,3 +38538,51 @@ symbol = "ranking-algo"
 observed = "Attempt 4 at 5234eca6cedb: build exit 0; verification exit 1: test_launchpad_workflow_has_go_job fails at tests/ci/test_launchpad_go_tests_wired.py:51 asserting ubuntu-latest against the routed runs-on expression; no Go module ran; log /out/logs/verify-1.log."
 assumption = "The wiring assertion is the only failure before the module runs."
 severity = "high"
+
+[finding.18.1747.1.8]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 8 at 9a0e0f27767: build exit 0; verification exit 101: native_approval_clock_units and native_producer_clock_units of repair_22_33_63.rs fail as in attempt 7 because the runtime edit lay outside the touches list; log /out/logs/verify-1.log."
+assumption = "With the runtime file in scope the repair of decision 3109 lands."
+severity = "high"
+
+[finding.22.39.222.4]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 4 at 86962ecb44c2: build exit 0; verification passed; dependents check exit 7: services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 E0063 missing field read_windows; log /out/logs/dependents-1.log."
+assumption = "The dependents check compiles once the repaired test target is on main."
+severity = "high"
+
+[finding.17.4.6.4]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 4 at 4d0f034118e2: build exit 0; verification exit 1: 45 of 50 parity rows pass; one_source_reads panics on an existing Redis directory, two rows find no Playwright, one no Vitest, one no mix; log /out/logs/verify-1.log."
+assumption = "With the toolchains provisioned and the Redis directory unique the fifty rows run."
+severity = "high"
+
+[finding.18.1667.1.7]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 7 at b7c9341c45af: build exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at main_test.go:262, the V1 programs deploy reverts LXP_ERR_VERSION_UNSUPPORTED on a chain whose store carries no programs metering records; log /out/logs/verify-1.log."
+assumption = "The genesis records activate metering and fees as the recorder chain has them and the deploy executes."
+severity = "high"
+
+[finding.18.1724.1.7]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 7 at 8e28238080ce: build exit 0; verification exit 1: TestCurrentReceiptRestartFixture fails at receipt_equality_test.go:467, budgetSpend refused with code 45 LXP_ERR_NON_CANONICAL after the plain transfer passed; log /out/logs/verify-2.log."
+assumption = "The recipient or the capability of the restart setup differs from the keeper spend case."
+severity = "high"
+
+[finding.22.39.242.3]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 3 at 5128ff63d2c1: build exit 0; verification exit 1: TestRepair_53_migrated_role_epochs fails at repair_53_test.go:478 with a nil attestation error, and four cases fail at identity.go:444 rehydrate historical creation; log /out/logs/verify-1.log."
+assumption = "The obsolete identities on the eight surface epochs and the re-recorded historical creation satisfy both sites."
+severity = "high"
