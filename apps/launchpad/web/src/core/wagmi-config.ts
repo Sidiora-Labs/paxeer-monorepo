@@ -5,7 +5,7 @@ import { getPaxeerRpcUrl, getPaxeerRpcUrls } from '@/core/rpc';
 import { walletConnectProjectId } from '@/core/backend-origins';
 import { getPaxeerWallet, paxeerEmbeddedConnector } from '@/core/wallet-sdk/embedded_sdk/embedded';
 
-export { getPaxeerRpcUrl } from '@/core/rpc';
+export { getPaxeerRpcUrl };
 
 /** Origin this deployment is served from; used for wallet pairing metadata. */
 export const CANONICAL_ORIGIN = (process.env.NEXT_PUBLIC_CANONICAL_ORIGIN || 'https://sidiora.fun').replace(/\/+$/, '');

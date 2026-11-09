@@ -11632,6 +11632,24 @@ value = "The parity run executes every row of the inventory on the merged revisi
 basis = "Gotcha 3863, the qualification finding rule"
 affects = ["17.4.6"]
 
+[decision.3087]
+title = "History records are documentation paths of the retired-caller scan and every other hit is a finding against its owner"
+value = "The retired-caller catalogue lists the history records GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as documentation paths; every other hit of the whole-tree scan is a finding against the owning domain, recorded in qualification.kvx, and task 17.2.8 ends implemented-not-qualified until the owning repairs land"
+basis = "Task 17.2.8 attempt 4 at 980f5ade7d40 (gotcha 3877) reports 2342 hits in 452 files; the history records quote retired names by design, while README.md, the route and dependency catalogues, generated clients, the Makefile and the layerxcustody precompile and module are live surfaces whose retirement never removed the code; decisions 3051, 3081 and 3086 govern: live references are defects of their owners, documentation text is domain 17, and a gate red on producer facts records findings and parks."
+affects = ["17.2.8"]
+
+[decision.3088]
+title = "An image build gate carries the resolution and dependency repairs of the application it packages"
+value = "An image build gate that fails on the module resolution or the dependency set of the application it packages carries the application repair: the touches of the gate task widen to the application configuration, manifest and lock, and the repair lands with the gate"
+basis = "Task 18.1823.1 attempt 3 (gotcha 3875) cannot pass by changing the Dockerfile: the web stage runs the Next.js build of apps/launchpad/web, which fails on a source-extension import inside the launchpad SDK package and on four peer packages the lock never installs; decision 2908 gives the whole-package fix to the gate owner, and no other task owns the web build (the public launchpad workflow builds only the packages)."
+affects = ["18.1823.1"]
+
+[decision.3089]
+title = "One repair task owns a test target that is red on main and the blocked tasks require it"
+value = "A test target that is red on main blocks the dependents check of every task whose crate it depends on; one repair task owns that target and every blocked task requires it instead of carrying the repair"
+basis = "The agent daemon integration target repair_22_33_1535 includes the native evidence test module by a path attribute (decision 3080 forbids the shape) and stopped compiling when task 18.1684.1 added five super:: references on 2026-11-09 (gotcha 3880); attempts 22.39.235 a2 and 22.39.219 a5 failed only that check; two attempts repairing the same foreign file would conflict, so task 22.39.238 owns the removal and the two tasks require it."
+affects = ["22.39.238", "22.39.235", "22.39.219"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41292,6 +41310,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.238]
+title = "Remove the by-path include of the native evidence test module from the agent daemon integration target repair_22_33_1535"
+reqs = ["181684.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_33_1535"
+do_1 = "do_1 Decision 3089, gotcha 3880, decision 3080. In services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs remove the path attribute and the module declaration at lines 57 and 58 (mod native_evidence) together with the comment above them that announces the double compilation; the module is compiled and run by the unit-test target through src/protocol_evidence.rs line 2146 and is written for that inclusion (its super:: paths name private functions of the protocol_evidence module such as canonical_receipt_reference)."
+symbols = []
 
 [capability.22.93.400]
 title = "Triage issue #1930: Reconcile Autobahn runner requirements across repair plans"
@@ -159952,6 +159979,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree 7284bfbc7510 stands unchanged. The build command now installs the vendored tree with its frozen pnpm lock, builds the workspace dependencies of the client SDK package and runs its typecheck script (tsrs) instead of a tsc binary the package does not provide. Run the build once and the verification once at that revision."
 do_4 = "Attempt 3 (continue, gotcha 3838): the attempt-2 tree 5bb8137b2560 stands (the three public entries exporting installStatus, the install-status case). In the public-types case of the vendored client SDK package (test/public-types.test.ts) add installStatus to the expected system key tuple at line 610 at the position the public entry exports it, so the typecheck script passes; the case file is in the touches from this round and no other expectation changes. Record the tuple position in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 4 (requalify, gotcha 3876): the attempt-3 tree 56c16701eaa7 stands unchanged. The qualification environment now installs PostgreSQL server binaries for every task scoped to the vendored tree and exports their directory under the setting the withpg support module reads, so install_status_reads_actual_ready_and_preserves_typed_errors provisions its own database instead of skipping. Run the build once and the verification once."
 
 [task.18.1823.1]
 title = "Issue #1823: Include canonical chart declarations in the launchpad image builder"
@@ -159965,7 +159993,7 @@ interfaces = []
 do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1823.kvx, verdict task): Add a COPY beside deploy/launchpad/Dockerfile.web:6-8 for apps/perps/public/static/charting_library/charting_library.d.ts at /src/apps/perps/public/static/charting_library/charting_library.d.ts before dependency installation and the web build at :49; retain the single canonical declaration and the forwarding exports and TradingView namespace at apps/launchpad/web/public/charting_library/charting_library.d.ts:1-2, without copying the rest of the perps app or disabling TypeScript validation."
 do_2 = "Extend tests/ci/test_frontend_asset_names.py beside the checkout-only check at :127-147 with test_launchpad_docker_chart_declarations: stage the actual build-stage COPY inputs from deploy/launchpad/Dockerfile.web in an empty temporary tree, respecting deploy/launchpad/Dockerfile.web.dockerignore:1-42, resolve the staged forwarder’s relative import and assert the canonical bytes, named exports used by tv-chart.tsx:4 and udf-datafeed.ts:6, and TradingView namespace are present; assert omission of the canonical COPY makes the staged dependency unavailable, and run the real Docker build target through its unmodified Next type validation configured by apps/launchpad/web/package.json:10 and apps/launchpad/web/next.config.ts:42-117."
 symbols = ["test_launchpad_docker_chart_declarations"]
-touches = ["deploy/launchpad/Dockerfile.web", "tests/ci/test_frontend_asset_names.py"]
+touches = ["deploy/launchpad/Dockerfile.web", "tests/ci/test_frontend_asset_names.py", "apps/launchpad/web/next.config.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sidiora-launchpad-v3/package.json"]
 tests = ["tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"]
 planned_paths = []
 build_cmd = "docker build --target build --build-arg WEB_GATEWAY_UPSTREAM=http://gateway.internal:8080 --build-arg WEB_API_UPSTREAM=http://api.internal:8080 --build-arg WEB_SOCKETS_UPSTREAM=http://sockets.internal:8080 --build-arg WEB_CHARTS_UPSTREAM=http://charts.internal:8080 -f deploy/launchpad/Dockerfile.web ."
@@ -159983,6 +160011,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (requalify, gotcha 3799): the attempt-1 tree ab4222df2384 stands unchanged. The build command now passes WEB_GATEWAY_UPSTREAM=http://gateway.internal:8080 to the image build so web-build-env.sh admits the build stage. Run the build once and the verification once at that revision."
 do_4 = "Attempt 3 (requalify, gotcha 3849): the attempt-2 tree eac60fe4def1 stands unchanged. The build command now passes the four production upstream build arguments the build configuration requires (gateway, API, sockets and charts) with internal placeholder origins, so next build admits the build stage. Run the build once and the verification once at that revision."
+do_5 = "Attempt 4 (continue, gotcha 3875, decision 3088): the attempt-3 tree 65702d7b2220 stands (the Dockerfile stage and the asset-name case). The touches now include apps/launchpad/web/next.config.ts, apps/launchpad/web/package.json, apps/launchpad/pnpm-lock.yaml and sdk/launchpad/packages/sidiora-launchpad-v3/package.json. First, make the web build resolve the source-extension imports of the launchpad SDK package: add an extensionAlias mapping .js to .ts and .tsx in the webpack configuration of next.config.ts (the package is already in transpilePackages at line 99), or point the package exports at a built entry; second, add @x402/core, @x402/evm, @x402/extensions and @x402/svm at the ^2.25.0 range the lock names for @coinbase/cdp-sdk 1.60.0 to the web package dependencies and refresh apps/launchpad/pnpm-lock.yaml with pnpm install --lockfile-only so --frozen-lockfile accepts it. Then run the image build once (the declared build command) and the verification once at the final revision; record the two causes in the asset-name case module docstring."
 
 [task.18.1815.1]
 title = "Issue #1815: Preserve selected descendant changes across ancestor type replacements"
@@ -160047,6 +160076,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3794, decision 3068): the attempt-1 tree 1b3f1e38c29d stands (the embedded wallet test). Merge main once 22.39.234 is on it, change nothing else, run the build once and the verification once at the final revision and record both by reference; if a case of the task fails, repair it within the one allowed cycle and rerun once."
 do_5 = "Attempt 3 (continue, gotcha 3862): the attempt-2 tree 08bdd71e1f4a stands (the embedded wallet case changes). In apps/perps/tests/embedded-wallet.test.ts set NEXT_PUBLIC_PERPS_GATEWAY_URL to the placeholder origin the sibling cases use (tests/exact-money.test.ts line 8) before any module that reaches apps/perps/src/core/network/gateway.ts evaluates, making those imports dynamic if static hoisting evaluates them first, and keep the env isolation of withBrowserEnv; no production module changes. Record the import that reaches the gateway in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_6 = "Attempt 4 (continue, gotcha 3884, gotcha 3046): the attempt-3 tree 10ea96433864 stands (the gateway origin placeholder, the three cases). In apps/perps/tests/embedded-wallet.test.ts replace the first rejects assertion of chainIdFromChainObject (no settings at all) with the behaviour the resolver has: resolvePaxeerConfig returns null when NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is unset (client.ts line 33); keep the second assertion, which sets the key and expects the rejection naming NEXT_PUBLIC_PAXEER_WALLET_API; run the build once and the verification once at the final revision."
 
 [task.18.1802.1]
 title = "Issue #1802: Preserve injected wallets when the embedded wallet is disabled"
@@ -160126,7 +160156,7 @@ symbols = ["NativeSlicesProvider", "slicesHostContract", "slicesRpcContract", "s
 touches = ["tools/hyperfide/sdk/source-control/src/host/provider.ts", "tools/hyperfide/plugins/environment-slices/contract.ts", "tools/hyperfide/plugins/hyperfide-source-control/contract.ts", "tools/hyperfide/plugins/hyperfide-source-control/server.ts", "tools/hyperfide/plugins/hyperfide-source-control/app.tsx", "tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx", "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py", "tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs"]
 tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"]
 planned_paths = []
-build_cmd = "pnpm --dir tools/hyperfide install --frozen-lockfile && pnpm --dir tools/hyperfide -r --filter {./plugins/*-source-control}^... run build && pnpm --dir tools/hyperfide -r --filter {./plugins/*-source-control} run typecheck"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --dir plugins/*-source-control run typecheck"
 verify_cmd = "python3 -m pytest tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen -q"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -160141,6 +160171,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree 95e997fddf7a stands unchanged. The build and verify commands now name the real paths of the source-control plugin package and of case file 4_3.py under the vendored tests directory, install with the frozen pnpm lock and build the workspace dependencies before the typecheck script. Run the build once and the verification once at that revision."
 do_7 = "Attempt 3 (requalify, gotcha 3845, decision 3075): the attempt-2 tree e220cdf708bc stands unchanged. The build command now selects the plugin project with the brace directory form of the filter in the dependency build and in the typecheck run, so pnpm builds the plugin SDK and the other dependencies of the source-control plugin before the typecheck script runs. Run the build once and the verification once at that revision."
+do_8 = "Attempt 4 (requalify, gotcha 3873, decision 3075): the attempt-3 tree 66e5678a78c5 stands unchanged. The build command now installs the vendored root with pnpm, generates the process-utils profile, installs and builds the control-plane package with npm (the proven command of task 22.37.31) and typechecks the source-control plugin by its directory; the identity fixture of case 4_3.py then finds the pg module and the control-plane dist it starts. Run the build once and the verification once; if the plugin typecheck fails on a missing compiler binary, record that line and stop."
 
 [task.18.1770.1]
 title = "Issue #1770: Accept the Explorer Ask flag in startup validation"
@@ -160549,7 +160580,7 @@ do_4 = "Attempt 2 (continue, gotcha 3775, decision 2908): the attempt-1 tree e00
 
 [task.18.1711.1]
 title = "Issue #1711: Align retained conformance consumers with the authenticated receipt digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160623,7 +160654,7 @@ interfaces = []
 do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1693.kvx, verdict task): Mount CreatorMetadataMedia in TokenMetadataPage at apps/launchpad/web/src/app/tokens/[tokenAddress]/metadata/page.tsx:33 using the current token, metadata revision, authenticated wallet session headers, API audience and wallet signer required by apps/launchpad/web/src/features/metadata-media/transport.ts:7; preserve text editing and connection/chain checks, and synchronize image authority when the account, token or committed revision changes."
 do_2 = "Mount MetadataViewer from apps/launchpad/web/src/features/metadata-media/viewer.tsx:14 in the coin route’s TokenMarketLayout at apps/launchpad/web/src/widgets/trading/token-market-layout.tsx:88, using the resolved token address rather than the pool address and the existing trading controls at :146 and :171; keep the Coin details region unique and retain usable Trading controls at mobile and desktop widths when metadata fails."
 do_3 = "Add metadata_routes_connect_editor_and_viewer in apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx, rendering the actual metadata and coin route exports with their real providers and loopback services rather than substituting the image components as apps/launchpad/web/test/repair-22-33-970.test.mjs:218 and :278 do; exercise wallet authorization, real image upload and signed metadata commit, then assert the browser labels from apps/launchpad/web/src/features/metadata-media/measure.browser.mjs:9 select the route-rendered editor and viewer, the viewer consumes the committed image/revision, and trading survives metadata loss, without weakening the existing journey assertions."
-symbols = ["TokenMetadataPage", "TokenMarketLayout", "metadata_routes_connect_editor_and_viewer"]
+symbols = ["TokenMarketLayout", "metadata_routes_connect_editor_and_viewer"]
 touches = ["apps/launchpad/web/src/app/tokens/[tokenAddress]/metadata/page.tsx", "apps/launchpad/web/src/widgets/trading/token-market-layout.tsx", "apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx"]
 tests = ["apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx::metadata_routes_connect_editor_and_viewer"]
 planned_paths = ["apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx"]
@@ -160642,10 +160673,11 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3834): the attempt-1 tree 513d4cd46733 stands (the metadata page, the token market layout, the route scenario). In apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx raise the case time-out at line 312 above the sum of the waitFor deadlines of the scenario so a stalled step fails with the label its waitFor carries, run the case once, and repair the step the label names at its site (the page, the layout or the fixture server); if the scenario completes within the raised time-out, keep that time-out with the measured duration recorded in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
 do_5 = "Attempt 3 (continue, gotcha 3868): the attempt-2 tree 4c05c0590293 stands (the metadata route page, the token market layout, the route wiring case with the RPC origin repair). In apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx create the JSDOM at the HTTPS application origin the identity requires (line 25) and make every route change, including the coin route at line 262, go through dom.reconfigure with an absolute URL of that origin as line 169 does, so no history update crosses origins; keep every assertion. Record the origin and the route changes in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
+do_6 = "Attempt 4 (continue, gotcha 3885): the attempt-3 tree 9880e79c7e90 stands (the metadata page, the token market layout, the route wiring case at the HTTPS origin). The symbol list no longer names the default-exported page component. In apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx make the chart measurement event of src/widgets/trading/udf-datafeed.ts line 245 land in the realm of the document the case created: install CustomEvent and Event of that window on globalThis for the duration of the case (restore them after), or create the document through the environment the sibling cases use so one realm serves both; the run must end with zero unhandled errors; run the build once and the verification once at the final revision."
 
 [task.18.1689.1]
 title = "Issue #1689: Keep configuration errors renderable under invalid wallet and RPC settings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160737,7 +160769,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1676.1]
 title = "Issue #1676: Keep portfolio statistics and controls visible during balance refresh and failure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -160800,7 +160832,7 @@ do_3 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3770, decision 3068): 
 
 [task.18.1663.1]
 title = "Issue #1663: Retarget funding assertions to maintained consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -182263,7 +182295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1833.1]
 title = "Issue #1833: Accept committed settlement metadata in the Python buyer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182402,7 +182434,7 @@ symbols = ["main", "testSparseWorkspaceLauncherProfiles"]
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs"]
 tests = ["tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"]
 planned_paths = []
-build_cmd = "pnpm --dir tools/hyperfide install --frozen-lockfile && python3 -m py_compile tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py && node --check tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && python3 -m py_compile tests/hyperfide/cases/source_control/2_2.py && node --check tests/hyperfide/support/native_source_sparse_fixture.mjs"
 verify_cmd = "python3 tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -182417,6 +182449,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree 6155a7bedc11 stands unchanged. The build and verify commands now name the real paths of case file 2_2.py and the native source sparse fixture under the vendored tests directory. Run the build once and the verification once at that revision."
 do_5 = "Attempt 3 (requalify, gotcha 3837, decision 3075): the attempt-2 tree 057afa0a657d stands unchanged. The build command now installs the vendored tree with the frozen pnpm lock before the byte-compile and the syntax check, so the control-plane TypeScript binary the fixture runs exists. Run the build once and the verification once at that revision."
+do_6 = "Attempt 4 (requalify, gotcha 3874, decision 3075): the attempt-3 tree f5b92f974ba4 stands unchanged. The build command now installs the vendored root with pnpm, generates the process-utils profile, installs and builds the control-plane package with npm (task 22.37.31) and then compiles the case and the sparse fixture module as before; the native source fixture finds core/control-plane/node_modules/.bin/tsc. Run the build once and the verification once."
 
 [task.18.1750.1]
 title = "Issue #1750: Prove authenticated Claim and RefundFree replay through native activities"
@@ -182512,6 +182545,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3810): the attempt-1 tree 392b746b5011 stands (the restart fixture, the current node support, the outbox recovery test). Derive the restart capture of node/sequencer/receipt_equality_test.go from the producer receipt path so the receipt result code at line 430 is zero (the run returned 0x2d) and the budget state at line 434 is the value the producer derives rather than a fixture constant; no assertion changes. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_4 = "Attempt 3 (continue, gotcha 3852): the attempt-2 tree 1bf96f08c220 stands (the restart fixture, the outbox recovery case). In node/sequencer/receipt_equality_test.go derive the restart capture with a zero transaction value, the amount staying inside the call payload as the producer receipt path encodes it, so the non-payable precompile at 0x...101B executes, the result code at line 441 is zero and the budget state is the value the producer derives; no assertion changes. Record the capture derivation in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 4 (continue, gotcha 3881): the attempt-3 tree 0d8f766dd62f stands (the receipt harness with precompiles, the restart fixture case, the budget setup). Replace the hand-encoded host store writes of setupCurrentReceiptRestartBudget (the main account record under prefix 6 and the module enable gate) with the setup path of modules/layerxpay/keeper/budget_create_test.go, which creates the owner accounts and enables the budget module through the keeper and host APIs and passes on main; create the budget after the first finalized block of the harness so the kernel context matches the executing block; then make the restart capture carry result code 0 and the 25 wei transfer (line 430) and record the capture in the agent daemon fixture current-receipt-restart.json; run the build once and the verification once at the final revision."
 
 [task.18.1684.1]
 title = "Issue #1684: Align native receipt references and preserve producer evidence during recovery"
@@ -191184,6 +191218,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.238]
+title = "Remove the by-path include of the native evidence test module from the agent daemon integration target repair_22_33_1535"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181684.1"]
+capabilities = ["22.39.238"]
+interfaces = []
+do_1 = "do_1 Decision 3089, gotcha 3880, decision 3080. In services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs remove the path attribute and the module declaration at lines 57 and 58 (mod native_evidence) together with the comment above them that announces the double compilation; the module is compiled and run by the unit-test target through src/protocol_evidence.rs line 2146 and is written for that inclusion (its super:: paths name private functions of the protocol_evidence module such as canonical_receipt_reference)."
+do_2 = "do_2 If any remaining item of the integration target referred to native_evidence, replace the reference with the public API of the crate (layerx_agentd::protocol_evidence) or delete the item when it only re-ran the unit module; change nothing under src."
+do_3 = "do_3 Run the build once and the verification once at the final revision; the verification compiles and runs the whole integration target, which proves the target compiles again for the dependents check of every crate the agent daemon depends on."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_33_1535"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_33_1535"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1809.1]
 title = "Issue #1809: Restore the SDK registry dependency to test scope and refresh consumer locks"
 status = "done"
@@ -191424,6 +191488,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotcha 3882): the attempt-1 tree ef27f3e176fd stands (the state export source in config.rs and main.rs, the retention path of human_runtime.rs, the case). Find which cause refuses the restored production export: split the Refused mapping of the export path (the slot lookup of the state export source, the authenticated receipt lookup, the evidence authority) so each carries its own reason during the diagnosis, and inspect what the four refused rounds leave behind (a retained idempotency record, a consumed limit, a cached storage answer) that makes the restored request fail; repair the cause so the restored export returns 200 with its witnesses retained, keep the four altered-evidence refusals, and keep distinct reasons where they help the operator; run the build once and the verification once at the final revision."
 
 [task.18.1748.1]
 title = "Issue #1748: Prove reward authorization consumes authenticated snapshot evidence"
@@ -191489,7 +191554,7 @@ title = "Bring the layerx-programs-runtime crate and its test targets under the 
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["22.39.209"]
+requires = ["22.39.209", "22.39.238"]
 reqs = ["22998.1"]
 capabilities = ["22.39.235"]
 interfaces = []
@@ -191514,6 +191579,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3839): the attempt-1 tree 7be3886a3b62 is the starting point for the lint repairs of the library, with two corrections. First, restore the call sites of lxt20_tests.rs line 71 and market_tests.rs line 125 to the three-argument form of main (storage, an AuthorizedExecutionRequest, the budget), exactly as the base ab70c667c76c carries them, and keep the signature of execute_authorized_v2_with_budget as the base defines it. Second, in tests/repair_22_31_259.rs the explicit import that replaces the glob of layerx_program_sdk::arbiter names only the constants that module defines (MARKET_STEP_TRANSITION and its siblings), while MarketStepProof stays imported from rt::execute as line 667 of main does; apply the same rule to tests/repair_22_31_577.rs line 2. Record both corrections in repair_22_39_235.kvx. Run the build once and the verification once at the final revision and record both by reference; if the lint gate still reports sites, repair them within the one allowed cycle and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3880, decision 3089): the attempt-2 tree 5e1a4256cbf6 stands (the lint repairs of the runtime crate and its test targets, the From<usize> repairs, the record). The task now requires 22.39.238, which removes the red include from the agent daemon integration target; this attempt launches once that task has landed. Change nothing in services/agent; run the build once, let the dependents check pass, and run the verification once at the final revision."
 
 [task.18.1758.1]
 title = "Issue #1758: Preserve capability-install replay compatibility across reply encoding changes"
@@ -191608,6 +191674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 2 (continue, gotcha 3782): the attempt-1 tree 492b07abcd86 stands (the bootstrap peer repair and its test). In tools/platform/cli/tests/repair_22_33_63.rs line 1648 build the trace identifier in the format TraceId::parse accepts (trace.rs lines 38 to 46): the prefix trc_ followed by thirty-two lowercase hexadecimal digits; no change to the parser. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_5 = "Attempt 3 (continue, gotcha 3821): the attempt-2 tree 55fb3d91800b stands (the two clock-unit regressions). At tests/repair_22_33_63.rs line 1619 the must helper of line 94 unwraps a peer request the fixture answers with Unavailable: identify the request the clock-unit path issues to the fixture peer and answer it the way the real producer does (the sibling fixtures of the file show the answers for the other requests), keep every assertion of native_approval_clock_units and native_producer_clock_units, and record the request and answer in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_6 = "Attempt 4 (continue, gotcha 3860): the attempt-3 tree 78162078f463 stands (the two clock-unit regressions, the peer answers of attempts 2 and 3). At services/human/crates/layerx-human-service/tests/repair_22_33_63.rs line 1641 the bootstrap peer reaches authorize_access and the custody refuses to sign the native consent (native_send.rs line 445): pass a custody that holds the human-primary key for the scope principal and signs the SecuritySettings authorization with the step-up evidence the fixture produced, as the sibling fixtures at lines 1814 and 1897 do with the custody of the fixture; then run the bootstrap to completion and repair every later refusal of the sequence in the same cycle, recording each request and answer in the task record. Keep every assertion of native_approval_clock_units and native_producer_clock_units. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_7 = "Attempt 5 (continue, gotcha 3883): the attempt-4 tree 89874b4d4aa4 stands (the bootstrap of attempts 2 to 4, the step-up evidence). The custody of the two clock-unit cases must sign native consent: build it over the provider that implements sign_native (server/production_components.rs line 7889, the path the running service uses for the human-primary key) instead of the envelope provider with a secret file, which inherits the refusing default of custody/provider.rs line 682; keep the assertions on the signer key, the disclosure digest and the signature; record the provider choice in repair_22_33_63.kvx; run the build once and the verification once at the final revision."
 
 [task.18.1745.1]
 title = "Issue #1745: Exercise the production committed-state predicate in approval budget repair tests"
@@ -192306,6 +192373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from the attempt-1 record tree 9b52963216a0 and first restore the build by repairing the four assertion type mismatches the final build reports (compare the values in the types the producers return rather than converting the expectations). Then run the clippy command of do_1 once and record the inventory, repair in inventory order rerunning the same command after each file, and attach item-level allowances with reasons only where decision 3057 admits them, listed in the record. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed cycles, record the remaining count by file and stop."
 do_5 = "Attempt 3 (continue, gotcha 3767, decisions 3053 and 3057): start from the attempt-2 tree e6e1f6b3c4349f and first restore the build at src/server.rs line 1234 by passing hold_id itself to crate::hex (it is already a byte array reference). Then run the clippy command of do_1 once, record the inventory, and repair it in file order rerunning the same command after each file: written Errors sections, iterator folds through write or a collected String, named closures, borrowed parameters where the value is not consumed, items moved before statements, merged identical match arms, functions over one hundred lines split into named helpers, the two functions with more than seven arguments given a parameters struct when private and an item-level allowance with a reason when public, and the remaining lints as decision 3053 states. Record each lint with its repair and the final count of zero. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed cycles, record the remaining count by file and stop the attempt."
 do_6 = "Attempt 4 (continue, gotchas 3826 and 3830, decision 3080): the attempt-3 tree d3c54a79bb90 stands. First replace the two cross-crate path includes of the MCP test targets (services/agent/crates/layerx-agentd/tests/proof_native_reads.rs and interop/crates/x-websearch/src/server.rs) with a dev-dependency on the owning crate or an owned copy under tests/support as decision 3080 requires, and collapse the duplicate module loads of tests/support/assert_result.rs, assert_option.rs and their siblings into one module with use items. Then repair the in-crate sites: 46 documentation items missing backticks, six format calls in iterators, eleven expect calls on Option and Result and three unwrap_err calls replaced with matches, six arguments passed by value and four needless borrows, across tests/support/web_hold.rs, tests/repair_22_33_1551.rs, tests/proof_native_reads.rs, tests/repair_22_31_223.rs, tests/support/session_transport.rs, tests/web.rs, tests/repair_22_33_1556.rs, tests/support/node_recording.rs and the single-site files of the gotcha. No assertion changes. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
+do_7 = "Attempt 5 (continue, gotcha 3871): the attempt-4 tree 62aa8143dd41 stands (the compile repairs of the test targets, the record). Repair the sixteen clippy sites that /out/logs/verify-2.log of attempt 4 lists by file and line, in place: redundant field names, pass-by-value arguments taken by reference, the doc backticks, the similar names, the trailing semicolon, the assigning clone, the mem::drop of a non-Drop value, the three Errors sections and the unnecessary Result; append each repair to services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx with the final count of zero; run the build once and the verification once at the final revision."
 
 [task.22.39.223]
 title = "Bring the layerx-agentd-host crate and its test targets under the workspace lints"
@@ -192437,7 +192505,7 @@ title = "Bring the layerx-client crate and its test targets under the workspace 
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["22.39.209"]
+requires = ["22.39.209", "22.39.238"]
 reqs = ["22998.1"]
 capabilities = ["22.39.219"]
 interfaces = []
@@ -192465,6 +192533,7 @@ do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from t
 do_5 = "Attempt 3 (continue, gotcha 3786, decision 3053): the attempt-2 tree 9ef634b1ba16 stands. Remove the unnecessary semicolons at tests/committed_caps.rs lines 26, 80 and 84; rerun clippy on the crate with the gate flags and repair any further reported lint at its source. Record the lints and repairs in the task record. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
 do_6 = "Attempt 4 (continue, gotcha 3831): the attempt-3 tree d3d759d87dc0 stands (the library is clean). Split the six test functions over 100 lines into named helpers that keep every assertion in order: tests/sequencer.rs lines 965 and 1085, tests/sequencer_reads.rs lines 71 and 187, tests/chains_vectors.rs line 92 and tests/repair_22_34_5.rs line 98; replace unwrap_err at tests/sequencer.rs lines 1111, 1113, 1146 and 1182 and expect at tests/repair_22_33_1541.rs line 628 with matches that fail with the same message. No behaviour changes. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
 do_7 = "Attempt 5 (continue, gotcha 3870, decision 3080): the attempt-4 tree 59a578ed9d2d stands (the fifty changed files of the lint repair, the record). Replace the path attribute that loads platform/hosted/gateway/src/evm.rs into the proof_client test of layerx-client with a dev-dependency on the hosted gateway crate when the item is public, or with a copy under services/agent/crates/layerx-client/tests/support when it is a test helper, and record the replaced path in repair_22_39_219.kvx as decision 3080 requires; repair the inclusive range at tests/snapshot_binding_v2.rs line 136; change nothing in the gateway crate. Run the build once and the verification once at the final revision and record both by reference; if the gate still reports sites, repair them within the one allowed cycle and rerun once."
+do_8 = "Attempt 6 (continue, gotcha 3886, decision 3089): the attempt-5 tree f4cc14241df4 stands (the sixty-three changed files of the lint repair, the dev-dependency on the hosted gateway crate replacing the path include, the inclusive range repair, the record). The task now requires 22.39.238, which removes the red include from the agent daemon integration target; this attempt launches once that task has landed. Change nothing in layerx-agentd; run the build once, let the dependents check pass, and run the verification once at the final revision."
 
 [task.22.39.218]
 title = "Bring the layerx-proof crate and its test targets under the workspace lints"
@@ -279086,6 +279155,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Attempt 2 (continue, gotcha 3836): the attempt-1 tree bca47feb9c56 stands (the regenerated Go, JVM and Python clients, the repair record). Declare native_send.rs under [handwritten.agent-api-rust] in sdk/platform/pipeline.kvx beside the six declared files, then rerun the generator so every target regenerates from the declared surface; sdk/platform/pipeline.kvx is in the touches from this round. Record the declaration and the task that added the file (22.39.221) in the repair record. Run the build once and the verification once at the final revision and record both by reference; if the drift case still fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3872, decision 3077): the attempt-2 tree 340dd64bcd63 stands (the eight regenerated files, the handwritten declaration in pipeline.kvx, the record). In sdk/platform/generators/tests/drift.rs make declared_handwritten_file_passes_and_survives_regeneration, undeclared_file_in_an_explicit_output_root_fails_the_gate (line 315) and retired_lifecycle_output_is_unclassified (line 295) expect the wording the gate produces for a file the generator did not emit: unclassified file in generated root with the declare-it-under-handwritten instruction (main.rs line 2106); keep the untracked expectation only where a case removes a generated file from the lock (lines 451, 492, 519). Change nothing in main.rs. Record the alignment in sdk/platform/pipeline.kvx beside the handwritten declaration; run the build once and the verification once at the final revision."
 
 [task.22.25.5]
 title = "Name the journey responses of the portable catalogue after the human schema and reseal the pipeline"
@@ -302224,7 +302294,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.18.1834.1]
 title = "Issue #1834: Enforce retired payer-grant symbol absence in the built archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1846.1"]
@@ -302374,6 +302444,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3809): the attempt-1 tree bb0601198954 stands. In daemon/committed-fixture/main.go keep V1 program deployment supported in the V6 recorder genesis (the version table the deployment path reads) so record vector-v1-programs-positive executes instead of reverting with LXP_ERR_VERSION_UNSUPPORTED, and keep every other vector as it is; TestRecorderAllSelectedV6Executes (main_test.go line 197) stays unchanged. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_5 = "Attempt 3 (continue, gotcha 3848): the attempt-2 tree e8ec2dccfbf0 stands (the V6 genesis selection, TestRecorderV6GenesisSelection). The V1 programs deployment reverts with LXP_ERR_VERSION_UNSUPPORTED because daemon/committed-fixture/vector_v1_programs.go line 69 packs ABI version 1 and programs/crates/layerx-programs-runtime/src/ffi_interface.rs line 220 refuses an interface whose version abi_policy::admit_abi_version does not admit; no genesis setting changes that. Move the recipe to the lowest ABI version the admission policy admits, with the interface domain that version requires, keep the vector name, and record the admitted version and the policy site in the task record; vector_v1_programs.go is in the touches from this round and TestRecorderAllSelectedV6Executes stays unchanged. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_6 = "Attempt 4 (continue, gotcha 3879): the attempt-3 tree 22e45e6d127c stands (the recorder cases, the V1 programs vector in the touches). The positive V1 programs vector deploys a program the kernel of the tree refuses with LXP_ERR_VERSION_UNSUPPORTED: compare the protocol and encoding version fields the vector declares in daemon/committed-fixture/vector_v1_programs.go with the versions the programs tests of the tree deploy (programs/crates and tests/programs use the current encoding version of the kernel), set the vector to the supported pair or read it from the chain genesis the fixture starts, and record the pair in the vector comment; run the build once and the verification once at the final revision."
 
 [task.18.1715.1]
 title = "Issue #1715: Align the web payer sequence read with the native account-ID ABI"
@@ -302438,7 +302509,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1691.1]
 title = "Issue #1691: Align FeesRouter event origins with the production surface identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302558,6 +302629,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Attempt 2 (continue, gotcha 3783, decision 3074): the attempt-1 tree 3dd4b2d997c5 stands (the asset listing repair and its tests). In rpc/px_assets.go ListAssets (lines 193 to 199) treat a JSON null cursor as invalid params and answer -32602 through pxRootError, as the test at px_node_root_account_test.go line 687 asserts; then repair the count case at line 589 (eight expected, none returned) at its source in the listing path. Record both repairs in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_6 = "Attempt 3 (continue, gotcha 3820, decision 3074): the attempt-2 tree e989d4af8ae9 stands (the cursor pages, the contract text, the tests). In rpc/px_assets.go answer invalid params -32602 when the cursor parameter of px_listAssets is an explicit null, distinct from an omitted parameter, so the assertion at rpc/px_node_root_account_test.go line 686 holds; nothing else changes. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_7 = "Attempt 4 (continue, gotcha 3855, decisions 3074 and 3083): the attempt-3 tree bc7cec2a5987 stands (the cursor pages, the contract text, the cases). In rpc/px_assets.go declare the cursor parameter of ListAssets (line 212) as a raw JSON message: empty means omitted and lists from the start, the literal null answers invalid params -32602, and a JSON string is the cursor as before; thread the decoded string into assetRecords unchanged. Record the parameter form in spec/layerx-merge/contracts/evm-rpc.md and in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
+do_8 = "Attempt 5 (continue, gotcha 3878, decisions 3074 and 3083): the attempt-4 tree f44e4f4d2903 stands (px_assets.go, the account cases). Keep the cursor omittable and the explicit null refused: in rpc/px_assets.go decode the cursor into a pointer-typed wrapper (or inspect the raw params array before positional decoding) so that an omitted cursor proceeds (and yields -32001 when the indexer is unavailable), an explicit null yields -32602 invalid params, and a string cursor is parsed as before; make TestPxNodeRoot_Account_ConfigAndIndexerUnavailable and TestPxNodeRoot_Assets_CursorSchema pass together with the explicit-null case of attempt 4; record the presence rule beside the method in spec/layerx-merge/contracts/evm-rpc.md; run the build once and the verification once at the final revision."
 
 [task.18.1661.1]
 title = "Issue #1661: Complete CW20 deployment without retired DEX commands"
@@ -302685,7 +302757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1633.1]
 title = "Issue #1633: Preserve transaction hashes in node-root history rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -328132,7 +328204,7 @@ do_1 = "Run python3 tools/paxeer-x/tests/retired_callers_test.py --deleted (tool
 do_2 = "Treat any reported caller as a failure naming its owning domain through retired.owners; the change lands in spec/layerx-merge/programme/tests/test_no_retired_callers.py (planned)."
 do_3 = "Create spec/layerx-merge/programme/tests/test_no_retired_callers.py (planned) with the test named below."
 symbols = ["test_scan_reports_no_caller"]
-touches = ["spec/layerx-merge/programme/tests/test_no_retired_callers.py", "tools/paxeer-x/tests/retired_callers_test.py", "spec/layerx-merge/programme/retired.py"]
+touches = ["spec/layerx-merge/programme/tests/test_no_retired_callers.py", "tools/paxeer-x/tests/retired_callers_test.py", "spec/layerx-merge/programme/retired.py", "tools/paxeer-x/retired_callers.json"]
 tests = ["spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_no_retired_callers.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_no_retired_callers.py"
@@ -328151,6 +328223,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 2 (continue after 22.39.214 lands; gotcha 3747, decision 3051): the attempt-1 tree ceda589fd709 stands unchanged (the test module running the scanner with --deleted through evidence.run and naming the owning domain of every reported caller). Merge main once 22.39.214 is on it, so the scanner issues one git grep over the tracked files, and run the case under the 120-minute limit of this round. Treat every reported caller as a finding against its owning domain through retired.owners as do_2 states and record the scan wall time by reference. Run the build once and the verification once at the final revision and record both by reference; if the scan still does not finish, record the elapsed time and stop without a repair cycle."
 do_5 = "Attempt 3 (continue, gotcha 3828, decisions 3065 and 3079): the attempt-2 tree bb34d05cdf5b stands (the test module naming the owning domain of every reported caller). In tools/paxeer-x/tests/retired_callers_test.py add the pathspec :(top,exclude,literal)core/deps to the exclusions the scan passes to git grep, beside the catalogue, deleted-tree and retiring-tree entries, so the vendored upstream sources are never reported; the scanner is in the touches from this round and the owner map of retired.py stays unchanged. Record the excluded tree and the scan wall time by reference in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, treat every remaining caller as a finding against its owning domain as do_2 states and repair within the one allowed cycle."
 do_6 = "Attempt 4 (continue, gotcha 3846, decision 3081): the attempt-3 tree 24283a456abe stands (the owning-domain test, the core/deps exclusion). In spec/layerx-merge/programme/retired.py extend the owners function beside the api README rule so a README.md directly under modules, precompiles or api... belongs to domain 17; the owner map file is in the touches from this round. Then treat the modules/README.md reference the scan reports as the finding it is: retire the stale name from the README within the one allowed cycle as do_2 states, and record the reference and the repair in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, treat every remaining caller as a finding against its owning domain and repair within the one allowed cycle."
+do_7 = "Attempt 5 (continue, gotcha 3877, decision 3087): the attempt-4 tree 980f5ade7d40 stands (the scan, the deleted-tree option, the gate case). The touches now include tools/paxeer-x/retired_callers.json. First, add GOTCHA.kvx, CHANGELOG.md and CODEMAP.md to documentation_paths of the catalogue with the reason that history records quote retired names by design, and make the scan honour documentation_paths for every suffix of a listed file (not only .kvx and .md under a listed directory). Second, rerun the scan and write one finding per owning domain into spec/layerx-merge/qualification.kvx (task 17.2.8, file and symbol of the largest hit, observed with the exact command, exit code and log path, the hit count of the domain, severity blocker for live code such as precompiles/layerxcustody and modules/layerxcustody and suspect for catalogues, generated clients, the Makefile and README.md), and list the per-file counts in spec/layerx-merge/programme/retired.py as the baseline the repairs must drive to zero. Third, run the build once and the verification once; the verification fails while the owning repairs are pending, so record the counts, mark the attempt implemented-not-qualified and stop."
 
 [task.17.3.1]
 title = "Write the migration rehearsal plan from a v6.12.0 chain through v7.0"
@@ -412844,7 +412917,7 @@ do_3 = "Attempt 2 (requalify, gotcha 3793): the attempt-1 tree 865e4c1d9e48 stan
 
 [task.18.1659.1]
 title = "Issue #1659: Preserve price acceptance replay retries when held-job diagnostics fail"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -412876,7 +412949,7 @@ do_5 = "Attempt 3 (continue, gotcha 3851): the attempt-2 tree 76c78b18cb71 stand
 
 [task.18.1652.1]
 title = "Issue #1652: Retry multichain exports with valid buffered queue entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
