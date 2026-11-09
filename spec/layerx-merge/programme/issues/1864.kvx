@@ -1,0 +1,7 @@
+[issue.1864]
+number = 1864
+title = "[Coherence] The ramps reference TLS fixtures localhost.pem and localhost.p12 were deleted instead of moved, so the repair test no longer compiles"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit d122f710b511777382d9b4592577822593fe327b restored localhost.pem and localhost.p12 byte for byte from the parent of 70fb314c8d1d803d66f09d441f798585c7936027 into the tracked services/platform/ramps/reference/tests/fixtures/repair_fixtures directory used by services/platform/ramps/reference/tests/repair_22_33_1487.rs:37 and services/platform/ramps/reference/tests/repair_22_33_1487.rs:38, with ignore exceptions at .gitignore:79 and .gitignore:80 and regression assertions for fixture tracking and existence at tests/ci/test_key_material_only_in_fixtures.py:67 and tests/ci/test_key_material_only_in_fixtures.py:68."
+close_comment = "The PEM certificate and PKCS12 identity have been restored byte for byte beside the DER anchor in the test fixture directory, so the repair test's include paths resolve to tracked files. A regression check now requires every inventoried key fixture to exist and remain tracked."

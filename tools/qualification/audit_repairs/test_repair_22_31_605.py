@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import shlex
+import subprocess
 
 import pytest
 import yaml
@@ -8,6 +9,16 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOWS = ("ci.yml", "wallet-test.yml", "explorer-images.yml")
+REFERENCE_FIXTURES = (
+    "programs/crates/layerx-programs-registry/tests/fixtures/naming/naming.wasm",
+    "programs/crates/layerx-programs-registry/tests/fixtures/naming/naming.interface",
+    "programs/crates/layerx-programs-registry/tests/fixtures/lxt721/nft-lxt721.wasm",
+    "programs/crates/layerx-programs-registry/tests/fixtures/lxt721/nft-lxt721.interface",
+    "programs/crates/layerx-programs-registry/tests/fixtures/lxt721/nft-lxt721.registry-value",
+    "programs/fixtures/pay5/swap-cpmm.wasm",
+    "programs/fixtures/pay5/swap-cpmm.interface",
+    "programs/fixtures/pay5/swap-cpmm.registry-value",
+)
 
 
 def workflow(name):
@@ -112,6 +123,82 @@ def test_ci_runs_both_make_targets_in_separate_jobs(target):
             "rustup toolchain install 1.91.1 --profile minimal --target wasm32-unknown-unknown"
             in commands
         )
+
+
+@pytest.mark.parametrize("fixture_path", REFERENCE_FIXTURES)
+@pytest.mark.parametrize("change", ["byte-change", "deletion"])
+def test_program_reference_fixtures_reject_drift(tmp_path, fixture_path, change):
+    job = workflow("ci.yml")["jobs"]["programs-reference-fixtures"]
+    rebuild = required_run(job, ["make", "programs-reference-fixtures"])
+    comparison = required_run(
+        job,
+        [
+            "git",
+            "diff",
+            "--exit-code",
+            "--",
+            "programs/crates/layerx-programs-registry/tests/fixtures/naming",
+            "programs/crates/layerx-programs-registry/tests/fixtures/lxt721",
+            "programs/fixtures/pay5",
+        ],
+    )
+    steps = job["steps"]
+    assert steps.index(comparison) == steps.index(rebuild) + 1
+    command = shlex.split(comparison["run"])
+    baseline = {
+        path: subprocess.run(
+            ["git", "show", f"HEAD:{path}"],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+        ).stdout
+        for path in REFERENCE_FIXTURES
+    }
+
+    def git(*args):
+        return subprocess.run(
+            ["git", *args], cwd=tmp_path, capture_output=True, check=True
+        )
+
+    git("init")
+    git("config", "core.autocrlf", "false")
+    git("config", "core.hooksPath", "/dev/null")
+    for path, content in baseline.items():
+        destination = tmp_path / path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+    git("add", "--", *REFERENCE_FIXTURES)
+    git(
+        "-c",
+        "user.name=Fixture test",
+        "-c",
+        "user.email=fixtures@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "Committed reference fixtures",
+    )
+
+    def compare():
+        return subprocess.run(command, cwd=tmp_path, capture_output=True)
+
+    unchanged = compare()
+    assert unchanged.returncode == 0, unchanged.stderr
+    destination = tmp_path / fixture_path
+    original = baseline[fixture_path]
+    assert original
+    try:
+        if change == "byte-change":
+            destination.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+        else:
+            destination.unlink()
+        drifted = compare()
+        assert drifted.returncode == 1, (drifted.stdout, drifted.stderr)
+    finally:
+        destination.write_bytes(original)
+    restored = compare()
+    assert restored.returncode == 0, restored.stderr
 
 
 def test_wallet_runs_unfiltered_vitest_in_both_directories():

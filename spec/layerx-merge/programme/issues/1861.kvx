@@ -1,0 +1,48 @@
+[issue.1861]
+number = 1861
+title = "[Coherence] The chainflow SDK docs still give the old Python 3.9 and Go 1.22 minimums after the manifests were raised"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit 6c8d638041f76e9383f70fb57e0736fa7f10b494 raised the floors still declared at sdk/chainflow/python/pyproject.toml:10 and sdk/chainflow/go/go.mod:3 to Python 3.11 and Go 1.25, consistent with spec/layerx-merge/spec.kvx:9999, but sdk/chainflow/python/README.md:260, sdk/chainflow/python/SKILL.md:127 and sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md:142 still require Python 3.9, while sdk/chainflow/go/README.md:237, sdk/chainflow/go/SKILL.md:127 and sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md:127 still require Go 1.22."
+close_comment = "The Chainflow Python and Go documentation still advertises older runtimes than the SDK manifests support. The follow-up task updates all six README and skill requirement lines to Python 3.11 or newer and Go 1.25 or newer."
+
+[task.18.1861.1]
+title = "Issue #1861: Align Chainflow SDK runtime requirements with their manifests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181861.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change the requirement line to Python 3.11 or newer in sdk/chainflow/python/README.md:260, sdk/chainflow/python/SKILL.md:127 and sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md:142, matching sdk/chainflow/python/pyproject.toml:10; change it to Go 1.25 or newer in sdk/chainflow/go/README.md:237, sdk/chainflow/go/SKILL.md:127 and sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md:127, matching sdk/chainflow/go/go.mod:3 and preserving the existing terminal punctuation."
+do_2 = "Use the focused documentation check to assert the corrected requirement line separately in every README and skill file; retain the manifest runtime floors required by decision.2814 at spec/layerx-merge/spec.kvx:9999 and the existing SDK tests and assertions."
+symbols = []
+touches = ["sdk/chainflow/python/README.md", "sdk/chainflow/python/SKILL.md", "sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md", "sdk/chainflow/go/README.md", "sdk/chainflow/go/SKILL.md", "sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fxq -- '- Python 3.11 or newer' sdk/chainflow/python/README.md && grep -Fxq -- '- Python 3.11 or newer' sdk/chainflow/python/SKILL.md && grep -Fxq -- '- Python 3.11 or newer' sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md && grep -Fxq -- '- Go 1.25 or newer' sdk/chainflow/go/README.md && grep -Fxq -- '- Go 1.25 or newer.' sdk/chainflow/go/SKILL.md && grep -Fxq -- '- Go 1.25 or newer.' sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181861]
+title = "Chainflow SDK documentation states the supported runtime floors"
+ac_1 = "The requirement lines at sdk/chainflow/python/README.md:260, sdk/chainflow/python/SKILL.md:127 and sdk/chainflow/python/.claude/skills/chainflow-data-gateway-python-sdk/SKILL.md:142 require Python 3.11 or newer, matching sdk/chainflow/python/pyproject.toml:10, and those at sdk/chainflow/go/README.md:237, sdk/chainflow/go/SKILL.md:127 and sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md:127 require Go 1.25 or newer, matching sdk/chainflow/go/go.mod:3."
+
+[acceptance.18.1861.1]
+feature = "18"
+req = "181861.1"
+scenario = "Given the Chainflow SDK manifest runtime floors, when each Python and Go README and bundled skill requirements section is checked, then all three Python documents require Python 3.11 or newer and all three Go documents require Go 1.25 or newer."
+contract = "contracts/programme.md#programme-artifacts"
+test = "sdk/chainflow/python/README.md and sdk/chainflow/go/README.md and their bundled SKILL.md files::runtime requirement grep (planned)"
+qualification = "UNRUN"

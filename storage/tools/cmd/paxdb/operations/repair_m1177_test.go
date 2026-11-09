@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"compress/flate"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/memiavl"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/ss/backend"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/tools/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/wal"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -169,6 +172,161 @@ func TestRepairM_1177_ModuleInventory(t *testing.T) {
 	require.Contains(t, report, "Module lxphost total numKeys:2")
 	require.NotContains(t, report, "Module sequencer")
 	require.NotContains(t, report, "Module custom-store")
+}
+
+func TestStateSizeFullScan(t *testing.T) {
+	contractA := strings.Repeat("AB", 20)
+	contractB := strings.Repeat("CD", 20)
+	storageKey := func(address, slot byte) []byte {
+		key := append([]byte{0x03}, bytes.Repeat([]byte{address}, 20)...)
+		return append(key, bytes.Repeat([]byte{slot}, 32)...)
+	}
+	changes := map[string]proto.ChangeSet{
+		"evm": {Pairs: []*proto.KVPair{
+			{Key: []byte{0x01, 'a'}, Value: []byte("one")},
+			{Key: []byte{0x02, 'b', 'c'}, Value: []byte("four")},
+			{Key: storageKey(0xAB, 1), Value: []byte("aa")},
+			{Key: storageKey(0xAB, 2), Value: []byte("bbbb")},
+			{Key: storageKey(0xCD, 1), Value: []byte("ccccccc")},
+			{Key: []byte{0x0A, 'd'}, Value: []byte("five!")},
+		}},
+		"sequencer": {Pairs: []*proto.KVPair{
+			{Key: []byte{0x01, 'x'}, Value: []byte("cat")},
+			{Key: []byte{0x01, 'y', 'z'}, Value: []byte("four")},
+			{Key: storageKey(0xAB, 1), Value: []byte("other")},
+		}},
+	}
+	want := map[string]*ModuleResult{
+		"evm": {
+			ModuleName: "evm", TotalNumKeys: 6, TotalKeySize: 166, TotalValueSize: 25, TotalSize: 191,
+			PrefixSizes: map[string]*utils.PrefixSize{
+				"01": {KeySize: 2, ValueSize: 3, TotalSize: 5, KeyCount: 1},
+				"02": {KeySize: 3, ValueSize: 4, TotalSize: 7, KeyCount: 1},
+				"03": {KeySize: 159, ValueSize: 13, TotalSize: 172, KeyCount: 3},
+				"0A": {KeySize: 2, ValueSize: 5, TotalSize: 7, KeyCount: 1},
+			},
+			ContractSizes: map[string]*utils.ContractSizeEntry{
+				contractA: {Address: contractA, TotalSize: 112, KeyCount: 2},
+				contractB: {Address: contractB, TotalSize: 60, KeyCount: 1},
+			},
+		},
+		"sequencer": {
+			ModuleName: "sequencer", TotalNumKeys: 3, TotalKeySize: 58, TotalValueSize: 12, TotalSize: 70,
+			PrefixSizes: map[string]*utils.PrefixSize{
+				"01": {KeySize: 5, ValueSize: 7, TotalSize: 12, KeyCount: 2},
+				"03": {KeySize: 53, ValueSize: 5, TotalSize: 58, KeyCount: 1},
+			},
+			ContractSizes: map[string]*utils.ContractSizeEntry{},
+		},
+	}
+	wantConsole := func(t *testing.T, names []string) string {
+		t.Helper()
+		var output strings.Builder
+		for _, name := range names {
+			result := want[name]
+			fmt.Fprintf(&output, "Module %s total numKeys:%d, total keySize:%d, total valueSize:%d, totalSize:%d (0.00 MB)\n",
+				name, result.TotalNumKeys, result.TotalKeySize, result.TotalValueSize, result.TotalSize)
+			prefixJSON, err := json.MarshalIndent(result.PrefixSizes, "", "  ")
+			require.NoError(t, err)
+			fmt.Fprintf(&output, "Module %s prefix breakdown (key/value/total bytes and key count per prefix byte): %s\n", name, prefixJSON)
+			if name == "evm" {
+				output.WriteString("\nDetailed breakdown for 0x03 prefix (top 2 contracts by total size):\n")
+				fmt.Fprintf(&output, "%-42s %15s %10s\n", "Contract Address", "Total Size", "Key Count")
+				fmt.Fprintln(&output, strings.Repeat("-", 70))
+				fmt.Fprintf(&output, "0x%-40s %15d %10d\n", contractA, 112, 2)
+				fmt.Fprintf(&output, "0x%-40s %15d %10d\n", contractB, 60, 1)
+			}
+		}
+		return output.String()
+	}
+	checkDatabase := func(t *testing.T, db *memiavl.DB, snapshot bool) {
+		t.Helper()
+		for _, name := range []string{"evm", "sequencer"} {
+			tree := db.TreeByName(name)
+			require.NotNil(t, tree)
+			tree.ScanPostOrder(func(node memiavl.Node) bool {
+				if snapshot {
+					require.IsType(t, memiavl.PersistedNode{}, node)
+				} else {
+					require.IsType(t, &memiavl.MemNode{}, node)
+				}
+				return false
+			})
+			require.Equal(t, want[name], collectModuleStats(tree, name))
+		}
+		for _, selection := range []string{"", "evm", "sequencer"} {
+			t.Run("module="+selection, func(t *testing.T) {
+				names := []string{"evm", "sequencer"}
+				if selection != "" {
+					names = []string{selection}
+				}
+				results := collectAllModuleData(selection, db)
+				require.Len(t, results, len(names))
+				for _, name := range names {
+					expected := want[name]
+					require.Equal(t, expected, results[name])
+					analysis := createStateSizeAnalysis(1, name, results[name])
+					var prefixes map[string]*utils.PrefixSize
+					require.NoError(t, json.Unmarshal([]byte(analysis.PrefixBreakdown), &prefixes))
+					require.Equal(t, expected.PrefixSizes, prefixes)
+					var contracts []utils.ContractSizeEntry
+					require.NoError(t, json.Unmarshal([]byte(analysis.ContractBreakdown), &contracts))
+					wantContracts := make([]utils.ContractSizeEntry, 0, len(expected.ContractSizes))
+					for _, entry := range expected.ContractSizes {
+						wantContracts = append(wantContracts, *entry)
+					}
+					require.ElementsMatch(t, wantContracts, contracts)
+					require.Equal(t, &utils.StateSizeAnalysis{
+						BlockHeight: 1, ModuleName: name,
+						TotalNumKeys: expected.TotalNumKeys, TotalKeySize: expected.TotalKeySize,
+						TotalValueSize: expected.TotalValueSize, TotalSize: expected.TotalSize,
+						PrefixBreakdown: analysis.PrefixBreakdown, ContractBreakdown: analysis.ContractBreakdown,
+					}, analysis)
+				}
+				output, err := repairM1177Stdout(t, func() error {
+					printResultsToConsole(results)
+					return nil
+				})
+				require.NoError(t, err)
+				require.Equal(t, wantConsole(t, names), output)
+			})
+		}
+	}
+	dir := t.TempDir()
+	db, err := memiavl.OpenDB(0, memiavl.Options{Dir: dir, CreateIfMissing: true, InitialStores: []string{"evm", "sequencer"}})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	for name, changeSet := range changes {
+		require.NoError(t, db.ApplyChangeSet(name, changeSet))
+	}
+	t.Run("mutable", func(t *testing.T) { checkDatabase(t, db, false) })
+	version, err := db.Commit()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), version)
+	require.NoError(t, db.RewriteSnapshot(context.Background()))
+	require.NoError(t, db.Close())
+	db, err = memiavl.OpenDB(0, memiavl.Options{Dir: dir, ZeroCopy: true})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), db.Version())
+	require.Equal(t, int64(1), db.SnapshotVersion())
+	t.Run("snapshot", func(t *testing.T) { checkDatabase(t, db, true) })
+	require.NoError(t, db.Close())
+	for _, selection := range []string{"", "evm", "sequencer"} {
+		names := []string{"evm", "sequencer"}
+		args := []string{"--db-dir", dir}
+		if selection != "" {
+			names = []string{selection}
+			args = append(args, "--module", selection)
+		}
+		output, err := repairM1177Stdout(t, func() error {
+			_, err := repairM1177Execute(StateSizeCmd(), args...)
+			return err
+		})
+		require.NoError(t, err)
+		require.Contains(t, output, "Finished opening db at height 1 (requested: 0)")
+		require.True(t, strings.HasSuffix(output, wantConsole(t, names)), "%s", output)
+		require.Equal(t, len(names), strings.Count(output, "total numKeys:"))
+	}
 }
 
 func TestRepairM_1177_IAVLFailures(t *testing.T) {

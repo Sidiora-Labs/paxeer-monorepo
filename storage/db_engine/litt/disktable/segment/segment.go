@@ -127,18 +127,25 @@ func CreateSegment(
 	if err != nil {
 		return nil, fmt.Errorf("failed to open key file: %v", err)
 	}
-	keepKeys := false
+	shards := make([]*valueFile, metadata.shardingFactor)
+	keepFiles := false
 	defer func() {
-		if !keepKeys {
+		if !keepFiles {
 			if err := keys.file.Close(); err != nil {
 				logger.Error("failed to close key file after segment creation failed", "error", err)
+			}
+			for shard, values := range shards {
+				if values != nil {
+					if err := values.file.Close(); err != nil {
+						logger.Error("failed to close value file after segment creation failed", "shard", shard, "error", err)
+					}
+				}
 			}
 		}
 	}()
 
 	keyFileSize := keys.Size()
 
-	shards := make([]*valueFile, metadata.shardingFactor)
 	for shard := uint8(0); shard < metadata.shardingFactor; shard++ {
 		// Assign value files to available segment paths in a round-robin fashion.
 		// Assign the first shard to the directory at index 1. The first directory
@@ -148,7 +155,7 @@ func CreateSegment(
 
 		values, err := createValueFile(logger, index, shard, segmentPath, fsync)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open value file: %v", err)
+			return nil, fmt.Errorf("failed to open value file: %w", err)
 		}
 		shards[shard] = values
 	}
@@ -193,7 +200,7 @@ func CreateSegment(
 
 	go segment.keyFileControlLoop()
 
-	keepKeys = true
+	keepFiles = true
 	return segment, nil
 }
 

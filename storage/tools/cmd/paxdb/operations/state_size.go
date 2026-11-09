@@ -193,7 +193,7 @@ func collectModuleStats(tree *memiavl.Tree, moduleName string) *ModuleResult {
 				fmt.Printf("Scanned %d keys for module %s\n", result.TotalNumKeys, moduleName)
 			}
 		}
-		return true
+		return false
 	})
 
 	// Limit to top 100 contracts by total size

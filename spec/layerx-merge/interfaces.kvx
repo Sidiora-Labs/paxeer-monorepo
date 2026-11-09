@@ -312549,7 +312549,7 @@ signature = "eth_getRawTransactionByBlockHashAndIndex(blockHash common.Hash, ind
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; null for an unknown block; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; JSON string '0x' for an unknown block or an out-of-range index; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getrawtransactionbyblocknumberandindex-j38]
 kind = "jsonrpc_method"
@@ -312559,7 +312559,7 @@ signature = "eth_getRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber,
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; null past the end; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; JSON string '0x' for an unknown block or an out-of-range index; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getrawtransactionbyhash-j38]
 kind = "jsonrpc_method"
@@ -312569,7 +312569,7 @@ signature = "eth_getRawTransactionByHash(hash common.Hash) (hexutil.Bytes, error
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; binary envelope, null for an unknown hash, pending sequencer transactions included; tasks 7.5.1 and 7.9.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; binary envelope, JSON string '0x' for an unknown hash, pending sequencer transactions included; tasks 7.5.1 and 7.9.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getstorageat]
 kind = "jsonrpc_method"

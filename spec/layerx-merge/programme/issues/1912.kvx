@@ -1,0 +1,49 @@
+[issue.1912]
+number = 1912
+title = "[Coherence] The new alignment task 22.39.212 leaves out the bridge READMEs, which still describe the placeholder five-attestor, threshold-3 set and the repeated-byte manifest"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit f285b9e530ea3163b04289754c95a1a725cf9673 aligned all nine chain configurations with the governed manifest at services/bridge/deploy/attestors.json:3 and :5, but contracts/bridge/README.md:79 and :80 still assert five placeholder signers and repeated-byte manifest addresses, all eight contracts/bridge/evm/chains/*/README.md:11 still assert threshold 3, and contracts/bridge/solana/chains/solana/README.md:13 and :52 repeat that obsolete set, contradicting decision 3042 at spec/layerx-merge/spec.kvx:11367."
+close_comment = "The bridge manifest and all nine chain configurations now use one governed signer at threshold 1, but the bridge runbook and chain pages still describe the former five-signer set at threshold 3. A documentation follow-up will align all ten pages with the governed manifest while retaining the remaining deployment prerequisites."
+
+[task.18.1912.1]
+title = "Issue #1912: Align the bridge READMEs with the governed single-signer manifest"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181912.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update contracts/bridge/README.md:76-80 to describe services/bridge/deploy/attestors.json:3-5 as the accepted governed single-signer manifest, remove the repeated-byte manifest and placeholder-attestor claims, and explain that the nine committed configurations already match it; retain the owner, program-id and HyperEVM prerequisites and the refusal of a set or threshold that differs from the manifest."
+do_2 = "Correct the Attestors table row at line 11 of the arbitrum, avalanche, base, bnb, ethereum, hyperevm, optimism and polygon README.md files under contracts/bridge/evm/chains and at contracts/bridge/solana/chains/solana/README.md:13 to exactly | Attestors | 1 secp256k1 address, signing at a threshold of 1 |; correct the obsolete placeholder-attestor instructions at line 39 of each EVM page except hyperevm at line 45 and at the Solana page line 52, retaining the owner and program-id requirements and the manifest consistency rule."
+do_3 = "Include this exact sentence in each of the ten pages: The governed attestor set contains only `0x12598F221f1e645322C7665537D4Ab130281f51d` at threshold `1`. Reference services/bridge/deploy/attestors.json in every page and explain that wider signer sets require a later governance change through the same manifest; use the focused grep check to require the governed sentence and manifest reference on every page, the corrected row on all nine chain pages, and absence of the obsolete placeholder, five-signer, threshold-3 and repeated-byte claims."
+symbols = []
+touches = ["contracts/bridge/README.md", "contracts/bridge/evm/chains/arbitrum/README.md", "contracts/bridge/evm/chains/avalanche/README.md", "contracts/bridge/evm/chains/base/README.md", "contracts/bridge/evm/chains/bnb/README.md", "contracts/bridge/evm/chains/ethereum/README.md", "contracts/bridge/evm/chains/hyperevm/README.md", "contracts/bridge/evm/chains/optimism/README.md", "contracts/bridge/evm/chains/polygon/README.md", "contracts/bridge/solana/chains/solana/README.md"]
+tests = ["contracts/bridge/README.md::governed_attestor_documentation"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "for page in contracts/bridge/README.md contracts/bridge/evm/chains/arbitrum/README.md contracts/bridge/evm/chains/avalanche/README.md contracts/bridge/evm/chains/base/README.md contracts/bridge/evm/chains/bnb/README.md contracts/bridge/evm/chains/ethereum/README.md contracts/bridge/evm/chains/hyperevm/README.md contracts/bridge/evm/chains/optimism/README.md contracts/bridge/evm/chains/polygon/README.md contracts/bridge/solana/chains/solana/README.md; do grep -Fq 'The governed attestor set contains only `0x12598F221f1e645322C7665537D4Ab130281f51d` at threshold `1`.' $page || exit 1; grep -Fq 'services/bridge/deploy/attestors.json' $page || exit 1; done && for page in contracts/bridge/evm/chains/arbitrum/README.md contracts/bridge/evm/chains/avalanche/README.md contracts/bridge/evm/chains/base/README.md contracts/bridge/evm/chains/bnb/README.md contracts/bridge/evm/chains/ethereum/README.md contracts/bridge/evm/chains/hyperevm/README.md contracts/bridge/evm/chains/optimism/README.md contracts/bridge/evm/chains/polygon/README.md contracts/bridge/solana/chains/solana/README.md; do grep -Fxq '| Attestors | 1 secp256k1 address, signing at a threshold of 1 |' $page || exit 1; done && ! grep -En 'PLACEHOLDER:attestor|five.*attestors|same five|threshold of `?3|0x1111111111111111111111111111111111111111|0x5555555555555555555555555555555555555555' contracts/bridge/README.md contracts/bridge/evm/chains/arbitrum/README.md contracts/bridge/evm/chains/avalanche/README.md contracts/bridge/evm/chains/base/README.md contracts/bridge/evm/chains/bnb/README.md contracts/bridge/evm/chains/ethereum/README.md contracts/bridge/evm/chains/hyperevm/README.md contracts/bridge/evm/chains/optimism/README.md contracts/bridge/evm/chains/polygon/README.md contracts/bridge/solana/chains/solana/README.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181912]
+title = "Bridge operator documentation matches the governed attestor manifest"
+ac_1 = "The obsolete claims at contracts/bridge/README.md:79-80, line 11 and the preflight instructions of every EVM chain README, and contracts/bridge/solana/chains/solana/README.md:13 and :52 are replaced with the single address and threshold 1 committed at services/bridge/deploy/attestors.json:3-5; all ten pages reference that manifest, all nine chain tables show one signer at threshold 1, and the remaining deployment prerequisites and manifest mismatch refusal stay accurate."
+
+[acceptance.18.1912.1]
+feature = "18"
+req = "181912.1"
+scenario = "Given the governed single-signer manifest and nine matching chain configurations, when the bridge runbook and nine chain pages are checked, then every page names the governed address at threshold 1 and references the manifest, every chain table shows one signer at threshold 1, and no page claims placeholder attestors, five signers, threshold 3 or repeated-byte manifest addresses."
+contract = "contracts/bridge/README.md#fill-in-the-configuration"
+test = "contracts/bridge/README.md::governed_attestor_documentation (planned)"
+qualification = "UNRUN"
