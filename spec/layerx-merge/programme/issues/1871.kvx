@@ -1,0 +1,50 @@
+[issue.1871]
+number = 1871
+title = "[P2] Follow the composite release toolchain in the compiler-pin test"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The composite extraction in commit 775a34c6ff79efe75976ba3dba4d1ea2376f7802 remains at .github/workflows/paxeer-release-check.yml:94 and .github/workflows/paxeer-release-publish.yml:52, but tools/release/tests/workflows.test.sh:41 unconditionally reads the absent run field when check_pins_cc calls it at tools/release/tests/workflows.test.sh:88, so the retained suite at tools/release/tests/run-all.sh:22 cannot reach the real compiler pin and refusal at .github/actions/release-toolchain/action.yml:33."
+close_comment = "The compiler-pin regression test still expects inline setup commands even though both release workflows use the shared composite action. A follow-up task tracks resolving that action while preserving compiler-version, refusal and installation-order coverage; the separate release-identity assertions belong to issue #1793."
+
+[task.18.1871.1]
+title = "Issue #1871: Follow the shared release action in compiler-pin coverage"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181871.1"]
+capabilities = []
+interfaces = []
+do_1 = "In tools/release/tests/workflows.test.sh:82, add release_compiler_setup and use it from check_pins_cc to resolve each caller's local uses reference at .github/workflows/paxeer-release-check.yml:94 and .github/workflows/paxeer-release-publish.yml:52 to its action.yml; require a composite action with the named Bash installation step, inspect its real run body at .github/actions/release-toolchain/action.yml:9, and retain the inline step helper's checks for other tests."
+do_2 = "Preserve the caller checks at tools/release/tests/workflows.test.sh:39 and tools/release/tests/workflows.test.sh:90 for unconditional installation without continue-on-error before each build, apply unconditional and fail-closed checks to the composite installation step too, and retain every ordered installation fragment, unavailable-package refusal and real-compiler matching/mismatching version assertion at tools/release/tests/workflows.test.sh:91 through tools/release/tests/workflows.test.sh:178 against the resolved implementation and tools/release/toolchain.env:1."
+do_3 = "Add check_pins_cc_mutations using temporary copies of the actual caller and action YAML to prove that the same resolver and compiler checker reject a missing or changed pin, a missing package/version refusal, conditional or continue-on-error installation, installation after build, and an invalid composite reference; keep the positive and negative version probes executing the real action's pin-check body with the actual cc binary, without installing packages or replacing compiler commands."
+do_4 = "Extend the runner at tools/release/tests/workflows.test.sh:317 to forward and validate explicit test-name arguments so check_pins_cc and check_pins_cc_mutations can run together as one focused verification, reject unknown or empty explicit selections, and retain every existing test plus the mutation test in the default invocation without changing unrelated release-identity assertions."
+symbols = ["release_compiler_setup", "check_pins_cc", "check_pins_cc_mutations"]
+touches = ["tools/release/tests/workflows.test.sh"]
+tests = ["tools/release/tests/workflows.test.sh::check_pins_cc", "tools/release/tests/workflows.test.sh::check_pins_cc_mutations"]
+planned_paths = []
+build_cmd = "bash -n tools/release/tests/workflows.test.sh"
+verify_cmd = "bash tools/release/tests/workflows.test.sh check_pins_cc check_pins_cc_mutations"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181871]
+title = "Compiler-pin coverage follows the release workflows' shared composite action"
+ac_1 = "Given the local action references at .github/workflows/paxeer-release-check.yml:94 and .github/workflows/paxeer-release-publish.yml:52, check_pins_cc at tools/release/tests/workflows.test.sh:82 resolves and checks the real setup at .github/actions/release-toolchain/action.yml:9 without reading run from a uses-only caller, proves unconditional fail-closed installation before both builds, preserves the unavailable-package refusal and matching/mismatching compiler-version checks at tools/release/tests/workflows.test.sh:120, and passes alongside mutation checks that reject removed or altered pins, refusal behavior, action references and caller ordering."
+
+[acceptance.18.1871.1]
+feature = "18"
+req = "181871.1"
+scenario = "Given both release workflows calling the shared compiler action, when the focused compiler-pin and mutation checks run, then the real action passes matching-version checks, refuses mismatched versions, and mutations of its pin, refusal behavior, invocation conditions or build ordering fail the checker."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tools/release/tests/workflows.test.sh::check_pins_cc; tools/release/tests/workflows.test.sh::check_pins_cc_mutations (planned)"
+qualification = "UNRUN"
