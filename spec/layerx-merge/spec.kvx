@@ -192189,7 +192189,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.267]
 title = "Repair the retired references of the interop service, its deployment and scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -279541,7 +279541,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.39.287]
 title = "Align the JVM catalogue programs test with the regenerated native preparation records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349504,7 +349504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.276]
 title = "Repair the retired references of the release, ci, workspace and programme scripts and fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
