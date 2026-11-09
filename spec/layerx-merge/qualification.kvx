@@ -38082,3 +38082,99 @@ symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
 observed = "Attempt 4 at 0aaf891eb594: build exit 2: the plugin typecheck could not resolve the plugin SDK package (TS2307) in four files; log /out/logs/build-1.log."
 assumption = "The declaration files are the only missing input of the typecheck."
 severity = "high"
+
+[finding.22.39.162.5]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 5 at 0411b6851f88: build exit 0; verification exit 1: ten repair-record cases of internal/config, internal/decode and internal/receipt fail on the packet manifest, and internal/source fails TestCommittedAdversarialRecoveryGenuineChain, TestRepairM_997_ArchiveCapacityBounds (only 90/96 archive requests admitted), TestRepairM_997_QuarantineRuntimeRejoin and TestRepairM_997_RecoveryRotationAndDeadline (source pool: identity) and TestRepairM_997_AuthorizedIncidentSelection (dial timeout after 30 s); log /out/logs/verify-2.log."
+assumption = "The packet repair lands through 22.39.242 and the source package is green at the main version of its cases."
+severity = "high"
+
+[finding.22.38.7.4]
+task = "22.38.7"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"
+symbol = "f11_bonds.rs"
+observed = "Attempt 4 at 3e8aef8b1e49 (base eb14231acb56): build exit 0; the dependents check failed on layerx-agentd test repair_22_33_1535 (canonical_receipt_reference not found at protocol_evidence_native_tests.rs:303 and :469), repaired on main after the base; log /out/logs/dependents-2.log."
+assumption = "The dependents check passes on main and the verification passes unchanged."
+severity = "high"
+
+[finding.18.1665.1.5]
+task = "18.1665.1"
+file = "rpc/px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+symbol = "px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+observed = "Attempt 5 at d2f243ee46ab: build exit 0; verification exit 1: TestPxNodeRoot_Account_ConfigAndIndexerUnavailable expected -32001 and got -32602 at px_node_root_account_test.go:411 because the decoder refuses the omitted json.RawMessage cursor before the handler runs; the other two cases pass; log /out/logs/verify-1.log."
+assumption = "The pointer parameter admits the omitted cursor and the guard refuses the explicit null for both transports."
+severity = "high"
+
+[finding.18.1667.1.4]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 4 at 6e7b6514d5b4: build exit 0; verification exit 1: record vector-v1-programs-positive reverts Error(LXP_ERR_VERSION_UNSUPPORTED) for the fourth time with ABI 4 and the v4 interface domain; log /out/logs/verify-1.log."
+assumption = "The passing precompile encoding deploys in the recorder fixture and the two recorder cases pass."
+severity = "high"
+
+[finding.18.1724.1.4]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 4 at 52573c8923b7: build exit 0; verification exit 1: cycle 1 LXP_CONTEXT_MISMATCH at budgetCreateNative (receipt_equality_test.go:407 and :545), cycle 2 -402 LXP_ERR_ASSET_MISMATCH at :509 from the hand-encoded accountOpen activity at :520; log /out/logs/verify-2.log."
+assumption = "The keeper paths encode the activities the kernel accepts and the capture records a zero result code."
+severity = "high"
+
+[finding.18.1747.1.5]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 5 at aaedcead6462: build exit 0; verification exit 101: native_producer_clock_units panics bootstrap peer: Unavailable at repair_22_33_63.rs:2093 and native_approval_clock_units panics bootstrap peer: Agent(Refused) at :2215; fifth attempt; log /out/logs/verify-1.log."
+assumption = "The looping fixture answers every request and the refused lifecycle request is answered with real material."
+severity = "high"
+
+[finding.18.1752.1.2]
+task = "18.1752.1"
+file = "services/agent/crates/layerx-agentd/tests/issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+symbol = "issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+observed = "Attempt 2 at 578ada4d67f7: build exit 0; verification exit 1: cycle 1 UnknownLimit(LimitId([1; 16])) at issue_1752.rs:794; cycle 2 production export 403 owner.refused at :852 with the daemon refusing at account_binding (requested account differs from authenticated account) and at retain_committed_receipt (Binding { fact: 0 }); log /out/logs/verify-2.log."
+assumption = "The owner exposes the configured limit id and the export binds the authenticated account and its committed receipt."
+severity = "high"
+
+[finding.18.1823.1.4]
+task = "18.1823.1"
+file = "tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+symbol = "test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+observed = "Attempt 4 at 2b317dd1786e: build exit 1: the first build failed to compile with attempted import errors between @solana/kit 5.5.1 and 8 under @solana-program/compute-budget and @x402/svm; the second build ran out of JavaScript heap at the 2 GB default during next build; log /out/logs/build-2.log."
+assumption = "Aliasing the unused connector packages removes the x402 and solana chain from the build and the larger heap completes next build."
+severity = "high"
+
+[finding.18.1826.1.5]
+task = "18.1826.1"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"
+symbol = "install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"
+observed = "Attempt 5 at 4b38f10e73a5: build exit 0; verification exit 1: FileNotFoundError for the control-plane dist directory of the vendored tree at install-status.test.ts:220; log /out/logs/verify-1.log."
+assumption = "The control-plane dist is present and the case provisions its database and passes."
+severity = "high"
+
+[finding.18.1772.1.5]
+task = "18.1772.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"
+symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
+observed = "Attempt 5 at 124700d75609: build exit 0; verification exit 1: the native actor exits 1 with FoundationError AUTH_SCOPE_DENIED Operation outside granted run/action from authorize in control/identity/enrollment during the enrolment of the focused mode; log /out/logs/verify-1.log."
+assumption = "The enrolment grants the operation and the host checkpoint case runs."
+severity = "high"
+
+[finding.22.39.219.6]
+task = "22.39.219"
+file = "services/agent/crates/layerx-client"
+symbol = "layerx-client"
+observed = "Attempt 6 at 203ab269d797: build exit 0; verification exit 101: clippy -D warnings fails in test targets repair_22_31_221 (unreadable literal inherited from the path-included evm.rs:603:41) and repair_22_33_1544 (five pedantic sites, then manual_let_else after the first repair); log /out/logs/verify-2.log."
+assumption = "The crate and every test target pass the workspace lints once the include and the six sites are repaired."
+severity = "high"
+
+[finding.22.39.240.1]
+task = "22.39.240"
+file = "services/platform/hosted/gateway/tests/one_source_reads.rs"
+symbol = "one_source_reads.rs"
+observed = "Attempt 1 at c1dde6555d4d: build exit 0; verification exit 101: 165 passed, 7 failed (the two readiness contract cases with NotPresent, schema_lists_every_public_method 22 against 17, both px_listAssets cases with -32001 invalid_identifier, px_getBalances document mismatch, px_get_account_reads_no_kernel_backend 503); log /out/logs/verify-1.log."
+assumption = "The seven failures are red on main independent of the endpoint path and are repaired at their producer."
+severity = "high"

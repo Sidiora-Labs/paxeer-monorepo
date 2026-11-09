@@ -19320,3 +19320,68 @@ fix = "Requalify with a build command that runs pnpm --dir sdk/plugins run build
 title = "The retired-caller scan with the corrected catalogue still reports 2155 findings across sixteen domains"
 symptom = "Task 17.2.8 attempt 5 at 448acce8fb02 built and failed test_scan_reports_no_caller (log /out/logs/verify-1.log, lines 97 to 2256): with GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as documentation paths the scan reports 2155 live hits: domain 16 (shared tooling: Makefile targets, qualification records, release tooling) 461, domain 6 (custody, anchor and verify precompiles and modules) 411, domain 17 (documentation) 379, domain 8 199, domain 9 172, domain 14 143, domain 10 116, domain 1 74, domain 3 43, domain 13 40, domain 7 36, domain 5 31, domain 4 27, domain 12 14, domain 2 5, domain 11 4; the largest files are precompiles/layerxcustody/layerxcustody.go (51), modules/layerxcustody/types/tx.pb.go (40) and contracts/address-inventory.md (31), and third-party charting locale bundles under apps/launchpad/web/public are among the hits."
 fix = "Decision 3087 holds: the task stays implemented-not-qualified; the release owner decides whether the retired custody, anchor and verify code is removed before the upgrade or the catalogue is narrowed to callers; no relaunch until that ruling."
+
+[gotcha.3900]
+title = "The JVM regeneration repair task found its check already green on main and the gate recorded no change inside scope"
+symptom = "Task 22.39.239 attempt 1 at candidate 6f38d9c07124 ran generate_jvm.py --check and generate_portable.py --check with exit 0 at main 0f2f833488 without touching the two Java files, because dd11131421 (task 22.39.237) regenerated the platform SDKs after the wave-6 gate attempt of 17.5.7 at base db8dce2b1fe7 had reported the stale schema; the gate ended the attempt as failed with no change inside scope and no revision"
+fix = "The task becomes a gate-only task (gate_kind existing) that proves the check at main; a repair task written from a gate failure records the base revision of that failure and is checked against main before launch"
+
+[gotcha.3901]
+title = "The one-source read target of the platform gateway includes main.rs and fails seven cases beyond the endpoint path"
+symptom = "Task 22.39.240 attempt 1 at c1dde6555d4d: 165 passed and 7 failed; the two readiness contract cases of main.rs read PAXEER_X_GATEWAY_READINESS_CASE and PAXEER_X_ROUTER_READINESS_CASE and panic with NotPresent, schema_lists_every_public_method counts 22 published names against 17 documented methods, both px_listAssets cases get -32001 Paxeer read unavailable with data code invalid_identifier, px_getBalances returns a document different from the expected one, and px_get_account_reads_no_kernel_backend gets 503 from /readyz because the serving rule at main.rs:2383 requires every listed backend ready while consensus and indexer are not configured"
+fix = "Decisions 3095 and 3097; the touches widen to the gateway source so the producer defects are repaired in the same task"
+
+[gotcha.3902]
+title = "The recorded launchpad producer packet embeds the deployment manifest from before 18.1625.1 and ten repair-record cases are red on main"
+symptom = "Task 22.39.162 attempt 5 at 0411b6851f88: TestRepairM_999 (two cases), TestRepairM_995 (four) and TestRepair_53 (four) fail because services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json carries runtimeHash 0x6302ff80f4168c2a for nine contracts and a LaunchpadPrecompile runtimeHash while cf4c67eeb4 (task 18.1625.1) moved current.json to 0xe67f4b121cfa0071 and dropped the precompile hash; the cases compare the packet Options.Manifest with deployment.Current(); the attempt also edited two cases of the source package and introduced source pool identity failures"
+fix = "Task 22.39.242 re-records the packet manifest; 22.39.162 requires it and takes the two source cases as main carries them"
+
+[gotcha.3903]
+title = "The ai-market bonds task failed its dependents check on a daemon test target repaired after its base"
+symptom = "Task 22.38.7 attempt 4 at 3e8aef8b1e49 (base eb14231acb56): build exit 0; the dependents check of the agent crates failed on the layerx-agentd test repair_22_33_1535 (canonical_receipt_reference not found at protocol_evidence_native_tests.rs:303 and :469); task 22.39.238 repaired that target at 69e43e947f28, which is not an ancestor of the base; log /out/logs/dependents-2.log"
+fix = "Requalify on main"
+
+[gotcha.3904]
+title = "The shared Go RPC decoder refuses an omitted non-pointer argument before the handler runs"
+symptom = "Task 18.1665.1 attempt 5 at d2f243ee46ab declared the cursor of px_listAssets as json.RawMessage per decision 3083; the decoder answers an omitted argument with missing value for required argument 0 (-32602) before the handler runs, so TestPxNodeRoot_Account_ConfigAndIndexerUnavailable expected -32001 and got -32602 at px_node_root_account_test.go:411; a pointer argument receives nil for both omitted and explicit null, so no handler signature separates the two shapes"
+fix = "Decision 3094: pointer parameter plus the explicit-null refusal in the px params guard"
+
+[gotcha.3905]
+title = "The V1 programs vector deploys with ABI 4 and the v4 interface domain and the kernel refuses the version for the fourth time"
+symptom = "Task 18.1667.1 attempt 4 at 6e7b6514d5b4: record vector-v1-programs-positive reverts Error(LXP_ERR_VERSION_UNSUPPORTED) (-101) with the same encoding as attempts 2 and 3; the passing precompile case TestProgramsDeployRegistersProgram (precompiles/layerxprograms/method_deploy_test.go:76) deploys with ABI version 1, the interface prefix LayerX/program-interface/v1 and a zero byte followed by the code hash, the counter module of deployCounterWasm and the metering store entries its helper writes first"
+fix = "Copy the passing encoding instead of inventing a version"
+
+[gotcha.3906]
+title = "Hand-encoded kernel activities in the receipt equality harness fail the context and asset checks of the kernel"
+symptom = "Task 18.1724.1 attempt 4 at 52573c8923b7: cycle 1 LXP_CONTEXT_MISMATCH at budgetCreateNative (receipt_equality_test.go:407 and :545); cycle 2 -402 LXP_ERR_ASSET_MISMATCH at :509 from the hand-encoded accountOpen activity 0x00010004 at :520"
+fix = "Drive the ledger and budget setup through the keepers (RegisterAsset, OpenAccount and Mint of modules/layerxledger/keeper and the budget keeper of modules/layerxpay) that encode the payloads"
+
+[gotcha.3907]
+title = "The human service fixture serves one request per connection and the engine drops the refusal reason"
+symptom = "Task 18.1747.1 attempt 5 at aaedcead6462: native_producer_clock_units panics bootstrap peer: Unavailable at repair_22_33_63.rs:2093 (preview_send_v2) and native_approval_clock_units panics bootstrap peer: Agent(Refused) at :2215 (the engine.advance loop); the client fixture (fn client at :1352) answers through serve_one of src/server/http.rs:130, which reads exactly one request, and the Refused variant the journeys engine returns carries no reason while agents/create.rs refuses with a static reason string"
+fix = "Serve every request in a loop and surface the reason before answering the refused lifecycle request with real material"
+
+[gotcha.3908]
+title = "The state export case derives a limit id the owner budgets do not know and the repaired export is refused at the binding stages"
+symptom = "Task 18.1752.1 attempt 2 at 578ada4d67f7: cycle 1 panics bootstrap peer: UnknownLimit(LimitId([1; 16])) at issue_1752.rs:794 where the case asks budgets.consumed for daemon_limit_id(enrolment_limit_id(tenant, Tenant([2; 32]), LimitId([1; 16]))) although the owner was created with that LimitConfig at :653; cycle 2 gets 403 owner.refused at :852 with the daemon logging state export refused at account_binding: requested account differs from authenticated account and at retain_committed_receipt: Binding { fact: 0 }"
+fix = "Read the limit id the owner exposes for the configured limit and keep the requested account equal to the bound account of the credential"
+
+[gotcha.3909]
+title = "The launchpad web image pulls the base account connector chain through the wagmi connectors barrel"
+symptom = "Task 18.1823.1 attempt 3 failed with Module not found for @x402/evm, @x402/core and @x402/svm subpaths imported by @coinbase/cdp-sdk through @base-org/account and the baseAccount connector of @wagmi/connectors, which the barrel wagmi/connectors loads although app-providers.tsx:9 and :26 use only injected(); attempt 4 at 2b317dd1786e added @solana/kit, @solana/sysvars and four @x402 packages to the web package, which produced attempted import errors between @solana/kit 5.5.1 and 8 and then a JavaScript heap exhaustion at the 2 GB default in the second build; log /out/logs/build-2.log"
+fix = "Decision 3096: alias the unused connector packages to false, add no dependency, grant the build a 3 GiB heap"
+
+[gotcha.3910]
+title = "The install-status case of the vendored client SDK needs the control-plane dist the build command did not produce"
+symptom = "Task 18.1826.1 attempt 5 at 4b38f10e73a5: build exit 0; the verification fails with FileNotFoundError for the control-plane dist directory of the vendored tree at install-status.test.ts:220, raised by the identity fixture the case starts"
+fix = "The build command installs and builds the control-plane package of the vendored tree with npm, as task 18.1772.1 does"
+
+[gotcha.3911]
+title = "The focused host-checkpoint mode enrols the native actor outside the granted run and action"
+symptom = "Task 18.1772.1 attempt 5 at 124700d75609: build exit 0; the case test_host_checkpoint_submission_and_reopen fails because the native actor exits 1 with FoundationError AUTH_SCOPE_DENIED Operation outside granted run/action from authorize in control/identity/enrollment of the compiled actors tree during the enrolment the focused mode performs at native_source_product_actor.mjs:1281 through the enrolment support module of the vendored tests at its line 39"
+fix = "The focused mode enrols with the run and action identities of the host checkpoint operation it performs, as the other modes of the actor do"
+
+[gotcha.3912]
+title = "The client crate lint run after the rebase reports a second path include of the gateway evm.rs and six pedantic sites in a repair test"
+symptom = "Task 22.39.219 attempt 6 at 203ab269d797: cargo clippy -D warnings fails in test target repair_22_31_221, which includes platform/hosted/gateway/src/evm.rs by path at line 56 and inherits its unreadable literal at evm.rs:603:41, and in repair_22_33_1544.rs with similar_names (118/119 and 211/212), doc_markdown (line 2), expect_used (28), needless_pass_by_value (62) and, after the first repair, manual_let_else (28)"
+fix = "Replace the path include like the proof_client target and repair the six sites"
