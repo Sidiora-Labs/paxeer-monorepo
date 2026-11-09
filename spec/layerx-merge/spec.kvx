@@ -160444,7 +160444,7 @@ do_4 = "Attempt 3 (continue, gotcha 3823): the attempt-2 tree ed8eb25ac200 stand
 
 [task.18.1713.1]
 title = "Issue #1713: Accept exact payments within complete receipt log lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160630,7 +160630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1688.1]
 title = "Issue #1688: Report invalid RPC overrides before initializing wallet transports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182462,7 +182462,7 @@ do_3 = "Attempt 2 (continue, gotcha 3810): the attempt-1 tree 392b746b5011 stand
 
 [task.18.1684.1]
 title = "Issue #1684: Align native receipt references and preserve producer evidence during recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302559,7 +302559,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1643.1]
 title = "Issue #1643: Align the Autobahn newHeads fixture with its committed block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348095,7 +348095,7 @@ do_3 = "Attempt 2 (requalify, gotcha 3798): the attempt-1 tree cb0bf13491d4 stan
 
 [task.18.1838.1]
 title = "Issue #1838: Align Go and launchpad workflow assertions with the exact routed runner contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
