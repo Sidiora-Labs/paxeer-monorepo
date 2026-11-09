@@ -19580,3 +19580,23 @@ fix = "Decision 3110: one condition rule for the publication and verification jo
 title = "The browser case of the host checkpoint reaches the assignment inspection and finds its button disabled"
 symptom = "Task 18.1772.1 attempt 7 at 1ac80304421c: build exit 0; the actor now completes the host checkpoint and the reopen, the stale-evidence check passes, and the browser step that clicks Inspect assignment after the original checkpoint resolves times out because the button stays disabled (workspace-detail.tsx:629 disables it while an operation is pending or the assignment field is empty) although the Assignment field was filled through the native value setter; the page shows the assigned workspace selector without a selection; both repair cycles were used; log /out/logs/verify-2.log"
 fix = "The timeout message names the disabled reason and the step runs once the view admits it"
+
+[gotcha.3952]
+title = "A gateway integration test omits the read window field of the configuration and fails the dependents check of unrelated tasks"
+symptom = "Task 18.1777.1 attempt 5 at 69d00e492695 and task 22.39.235 attempt 4 at 717742d6533d: build exit 0; the dependents check exits 7 before each verification because services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 builds a Config literal without the read_windows field that services/platform/hosted/gateway/src/rpc.rs:180 initialises with Default::default (E0063, test target repair_22_33_1336 of layerx-platform-gateway); the target is red on main; logs /out/logs/dependents-1.log of both attempts"
+fix = "Decision 3111: task 22.39.279 adds the field; both attempts continue behind it"
+
+[gotcha.3953]
+title = "The client SDK clippy run still reports seventy-four sites, most of them in test files included from the agent daemon"
+symptom = "Task 22.39.225 attempt 6 at b84be16d823c: build exit 0 and the twenty-one dependents pass; cycle 2 fails clippy -D warnings with seventy-four errors in the test targets proof_layerx_wallet_rpc and agent_operation_envelope of services/agent/crates/layerx-sdk, forty-two of them in sources the file tests/repair_22_31_547.rs:2 includes from services/agent/crates/layerx-agentd/tests (repair_22_31_560.rs and through it native_send_preview_evm.rs) with include!, the rest in tests/proof_layerx_wallet_rpc.rs, tests/repair_22_31_563.rs and tests/repair_22_31_547.rs (missing doc backticks, expect_err on Result, functions over one hundred lines, identical match arms, a missing semicolon); both repair cycles were used; log /out/logs/verify-2.log"
+fix = "The include follows decision 3080 first, then the remaining sites are repaired in file order"
+
+[gotcha.3954]
+title = "The control-plane namespace label of issue 1791 conflicts with the peer namespace label issue 1790 landed on the same line"
+symptom = "Task 18.1791.1 attempt 1 at 8bfd76300b90 passed its build and verification but could not be merged onto the platform integration branch: services/platform/hosted/testnet/deployment.yaml:3 was rewritten by issue 1790 (commit 9e17ec8e4d) into a metadata block with a labels map, while the attempt rewrote the same inline metadata line to add the layerx-control-plane label; the attempt was ended so the next one rebases"
+fix = "The next attempt adds its label to the labels map that is now on main"
+
+[gotcha.3955]
+title = "Two held lint repairs changed the shared agent lockfile outside their declared paths"
+symptom = "Task 22.39.219 attempt 8 at 2e98b54e1701 and task 22.39.224 attempt 5 at 9a0db072f933 passed their builds and verifications but changed services/agent/Cargo.lock, which neither task declared, because dependency edits of a member crate regenerate the shared lockfile (as for 22.31.547 under decision 2829); both results are held"
+fix = "The planned paths of both tasks now carry the lockfile and the held results are released"

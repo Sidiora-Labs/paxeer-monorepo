@@ -11776,6 +11776,12 @@ value = "The registry checker accepts the condition of the release verification 
 basis = "Gotcha 3950: release-verification carries a parenthesised disjunction of two presence guards and the verification clause admits the bare condition only"
 affects = ["22.39.243"]
 
+[decision.3111]
+title = "A dependent test target that is red on main for a missing producer field is repaired by one dedicated task"
+value = "When the dependents check of an attempt fails because a test target of a dependent crate on main omits a field a producer struct gained, the field is added by one dedicated task as the production initialiser sets it, no attempt repairs the file in place, and every attempt the failure blocks continues behind that task with its tree unchanged"
+basis = "Gotcha 3952: the gateway test repair_22_33_1336 omits read_windows and blocks two unrelated attempts"
+affects = ["18.1777.1", "22.39.235", "22.39.279"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41436,6 +41442,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.279]
+title = "Add the read window field to the configuration literal of the gateway test repair_22_33_1336"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/tests/repair_22_33_1336.rs"]
+tests = []
+verification_contract = "test -s services/platform/hosted/gateway/tests/repair_22_39_279.kvx && cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_33_1336 -- --skip real_core_and_identity_readiness_contract --skip real_gateway_readiness_capabilities_contract --skip explorer_query_and_finite_routes --skip capabilities_schema_declares_every_surface --skip unified_history_answer_reads_the_paxeer_node_over_http"
+do_1 = "do_1 Decision 3111, gotcha 3952. In services/platform/hosted/gateway/tests/repair_22_33_1336.rs add read_windows: Default::default() to the Config literal at about line 28, as services/platform/hosted/gateway/src/rpc.rs:180 initialises the field in production; change nothing else in the file and no production source."
+symbols = []
 
 [capability.22.39.278]
 title = "Repair the retired references of the node-root RPC package"
@@ -191877,6 +191892,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.279]
+title = "Add the read window field to the configuration literal of the gateway test repair_22_33_1336"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.279"]
+interfaces = []
+do_1 = "do_1 Decision 3111, gotcha 3952. In services/platform/hosted/gateway/tests/repair_22_33_1336.rs add read_windows: Default::default() to the Config literal at about line 28, as services/platform/hosted/gateway/src/rpc.rs:180 initialises the field in production; change nothing else in the file and no production source."
+do_2 = "do_2 Record the change in services/platform/hosted/gateway/tests/repair_22_39_279.kvx (the field, the production initialiser it mirrors, the test target). Run the build once and the verification once at the final revision; the verification runs the test target with the skips of task 22.33.1336."
+symbols = []
+touches = ["services/platform/hosted/gateway/tests/repair_22_33_1336.rs"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/tests/repair_22_39_279.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_33_1336"
+verify_cmd = "test -s services/platform/hosted/gateway/tests/repair_22_39_279.kvx && cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_33_1336 -- --skip real_core_and_identity_readiness_contract --skip real_gateway_readiness_capabilities_contract --skip explorer_query_and_finite_routes --skip capabilities_schema_declares_every_surface --skip unified_history_answer_reads_the_paxeer_node_over_http"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.267]
 title = "Repair the retired references of the interop service, its deployment and scripts"
 status = "pending"
@@ -192544,7 +192588,7 @@ title = "Issue #1777: Read inference availability through the authenticated gate
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.244"]
+requires = ["22.39.244", "22.39.279"]
 reqs = ["181777.1"]
 capabilities = ["18.1777.1"]
 interfaces = []
@@ -192571,6 +192615,7 @@ do_3 = "Attempt 2 (continue, gotcha 3853): the attempt-1 tree 70e0cedb2d0f stand
 do_4 = "Attempt 3 (continue, gotcha 3896, decision 3093): the attempt-2 tree c4f16e6f124e stands (the availability configuration, the gateway reader, the boot path). In the test-local capture of inference_availability_uses_gateway_credentials encode the F11 component with status byte 1 (available) exactly as services/platform/hosted/indexer/src/ai_market.rs availability_from decodes it, rename the comment so it names the capture as the own fixture of the case, and assert the refusal wording the reader produces (inference availability is not bound to the current committed program) in the earlier assertion; keep the unavailable case (F11Unavailable) as the negative path. Change no indexer source."
 do_5 = "Attempt 4 (continue, gotcha 3915, decision 3093): the attempt-3 tree e1aea2ac8369 stands (the availability configuration, the gateway reader, the boot path, the renamed comment). The capture of inference_availability_uses_gateway_credentials is the test-local ai_producer module of main.rs (from :2912): its market is created from policy() at :3012 and its state carries the F02 participant table of :3107, and the indexer projects the eleven availability bytes from that state (ai_market.rs RawRecord::decode at :1098 through availability_from at :919). Make the capture produce the reward feature so the projection records byte 1 for F11: enable the reward feature in the test policy and apply the lifecycle the ai-market program needs for it (the Fund step that the rewards fixture of programs/crates/layerx-programs-ai-market performs), so that the stored record decodes F11 as available; change nothing in the indexer, the consumer check at :2885 or the boot refusal. Record in the case comment which policy field and which lifecycle step produce F11. Run the build once and the verification once at the final revision."
 do_6 = "Attempt 5 (continue, gotcha 3932): the attempt-4 tree 7fc8cb94d0f4 stands (the availability configuration, the gateway reader, the boot path, the reward-enabled capture). The task now requires 22.39.244, which makes queries.rs report F11 from the captured policy room profile and the placement book instead of hard-coding NotEnabled; rebase on main after it lands, keep the consumer check at main.rs:2885 and the boot refusal, and make the capture carry a room profile (minimum_bond above zero) with a decodable placement book so F11 projects as available. Run the build once and the verification once at the final revision."
+do_7 = "Attempt 6 (continue after 22.39.279 lands, gotcha 3952, decision 3111): the attempt-5 tree 69d00e492695 stands unchanged (the real market capture, the F11 refusal and recovery coverage); the task now requires 22.39.279, which adds the missing field to the gateway test target the dependents check compiles. Rebase on main once that task is on it, change nothing, run the build once and the verification once at the final revision; if the verification fails, record the first failing assertion and stop."
 
 [task.18.1774.1]
 title = "Issue #1774: Encode every room profile setting required by inference consumers"
@@ -192791,7 +192836,7 @@ title = "Bring the layerx-programs-runtime crate and its test targets under the 
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["22.39.209", "22.39.238"]
+requires = ["22.39.209", "22.39.238", "22.39.279"]
 reqs = ["22998.1"]
 capabilities = ["22.39.235"]
 interfaces = []
@@ -192818,6 +192863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 2 (continue, gotcha 3839): the attempt-1 tree 7be3886a3b62 is the starting point for the lint repairs of the library, with two corrections. First, restore the call sites of lxt20_tests.rs line 71 and market_tests.rs line 125 to the three-argument form of main (storage, an AuthorizedExecutionRequest, the budget), exactly as the base ab70c667c76c carries them, and keep the signature of execute_authorized_v2_with_budget as the base defines it. Second, in tests/repair_22_31_259.rs the explicit import that replaces the glob of layerx_program_sdk::arbiter names only the constants that module defines (MARKET_STEP_TRANSITION and its siblings), while MarketStepProof stays imported from rt::execute as line 667 of main does; apply the same rule to tests/repair_22_31_577.rs line 2. Record both corrections in repair_22_39_235.kvx. Run the build once and the verification once at the final revision and record both by reference; if the lint gate still reports sites, repair them within the one allowed cycle and rerun once."
 do_5 = "Attempt 3 (continue, gotcha 3880, decision 3089): the attempt-2 tree 5e1a4256cbf6 stands (the lint repairs of the runtime crate and its test targets, the From<usize> repairs, the record). The task now requires 22.39.238, which removes the red include from the agent daemon integration target; this attempt launches once that task has landed. Change nothing in services/agent; run the build once, let the dependents check pass, and run the verification once at the final revision."
 do_6 = "Attempt 4 (continue, gotcha 3934, decision 3089): the attempt-3 tree f3d4852c64d5 stands (the lint repairs of the runtime crate and its test targets, the record). Rebase on main and repair the twenty remaining sites in one pass: wrap the code items of the doc comments at tests/repair_22_31_261.rs lines 2 to 8 and tests/repair_22_33_258.rs lines 2 to 13 in backticks, replace the five unwrap_err calls of tests/repair_22_31_488.rs (lines 151, 166, 178, 201 and the fifth the lint names) with a match or expect_err that keeps the asserted error, replace the redundant closure at tests/step_conformance.rs:50 with the function path and drop the needless borrow at tests/step_conformance.rs:181; add the twenty sites to repair_22_39_235.kvx; run the build once and the verification once at the final revision."
+do_7 = "Attempt 5 (continue after 22.39.279 lands, gotcha 3952, decision 3111): the attempt-4 tree 717742d6533d stands unchanged (the twenty repaired lint sites, the record); the task now requires 22.39.279, which adds the missing field to the gateway test target the dependents check compiles. Rebase on main once that task is on it, change nothing, run the build once, the verification once and the dependents check once at the final revision; if clippy reports a new site after the rebase, repair it and add it to the record."
 
 [task.18.1758.1]
 title = "Issue #1758: Preserve capability-install replay compatibility across reply encoding changes"
@@ -193584,6 +193630,7 @@ do_5 = "Attempt 3 (continue, gotcha 3867): the attempt-2 tree 4bfee5e34f4f stand
 do_6 = "Attempt 4 (continue, gotcha 3880, decision 3089): the attempt-3 tree a5e23c9c073e stands (the lint repair of layerx-sdk, thirty-six files). The task now requires 22.39.238, which is published; rebase on main so that the agent daemon integration target compiles again, rerun the build, the verification and the dependents check; change nothing else."
 do_7 = "Attempt 5 (continue, gotcha 3914, decision 3089): the attempt-4 tree 1f2452926c23 stands (the six repaired library sites, the record). Rebase on main; at crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs:360 drop the return keyword and the trailing semicolon of the get_balances arm as the lint suggests; add the site to repair_22_39_225.kvx; run the build once, the verification once and the dependents check once at the final revision."
 do_8 = "Attempt 6 (relaunch, decision 3099, gotcha 3926): attempt 5 completed no turn and its tree a56888ee0266 equals the note tree of attempt 4; the instructions of do_7 stand unchanged (drop the return keyword and the trailing semicolon at crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs:360, record the site). Run the build once, the verification once and the dependents check once at the final revision."
+do_9 = "Attempt 7 (continue, gotcha 3953, decisions 3080 and 3089): the attempt-6 tree b84be16d823c stands (the repaired library and binary sites, the record). First replace the include at services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:2 of the agent daemon test sources per decision 3080: an owned copy of the items the case needs under tests/support of the SDK crate, or an import of the public items through the layerx-agentd dev-dependency the crate already declares; the included daemon files are not repaired from this task. Then repair the remaining sites of tests/proof_layerx_wallet_rpc.rs, tests/repair_22_31_563.rs and tests/repair_22_31_547.rs in file order (the documentation backticks, the expect_err calls, the long functions split at their phase boundaries, the identical match arms, the trailing semicolon), rerunning the clippy command after each file, and add each site to the record. Run the build once, the verification once and the dependents check once at the final revision."
 
 [task.22.39.224]
 title = "Bring the layerx-mcp crate and its test targets under the workspace lints"
@@ -193600,7 +193647,7 @@ do_3 = "do_3 Record each lint with its repair and the final count of zero in the
 symbols = []
 touches = ["services/agent/crates/layerx-mcp"]
 tests = []
-planned_paths = ["services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx"]
+planned_paths = ["services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx", "services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --all-targets"
 verify_cmd = "test -s services/agent/crates/layerx-mcp/src/repair_22_39_224.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --no-deps --all-targets -- -D warnings"
 gate_kind = "planned"
@@ -193760,7 +193807,7 @@ do_3 = "do_3 Record each lint with its repair and the final count of zero in the
 symbols = []
 touches = ["services/agent/crates/layerx-client"]
 tests = []
-planned_paths = ["services/agent/crates/layerx-client/src/repair_22_39_219.kvx"]
+planned_paths = ["services/agent/crates/layerx-client/src/repair_22_39_219.kvx", "services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
 verify_cmd = "test -s services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
 gate_kind = "planned"
@@ -350394,6 +350441,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3954): the attempt-1 tree 8bfd76300b90 stands (the combined control peer in the gateway policy, the control admission case). Rebase on main: services/platform/hosted/testnet/deployment.yaml:3 to :5 now declares the Namespace with a labels map carrying the gateway peer namespace label of issue 1790; add layerx-control-plane: enabled to that map and keep the existing label and the existing gateway peer of the policy; keep the inline form nowhere else. Run the build once and the verification once at the final revision."
 
 [task.18.1790.1]
 title = "Issue #1790: Restore network-policy connectivity between the gateway and its hosted peers"
@@ -350573,7 +350621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1775.1]
 title = "Issue #1775: Require peer-loss recovery before inference market closure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -366756,7 +366804,7 @@ title = "Close the inference market series: interface rows served, docs cross-ch
 status = "pending"
 mode = "BUILD"
 wave = 9
-requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.13", "22.38.22", "22.38.29", "22.38.30"]
+requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.13", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
 reqs = ["22380.6", "22998.1"]
 capabilities = ["22.38.39"]
 interfaces = []
