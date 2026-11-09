@@ -1,0 +1,7 @@
+[issue.1795]
+number = 1795
+title = "[Coherence] The new COPY of docs/explorer/ENVS.md fails because the Dockerfile's ignore list keeps docs/ out of the build context"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit c3434a1ae48f33ea5c452993b87d080d0fc5bf87 added the explicit !docs/explorer/ENVS.md inclusion now at docker/explorer-frontend/Dockerfile.dockerignore:3, making the document available to COPY at docker/explorer-frontend/Dockerfile:89 and collect_envs.sh at docker/explorer-frontend/Dockerfile:94 for the root context configured at .github/workflows/explorer-images.yml:76, with regression assertions covering every local COPY source at tests/ci/test_explorer_frontend_build_context.py:38 and the document's existence at tests/ci/test_explorer_frontend_build_context.py:60."
+close_comment = "The explorer frontend image now explicitly includes docs/explorer/ENVS.md in its build context, so the document is available to the builder's COPY and environment registry collection steps. Regression checks cover the allowlist for every local COPY source and the environment document's existence."

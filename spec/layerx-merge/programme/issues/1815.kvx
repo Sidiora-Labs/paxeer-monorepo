@@ -1,0 +1,50 @@
+[issue.1815]
+number = 1815
+title = "[P2] Handle ancestor type changes in path-filtered source diff and history"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The path filters introduced by commit 987381c3c8492c34af137dcd98b7243d87aae99c remain accepted at tools/hyperfide/core/control-plane/src/source_control/api.ts:1063 and :1136, but tools/hyperfide/core/control-plane/src/source_control/queries.ts:90 lets a selected descendant intersect its excluded ancestor while :610 skips directory/non-directory descent, :630 suppresses that ancestor record and :657 declares the empty frontier complete, and history at :324 calls the unguarded lookup at tools/hyperfide/core/control-plane/src/source_control/api.ts:528 which still raises PATH_CONFLICT for a non-directory ancestor at tools/hyperfide/core/control-plane/src/source_control/trees.ts:19."
+close_comment = "Path-filtered diff still omits descendant removals and additions when an ancestor changes between a directory and a file or symlink, and path-filtered history can fail with PATH_CONFLICT. A repair is specified to report these changes and treat the descendant as absent in the affected revision while preserving authorization, pagination and coverage."
+
+[task.18.1815.1]
+title = "Issue #1815: Preserve selected descendant changes across ancestor type replacements"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181815.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change SourceQueries.diff at tools/hyperfide/core/control-plane/src/source_control/queries.ts:608 so a directory/non-directory replacement enqueues the directory side against an absent subtree for intersecting selected descendants in both directions; preserve the ancestor TYPE_CHANGED entry when the ancestor is included, without emitting excluded paths or passing non-directory object identities to tree listing."
+do_2 = "Change the query reader pathIdentity inside createSourceApi at tools/hyperfide/core/control-plane/src/source_control/api.ts:526 to return null only for the expected non-directory-ancestor PATH_CONFLICT from PersistentTree.lookup at tools/hyperfide/core/control-plane/src/source_control/trees.ts:19, preserving missing-entry nulls and propagation of storage, integrity, authorization and cancellation failures; keep the general tree lookup and mutation conflict behavior unchanged."
+do_3 = "Extend the real service, HTTP and SDK assertions at tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs:994 with a declared and invoked async function test_source_query_ancestor_type_changes, exercised by the existing driver at tools/hyperfide/tests/hyperfide/cases/source_control/2_1.py:13, creating revisions through the source API rather than substituting a query reader."
+do_4 = "In test_source_query_ancestor_type_changes, create a directory containing src/main.ts and another selected descendant, replace src with a regular file and separately a symlink, and assert exact REMOVED and reverse ADDED entries, deletion and creation revisions in filtered history without PATH_CONFLICT, and TYPE_CHANGED for an explicitly selected ancestor; repeat with authorized nested prefixes, mixed denied paths and limit-one or bounded-node continuation pages, asserting no missing or duplicate entries, honest PARTIAL/COMPLETE/REDACTED coverage, eventual cursor exhaustion and no unauthorized entries or swallowed unrelated errors, extending the coverage assertions at tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs:1003."
+symbols = ["SourceQueries", "createSourceApi", "test_source_query_ancestor_type_changes"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/queries.ts", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs"]
+tests = ["tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs::test_source_query_ancestor_type_changes"]
+planned_paths = []
+build_cmd = "npm --prefix tools/hyperfide/core/control-plane run build"
+verify_cmd = "python3 tools/hyperfide/tests/hyperfide/cases/source_control/2_1.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181815]
+title = "Path-filtered queries retain descendant changes across ancestor type replacements"
+ac_1 = "For the directory/non-directory branch at tools/hyperfide/core/control-plane/src/source_control/queries.ts:610 and historical identity lookup at tools/hyperfide/core/control-plane/src/source_control/api.ts:528, real source API queries return selected descendant removals and reverse additions for file and symlink ancestor replacements, include the removing or adding revision in history without PATH_CONFLICT, retain an included ancestor TYPE_CHANGED record, and preserve exact results, error propagation, authorization and truthful coverage across bounded continuation pages."
+
+[acceptance.18.1815.1]
+feature = "18"
+req = "181815.1"
+scenario = "Given immutable revisions where a selected descendant exists under a directory and the ancestor is replaced by a regular file or symlink, when authorized clients query path-filtered diff in both directions and history through bounded pages with nested and denied prefixes, then all authorized descendant changes and relevant revisions appear exactly once without PATH_CONFLICT, included ancestor type changes remain visible, unrelated errors propagate and pagination and coverage accurately describe the results."
+contract = "contracts/tools-ops.md#qualification-harness"
+test = "tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs::test_source_query_ancestor_type_changes (planned)"
+qualification = "UNRUN"

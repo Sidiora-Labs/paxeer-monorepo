@@ -1,0 +1,7 @@
+[issue.1849]
+number = 1849
+title = "[Coherence] readme_retired_endpoint still expects the retired 'RPC URL must end in /rpc' refusal, and do_16 sends attempt 15 to the wrong line"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit a08a60044bf3f1a66189338037862089c11b31f0 repairs readme_retired_endpoint: tools/platform/cli/tests/repair_22_33_1499.rs:359 accepts the documented root URL, :365 and :426 expect the root-endpoint refusal emitted at tools/platform/cli/src/rpc.rs:49, and :402 asserts the hosted verification marker documented at tools/platform/cli/README.md:341; spec/layerx-merge/spec.kvx:188468 supplies the later do_17 correction to the historical do_16 instructions."
+close_comment = "The README test now accepts the documented root endpoint, rejects the retired /rpc route with the current refusal, and checks the hosted balance verification marker. The subsequent specification instruction explicitly covers the retired-route assertion."
