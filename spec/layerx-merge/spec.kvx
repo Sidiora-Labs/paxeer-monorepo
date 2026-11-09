@@ -347758,7 +347758,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.239]
 title = "Regenerate the JVM SDK schema and contract from the platform generators"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
