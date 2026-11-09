@@ -202,6 +202,11 @@ impl Market {
             host_share_bps: 1000,
             protocol_share_bps: 100,
             settlement_account: AccountId::new([80; 32]).unwrap(),
+            max_generated_tokens: 4096,
+            queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
+            liveness_timeout_ms: 30_000,
+            acknowledgement_window_ms: 5_000,
+            canary_relative_tolerance_bps: 100,
         };
         market.call(
             dispatch::OpenRoom,

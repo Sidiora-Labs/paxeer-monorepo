@@ -63,7 +63,6 @@ LARGE_ASSET_ALLOWLIST = {
     ),
     "apps/perps/public/assets/logo.svg": (1_626_439, "Existing perps brand export"),
     "apps/perps/public/image.png": (1_842_773, "Existing perps artwork"),
-    "apps/perps/public/model.gltf": (2_767_402, "Existing 3D model"),
     "apps/perps/public/static/charting_library/charting_library.d.ts": (
         1_023_620,
         "Vendored charting declarations",

@@ -4,13 +4,13 @@ use crate::{
     dispatch,
     epoch::captured_roster,
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F04_COMMIT_MISMATCH, F11_BOND_INSUFFICIENT,
-        F11_CHALLENGE_WINDOW_CLOSED, NON_CANONICAL, NOT_FOUND, UNAUTHORIZED, WRONG_CONFIG,
-        WRONG_EPOCH, WRONG_ROSTER,
+        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, F04_COMMIT_MISMATCH,
+        F11_BOND_INSUFFICIENT, F11_CHALLENGE_WINDOW_CLOSED, NON_CANONICAL, NOT_FOUND, UNAUTHORIZED,
+        WRONG_CONFIG, WRONG_EPOCH, WRONG_ROSTER,
     },
     evaluators::{admission::ChallengeRegion, codec::verify_digest, model::VerificationError},
     evidence::SealRegion,
-    policy::RoomProfile,
+    policy::{RoomProfile, ROOM_PROFILE_BYTES},
     registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     state::{
@@ -27,12 +27,12 @@ use crate::{
 pub const TOP_LOGITS: usize = 8;
 pub const LOGIT_FRACTION_BITS: u32 = 16;
 pub type CanaryLogits = [i32; TOP_LOGITS];
-pub const CANARY_TASK_KIND: &[u8; 8] = b"CANARY1\0";
-pub const CANARY_COMMIT_BYTES: usize = 314;
+pub const CANARY_TASK_KIND: &[u8; 8] = b"CANARY2\0";
+pub const CANARY_COMMIT_BYTES: usize = 8 + 5 * 32 + 8 + ROOM_PROFILE_BYTES + 64;
 pub const CANARY_REVEAL_BYTES: usize = 104;
 pub const CANARY_CAPACITY: usize = 16;
-const RECORD_BYTES: usize = 604;
-const REGION_MAGIC: &[u8; 8] = b"CANARYS1";
+const RECORD_BYTES: usize = 290 + CANARY_COMMIT_BYTES;
+const REGION_MAGIC: &[u8; 8] = b"CANARYS2";
 const POLICY_CAP: usize = Section::PolicyLifecycle.payload_cap();
 const CONTROL_CAP: usize = Section::Control.payload_cap();
 pub const SCRATCH_BYTES: usize = POLICY_CAP + 2 * CONTROL_CAP;
@@ -41,16 +41,11 @@ pub const SCRATCH_BYTES: usize = POLICY_CAP + 2 * CONTROL_CAP;
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CanaryRoomProfile {
     pub room: RoomProfile,
-    pub relative_tolerance_bps: u16,
 }
 impl CanaryRoomProfile {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
-        self.room.validate()?;
-        if self.relative_tolerance_bps > 10_000 {
-            return Err(NON_CANONICAL);
-        }
-        Ok(())
+        self.room.validate()
     }
 }
 
@@ -82,7 +77,6 @@ impl CanaryTask {
             id32: self.answer_digest.as_bytes();
         )?;
         w.room_profile(&self.profile.room)?;
-        w.u16(self.profile.relative_tolerance_bps)?;
         w.put(&self.peer_signature.0)?;
         Ok(out)
     }
@@ -90,7 +84,7 @@ impl CanaryTask {
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         if r.take(8)? != CANARY_TASK_KIND {
-            return Err(NON_CANONICAL);
+            return Err(BAD_VERSION);
         }
         let value = Self {
             deal: r.digest32()?,
@@ -101,7 +95,6 @@ impl CanaryTask {
             answer_digest: r.digest32()?,
             profile: CanaryRoomProfile {
                 room: r.room_profile()?,
-                relative_tolerance_bps: r.u16()?,
             },
             peer_signature: Signature64(r.fixed()?),
         };
@@ -117,7 +110,7 @@ impl CanaryTask {
         w.put(host.as_bytes())?;
         w.put(&self.encode()?)?;
         let n = w.len();
-        codec::domain_hash("PAXAI/canary-commit/v1", out.guest_index(..n))
+        codec::domain_hash("PAXAI/canary-commit/v2", out.guest_index(..n))
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn answer_attestation(&self, binding: &FrozenBinding) -> CodecResult<Digest32> {
@@ -210,7 +203,7 @@ impl CanaryReveal {
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         if r.take(8)? != CANARY_TASK_KIND {
-            return Err(NON_CANONICAL);
+            return Err(BAD_VERSION);
         }
         let value = Self {
             commitment: r.digest32()?,
@@ -401,7 +394,7 @@ impl<'a> CanaryRegion<'a> {
         }
         let mut r = Reader::new(bytes);
         if r.take(8)? != REGION_MAGIC {
-            return Err(NON_CANONICAL);
+            return Err(BAD_VERSION);
         }
         let count = usize::from(r.u8()?);
         if count == 0 || count > CANARY_CAPACITY {
@@ -931,7 +924,7 @@ pub fn apply_resolve_challenge(
     record.status = if relative_tolerance_hit(
         &record.expected_logits,
         &payload.answer,
-        record.task.profile.relative_tolerance_bps,
+        record.task.profile.room.canary_relative_tolerance_bps,
     )? {
         ChallengeStatus::Hit
     } else {

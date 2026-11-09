@@ -42,6 +42,11 @@ fn profile() -> RoomProfile {
         host_share_bps: 1000,
         protocol_share_bps: 100,
         settlement_account: must(AccountId::new([80; 32])),
+        max_generated_tokens: 4096,
+        queue_depth: program::policy::DEFAULT_QUEUE_DEPTH,
+        liveness_timeout_ms: 30_000,
+        acknowledgement_window_ms: 5_000,
+        canary_relative_tolerance_bps: 100,
     }
 }
 
@@ -90,7 +95,9 @@ fn room_and_deal_encoders_reproduce_program_fixtures() {
     assert_fixture(
         must(open_room(&open)),
         dispatch::OpenRoom,
-        &encoded(168, |out| open.encode(out)),
+        &encoded(program::rooms::OPEN_ROOM_REQUEST_BYTES, |out| {
+            open.encode(out)
+        }),
     );
     let ask = ask_request();
     assert_fixture(

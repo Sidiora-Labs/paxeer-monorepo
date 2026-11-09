@@ -238,6 +238,8 @@ pub enum ProofBundleTarget {
 }
 
 impl ProofBundleTarget {
+    /// # Errors
+    /// Returns an error for a wrong selector length, version or tag, or a zero activity or account identifier.
     pub fn decode(bytes: &[u8]) -> Result<Self, ContractError> {
         if !matches!(bytes.len(), 35 | 67) || bytes[..2] != [0, 1] {
             return Err(ContractError::Mismatch("proof_bundle_target"));
@@ -267,6 +269,7 @@ impl ProofBundleTarget {
         }
     }
 
+    #[must_use]
     pub const fn activity_id(self) -> [u8; 32] {
         match self {
             Self::Activity(id) | Self::Receipt(id) => id,
@@ -274,6 +277,8 @@ impl ProofBundleTarget {
         }
     }
 
+    /// # Errors
+    /// Returns an error for a zero activity or account identifier.
     pub fn encode(self) -> Result<CanonicalBytes, ContractError> {
         let mut bytes = vec![
             0,
@@ -311,6 +316,8 @@ pub struct ProofBundleRecord {
 }
 
 impl ProofBundleRecord {
+    /// # Errors
+    /// Returns an error for inconsistent maintained-account receipt fields, empty fields, or an oversized encoding.
     pub fn encode(&self) -> Result<CanonicalBytes, ContractError> {
         if (self.variant == ProofBundleVariant::MaintainedAccount)
             != self.activity_receipt.is_some()
@@ -346,6 +353,8 @@ impl ProofBundleRecord {
         CanonicalBytes::new(bytes)
     }
 
+    /// # Errors
+    /// Returns an error for an invalid magic value or variant, truncated, empty or oversized fields, or trailing bytes.
     pub fn decode(bytes: &[u8]) -> Result<Self, ContractError> {
         if bytes.len() < 6 || bytes.len() > MAX_PROOF_BUNDLE_BYTES || &bytes[..5] != b"LXPB1" {
             return Err(ContractError::Mismatch("proof_bundle_record"));
@@ -402,6 +411,8 @@ impl ProofBundleRecord {
 
 impl ProofBundle {
     /// Checks the mirror's field set and rung; consumers must independently verify evidence.
+    /// # Errors
+    /// Returns an error for an invalid bundle, insufficient evidence for the selector or requested rung, or a response rung that disagrees with the bundle.
     pub fn check_response(
         request: &ReadRequest<ProofBundleTarget>,
         response: &VerifiedRead<Self>,
@@ -423,6 +434,8 @@ impl ProofBundle {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error for a wrong format, zero receipt key, reversed height range, invalid rung or evidence field set, or an oversized bundle.
     pub fn validate(&self) -> Result<(), ContractError> {
         if self.format != "layerx-receipt-proof-v2" {
             return Err(ContractError::Mismatch("proof_bundle_format"));
@@ -475,6 +488,8 @@ impl ProofBundle {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error for an invalid target, a proof count other than one, an invalid record, or a variant that disagrees with the target.
     pub fn record(
         target: &CanonicalBytes,
         proofs: &[CanonicalBytes],
@@ -770,7 +785,10 @@ impl FeeProjection {
 
 #[cfg(test)]
 mod proof_bundle_framing_tests {
-    use super::*;
+    use super::{
+        CanonicalBytes, ContractError, ProofBundle, ProofBundleRecord, ProofBundleTarget,
+        ProofBundleVariant, MAX_PROOF_BUNDLE_BYTES,
+    };
 
     #[test]
     fn target_preserves_native_pb1_and_refuses_noncanonical_selectors() -> Result<(), ContractError>
@@ -878,7 +896,7 @@ mod proof_bundle_framing_tests {
 // codec on the public contract makes structural checks identical for both consumers;
 // these checks do not replace independent signature, inclusion or commit verification.
 mod wire {
-    use super::*;
+    use super::{CanonicalBytes, ContractError, Freshness, ProofBundle, RelativeTo, Rung};
     use layerx_types::json::{self, JsonValue};
 
     pub const MAX_FRAME: usize = 1_048_576;
@@ -887,6 +905,8 @@ mod wire {
         ContractError::Malformed("agent_api_wire")
     }
 
+    /// # Errors
+    /// Returns an error for an oversized frame or malformed JSON.
     pub fn parse(text: &str) -> Result<JsonValue, ContractError> {
         if text.len() > MAX_FRAME {
             return Err(ContractError::OutOfRange("agent_api_frame"));
@@ -894,6 +914,8 @@ mod wire {
         json::parse(text).map_err(|_| malformed())
     }
 
+    /// # Errors
+    /// Returns a malformed-wire error for a non-object, a missing required field, or an unknown field.
     pub fn fields<'a>(
         value: &'a JsonValue,
         required: &[&str],
@@ -912,10 +934,14 @@ mod wire {
         Ok(value)
     }
 
+    /// # Errors
+    /// Returns a malformed-wire error for a missing field or a value that is not a string.
     pub fn text<'a>(value: &'a JsonValue, name: &str) -> Result<&'a str, ContractError> {
         value.str_at(name).map_err(|_| malformed())
     }
 
+    /// # Errors
+    /// Returns a malformed-wire error for a missing field or a noncanonical or out-of-range decimal u64.
     pub fn decimal(value: &JsonValue, name: &str) -> Result<u64, ContractError> {
         let text = text(value, name)?;
         let number: u64 = text.parse().map_err(|_| malformed())?;
@@ -926,14 +952,17 @@ mod wire {
     }
 
     pub fn hex(bytes: &[u8]) -> String {
-        use std::fmt::Write as _;
+        const DIGITS: &[u8; 16] = b"0123456789abcdef";
         let mut text = String::from("0x");
         for byte in bytes {
-            write!(text, "{byte:02x}").expect("write to String");
+            text.push(char::from(DIGITS[usize::from(byte >> 4)]));
+            text.push(char::from(DIGITS[usize::from(byte & 15)]));
         }
         text
     }
 
+    /// # Errors
+    /// Returns an error for missing, noncanonical or empty lowercase hexadecimal bytes.
     pub fn bytes(value: &JsonValue, name: &str) -> Result<CanonicalBytes, ContractError> {
         let text = text(value, name)?
             .strip_prefix("0x")
@@ -948,6 +977,8 @@ mod wire {
         CanonicalBytes::new(json::decode_hex(&format!("0x{text}")).map_err(|_| malformed())?)
     }
 
+    /// # Errors
+    /// Returns an error for invalid hexadecimal bytes or a decoded length different from N.
     pub fn array<const N: usize>(value: &JsonValue, name: &str) -> Result<[u8; N], ContractError> {
         bytes(value, name)?
             .as_bytes()
@@ -955,6 +986,8 @@ mod wire {
             .map_err(|_| malformed())
     }
 
+    /// # Errors
+    /// Returns an error for malformed wire fields, an unknown rung, or a bundle that fails structural validation.
     pub fn bundle(value: &JsonValue) -> Result<ProofBundle, ContractError> {
         fields(
             value,
@@ -1004,6 +1037,8 @@ mod wire {
         Ok(bundle)
     }
 
+    /// # Errors
+    /// Returns an error for malformed freshness fields, an invalid block hash, or noncanonical heights.
     pub fn freshness(value: &JsonValue) -> Result<Freshness, ContractError> {
         fields(value, &["chain_head", "value_height", "relative_to"], &[])?;
         let block = value.field("relative_to").ok_or_else(malformed)?;
@@ -1111,7 +1146,11 @@ impl ProofBundle {
             ("accountProof", &self.account_proof),
         ] {
             if let Some(bytes) = bytes {
-                text.push_str(&format!(r#",{name:?}:"{}""#, wire::hex(bytes.as_bytes())));
+                text.push_str(",\"");
+                text.push_str(name);
+                text.push_str("\":\"");
+                text.push_str(&wire::hex(bytes.as_bytes()));
+                text.push('"');
             }
         }
         text.push('}');

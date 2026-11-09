@@ -121,19 +121,23 @@ def test_swagger_clean_check_source_contract():
     assert prerequisites == "statik"
     assert len(commands) == 2
     assert shlex.split(commands[0]) == [
-        "$(BINDIR)/statik", "-src=client/docs/swagger-ui",
-        "-dest=client/docs", "-f", "-m",
+        "STATIK=$(STATIK)", "sh", "./scripts/update-swagger-ui-statik.sh",
     ]
-    assert (SDK / "client/docs/swagger-ui").is_dir()
+    wrapper = (SDK / "scripts/update-swagger-ui-statik.sh").read_text()
+    assert "set -eu" in wrapper
+    assert 'exec sh "$SCRIPT_DIR/../../scripts/update-swagger-ui-statik.sh" --assets-only "$@"' in wrapper
+    assert "statik -src" not in wrapper
+    assert (ROOT / "docs/swagger-ui").is_dir()
     assert (SDK / "client/docs/statik/statik.go").is_file()
     # HEAD checks staged and unstaged tracked generation output. The literal
     # command is passed to the shell, never consumed as an undefined Make name.
     tokens = shell_tokens(commands[1])
-    assert tokens[:10] == [
-        "if", "git", "diff", "--quiet", "HEAD", "--", "client/docs/statik",
+    assert tokens[:11] == [
+        "if", "git", "diff", "--quiet", "HEAD", "--",
+        "../docs/swagger/statik.go", "client/docs/statik",
         ";", "then", "echo",
     ]
-    assert tokens[10:] == [
+    assert tokens[11:] == [
         "\\033[92mSwagger docs are in sync\\033[0m", ";", "else", "echo",
         "\\033[91mSwagger docs are out of sync!!!\\033[0m", ">&", "2", ";",
         "exit", "1", ";", "fi",

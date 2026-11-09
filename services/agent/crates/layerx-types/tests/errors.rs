@@ -57,8 +57,8 @@ fn protocol_mapping_is_total_unique_and_lossless() {
 
 #[test]
 fn unknown_numbers_round_trip_verbatim_and_fail_closed() {
-    let unknown = ResultCode::from_raw(-7777);
-    assert_eq!(unknown.raw(), -7777);
+    let unknown = ResultCode::from_raw(-7_777);
+    assert_eq!(unknown.raw(), -7_777);
     assert_eq!(unknown.known(), None);
     assert_eq!(unknown.domain(), ResultDomain::Fatal);
     assert_eq!(unknown.retriability(), Retriability::Terminal);
@@ -83,7 +83,7 @@ fn domain_partition_matches_the_core() {
     assert_eq!(ResultCode::from_raw(-700).domain(), ResultDomain::Module);
     assert_eq!(ResultCode::from_raw(-800).domain(), ResultDomain::Batch);
     assert_eq!(ResultCode::from_raw(-900).domain(), ResultDomain::Storage);
-    assert_eq!(ResultCode::from_raw(-1000).domain(), ResultDomain::Fatal);
+    assert_eq!(ResultCode::from_raw(-1_000).domain(), ResultDomain::Fatal);
     assert_eq!(ResultCode::from_raw(1).domain(), ResultDomain::Unknown);
 }
 
@@ -109,7 +109,7 @@ fn kernel_registry() -> Vec<KernelRow> {
     let table = repository_file("spec/layerx-merge/contracts/address-table.md");
     let section = table
         .split_once("\n## (b) ")
-        .unwrap_or_else(|| panic!("section (b) of the registry is missing"))
+        .unwrap_or_else(|| panic!("required registry section or header entry is missing"))
         .1;
     let section = section
         .split_once("\n## ")
@@ -127,7 +127,7 @@ fn kernel_registry() -> Vec<KernelRow> {
         let (name, value) = entry
             .split_once(')')
             .and_then(|(body, _)| body.split_once(','))
-            .unwrap_or_else(|| panic!("malformed header table entry {entry}"));
+            .unwrap_or_else(|| panic!("required registry section or header entry is missing"));
         let raw: i32 = value
             .trim()
             .parse()
@@ -224,7 +224,7 @@ fn registry_only_revert_codes_classify_by_their_retryable_column() {
     let table = repository_file("spec/layerx-merge/contracts/address-table.md");
     let section = table
         .split_once("\n## (b) ")
-        .unwrap_or_else(|| panic!("section (b) of the registry is missing"))
+        .unwrap_or_else(|| panic!("required registry section or header entry is missing"))
         .1;
     let section = section
         .split_once("\n## ")
@@ -254,7 +254,7 @@ fn registry_only_revert_codes_classify_by_their_retryable_column() {
         assert_eq!(KnownResult::from_revert_reason(&reason), None, "{code}");
         assert_eq!(Retriability::of_revert_reason(&reason), expected, "{code}");
         for malformed in [
-            format!("{code}"),
+            (*code).to_owned(),
             format!("{code}:{message}"),
             format!("{code}: {message}; detail"),
             format!("{code}: {message} "),

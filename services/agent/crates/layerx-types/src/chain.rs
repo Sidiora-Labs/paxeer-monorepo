@@ -15,12 +15,20 @@ pub struct InvalidChainEvidence;
 /// There is no default, file loader, or conversion from settlement configuration.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValidatorSetTrust {
+    chain_id: u64,
     comet_chain_id: String,
     height: u64,
     validator_set_hash: [u8; 32],
 }
 
 impl ValidatorSetTrust {
+    /// Parses an explicitly supplied trust pin for the merged chain.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InvalidChainEvidence`] for malformed JSON, unexpected fields,
+    /// an unsupported schema or chain, an invalid Comet chain identifier or
+    /// height, or an empty validator-set commitment.
     pub fn parse(text: &str) -> Result<Self, InvalidChainEvidence> {
         let document = json::parse(text).map_err(|_| InvalidChainEvidence)?;
         let JsonValue::Object(fields) = &document else {
@@ -72,6 +80,7 @@ impl ValidatorSetTrust {
             return Err(InvalidChainEvidence);
         }
         Ok(Self {
+            chain_id: PAXEER_CHAIN_ID,
             comet_chain_id: comet_chain_id.to_owned(),
             height,
             validator_set_hash,
@@ -84,7 +93,7 @@ impl ValidatorSetTrust {
     }
     #[must_use]
     pub const fn chain_id(&self) -> u64 {
-        PAXEER_CHAIN_ID
+        self.chain_id
     }
     #[must_use]
     pub const fn height(&self) -> u64 {
@@ -96,6 +105,11 @@ impl ValidatorSetTrust {
     }
 
     /// Checks the pin, without authenticating the referenced block or witness.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InvalidChainEvidence`] when the covering height or validator-set
+    /// commitment differs from the explicitly supplied pin.
     pub fn check_reference(&self, reference: &BlockReference) -> Result<(), InvalidChainEvidence> {
         if self.height != reference.covering_height
             || self.validator_set_hash != reference.validator_set_hash
@@ -118,6 +132,13 @@ pub struct BlockReference {
 }
 
 impl BlockReference {
+    /// Constructs unverified provenance with distinct execution and covering heights.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InvalidChainEvidence`] for a zero execution height, a covering
+    /// height before execution or beyond the signed consensus height range, or
+    /// an empty block, validator-set, or state commitment.
     pub fn new(
         execution_height: u64,
         covering_height: u64,
@@ -157,14 +178,20 @@ impl BlockReference {
         bytes
     }
 
+    /// Decodes versioned provenance without authenticating its commitments.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InvalidChainEvidence`] for an invalid length, prefix, version,
+    /// or chain identifier, or any height or commitment refused by [`Self::new`].
     pub fn decode(bytes: &[u8]) -> Result<Self, InvalidChainEvidence> {
-        if bytes.len() != 125 || &bytes[..5] != b"LXBR\x01" {
-            return Err(InvalidChainEvidence);
-        }
         fn take<const N: usize>(bytes: &mut &[u8]) -> Result<[u8; N], InvalidChainEvidence> {
             let (value, rest) = bytes.split_at_checked(N).ok_or(InvalidChainEvidence)?;
             *bytes = rest;
             value.try_into().map_err(|_| InvalidChainEvidence)
+        }
+        if bytes.len() != 125 || &bytes[..5] != b"LXBR\x01" {
+            return Err(InvalidChainEvidence);
         }
         let mut rest = &bytes[5..];
         if u64::from_be_bytes(take(&mut rest)?) != PAXEER_CHAIN_ID {
