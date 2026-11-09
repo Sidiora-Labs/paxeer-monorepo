@@ -7,12 +7,14 @@ it never replaces the clients, the EVM codec or the pinned receipt verifier.
 from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import signal
 import subprocess
 import sys
+import tarfile
 import threading
 import time
 from types import SimpleNamespace
@@ -603,26 +605,53 @@ def test_mcp_payer_claimed_offer_must_also_match_signed_transaction(peers, field
 
 
 def source_tree(tmp_path):
-    revision = 'f25ab9129415b70e1e47d668e4d2d04777519969'
-    for name in KMS.SOURCES:
-        path = tmp_path / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if name in {'services/human/crates', 'services/agent/crates', 'services/platform/crates', 'services/platform/hosted/runtime-clock'}:
-            path.mkdir(exist_ok=True)
-            (path / 'qualified-source.rs').write_bytes(b'pub const QUALIFIED: u32 = 125;\n')
-        else:
-            path.write_bytes((ROOT / name).read_bytes())
+    revision = KMS.git('rev-parse', 'HEAD')
+    archive = subprocess.check_output(['git', '-C', str(ROOT), 'archive', '--format=tar', revision, '--', *KMS.SOURCES])
+    with tarfile.open(fileobj=io.BytesIO(archive)) as sources:
+        sources.extractall(tmp_path, filter='data')
     return {'revision': revision, 'sources': KMS.source_snapshot(tmp_path, revision)}
+
+
+def test_kms_provenance_paths_exist_in_repository():
+    revision = KMS.git('rev-parse', 'HEAD')
+    assert 'platform/crates' not in KMS.SOURCES
+    assert 'services/platform/crates' not in KMS.SOURCES
+    for name in KMS.SOURCES:
+        assert (ROOT / name).exists(), name
+        assert not (ROOT / name).is_symlink(), name
+    snapshot = KMS.source_snapshot(ROOT, revision)
+    assert snapshot['revision'] == revision
+    for name in ('services/human/crates/layerx-human-kms/src/main.rs',
+                 'services/agent/crates/layerx-crypto/src/lib.rs',
+                 'services/platform/hosted/runtime-clock/Cargo.toml',
+                 'services/platform/hosted/runtime-clock/src/main.rs',
+                 'services/platform/hosted/runtime-clock/src/server.rs'):
+        assert snapshot['files'][name] == KMS.digest(ROOT / name)
+    KMS.verify_provenance({'revision': revision, 'sources': snapshot}, revision, ROOT)
 
 
 def test_kms_provenance_binds_real_moved_tree_and_artifact_revision(tmp_path):
     document = source_tree(tmp_path)
-    assert 'services/platform/crates' in KMS.SOURCES and 'platform/crates' not in KMS.SOURCES
-    assert any(name.startswith('services/platform/crates/') for name in document['sources']['files'])
+    assert document['revision'] == KMS.git('rev-parse', 'HEAD')
+    assert document['sources'] == KMS.source_snapshot(ROOT, document['revision'])
+    for name in ('services/human/crates/layerx-human-kms/src/main.rs',
+                 'services/agent/crates/layerx-crypto/src/lib.rs',
+                 'services/platform/hosted/runtime-clock/src/main.rs'):
+        assert document['sources']['files'][name] == KMS.digest(ROOT / name)
+        assert (tmp_path / name).read_bytes() == (ROOT / name).read_bytes()
+    assert not (tmp_path / 'platform/crates').exists()
+    assert not (tmp_path / 'services/platform/crates').exists()
+    unchanged = deepcopy(document)
     KMS.verify_provenance(document, document['revision'], tmp_path)
-    (tmp_path / 'services/platform/crates/qualified-source.rs').write_text('pub const QUALIFIED: u32 = 126;\n')
+    assert document == unchanged
+    source = tmp_path / 'services/platform/hosted/runtime-clock/src/main.rs'
+    original = source.read_bytes()
+    source.write_bytes(original + b'\n// altered provenance source\n')
     with pytest.raises(RuntimeError, match='paths differ'):
         KMS.verify_provenance(document, document['revision'], tmp_path)
+    assert document == unchanged
+    source.write_bytes(original)
+    KMS.verify_provenance(document, document['revision'], tmp_path)
     with pytest.raises(RuntimeError, match='revision differs'):
         KMS.verify_provenance(document, '0' * 40, tmp_path)
 

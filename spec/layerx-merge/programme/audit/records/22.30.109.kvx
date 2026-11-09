@@ -2,7 +2,7 @@
 task = "22.30.109"
 revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
 files_reviewed = 45
-findings = 32
+findings = 31
 docs_reviewed = 18
 upgrade_ready = false
 blocking = ["failed-sponsor", "history-transfer-loss", "solana-code-offset"]
@@ -142,8 +142,8 @@ note = "Full operations page read; transport and durable storage guidance matche
 [file.023]
 path = "services/interop/crates/layerx-migrate/README.md"
 lines = 13
-verdict = "issues"
-note = "Full README read; provenance and protected-fixture caveats are accurate, but two root documentation links resolve into services instead."
+verdict = "clean"
+note = "Full README read; provenance and protected-fixture caveats are accurate. At README.md:12, ../../../../docs/wiki/Migration.md and ../../../../migrations/README.md resolve to the existing repository-root targets docs/wiki/Migration.md and migrations/README.md. Four parent-directory steps reach the repository root; both documentation links resolve to existing files."
 
 [file.024]
 path = "services/interop/crates/layerx-migrate/src/ethereum.rs"
@@ -448,16 +448,6 @@ expected = "Requirements 181214.1/.2 separate signing context from claim binding
 proposal = "Rewrite services/interop/crates/layerx-migrate/OPERATIONS.md:27 to explain keyId/contextHash pinning, independent claim matching and native PaymentExact reference/from/to order. Describe implemented mapping V2 and funded source observation without equating external custody with network credit."
 owner_domain = 11
 
-[finding.migration-readme-links]
-file = "services/interop/crates/layerx-migrate/README.md"
-line = 7
-class = "doc-drift"
-severity = "low"
-observed = "The relative links ../../../../docs/wiki/Migration.md and ../../../../migrations/README.md resolve into services/docs and services/migrations from the crate directory, not the repository-root targets."
-expected = "The migration README must link to the actual migration and genesis-import documentation from services/interop/crates/layerx-migrate."
-proposal = "Correct both relative climbs in services/interop/crates/layerx-migrate/README.md to reach root docs/wiki/Migration.md and migrations/README.md; check resolution from the crate while retaining correct OPERATIONS.md and workspace-index links."
-owner_domain = 11
-
 [finding.rate-budget-units-doc]
 file = "spec/layerx-merge/contracts/interop-gas-station.md"
 line = 47
@@ -680,8 +670,8 @@ notes = "Full page read. Lines 22-25 require a separately delivered durable roll
 
 [doc.014]
 path = "services/interop/crates/layerx-migrate/README.md"
-status = "stale"
-notes = "Full page read. Line 7 links into services/docs and services/migrations; source provenance, workspace index and genuine connected fixture caveats otherwise agree."
+status = "accurate"
+notes = "Full page read. At README.md:12, ../../../../docs/wiki/Migration.md and ../../../../migrations/README.md resolve to the existing repository-root targets docs/wiki/Migration.md and migrations/README.md; source provenance, workspace index and genuine connected fixture caveats agree. Four parent-directory steps reach the repository root; both documentation links resolve to existing files."
 
 [doc.015]
 path = "spec/layerx-merge/contracts/interop-gas-station.md"

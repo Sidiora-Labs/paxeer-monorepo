@@ -1,0 +1,7 @@
+[issue.1853]
+number = 1853
+title = "[Coherence] Narrowing the touches leaves three tasks that retire baseline entries with no declared path for the baseline file they must edit"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "Decision 2890 requires existing baseline files in touches (spec/layerx-merge/spec.kvx:10455), but completed task 22.39.145 still promises wallet-baseline retirement while declaring only sdk/wallet (spec/layerx-merge/spec.kvx:157392, spec/layerx-merge/spec.kvx:157401, spec/layerx-merge/spec.kvx:157404, spec/layerx-merge/spec.kvx:157406), sdk/wallet/test/repair_22_39_145.kvx:7 explicitly records the deferred retirement, and tests/ci/data/wallet_vitest_baseline.json:2 retains entries excluded by tools/ci/run_wallet_vitest.py:43; the spec must declare tests/ci/data/wallet_vitest_baseline.json in that task's touches and record its retirement as outstanding, move the existing launchpad baseline from planned_paths to touches (spec/layerx-merge/spec.kvx:216491, spec/layerx-merge/spec.kvx:216489), and retain the already corrected tools-baseline touch (spec/layerx-merge/spec.kvx:351757)."
+close_comment = "The tools baseline now has an explicit file declaration, and the launchpad baseline is declared under planned_paths. The specification still needs to declare the existing wallet and launchpad baselines in touches and record wallet baseline retirement as outstanding rather than completed."

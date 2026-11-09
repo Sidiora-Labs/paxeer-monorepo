@@ -35269,8 +35269,8 @@ severity = "blocker"
 
 [finding.22.39.142.3]
 task = "22.39.142"
-file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
-symbol = "f11_views.rs"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"
+symbol = "f11_family_table.rs"
 observed = "Attempt 3 at 4e3940dd51bf: build exit 0, guest 483154 bytes; verification exit 101 in f11_family_table at line 191, SettleLaps expected (92, 92) against the table (480, 4190); the base tree fails the same assertion."
 assumption = "The row is a producer-to-consumer defect of 22.38.4, not of the size reduction; correcting it to the producer constants is the whole remaining work."
 severity = "blocker"
@@ -36729,4 +36729,412 @@ file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdent
 symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
 observed = "Attempt 3 at 316a8a12884b: build exit 0; verification failed with go test exit 1: 42 wiring tests passed and three indexer cases failed, TestRepairM_1000_InventoryDurableFrames (receipt qualification rejected at the first recorded batch), TestRepairM_1000_MeasurementRefusals (source pool: identity) and TestPaxeerRehydratedAuthorityQualifiesTradesOfEarlierMarket (unrecorded eth_getCode bound to a block hash); log /out/logs/verify-2.log."
 assumption = "The 33 retirements are complete; the three residual cases are a digest encoding that is not yet proven, one fixture reply that was never recorded, and one composed refusal whose producer the attempt did not locate."
+severity = "high"
+
+[finding.22.39.214.2]
+task = "22.39.214"
+file = "tools/paxeer-x/tests/retired_callers_test.py"
+symbol = "retired_callers_test.py"
+observed = "Attempt 2: build exit 0; verification failed because git grep exited 129 on --pathspec-from-file, an option the installed git 2.53.0 does not provide for grep; record tests/repair_22_39_214.kvx names the interface blocker."
+assumption = "Command-line exclusion pathspecs give the same file set the attempt computed in memory; the scan has not been measured yet."
+severity = "high"
+
+[finding.22.39.231.1]
+task = "22.39.231"
+file = "modules/layerxpay/keeper/service_dispute_test.go"
+symbol = "service_dispute_test.go"
+observed = "Attempt 1 at 3fb8fde7f50d: build exit 1 at go vet ./modules/layerxpay/... (genesis_test.go line 225, assignment mismatch, two variables for three values); the verification never ran; log /out/logs/build-1.log."
+assumption = "The integration test predates the three-value view and no gate of the module ran since."
+severity = "high"
+
+[finding.22.39.232.1]
+task = "22.39.232"
+file = "precompiles/layerxprograms/events_call_test.go"
+symbol = "events_call_test.go"
+observed = "Attempt 1 at fc5b1376c4e3: build exit 1 at go vet ./precompiles/layerxprograms/... (repair_m212_test.go lines 29 and 161 copy a lock value); the verification never ran; log /out/logs/build-1.log."
+assumption = "The copied struct is the only vet finding of the package; the events repair is complete."
+severity = "high"
+
+[finding.22.33.223.15]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 16 at 011622fd5d1b: build exit 0; verification exit 101 with four sweep cases failing; OPEN_EPOCH 747867 fuel at 16/4 and refused at 24/6 and 32/8, FinalizeAggregation 804628 at 16/4 and refused at 24/6 and 32/8; log /out/logs/verify-1.log."
+assumption = "The per-participant cost is intrinsic to the two operations and only a continuation shape fits the cap."
+severity = "high"
+
+[finding.17.5.7.2]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 2 at 2cec5a4643d8: verification exit 1; the wave-6 script failed in the human build target at completion_gate.rs line 216 (retired-interface inventory 10 where 52 are expected); log /out/logs/verify-1.log."
+assumption = "The registry re-status, not the human surfaces, moved the count; the gate mechanics of attempt 2 work."
+severity = "high"
+
+[finding.22.39.224.2]
+task = "22.39.224"
+file = "services/agent/crates/layerx-mcp"
+symbol = "layerx-mcp"
+observed = "Attempt 2 at e6e1f6b3c4349f: build 1 exit 0; verification exit 101 with 48 library and 53 test-target lints; build 2 exit 101 with E0308 at src/server.rs line 1234; log /out/logs/verify-1.log."
+assumption = "The inventory is recorded and the one build error is a double reference."
+severity = "high"
+
+[finding.22.39.218.2]
+task = "22.39.218"
+file = "services/agent/crates/layerx-proof"
+symbol = "layerx-proof"
+observed = "Attempt 2 at 44fccbf445bc: build exit 0; verification exit 101 with seven lints left in three test files after two cycles (18 at the first run); log /out/logs/verify-2.log."
+assumption = "The seven lints are mechanical and inside the touches."
+severity = "high"
+
+[finding.22.39.233.1]
+task = "22.39.233"
+file = "services/agent/crates/layerx-sdk/tests/native_programs.rs"
+symbol = "native_programs.rs"
+observed = "Attempt 1 at 1f4422082db6: build exit 0; verification exit 101, two cases passed and program_http_decodes_signed_program_calls_as_eip1559 failed with HTTP submission: MissingNodeReadAuthority; log /out/logs/verify-1.log."
+assumption = "The constructor change is complete; the HTTP case lacks the node authority the submission path checks."
+severity = "high"
+
+[finding.18.1628.1.1]
+task = "18.1628.1"
+file = "rpc/repair_339_test.go::TestRepair_339_TenantPendingRaw"
+symbol = "repair_339_test.go::TestRepair_339_TenantPendingRaw"
+observed = "Attempt 1 at f74269089bc8: build exit 2 at make -s paxd-native-libs (cmake not found while building evmone, chain.mk line 111); the verification never ran; log /out/logs/build-1.log."
+assumption = "The rpc change compiles without the native library; only the gate prefix failed."
+severity = "high"
+
+[finding.18.1632.1.1]
+task = "18.1632.1"
+file = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+symbol = "px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+observed = "Attempt 1 at b2698d0728ca: build exit 2 at make -s paxd-native-libs (cmake not found while building evmone, chain.mk line 111); the verification never ran; log /out/logs/build-1.log."
+assumption = "The history change compiles without the native library; only the gate prefix failed."
+severity = "high"
+
+[finding.18.1635.1.1]
+task = "18.1635.1"
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs::hash_preflight_oversized_valid_memory"
+symbol = "repair_22_33_227.rs::hash_preflight_oversized_valid_memory"
+observed = "Attempt 1 at 9caaf3f0f83d: build exit 101 at cargo clippy of the test target because the library carries 200 pedantic lints; the verification never ran; no product change was made; log /out/logs/build-1.log."
+assumption = "The test file alone is in scope; the library lints are a task of their own."
+severity = "high"
+
+[finding.18.1638.1.1]
+task = "18.1638.1"
+file = "tools/bringup/tests/registry-artifacts.py::RegistryArtifacts::test_22_completed_job_history_survives_cleanup_reload"
+symbol = "registry-artifacts.py::RegistryArtifacts::test_22_completed_job_history_survives_cleanup_reload"
+observed = "Attempt 1 at 074ff068d28f: build exit 0; verification exit 1 at the setUpClass of the suite (PAXEER_X_REGISTRY_ARTIFACT_MANIFEST is required without --manifest); no product change was made; log /out/logs/verify-1.log."
+assumption = "The suite needs a live registry; a module-level test proves the helper change."
+severity = "high"
+
+[finding.18.1639.1.1]
+task = "18.1639.1"
+file = "sdk/platform/generators/tests/drift.rs::ucp_checkout_fixture_classification_survives_check_and_write"
+symbol = "drift.rs::ucp_checkout_fixture_classification_survives_check_and_write"
+observed = "Attempt 1 at fb2ca1f9175f: build exit 0; verification exit 101, the OutputState equality failed with the same files and digests in two orders; log /out/logs/verify-1.log."
+assumption = "Only the ordering differs between the two states."
+severity = "high"
+
+[finding.18.1654.1.1]
+task = "18.1654.1"
+file = "tests/integration/rpc_tests/utils/subscribeUtils.unit.spec.ts::subscriptionOverDeliveryRegression"
+symbol = "subscribeUtils.unit.spec.ts::subscriptionOverDeliveryRegression"
+observed = "Attempt 1 at d229a7334c24: build exit 2 at pnpm --dir tests/integration/rpc_tests exec tsc --noEmit with six errors in untouched files; the verification never ran; no product change was made; log /out/logs/build-1.log."
+assumption = "The package was never type checked under a gate; the six sites are pre-existing."
+severity = "high"
+
+[finding.18.1657.1.1]
+task = "18.1657.1"
+file = "apps/perps/tests/portfolio-windows.test.ts::assetsCalendarWindowsMatchPerformance"
+symbol = "portfolio-windows.test.ts::assetsCalendarWindowsMatchPerformance"
+observed = "Attempt 1 at 177143db974a: build exit 2 at pnpm --dir apps/perps exec tsc --noEmit with 183 errors in untouched files (two React type packages); the verification never ran; log /out/logs/build-1.log."
+assumption = "The perps change is complete; the type check fails on main."
+severity = "high"
+
+[finding.18.1663.1.1]
+task = "18.1663.1"
+file = "apps/perps/tests/funding-rate.test.ts::funding_consumers_keep_exact_rates"
+symbol = "funding-rate.test.ts::funding_consumers_keep_exact_rates"
+observed = "Attempt 1 at 5e8af1b6833c: build exit 2 at pnpm --dir apps/perps exec tsc --noEmit with 183 errors in untouched files (two React type packages); the verification never ran; log /out/logs/build-1.log."
+assumption = "The test change is complete; the type check fails on main."
+severity = "high"
+
+[finding.18.1668.1.1]
+task = "18.1668.1"
+file = "apps/perps/tests/repair-22-33-83.test.ts::resize_unmount_state_restores_page_interaction"
+symbol = "repair-22-33-83.test.ts::resize_unmount_state_restores_page_interaction"
+observed = "Attempt 1 at 20e8236ceca9: build exit 2 at pnpm --dir apps/perps exec tsc --noEmit with 183 errors in untouched files (two React type packages); the verification never ran; log /out/logs/build-1.log."
+assumption = "The removal is complete; the type check fails on main."
+severity = "high"
+
+[finding.18.1588.1.1]
+task = "18.1588.1"
+file = "spec/layerx-merge/programme/audit/records/22.30.29.kvx"
+symbol = "22.30.29.kvx"
+observed = "Attempt 1 at 1697081b5c20: build exit 0; verification failed only because the command carried doubled backslashes (grep matched a literal backslash or awk refused the program); log /out/logs/verify-1.log."
+assumption = "The audit record edits of the attempt are complete; only the command encoding was wrong."
+severity = "high"
+
+[finding.18.1590.1.1]
+task = "18.1590.1"
+file = "spec/layerx-merge/programme/audit/records/22.30.35.kvx"
+symbol = "22.30.35.kvx"
+observed = "Attempt 1 at 41a381ccbe1c: build exit 0; verification failed only because the command carried doubled backslashes (grep matched a literal backslash or awk refused the program); log /out/logs/verify-1.log."
+assumption = "The audit record edits of the attempt are complete; only the command encoding was wrong."
+severity = "high"
+
+[finding.18.1591.1.1]
+task = "18.1591.1"
+file = "spec/layerx-merge/programme/audit/records/22.30.38.kvx"
+symbol = "22.30.38.kvx"
+observed = "Attempt 1 at 3e750c78ee6c: build exit 0; verification failed only because the command carried doubled backslashes (grep matched a literal backslash or awk refused the program); log /out/logs/verify-1.log."
+assumption = "The audit record edits of the attempt are complete; only the command encoding was wrong."
+severity = "high"
+
+[finding.18.1592.1.1]
+task = "18.1592.1"
+file = "spec/layerx-merge/programme/audit/records/22.30.42.kvx"
+symbol = "22.30.42.kvx"
+observed = "Attempt 1 at 6c34ffb03d2a: build exit 0; verification failed only because the command carried doubled backslashes (grep matched a literal backslash or awk refused the program); log /out/logs/verify-1.log."
+assumption = "The audit record edits of the attempt are complete; only the command encoding was wrong."
+severity = "high"
+
+[finding.18.1604.1.1]
+task = "18.1604.1"
+file = "spec/layerx-merge/programme/audit/records/22.30.68.kvx"
+symbol = "22.30.68.kvx"
+observed = "Attempt 1 at 9de3d485f0d3: build exit 0; verification failed only because the command carried doubled backslashes (grep matched a literal backslash or awk refused the program); log /out/logs/verify-1.log."
+assumption = "The audit record edits of the attempt are complete; only the command encoding was wrong."
+severity = "high"
+
+[finding.18.1607.1.1]
+task = "18.1607.1"
+file = "spec/layerx-merge/programme/audit/records/22.30.85.kvx::contract_pages_present"
+symbol = "22.30.85.kvx::contract_pages_present"
+observed = "Attempt 1 at 032667c8ca1d: build exit 0; verification failed only because the command carried doubled backslashes (grep matched a literal backslash or awk refused the program); log /out/logs/verify-1.log."
+assumption = "The audit record edits of the attempt are complete; only the command encoding was wrong."
+severity = "high"
+
+[finding.18.1610.1.1]
+task = "18.1610.1"
+file = "spec/layerx-merge/programme/audit/records/22.30.98.kvx::contract_inventory_correction"
+symbol = "22.30.98.kvx::contract_inventory_correction"
+observed = "Attempt 1 at f2080d88d45e: build exit 0; verification failed only because the command carried doubled backslashes (grep matched a literal backslash or awk refused the program); log /out/logs/verify-1.log."
+assumption = "The audit record edits of the attempt are complete; only the command encoding was wrong."
+severity = "high"
+
+[finding.18.1611.1.1]
+task = "18.1611.1"
+file = "spec/layerx-merge/programme/audit/records/22.30.109.kvx::migration_readme_links_correction"
+symbol = "22.30.109.kvx::migration_readme_links_correction"
+observed = "Attempt 1 at 15dea9d73c9d: build exit 0; verification failed only because the command carried doubled backslashes (grep matched a literal backslash or awk refused the program); log /out/logs/verify-1.log."
+assumption = "The audit record edits of the attempt are complete; only the command encoding was wrong."
+severity = "high"
+
+[finding.18.1712.1.1]
+task = "18.1712.1"
+file = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts::httpErrorsAsPayloads"
+symbol = "repair-22-33-543.spec.ts::httpErrorsAsPayloads"
+observed = "Attempt 1 at e00b671ac7e4: build exit 0; verification exit 1, nodeFetchImportsStayServerOnly failed naming three node-fetch importers missing from nodeTestModules; log /out/logs/verify-1.log."
+assumption = "The allow-list is stale on main; the tree of the attempt is complete."
+severity = "high"
+
+[finding.18.1720.1.1]
+task = "18.1720.1"
+file = "apps/explorer/ui/home/repair-22-35-4.spec.tsx::homeChartCalendarDayWindow"
+symbol = "repair-22-35-4.spec.tsx::homeChartCalendarDayWindow"
+observed = "Attempt 1 at c4355decafc5: build exit 2, tsc TS2322 at ui/home/indicators/ChainIndicatorsChart.spec.tsx line 53 (days is not a property of the component); the verification never ran; log /out/logs/build-1.log."
+assumption = "The producer change is right; the consumer test outside the touches still passes the removed property."
+severity = "high"
+
+[finding.18.1695.1.1]
+task = "18.1695.1"
+file = "services/launchpad/indexer/internal/app/status_1695_test.go::TestIndexerStatus1695"
+symbol = "status_1695_test.go::TestIndexerStatus1695"
+observed = "Attempt 1 at d2f97ccb678d: build exit 0; verification exit 1, TestRenderedProductionDocumentsBoot (render_test.go line 145) and TestIndexerStatus1695 (status_1695_test.go line 244) both failed with receipt qualification rejected, the failure the launchpad baseline records for the retiring task 22.39.162; log /out/logs/verify-1.log."
+assumption = "The two cases boot the same recorded documents the baseline marks as failing until 22.39.162 lands."
+severity = "high"
+
+[finding.18.1673.1.1]
+task = "18.1673.1"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs::test POST api/account/v2/confirm_otp confirm OTP successfully"
+symbol = "confirm_otp confirm OTP successfully"
+observed = "Attempt 1 at 47e42319140a: build exit 0; verification exit 2, confirm OTP successfully failed with BlockScoutWeb.Plug.RedisCookie.PersistenceError because no Redis service runs in the test environment; log /out/logs/verify-1.log."
+assumption = "The test environment, not the test, is missing the session store."
+severity = "high"
+
+[finding.18.1651.1.1]
+task = "18.1651.1"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs::regression test for decoding issue"
+symbol = "address_controller_test.exs::regression test for decoding issue"
+observed = "Attempt 1 at d1ee7253d734: build exit 0; verification exit 2 twice, get watchlist id (line 440) failed with BlockScoutWeb.Plug.RedisCookie.PersistenceError and get EIP-1967 proxy contract info (line 329) returned an empty implementations list, a case the attempt did not touch; log /out/logs/verify-2.log."
+assumption = "The three BENS cases need only the session store; the proxy case is a pre-existing failure of the file."
+severity = "high"
+
+[finding.18.1713.1.1]
+task = "18.1713.1"
+file = "services/agent/sdk/typescript/test/web-search.test.ts::webSearchExactPaymentLogReceipts"
+symbol = "web-search.test.ts::webSearchExactPaymentLogReceipts"
+observed = "Attempt 1 at fca0ac74d127: build exit 2 (TS2352 at test/web-search.test.ts line 166 column 35) after a first failure with the wrong package manager; verification exit 1, twenty-nine of thirty-three cases failed with settlement-operation-mismatch thrown at src/web-search.ts line 359; log /out/logs/verify-1.log."
+assumption = "The fixtures carry the wrong settlement operation; the client check is the producer."
+severity = "high"
+
+[finding.18.1747.1.1]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 1 at 492b07abcd86: build exit 0; verification exit 101, panic bootstrap peer: Malformed at tests/repair_22_33_63.rs line 1648 on a UUID literal; log /out/logs/verify-1.log."
+assumption = "Only the identifier format of the test is wrong."
+severity = "high"
+
+[finding.18.1665.1.1]
+task = "18.1665.1"
+file = "rpc/px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+symbol = "px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+observed = "Attempt 1 at 3dd4b2d997c5: build exit 0; verification exit 1 twice, line 687 expected -32602 for a null cursor and received no error, line 589 expected eight items and received none; log /out/logs/verify-2.log."
+assumption = "The method validates only a present cursor and the listing path returns nothing for the fixture."
+severity = "high"
+
+[finding.18.1643.1.1]
+task = "18.1643.1"
+file = "rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahn"
+symbol = "subscribe_test.go::TestSubscribeNewHeadsAutobahn"
+observed = "Attempt 1 at efcb96016b69: build exit 0; verification exit 1, subscribe_test.go line 405 expected stateRoot 0xc216... and received the zero hash, the log recorded dropping invalid newHeads event at height 1; log /out/logs/verify-1.log."
+assumption = "The fixture stores the header without the root it announces; the check in the server is right."
+severity = "high"
+
+[finding.18.1678.1.1]
+task = "18.1678.1"
+file = "sdk/baseapp/query_grpc_error_test.go::TestIssue1678GRPCQueryRedaction"
+symbol = "query_grpc_error_test.go::TestIssue1678GRPCQueryRedaction"
+observed = "Attempt 1 at 6b398503dc8c: build exit 1, import cycle query_grpc_error_test.go through sdk/x/auth/tx, x/auth/ante, x/params/keeper and baseapp; the verification never ran; log /out/logs/build-1.log."
+assumption = "Only the test import closes the cycle."
+severity = "high"
+
+[finding.18.1676.1.1]
+task = "18.1676.1"
+file = "apps/perps/tests/repair-22-33-578.test.ts::portfolioBalanceIsolationKeepsOverviewVisible"
+symbol = "repair-22-33-578.test.ts::portfolioBalanceIsolationKeepsOverviewVisible"
+observed = "Attempt 1 at a2aeeabdfeca: build exit 2, the perps type check failed with the JSX component type errors of gotcha 3770 in files the attempt did not change; the verification never ran; log /out/logs/build-1.log."
+assumption = "The type check is red on main until 22.39.234 lands."
+severity = "high"
+
+[finding.18.1655.1.1]
+task = "18.1655.1"
+file = "apps/perps/tests/repair-22-33-195.test.ts::collateralRemovalSettlementParity"
+symbol = "repair-22-33-195.test.ts::collateralRemovalSettlementParity"
+observed = "Attempt 1 at a1cc2ede1dd0: build exit 2, the perps type check failed with the JSX component type errors of gotcha 3770 in files the attempt did not change; the verification never ran; log /out/logs/build-1.log."
+assumption = "The type check is red on main until 22.39.234 lands."
+severity = "high"
+
+[finding.22.39.217.2]
+task = "22.39.217"
+file = "services/agent/crates/layerx-crypto"
+symbol = "layerx-crypto"
+observed = "Attempt 2 at 21824c558755: build exit 0; verification failed with a duplicate module declaration and missing backticks in tests/repair_22_33_1558.rs; log /out/logs/verify-1.log."
+assumption = "Two lint sites remain in the new test file."
+severity = "high"
+
+[finding.22.39.219.2]
+task = "22.39.219"
+file = "services/agent/crates/layerx-client"
+symbol = "layerx-client"
+observed = "Attempt 2 at 9ef634b1ba16: build exit 0; verification failed with three unnecessary semicolons in tests/committed_caps.rs; log /out/logs/verify-1.log."
+assumption = "Three lint sites remain."
+severity = "high"
+
+[finding.22.39.221.2]
+task = "22.39.221"
+file = "services/agent/crates/layerx-agent-api"
+symbol = "layerx-agent-api"
+observed = "Attempt 2 at 119dfedb86cb: build exit 0; verification failed with the seventeen lints listed in gotcha 3786; log /out/logs/verify-1.log."
+assumption = "The lint sites are all in test support and test files."
+severity = "high"
+
+[finding.18.1764.1.1]
+task = "18.1764.1"
+file = "rpc/px_node_root_kernel_test.go::TestCommittedWaitUsesBatchActivityIDs"
+symbol = "px_node_root_kernel_test.go::TestCommittedWaitUsesBatchActivityIDs"
+observed = "Attempt 1 at c87168c7be37: build exit 0; verification exit 1 twice, first invalid bank recipient at px_node_root_kernel_test.go line 134, then at line 724 the Rust test issue_1764.rs panicked at line 113 with genuine: InvalidResponse; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The SDK parser refuses the live response of the node in the unaltered mode; the tampering modes are not reached."
+severity = "high"
+
+[finding.18.1729.1.1]
+task = "18.1729.1"
+file = "tools/platform/cli/tests/repair_22_33_1496.rs::test_retired_endpoint_program_lifecycle"
+symbol = "repair_22_33_1496.rs::test_retired_endpoint_program_lifecycle"
+observed = "Attempt 1: build and verification passed at its tree; the collection could not merge the tree because tools/platform/cli/tests/repair_22_33_1496.rs conflicts with the change of 18.1728.1 published the same day."
+assumption = "The two repairs touch neighbouring parts of the same test file."
+severity = "high"
+
+[finding.18.1639.1.2]
+task = "18.1639.1"
+file = "sdk/platform/generators/tests/drift.rs::ucp_checkout_fixture_classification_survives_check_and_write"
+symbol = "drift.rs::ucp_checkout_fixture_classification_survives_check_and_write"
+observed = "Attempt 2 at 18d40c7ffbb0: build exit 0; verification exit 101, tests/drift.rs line 955 compared fifty-two handwritten files of the live capture with forty-four of the committed inventory; log /out/logs/verify-1.log."
+assumption = "The committed inventory is behind the fixtures directory; the generated digests agree."
+severity = "high"
+
+[finding.18.1718.1.1]
+task = "18.1718.1"
+file = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::horizontalHeaderGroupsAndSearch"
+symbol = "repair-22-35-2.spec.tsx::horizontalHeaderGroupsAndSearch"
+observed = "Attempt 1 at 0daffc77f779: build failed with ERR_PNPM_OTHER_PM_EXPECTED, apps/explorer is a yarn workspace; the verification never ran; log /out/logs/build-1.log."
+assumption = "Only the package manager of the gate was wrong."
+severity = "high"
+
+[finding.18.1766.1.1]
+task = "18.1766.1"
+file = "services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js::legacyBlockCounterKeepsHeight"
+symbol = "chain.js::legacyBlockCounterKeepsHeight"
+observed = "Attempt 1 at 9402211da8e3: build failed with webpack not found under a package manager the assets directory does not use; the verification never ran; log /out/logs/build-1.log."
+assumption = "Only the package manager of the gate was wrong."
+severity = "high"
+
+[finding.18.1711.1.1]
+task = "18.1711.1"
+file = "services/platform/middleware/conformance/pay6/walkthrough.mjs::mergedHttpEnvelopesSurviveReopen"
+symbol = "walkthrough.mjs::mergedHttpEnvelopesSurviveReopen"
+observed = "Attempt 1 at 80a88738417b: build failed with tsc not found under a package manager the conformance directory does not use; the verification never ran; log /out/logs/build-1.log."
+assumption = "Only the package manager of the gate was wrong."
+severity = "high"
+
+[finding.18.1633.1.1]
+task = "18.1633.1"
+file = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity"
+symbol = "px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity"
+observed = "Attempt 1 at 16600cc3e5d0 (base aa612f6905c1): build failed in the native library target because cmake is absent (gotcha 3769); the verification never ran; log /out/logs/build-1.log."
+assumption = "Only the native library step of the gate failed."
+severity = "high"
+
+[finding.18.1743.1.1]
+task = "18.1743.1"
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs::native_read_unavailable_has_fixed_body"
+symbol = "proof_native_reads.rs::native_read_unavailable_has_fixed_body"
+observed = "Attempt 1 at 37960b88eacc: build exit 0; verification failed because tools/qualification/localnode/v6120-node.sh could not build paxd without cmake and the node never started; log /out/logs/verify-1.log."
+assumption = "The node binary is built in the build step from now on."
+severity = "high"
+
+[finding.18.1656.1.1]
+task = "18.1656.1"
+file = "apps/perps/tests/repair-22-33-192.test.ts::protocolSnapshotsSixDecimalTvl"
+symbol = "repair-22-33-192.test.ts::protocolSnapshotsSixDecimalTvl"
+observed = "Attempt 1 at 7136e0b39e36: build exit 2, the perps type check failed with the JSX component type errors of gotcha 3770 in files the attempt did not change; the verification never ran; log /out/logs/build-1.log."
+assumption = "The type check is red on main until 22.39.234 lands."
+severity = "high"
+
+[finding.18.1662.1.1]
+task = "18.1662.1"
+file = "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers"
+symbol = "repair-22-33-181.test.ts::actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers"
+observed = "Attempt 1 at 90883a34f5d7: build exit 0; verification exit 1 with a bare AssertionError over the vitest counts, no count printed; log /out/logs/verify-1.log."
+assumption = "The two files hold nine cases; which one misses the count is unknown until the report is printed."
+severity = "high"
+
+[finding.18.1770.1.1]
+task = "18.1770.1"
+file = "apps/explorer/deploy/tools/envs-validator/assistant.spec.ts::explorerAssistantStartupValidation"
+symbol = "assistant.spec.ts::explorerAssistantStartupValidation"
+observed = "Attempt 1 at 2a88ca65780f: build failed because vite could not resolve property-expr from yup after the pnpm install of the yarn directory was refused; the verification never ran; log /out/logs/build-1.log."
+assumption = "Only the package manager of the gate was wrong."
 severity = "high"
