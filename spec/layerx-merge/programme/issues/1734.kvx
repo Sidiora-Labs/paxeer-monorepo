@@ -1,0 +1,7 @@
+[issue.1734]
+number = 1734
+title = "[Coherence] Gotcha 3188 and do_12 say read_before_deadline turns every transport failure into None, but it passes errors on unless the deadline has already run out"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "spec-edit"
+evidence = "Task 22.33.1569 is done at spec/layerx-merge/spec.kvx:191837, but its do_12 at spec/layerx-merge/spec.kvx:191872 and GOTCHA.kvx:15766 must say that read_before_deadline returns None only on deadline exhaustion before or after a call and propagates transport and remote errors while time remains, as services/agent/crates/layerx-sdk/src/rpc_verification.rs:224, services/agent/crates/layerx-sdk/src/rpc_verification.rs:228 and services/agent/crates/layerx-sdk/src/rpc_verification.rs:235 establish, with late responses also refused by services/agent/crates/layerx-sdk/tests/repair_22_33_1564.rs:829."
+close_comment = "read_before_deadline preserves transport and remote errors returned while time remains and returns None only when its deadline is exhausted before or after a call. The completed task's do_12 and Gotcha 3188 need that wording correction: an early socket failure is not automatically Pending."
