@@ -160011,7 +160011,7 @@ do_4 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3794, decision 3068): 
 
 [task.18.1802.1]
 title = "Issue #1802: Preserve injected wallets when the embedded wallet is disabled"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.234"]
@@ -192410,7 +192410,7 @@ do_6 = "Attempt 4 (continue, gotcha 3831): the attempt-3 tree d3d759d87dc0 stand
 
 [task.22.39.218]
 title = "Bring the layerx-proof crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -412745,7 +412745,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1806.1]
 title = "Issue #1806: Accept governed non-digest key IDs during receipt verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
