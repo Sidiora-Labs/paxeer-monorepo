@@ -1,0 +1,141 @@
+{
+  "_comment": "Decision 2809: page prefixes resolve against real project roots. Decisions 2943 and 2944 follow Jev prompt/output and public-node producers; prompt-led output is not shell, and decision 2810 root endpoints also carry WebSocket upgrades.",
+  "page_roots": {
+    "": ".",
+    "apps/bridge/": "apps/bridge",
+    "apps/explorer/README.md": "apps/explorer",
+    "apps/web/packages/layerx-ui/": "apps/web/packages/layerx-ui",
+    "consensus/scripts/confix/testdata/": "consensus",
+    "consensus/spec/light-client/": "consensus/spec/light-client",
+    "consensus/test/e2e/": "consensus/test/e2e",
+    "consensus/test/fuzz/": "consensus/test/fuzz",
+    "contracts/launchpad/README.md": "contracts/launchpad",
+    "contracts/launchpad/operations/": "contracts/launchpad",
+    "docs/hyperfide/": "tools/hyperfide",
+    "docs/explorer/": "apps/explorer",
+    "docs/platform/README.md": "docs/platform",
+    "docs/wallet/app/": "apps/wallet",
+    "docs/wallet/service/": ".",
+    "sdk/launchpad/packages/sdk/": "apps/launchpad",
+    "services/explorer/backend/docker-compose/": "services/explorer/backend",
+    "services/explorer/services/libs/blockscout-client/": "services/explorer/services/libs/blockscout-client",
+    "services/explorer/services/libs/env-collector/": "services/explorer/services/libs/env-collector",
+    "services/explorer/services/libs/blockscout-db/migration/": "services/explorer/services/libs/blockscout-db/migration",
+    "services/platform/perf-db/": "services/platform/perf-db",
+    "services/wallet/demo/": "services/wallet/demo",
+    "storage/tools/": "storage/tools",
+    "storage/state_db/bench/cryptosim/": "storage/state_db/bench/cryptosim",
+    "tests/integration/rpc_tests/hardhat/": "tests/integration/rpc_tests",
+    "tests/integration/rpc_tests/README.md": "tests/integration/rpc_tests",
+    "tools/loadtest/": "tools/loadtest",
+    "tools/paxctl/": "tools/paxctl",
+    "wasm-runtime/": "wasm-runtime",
+    "docs/site/README.md": "."
+  },
+  "allowed_inputs_and_outputs": [
+    {
+      "pattern": "**/dist/*",
+      "reason": "Compiled JavaScript output produced by the owning package build."
+    },
+    {
+      "pattern": "**/target/*",
+      "reason": "Cargo build output."
+    },
+    {
+      "pattern": "target/*",
+      "reason": "Root Cargo build output."
+    },
+    {
+      "pattern": "**/node_modules/*",
+      "reason": "Installed dependencies and node_modules/.bin executables."
+    },
+    {
+      "pattern": "node_modules/*",
+      "reason": "Root installed package executables."
+    },
+    {
+      "pattern": "build",
+      "reason": "Directory created by the documented build."
+    },
+    {
+      "pattern": "build/*",
+      "reason": "Root build outputs."
+    },
+    {
+      "pattern": "**/build/*",
+      "reason": "Project-local build outputs."
+    },
+    {
+      "pattern": "consensus/spec/light-client/out*",
+      "reason": "Generated light-client model executable and traces."
+    },
+    {
+      "pattern": "tools/hyperfide/.codegraph/worktrees/*",
+      "reason": "Worktrees created by the documented fleet workflow."
+    },
+    {
+      "pattern": "tools/hyperfide/your-project",
+      "reason": "Reader-supplied example workspace."
+    },
+    {
+      "pattern": "chainflow-example*",
+      "reason": "Reader-created Go SDK example project."
+    },
+    {
+      "pattern": "tools/hyperfide/bench.mjs",
+      "reason": "Reader-created source-engine benchmark harness in the page."
+    },
+    {
+      "pattern": "tools/hyperfide/jjbench.mjs",
+      "reason": "Reader-created jj benchmark harness in the page."
+    },
+    {
+      "pattern": "paxd-v7.0.0",
+      "reason": "Directory extracted from the downloaded release archive."
+    },
+    {
+      "pattern": "/path/*",
+      "reason": "Reader-supplied workspace or executable path."
+    },
+    {
+      "pattern": "/absolute/*",
+      "reason": "Reader-supplied absolute input path."
+    },
+    {
+      "pattern": "/opt/layerx/*",
+      "reason": "Installed operator runtime, outside the source checkout."
+    },
+    {
+      "pattern": "**/.venv/*",
+      "reason": "Python virtual environment created by the documented venv command."
+    },
+    {
+      "pattern": "**/quickstart.mjs",
+      "reason": "The quickstart instructs the reader to save the shown JavaScript in the temporary client directory.",
+      "producer": "docs/site/docs/overview/quickstart.md"
+    },
+    {
+      "pattern": "committed-fixture",
+      "reason": "Go build output for the local committed receipt recorder.",
+      "producer": "daemon/committed-fixture/main.go"
+    },
+    {
+      "pattern": "tools/paxctl/seictl",
+      "reason": "The executable extracted from the reviewed download archive in the preceding commands.",
+      "producer": "tools/paxctl/README.md"
+    },
+    {
+      "pattern": "services/explorer/services/<service>/<service>-server/src/bin/check-envs.rs",
+      "reason": "The reader creates this server binary from the Rust source shown in step 2.",
+      "page": "services/explorer/services/libs/env-collector/README.md",
+      "source": "src/bin/check-envs.rs",
+      "cargo_bin": "check-envs"
+    }
+  ],
+  "carry_cwd_pages": [
+    "interchain/testing/simapp/README.md",
+    "docs/site/docs/overview/quickstart.md",
+    "wasm/contrib/local/README.md",
+    "consensus/scripts/confix/testdata/README.md"
+  ]
+}

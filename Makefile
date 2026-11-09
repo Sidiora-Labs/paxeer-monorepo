@@ -275,6 +275,30 @@ test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tes
 		LAYERX_TEST_BUILD_DIR="$(abspath $(BUILD_DIR))" \
 		python3 tests/ci/run_python_suites.py
 
+TOOLS_PYTHON_SUITES :=
+include tools/release/tests/python-tests.mk
+include tools/release/rehearsal/python-tests.mk
+include tools/bringup/tests/python-tests.mk
+include tools/containers/python-tests.mk
+include tools/deps/tests/python-tests.mk
+include tools/rollout/python-tests.mk
+include tools/deploy/python-tests.mk
+include tools/docs/gen/python-tests.mk
+include tools/spec/python-tests.mk
+include tools/benchmark/python-tests.mk
+include tools/jev/tests/python-tests.mk
+include tools/jev/checks/python-tests.mk
+include tools/paxeer-x/tests/python-tests.mk
+
+.PHONY: test-tools-python
+# Exact inherited failures and their retiring tasks are tracked in tests/ci/data/tools_python_suite_baseline.json.
+test-tools-python:
+	python3 -c 'import json, os, sys; cases = json.load(open("tests/ci/data/tools_python_suite_baseline.json")); os.execvp("python3", ["python3", "-m", "pytest", "-q", *sys.argv[1:], *["--deselect=" + case["nodeid"] for case in cases]])' $(TOOLS_PYTHON_SUITES)
+
+.PHONY: test-qualification-python
+test-qualification-python:
+	python3 -m pytest -q tools/qualification -m 'not native'
+
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
@@ -2487,7 +2511,7 @@ PAXEER_FORWARDED_TARGETS := autobahn-integration-test build-docker-node \
 	docker-cluster-start-ci docker-cluster-start-giga-mixed \
 	docker-cluster-start-monitoring docker-cluster-start-skipbuild \
 	docker-cluster-stop docker-cluster-stop-monitoring \
-	ensure-integration-ci-images giga-integration-test \
+	ensure-integration-ci-images evmone-lib giga-integration-test \
 	giga-mixed-integration-test install install-bench install-mock-balances \
 	install-rocksdb install-with-race-detector kill-pax-node kill-rpc-node \
 	lint loadtest rocksdb-source-check run-local-node run-rpc-node \
@@ -2504,7 +2528,7 @@ paxeer-build:
 	GOPROXY=off $(PAXEER_MAKE) build
 
 .PHONY: paxd-native-libs paxd-build test-lxphost test-paxd-domain paxd-version-check
-paxd-native-libs: $(LIBRARY) programs-release-build
+paxd-native-libs: $(LIBRARY) programs-release-build evmone-lib
 
 paxd-build: paxd-native-libs
 	version=$$(jq -er .version tools/release/version.json) && \

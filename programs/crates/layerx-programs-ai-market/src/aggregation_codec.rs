@@ -315,6 +315,7 @@ impl<'a> AggregationInputView<'a> {
     /// `WRONG_MARKET`, `WRONG_EPOCH`, `WRONG_CONFIG` or `WRONG_ROSTER` for a roster/binding
     /// mismatch, `CAPACITY` for more than eight reports and `F05_REPORT_INVARIANT` for an invalid,
     /// unordered, unrostered or self-scoring report.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn structural(
         binding: FrozenBinding,
         roster: Roster<'a>,
@@ -390,6 +391,7 @@ impl<'a> AggregationInputView<'a> {
     /// # Errors
     /// Returns `CAPACITY` when `out` is shorter than the report list; propagates `report_digest`
     /// refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn commitments(&self, out: &mut [ReportCommitment]) -> CodecResult<usize> {
         if out.len() < self.reports.len() {
             return Err(CAPACITY);
@@ -414,6 +416,7 @@ impl<'a> AggregationInputView<'a> {
     /// # Errors
     /// Returns `F05_REPORT_INVARIANT` for a worker outside the roster and `ARITHMETIC` on count
     /// overflow; propagates score-cell decode refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn support(&self, worker: WorkerId) -> CodecResult<u8> {
         if !self.roster.workers.iter().any(|w| w.worker == worker) {
             return Err(F05_REPORT_INVARIANT);
@@ -429,6 +432,7 @@ impl<'a> AggregationInputView<'a> {
         Ok(count)
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_outputs(
     workers: &[WorkerRosterEntry],
     outputs: &[WorkerAggregate],
@@ -477,6 +481,7 @@ impl<'a> EpochAggregation<'a> {
     /// # Errors
     /// Propagates `check_outputs` refusals (`CAPACITY`, `NON_CANONICAL`, `F05_REPORT_INVARIANT`,
     /// `ARITHMETIC`) and preimage `CAPACITY`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn structural(
         binding: FrozenBinding,
         input: Digest32,
@@ -626,6 +631,7 @@ impl CurrentAggregation<'_> {
     /// # Errors
     /// Propagates `validate` and `report_digest` refusals; returns `F05_REPORT_INVARIANT` when
     /// reports, digests or support differ from the view.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate_inputs(&self, view: &AggregationInputView<'_>) -> CodecResult<()> {
         self.validate(view.binding, view.workers())?;
         if self.phase == AggregationPhase::Unsealed {
@@ -913,6 +919,7 @@ pub fn decode_current(
     check_decoded_phase(&decoded, binding, workers)?;
     Ok(decoded)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_decoded_phase(
     v: &DecodedCurrent,
     binding: FrozenBinding,
@@ -1224,6 +1231,7 @@ impl CurrentAggregation<'_> {
 /// Propagates `validate` and history `CAPACITY`/`NON_CANONICAL` refusals; returns `WRONG_EPOCH`
 /// for a future history row and `F05_REPORT_INVARIANT` when the terminal row is missing or
 /// differs, or a non-terminal epoch already has one.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn validate_current_history(
     current: &CurrentAggregation<'_>,
     binding: FrozenBinding,
@@ -1370,6 +1378,7 @@ impl DecodedCurrent {
     /// Returns `F05_REPORT_INVARIANT` when counts, reports, outputs or support differ from the view,
     /// `NON_CANONICAL` for a missing decoded row and `CONFLICT` when the input digest differs;
     /// propagates `report_digest` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate_inputs(&self, view: &AggregationInputView<'_>) -> CodecResult<()> {
         if self.phase == AggregationPhase::Unsealed {
             return Ok(());
@@ -1464,6 +1473,7 @@ impl AggregationInputView<'_> {
     /// # Errors
     /// Returns `F05_REPORT_INVARIANT` for an unrostered worker or a generation mismatch and
     /// `CAPACITY` for more than eight votes; propagates score-cell decode refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn worker_votes(&self, worker: WorkerId, generation: Version) -> CodecResult<WorkerVotes> {
         let frozen = self
             .roster

@@ -3,7 +3,7 @@ mod send_authorization;
 
 use layerx_agentd::prepare::evm::{
     prepare_bound, verify_call_binding, CallBindingError, EvmPreparationState, PrecompileCall,
-    PreparationDefaults, PrepareRequest, Prepared,
+    PreparationDefaults, PrepareRequest, Prepared as EvmPrepared,
 };
 use layerx_crypto::disclosure::{call, AmountRole, CounterpartyRole, DisclosureError};
 use layerx_types::payload::{ActivityType, ModuleId};
@@ -72,7 +72,7 @@ fn send_payload() -> Vec<u8> {
     send_authorization::sign(encoder.finish())
 }
 
-fn prepared() -> Prepared {
+fn prepared() -> EvmPrepared {
     prepare_bound(
         EvmPreparationState {
             chain_id: 17,
@@ -104,6 +104,10 @@ fn preparation_discloses_semantics_decoded_from_the_bytes() {
     let disclosure = &prepared.disclosure;
     let exact = prepared.call.encode_unsigned();
     assert_eq!(exact[0], 2);
+    assert_eq!(
+        call::bind_call(&prepared.call, prepared.from),
+        Ok(disclosure.clone())
+    );
     assert_eq!(disclosure.activity_type, activity_type());
     assert_eq!(disclosure.actor, [0x11; 20]);
     assert_eq!(disclosure.authority, [0x11; 20]);

@@ -229,7 +229,7 @@ def check_core_coordinate(document, expected):
     return height
 
 
-def web_receipt_keys(daemon):
+def web_receipt_key_entries(daemon):
     context = ssl.create_default_context()
     if daemon['LAYERX_AGENT_NODE_ENDPOINT'].startswith('https://'):
         certificate = Path(daemon['LAYERX_AGENT_AUTHORITY_CA_DER']).read_bytes()
@@ -248,7 +248,27 @@ def web_receipt_keys(daemon):
     result = payload['result']
     require(isinstance(result, dict) and set(result) == {'keys'},
             'receipt key RPC response is malformed')
-    keys = result['keys']
+    return result['keys']
+
+
+def web_receipt_public_key(daemon):
+    keys = web_receipt_key_entries(daemon)
+    index = daemon['LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX']
+    require(isinstance(index, str) and re.fullmatch(r'[0-9]+', index),
+            'receipt key index has no px_getReceiptKeys entry')
+    index = int(index)
+    require(isinstance(keys, list) and 1 <= len(keys) <= 64 and index < len(keys),
+            'receipt key index has no px_getReceiptKeys entry')
+    key = keys[index]
+    require(isinstance(key, dict), 'receipt public key is malformed')
+    value = key.get('publicKey')
+    require(isinstance(value, str) and re.fullmatch(r'0x[0-9a-fA-F]{64}', value)
+            and int(value[2:], 16) != 0, 'receipt public key is malformed')
+    return value[2:].lower()
+
+
+def web_receipt_keys(daemon):
+    keys = web_receipt_key_entries(daemon)
     require(isinstance(keys, list) and 1 <= len(keys) <= 64,
             'receipt key index must name 1 to 64 keys')
     normalized, seen = [], set()

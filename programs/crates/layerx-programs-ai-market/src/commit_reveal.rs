@@ -32,7 +32,7 @@ use crate::{
     },
     evaluators::{
         admission::{
-            admit_report_with, Admission, AdmissionReceipt, ReportRegion, RevealAdmission,
+            admit_report_in_state, Admission, AdmissionReceipt, ReportRegion, RevealAdmission,
         },
         authority::{evaluator_region, FrozenEvaluator},
         codec::verify_digest,
@@ -262,6 +262,7 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 
 /// Committed views of the currently opened epoch.
 struct Opened<'a> {
+    admission: AdmissionTable,
     state: SharedState<'a>,
     section: PolicySection<'a>,
     rewards: RewardState<'a>,
@@ -275,11 +276,11 @@ struct Opened<'a> {
 fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     let state = decode_shared_state(current)?;
     let section = committed(&state)?;
-    let admission = AdmissionTable::decode(
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?;
+    )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
     let rewards = settlement_rewards(&state, None)?;
     let row = match rewards.row(epoch) {
@@ -305,6 +306,7 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
         return Err(NON_CANONICAL);
     }
     Ok(Opened {
+        admission,
         state,
         section,
         rewards,
@@ -444,15 +446,11 @@ impl Call<'_> {
                 key_version: frozen.entry.key_version,
             },
         )?;
-        crate::evidence::check_frozen_evaluator(
+        crate::evidence::check_frozen_evaluator_in_table(
             &region,
             &frozen,
             self.opened.frozen.epoch,
-            *self
-                .opened
-                .state
-                .feature_sections
-                .guest_index(Section::ReputationAdmission.index()),
+            &self.opened.admission,
         )?;
         Ok(frozen)
     }
@@ -608,7 +606,7 @@ fn commit_score(
 
 fn reveal_score(
     call: &Call<'_>,
-    current: &[u8],
+    _current: &[u8],
     next: &mut [u8],
     scratch: &mut [u8],
     event: &mut [u8],
@@ -623,8 +621,14 @@ fn reveal_score(
     let opened = call.opened;
     let epoch = opened.frozen.epoch;
     let evaluator = frozen.entry.evaluator;
-    if opened.reports.get(epoch, evaluator)?.is_some() {
-        return Err(CONFLICT);
+    if let Some(stored) = opened.reports.get(epoch, evaluator)? {
+        return Err(
+            if stored.receipt.report != codec::report_digest(&payload.report)? {
+                crate::errors::F03_REPORT_ALREADY_FINAL
+            } else {
+                CONFLICT
+            },
+        );
     }
     let record = opened.commits.get(epoch, evaluator)?.ok_or(NOT_FOUND)?;
     let report = codec::report_digest(&payload.report)?;
@@ -639,8 +643,17 @@ fn reveal_score(
         height: call.ctx.height,
         activity: call.envelope.envelope.sequence,
     };
-    match admit_report_with(current, &reveal, next, scratch, event, Some(opened.rewards))
-        .map_err(verification)?
+    match admit_report_in_state(
+        &opened.state,
+        &opened.admission,
+        opened.reports,
+        &reveal,
+        next,
+        scratch,
+        event,
+        Some(opened.rewards),
+    )
+    .map_err(verification)?
     {
         Admission::Applied {
             receipt,

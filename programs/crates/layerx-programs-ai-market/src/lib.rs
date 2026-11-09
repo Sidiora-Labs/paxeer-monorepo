@@ -228,7 +228,7 @@ mod guest {
     use crate::host_adapter::{AdapterError, ApplicationEvent, DirectCall};
     use crate::registry_ops::CallContext;
     use crate::types::{GuestIndex as _, Presence};
-    use crate::{codec, ApplicationError, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES};
+    use crate::{ApplicationError, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES};
     use layerx_program_sdk::{
         CallResult, EntryResponse, ProgramRefusal, RefusalClass, RefusalReason,
     };
@@ -270,9 +270,7 @@ mod guest {
         error: ApplicationError,
         result: &'static mut [u8; MAX_RESULT_BYTES],
     ) -> ProgramRefusal<'static> {
-        match codec::ApplicationResult::failure(error, Presence::Absent, 0)
-            .and_then(|value| codec::encode_result(&value, result))
-        {
+        match dispatch::failure_frame(error, Presence::Absent, 0, result) {
             Ok(n) => rejected(result.guest_index(..n)),
             Err(_) => EMPTY_REFUSAL,
         }

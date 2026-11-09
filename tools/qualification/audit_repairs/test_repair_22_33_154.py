@@ -165,7 +165,7 @@ def test_readme_planning_limit_matches_real_endpoint_contract():
     assert "new EndpointClient({" in panel
     assert "hostedUrl:" not in panel
     assert "EndpointClient: hostedUrl required for hosted px_ reads" in endpoint
-    assert "this.hosted().call('px_getNetwork', [])" in endpoint
+    assert "this.rpc.call('px_getNetwork', [])" in endpoint
     assert "this.send('POST', '/v1/intents/plan', request, undefined)" in human
     assert "human.submitPlan" not in panel
     for fact in (

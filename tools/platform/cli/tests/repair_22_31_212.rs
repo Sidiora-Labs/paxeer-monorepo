@@ -1,5 +1,8 @@
 //! Audit 22.30.89 contract proofs. The producers/consumers are production modules;
 //! their remote peers are bounded loopback services and committed ABI vectors.
+//!
+//! Task 22.39.118: Server publishes and asserts the root endpoint required by
+//! RpcClient::connect (src/rpc.rs:47-49); hosted-service clients accept it too.
 use layerx_platform_cli::{
     config::Configuration, credential, wallet_gateway as producer, wallet_reads, wallet_send,
     wallet_signing::SigningFacts,
@@ -27,7 +30,7 @@ struct Server {
 impl Server {
     fn start(mut answer: impl FnMut(Value) -> Value + Send + 'static) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let endpoint = format!("http://{}/rpc", listener.local_addr().unwrap());
+        let endpoint = format!("http://{}/", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         let closing = stop.clone();
@@ -52,7 +55,7 @@ impl Server {
                     header.push(byte[0]);
                 }
                 let header = std::str::from_utf8(&header).unwrap();
-                assert!(header.starts_with("POST /rpc HTTP/1.1\r\n"));
+                assert!(header.starts_with("POST / HTTP/1.1\r\n"));
                 let length = header
                     .lines()
                     .find_map(|line| {

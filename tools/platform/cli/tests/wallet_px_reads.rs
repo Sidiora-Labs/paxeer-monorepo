@@ -244,6 +244,7 @@ fn wallet_balance_reads_px_get_balances() {
                 args.extend(["--rpc", endpoint.as_str()]);
             }
             args.extend(["wallet", "balance", "--did", px_reads::DID]);
+            args.extend(["--gateway-rpc", endpoint.as_str()]);
             if let Some(asset) = &asset {
                 args.extend(["--asset", asset.as_str()]);
             }
@@ -260,6 +261,7 @@ fn wallet_balance_reads_px_get_balances() {
             assert_eq!(request["params"], json!([px_reads::DID]));
             assert_eq!(printed["kind"], "wallet.balance");
             let mut expected = px_reads::balance_document();
+            expected["verification"] = json!("unverified_node_observation");
             if asset.is_some() {
                 expected["balances"] = json!([]);
             }
@@ -269,6 +271,37 @@ fn wallet_balance_reads_px_get_balances() {
             assert_eq!(printed["data"]["evidence"], "committed_eth_call");
         }
     }
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("unused node listener");
+    listener
+        .set_nonblocking(true)
+        .expect("nonblocking listener");
+    let endpoint = format!("http://{}/", listener.local_addr().expect("node address"));
+    px_reads::configure(directory.path(), &endpoint);
+    let output = px_reads::cli(
+        directory.path(),
+        &[
+            "--rpc",
+            &endpoint,
+            "wallet",
+            "balance",
+            "--did",
+            px_reads::DID,
+        ],
+    );
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    let printed: Value = serde_json::from_slice(&output.stderr).expect("CLI public refusal");
+    assert_eq!(printed["ok"], false);
+    assert_eq!(printed["error"]["code"], "gateway_rpc_required");
+    assert_eq!(
+        printed["error"]["detail"],
+        "gateway_rpc_required: provide --gateway-rpc for hosted px_ balances"
+    );
+    assert!(matches!(
+        listener.accept(),
+        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+    ));
 }
 
 #[test]
@@ -304,11 +337,10 @@ fn token_list_reads_px_list_assets() {
             let request = captured.join().expect("wire capture");
             assert_eq!(request["method"], "px_listAssets");
             assert_eq!(request["params"], params);
+            assert_eq!(printed["kind"], "token.read");
             if args[1] == "info" {
-                assert_eq!(printed["kind"], "token.info");
                 assert_eq!(printed["data"]["asset"], px_reads::asset_row());
             } else {
-                assert_eq!(printed["kind"], "token.list");
                 assert_eq!(printed["data"]["assets"], json!([px_reads::asset_row()]));
             }
             assert_eq!(printed["data"]["height"], 94);

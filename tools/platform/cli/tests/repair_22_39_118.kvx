@@ -1,0 +1,121 @@
+[meta]
+task = "22.39.118"
+acceptance = "22998.1"
+reference = "Attempt 23; decisions 2908, 2924 and 2930; gotcha 3637; preserves the attempt-22 tree"
+verified_revision = "By reference: the final build and verify records in private /out/run/gates.jsonl name this candidate revision, exact commands, exit codes and logs. Qualification requires both gates to pass at that same revision and cg spec done to succeed; this record alone claims no passing gate."
+evidence = "Private /out/run/gates.jsonl records the exact revision, command, exit and /out/logs gate log for each run."
+
+[repair.hosted_account_transport]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "WalletFixture::run_with_account_change"
+change = "Pass the recording server root to both --rpc and --gateway-rpc; assert POST / for the hosted account query as well as node requests."
+producer = "tools/platform/cli/src/wallet.rs:1023-1032 requires write.gateway_rpc for hosted account queries; services/agent/crates/layerx-sdk/src/rpc.rs:1188-1192 sends px_getAccount with the DID and asset, and :1530-1532 preserves the endpoint path. The recorder retains its production wallet_gateway::ledger_account response and exact px_getAccount parameters."
+
+[assertion.nonce_address]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "assert_submission"
+change = "Require eth_getTransactionCount parameters to contain 0x followed by lowercase hexadecimal sender bytes and pending."
+producer = "tools/platform/cli/src/wallet.rs:991-995 formats from_address with lowercase hex_encode and passes it to get_identity_sequence."
+
+[assertion.estimate_sender]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "assert_submission"
+change = "Require the eth_estimateGas from field to equal the same lowercase hexadecimal sender address."
+producer = "tools/platform/cli/src/wallet.rs:991 and :1089-1099 place from_address in the transaction object sent to eth_estimateGas."
+
+[assertion.account_id_refusal]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "wallet_send_refuses_mismatched_account_reads_before_submission"
+change = "Require exact detail InvalidResponse when account_id is replaced; preserve the failed status, empty stdout, query occurrence and absence of submission."
+producer = "services/agent/crates/layerx-sdk/src/rpc.rs:289-291 rejects an account_id unequal to the derived account; tools/platform/cli/src/wallet_send.rs:159-161 renders the debug error directly, propagated by src/wallet.rs:1442-1443."
+
+[assertion.asset_id_refusal]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "wallet_send_refuses_mismatched_account_reads_before_submission"
+change = "Require exact detail InvalidResponse when asset_id is replaced; preserve every transport and no-submission assertion."
+producer = "services/agent/crates/layerx-sdk/src/rpc.rs:288-291 rejects a mismatched asset; tools/platform/cli/src/wallet_send.rs:159-161 renders the debug error directly, propagated by src/wallet.rs:1442-1443."
+
+[assertion.owner_refusal]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "wallet_send_refuses_mismatched_account_reads_before_submission"
+change = "Require exact detail InvalidResponse when owner is replaced; preserve every transport and no-submission assertion."
+producer = "services/agent/crates/layerx-sdk/src/rpc.rs:287-291 rejects an owner unequal to the DID key; tools/platform/cli/src/wallet_send.rs:159-161 renders the debug error directly, propagated by src/wallet.rs:1442-1443."
+
+[assertion.next_sequence_refusal]
+file = "tools/platform/cli/tests/wallet_evm_writes.rs"
+symbol = "wallet_send_refuses_mismatched_account_reads_before_submission"
+change = "Require exact detail InvalidResponse for the noncanonical decimal next_sequence 019; preserve every transport and no-submission assertion."
+producer = "services/agent/crates/layerx-sdk/src/rpc.rs:297 and :560-575 reject noncanonical decimal sequence text; tools/platform/cli/src/wallet_send.rs:159-161 renders the debug error directly, propagated by src/wallet.rs:1442-1443."
+
+[previous_attempt_17.build]
+revision = "f7fb34287039d0d7a091e966832e52cd5aa9a2f8"
+command = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[previous_attempt_17.verify]
+revision = "f7fb34287039d0d7a091e966832e52cd5aa9a2f8"
+command = "cg spec done 22.39.118 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The verify_cmd exited 2: all seven selected RPC tests, all 24 CLI library tests and all four wallet_evm_writes tests passed; platform-test-tooling then failed on two unchanged wallet_px_reads tests."
+
+[assertion.hosted_balance_endpoint]
+file = "tools/platform/cli/tests/wallet_px_reads.rs"
+symbol = "wallet_balance_reads_px_get_balances"
+change = "Every successful hosted balance case passes --gateway-rpc with the recording endpoint, preserving exact method, parameters, balance filtering and full output assertions."
+producer = "tools/platform/cli/src/wallet.rs:709-710 requires the explicit gateway_rpc option before get_balances; task 22.33.1494, revision 3f380f6199."
+
+[assertion.hosted_balance_verification]
+file = "tools/platform/cli/tests/wallet_px_reads.rs"
+symbol = "wallet_balance_reads_px_get_balances"
+change = "The exact expected balance document includes verification equal to unverified_node_observation."
+producer = "tools/platform/cli/src/wallet.rs:720 sets verification on every hosted balance result outside the emulator."
+
+[assertion.hosted_balance_requires_gateway]
+file = "tools/platform/cli/tests/wallet_px_reads.rs"
+symbol = "wallet_balance_reads_px_get_balances"
+change = "A command with only --rpc fails with empty stdout, printed ok false, exact gateway_rpc_required code and detail, and no request to the listening node."
+producer = "tools/platform/cli/src/wallet.rs:709-710 refuses missing gateway_rpc before transport; src/output.rs:46-56 prints ok false and the typed error code on stderr."
+
+[assertion.token_list_kind]
+file = "tools/platform/cli/tests/wallet_px_reads.rs"
+symbol = "token_list_reads_px_list_assets"
+change = "Both info and list require kind token.read, retaining exact px_listAssets parameters, data.asset, data.assets and height assertions."
+producer = "tools/platform/cli/src/wallet.rs:929 returns CommandOutput::new with token.read from read_asset, which run_token uses for both commands since task 8.48.3, revision 9456895dab."
+
+[previous_attempt_18.build]
+revision = "4fa9f049aafd0e9555a7f8e9a3063c35f693cd00"
+command = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[previous_attempt_18.verify]
+revision = "4fa9f049aafd0e9555a7f8e9a3063c35f693cd00"
+command = "cg spec done 22.39.118 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[repair.root_workspace_install]
+file = "tools/platform/emulator/tests/repair_22_31_200.rs:121"
+symbol = "emulator_settlement_v2_retirement_and_current_authority_survive_restart"
+change = "The declared build command runs npm ci --ignore-scripts --no-audit --no-fund at the repository root before cargo build, installing the TypeScript SDK workspace dependencies used by the emulator middleware subprocess in make platform-test-tooling."
+producer = "Gotchas 3615 and 3619 and decision 2856 identify the missing root workspace install in the previous attempts; no source change under services/platform or the SDK is required."
+
+[repair.smoke_accounts_input]
+file = "services/platform/hosted/testnet/README.md"
+change = "The smoke-input paragraph names LAYERX_TEST_ACCOUNTS_FILE as the explicit DID to EVM bindings in smoke-accounts.json written by tests/smoke_accounts.py."
+producer = "services/platform/hosted/testnet/tests/repair_22_33_1447.kvx:28 requests this documentation; tests/smoke_accounts.py:60-70 writes smoke-accounts.json and exports LAYERX_TEST_ACCOUNTS_FILE; tests/hosted-smoke.sh:17 requires it."
+
+[repair.smoke_evm_signer_input]
+file = "services/platform/hosted/testnet/README.md"
+change = "The smoke-input paragraph names LAYERX_TEST_SOURCE_EVM_KEY_FILE as the paying EVM signer's PEM key file test-source-evm.key written by the same helper."
+producer = "services/platform/hosted/testnet/tests/repair_22_33_1447.kvx:28 requests this documentation; tests/smoke_accounts.py:38-42 writes the PEM key and :69 exports LAYERX_TEST_SOURCE_EVM_KEY_FILE; tests/hosted-smoke.sh:18 requires it."
+
+[qualification.build]
+reference = "Private /out/run/gates.jsonl: final build entry for this candidate, including revision, command, exit and log."
+command = "python3 -c 'import cryptography' && npm ci --ignore-scripts --no-audit --no-fund && cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --tests"
+
+[qualification.verify]
+reference = "Private /out/run/gates.jsonl: final verify entry for the same candidate, including revision, command, exit and log; hf-done runs the selected RPC tests and the complete platform-test-tooling gate through cg spec done without force."
+command = "cg spec done 22.39.118 -f layerx-merge --root /work/paxeer-monorepo"

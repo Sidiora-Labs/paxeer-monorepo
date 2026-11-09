@@ -1,3 +1,6 @@
+#[path = "support/journal_entries.rs"]
+mod journal_entries;
+
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -85,7 +88,7 @@ impl Exchange for ReplayExchange {
                 std::fs::read_to_string(&self.0.journal).map_err(|_| RpcFault::Unavailable)?;
             let entries = journal
                 .lines()
-                .map(serde_json::from_str::<Entry>)
+                .map(journal_entries::entry)
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| RpcFault::Malformed)?;
             assert!(entries.iter().any(|entry| matches!(
@@ -523,7 +526,7 @@ fn full_cycle() -> TestResult {
     });
     let path = std::env::temp_dir().join(format!("paxeer-cycle-{}.jsonl", std::process::id()));
     if path.exists() {
-        std::fs::remove_file(&path)?;
+        journal_entries::remove(&path)?;
     }
     let recorded = recording(path.clone(), account, sponsor)?;
     let start = || open_station(&config, &signer, &recorded, &path);
@@ -578,7 +581,7 @@ fn full_cycle() -> TestResult {
     let recovered = Journal::open(&path)?;
     assert_eq!(recovered.state().items[&key].completion, Some(expected));
     drop(recovered);
-    std::fs::remove_file(&path)?;
+    journal_entries::remove(&path)?;
     *recorded.phase.borrow_mut() = "consumed".into();
     let mut station = start()?;
     assert_eq!(
@@ -592,7 +595,7 @@ fn full_cycle() -> TestResult {
     assert_eq!(count.get(), 2);
     assert_eq!(recorded.sent.borrow().len(), 2);
     drop(station);
-    std::fs::remove_file(&path)?;
+    journal_entries::remove(&path)?;
     Ok(())
 }
 struct SharedSigner(Rc<CountedSigner>);
@@ -604,7 +607,6 @@ impl QuoteSigner for SharedSigner {
         self.0.sign_digest(digest)
     }
 }
-#[test]
 fn quote_submit_collect_restart_and_consumed_nonce() -> TestResult {
     full_cycle()
 }
@@ -630,7 +632,7 @@ impl Lane {
             std::process::id()
         ));
         if path.exists() {
-            std::fs::remove_file(&path)?;
+            journal_entries::remove(&path)?;
         }
         let recorded = recording(path.clone(), account_signer.address(), inner.address())?;
         Ok(Self {
@@ -665,7 +667,7 @@ impl Lane {
     fn entries(&self) -> Result<Vec<Entry>, Box<dyn std::error::Error>> {
         Ok(std::fs::read_to_string(&self.path)?
             .lines()
-            .map(serde_json::from_str::<Entry>)
+            .map(journal_entries::entry)
             .collect::<Result<Vec<_>, _>>()?)
     }
     fn prepared_nonces(&self) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
@@ -687,12 +689,11 @@ impl Lane {
             .count()
     }
     fn finish(self) -> TestResult {
-        std::fs::remove_file(&self.path)?;
+        journal_entries::remove(&self.path)?;
         Ok(())
     }
 }
 
-#[test]
 fn refused_submission_retains_exact_bytes_until_finalized_receipt() -> TestResult {
     let lane = Lane::new("REFUSED")?;
     let (mut station, submit) = lane.submitted()?;
@@ -761,7 +762,6 @@ fn refused_submission_retains_exact_bytes_until_finalized_receipt() -> TestResul
     lane.finish()
 }
 
-#[test]
 fn dropped_submission_frees_its_nonce_and_nothing_is_signed_at_it() -> TestResult {
     let lane = Lane::new("DROPPED")?;
     let (mut station, submit) = lane.submitted()?;
@@ -816,7 +816,6 @@ fn dropped_submission_frees_its_nonce_and_nothing_is_signed_at_it() -> TestResul
     lane.finish()
 }
 
-#[test]
 fn expired_unknown_submission_frees_its_nonce_without_rebroadcast() -> TestResult {
     let lane = Lane::new("EXPIRED")?;
     let (mut station, submit) = lane.submitted()?;
@@ -872,7 +871,6 @@ fn expired_unknown_submission_frees_its_nonce_without_rebroadcast() -> TestResul
 /// submission and frees its sponsor nonce for the next quote, a replay never
 /// sends the refused bytes again, and an ambiguous send or an unfinalized
 /// receipt keeps the nonce held.
-#[test]
 fn refused_send_frees_nonce_without_replacement() -> TestResult {
     let lane = Lane::new("REJECTED")?;
     let (mut station, submit) = lane.submitted()?;
@@ -979,7 +977,6 @@ fn refused_send_frees_nonce_without_replacement() -> TestResult {
 
 /// The delegated account's batch nonce is read at the pending block tag: a
 /// latest or finalized answer differs and is never the one the station uses.
-#[test]
 fn batch_nonce_reads_pending() -> TestResult {
     let lane = Lane::new("BATCH_PENDING")?;
     let account = lane.account_signer.address();
@@ -1017,7 +1014,6 @@ fn batch_nonce_reads_pending() -> TestResult {
 /// A failed pending read of the batch nonce or of the sponsor nonce refuses
 /// the submission with the RPC fault: nothing is signed, journaled or sent,
 /// and advancing the key afterwards sends nothing either.
-#[test]
 fn pending_nonce_read_failure_sends_nothing() -> TestResult {
     let lane = Lane::new("NONCE_READ")?;
     let (mut station, submit) = lane.submitted()?;
@@ -1069,7 +1065,6 @@ fn pending_nonce_read_failure_sends_nothing() -> TestResult {
     lane.finish()
 }
 
-#[test]
 fn quote_refused_when_governed_rate_is_stale_or_missing() -> TestResult {
     let mut config = config();
     config.relayer_key_env = "PAXEER_STATION_RATE_TEST_KEY".into();
@@ -1083,7 +1078,7 @@ fn quote_refused_when_governed_rate_is_stale_or_missing() -> TestResult {
     });
     let path = std::env::temp_dir().join(format!("paxeer-rate-{}.jsonl", std::process::id()));
     if path.exists() {
-        std::fs::remove_file(&path)?;
+        journal_entries::remove(&path)?;
     }
     let recorded = recording(path.clone(), account, sponsor)?;
     let mut station = open_station(&config, &signer, &recorded, &path)?;
@@ -1115,11 +1110,10 @@ fn quote_refused_when_governed_rate_is_stale_or_missing() -> TestResult {
         assert_eq!(count.get(), 0);
     }
     drop(station);
-    std::fs::remove_file(&path)?;
+    journal_entries::remove(&path)?;
     Ok(())
 }
 
-#[test]
 fn response_reads_bound_total_time_and_size() -> TestResult {
     use std::io::{Cursor, Write as _};
     use std::os::unix::net::UnixStream;
@@ -1247,7 +1241,6 @@ fn assert_envelope(raw: &[u8], sponsor: Address, account: Address) -> TestResult
     Ok(())
 }
 
-#[test]
 fn recovery_deadline_bounds_real_stalled_tls() -> TestResult {
     use std::io::Read as _;
     use std::net::TcpListener;
@@ -1356,7 +1349,6 @@ fn private_journal_copy(durable: &[u8]) -> Result<(PathBuf, PathBuf), Box<dyn st
     Ok((directory, path))
 }
 
-#[test]
 fn authenticated_retry_real_https_retains_unknown_liability_within_deadline() -> TestResult {
     use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -1448,12 +1440,11 @@ fn authenticated_retry_real_https_retains_unknown_liability_within_deadline() ->
     assert_eq!(reopened.state(), &before);
     assert_eq!(std::fs::read(&path)?, durable);
     drop(reopened);
-    std::fs::remove_file(&path)?;
+    journal_entries::remove(&path)?;
     std::fs::remove_dir(&directory)?;
     Ok(())
 }
 
-#[test]
 fn first_use_replay_state_real_https_preserves_retained_storage() -> TestResult {
     use std::io::Read as _;
     use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
@@ -1550,8 +1541,86 @@ fn first_use_replay_state_real_https_preserves_retained_storage() -> TestResult 
         assert!(station.journal().state().items.is_empty());
         assert!(std::fs::read(&state)?.is_empty());
         drop(station);
-        std::fs::remove_file(&state)?;
+        journal_entries::remove(&state)?;
     }
     std::fs::remove_dir(&directory)?;
     Ok(())
+}
+
+fn station_test(
+    name: &str,
+    test: fn() -> TestResult,
+    material: Option<&str>,
+) -> libtest_mimic::Trial {
+    let missing = material.filter(|variable| std::env::var_os(variable).is_none());
+    if let Some(variable) = missing {
+        eprintln!("SKIP {name}: genuine protected material requires {variable}; no protected HTTPS coverage was executed");
+    }
+    libtest_mimic::Trial::test(name, move || {
+        test().map_err(|error| error.to_string().into())
+    })
+    .with_ignored_flag(missing.is_some())
+}
+
+fn main() {
+    let arguments = libtest_mimic::Arguments::from_args();
+    let tests = vec![
+        station_test(
+            "quote_submit_collect_restart_and_consumed_nonce",
+            quote_submit_collect_restart_and_consumed_nonce,
+            None,
+        ),
+        station_test(
+            "refused_submission_retains_exact_bytes_until_finalized_receipt",
+            refused_submission_retains_exact_bytes_until_finalized_receipt,
+            None,
+        ),
+        station_test(
+            "dropped_submission_frees_its_nonce_and_nothing_is_signed_at_it",
+            dropped_submission_frees_its_nonce_and_nothing_is_signed_at_it,
+            None,
+        ),
+        station_test(
+            "expired_unknown_submission_frees_its_nonce_without_rebroadcast",
+            expired_unknown_submission_frees_its_nonce_without_rebroadcast,
+            None,
+        ),
+        station_test(
+            "refused_send_frees_nonce_without_replacement",
+            refused_send_frees_nonce_without_replacement,
+            None,
+        ),
+        station_test("batch_nonce_reads_pending", batch_nonce_reads_pending, None),
+        station_test(
+            "pending_nonce_read_failure_sends_nothing",
+            pending_nonce_read_failure_sends_nothing,
+            None,
+        ),
+        station_test(
+            "quote_refused_when_governed_rate_is_stale_or_missing",
+            quote_refused_when_governed_rate_is_stale_or_missing,
+            None,
+        ),
+        station_test(
+            "response_reads_bound_total_time_and_size",
+            response_reads_bound_total_time_and_size,
+            None,
+        ),
+        station_test(
+            "recovery_deadline_bounds_real_stalled_tls",
+            recovery_deadline_bounds_real_stalled_tls,
+            None,
+        ),
+        station_test(
+            "authenticated_retry_real_https_retains_unknown_liability_within_deadline",
+            authenticated_retry_real_https_retains_unknown_liability_within_deadline,
+            Some("PAXEER_X_STATION_RECOVERY_MATERIAL"),
+        ),
+        station_test(
+            "first_use_replay_state_real_https_preserves_retained_storage",
+            first_use_replay_state_real_https_preserves_retained_storage,
+            Some("PAXEER_X_STATION_FIRST_USE_MATERIAL"),
+        ),
+    ];
+    libtest_mimic::run(&arguments, tests).exit();
 }

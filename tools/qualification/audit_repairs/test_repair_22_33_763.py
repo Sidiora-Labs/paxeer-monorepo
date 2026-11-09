@@ -179,7 +179,7 @@ def test_topology_deployment_and_recovery_stay_inside_paxd():
     # Read target declarations, not a build toolchain or shell subprocess.
     targets = dict(re.findall(r"^([\w-]+):([^\n]*)$", source("Makefile"), re.M))
     assert targets["paxd-native-libs"].split() == [
-        "$(LIBRARY)", "programs-release-build",
+        "$(LIBRARY)", "programs-release-build", "evmone-lib",
     ]
     assert targets["paxd-build"].split() == ["paxd-native-libs"]
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")

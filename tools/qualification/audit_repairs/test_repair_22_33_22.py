@@ -40,7 +40,7 @@ def test_test_discovery_manifest_covers_maintained_and_previous_suites():
     package = manifest()
     scripts = package["scripts"]
     assert scripts["build"] == "tsc -p tsconfig.json"
-    assert scripts["test"] == "npm run test:self-contained"
+    assert scripts["test"] == "npm run test:ci"
     modes = {"self-contained", "anvil", "ci", "external-node",
              "case-file", "native-effect-case"}
     for mode in modes:
@@ -175,7 +175,7 @@ def test_test_discovery_documents_and_guards_external_probe_commands():
         assert 'process.env.ANVIL_BIN ?? "anvil"' in read(f"test/{name}")
     probe = read("test/agent-operation-envelope.test.ts")
     assert "process.env.PAXEER_X_AGENT_ENVELOPE_CASE" in probe
-    assert "process.exit(2)" in probe
+    assert "process.exitCode = error instanceof AgentOperationProbeInputError ? 2 : 1;" in probe
     programs = read("test/ai-market.test.ts")
     assert 'if (process.argv[2] === "--programs-proof")' in programs
     assert "await TestProofLayerxprograms0x101dConsumer();" in programs

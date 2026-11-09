@@ -181,7 +181,7 @@ fn undeclared_enum_value_in_golden_vector_is_rejected() {
     let fixture = Fixture::from_real_schema();
     fixture.rewrite(
         "golden/journey.get.response.json",
-        "\"state\": \"processing\"",
+        "\"state\": \"done\"",
         "\"state\": \"totally-fine\"",
     );
     assert!(violation_rules(fixture.path()).contains(&"undeclared-enum-value"));
@@ -203,7 +203,7 @@ fn missing_required_field_in_golden_vector_is_rejected() {
     let fixture = Fixture::from_real_schema();
     fixture.rewrite(
         "golden/journey.get.response.json",
-        "      \"kind\": \"deposit\",\n",
+        "      \"kind\": \"move\",\n",
         "",
     );
     assert!(violation_rules(fixture.path()).contains(&"missing-required-field"));
@@ -344,7 +344,7 @@ fn removed_declaration_breaks_the_baseline() {
     let fixture = Fixture::from_real_schema();
     fixture.rewrite(
         "journeys.kvx",
-        "export = \"Every evidence reference is sufficient to fetch the receipt or proof material for export and independent verification.\"\n",
+        "export = \"Resolve evidence_id through evidence.get under the authenticated principal to fetch its material. A local state or submission reference is not a verified receipt. The EVM intent journey projection uses receipt-verified references for verified or refused legs; evidence.get reports the receipt's observed rung and corresponding verification.\"\n",
         "",
     );
     assert!(violation_rules(fixture.path()).contains(&"breaking-declaration-removal"));
@@ -471,4 +471,297 @@ fn nested_json_round_trips_through_the_parser() {
     let parsed = parse_json("{\"list\": [true, null, \"x\\u00e9\", {\"n\": -12}]}")
         .unwrap_or_else(|error| panic!("parse: {error}"));
     assert!(parsed.field("list").is_some());
+}
+
+#[test]
+fn step_up_hex_formats_enforce_service_prefix_width_and_alphabet() {
+    for (file, field, prefix, digits) in [
+        (
+            "golden/stepup.begin.response.json",
+            "challenge_id",
+            "chg_",
+            32,
+        ),
+        ("golden/stepup.begin.response.json", "confirms", "opd_", 64),
+        (
+            "golden/approval.approve.request.json",
+            "step_up_evidence",
+            "chg_",
+            32,
+        ),
+        (
+            "golden/approval.program.approve.request.json",
+            "step_up_evidence",
+            "chg_",
+            32,
+        ),
+        (
+            "golden/approval.program.reject.request.json",
+            "step_up_evidence",
+            "chg_",
+            32,
+        ),
+    ] {
+        let fixture = Fixture::from_real_schema();
+        passing_report(fixture.path());
+        let original = fixture.read(file);
+        let marker = format!("\"{field}\": \"");
+        let current = original
+            .split_once(&marker)
+            .unwrap()
+            .1
+            .split('"')
+            .next()
+            .unwrap();
+        assert_eq!(current.len(), prefix.len() + digits, "{file}: {field}");
+        for suffix in ["0".repeat(digits), "f".repeat(digits)] {
+            fixture.write(
+                file,
+                &original.replace(current, &format!("{prefix}{suffix}")),
+            );
+            passing_report(fixture.path());
+        }
+        for invalid in [
+            format!("{prefix}{}", "0".repeat(digits - 1)),
+            format!("{prefix}{}", "0".repeat(digits + 1)),
+            format!("{prefix}{}", "A".repeat(digits)),
+            format!("{prefix}{}g", "0".repeat(digits - 1)),
+            format!("{prefix}{}é", "0".repeat(digits - 2)),
+            format!("{prefix}01j2h5w4eh8j0k2m4n6p8q0r2s"),
+            format!("evd_{}", "0".repeat(digits)),
+            "0".repeat(digits),
+        ] {
+            fixture.write(file, &original.replace(current, &invalid));
+            let violations = human_api_schema(fixture.path()).unwrap_err();
+            assert!(
+                violations
+                    .iter()
+                    .any(|entry| entry.rule == "invalid-scalar-value"
+                        && entry.path == fixture.path().join(file)
+                        && entry.detail.starts_with(&format!(
+                            "body.{}",
+                            if field == "step_up_evidence" {
+                                field.to_owned()
+                            } else {
+                                format!("result.{field}")
+                            }
+                        ))),
+                "{file}: {field} accepted {invalid}: {violations:#?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn approval_goldens_reference_the_completed_step_up_challenge() {
+    let root = real_schema_root();
+    let finish =
+        parse_json(&fs::read_to_string(root.join("golden/stepup.finish.response.json")).unwrap())
+            .unwrap();
+    let challenge = finish
+        .field("body")
+        .unwrap()
+        .field("result")
+        .unwrap()
+        .field("challenge_id")
+        .unwrap();
+    for operation in [
+        "approval.approve",
+        "approval.program.approve",
+        "approval.program.reject",
+    ] {
+        let request = parse_json(
+            &fs::read_to_string(root.join(format!("golden/{operation}.request.json"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            request.field("body").unwrap().field("step_up_evidence"),
+            Some(challenge),
+            "{operation}"
+        );
+    }
+}
+
+#[test]
+fn unknown_scalar_formats_remain_rejected() {
+    let fixture = Fixture::from_real_schema();
+    fixture.rewrite("identity.kvx", "opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest.", "arbitrary prose that is not a scalar format");
+    assert!(violation_rules(fixture.path()).contains(&"invalid-scalar-declaration"));
+}
+
+#[test]
+fn supplemental_sets_have_declared_operation_owners() {
+    let fixture = Fixture::from_real_schema();
+    passing_report(fixture.path());
+    fixture.rewrite(
+        "activity.kvx",
+        "golden_artifacts = [\"current/activity.evidence.bundle\"]\n",
+        "",
+    );
+    let violations = human_api_schema(fixture.path()).unwrap_err();
+    assert!(
+        violations
+            .iter()
+            .any(|entry| entry.rule == "orphan-golden-vector"
+                && entry.path == fixture.path().join("golden/current")),
+        "{violations:#?}"
+    );
+}
+
+#[test]
+fn supplemental_ownership_does_not_admit_unlisted_files_or_directories() {
+    let fixture = Fixture::from_real_schema();
+    fixture.write("golden/producer/unowned.json", "{}");
+    fs::create_dir(fixture.path().join("golden/unowned-set")).unwrap();
+    let violations = human_api_schema(fixture.path()).unwrap_err();
+    for path in ["golden/producer/unowned.json", "golden/unowned-set"] {
+        assert!(
+            violations
+                .iter()
+                .any(|entry| entry.rule == "orphan-golden-vector"
+                    && entry.path == fixture.path().join(path)),
+            "{violations:#?}"
+        );
+    }
+}
+
+#[test]
+fn supplemental_fixture_cannot_have_multiple_owners() {
+    let fixture = Fixture::from_real_schema();
+    fixture.rewrite(
+        "activity.kvx",
+        "[operation.activity.entry]",
+        "[operation.activity.entry]\ngolden_inputs = [\"producer/journey.get.record.json\"]",
+    );
+    assert!(violation_rules(fixture.path()).contains(&"duplicate-golden-ownership"));
+}
+
+#[test]
+fn supplemental_paths_cannot_escape_their_set_or_shadow_stream_push() {
+    for invalid in [
+        "../identity.kvx",
+        "/tmp/fixture.json",
+        "producer/../v1.kvx",
+        "producer/./journey.get.record.json",
+        "producer/nested/input.json",
+        "stream-push-v2/request.json",
+    ] {
+        let fixture = Fixture::from_real_schema();
+        fixture.rewrite(
+            "journeys.kvx",
+            "\"producer/journey.get.record.json\"",
+            &format!("\"{invalid}\""),
+        );
+        assert!(
+            violation_rules(fixture.path()).contains(&"invalid-golden-ownership"),
+            "{invalid}"
+        );
+    }
+}
+
+#[test]
+fn missing_supplemental_fixture_is_rejected() {
+    let fixture = Fixture::from_real_schema();
+    fixture.remove("golden/producer/journey.get.record.json");
+    let violations = human_api_schema(fixture.path()).unwrap_err();
+    assert!(
+        violations
+            .iter()
+            .any(|entry| entry.rule == "missing-golden-vector"
+                && entry.path
+                    == fixture
+                        .path()
+                        .join("golden/producer/journey.get.record.json")),
+        "{violations:#?}"
+    );
+}
+
+#[test]
+fn supplemental_http_vectors_are_checked_against_the_owning_operation() {
+    for (file, source, replacement, expected) in [
+        (
+            "golden/historical/journey.get.response.json",
+            "\"state\": \"processing\"",
+            "\"state\": \"unknown\"",
+            "undeclared-enum-value",
+        ),
+        (
+            "golden/historical-decode/activity.entry.response.json",
+            "\"entry_id\":",
+            "\"unknown_id\":",
+            "missing-required-field",
+        ),
+        (
+            "golden/negative/intent.plan.paxeer-wallet.request.json",
+            "\"method\": \"POST\"",
+            "\"method\": \"GET\"",
+            "golden-method-mismatch",
+        ),
+        (
+            "golden/negative/intent.plan.paxeer-wallet.response.json",
+            "\"ok\": false",
+            "\"ok\": true",
+            "invalid-failure-envelope",
+        ),
+    ] {
+        let fixture = Fixture::from_real_schema();
+        fixture.rewrite(file, source, replacement);
+        assert!(
+            violation_rules(fixture.path()).contains(&expected),
+            "{file}: expected {expected}"
+        );
+    }
+    let fixture = Fixture::from_real_schema();
+    fixture.rewrite(
+        "activity.kvx",
+        "\"historical-decode/activity.entry.response.json\"",
+        "\"historical/journey.get.response.json\"",
+    );
+    fixture.rewrite(
+        "journeys.kvx",
+        "\"historical/journey.get.response.json\"",
+        "\"historical-decode/activity.entry.response.json\"",
+    );
+    let violations = human_api_schema(fixture.path()).unwrap_err();
+    assert!(
+        violations.iter().any(|entry| entry.path
+            == fixture
+                .path()
+                .join("golden/historical/journey.get.response.json")
+            && entry.rule == "missing-required-field"),
+        "{violations:#?}"
+    );
+}
+
+#[test]
+fn supplemental_producer_inputs_and_artifacts_are_required_and_readable() {
+    for (file, content, expected) in [
+        (
+            "golden/producer/intent.plan.context.json",
+            "{",
+            "invalid-golden-json",
+        ),
+        (
+            "golden/producer/intent.plan.context.json",
+            "[]",
+            "invalid-golden-input",
+        ),
+        (
+            "golden/producer/journey.get.record.json",
+            "{}",
+            "invalid-golden-input",
+        ),
+        (
+            "golden/current/activity.evidence.bundle",
+            "",
+            "invalid-golden-artifact",
+        ),
+    ] {
+        let fixture = Fixture::from_real_schema();
+        fixture.write(file, content);
+        assert!(
+            violation_rules(fixture.path()).contains(&expected),
+            "{file}: expected {expected}"
+        );
+    }
 }

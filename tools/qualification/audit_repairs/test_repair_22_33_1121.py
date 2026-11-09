@@ -210,7 +210,7 @@ def test_readme_build_and_upgrade_match_integrated_release():
     assert "tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
     native, _ = make_target(makefile, "paxd-native-libs")
-    assert native == ["$(LIBRARY)", "programs-release-build"]
+    assert native == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     dependencies, command = make_target(source("chain.mk"), "build")
     assert dependencies == ["paxd-native-libs"]
     assert "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd" in command

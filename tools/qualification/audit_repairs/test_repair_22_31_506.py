@@ -11,8 +11,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = ROOT / ".github/workflows/wallet-go-test.yml"
-CHECKOUT = "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09"
-SETUP_GO = "actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16"
+CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+SETUP_GO = "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"
 SETUP_NODE = "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020"
 
 
@@ -27,7 +27,7 @@ def test_ceremony_installs_node_and_pinned_pnpm_before_go_tests():
     pnpm_steps = [
         (i, step)
         for i, step in enumerate(steps)
-        if shlex.split(step.get("run", "")) == ["npm", "install", "--global", "pnpm@9.15.9"]
+        if shlex.split(step.get("run", "")) == ["npm", "install", "--global", "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"]
     ]
     test_steps = [(i, step) for i, step in enumerate(steps) if step.get("name") == "Test ceremony"]
     assert len(node_steps) == len(pnpm_steps) == len(test_steps) == 1
@@ -49,7 +49,7 @@ def test_both_jobs_keep_action_commits_and_checkout_credentials_disabled(name):
     steps = job["steps"]
     actions = [step["uses"] for step in steps if "uses" in step]
     expected = [CHECKOUT, SETUP_GO]
-    if name == "ceremony":
+    if name in ("attestor", "ceremony"):
         expected.append(SETUP_NODE)
     assert actions == expected
     for action in actions:
@@ -62,7 +62,9 @@ def test_both_jobs_keep_action_commits_and_checkout_credentials_disabled(name):
         "cache-dependency-path": f"services/wallet/{name}/go.sum",
     }
     assert job["defaults"]["run"]["working-directory"] == f"services/wallet/{name}"
-    go_tests = [step for step in steps if step.get("run") == "go test ./..."]
+    command = ("sh ../../../tools/runtime/run-with-clock.sh go test -count=1 ./..."
+               if name == "attestor" else "go test ./...")
+    go_tests = [step for step in steps if step.get("run") == command]
     assert len(go_tests) == 1
     assert go_tests[0].get("continue-on-error", False) is False
     assert "if" not in go_tests[0]

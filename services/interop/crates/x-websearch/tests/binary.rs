@@ -600,20 +600,12 @@ fn the_binary_refuses_a_settlement_endpoint_on_another_chain() -> TestResult {
         config["evm"]["endpoint"] = json!(evm.url());
     })?;
     let receiver = settlement_receiver_key(&scratch)?;
-    let sidecar = Sidecar::start(&scratch, &config, &receiver)?;
-
-    let (status, readiness, settlement) = wait_for_settlement(&sidecar)?;
-    assert_eq!(status, 503, "{readiness}");
-    assert_eq!(readiness["ready"], false);
-    assert_eq!(settlement["state"], "unavailable", "{readiness}");
-    assert_eq!(settlement["critical"], true);
-    assert!(settlement["last_success_unix_ms"].is_null());
-    let (status, _, body) = sidecar.get("/search?q=lighthouse", "")?;
-    assert_eq!(status, 503);
-    assert_eq!(
-        serde_json::from_slice::<Value>(&body)?["error"],
-        "service_not_ready"
-    );
+    let (mut child, log) = launch(&scratch, Some(&receiver))?;
+    assert_eq!(wait_exit(&mut child)?.code(), Some(2));
+    assert!(std::fs::read_to_string(log)?.contains("the 402LXP adapter cannot be registered"));
+    let address: SocketAddr = config["listen"].as_str().ok_or("listen")?.parse()?;
+    assert!(TcpStream::connect(address).is_err());
+    assert!(gateway.params("eth_call").is_empty());
     assert!(!gateway.params("eth_chainId").is_empty());
     assert!(gateway
         .params("eth_chainId")
@@ -731,7 +723,7 @@ fn the_binary_serves_health_free_and_every_paid_route_behind_the_payment_gate() 
     let payer = format!("{PAYER_ADDRESS}: 0xabababababababababababababababababababab\r\n");
     let (status, head, _) = sidecar.get("/search?q=lighthouse", &payer)?;
     assert_eq!(status, 402);
-    assert_offers_every_asset(&offers(&head)?, &config, &["metered", "exact"])?;
+    assert_offers_every_asset(&offers(&head)?, &config, &["exact"])?;
 
     let target = format!("/fetch?url={}", site.url("/notes.txt"));
     let (status, head, _) = sidecar.get(&target, "")?;

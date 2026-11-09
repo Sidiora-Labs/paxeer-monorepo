@@ -694,9 +694,12 @@ fn outbound_peer_authenticates_cross_uid_and_refuses_wrong_uid_processes() {
     );
     let root = Directory::new();
     let (_shared, _controller, mut engine) = fixture(&root.0);
-    fs::set_permissions(&root.0, fs::Permissions::from_mode(0o777)).unwrap();
+    assert_eq!(fs::metadata(&root.0).unwrap().mode() & 0o7777, 0o700);
+    let sockets = Directory::new();
+    fs::create_dir(&sockets.0).unwrap();
+    fs::set_permissions(&sockets.0, fs::Permissions::from_mode(0o777)).unwrap();
     for mode in ["reject", "accept"] {
-        let path = root.0.join(format!("{mode}.sock"));
+        let path = sockets.0.join(format!("{mode}.sock"));
         let mut child = Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",

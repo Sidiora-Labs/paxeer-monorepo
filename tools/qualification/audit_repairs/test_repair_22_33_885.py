@@ -2,6 +2,7 @@
 
 import ast
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -53,6 +54,11 @@ def bootstrap(volume, **overrides):
         "GAS_STATION_RATE_MAX_FEE_PER_GAS": "5000000000",
         "GAS_STATION_RATE_CONFIRMATION_RETRY_SECONDS": "60",
     }
+    if "GAS_STATION_ENDPOINTS" not in overrides:
+        endpoints = os.environ.get("GAS_STATION_QUALIFICATION_NODE_URL")
+        if not endpoints:
+            pytest.skip("missing service chain-125 node root; exact command: GAS_STATION_QUALIFICATION_NODE_URL=https://api1.mainnet-beta.paxeer.network/ python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_885.py")
+        env["GAS_STATION_ENDPOINTS"] = endpoints
     env.update(overrides)
     return subprocess.run(
         ["bash", "--noprofile", "--norc", "-c",
@@ -67,9 +73,12 @@ def test_f040_shell_and_retired_authority_removed():
     assert parsed.returncode == 0, parsed.stderr
     source = INIT.read_text()
     for retired in ("px_getReceiptKeys", "GAS_STATION_RECEIPT_KEYS",
-                    "sequencer_receipt_keys", "refuse_receipt_keys", "curl"):
+                    "sequencer_receipt_keys", "refuse_receipt_keys"):
         assert retired not in source
     assert "set -eu\numask 077\ndir=/data/gas-station" in source
+    assert '\"method\":\"px_getNetwork\"' in source
+    assert 'node-root px_getNetwork is unavailable or is not chain 125' in source
+    assert source.index('answer="$(curl') < source.index('mkdir -p "$dir"')
 
 
 def test_f040_real_renderer_transports_only_node_configuration(tmp_path):
@@ -78,9 +87,7 @@ def test_f040_real_renderer_transports_only_node_configuration(tmp_path):
     station = json.loads((tmp_path / "station.json").read_text())
     rate = json.loads((tmp_path / "rate.json").read_text())
     assert station["chain_id"] == rate["chain_id"] == 125
-    assert station["endpoints"] == rate["endpoints"] == [
-        "https://node-a.example", "https://node-b.example/"
-    ]
+    assert station["endpoints"] == rate["endpoints"] == os.environ["GAS_STATION_QUALIFICATION_NODE_URL"].split()
     shared = {k: v for k, v in station.items() if k not in {
         "listen", "gas_limit", "max_priority_fee_per_gas"
     }}

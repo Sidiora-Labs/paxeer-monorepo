@@ -5,7 +5,7 @@ use layerx_types::{rung::Rung, verify::VerificationLevel};
 use crate::evidence::Evidence;
 
 /// Evidence kinds constructible only by proof routines in this crate.
-/// None authenticates a BFT commit.
+/// Receipt, inclusion and state proofs cannot authenticate a Comet commit.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Achieved {
     SequencerSigned,

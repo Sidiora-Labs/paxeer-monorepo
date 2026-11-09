@@ -11,6 +11,13 @@ SHELL := /usr/bin/env bash
 GO ?= go
 GOFLAGS ?=
 
+# Exercise each module independently, as the workflow matrix does.
+export GOWORK := off
+export GOTOOLCHAIN := go1.27.3
+
+TEST_RUNNER := $(abspath ../../tests/ci/data/launchpad_go_tests.py)
+COVER_INVENTORY := $(abspath ../../tools/launchpad/coverage_inventory.py)
+
 # All independent modules (each owns a go.mod). Order: foundations first.
 MODULES := \
 	../../sdk/launchpad/shared \
@@ -39,7 +46,7 @@ MONEY_MODULES := ../../sdk/launchpad/shared ../../sdk/launchpad/protocol indexer
 
 all: build vet fmt-check lint race cover-check ## Run the full local verification gate
 
-ci: build vet fmt-check lint race cover-check ## Exactly what CI enforces on every PR
+ci: test build vet fmt-check lint race cover-check ## Exactly what CI enforces on every PR
 
 # has_pkgs <module> -> assign pkgs, or stop on package discovery failure.
 # Only successful discovery may skip an empty scaffold.
@@ -65,7 +72,7 @@ lint: ## golangci-lint run in every module (zero warnings, SECTION 17)
 	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> lint $$m"; ( cd $$m && golangci-lint run ) || exit 1; done
 
 test: ## go test ./... in every module that has packages
-	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> test $$m"; ( cd $$m && $(GO) test ./... ) || exit 1; done
+	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> test $$m"; python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(GOFLAGS)" || exit 1; done
 
 test-module: ## go test -count=1 one module with an anchored -run (MODULE=<dir> RUN=<regex>)
 	@valid=; for m in $(MODULES); do if [ "$$m" = '$(MODULE)' ]; then valid=1; break; fi; done; \
@@ -74,19 +81,30 @@ test-module: ## go test -count=1 one module with an anchored -run (MODULE=<dir> 
 	cd $(MODULE) && $(GO) test -count=1 $(GOFLAGS) ./... -run '$(RUN)'
 
 race: ## go test -race ./... in every module (zero data races, SECTION 17)
-	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> race $$m"; ( cd $$m && $(GO) test -race ./... ) || exit 1; done
+	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> race $$m"; python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(strip $(GOFLAGS) -race)" || exit 1; done
 
-cover: ## write per-module coverage profiles into .cover/
+cover: ## write fresh, run-bound per-module coverage profiles into .cover/
 	@mkdir -p .cover
-	@for m in $(MODULES); do \
-		$(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; \
-		name=$$(echo $$m | tr '/' '_'); \
+	@rm -f .cover/*.out .cover/run.json .cover/run-id
+	@run_id=$$(python3 $(COVER_INVENTORY) begin .cover .cover/run.json --modules "$(MODULES)"); \
+	for m in $(MODULES); do \
+		$(call has_pkgs,$$m); \
+		if [ -z "$$pkgs" ]; then \
+			python3 $(COVER_INVENTORY) record .cover .cover/run.json --run-id "$$run_id" --module "$$m" --empty no-packages; \
+			continue; \
+		fi; \
+		name=$${m//\//_}; \
 		echo ">> cover $$m"; \
-		( cd $$m && $(GO) test -covermode=atomic -coverprofile=$(CURDIR)/.cover/$$name.out ./... ) || exit 1; \
-	done
+		python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(GOFLAGS)" --profile "$(CURDIR)/.cover/$$name.out"; \
+		empty=(); \
+		if ! awk 'NR > 1 && $$2 > 0 {found=1} END {exit !found}' ".cover/$$name.out"; then empty=(--empty no-statements); fi; \
+		python3 $(COVER_INVENTORY) record .cover .cover/run.json --run-id "$$run_id" --module "$$m" "$${empty[@]}"; \
+	done; \
+	python3 $(COVER_INVENTORY) finish .cover .cover/run.json --run-id "$$run_id"; \
+	printf '%s\n' "$$run_id" > .cover/run-id
 
 cover-check: cover ## enforce the coverage gate (85% repo / 90% money modules)
-	@MONEY="$(MONEY_MODULES)" ../../tools/launchpad/coverage-gate.sh
+	@MODULES="$(MODULES)" RUN_MANIFEST=.cover/run.json COVER_RUN_ID="$$(cat .cover/run-id)" MONEY="$(MONEY_MODULES)" ../../tools/launchpad/coverage-gate.sh
 
 tidy: ## go mod tidy in every module
 	@for m in $(MODULES); do echo ">> tidy $$m"; ( cd $$m && $(GO) mod tidy ); done

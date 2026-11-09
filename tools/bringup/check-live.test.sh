@@ -1190,7 +1190,6 @@ LAYERX_RAILWAY_BIN="$ix/bin/railway" PATH="$indexer_path" CHECK_LIVE_TEST_PROGRA
 LAYERX_INDEXER_DB="$ix/state/indexer.sqlite" LAYERX_INDEXER_LISTEN='[::]:8095' LAYERX_INDEXER_START_BLOCK=25000000 \
 	LAYERX_INDEXER_EVM_URL=https://api7.mainnet-beta.paxeer.network LAYERX_INDEXER_EVM_CA_DER="$ix/chain/root-X1.der" \
 	LAYERX_INDEXER_COMET_URL=https://api7.mainnet-beta.paxeer.network/comet LAYERX_INDEXER_COMET_CA_DER="$ix/chain/root-X1.der" \
-	LAYERX_INDEXER_RELAY_URL=https://archive.paxeer.network LAYERX_INDEXER_RELAY_CA_DER="$ix/chain/root-X1.der" \
 	"$ix/layerx-indexer" -c 'sleep 600; wait' &
 internal_pids="$internal_pids $!"
 : >"$CHECK_LIVE_TEST_STDIN"

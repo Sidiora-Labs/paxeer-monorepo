@@ -12,7 +12,7 @@ export LC_ALL=C
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 
-want_version=v6.12.0
+want_version=$(jq -er .version tools/release/version.json)
 want_tag=paxeer-network/$want_version
 out=$work/release
 build_log=$work/build.log
@@ -131,7 +131,7 @@ sidecar_artifact_listed() {
 }
 
 release_directory_contents() {
-  local want have lib pinned paxd_sum
+  local want have lib pinned paxd_sum upgrade
   require_build
   [ "$(bash tools/release/build-paxd.sh --print-tag)" = "$want_tag" ] || { echo "the release tag is not $want_tag" >&2; return 1; }
   want=$(printf '%s\n' SHA256SUMS "${wasm_libs[@]}" native-libs.sha256 \
@@ -146,8 +146,9 @@ release_directory_contents() {
     [ "$(sha256sum "$out/$lib" | cut -d' ' -f1)" = "$pinned" ] || { echo "$lib differs from wasm-runtime/libwasmvm-linux.sha256" >&2; return 1; }
   done
   paxd_sum=$(awk -v name="$paxd_name" '$2 == name { print $1 }' "$out/SHA256SUMS")
-  jq -e --arg sum "$paxd_sum" '.name == "v6.12.0" and (.info | contains("checksum=sha256:" + $sum))' "$out/upgrade-info.json" >/dev/null ||
-    { echo "upgrade-info.json does not name v6.12.0 with the paxd checksum $paxd_sum" >&2; return 1; }
+  upgrade=$(jq -er .upgrade tools/release/version.json) || return 1
+  jq -e --arg name "$upgrade" --arg sum "$paxd_sum" '.name == $name and (.info | contains("checksum=sha256:" + $sum))' "$out/upgrade-info.json" >/dev/null ||
+    { echo "upgrade-info.json does not name $upgrade with the paxd checksum $paxd_sum" >&2; return 1; }
 }
 
 epoch_after_last_write() {

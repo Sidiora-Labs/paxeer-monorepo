@@ -20,11 +20,11 @@ pub fn payment_calldata(payment: &Payment, actor: &str) -> Result<Vec<u8>, Strin
 pub fn payment_call(
     payment: &Payment,
     actor: &str,
-    options: &layerx_crypto::send::CallOptions,
+    options: &layerx_crypto::payments::CallOptions,
 ) -> Result<layerx_crypto::evm_transaction::Eip1559Call, String> {
     let mut to = [0; 20];
     to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
-    Ok(layerx_crypto::evm_transaction::Eip1559Call {
+    let call = layerx_crypto::evm_transaction::Eip1559Call {
         chain_id: options.chain_id,
         nonce: options.nonce,
         max_priority_fee_per_gas: options.max_priority_fee_per_gas,
@@ -32,7 +32,10 @@ pub fn payment_call(
         gas_limit: options.gas_limit,
         to,
         data: payment_calldata(payment, actor)?,
-    })
+    };
+    layerx_crypto::payments::DisclosedCall::from_call(call, options.from)
+        .map(|disclosed| disclosed.call)
+        .map_err(|error| error.to_string())
 }
 
 pub fn revert_reason(bytes: &[u8]) -> Option<&str> {

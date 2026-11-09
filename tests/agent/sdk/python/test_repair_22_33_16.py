@@ -41,7 +41,7 @@ from layerx_sdk.program_lifecycle import (
     decode_lifecycle_calldata,
 )
 from layerx_sdk.programs import NativeProgramRequest, ProgramOperations, ProgramTrustContext, _wire
-from layerx_sdk.x402_rpc import PaymentRpc
+from layerx_sdk.x402_rpc import HostedGatewayRpc, PaymentRpc
 
 ROOT = Path(__file__).resolve().parents[4]
 VECTORS = json.loads((ROOT / 'sdk/platform/conformance/fixtures/sequencer-receipt-v1.json').read_text())
@@ -226,20 +226,21 @@ def test_retired_public_exports_preserve_recorded_receipt_path():
     requests = []
 
     def dispatch(method, path, headers, body):
-        assert method == 'POST' and path == '/rpc'
+        assert method == 'POST'
         assert headers['Content-Type'] == 'application/json'
         request = json.loads(body)
         requests.append(request)
         if request['method'] == 'px_getReceiptKeys':
+            assert path == '/rpc'
             result = {'keys': [accepted[0]['pinnedKey']]}
         else:
-            assert request['method'] == 'pax_sequencerReceipt'
+            assert request['method'] == 'pax_sequencerReceipt' and path == '/'
             result = by_hash[request['params'][0]]['receiptJson']
         return 200, {'jsonrpc': '2.0', 'id': request['id'], 'result': result}
 
     with server(dispatch) as endpoint:
-        rpc = PaymentRpc(endpoint + '/rpc')
-        keys = rpc.receipt_keys()
+        rpc = PaymentRpc(endpoint)
+        keys = HostedGatewayRpc(endpoint + '/rpc').receipt_keys()
         for vector in accepted:
             receipt = rpc.receipt(vector['receiptJson']['txHash'])
             verified = sdk.verify_sequencer_receipt(raw(receipt['receipt']), raw(vector['rawTransaction']), keys)
@@ -554,7 +555,7 @@ def test_legacy_exchange_writes_are_historical_and_current_calls_use_perps():
     observed = []
 
     def dispatch(method, path, headers, body):
-        assert method == 'POST' and path == '/rpc' and headers['Content-Type'] == 'application/json'
+        assert method == 'POST' and path == '/' and headers['Content-Type'] == 'application/json'
         request = json.loads(body)
         assert request['method'] == 'eth_sendTransaction'
         wallet_request, = request['params']
@@ -568,7 +569,7 @@ def test_legacy_exchange_writes_are_historical_and_current_calls_use_perps():
         return 200, {'jsonrpc': '2.0', 'id': request['id'], 'result': '0x' + f'{index + 1:064x}'}
 
     with server(dispatch) as endpoint:
-        rpc = PaymentRpc(endpoint + '/rpc')
+        rpc = PaymentRpc(endpoint)
         for index, (call, *_) in enumerate(current):
             result = exchange.send_precompile_call(rpc.call, '0x' + '33' * 20, call)
             assert result == '0x' + f'{index + 1:064x}'
@@ -634,8 +635,13 @@ def test_exact_amounts_reach_real_intent_transport_without_loss(amount):
                 (IntentSigningRequirement(0, 'a1' * 32, 'c3' * 32, 'evm-sender'),),
             )
             result = asdict(plan)
+            assert result.pop('tx_hash') is None
             result['total_fee']['amount'] = str(plan.total_fee.amount)
             for leg in result['legs']:
+                for key in ('to', 'value', 'calldata', 'nonce', 'chain_id', 'gas_limit',
+                            'max_fee_per_gas', 'max_priority_fee_per_gas'):
+                    if leg[key] is None:
+                        del leg[key]
                 leg['source'] = request['source']
                 leg['destination'] = request['destination']
                 leg['money']['amount'] = str(leg['money']['amount'])

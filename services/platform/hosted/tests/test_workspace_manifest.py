@@ -39,9 +39,10 @@ def test_paxeer_verifier_is_not_a_platform_dependency():
         dependency.split()[0] != "layerx-paxeer-verifier"
         for dependency in packages["layerx-indexer"]["dependencies"]
     ), "Indexer lock entry must not depend on layerx-paxeer-verifier"
-    assert "layerx-paxeer-verifier" in packages, (
-        "The verifier package must remain for crates that still depend on it"
-    )
+    assert "layerx-paxeer-verifier" not in packages, "Retired verifier package remains locked"
+    for package in packages.values():
+        assert all(dependency.split()[0] != "layerx-paxeer-verifier"
+                   for dependency in package.get("dependencies", [])), package["name"]
 
 
 def test_indexer_does_not_depend_on_layerx_proof():

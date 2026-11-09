@@ -33,6 +33,7 @@ pub struct LapReceipt<'a> {
     pub peer_countersignatures: u32,
 }
 impl LapReceipt<'_> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(&self) -> CodecResult<()> {
         let peers = self.layer_range_digests.len();
         if peers == 0
@@ -49,6 +50,7 @@ impl LapReceipt<'_> {
         }
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         let mut w = Writer::new(out);
@@ -69,6 +71,7 @@ impl LapReceipt<'_> {
         w.u32(self.peer_countersignatures)?;
         Ok(w.len())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn signing_digest(&self) -> CodecResult<Digest32> {
         let mut unsigned = *self;
         unsigned.host_signature = Signature64([1; 64]);
@@ -78,6 +81,7 @@ impl LapReceipt<'_> {
         out.guest_index_mut(signature_at..signature_at + 64).fill(0);
         codec::domain_hash("PAXAI/lap-signing/v1", out.guest_index(..n))
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn digest(&self) -> CodecResult<Digest32> {
         let mut out = [0; RECEIPT_FIXED_BYTES + 32 * MAX_DEAL_PEERS];
         let n = self.encode(&mut out)?;
@@ -96,6 +100,7 @@ pub struct ReceiptBatch {
     pub countersign_quorum: u32,
 }
 impl ReceiptBatch {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(&self) -> CodecResult<()> {
         if self
             .last_lap_index
@@ -157,6 +162,7 @@ impl ReceiptBatch {
             countersign_quorum: bitmap.count_ones(),
         })
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; BATCH_BYTES]> {
         self.validate()?;
         let mut out = [0; BATCH_BYTES];
@@ -171,9 +177,11 @@ impl ReceiptBatch {
         )?;
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn summary_digest(&self) -> CodecResult<Digest32> {
         codec::domain_hash("PAXAI/lap-batch/v1", &self.encode()?)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let value = crate::codec::read_record!(&mut r, Self {  }; deal_id = r.digest32()?;
@@ -194,6 +202,7 @@ pub struct SettleLapsRequest<'a> {
     pub artifact_manifest: &'a [u8],
 }
 impl SettleLapsRequest<'_> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.artifact_manifest.len() > evidence::MAX_MANIFEST_BYTES {
             return Err(CAPACITY);
@@ -220,6 +229,7 @@ impl LapSettlement {
     pub fn meter_reading(&self) -> u64 {
         self.batch.cumulative_tokens
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; SETTLEMENT_BYTES]> {
         let mut out = [0; SETTLEMENT_BYTES];
         let mut w = Writer::new(&mut out);
@@ -233,6 +243,7 @@ impl LapSettlement {
         )?;
         Ok(out)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let record = Self {
@@ -249,6 +260,7 @@ impl LapSettlement {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
     if !bytes.starts_with(REGION_MAGIC) {
         return Ok(0);
@@ -275,6 +287,7 @@ pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
     }
     Ok(r.offset())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn rows(bytes: &[u8]) -> CodecResult<&[u8]> {
     let n = region_length(bytes)?;
     if n == 0 {
@@ -285,6 +298,7 @@ fn rows(bytes: &[u8]) -> CodecResult<&[u8]> {
     }
     Ok(bytes.guest_index(9..))
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn get(bytes: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
     for row in rows(bytes)?
         .as_chunks::<{ SETTLEMENT_BYTES }>()
@@ -299,6 +313,7 @@ fn get(bytes: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
     }
     Ok(None)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn settlement_from_state(current: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
     let state = state::decode_shared_state(current)?;
     get(
@@ -306,6 +321,7 @@ pub fn settlement_from_state(current: &[u8], deal: Digest32) -> CodecResult<Opti
         deal,
     )
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_region(bytes: &[u8], record: &LapSettlement, out: &mut [u8]) -> CodecResult<usize> {
     let rows = rows(bytes)?;
     let exists = get(bytes, record.batch.deal_id)?.is_some();
@@ -346,6 +362,7 @@ pub enum Outcome {
     },
     Retained(RetainedResult),
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_settle_laps(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

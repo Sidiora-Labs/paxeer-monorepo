@@ -14,20 +14,22 @@ verification_run = false
 reason = "The explicit task order requires complete implementation before formatting, building or testing and forbids a manual verify before hf-done. It overrides the embedded unchanged-tree verify request; no baseline gate or baseline test failure is claimed."
 observed_failing_tests = []
 initial_state = "Only runner-owned .cgignore and spec task-start changes existed. gate.json reported zero build and verify runs; gates.jsonl and both repair deliverables were absent. Preserve runner setup without editing it."
-central_module_count = 43
-central_sha256 = "222737f09534e53778fd58cf696c6047e17d898ee83c9b45618c5b988fd642af"
+discovery_extensions = ["test_x402_rpc_surface.py"]
+central_module_count = 44
+central_sha256 = "723cd6f2fc936674db3b8f3dc1b97db469dbe172e1578f3f5f9fdf629b5e9c31"
 
 [baseline.local_sha256]
-"test_ai_market_commit.py" = "05b84074d45867e4ee594b6edefc005b546658f9c44ade5efc17329922d5bff0"
+"test_ai_market_commit.py" = "08d8040bf478c8e44ec991a2901c263fc194555ccaddcf210fb89a2200c2833d"
 "test_px_commit.py" = "58dec34db20ff5190e6679315ac3168b93fe561bf14caae5b161ad69ef5ce5ee"
 "test_receipt_generated_current.py" = "3f438666460c17baf14cc2a1938e99581e621ab95531f894bca64b0e23e15e82"
-"test_retired_kernel_receipts.py" = "dfc62f22137dc2fece64e94d547649dd79352db9bd388d794c144f1e66ca7969"
+"test_retired_kernel_receipts.py" = "a708465a766c939b042310cacb709ccf0621011960c940ce4092cdd6831be841"
 "test_revert_retryable.py" = "5b03a8179beccf9f6ce8dc7f883b372eb46d6067faa0383d75b21f50a1815615"
-"test_sequencer_receipt.py" = "29f101e33424799a6da61ac9ef1b80afdc150d9e724afc033bced7c2262cbf0a"
+"test_sequencer_receipt.py" = "9d664e5adf8eb4e9ec0d858dbbb195970887e6821009aec0ef0ff668b03da52a"
 "test_spot_call.py" = "320cd8e62db028df964fd7ac833f73616efb696155f852b19788f46d3de86ef7"
-"test_web_search_sequencer.py" = "57c2a1b8ba05d73e6d7c058cd56598bafd64f128e3e827133414354c6f49115f"
-"test_x402_draw_sequencer.py" = "3319ed260579e3ac87cdd789368744e6b9dd1ba6945a74d9e81f67fdf94af772"
-"test_x402_http_sequencer.py" = "d22fc04b9a94bee4d3ddd6230553ae64c9c228009fb95e20fe3f89458e98563e"
+"test_web_search_sequencer.py" = "af9dca5051db70c4929502d23c5387944fb888029189ebc587c6adf666a64a62"
+"test_x402_draw_sequencer.py" = "263666bb8dcc61d7faded9da5f39fb3091e14d05c7f928c51b5e9613e5a5b8d3"
+"test_x402_http_sequencer.py" = "abadb985246296a2a7746cc6bceba5abd4a7f9188a983053caf932212c8f1e7c"
+"test_x402_rpc_surface.py" = "d7ca4dc716b5f35748e415e469aeea59eec6854dbe55371e12936594d3bce229"
 
 [finding.local-test-discovery]
 audit = "22.30.100"
@@ -44,3 +46,16 @@ requests = ["spec/layerx-merge/spec.kvx task 22.9.11 — Domain 9 SDK owner: wir
 ordering = "The audit template asks for an unchanged-tree verify, but explicit task order forbids it; preserve gate budget and record no invented baseline result."
 scope = "GOTCHA.kvx and spec files are outside scope. Record observations here and leave initial runner changes intact."
 collection = "Explicit pytest directory arguments override testpaths. Adding the local path to the manifest cannot by itself expand out-of-path task 22.9.11 or the targeted CI command."
+
+[qualification_pin_22_31_623]
+source_revision = "eee2ef99eb572a186ffe9da5475a359f8d9c8f39"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."
+
+[qualification_pin_22_31_623.continuation_5]
+producer_commit = "a7d39f7f680edfb7e6e92a49468618bd1341cb30"
+policy = "Retain all content fingerprints; extend the automatic-discovery inventory with the hosted RPC surface module introduced by task 22.39.137. The documentation lists the ten original modules and expressly includes future test modules automatically."
+
+[qualification_pin_22_31_623.continuation_5_repair]
+producer_commit = "5247adc56b93433fa7d8ad18a98455124a7e19df"
+source_revision = "1d8f18989ce7fac0f6cfba1a6c2bc4898a0ff22b"
+policy = "Refresh every retained fingerprint from the complete live local and central source inventories after the merged SDK payment repair 22.39.120 and this task native-binding recording; retain exact full-content equality for every module."

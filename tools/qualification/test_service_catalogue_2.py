@@ -29,8 +29,11 @@ class ServiceCatalogueReaders2Test(unittest.TestCase):
                         self.assertNotIn('spec/paxeer-x', str(value), name)
                 for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
                     self.assertNotIn('spec/paxeer-x', line, f'{filename}:{number}')
-                self.assertEqual(module.SERVICE_CATALOGUE, 'spec/layerx-merge/spec.kvx')
-                catalogue_path = module.ROOT / module.SERVICE_CATALOGUE
+                catalogue_owner = module.C if filename == 'human_deposit_initial_response.py' else module
+                if filename == 'human_deposit_initial_response.py':
+                    self.assertEqual(Path(module.C.__file__).resolve(), path.with_name('human-canonical-projections.py'))
+                self.assertEqual(catalogue_owner.SERVICE_CATALOGUE, 'spec/layerx-merge/spec.kvx')
+                catalogue_path = catalogue_owner.ROOT / catalogue_owner.SERVICE_CATALOGUE
                 self.assertEqual(catalogue_path, ROOT / 'spec/layerx-merge/spec.kvx')
                 self.assertTrue(catalogue_path.is_file(), str(catalogue_path))
                 result = subprocess.run(

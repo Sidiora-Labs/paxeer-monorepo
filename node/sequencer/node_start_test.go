@@ -66,7 +66,7 @@ func newStartHarness(t *testing.T, mode sequencer.Mode, sender utils.TestAcct) *
 	n, err := sequencer.NewNode(cfg, h.app)
 	require.NoError(t, err)
 	f := &startHarness{sourceHarness: h, n: n, cfg: cfg, pv: pv, listener: l}
-	t.Cleanup(func() { f.n.Replicator.Close(); f.n.WAL.Close() })
+	t.Cleanup(func() { require.NoError(t, f.n.Stop()) })
 	return f
 }
 
@@ -80,8 +80,7 @@ func (f *startHarness) restart(t *testing.T, entries []wal.Entry) *sequencer.Sta
 		_, err := f.n.WAL.GroupSync()
 		require.NoError(t, err)
 	}
-	f.n.Replicator.Close()
-	f.n.WAL.Close()
+	require.NoError(t, f.n.Stop())
 	var err error
 	f.n, err = sequencer.NewNode(f.cfg, f.app)
 	require.NoError(t, err)
@@ -117,6 +116,16 @@ func (f *startHarness) committed() *wal.Committed {
 		Height: uint64(f.app.LastBlockHeight()), LastSeq: sourceLastSeq,
 		AppHash: [32]byte(f.app.CommitMultiStore().LastCommitID().Hash),
 	}
+}
+
+func requireStartedLease(t *testing.T, f *startHarness, entry wal.Entry, epoch uint64) {
+	t.Helper()
+	require.IsType(t, &wal.Lease{}, entry)
+	require.Equal(t, &wal.Lease{
+		Epoch: epoch, KeyID: testKeyID, ExpiryMs: uint64(f.n.LeaseHolder.Expiry().UnixMilli()),
+	}, entry)
+	require.Equal(t, epoch, f.n.LeaseHolder.Epoch())
+	require.True(t, time.Now().Before(f.n.LeaseHolder.Expiry()))
 }
 
 func (f *startHarness) loggedTransfers(t *testing.T, sender utils.TestAcct, count int) ([]wal.Entry, [][]byte) {

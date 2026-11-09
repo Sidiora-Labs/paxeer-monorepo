@@ -163,6 +163,7 @@ struct RoleVector {
     name: String,
     role: String,
     accepted: bool,
+    semantic_refusal: Option<X402Error>,
     literal: TransportValue,
 }
 
@@ -243,6 +244,7 @@ fn role_vectors(transport: TransportKind) -> Vec<RoleVector> {
                 other => panic!("{source}: {vector} declares the representation {other:?}"),
             };
             RoleVector {
+                semantic_refusal: profile_refusal(&vector),
                 name: vector,
                 role,
                 accepted,
@@ -261,6 +263,13 @@ macro_rules! round_trip {
                 "{}: {name}: this representation must be refused on this transport",
                 $source
             );
+        } else if let Some(expected) = &$vector.semantic_refusal {
+            assert_eq!($decode($transport, &$vector.literal), Err(expected.clone()));
+            let TransportValue::Json(document) = &$vector.literal else {
+                panic!("native MCP profile case must be JSON");
+            };
+            let parsed: $model = serde_json::from_value(document.clone()).unwrap();
+            assert_eq!($encode($transport, &parsed), Err(expected.clone()));
         } else {
             let document = match &$vector.literal {
                 TransportValue::Json(value) => value.clone(),
@@ -999,4 +1008,13 @@ mod repair_path;
 #[test]
 fn reopened_transcript_peer_preserves_settlement_identity() {
     repair_path::reopened_transport_consumer();
+}
+
+fn profile_refusal(name: &str) -> Option<X402Error> {
+    match name {
+        "eip155_125_payment_required"
+        | "eip155_125_payment_payload"
+        | "eip155_125_facilitator_request" => Some(X402Error::ProfileMissing),
+        _ => None,
+    }
 }

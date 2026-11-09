@@ -208,7 +208,7 @@ def test_readme_network_quickstart_builds_and_starts_merged_paxd():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build$", makefile, re.M)
+    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build evmone-lib$", makefile, re.M)
     assert re.search(r"^paxd-build: paxd-native-libs$", makefile, re.M)
     recipe = makefile.split("\npaxd-build: paxd-native-libs\n", 1)[1].split("\n\n", 1)[0]
     assert "tools/release/version.json" in recipe

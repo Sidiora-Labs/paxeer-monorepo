@@ -1,0 +1,5 @@
+non-deterministic Execution outcome for input derived from programs/fuzz/corpus/execution/seed-0007.hex
+==1742==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x60300000ef18 at pc 0x0000004f21ba
+READ of size 1 at 0x60300000ef18 thread T0
+    #0 0x0000004f21ba in lxp_codec_read_u8 src/codec/lxp_codec_primitives.c:118:12
+SUMMARY: AddressSanitizer: heap-buffer-overflow src/codec/lxp_codec_primitives.c:118:12

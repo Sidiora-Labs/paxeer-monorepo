@@ -30,6 +30,49 @@ fn scope() -> SubscriptionScope {
 
 #[test]
 fn subscription_cursor_triple_survives_restart() {
+    assert_cursor_restart(
+        Cursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0,
+        },
+        Cursor {
+            block_height: 12,
+            tx_index: 1,
+            log_index: 0,
+        },
+        Cursor {
+            block_height: 12,
+            tx_index: 1,
+            log_index: 1,
+        },
+    );
+}
+
+#[test]
+fn anchored_local_counters_use_the_same_lxs3_record() {
+    assert_cursor_restart(
+        Cursor {
+            block_height: 0,
+            tx_index: 0,
+            log_index: 0,
+        },
+        Cursor {
+            block_height: 0,
+            // 2985: attempt-1 (0, 0, MAX) -> (0, MAX, MAX - 1).
+            tx_index: u32::MAX,
+            log_index: u32::MAX - 1,
+        },
+        Cursor {
+            block_height: 0,
+            // 2985: attempt-1 (0, 1, 0) -> (0, MAX, MAX); no counter carry.
+            tx_index: u32::MAX,
+            log_index: u32::MAX,
+        },
+    );
+}
+
+fn assert_cursor_restart(start: Cursor, acknowledged: Cursor, pending: Cursor) {
     let root = directory("restart");
     let tenant = TenantId::new("tenant-a").expect("tenant");
     let scope = scope();
@@ -41,11 +84,6 @@ fn subscription_cursor_triple_survives_restart() {
     let mut subscriptions =
         SubscriptionStore::open(Store::open(&root).expect("store"), tenant.clone())
             .expect("subscriptions");
-    let start = Cursor {
-        block_height: 12,
-        tx_index: 0,
-        log_index: 0,
-    };
     subscriptions
         .create(
             id.clone(),
@@ -65,16 +103,6 @@ fn subscription_cursor_triple_survives_restart() {
             },
         )
         .expect("create");
-    let acknowledged = Cursor {
-        block_height: 12,
-        tx_index: 1,
-        log_index: 0,
-    };
-    let pending = Cursor {
-        block_height: 12,
-        tx_index: 1,
-        log_index: 1,
-    };
     subscriptions
         .mark_delivered(&target, acknowledged)
         .expect("deliver acknowledged position");
@@ -174,10 +202,14 @@ fn lxs2_subscription_record_requires_cursor_reset() {
         .put_local(key.clone(), bytes.clone())
         .expect("persist LXS2 record");
     drop(durable);
-    let error = SubscriptionStore::open(Store::open(&root).expect("reopen store"), tenant)
+    let error = SubscriptionStore::open(Store::open(&root).expect("reopen store"), tenant.clone())
         .expect_err("scalar cursor requires reset");
-    assert!(matches!(error, SubscriptionError::CursorResetRequired));
-    assert_eq!(error.to_string(), "subscription.cursor_reset_required");
+    // 2986: preserve the bytes while asserting the producer's named upgrade refusal.
+    assert!(
+        matches!(&error, SubscriptionError::UpgradeRequired { tenant: owner, subscription_id }
+        if owner == tenant.as_str() && subscription_id == id.as_str())
+    );
+    assert_eq!(error.to_string(), format!("subscription.cursor_reset_required: tenant={} subscription={}; use Store::recover_legacy with an explicit replay boundary and retained backup", tenant.as_str(), id.as_str()));
     let durable = Store::open(&root).expect("inspect stored bytes");
     assert_eq!(durable.get(&key).expect("legacy record").bytes(), bytes);
     drop(durable);
