@@ -1,0 +1,49 @@
+[issue.1810]
+number = 1810
+title = "[P2] Decode the node catalogue in the wallet SDK after routing discovery to the node"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "sdk/wallet/src/endpoint.ts:97 sends node discovery into decodeRouteCatalogue, whose hosted identity, inventory, private-field and nested-readiness requirements at sdk/wallet/src/endpoint.ts:464 reject the public projection from rpc/generate_px_catalogue.py:20 and its node-native routes at rpc/generate_px_catalogue.py:30, while rpc/px_discovery.go:69 supplies flat readiness with unknown hosted dependencies and sdk/wallet/test/repair-22-31-591.test.ts:144 covers only raw batch routing."
+close_comment = "The wallet SDK still rejects valid node discovery responses because it expects the hosted catalogue contract. The repair will decode the public node catalogue through the typed discovery method, preserving unknown hosted readiness and excluding private upstream details."
+
+[task.18.1810.1]
+title = "Issue #1810: Decode public node discovery in the wallet SDK"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181810.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add an explicit NodeRouteCatalogue response type and decodeNodeRouteCatalogue in sdk/wallet/src/endpoint.ts and use them in EndpointClient.getRouteCatalogue at sdk/wallet/src/endpoint.ts:97; model the public services and routes projected at rpc/generate_px_catalogue.py:7 and rpc/generate_px_catalogue.py:30, rpc_paths from rpc/px_discovery.go:76, and the flat readiness variants from rpc/px_discovery.go:69, retaining node_registration scope and methods separately from unknown hosted readiness without inventing canonical_origin, private bindings or aggregate readiness; retain the existing RouteCatalogue type and decodeRouteCatalogue at sdk/wallet/src/endpoint.ts:452 with their hosted-contract checks unchanged."
+do_2 = "Add TestPxNodeCatalogueWalletSDK in rpc/px_node_catalogue_wallet_sdk_test.go using newPxRootAccountHarness at rpc/px_node_root_account_test.go:58 and its actual HTTP root server at rpc/px_node_root_account_test.go:154; pass that server URL to a mandatory child invocation of pnpm --dir ../sdk/wallet exec vitest run test/node-route-catalogue.test.ts -t '^nodeRouteCatalogueDecodesAndValidates$', propagate failures and require the named test to execute, and register the declared async function nodeRouteCatalogueDecodesAndValidates in sdk/wallet/test/node-route-catalogue.test.ts to call EndpointClient.getRouteCatalogue with and without hostedUrl against the real producer, asserting equal discovery, public-only fields, node-native inference routes, node registration methods, and hosted states remaining false with status unknown and reason hosted_dependency_not_measured; use no substitute producer, manually shaped success payload or optional-test skip."
+do_3 = "In nodeRouteCatalogueDecodesAndValidates derive malformed inputs from the actual producer response and assert decodeNodeRouteCatalogue refuses wrong schema or chain, duplicate service or route IDs, dangling route service references, malformed public fields, malformed readiness variants or inventories, and invalid route bounds; retain the 4096-route bound from sdk/wallet/src/endpoint.ts:484 and positive timeout and zero-retry checks from sdk/wallet/src/endpoint.ts:531 for hosted route contracts, while validating the distinct node_rpc route contract from rpc/generate_px_catalogue.py:39 without requiring hosted-only fields; preserve the node producer and its privacy and unknown-readiness assertions at rpc/px_node_root_account_test.go:310 unchanged."
+symbols = ["EndpointClient", "NodeRouteCatalogue", "decodeNodeRouteCatalogue", "TestPxNodeCatalogueWalletSDK", "nodeRouteCatalogueDecodesAndValidates"]
+touches = ["sdk/wallet/src/endpoint.ts", "sdk/wallet/test/node-route-catalogue.test.ts", "rpc/px_node_catalogue_wallet_sdk_test.go"]
+tests = ["rpc/px_node_catalogue_wallet_sdk_test.go::TestPxNodeCatalogueWalletSDK", "sdk/wallet/test/node-route-catalogue.test.ts::nodeRouteCatalogueDecodesAndValidates"]
+planned_paths = ["sdk/wallet/test/node-route-catalogue.test.ts", "rpc/px_node_catalogue_wallet_sdk_test.go"]
+build_cmd = "pnpm --dir sdk/wallet exec tsc --noEmit"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestPxNodeCatalogueWalletSDK$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181810]
+title = "Typed wallet discovery accepts the public node catalogue and preserves readiness meaning"
+ac_1 = "EndpointClient.getRouteCatalogue at sdk/wallet/src/endpoint.ts:97 decodes the actual node response projected at rpc/generate_px_catalogue.py:20 and shaped at rpc/px_discovery.go:69 with and without hostedUrl, including node-native routes and rpc_paths, preserving hosted_dependency_not_measured and node_registration readiness without exposing private topology or accepting malformed identity, inventory, references, readiness or bounds."
+
+[acceptance.18.1810.1]
+feature = "18"
+req = "181810.1"
+scenario = "Given the real node root catalogue producer and a wallet EndpointClient with or without hostedUrl, when getRouteCatalogue reads discovery, then the typed result contains public service and route definitions, node registration readiness and unchanged unknown hosted readiness, and malformed response variants are rejected."
+contract = "contracts/evm-rpc.md#px-node-root-account"
+test = "rpc/px_node_catalogue_wallet_sdk_test.go::TestPxNodeCatalogueWalletSDK (planned)"
+qualification = "UNRUN"
