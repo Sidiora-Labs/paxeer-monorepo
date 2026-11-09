@@ -160820,7 +160820,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.292]
 title = "Align the explorer account specs with the activity and asset components"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161129,7 +161129,7 @@ do_7 = "Attempt 6 (requalify, gotcha 3910): the attempt-5 tree 4b38f10e73a5 stan
 
 [task.18.1823.1]
 title = "Issue #1823: Include canonical chart declarations in the launchpad image builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
