@@ -184229,7 +184229,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.220]
 title = "Bring the layerx-identity-binding crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
