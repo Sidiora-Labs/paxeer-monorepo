@@ -1,0 +1,522 @@
+[meta]
+revision = "a26369c7eda603cb28bcdd8cef55c35df7d248ee"
+
+[disposition.22.33.560.5]
+finding = "22.33.560.5"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs:78 decodes the recorded withdrawal into a token transfer and imports it at line 87, preserving the transaction, block, amount and log index. The recovery migrator completes its final batch and clears migration metadata, as asserted at line 123."
+
+[disposition.22.33.560.6]
+finding = "22.33.560.6"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs:44 restores both migrator and token-transfer configuration, and line 85 checks the recovered withdrawal amount. The product repair and its mapping are present in services/explorer/backend/apps/indexer/test/indexer/migrator/repair_22_33_560.kvx:1."
+
+[disposition.22.33.57.1]
+finding = "22.33.57.1"
+status = "resolved"
+evidence = "On main, commit 0f2268dc6d builds gateway balance rows with Quantity::from_be_bytes at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 and narrows them through for_operation for wallet amounts. Lines 54-56 retain exact Quantity balance comparisons and the unobserved-asset refusal."
+
+[disposition.22.33.575.1]
+finding = "22.33.575.1"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-575.test.ts:160 binds a numeric block selector to the block API request and rendered block details, while line 177 covers hash selection. Missing, invalid, loading and unavailable responses remain distinct at lines 192, 238, 260 and 275."
+
+[disposition.22.33.576.1]
+finding = "22.33.576.1"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-576.test.ts:194 preserves the requested transaction hash across refresh and line 219 checks the corresponding API requests. The detail consumer distinguishes missing transactions from unavailable or mismatched responses at lines 231 and 281."
+
+[disposition.22.33.577.1]
+finding = "22.33.577.1"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-577.test.ts:119 carries legacy block selection into Explorer and line 140 carries transaction selection. The selected detail retains the latest-block and latest-transaction sections, and invalid selectors disable detail queries at line 170."
+
+[disposition.22.33.578.1]
+finding = "22.33.578.1"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-578.test.ts:151 requires failed account or wallet reads to produce no financial balance rows, with an unavailable state and retry control at lines 153-154. A successful retry returns both account and wallet balances at line 167."
+
+[disposition.22.33.578.2]
+finding = "22.33.578.2"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-578.test.ts:205 prevents a late response for the previous account from publishing into the selected account. Lines 237-244 distinguish a verified zero balance from incomplete reads and ignore a superseded refresh."
+
+[disposition.22.33.579.1]
+finding = "22.33.579.1"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-579.test.ts:130 selects BTC from the live catalogue when PAX is disabled, and line 148 preserves an unavailable explicit bookmark instead of replacing its intent. Lines 155-160 verify navigation to an available market."
+
+[disposition.22.33.58.1]
+finding = "22.33.58.1"
+status = "resolved"
+evidence = "On main, commit 0f2268dc6d builds gateway balance rows with Quantity::from_be_bytes at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 and narrows them through for_operation for wallet amounts. Lines 54-56 retain exact Quantity balance comparisons and the unobserved-asset refusal."
+
+[disposition.22.33.580.1]
+finding = "22.33.580.1"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-580.test.ts:124 checks that error reporting disables default PII and tracing, while lines 143-160 cover consent persistence and error-event delivery for each preference. The published cookie policy describes error transmission separately from optional cookies at line 149."
+
+[disposition.22.33.580.2]
+finding = "22.33.580.2"
+status = "resolved"
+evidence = "On main, commit fffa85f325 uses the actual cookieConsentStore accept and decline methods at apps/perps/tests/repair-22-33-580.test.ts:140, then checks its stored value at line 143. The consent assertions and error-event transmission checks no longer depend on a category enumeration."
+
+[disposition.22.33.586.1]
+finding = "22.33.586.1"
+status = "resolved"
+evidence = "On main, commit 36a9d4b20c retains massive-block retry ownership across a supervised restart at services/explorer/backend/apps/indexer/test/repair/repair_22_33_586_test.exs:253. Lines 260-268 require the requested block to be imported before the durable retry row and low-priority queue are cleared."
+
+[disposition.22.33.59.1]
+finding = "22.33.59.1"
+status = "resolved"
+evidence = "On main, commit 0f2268dc6d builds gateway balance rows with Quantity::from_be_bytes at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 and narrows them through for_operation for wallet amounts. Lines 54-56 retain exact Quantity balance comparisons and the unobserved-asset refusal."
+
+[disposition.22.33.593.1]
+finding = "22.33.593.1"
+status = "resolved"
+evidence = "On main, commit 5b6d90849d checks HTTP 400 and gRPC InvalidArgument for negative optimization runs at services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs:207 and line 214. The compiler-cache corruption case also requires the HashMismatch variant shape at line 541."
+
+[disposition.22.33.593.2]
+finding = "22.33.593.2"
+status = "resolved"
+evidence = "On main, commit 5b6d90849d declares verification_metrics at services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/zksync_solidity_verifier.rs:28 and shares it through src/services/mod.rs:10. Its track_verification implementation at services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/verification_metrics.rs:83 records bounded labels and the actual verification outcome."
+
+[disposition.22.33.593.3]
+finding = "22.33.593.3"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs:428 checks the exported verification counters, including invalid-argument and failure statuses. Line 444 requires caller-controlled chain labels to be absent from metrics."
+
+[disposition.22.33.593.4]
+finding = "22.33.593.4"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs:681 requires an interrupted Sourcify operation to return GatewayTimeout within the configured deadline. The service repair mapping is present at services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx:1."
+
+[disposition.22.33.595.1]
+finding = "22.33.595.1"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_595.rs:194 requires HTTP BadRequest and gRPC InvalidArgument for negative contract indexes. Line 208 requires these invalid inputs to be rejected before reaching Sourcify."
+
+[disposition.22.33.595.2]
+finding = "22.33.595.2"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/evm_address.rs:8 parses exactly 20 address bytes and returns InvalidArgument for malformed input. The HTTP and gRPC address-length contract remains asserted at services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_595.rs:280."
+
+[disposition.22.33.596.1]
+finding = "22.33.596.1"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.rs:40 requires the nightly compiler catalogue to return its recorded version. Lines 59-63 require requests with a different nightly date to receive BadRequest and identify the missing compiler version."
+
+[disposition.22.33.596.2]
+finding = "22.33.596.2"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.rs:19 binds the nightly catalogue to its compiler digest and line 42 checks the version returned by the service. Its catalogue and storage fixtures live under services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/repair_22_33_596/."
+
+[disposition.22.33.597.1]
+finding = "22.33.597.1"
+status = "environment"
+evidence = "On main, tools/qualification/audit_repairs/test_repair_22_33_597.py:49 requires the published verifier configuration to use only supported settings sections. Lines 138-150 tie Settings::build and the service constructors to those settings without obsolete extension or signature-provider configuration."
+
+[disposition.22.33.60.1]
+finding = "22.33.60.1"
+status = "resolved"
+evidence = "On main, commit 0f2268dc6d builds gateway balance rows with Quantity::from_be_bytes at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 and narrows them through for_operation for wallet amounts. Lines 54-56 retain exact Quantity balance comparisons and the unobserved-asset refusal."
+
+[disposition.22.33.605.1]
+finding = "22.33.605.1"
+status = "resolved"
+evidence = "On main, commit 85453fc8c9 registers the evidence query server and gogo reflection at sdk/x/evidence/repair_m605_test.go:282. The reflected request descriptor is checked at line 368 and its decoded hash is sent through the real Evidence query at line 383."
+
+[disposition.22.33.61.1]
+finding = "22.33.61.1"
+status = "resolved"
+evidence = "On main, commit 0f2268dc6d builds gateway balance rows with Quantity::from_be_bytes at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 and narrows them through for_operation for wallet amounts. Lines 54-56 retain exact Quantity balance comparisons and the unobserved-asset refusal."
+
+[disposition.22.33.611.1]
+finding = "22.33.611.1"
+status = "resolved"
+evidence = "On main, commit 0c87b70fab passes the complete receipt inclusion to verifyCommittedReceipt at services/platform/middleware/seller/src/commitment.ts:146. Lines 193-199 retain execution and successor headers, validator commit, transaction and batch proofs, and the result proof; services/platform/middleware/agent/src/index.ts:961 implements the required grant resolver."
+
+[disposition.22.33.611.2]
+finding = "22.33.611.2"
+status = "resolved"
+evidence = "On main, commit 0c87b70fab passes the complete receipt inclusion to verifyCommittedReceipt at services/platform/middleware/seller/src/commitment.ts:146. Lines 193-199 retain execution and successor headers, validator commit, transaction and batch proofs, and the result proof; services/platform/middleware/agent/src/index.ts:961 implements the required grant resolver."
+
+[disposition.22.33.611.3]
+finding = "22.33.611.3"
+status = "resolved"
+evidence = "On main, commit 8d2be3bf22 retains the exact prepared request and idempotency identity across remote-call recovery at sdk/integrations/agents/test/repair-22-33-611.test.mjs:240. Lines 296-301 refuse changed requests before another call and recover the original submission without duplication."
+
+[disposition.22.33.612.1]
+finding = "22.33.612.1"
+status = "environment"
+evidence = "On main, package.json:11 declares the agent middleware and agents integration as members of the same npm workspace. sdk/integrations/agents/package.json:59 builds through the repository dependency-order entry point and line 72 names the matching local middleware package version."
+
+[disposition.22.33.612.2]
+finding = "22.33.612.2"
+status = "resolved"
+evidence = "On main, commit 0c87b70fab passes the complete receipt inclusion to verifyCommittedReceipt at services/platform/middleware/seller/src/commitment.ts:146. Lines 193-199 retain execution and successor headers, validator commit, transaction and batch proofs, and the result proof; services/platform/middleware/agent/src/index.ts:961 implements the required grant resolver."
+
+[disposition.22.33.612.3]
+finding = "22.33.612.3"
+status = "resolved"
+evidence = "On main, commit cdfcc44234 verifies current daemon receipts against resolved portable evidence and pinned signature verification at sdk/integrations/agents/src/daemon-providers.ts:220. Lines 231-239 bind the digest and authorized batch fields, while sdk/integrations/agents/src/tools.ts:517 rejects signed receipts with a nonzero result code."
+
+[disposition.22.33.612.4]
+finding = "22.33.612.4"
+status = "resolved"
+evidence = "On main, commit 6d10c58d39 reconciles the root dependency lock with services/platform/examples/agent-spend/package.json:11, whose dependencies include the agents integration and viem. services/platform/examples/agent-spend/test/repair-22-31-479.test.mjs:1 checks workspace dependency resolutions against that lock."
+
+[disposition.22.33.612.5]
+finding = "22.33.612.5"
+status = "resolved"
+evidence = "On main, commit cdfcc44234 derives payment asset, recipient and amount from decoded transaction calldata at sdk/integrations/agents/test/receipt-producer-fixture.mjs:53. The payment proof is built from those same transaction facts at line 41 instead of independent context literals."
+
+[disposition.22.33.612.6]
+finding = "22.33.612.6"
+status = "resolved"
+evidence = "On main, commit cdfcc44234 derives the receipt context activity ID and key range from the committed transcript at sdk/integrations/agents/test/receipt-producer-fixture.mjs:18. Lines 54-59 derive the asset, amount and recipient from the raw transaction used by receipt verification."
+
+[disposition.22.33.616.1]
+finding = "22.33.616.1"
+status = "resolved"
+evidence = "On main, commit ac1848a853 advertises the mounted offer purpose and binds receipt acceptance to that purpose at sdk/integrations/fastapi/tests/test_repair_22_33_616.py:69. Lines 84-90 require a receipt for a different purpose to return verification-failure without a payment-response header."
+
+[disposition.22.33.616.2]
+finding = "22.33.616.2"
+status = "resolved"
+evidence = "On main, commit ac1848a853 carries the configured offer_purpose_hash from sdk/integrations/fastapi/layerx_fastapi/integration.py:79 into read_declared_config at line 109. sdk/integrations/fastapi/layerx_fastapi/config.py:124 validates a supplied purpose hash and derives it from the resource URL only when none is supplied."
+
+[disposition.22.33.619.10]
+finding = "22.33.619.10"
+status = "resolved"
+evidence = "On main, commit 797a092bfa returns the verifier-produced receipt digest from services/platform/middleware/buyer/src/index.ts:551. sdk/integrations/next/example/test/fulfillment.test.mjs:327 requires a reopened paid route to return the same resource and settlement header without adding fulfillment rows."
+
+[disposition.22.33.619.1]
+finding = "22.33.619.1"
+status = "resolved"
+evidence = "On main, commit 046e017c8b declares @sidiora/layerx-next as file:.. at sdk/integrations/next/example/package.json:18. The parent package resolves its buyer, SDK and seller dependencies through local file paths at sdk/integrations/next/package.json:44."
+
+[disposition.22.33.619.2]
+finding = "22.33.619.2"
+status = "resolved"
+evidence = "On main, commit 046e017c8b declares @sidiora/layerx-next as file:.. at sdk/integrations/next/example/package.json:18. The parent package resolves its buyer, SDK and seller dependencies through local file paths at sdk/integrations/next/package.json:44."
+
+[disposition.22.33.619.3]
+finding = "22.33.619.3"
+status = "resolved"
+evidence = "On main, commit 046e017c8b supplies sdk/integrations/next/package-lock.json:1 and sdk/integrations/next/example/package-lock.json:1 alongside the local package references. The example consumes the parent integration through sdk/integrations/next/example/package.json:18."
+
+[disposition.22.33.619.4]
+finding = "22.33.619.4"
+status = "resolved"
+evidence = "On main, commit 0c87b70fab passes the complete receipt inclusion to verifyCommittedReceipt at services/platform/middleware/seller/src/commitment.ts:146. Lines 193-199 retain execution and successor headers, validator commit, transaction and batch proofs, and the result proof; services/platform/middleware/agent/src/index.ts:961 implements the required grant resolver."
+
+[disposition.22.33.619.5]
+finding = "22.33.619.5"
+status = "resolved"
+evidence = "On main, commit 3a5c15925c supplies the receipt validator resolver expected by the buyer verification path at services/platform/middleware/buyer/src/index.ts:427. The same path resolves commitment evidence for the transaction before accepting committed receipt evidence."
+
+[disposition.22.33.619.6]
+finding = "22.33.619.6"
+status = "environment"
+evidence = "On main, sdk/integrations/next/example/test/fulfillment.test.mjs:72 requires concurrent requests to release exactly one durable resource. Lines 76-89 require reopening to preserve that resource and refuse changed request or receipt digests."
+
+[disposition.22.33.619.7]
+finding = "22.33.619.7"
+status = "resolved"
+evidence = "On main, commit 6d10c58d39 reconciles the root dependency lock with services/platform/examples/agent-spend/package.json:11, whose dependencies include the agents integration and viem. services/platform/examples/agent-spend/test/repair-22-31-479.test.mjs:1 checks workspace dependency resolutions against that lock."
+
+[disposition.22.33.619.8]
+finding = "22.33.619.8"
+status = "environment"
+evidence = "On main, sdk/integrations/next/example/test/fulfillment.test.mjs:314 requires one fulfillment row and no outstanding claim after paid delivery. Lines 327-332 require replay after reopening to preserve the resource, settlement header and complete persisted row set."
+
+[disposition.22.33.619.9]
+finding = "22.33.619.9"
+status = "environment"
+evidence = "On main, sdk/integrations/next/example/test/fulfillment.test.mjs:336 requires a new request attempting to reuse a paid receipt to receive HTTP 409 with receipt_reuse. Lines 346-348 require tampered receipt evidence to receive verification-failure without changing fulfillment state."
+
+[disposition.22.33.62.1]
+finding = "22.33.62.1"
+status = "resolved"
+evidence = "On main, commit 0f2268dc6d builds gateway balance rows with Quantity::from_be_bytes at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 and narrows them through for_operation for wallet amounts. Lines 54-56 retain exact Quantity balance comparisons and the unobserved-asset refusal."
+
+[disposition.22.33.62.2]
+finding = "22.33.62.2"
+status = "resolved"
+evidence = "On main, commit 7bcafe25e9 checks startup refusal reasons against the real provider at services/human/crates/layerx-human-service/tests/repair_22_33_62.rs:413. Lines 432-459 distinguish a KMS timeout from successful chain-ID-bound key creation, description and persisted state."
+
+[disposition.22.33.627.1]
+finding = "22.33.627.1"
+status = "environment"
+evidence = "On main, sdk/x/params/types/repair_m627_test.go:151 requires invalid fee proposals to fail validation, genesis validation and parameter updates without changing stored values. Lines 183-190 exercise valid denominations through the fee consumers, preserving minimum gas-price validation at line 210."
+
+[disposition.22.33.63.1]
+finding = "22.33.63.1"
+status = "resolved"
+evidence = "On main, commit 0f2268dc6d builds gateway balance rows with Quantity::from_be_bytes at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 and narrows them through for_operation for wallet amounts. Lines 54-56 retain exact Quantity balance comparisons and the unobserved-asset refusal."
+
+[disposition.22.33.63.2]
+finding = "22.33.63.2"
+status = "resolved"
+evidence = "On main, commit 107f6139b8 attaches the actual custody signature through the public signer module at services/human/crates/layerx-human-service/tests/support/repair_22_33_63_rotation.rs:189. Lines 195-202 decode the signed transaction and require the prepared call and recovered sender to match."
+
+[disposition.22.33.63.3]
+finding = "22.33.63.3"
+status = "resolved"
+evidence = "On main, commit 107f6139b8 compiles the real rotation intent and verifies its disclosure at services/human/crates/layerx-human-service/tests/support/repair_22_33_63_rotation.rs:92. Lines 98-136 bind the complete rotation payload and ABI calldata before it reaches custody signing at line 175."
+
+[disposition.22.33.63.4]
+finding = "22.33.63.4"
+status = "resolved"
+evidence = "On main, commit 107f6139b8 prepares the current rotation call through prepare_bound at services/human/crates/layerx-human-service/tests/support/repair_22_33_63_rotation.rs:146. Line 175 passes that preparation and its disclosure through sign_in_scope, and line 197 requires the decoded signed call to equal the preparation."
+
+[disposition.22.33.632.1]
+finding = "22.33.632.1"
+status = "environment"
+evidence = "On main, sdk/x/simulation/repair_m632_test.go:316 drives Simulate through four committed blocks and checks all scheduled operations at lines 318-337. Lines 408-429 require application and log-export errors to remain observable together instead of losing either cause."
+
+[disposition.22.33.646.1]
+finding = "22.33.646.1"
+status = "resolved"
+evidence = "On main, commit 7a7a3aabde constructs the traced store with storetypes.NewInfiniteMultiplierGasMeter at sdk/types/repair_m646_test.go:28. The trace replay, byte-retention and lifecycle checks remain declared at lines 89, 147 and 204 against the fork's store types."
+
+[disposition.22.33.652.1]
+finding = "22.33.652.1"
+status = "resolved"
+evidence = "On main, commit f6de641a17 checks the actual migration registry at sdk/x/genutil/client/testutil/repair_m652_test.go:31. Lines 54-61 require an unregistered v0.43 target to return the supported-target diagnostic without emitting converted genesis or changing the legacy vote input."
+
+[disposition.22.33.653.1]
+finding = "22.33.653.1"
+status = "resolved"
+evidence = "On main, commit a2b5cbc87c requires collect-gentxs to reject missing commission, rate and minimum-self-delegation fields at sdk/x/genutil/repair_m653_test.go:334. Lines 368-375 retain the invalid MsgCreateValidator diagnostic and require both genesis and source gentx bytes to remain unchanged."
+
+[disposition.22.33.659.1]
+finding = "22.33.659.1"
+status = "resolved"
+evidence = "On main, commit a7e42684e7 checks account genesis through its public JSON codec and unpacked accounts at sdk/x/auth/types/repair_m659_test.go:29. Lines 81-102 retain acceptance for matching key/address pairs and refusal for mismatched pairs through both account and genesis validation."
+
+[disposition.22.33.661.1]
+finding = "22.33.661.1"
+status = "resolved"
+evidence = "On main, commit 88a8ffb3bf constructs the authentication CLI suite from network.DefaultConfig(t) at sdk/x/auth/client/testutil/repair_m661_test.go:52 and passes that configuration directly into the integration suite. It retains the fork's own validator and genesis configuration."
+
+[disposition.22.33.663.1]
+finding = "22.33.663.1"
+status = "resolved"
+evidence = "On main, commit e62a1c338c derives bank metadata from the node genesis and oracle whitelist at sdk/x/bank/client/testutil/suite.go:119. Lines 260-262 compare total supply with the recorded genesis supply rather than upstream currency constants."
+
+[disposition.22.33.663.2]
+finding = "22.33.663.2"
+status = "resolved"
+evidence = "On main, commit e62a1c338c uses the bank total-supply command with the fork-supported height and output flags at sdk/x/bank/client/testutil/suite.go:255. The count-total metadata query uses the typed gRPC PageRequest at line 325 rather than an unsupported CLI flag."
+
+[disposition.22.33.664.1]
+finding = "22.33.664.1"
+status = "resolved"
+evidence = "On main, commit a7375df4eb waits for committed height one to reach the query store at sdk/x/bank/client/rest/repair_m664_test.go:130 before creating the height-one query context. Lines 181-186 retain successful REST status, exact response height and decoded result assertions."
+
+[disposition.22.33.665.1]
+finding = "22.33.665.1"
+status = "resolved"
+evidence = "On main, commit bd96e1609f compares paginated supply through REST, direct custom queries and gRPC at sdk/x/bank/keeper/repair_m665_test.go:213. Lines 225-236 require exact page contents, continuation keys, total count and complete supply coverage at committed height one."
+
+[disposition.22.33.672.1]
+finding = "22.33.672.1"
+status = "resolved"
+evidence = "On main, commit d56c2b440d takes both return values from tx.NewFactoryCLI at sdk/x/auth/client/cli/tx_sign.go:69 and returns construction errors before signing. The same commit carries the fallible constructor through the auth, genutil, staking, EVM and token-factory command callers."
+
+[disposition.22.33.673.1]
+finding = "22.33.673.1"
+status = "resolved"
+evidence = "On main, commit d56c2b440d takes both return values from tx.NewFactoryCLI at sdk/x/auth/client/cli/tx_sign.go:69 and returns construction errors before signing. The same commit carries the fallible constructor through the auth, genutil, staking, EVM and token-factory command callers."
+
+[disposition.22.33.674.1]
+finding = "22.33.674.1"
+status = "resolved"
+evidence = "On main, commit d56c2b440d takes both return values from tx.NewFactoryCLI at sdk/x/auth/client/cli/tx_sign.go:69 and returns construction errors before signing. The same commit carries the fallible constructor through the auth, genutil, staking, EVM and token-factory command callers."
+
+[disposition.22.33.680.1]
+finding = "22.33.680.1"
+status = "resolved"
+evidence = "On main, commit d56c2b440d takes both return values from tx.NewFactoryCLI at sdk/x/auth/client/cli/tx_sign.go:69 and returns construction errors before signing. The same commit carries the fallible constructor through the auth, genutil, staking, EVM and token-factory command callers."
+
+[disposition.22.33.680.2]
+finding = "22.33.680.2"
+status = "resolved"
+evidence = "On main, commit 5163959e0c creates the auth parameter subspace and account keeper before the feegrant keeper at sdk/x/feegrant/client/testutil/repair_m680_test.go:116. Lines 227-253 require allowance spending, revocation and subsequent absence from both grant indexes through those keepers."
+
+[disposition.22.33.683.1]
+finding = "22.33.683.1"
+status = "resolved"
+evidence = "On main, commit c75fe3cbae accumulates historical deposit amounts by account at sdk/x/gov/client/utils/query.go:110, and commit cd304eeb19 requires cumulative per-depositor results at sdk/x/gov/client/testutil/repair_m683_test.go:267. Lines 296-306 retain those same results after proposal finalization and after reopening the index and node stores."
+
+[disposition.22.33.683.2]
+finding = "22.33.683.2"
+status = "resolved"
+evidence = "On main, commit d56c2b440d takes both return values from tx.NewFactoryCLI at sdk/x/auth/client/cli/tx_sign.go:69 and returns construction errors before signing. The same commit carries the fallible constructor through the auth, genutil, staking, EVM and token-factory command callers."
+
+[disposition.22.33.689.1]
+finding = "22.33.689.1"
+status = "environment"
+evidence = "On main, sdk/x/staking/keeper/repair_m689_test.go:76 distinguishes aggregate validator stake from actual self-backing. Lines 110-119 require insufficient self-delegation to return ErrSelfDelegationBelowMinimum while preserving the validator bytes and delegation."
+
+[disposition.22.33.69.1]
+finding = "22.33.69.1"
+status = "resolved"
+evidence = "On main, commit 41203d7979 compares the authenticated protocol activity ID with the supplied transaction hash at services/interop/crates/layerx-interop-gateway/src/gateway.rs:598 and refuses an ActivityId mismatch. services/interop/crates/layerx-interop-gateway/tests/proof_gateway_sequencer_evidence.rs:445 exercises that mutation at both receipt rungs without state or audit changes."
+
+[disposition.22.33.690.1]
+finding = "22.33.690.1"
+status = "resolved"
+evidence = "On main, commit f4169e87a6 preserves the gRPC redelegation identity with nil nested entries at sdk/x/staking/repair_m690_test.go:653. Lines 656-666 separately compare the JSON and CLI representations and keep the actual redelegation entries in the response entry list."
+
+[disposition.22.33.690.2]
+finding = "22.33.690.2"
+status = "resolved"
+evidence = "On main, commit d56c2b440d takes both return values from tx.NewFactoryCLI at sdk/x/auth/client/cli/tx_sign.go:69 and returns construction errors before signing. The same commit carries the fallible constructor through the auth, genutil, staking, EVM and token-factory command callers."
+
+[disposition.22.33.695.1]
+finding = "22.33.695.1"
+status = "resolved"
+evidence = "On main, commit aefc20544d compares the validator query result against types.DelegationResponses at sdk/x/staking/client/testutil/suite.go:493 while retaining the delegator query's plain response slice at line 505. sdk/x/staking/client/testutil/repair_m695_test.go:187 also checks the intended query routes and selected account identities."
+
+[disposition.22.33.7.1]
+finding = "22.33.7.1"
+status = "environment"
+evidence = "On main, tests/test_gateway_send.c:404 distinguishes the gateway receipt's zero effects from the native transfer receipt's single monetary transfer effect. Lines 434-443 decode and verify the returned receipt, then require canonical byte and activity-ID equality."
+
+[disposition.22.33.7.2]
+finding = "22.33.7.2"
+status = "resolved"
+evidence = "On main, commit 06d377dd4d checks zero gateway effects and one native monetary transfer at tests/test_gateway_send.c:404. Lines 434-443 verify the transported receipt with a separate verification arena and retain byte-for-byte canonical encoding and activity-ID assertions."
+
+[disposition.22.33.7.3]
+finding = "22.33.7.3"
+status = "environment"
+evidence = "On main, tests/test_gateway_send.c:404 preserves the economic effect contract and line 436 verifies the returned receipt signature. Line 441 requires re-encoding to reproduce the exact canonical receipt bytes and line 443 preserves the resulting state-root comparison."
+
+[disposition.22.33.701.1]
+finding = "22.33.701.1"
+status = "resolved"
+evidence = "On main, commit b9feda9b3a binds current program ingress to the recorded transaction hash at tests/agent/sdk/python/test_repair_22_33_701.py:188 and checks lifecycle IDs against signed-byte Keccak at line 214. Commit 06d9fa865e carries the recorded JSON-RPC exchange on the node root path at line 56 while preserving those identity assertions."
+
+[disposition.22.33.702.1]
+finding = "22.33.702.1"
+status = "resolved"
+evidence = "On main, commit 323b899d26 requires the committed receipt transaction hash to equal Keccak of its recorded raw transaction at tests/agent/sdk/python/test_repair_22_33_702.py:183. The same commit binds web-search payer selection to the recorded offer and grant at line 286 and refuses a rebound payer at line 294."
+
+[disposition.22.33.703.1]
+finding = "22.33.703.1"
+status = "resolved"
+evidence = "On main, commit 8dc033c3f0 obtains the receipt reference from the signature verifier over the recorded receipt and raw transaction at tools/qualification/paxeer-x/fixtures/mcp_recovery_recording.py:51. tools/qualification/paxeer-x/tests/test_repair_22_33_703.py:82 requires the unsigned canonical domain digest to equal both that verifier digest and the stored receipt reference."
+
+[disposition.22.33.704.1]
+finding = "22.33.704.1"
+status = "environment"
+evidence = "On main, tools/jev/checks/test_repair_22_33_704.py:155 binds dependency scans to the moved services workspaces. Lines 275-285 require scanner failure to return nonzero and preserve a diagnostic digest without exposing credential text, while lines 489-497 preserve fenced-heading and command normalization behavior."
+
+[disposition.22.33.705.1]
+finding = "22.33.705.1"
+status = "environment"
+evidence = "On main, tools/jev/tests/test_repair_22_33_705.py:84 carries dependency captures through client evaluation and report generation with real lockfile anchors. Lines 112-124 require identical documentation to produce a complete clean response, and lines 147-157 bind review findings to the recorded commit."
+
+[disposition.22.33.708.1]
+finding = "22.33.708.1"
+status = "resolved"
+evidence = "On main, commit 2c8009c549 compares decoded ABI integer amounts numerically with Cmp at precompiles/spot/abi_share_test.go:179. precompiles/spot/repair_m708_test.go:5 retains the golden snapshot, supported and unsupported selectors, and revert-byte proofs through the native share helpers."
+
+[disposition.22.33.709.1]
+finding = "22.33.709.1"
+status = "resolved"
+evidence = "On main, commit 9216695f0f selects the wallet through the real connector before mounting the collateral hook at apps/perps/tests/repair-22-33-709.test.ts:797. Lines 819-838 require late results for the old account to leave the replacement account's collateral and loading state intact and clear balances on disconnect."
+
+[disposition.22.33.71.1]
+finding = "22.33.71.1"
+status = "resolved"
+evidence = "On main, commit 0cb182bc92 carries recorded signed producer effects through the gas-station publication and HTTP contracts at services/interop/crates/layerx-gas-station/tests/repair_22_33_71.rs:18. Lines 28-45 retain reverted-publication, tampering-refusal, HTTP status and restart coverage using the committed producer transcript."
+
+[disposition.22.33.710.1]
+finding = "22.33.710.1"
+status = "resolved"
+evidence = "On main, commit 841a8c8f2a serves the exact referral, competition and alert request routes at apps/perps/tests/repair-22-33-710.test.ts:45. Lines 261-265 settle the selected account's GraphQL reads before mutation checks, and lines 403-424 preserve refusal of stale competition responses and cleared selections."
+
+[disposition.22.33.711.1]
+finding = "22.33.711.1"
+status = "resolved"
+evidence = "On main, commit f4c1da4517 installs Event and CustomEvent from the same browser realm used by wallet discovery at apps/perps/tests/repair-22-33-711.test.ts:430. Lines 819-832 select the account and observe a position subscription before checking that delayed snapshots cannot resurrect a closed position."
+
+[disposition.22.33.711.2]
+finding = "22.33.711.2"
+status = "resolved"
+evidence = "On main, commit f4c1da4517 waits for the selected account's position subscription before publishing updates at apps/perps/tests/repair-22-33-711.test.ts:819. Lines 843-856 require a new subscription after reconnection and preserve live updates ahead of a delayed recovery snapshot."
+
+[disposition.22.33.714.1]
+finding = "22.33.714.1"
+status = "resolved"
+evidence = "On main, commit d56c2b440d takes both return values from tx.NewFactoryCLI at sdk/x/auth/client/cli/tx_sign.go:69 and returns construction errors before signing. The same commit carries the fallible constructor through the auth, genutil, staking, EVM and token-factory command callers."
+
+[disposition.22.33.714.2]
+finding = "22.33.714.2"
+status = "environment"
+evidence = "On main, precompiles/spot/abi/repair_m714_test.go:28 resolves the normative markets, perps-data and perps-client contract references and their anchors. Lines 82-101 bind documented transfer behavior and custom-error bytes to the deployed native Share ABI."
+
+[disposition.22.33.718.1]
+finding = "22.33.718.1"
+status = "environment"
+evidence = "On main, deploy/launchpad/production/recovery/test_repair_m718.py:121 covers opaque object-version IDs through manifest and restore, and line 169 covers the plain-directory physical-backup format. Lines 188-198 require an isolated paused recovery and preserved backup contents, with command paths checked at line 228."
+
+[disposition.22.33.727.1]
+finding = "22.33.727.1"
+status = "environment"
+evidence = "On main, tests/ci/test_repair_22_33_727.py:98 requires the differential target to be built before execution and its output to identify both conflict workloads. Lines 142-152 bind the asserted batch and worker counts to the actual parallel-program producer source and build target."
+
+[disposition.22.33.727.2]
+finding = "22.33.727.2"
+status = "environment"
+evidence = "On main, tests/ci/test_repair_22_33_727.py:47 checks retained protocol and budget sources for retired references. Lines 68-98 require rejected dispositions, dangling retired-suite links and an empty protocol inventory to remain observable failures."
+
+[disposition.22.33.728.1]
+finding = "22.33.728.1"
+status = "environment"
+evidence = "On main, tools/deploy/tests/test_repair_22_33_728.py:168 requires GraphQL deployment errors to return nonzero with redacted diagnostics. Lines 210-214 retain redaction for HTTP exceptions, while lines 236-241 cover sanitized replay diagnostics and missing mutation responses."
+
+[disposition.22.33.729.1]
+finding = "22.33.729.1"
+status = "environment"
+evidence = "On main, tools/rollout/repair_m729_test.go:50 requires a single append descriptor to retain exclusive ledger ownership and preserve existing records across reopening. Lines 129-154 require a concurrent opener to remain excluded until ownership is released and then recover the persisted evidence unchanged."
+
+[disposition.22.33.729.2]
+finding = "22.33.729.2"
+status = "environment"
+evidence = "On main, tools/rollout/repair_m729_test.go:158 binds rollout and perps consumers to the terminal deployment-status policy. Lines 232-268 require an unchanged SLEEPING deployment to block before another wave, without silently redeploying or reporting success."
+
+[disposition.22.33.732.1]
+finding = "22.33.732.1"
+status = "environment"
+evidence = "On main, tools/ci/tests/test_repair_22_33_732.py:95 requires consensus inventory to include merge revisions and pin approvals to the recorded head. Lines 169-218 exercise current network and account response shapes while retaining failures for retired, incomplete or refused responses."
+
+[disposition.22.33.732.2]
+finding = "22.33.732.2"
+status = "environment"
+evidence = "On main, tools/ci/tests/test_repair_22_33_732.py:234 checks usage and ramp dispatch against the current command surface. Lines 259-265 require the advertised ramp routes and unauthenticated request contract, and line 269 retains refusal of wrong scope or unauthorized successful work."
+
+[disposition.22.33.750.1]
+finding = "22.33.750.1"
+status = "environment"
+evidence = "On main, rpc/repair_m750_test.go:189 exercises unauthorized delegated-wallet spending, line 211 covers owner self-calls, and line 238 requires atomic rollback of a reverted batch. These cases retain the recorded compiler output and source-metadata binding at lines 92 and 120."
+
+[disposition.22.33.750.2]
+finding = "22.33.750.2"
+status = "resolved"
+evidence = "On main, commit 4e4f487e78 computes the Solidity metadata IPFS digest over a DAG-PB UnixFS File at rpc/repair_m750_test.go:61. Lines 117-120 reconstruct the CBOR trailer from that digest and require it to match the deployed compiler output, preserving the source hash check at line 92."
+
+[disposition.22.33.751.1]
+finding = "22.33.751.1"
+status = "resolved"
+evidence = "On main, commit 25c9361fce initializes the keyless accounts result to an empty slice at rpc/info.go:123, with the RPC JSON array contract asserted at rpc/repair_m751_test.go:84. Line 249 compares fee-history oldest-block values numerically and lines 252-256 retain each decoder's exact empty representation."
+
+[disposition.22.33.752.1]
+finding = "22.33.752.1"
+status = "resolved"
+evidence = "On main, commit 6aaa78ff2e associates the CW20 transfer recipient with its EVM address at rpc/repair_m752_test.go:357 before sending the pointer transfer. Lines 369-377 require exactly one matching Transfer log and a recipient token balance of one through the Wasm query."

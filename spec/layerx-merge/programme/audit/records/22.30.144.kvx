@@ -2,7 +2,7 @@
 task = "22.30.144"
 revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
 files_reviewed = 46
-findings = 24
+findings = 23
 docs_reviewed = 17
 upgrade_ready = false
 blocking = ["status-committed-inclusion", "signature-self-supplied-authority", "pax-identity-not-imported"]
@@ -513,17 +513,6 @@ expected = "Brief check 9 requires workspace members and gate descriptions to ma
 proposal = "Regenerate workspace.md crate/exception inventories from programs/Cargo.toml and current dependency policy, including current members and removing the deleted protocol adapter. Keep stored V1-V4 receipt provenance and independent-trust guidance, which describe the current receipt contract."
 owner_domain = 13
 
-[finding.missing-explorer-http-contract]
-file = "spec/layerx-merge/interfaces.kvx"
-line = 594943
-class = "doc-drift"
-severity = "medium"
-observed = "Consumed explorer HTTP registry rows, including 14.http-api-rpc-account-balance, cite contracts/explorer-http-api.md anchors, but that file is absent. Route signatures can be read in source; the declared prose contract for fields, errors and lifecycle cannot be read at its registry location."
-expected = "Brief checks 1 and 9 require an existing contract describing the producer/consumer shapes, retired routes, errors and lifecycle. A missing contract link cannot qualify an interface as documented."
-proposal = "Domain 14 should publish the explorer HTTP contract at the declared path or retarget every affected registry anchor to maintained OpenAPI/prose documentation. Cover three-rung status/signature evidence, native unified accounts, accepted-only market history and retired-route refusals."
-owner_domain = 14
-interface = "14.http-api-rpc-account-balance"
-
 [finding.capabilities-registry-description]
 file = "spec/layerx-merge/interfaces.kvx"
 line = 598242
@@ -611,12 +600,12 @@ status = "accurate"
 notes = "Read in full. Independent receipt/chain pins and V4 batch, transaction and result inclusion with linked execution/successor commits provide the current contract violated by explorer committed fixtures."
 
 [doc.16]
-path = "contracts/explorer-http-api.md"
-status = "missing"
-notes = "The explorer HTTP registry contract target does not exist at this revision. missing-explorer-http-contract proposes publication or retargeting to maintained documentation."
+path = "spec/layerx-merge/contracts/explorer-http-api.md"
+status = "stale"
+notes = "The registry target resolves to the existing contract at spec/layerx-merge/contracts/explorer-http-api.md#rpc-module-account (heading at line 1699) and spec/layerx-merge/contracts/explorer-http-api.md#api-v2-paxeer-x (heading at line 969). Its capabilities note at line 987 still describes 0x1013/0x1014 custody and anchor probes, whereas services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:62-76 defines unified_account, exchange, bridge and launchpad as the supported surfaces. services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/capabilities_shape_test.exs:35-41 rejects custody/anchor response keys and checks addr, exchange, bridge, launchpad and checked_at. Reconcile the contract's obsolete capability description with the current producer and API shape."
 
 [doc.17]
 path = "spec/layerx-merge/interfaces.kvx"
 status = "stale"
-notes = "Read the 175 consumed rows including signatures, configuration and lifecycle notes; the package declares no produced rows. Missing HTTP contracts and obsolete capability notes need reconciliation. Generic Solidity symbol matches in vendored tests do not create live dependencies on those specific contracts."
+notes = "Read the 175 consumed rows including signatures, configuration and lifecycle notes; the package declares no produced rows. Obsolete capability notes need reconciliation. Generic Solidity symbol matches in vendored tests do not create live dependencies on those specific contracts."
 

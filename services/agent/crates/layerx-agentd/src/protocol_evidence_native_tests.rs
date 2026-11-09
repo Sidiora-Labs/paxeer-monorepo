@@ -32,7 +32,7 @@ fn daemon_terminal_fixture_carries_the_credit_and_maintenance_the_platform_write
         &[kind],
     ));
     let registry = checked(layerx_types::payload::ModuleRegistry::new(&[registration]));
-    let activity = checked(layerx_wire::activity::decode_signed(
+    let activity = checked(layerx_wire::historical::activity::decode_signed(
         &read(&root, "activity"),
         &registry,
     ));

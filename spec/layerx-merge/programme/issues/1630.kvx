@@ -1,0 +1,7 @@
+[issue.1630]
+number = 1630
+title = "[P2] Isolate AI-market receipt tests after journal revision checks"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "not-relevant"
+evidence = "Commit cb50180548c81a93044fcc5883195a0670f127f4 removed market_receipt_decodes exact failures and refuses unbound data and its stale failedPending reuse; services/agent/sdk/typescript/test/ai-market.test.ts:2574 now creates independent pending operations for the resolution cases at :2585, :2627 and :2663, retains durable failure assertions at :2670 and typed refusal, retry and detail assertions at :2242, while services/agent/sdk/typescript/src/ai_market.ts:3099 retains predecessor comparison and services/agent/sdk/typescript/test/repair-22-33-20.test.ts:144 asserts stale writes cannot replace a terminal record."
+close_comment = "The affected receipt test was superseded by commit-finality coverage that creates a fresh journal and pending operation for each resolution scenario. Typed refusal, retry, detail and durable failure assertions remain covered, alongside a separate assertion that stale writes cannot overwrite a terminal record."

@@ -1,0 +1,530 @@
+# Main-line snapshot: 88761d5290c4a874293b4ca26b03ad8a790be1f6.
+# Closure list: spec/layerx-merge/programme/closure/22.39.185.ids.
+
+[disposition.22.31.102.1]
+finding = "22.31.102.1"
+status = "resolved"
+evidence = "On main, node/repair_102_test.go:173 schedules upgrade plans after initial block finalization and before commit, preserving the restart upgrade assertions; commit 1ee93282cbe5d59b98b34bebd8a33f7ffdecf5b6 landed this repair."
+
+[disposition.22.31.103.1]
+finding = "22.31.103.1"
+status = "resolved"
+evidence = "On main, node/sequencer/microbatch.go:248 restores the pre-admission context before retrying a failed prefix so its byte reservation is not counted twice; commit 26d76c12362b7507da8e1635453268de152cfd6a landed this repair. node/sequencer/repair_103_test.go:173 sizes the individual allowance for the largest candidate."
+
+[disposition.22.31.123.1]
+finding = "22.31.123.1"
+status = "resolved"
+evidence = "On main, consensus/test/e2e/node/runtime/node.go:114 constructs the default metrics provider and passes its metrics to node.New; commit 8e472cd8fc2f95a93c1704c15e267362e4f33d8c landed this repair. consensus/test/e2e/node/main.go:35 delegates to this runtime."
+
+[disposition.22.31.128.1]
+finding = "22.31.128.1"
+status = "resolved"
+evidence = "On main, modules/xweb/keeper/program_fulfil.go:156 reserves a committed answer separately before recording fulfilment and decrementing the pending count; commit a17cb9ba4d6e239be488fd347afb3dbb86acea7f landed this repair. modules/xweb/keeper/program.go:30 retains distinct pending and committed capacities."
+
+[disposition.22.31.13.1]
+finding = "22.31.13.1"
+status = "resolved"
+evidence = "On main, apps/perps/src/widgets/trading/PerpsOrderForm.tsx:362 multiplies the selected integer leverage cap by 10^18 exactly once before returning OrderLimits; commit eace8d8e9133a13b4be909d27dc5df0a97567057 landed this repair."
+
+[disposition.22.31.13.2]
+finding = "22.31.13.2"
+status = "resolved"
+evidence = "On main, apps/perps/src/hooks/perps/useMarketConfig.ts:32 accepts integer leverage caps starting at one and validates ascending tier bounds; commit eace8d8e9133a13b4be909d27dc5df0a97567057 landed this repair. apps/perps/tests/repair-22-31-13.test.ts:256 retains the one-wei-above-cap VALIDATION_ABOVE_MAX assertion."
+
+[disposition.22.31.13.3]
+finding = "22.31.13.3"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:57 declares viem as a runtime dependency, and sdk/wallet/src/provider.ts imports that package for the wallet provider."
+
+[disposition.22.31.13.4]
+finding = "22.31.13.4"
+status = "resolved"
+evidence = "On main, apps/perps/src/hooks/perps/useMarketConfig.ts:32 accepts integer leverage caps starting at one and validates ascending tier bounds; commit eace8d8e9133a13b4be909d27dc5df0a97567057 landed this repair. apps/perps/tests/repair-22-31-13.test.ts:256 retains the one-wei-above-cap VALIDATION_ABOVE_MAX assertion."
+
+[disposition.22.31.131.1]
+finding = "22.31.131.1"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/stream_agent.go:148 refuses creation once agent stream metadata reaches MaxKernelRecords, keeping exports inside the validator metadata bound; commit e71fbafd7d70b3245ac18df6a96a96cb41168946 landed this repair."
+
+[disposition.22.31.131.2]
+finding = "22.31.131.2"
+status = "resolved"
+evidence = "On main, modules/layerxpay/keeper/repair_131_test.go:230 requires the canonical outer escrow receipt root to equal the economic transfer-set root for every settlement operation, including split; commit e71fbafd7d70b3245ac18df6a96a96cb41168946 landed this repair. The durable receipt comparison remains at line 238."
+
+[disposition.22.31.131.3]
+finding = "22.31.131.3"
+status = "resolved"
+evidence = "On main, modules/layerxpay/types/params.go:55 validates kernel records individually without an aggregate record-count rejection, while retaining the separate metadata bound at line 35; commit e71fbafd7d70b3245ac18df6a96a96cb41168946 landed this repair."
+
+[disposition.22.31.134.1]
+finding = "22.31.134.1"
+status = "environment"
+evidence = "On main, sdk/crypto/ledger/ledger_mock.go:1 selects the ledger test implementation only with both ledger and test_ledger_mock tags; the default ledger path retains device discovery."
+
+[disposition.22.31.137.1]
+finding = "22.31.137.1"
+status = "environment"
+evidence = "On main, services/platform/hosted/interop/deployment.yaml:19 declares inbound TLS material, an outbound trust root, a client identity and pinned sequencer receipt keys for the interop gateway."
+
+[disposition.22.31.138.1]
+finding = "22.31.138.1"
+status = "environment"
+evidence = "On main, sdk/platform/dotnet/Transport.cs:74 rejects conflicting credentials and malformed endpoint URIs, and AgentHttpTransport.SendAsync at line 83 returns the explicit UnavailableCapability refusal for the retired transport."
+
+[disposition.22.31.14.1]
+finding = "22.31.14.1"
+status = "resolved"
+evidence = "On main, modules/perps/keeper/repair_14_test.go:1285 calls IsZero on the addressable remainingFund.DeficitUsd field after ADL settlement rather than on a temporary uint256 value; commit 7aa2cc6857031b6a9a77667a34a3d35a22ec38f1 landed this repair."
+
+[disposition.22.31.140.1]
+finding = "22.31.140.1"
+status = "environment"
+evidence = "On main, services/platform/perf-db/Cargo.toml:2 declares the perfdb Rust package and binary; services/platform/perf-db/tests/repair_22_31_140.rs:23 configures EveryWrite WAL persistence for the recovery assertions."
+
+[disposition.22.31.141.1]
+finding = "22.31.141.1"
+status = "resolved"
+evidence = "On main, sdk/platform/go/repair_141_test.go:600 reads the retained mirror transcript and sends it through NewMirrorHTTPVerifier, whose receipt and committed response checks remain at lines 667 and 708; commit a8fe067deec9fc224dbc0e952af8a98b34d31f1c landed this repair."
+
+[disposition.22.31.144.1]
+finding = "22.31.144.1"
+status = "resolved"
+evidence = "On main, precompiles/layerxledger/gas_conformance_test.go:184 uses the payee DID key to derive and compare the recipient ledger account, retaining both payer and payee account checks; commit 83b5bed9ba339ff5106caf245e22561c5b00b57a landed this repair."
+
+[disposition.22.31.147.1]
+finding = "22.31.147.1"
+status = "resolved"
+evidence = "On main, tests/agent/sdk/python/test_repair_22_31_147.py:39 imports NativeProgramRequest, ProgramOperations and ProgramTrustContext from the current programs API; commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 landed this repair."
+
+[disposition.22.31.147.2]
+finding = "22.31.147.2"
+status = "resolved"
+evidence = "On main, tests/agent/sdk/python/test_repair_22_31_147.py:498 exercises the mirror request and response contract using MirrorVerifier with the committed-block document; commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 landed this repair."
+
+[disposition.22.31.147.3]
+finding = "22.31.147.3"
+status = "resolved"
+evidence = "On main, tests/agent/sdk/python/test_repair_22_31_147.py:674 decodes each published draw vector with the shared LEDGER_DRAW_TYPES codec instead of private calldata offsets; commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 landed this repair."
+
+[disposition.22.31.147.4]
+finding = "22.31.147.4"
+status = "resolved"
+evidence = "On main, tests/agent/sdk/python/test_repair_22_31_147.py:708 requires LXP_NO_PAYER_GRANT for the retired draw path, repeats the refusal after reopening PreparedGrantDraws, and keeps the grant_draws table empty at line 724; commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 landed this repair."
+
+[disposition.22.31.147.5]
+finding = "22.31.147.5"
+status = "resolved"
+evidence = "On main, tests/agent/sdk/python/test_repair_22_31_147.py:708 requires LXP_NO_PAYER_GRANT for the retired draw path, repeats the refusal after reopening PreparedGrantDraws, and keeps the grant_draws table empty at line 724; commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 landed this repair."
+
+[disposition.22.31.147.6]
+finding = "22.31.147.6"
+status = "resolved"
+evidence = "On main, tests/agent/sdk/python/test_repair_22_31_147.py:708 requires LXP_NO_PAYER_GRANT for the retired draw path, repeats the refusal after reopening PreparedGrantDraws, and keeps the grant_draws table empty at line 724; commit 06d9fa865e929be081a8bddc1836c9ac8e384d48 landed this repair."
+
+[disposition.22.31.147.7]
+finding = "22.31.147.7"
+status = "environment"
+evidence = "On main, services/agent/sdk/python/layerx_sdk/web_search.py:885 publishes the verified canonical receipt digest in the payment payload and checks that same digest on the returned payment response at line 940."
+
+[disposition.22.31.148.1]
+finding = "22.31.148.1"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/repair-22-31-148.test.ts:120 asserts the complete JSON-RPC subscription envelope including id and jsonrpc, and line 223 requires inclusion_mismatch for an unrelated valid commit; commit ef62b3d0e278db7fb44f86e289812707d61521d3 landed this repair."
+
+[disposition.22.31.148.2]
+finding = "22.31.148.2"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/repair-22-31-148.test.ts:405 requires receipt-offer-mismatch for the original mismatched draw context and verifies the receipt bound to the calldata context at line 423; commit ef62b3d0e278db7fb44f86e289812707d61521d3 landed this repair."
+
+[disposition.22.31.153.1]
+finding = "22.31.153.1"
+status = "resolved"
+evidence = "On main, services/human/schema/human-api/journeys.kvx:15 declares closed in JourneyState and defines retained history as non-resumable at line 23; commit 7c4892fa49f6ce415d2f714a9cc99d0931140bb7 landed this repair. services/human/crates/layerx-human-service/src/server/schema.rs:219 enforces agreement with the engine state."
+
+[disposition.22.31.153.2]
+finding = "22.31.153.2"
+status = "resolved"
+evidence = "On main, services/human/schema/human-api/journeys.kvx:15 declares closed in JourneyState and defines retained history as non-resumable at line 23; commit 7c4892fa49f6ce415d2f714a9cc99d0931140bb7 landed this repair. services/human/crates/layerx-human-service/src/server/schema.rs:219 enforces agreement with the engine state."
+
+[disposition.22.31.153.3]
+finding = "22.31.153.3"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_31_153.rs:890 compares each reopened bank leg against its exact retained validator quorum, signed batch and transaction inclusion proof; commit 7c4892fa49f6ce415d2f714a9cc99d0931140bb7 landed this repair. The same target decodes reopened history as JourneyState::Closed at line 1029."
+
+[disposition.22.31.157.1]
+finding = "22.31.157.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-network-gateway/tests/chain_balances.rs:50 constructs AssetBalance.amount with conversion into Quantity and retains exact decoded balance comparisons; commit 14a33de6ac42791a05491dae0bd3782ee4eaa1b7 landed this repair."
+
+[disposition.22.31.157.2]
+finding = "22.31.157.2"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/src/journeys/observed.rs:198 returns Option<Quantity> for observed balances and narrows to the planning Amount only through wallet_balance at line 227; commit 14a33de6ac42791a05491dae0bd3782ee4eaa1b7 landed this repair."
+
+[disposition.22.31.161.1]
+finding = "22.31.161.1"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-bridge-relayer/tests/repair_22_31_161.rs:18 retains the caught-CPI RPC transcript used by solana_caught_cpi_progress_and_restart_recovery at line 274 to exercise the production observer and journal; commit 4b85278f8ea0284ef54c9a3dc676cdd62ebe349d landed this repair."
+
+[disposition.22.31.162.1]
+finding = "22.31.162.1"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-gas-station/src/service.rs:341 requires the expected sponsor on successful execution and no sponsor on failed execution, rejecting a foreign sponsor or nonce as malformed; commit 0ec42f6e1c4d89b0f499513217863f3d9fd3c6d4 landed this repair."
+
+[disposition.22.31.163.1]
+finding = "22.31.163.1"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-migrate/tests/repair_22_31_163.rs:223 decodes the retained HISTORY_CASE directly, and the history transfer assertion at line 531 covers overlapping logs and durable sink reopening; commit 4c61577f7c27b1864d8e231f1bff8534f7f8357a landed this repair."
+
+[disposition.22.31.164.1]
+finding = "22.31.164.1"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-interop-service/tests/repair_22_31_164.rs:5 reads the canonical payment case and drives claim recovery through ChainRelay, preserving exact signed transaction identity across relay reopening; commit 496fe1c9bd773b73f1a6d2dba98310e2600470ea landed this repair."
+
+[disposition.22.31.167.1]
+finding = "22.31.167.1"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-portable/src/receipt.rs:228 rejects JSON larger than MAX_JSON_BYTES, whose value at line 16 is 1500000, and export_with_transaction at line 221 checks the encoded representation before returning it; commit a4d033b96f5d369399b5b6a3382ecd487868c287 landed this repair."
+
+[disposition.22.31.168.1]
+finding = "22.31.168.1"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-ucp/src/lib.rs:443 derives checkout atomic amounts from the configured merchant currency binding instead of treating minor units as token atoms; commit dc5959525370ca14bf9f687c6663fe0cdaddd8c7 landed this repair."
+
+[disposition.22.31.169.1]
+finding = "22.31.169.1"
+status = "resolved"
+evidence = "On main, services/interop/crates/x-websearch/src/payment.rs:1376 advertises exact payment offers for configured assets, retaining historical metered decoding separately; commit 432a8412759fc23e8f8f70e2aba6ee3d0390a11e landed this repair. services/interop/crates/x-websearch/tests/repair_22_31_169.rs:558 covers exact settlement on the application ledger."
+
+[disposition.22.31.17.1]
+finding = "22.31.17.1"
+status = "resolved"
+evidence = "On main, modules/spot/keeper/repair_17_test.go:225 compares exported genesis through its JSON representation and uses big.Int.Cmp for the share balance and supply assertions at lines 263-265; commit a57e4c1e28bfabaf91c9c1ccefcf20cf93c06c1e landed this repair."
+
+[disposition.22.31.177.1]
+finding = "22.31.177.1"
+status = "resolved"
+evidence = "On main, storage/state_db/ss/evm/repair_177_test.go:165 sorts the expected KV pairs by their byte keys before checking unified and separate EVM iterator results across versions and directions; commit da87b1dbb365475d44a2f526d844145a143b9dc5 landed this repair."
+
+[disposition.22.31.177.2]
+finding = "22.31.177.2"
+status = "resolved"
+evidence = "On main, storage/state_db/ss/evm/store.go:56 returns an opening error joined with cleanup errors for a failing separate database and returns the unified database opening error at line 70; commit da87b1dbb365475d44a2f526d844145a143b9dc5 landed this repair."
+
+[disposition.22.31.177.3]
+finding = "22.31.177.3"
+status = "resolved"
+evidence = "On main, storage/state_db/ss/evm/repair_177_test.go:188 compares actual iterator results from both backends against the same ordered range expectation, with separate empty-range and early-close cases at lines 203 and 285; commit da87b1dbb365475d44a2f526d844145a143b9dc5 landed this repair."
+
+[disposition.22.31.182.1]
+finding = "22.31.182.1"
+status = "resolved"
+evidence = "On main, modules/layerxbridge/keeper/repair_182_test.go:87 decodes exported bank genesis with the codec UnmarshalAsJSON method, also used for token-factory genesis at line 92; commit fee0ca4e4bcc1da73945c6f85c50c3f40d86c351 landed this repair."
+
+[disposition.22.31.183.1]
+finding = "22.31.183.1"
+status = "resolved"
+evidence = "On main, precompiles/distribution/repair_183_test.go:15 imports the node package with its explicit node alias and uses node.App and node.PrecompileKeepers consistently; commit 4498294cd5388eaf955873c2b7a27185bb82b663 landed this repair."
+
+[disposition.22.31.189.1]
+finding = "22.31.189.1"
+status = "resolved"
+evidence = "On main, sdk/cosmovisor/process.go:189 waits for both output scanners before cmd.Wait closes the pipes, preserving the complete child banner and upgrade output; commit c9c50849cd24cd0853a40be7783b0bbb61549c75 landed this repair."
+
+[disposition.22.31.19.1]
+finding = "22.31.19.1"
+status = "resolved"
+evidence = "On main, modules/spot/keeper/shares.go:254 encodes the declared ERC20InsufficientBalance selector and its sender, balance and needed values for insufficient share transfers; commit 3c759cc91560ab0c6886087fbbb63a789217e6ff landed this repair. precompiles/spot/abi/repair_19_test.go:238 retains the exact selector and decoded-field assertions."
+
+[disposition.22.31.19.2]
+finding = "22.31.19.2"
+status = "resolved"
+evidence = "On main, modules/spot/keeper/shares.go:254 encodes the declared ERC20InsufficientBalance selector and its sender, balance and needed values for insufficient share transfers; commit 3c759cc91560ab0c6886087fbbb63a789217e6ff landed this repair. precompiles/spot/abi/repair_19_test.go:238 retains the exact selector and decoded-field assertions."
+
+[disposition.22.31.190.1]
+finding = "22.31.190.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-sdk/tests/repair_22_31_190.rs:637 checks Transport after subscription.close while retaining the last cursor, then reopens the listener and reconciles overlapping logs; commit 90ad4014389c17c23d520dcba46b4e15a724c978 landed this repair."
+
+[disposition.22.31.193.1]
+finding = "22.31.193.1"
+status = "resolved"
+evidence = "On main, modules/layerxauth/types/repair_193_test.go:100 opens an sdk.CommitMultiStore and commits through that interface before reopening and comparing LastCommitID at line 118; commit 1bd0c1f8cb14794c7fef3e94a62c346cb2467a99 landed this repair."
+
+[disposition.22.31.2.1]
+finding = "22.31.2.1"
+status = "resolved"
+evidence = "On main, apps/perps/tests/repair-22-31-2.test.ts:91 sets the gateway and explorer URLs before importing the collateral identity and account modules, preserving collateral account-binding assertions; commit 5be928dfbd2378a785f9e6eedc88975cdb5137fc landed this repair."
+
+[disposition.22.31.20.1]
+finding = "22.31.20.1"
+status = "resolved"
+evidence = "On main, apps/perps/src/page-modules/referrals/index.tsx:202 renders ReferralTierStatus with the hook-provided tierView and passes data through the component that handles unavailable tier data; commit f8efaa8d38157e03a8c78018a1dcf3331c274c83 landed this repair."
+
+[disposition.22.31.202.1]
+finding = "22.31.202.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_202.rs:1168 constructs the identity, faucet, indexer and node protocol peers used by the real gateway producer-path assertions; commit 44a718e948745ae6be5af2d636e634de08ac0c7a landed this repair."
+
+[disposition.22.31.202.2]
+finding = "22.31.202.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_202.rs:953 calls px_getHistory and px_getUnifiedHistory with the declared address, cursor, count and filter parameters, retaining schema validation of their results; commit 44a718e948745ae6be5af2d636e634de08ac0c7a landed this repair."
+
+[disposition.22.31.202.3]
+finding = "22.31.202.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_202.rs:969 compares every history row field with the indexer projection and decodes the complete result through the closed HistoryRow DTO; commit 44a718e948745ae6be5af2d636e634de08ac0c7a landed this repair."
+
+[disposition.22.31.202.4]
+finding = "22.31.202.4"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_202.rs:969 compares every history row field with the indexer projection and decodes the complete result through the closed HistoryRow DTO; commit 44a718e948745ae6be5af2d636e634de08ac0c7a landed this repair."
+
+[disposition.22.31.202.5]
+finding = "22.31.202.5"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:18 retains the layerx-paxeer-boundary binary target and its workspace-inherited dependencies; commit d5401ed95bd9965ad2b634cc93381f98687dc3bb landed this repair. services/platform/Cargo.toml continues to include the hosted/paxeer member."
+
+[disposition.22.31.202.6]
+finding = "22.31.202.6"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:76 passes config, TCP stream, permit and deadline to handle_connection and includes the retained Paxeer deployment manifest at line 13; commit 7435b17141edd4dbaec034cb09dc589796155ef3 landed this repair."
+
+[disposition.22.31.206.1]
+finding = "22.31.206.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/registry/tests/repair_22_31_206.rs:399 issues the authority endpoint certificate as a non-CA leaf with server-auth usage, signed by its separate CA at line 419; commit 06141c59e44bafc14a5bebc575557bf28b4c73a9 landed this repair."
+
+[disposition.22.31.206.2]
+finding = "22.31.206.2"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 constructs exact Quantity values from big-endian words for observed balances and retains explicit narrowing checks for planning amounts; commit 0f2268dc6df5ece6ef28c675fea5b5c6cd214d9c landed this repair."
+
+[disposition.22.31.207.1]
+finding = "22.31.207.1"
+status = "environment"
+evidence = "On main, services/platform/hosted/authority/tests/repair_22_31_207.rs:721 binds authority responses to committed height, state height, app hash and block hash, rejects altered proofs with 503, and asserts no retired anchor calls at line 738."
+
+[disposition.22.31.208.1]
+finding = "22.31.208.1"
+status = "resolved"
+evidence = "On main, services/platform/hosted/authority/tests/repair_22_31_208.rs:708 retains receipt sequence independently of committed height and advances the authenticated state across empty blocks without inventing additional receipts; commit 4a36a7f4565a3d865b0de24101209c1fbb0db381 landed this repair."
+
+[disposition.22.31.208.2]
+finding = "22.31.208.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/authority/tests/repair_22_31_208.rs:708 retains receipt sequence independently of committed height and advances the authenticated state across empty blocks without inventing additional receipts; commit 4a36a7f4565a3d865b0de24101209c1fbb0db381 landed this repair."
+
+[disposition.22.31.208.3]
+finding = "22.31.208.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/Cargo.toml:18 retains the layerx-paxeer-boundary binary target and its workspace-inherited dependencies; commit d5401ed95bd9965ad2b634cc93381f98687dc3bb landed this repair. services/platform/Cargo.toml continues to include the hosted/paxeer member."
+
+[disposition.22.31.208.4]
+finding = "22.31.208.4"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:76 passes config, TCP stream, permit and deadline to handle_connection and includes the retained Paxeer deployment manifest at line 13; commit 7435b17141edd4dbaec034cb09dc589796155ef3 landed this repair."
+
+[disposition.22.31.209.1]
+finding = "22.31.209.1"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/internal/indexer/repair_209_test.go:421 requires follower recovery to rewind to block two and restore the canonical snapshot, then checks one durable rewind notification and its payload hash; commit cd418fe62e70f5de042e1a32d550e0eed7a2de9d landed this repair."
+
+[disposition.22.31.209.2]
+finding = "22.31.209.2"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/internal/indexer/repair_209_test.go:421 requires follower recovery to rewind to block two and restore the canonical snapshot, then checks one durable rewind notification and its payload hash; commit cd418fe62e70f5de042e1a32d550e0eed7a2de9d landed this repair."
+
+[disposition.22.31.211.1]
+finding = "22.31.211.1"
+status = "resolved"
+evidence = "On main, services/platform/ramps/toolkit/tests/repair_22_31_211.rs:621 passes native execution and log evidence through the pinned receipt validator, alongside the keeper-expiry and durable-recovery cases at lines 801 and 886; commit 5febff359bf495ae68cd8d64e2364d3c98d54141 landed this repair."
+
+[disposition.22.31.212.1]
+finding = "22.31.212.1"
+status = "resolved"
+evidence = "On main, tools/platform/cli/tests/repair_22_31_212.rs:474 compares the submitted transaction sender with the canonical producer::hex encoding of the bound EVM address, retaining exact calldata and sender checks; commit e7bafe13a59d7df510e5d3332fded19ee05c9f28 landed this repair."
+
+[disposition.22.31.212.2]
+finding = "22.31.212.2"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 constructs exact Quantity values from big-endian words for observed balances and retains explicit narrowing checks for planning amounts; commit 0f2268dc6df5ece6ef28c675fea5b5c6cd214d9c landed this repair."
+
+[disposition.22.31.212.3]
+finding = "22.31.212.3"
+status = "resolved"
+evidence = "On main, tools/platform/Cargo.lock:1384 retains the platform CLI resolution including layerx-sdk, layerx-agentd and the current keyring dependencies; commit e7bafe13a59d7df510e5d3332fded19ee05c9f28 landed this repair. Commit 8356373140 refreshed the platform lockfile resolution retained on main."
+
+[disposition.22.31.212.4]
+finding = "22.31.212.4"
+status = "resolved"
+evidence = "On main, services/platform/hosted/core/src/public_reads.rs:65 reads the joined account through its account.evm_address carrier and compares exact native balance bytes before emitting the public account response; commit 1a3c69501c7e613953e1f2fd428a34d2cdf5dc1b landed this repair."
+
+[disposition.22.31.212.5]
+finding = "22.31.212.5"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:554 imports budget_state, PrincipalPolicy and BudgetStateConfig from the public authority API and invokes budget_state::read at line 581; commit 6c7e27fb0d116ba3070a75df75f2340f71eda62b landed this repair. The projection no longer depends on including private authority module internals."
+
+[disposition.22.31.212.6]
+finding = "22.31.212.6"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:563 delegates the native send preparation digest to the typed request prepare_digest method defined beside its wire type; commit b6d38a9897e34a25e689a63a2629fad993091a10 landed this repair."
+
+[disposition.22.31.213.1]
+finding = "22.31.213.1"
+status = "resolved"
+evidence = "On main, tools/platform/cli/tests/repair_22_31_213.rs:613 requires the enrolled MCP session without a gateway credential to return gateway.authentication with state refused, including the reopened installation path; commit e0d163e35c86a02cb6534a7c91540eb6366b501e landed this repair."
+
+[disposition.22.31.217.10]
+finding = "22.31.217.10"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/budget/native_settlement.rs:86 checks native receipts against the sequencer PROTOCOL_VERSION while retaining module, operation, transaction, actor and debit-sequence equality; commit 75df69e0846ebefc381352a83f23f7979f8015f9 landed this repair. services/agent/crates/layerx-agentd/tests/support/budget_native_capture.rs:653 produces the burn approval hold."
+
+[disposition.22.31.217.11]
+finding = "22.31.217.11"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/support/budget_native_capture.rs:697 encodes account snapshot receipts in the retained kernel format and verifies their sequencer signature at line 751; commit 75df69e0846ebefc381352a83f23f7979f8015f9 landed this repair. The execution summary uses the native bank denomination uhpx at line 292."
+
+[disposition.22.31.217.1]
+finding = "22.31.217.1"
+status = "environment"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/support/budget_native_capture.rs:269 includes the retained budget corpus directly and binds its account and fee metadata into native capture responses."
+
+[disposition.22.31.217.2]
+finding = "22.31.217.2"
+status = "environment"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/support/budget_native_capture.rs:269 includes the retained budget corpus directly and binds its account and fee metadata into native capture responses."
+
+[disposition.22.31.217.3]
+finding = "22.31.217.3"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 constructs exact Quantity values from big-endian words for observed balances and retains explicit narrowing checks for planning amounts; commit 0f2268dc6df5ece6ef28c675fea5b5c6cd214d9c landed this repair."
+
+[disposition.22.31.217.4]
+finding = "22.31.217.4"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/repair_22_31_345.rs:76 passes config, TCP stream, permit and deadline to handle_connection and includes the retained Paxeer deployment manifest at line 13; commit 7435b17141edd4dbaec034cb09dc589796155ef3 landed this repair."
+
+[disposition.22.31.217.5]
+finding = "22.31.217.5"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:554 imports budget_state, PrincipalPolicy and BudgetStateConfig from the public authority API and invokes budget_state::read at line 581; commit 6c7e27fb0d116ba3070a75df75f2340f71eda62b landed this repair. The projection no longer depends on including private authority module internals."
+
+[disposition.22.31.217.6]
+finding = "22.31.217.6"
+status = "open"
+evidence = "On main, services/agent/crates/layerx-crypto/src/disclosure/call.rs:756 still rejects budget.source_sequence equal to zero as MalformedPayload, so first-use native budget creation cannot pass the shared disclosure binder. services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs:2420 retains that exact refusal."
+follow_up = "9.35.16"
+
+[disposition.22.31.217.7]
+finding = "22.31.217.7"
+status = "open"
+evidence = "On main, services/agent/crates/layerx-crypto/src/disclosure/call.rs:756 still rejects budget.source_sequence equal to zero as MalformedPayload, so first-use native budget creation cannot pass the shared disclosure binder. services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs:2420 retains that exact refusal."
+follow_up = "9.35.16"
+
+[disposition.22.31.217.8]
+finding = "22.31.217.8"
+status = "open"
+evidence = "On main, services/agent/crates/layerx-crypto/src/disclosure/call.rs:756 still rejects budget.source_sequence equal to zero as MalformedPayload, so first-use native budget creation cannot pass the shared disclosure binder. services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs:2420 retains that exact refusal."
+follow_up = "9.35.16"
+
+[disposition.22.31.217.9]
+finding = "22.31.217.9"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/budget/native_binding.rs:30 requires the retained signing transaction, actor address and prepared call to agree before accepting source selection; commit c047504e3a64ecc4c2b2f3d1126c0dc6a1955eb8 landed this repair. services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs:2593 reads the signed lifecycle observation through the public production reader."
+
+[disposition.22.31.219.1]
+finding = "22.31.219.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs:158 constructs committed authority evidence with Rung::Committed, preserving the native proof and receipt identity used by managed-agent authorization; commit ab3600e85a3a772585d4e6ec255cad0536b2693e landed this repair."
+
+[disposition.22.31.220.1]
+finding = "22.31.220.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/repair_22_31_220.rs:473 asserts the retained verification level separately from the receipted or committed rung, and compares the exact lookup response before and after reopening; commit 31ca239c0a32ce2ddc855f3b35058d0913ccdc33 landed this repair."
+
+[disposition.22.31.221.1]
+finding = "22.31.221.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-client/tests/repair_22_31_221.rs:173 retains the full resolved gateway identity shape for the bank, asset and history round-trip consumers; commit fe2e725ea8c8118c87d452a03ad9c29e0cd74b22 landed this repair. The gateway amount boundary case at line 242 preserves full uint256 values."
+
+[disposition.22.31.221.2]
+finding = "22.31.221.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs:166 populates both account and freshness from the hosted gateway carrier and compares the retained freshness object; commit fe2e725ea8c8118c87d452a03ad9c29e0cd74b22 landed this repair. services/platform/hosted/authority/src/human/budget_state.rs:126 returns the account proof and binding evidence."
+
+[disposition.22.31.226.1]
+finding = "22.31.226.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-proof/tests/repair_22_31_226.rs:56 tests that guarantor-only success cannot yield committed evidence through the retained certificate-bucket refusal API; commit 884d756e245c1b6e0da64219a2253fd73c8923fa landed this repair. Native receipt and inclusion checks remain imported from the current proof interfaces."
+
+[disposition.22.31.227.1]
+finding = "22.31.227.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs:3 uses the shared audit protocol peers for wallet, committed-wait, constructor and receipt-recovery cases; commit 4e29e49379f6135c72afb2ffda5f8de68c70c281 landed this repair."
+
+[disposition.22.31.227.2]
+finding = "22.31.227.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs:12 exercises committed-wait against the recovered block authority and preserves constructor submit/retry/recovery coverage at line 22; commit 4e29e49379f6135c72afb2ffda5f8de68c70c281 landed this repair."
+
+[disposition.22.31.227.3]
+finding = "22.31.227.3"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 constructs exact Quantity values from big-endian words for observed balances and retains explicit narrowing checks for planning amounts; commit 0f2268dc6df5ece6ef28c675fea5b5c6cd214d9c landed this repair."
+
+[disposition.22.31.227.4]
+finding = "22.31.227.4"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:23 constructs exact Quantity values from big-endian words for observed balances and retains explicit narrowing checks for planning amounts; commit 0f2268dc6df5ece6ef28c675fea5b5c6cd214d9c landed this repair."
+
+[disposition.22.31.229.1]
+finding = "22.31.229.1"
+status = "resolved"
+evidence = "On main, services/agent/qualification/pay2/tests/repair_22_31_229.rs:23 imports the current VerificationLevel type and requires COMMITTED on the authenticated nonce snapshot at line 326; commit 52bfc5ed6b33da9909f0b99312374adda87713b2 landed this repair. services/agent/qualification/pay2/pay2e_test.rs:10 uses the retained registered payment scenario instead of the removed Level/HttpAnswer API."
+
+[disposition.22.31.229.2]
+finding = "22.31.229.2"
+status = "resolved"
+evidence = "On main, services/agent/qualification/pay2/tests/repair_22_31_229.rs:23 imports the current VerificationLevel type and requires COMMITTED on the authenticated nonce snapshot at line 326; commit 52bfc5ed6b33da9909f0b99312374adda87713b2 landed this repair. services/agent/qualification/pay2/pay2e_test.rs:10 uses the retained registered payment scenario instead of the removed Level/HttpAnswer API."
+
+[disposition.22.31.231.1]
+finding = "22.31.231.1"
+status = "resolved"
+evidence = "On main, services/interop/contracts/ethereum-mirror/test/Repair2231231.t.sol:82 requires the recovered publisher archive identity, recorded block coordinate and resumed multi-chunk publication result; commit 99b5761ba08afc17ad91893a7bd2f4c9399b3ab2 landed this repair."
+
+[disposition.22.31.232.1]
+finding = "22.31.232.1"
+status = "environment"
+evidence = "On main, services/interop/deploy/gateway/tests/test_repair_22_31_232.py:70 requires the rendered x402 manifest to retain every distinct authorized signer, preserve the declared receipt keys and use mode 0600."
+
+[disposition.22.31.233.1]
+finding = "22.31.233.1"
+status = "environment"
+evidence = "On main, services/interop/deploy/mirror/tests/test_repair_22_31_233.py:137 requires the verifier and publisher examples to share the exact produced receipt keys and chain identifier 125, with archive calls pinned to the selected block."
+
+[disposition.22.31.235.1]
+finding = "22.31.235.1"
+status = "environment"
+evidence = "On main, apps/wallet/src/lib/portfolio-api/repair-22-31-235.test.ts:325 retains watch lifecycle round trips and reads after indexer restart, alongside the webhook lifecycle and unauthorized mutation assertions."
+
+[disposition.22.31.235.2]
+finding = "22.31.235.2"
+status = "resolved"
+evidence = "On main, apps/wallet/src/app/api/wallet/[...path]/route.ts:315 checks the bearer authorization header before reading a lifecycle mutation body and returns PORTFOLIO_UNAUTHORIZED with 401 when it is absent or malformed; commit fd639c94232959b1de249ed5c42c6ea62e5dbcfd landed this repair."
+
+[disposition.22.31.235.3]
+finding = "22.31.235.3"
+status = "resolved"
+evidence = "On main, apps/wallet/src/app/api/wallet/[...path]/route.ts:315 checks the bearer authorization header before reading a lifecycle mutation body and returns PORTFOLIO_UNAUTHORIZED with 401 when it is absent or malformed; commit fd639c94232959b1de249ed5c42c6ea62e5dbcfd landed this repair."
+
+[disposition.22.31.239.1]
+finding = "22.31.239.1"
+status = "resolved"
+evidence = "On main, apps/wallet/src/widgets/swap/repair-22-31-239.test.ts:176 encodes quoter and ERC20 return values with the contract ABI codecs, while retaining the journaled swap recovery and classification assertions; commit cda4e5f2e2786926edfcf3891ed6a758c650c248 landed this repair."
+
+[disposition.22.31.239.2]
+finding = "22.31.239.2"
+status = "resolved"
+evidence = "On main, apps/wallet/src/widgets/swap/repair-22-31-239.test.ts:176 encodes quoter and ERC20 return values with the contract ABI codecs, while retaining the journaled swap recovery and classification assertions; commit cda4e5f2e2786926edfcf3891ed6a758c650c248 landed this repair."

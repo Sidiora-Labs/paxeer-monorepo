@@ -8,12 +8,16 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 
+import pytest
+
+from tools.qualification import beta_driver
 from tools.qualification.release_runner import EVIDENCE_SPECS, SCHEMA
 
 
@@ -24,6 +28,52 @@ NETWORK_ID = "125"
 SOURCE_IDENTITY = "beta-driver-test-source-identity"
 DRIVER_TIMEOUT_SECONDS = 3600.0
 READY_TIMEOUT_SECONDS = 60.0
+
+
+def test_relocated_adoption_inputs_resolve() -> None:
+    expected_root = ROOT / "services" / "platform" / "examples" / "samples"
+    assert beta_driver.SAMPLES == expected_root
+    assert beta_driver.SAMPLES.resolve() == expected_root.resolve()
+    manifests = {
+        "first-payment-typescript": ("package.json", "@sidiora/layerx-sdk"),
+        "first-payment-python": ("requirements.txt", "layerx-sdk=="),
+        "first-payment-go": ("go.mod", "sdk/platform/go"),
+        "first-payment-jvm": ("pom.xml", "<artifactId>layerx-sdk</artifactId>"),
+        "first-payment-swift": ("Package.swift", "LayerXSDK"),
+        "first-payment-csharp": ("FirstPayment.csproj", "LayerX.Sdk.csproj"),
+    }
+    for identifier, (manifest, dependency) in manifests.items():
+        path = beta_driver.SAMPLES / identifier / manifest
+        assert dependency in path.read_text(encoding="utf-8"), path
+
+    expected_samples = set(manifests) | {
+        "verify-receipt-rust",
+        "paid-endpoint-express",
+        "paid-route-next",
+        "paid-endpoint-fastapi",
+        "paid-endpoint-spring",
+        "mobile-payment-ios",
+        "mobile-payment-android",
+    }
+    documentation_root = ROOT / "docs" / "platform"
+    declared = tomllib.loads((documentation_root / "samples.kvx").read_text(encoding="utf-8"))[
+        "sample"
+    ]
+    assert set(declared) == expected_samples
+    measurements = beta_driver.load_adoption_sample_measurements()
+    assert len(measurements) == 13
+    assert {measurement["sample"] for measurement in measurements} == expected_samples
+    for measurement in measurements:
+        identifier = measurement["sample"]
+        sample = declared[identifier]
+        assert (documentation_root / sample["path"]).resolve() == (
+            beta_driver.SAMPLES / identifier
+        ).resolve()
+        assert measurement["entry"] == sample["entry"]
+        assert measurement["language"] == sample["language"]
+        assert measurement["region"] == sample["measured_region"] == "integration"
+        assert measurement["budget"] == sample["maximum_integration_lines"]
+        assert 0 < measurement["integration_lines"] <= sample["maximum_integration_lines"]
 
 
 def free_port() -> int:
@@ -313,6 +363,7 @@ class BetaDriverTests(unittest.TestCase):
             self.assertIn(f"case {case_id}: failed: ", completed.stdout)
         self.assertIn("case rust/first-payment: failed:", completed.stdout)
 
+    @pytest.mark.native
     def test_multichain_inventory_reports_absent_infrastructure_as_failed(self) -> None:
         gate = "multichain-qualify"
         output = self.work / gate

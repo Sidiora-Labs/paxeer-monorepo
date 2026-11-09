@@ -1,0 +1,50 @@
+[issue.1834]
+number = 1834
+title = "[P3] Make retired-symbol absence tests inspect the linked archive"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "At this revision tests/fuzz/lxp_prop_payer_grant.c:15-32 checks only null weak references, its header-local dispatcher at tests/codec/lxp_kernel_case.h:22-48 adds no strong kernel reference, and Makefile:1201-1205 links build/liblayerx.a normally, so the symbol-absence contract recorded at tests/repair_22_39_76.kvx:30-33 cannot detect an unreferenced archive member defining a retired API."
+close_comment = "The payer-grant absence checks can pass even when the library defines a retired API, because weak references do not pull otherwise unreferenced members from a static archive. The repair task adds direct inspection of the built archive and regression controls that reject each forbidden definition while accepting their absence."
+
+[task.18.1834.1]
+title = "Issue #1834: Enforce retired payer-grant symbol absence in the built archive"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181834.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add assert_retired_payer_grant_symbols_absent to tests/ci/test_core_test_all_wired.py, alongside its existing archive-link reachability checks at lines 143-150: inspect the actual liblayerx.a selected by Makefile:53 using nm --defined-only and reject definitions of lxp_payer_grant_encode, lxp_payer_grant_decode, lxp_grant_authorization_message and lxp_verify_payer_grant in every member, including weak definitions; missing archives, unreadable archives and symbol-tool failures must fail the check."
+do_2 = "In Makefile add a focused test-payer-grant-archive target depending on $(LIBRARY) and running the archive regression tests, make test-core-ports at Makefile:2664-2675 depend on it, and ensure test-tests-python at Makefile:265 also builds $(LIBRARY) before collecting the archive tests; pass the selected archive path explicitly so BUILD_DIR overrides inspect the same archive that the kernel link rule at Makefile:1201-1205 consumes."
+do_3 = "In tests/ci/test_core_test_all_wired.py add test_payer_grant_archive_inspects_built_library, test_payer_grant_archive_accepts_absent_definitions and test_payer_grant_archive_rejects_unreferenced_definitions: run the same absence checker on the built production archive and an unchanged temporary copy, then independently append a real compiled object defining each forbidden API to separate temporary copies and assert that the same checker fails naming that symbol; confirm the appended member and definition with ar and nm, and cover both strong and weak definitions without changing the production archive."
+do_4 = "Extend test_core_test_all_prerequisites_exist at tests/ci/test_core_test_all_wired.py:103-166 to assert the new archive target, its library dependency and focused test invocation while retaining every existing suite, registered C case and prerequisite assertion; keep the existing null-reference assertions at tests/fuzz/lxp_prop_payer_grant.c:20-32 intact, and do not restore retired implementations or change the separate codec-metadata contract described by issue #1832."
+symbols = ["assert_retired_payer_grant_symbols_absent", "test_payer_grant_archive_inspects_built_library", "test_payer_grant_archive_accepts_absent_definitions", "test_payer_grant_archive_rejects_unreferenced_definitions", "test_core_test_all_prerequisites_exist"]
+touches = ["Makefile", "tests/ci/test_core_test_all_wired.py"]
+tests = ["tests/ci/test_core_test_all_wired.py::test_payer_grant_archive_inspects_built_library", "tests/ci/test_core_test_all_wired.py::test_payer_grant_archive_accepts_absent_definitions", "tests/ci/test_core_test_all_wired.py::test_payer_grant_archive_rejects_unreferenced_definitions", "tests/ci/test_core_test_all_wired.py::test_core_test_all_prerequisites_exist"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "python3 -m pytest -q tests/ci/test_core_test_all_wired.py"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181834]
+title = "Retired payer-grant definitions cannot pass the kernel archive absence gate"
+ac_1 = "Given the library linked by Makefile:1201-1205, when the archive absence gate runs through test-core-ports at Makefile:2664-2675, then it inspects every archive member directly, passes when all four APIs named at tests/fuzz/lxp_prop_payer_grant.c:15-18 are absent, and fails naming the forbidden symbol when any one is defined in an otherwise unreferenced member, with positive controls for each API and strong and weak definitions; missing or unreadable archives and symbol-tool failures are errors."
+
+[acceptance.18.1834.1]
+feature = "18"
+req = "181834.1"
+scenario = "Given the built kernel archive with no retired payer-grant definitions and separate copies containing one independently compiled forbidden definition in an otherwise unreferenced member, when the same archive absence checker examines each archive, then the original passes and every contaminated copy fails naming its forbidden symbol without restoring any retired implementation."
+contract = "contracts/test-harness.md#c-harness"
+test = "tests/ci/test_core_test_all_wired.py::test_payer_grant_archive_rejects_unreferenced_definitions (planned)"
+qualification = "UNRUN"

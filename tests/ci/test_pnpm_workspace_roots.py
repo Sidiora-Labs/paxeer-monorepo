@@ -228,6 +228,31 @@ def test_sdk_wallet_vitest_ignores_root_workspace():
         assert commands, script
         for _, args in commands:
             assert args[:3] == ["--ignore-workspace", "run", "build:agent-sdk"], script
+    assert manifest["scripts"]["build:agent-sdk"] == (
+        "npm --prefix ../../services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund"
+        " && npm --prefix ../../services/agent/sdk/typescript run build --workspaces=false"
+    )
+
+
+def test_sdk_wallet_workspace_install_resolves_from_services_wallet():
+    workflow = load_yaml(ROOT / ".github/workflows/wallet-test.yml")
+    job = workflow["jobs"]["vitest"]
+    steps = job["steps"]
+    install, = [
+        step for step in steps
+        if step.get("name") == "Install wallet workspace dependencies"
+    ]
+    assert install["if"] == "matrix.directory == 'sdk/wallet'"
+    row, = [row for row in matrix_rows(job) if row["directory"] == "sdk/wallet"]
+    directory = run_directory(workflow, job, install, row)
+    assert directory == ROOT / "services/wallet"
+    command, = list(pnpm_commands(expand_matrix(install["run"], row), directory))
+    cwd, args = command
+    assert args == ["install", "--frozen-lockfile"]
+    assert nearest_workspace(pnpm_directory(cwd, args)) == directory / "pnpm-workspace.yaml"
+    sdk, = [step for step in steps if step.get("name") == "Install wallet SDK dependencies"]
+    suite, = [step for step in steps if step.get("name") == "Run Vitest suite"]
+    assert steps.index(sdk) < steps.index(install) < steps.index(suite)
 
 
 def test_sdk_wallet_job_runs_the_baseline_script():

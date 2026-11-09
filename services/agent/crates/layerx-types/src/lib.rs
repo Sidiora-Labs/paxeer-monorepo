@@ -27,11 +27,6 @@ pub mod programs_module_abi;
 pub mod receipt;
 pub mod result;
 pub mod rung;
-/// Archive-only source compatibility; no current trust root.
-#[deprecated(
-    note = "use historical::settlement for archives and chain::ValidatorSetTrust for current trust"
-)]
-pub mod settlement;
 pub mod test_support;
 pub mod vectors;
 pub mod verify;

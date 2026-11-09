@@ -1,0 +1,48 @@
+[issue.1586]
+number = 1586
+title = "[Coherence] The two contract-drift findings point at the wrong lines of services.md and clients.md"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged audit record introduced by commit 1879c93d043909fde46881d07c5f7209ab71c8a2 still cites clients.md line 19 and services.md lines 40 and 48 at spec/layerx-merge/programme/audit/records/22.30.19.kvx:1188,1198,1201,1242,1247, but operation Q is at spec/layerx-merge/contracts/clients.md:20 and the sequencer and platform-gateway rows are at spec/layerx-merge/contracts/services.md:39,46; both contract files are identical to their versions at the audit revision 6d2c32a65a1c7989a6a37abf5965929de9769ae4."
+close_comment = "The contract-drift findings and their document notes need citations to clients.md line 20 and services.md lines 39 and 46. A correction limited to those audit citations is specified; the underlying router-drift findings remain unchanged."
+
+[task.18.1586.1]
+title = "Issue #1586: Correct the contract-drift audit citations"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181586.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct only spec/layerx-merge/programme/audit/records/22.30.19.kvx:1188,1198,1201,1242,1247: set finding.client_contract_router_drift line to 20 and finding.service_contract_router_drift line to 39, replace the service observed phrase with routes at lines 39 and 46, and make doc.client_contract cite operation Q at line 20 and doc.service_contract cite catalogue lines 39 and 46; these identify spec/layerx-merge/contracts/clients.md:20 and spec/layerx-merge/contracts/services.md:39,46 at the report revision, while clients.md:19 is operation R and services.md:40,48 are platform-agent-boundary and platform-indexer; preserve the audit revision, counts, classifications, severity, proposals and all other content."
+do_2 = "Check the two finding line fields within their named blocks and the three corrected prose citations with the focused grep verification; no contract document or runtime behavior changes."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.19.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -A2 -Fx '[finding.client_contract_router_drift]' spec/layerx-merge/programme/audit/records/22.30.19.kvx | grep -Fx 'line = 20' && grep -A2 -Fx '[finding.service_contract_router_drift]' spec/layerx-merge/programme/audit/records/22.30.19.kvx | grep -Fx 'line = 39' && grep -F 'routes at lines 39 and 46.' spec/layerx-merge/programme/audit/records/22.30.19.kvx && grep -F 'Operation Q at line 20 ' spec/layerx-merge/programme/audit/records/22.30.19.kvx && grep -F 'Catalogue lines 39 and 46 ' spec/layerx-merge/programme/audit/records/22.30.19.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181586]
+title = "Contract-drift audit findings identify the rows they describe"
+ac_1 = "Given operation Q at spec/layerx-merge/contracts/clients.md:20 and the sequencer and platform-gateway rows at spec/layerx-merge/contracts/services.md:39,46, the two findings and their document notes at spec/layerx-merge/programme/audit/records/22.30.19.kvx:1186,1196,1239,1244 cite those rows consistently, with no change to the substantive findings."
+
+[acceptance.18.1586.1]
+feature = "18"
+req = "181586.1"
+scenario = "Given the contract-drift findings and document notes cite unrelated rows, when their citations are corrected, then the client finding and note identify operation Q at line 20, the service finding identifies the sequencer at line 39, and its observed text and document note identify catalogue lines 39 and 46 while retaining the substantive findings."
+contract = "contracts/services.md#2-catalogue"
+test = "spec/layerx-merge/programme/audit/records/22.30.19.kvx::focused grep checks of the two finding line fields and three prose citations (planned)"
+qualification = "UNRUN"

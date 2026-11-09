@@ -224,7 +224,7 @@ func TestRepairM_934_PublicationEveryCategoryAndRestartRecovery(t *testing.T) {
 		}
 		produced = append(produced, snapshots...)
 	}
-	if len(produced) != len(ranker.Categories) || len(produced) != 8 {
+	if len(produced) != len(ranker.Categories) || len(ranker.Categories) != 8 {
 		t.Fatalf("frozen category set changed: %d", len(produced))
 	}
 	want := map[string]v1.RankingSnapshot{}

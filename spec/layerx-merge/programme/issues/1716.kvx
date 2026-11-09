@@ -1,0 +1,7 @@
+[issue.1716]
+number = 1716
+title = "Reconcile explorer stat-label palette with the 3:1 contrast requirement"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "needs-owner"
+evidence = "Decision 2587 at spec/layerx-merge/spec.kvx:8637 makes spec/layerx-merge/programme/docs/explorer-ui/design-brief.md authoritative, but its minimum at :29 conflicts with its exact surface and muted-label colors at :40 and :46, retained after extraction by commit 848a7d3023eb00ec49e85de3f139449e74206564 in apps/explorer/toolkit/theme/foundations/palette.ts:4 and :10 and composed by apps/explorer/toolkit/theme/recipes/stat.recipe.ts:104 and :114 into a light stat-label contrast of 2.976942651392903:1, while apps/explorer/toolkit/theme/repair-22-35-1.spec.ts:87 pins the muted colors without measuring contrast, leaving the owner to select a compliant palette reconciliation that no later design decision specifies."
+close_comment = "The light stat-label pair remains below the required 3:1 contrast, while the design brief also prescribes both exact colors. The owner needs to approve a compliant palette reconciliation, followed by consistent brief and theme updates, an unrounded contrast regression for the actual composed roles, and checks of other text and button pairings against their applicable accessibility targets."

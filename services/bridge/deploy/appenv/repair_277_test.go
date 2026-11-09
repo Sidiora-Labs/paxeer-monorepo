@@ -289,11 +289,11 @@ func TestRepair_277_LegacyProducerCheckpoint(t *testing.T) {
 		t.Fatal("real producer placeholder branch not found")
 	}
 	start := strings.Index(branch, "jq -n --arg chain solana")
-	end := strings.Index(branch, `> "$record"`)
+	end := strings.Index(branch, `> "$work/record.json"`)
 	if start < 0 || end < start {
 		t.Fatal("real producer checkpoint writer not found")
 	}
-	command := branch[start : end+len(`> "$record"`)]
+	command := branch[start : end+len(`> "$work/record.json"`)]
 	raw, err := os.ReadFile("../tests/fixtures/records/solana.json")
 	if err != nil {
 		t.Fatal(err)
@@ -303,9 +303,9 @@ func TestRepair_277_LegacyProducerCheckpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	path := filepath.Join(dir, "solana.json")
+	path := filepath.Join(dir, "record.json")
 	cmd := exec.CommandContext(t.Context(), "bash", "-eu", "-c", command)
-	cmd.Env = append(os.Environ(), "record="+path, "REPO_ROOT=", "config=contracts/bridge/solana/chains/solana/config.json", "program_keypair="+filepath.Join(dir, "program-keypair.json"))
+	cmd.Env = append(os.Environ(), "work="+dir, "REPO_ROOT=", "config=contracts/bridge/solana/chains/solana/config.json", "program_keypair="+filepath.Join(dir, "program-keypair.json"))
 	for variable, field := range map[string]string{
 		"chain_id": "chain_id", "genesis_hash": "genesis_hash", "program_id": "program_id", "program_data": "program_data_account", "UPGRADEABLE_LOADER": "upgradeable_loader_id", "elf_sha256": "program_elf_sha256", "elf_bytes": "program_elf_bytes", "deployment_signature": "deployment_signature", "deployed_slot": "deployment_slot", "rooted_slot": "rooted_slot", "publisher": "publisher", "authority": "upgrade_authority", "commitment": "commitment", "vault_authority": "vault_authority", "vault_handle": "vault_handle",
 	} {

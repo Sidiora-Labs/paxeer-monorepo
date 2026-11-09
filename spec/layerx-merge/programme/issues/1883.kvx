@@ -1,0 +1,48 @@
+[issue.1883]
+number = 1883
+title = "[P2] Align reference-ramp HTTP proof with current internal rewrites"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs:504 still expects no rewrites and :507 expects an external readiness destination, contradicting the three unconditional internal routes in apps/web/next.config.mjs:29 introduced by commit 250ec8c0a284dce8e2bb9971ab0a33a64fbf21da and asserted in apps/web/test/repair-22-33-896.test.mjs:169, with the same proof failure recorded in spec/layerx-merge/programme/sweeps/rust-test-platform.kvx:23."
+close_comment = "The reference-ramp HTTP proof still asserts the previous Human routing contract. A repair task will assert all three internal rewrites with the Human service URL absent and changed, preserve the internal-route exclusion and readiness no-store checks, and verify the full HTTP proof."
+
+[task.18.1883.1]
+title = "Issue #1883: Align the reference-ramp HTTP proof with internal Human routing"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181883.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs:504 and :507, replace the empty-rewrite and external-readiness expectations with exact equality to the three routes returned by apps/web/next.config.mjs:29: /human/v1/:path* and /v1/:path* target /api/human/v1/:path*, and /readyz targets /api/human/readyz; assert the complete inventory with LAYERX_HUMAN_SERVICE_URL absent and again after setting and changing it so the variable cannot bypass internal handlers."
+do_2 = "In services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs:341, retain the complete real HTTP proof, including authentication, malformed responses, custody refusal and journal reopening, and keep the explicit /internal/ exclusion and readiness Cache-Control: no-store assertions at :510 and :511 for each environment case; run the full method test and record its exact revision, command, exit code and private log location."
+symbols = ["method"]
+touches = ["services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs"]
+tests = ["services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs::method"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --test proof_ramp_reference_http_routes"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --test proof_ramp_reference_http_routes method -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181883]
+title = "The reference-ramp HTTP proof enforces the internal Human rewrite contract"
+ac_1 = "The method test in services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs:341 asserts exactly the three internal routes defined in apps/web/next.config.mjs:29 with LAYERX_HUMAN_SERVICE_URL absent and after two distinct values, rejects /internal/ exposure and requires readiness Cache-Control: no-store as at :510 and :511, while all existing real HTTP assertions remain enforced."
+
+[acceptance.18.1883.1]
+feature = "18"
+req = "181883.1"
+scenario = "Given the real Next configuration and reference-ramp HTTP proof, when the complete method test runs with the Human service URL absent and changed, then all three rewrites retain their internal destinations, no internal operator route is exposed, readiness is not cached and every existing HTTP assertion passes."
+contract = "contracts/platform-ramps.md#ramp-reference-http-routes"
+test = "services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs::method (planned)"
+qualification = "UNRUN"

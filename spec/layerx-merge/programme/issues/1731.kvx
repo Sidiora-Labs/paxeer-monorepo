@@ -1,0 +1,7 @@
+[issue.1731]
+number = 1731
+title = "[Coherence] The wallet send tests route px_getAccount to /rpc on the --rpc root, but the CLI only sends px_ account reads to --gateway-rpc, which no test passes"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit a08a60044bf3f1a66189338037862089c11b31f0 supplies the explicit hosted URL at tools/platform/cli/tests/wallet_evm_writes.rs:597 and corrects the expected request path to POST / at tools/platform/cli/tests/wallet_evm_writes.rs:552, satisfying tools/platform/cli/src/wallet.rs:1025 while retaining the receipt assertion at tools/platform/cli/tests/wallet_evm_writes.rs:705, the px_getAccount parameter assertion at tools/platform/cli/tests/wallet_evm_writes.rs:728 and the InvalidResponse, observed-request and no-submission assertions at tools/platform/cli/tests/wallet_evm_writes.rs:797."
+close_comment = "The wallet send fixture now passes --gateway-rpc explicitly and expects account reads at the supplied URL's root path. The tests retain checks for a receipted result and for InvalidResponse after an account read, with no transaction submitted on refusal."

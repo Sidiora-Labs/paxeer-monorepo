@@ -1,0 +1,31 @@
+[repair.22.39.154]
+requirement = "22998.1"
+decisions = ["2893", "2857"]
+base_revision = "b1cb0b2d80c7054e27b0aa0158abcbb82ccce431"
+implementation = "Update only the two stale log-free receipt consumers to the existing shared v2 projection; retain the real chain-125 HTTP JSON-RPC fixtures and all other receipt integrity assertions."
+tests = ["TestDevelopmentTransactionStatusFromChainRPC", "TestRepair_27_log_free_receipts"]
+baseline = "Remove exactly these two test entries owned by 22.39.154 from tests/ci/data/launchpad_go_test_baseline.json, leaving the baseline file and all other entries intact."
+
+[correction.development_reversion]
+consumer = "services/launchpad/api/internal/app/dev_network_reads_test.go::TestDevelopmentTransactionStatusFromChainRPC"
+producer = "sdk/launchpad/shared/chain/receipt.go:47,60,66,71,75; sdk/launchpad/shared/chain/client.go:1245,1256,1272; services/launchpad/api/internal/app/network_reads.go:157"
+assertions = "A real log-free reverted creation returns HTTP 200 with schema-valid, uncached included_reverted data; assert success false, sender, null destination, transaction and block hashes, height, gas used, effective gas price and the complete chain/block/transaction position with logIndex zero against its mined receipt."
+preserved = "Keep the event-bearing transfer receipt and genuine event position, the real reverted log-free fixture, pending/submitted, unknown and post-commit inclusion assertions."
+
+[correction.sdk_and_api_log_free]
+consumer = "services/launchpad/api/internal/app/repair_27_test.go::TestRepair_27_log_free_receipts"
+producer = "sdk/launchpad/shared/chain/receipt.go:47,60,66,71,75; sdk/launchpad/shared/chain/client.go:1299,1303,1304; sdk/launchpad/shared/chain/readpolicy/receipt.go:64,69; services/launchpad/api/internal/app/network_reads.go:157"
+assertions = "Both the real native transfer and reverted creation have no logs and their actual transaction indices; ReceiptState returns no error and the full v2 receipt, with included_success or included_reverted status. Assert SDK included_success or included_failure state, chain, submitted hash, deployment, rpc_receipt evidence, failure code, block height and block hash. Assert every projected receipt field including sender, destination or null, success, gas, price and complete position with logIndex zero; both production and development HTTP registrations return schema-valid HTTP 200, complete quality, no-store and the identical expected receipt."
+
+[gotcha.retired_position_refusal]
+observed = "The two consumers asserted ErrReceiptPosition or HTTP 503 despite the shared producer's committed log-free projection."
+action = "Follow the deprecation at sdk/launchpad/shared/chain/client.go:1123 and the compatibility encoding at receipt.go:47; zero logIndex is transaction identity compatibility, not an attested event."
+
+[qualification]
+revision = "Reference the revision in the matching build and verify rows of /out/run/gates.jsonl."
+build = "hf-build: anvil --version > /dev/null && cd services/launchpad/api && go vet ./internal/app/"
+verify = "hf-done: cg spec done 22.39.154 -f layerx-merge --root /work/paxeer-monorepo; this executes the declared verify_cmd and graph checks."
+ledger = "/out/run/gates.jsonl"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+result = "Gate results are recorded by reference in the private ledger with exact revision, command, exit code and log path; no pass is claimed before the corresponding gate succeeds."

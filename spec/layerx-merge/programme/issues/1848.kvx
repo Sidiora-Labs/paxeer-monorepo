@@ -1,0 +1,7 @@
+[issue.1848]
+number = 1848
+title = "[Coherence] Decision 2885 and do_16 of 22.39.118 tell attempt 15 to fix a closing refusal of readme_operator_contract that already asserts the handler text"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "Task 22.39.118 is done at spec/layerx-merge/spec.kvx:188428, but its do_16 at spec/layerx-merge/spec.kvx:188467, decision 2885's basis at spec/layerx-merge/spec.kvx:10426 and GOTCHA.kvx:17726 must describe an existing handler-refusal assertion rather than a parser-placeholder repair: commit c8b212cc215951eb9764dc8f1a72961a5ea97ba0 already asserted the handler substring and unchanged request count before base 61b1cd9c81e4070dc5dfccd4bb9255c602cfb066, and commit a08a60044bf3f1a66189338037862089c11b31f0 strengthened that substring to the full message now at tools/platform/cli/tests/repair_22_33_1499.rs:699 while retaining the unchanged request count at tools/platform/cli/tests/repair_22_33_1499.rs:701, matching tools/platform/cli/src/wallet.rs:1504."
+close_comment = "The missing-key check already covered the handler refusal before it was strengthened to the full message, and it still verifies that no request is sent. The completed task's specification should describe that strengthening and correct the historical parser-placeholder diagnosis."

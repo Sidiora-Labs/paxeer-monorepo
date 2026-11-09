@@ -96,3 +96,9 @@ evidence = "On main, commit 28fb1aae3 binds the canonical ledger payment call at
 finding = "22.23.12.1"
 status = "resolved"
 evidence = "On main, commit de96a83f0 aligns the sponsored-nonce RPC transcript with pending code and nonce reads at services/agent/sdk/typescript/test/gas-station.test.ts:974 and services/agent/sdk/typescript/test/gas-station.test.ts:1000. The producer selects the pending block at services/agent/sdk/typescript/src/gas-station.ts:1221."
+
+[closure.22.39.197]
+ids = "spec/layerx-merge/programme/closure/22.39.197.ids"
+dispositions = "spec/layerx-merge/dispositions/d22-29.kvx"
+main_revision = "a26369c7eda603cb28bcdd8cef55c35df7d248ee"
+finding_count = "104"

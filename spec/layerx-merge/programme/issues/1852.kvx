@@ -1,0 +1,48 @@
+[issue.1852]
+number = 1852
+title = "[Coherence] The interface registry still says pax_sequencerReceipt is HTTP only, while the updated proof test now requires it over WebSocket too"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit 561806a6529dcbcf892d71a309c73ca4bc3ea5d0 added WebSocket receipt registration, still present at rpc/server.go:587 and rpc/server.go:596 alongside HTTP registration at rpc/server.go:367, and commit ff8d7069053cd89df1af3a73d6444b106a5a0d26 made node/proof_node_go_api_test.go:13, node/proof_node_go_api_test.go:217 and node/proof_node_go_api_test.go:224-244 require both transports for unknown hashes and signed receipt reads, but spec/layerx-merge/interfaces.kvx:313195 and spec/layerx-merge/contracts/evm-rpc.md:2723 still describe pax_sequencerReceipt as HTTP only."
+close_comment = "pax_sequencerReceipt supports HTTP and WebSocket, including null responses for unknown hashes and signed receipt reads. A follow-up documentation task corrects the interface registry and EVM RPC contract to describe both transports."
+
+[task.18.1852.1]
+title = "Issue #1852: Document both receipt RPC transports in the registry and contract"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181852.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace HTTP only with HTTP and WebSocket in the notes of interface.7.rpc-pax-sequencerreceipt at spec/layerx-merge/interfaces.kvx:313195 and its matching notes row at spec/layerx-merge/contracts/evm-rpc.md:2723, matching the HTTP registration at rpc/server.go:367, WebSocket registration at rpc/server.go:596 and transport proof at node/proof_node_go_api_test.go:214-244; preserve the remaining receipt semantics, legacy-gate exemption and all other interface rows."
+do_2 = "Check that both documentation files contain the corrected pax_sequencerReceipt transport statement and neither retains the HTTP-only receipt statement; retain the existing unknown-hash and signed receipt assertions at node/proof_node_go_api_test.go:214-244 unchanged."
+symbols = []
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/evm-rpc.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'pax_sequencerReceipt; HTTP and WebSocket; exempt from the legacy gate' spec/layerx-merge/interfaces.kvx && grep -Fq 'pax_sequencerReceipt; HTTP and WebSocket; exempt from the legacy gate' spec/layerx-merge/contracts/evm-rpc.md && ! grep -Fq 'pax_sequencerReceipt; HTTP only;' spec/layerx-merge/interfaces.kvx && ! grep -Fq 'pax_sequencerReceipt; HTTP only;' spec/layerx-merge/contracts/evm-rpc.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181852]
+title = "The receipt RPC contract documents HTTP and WebSocket support"
+ac_1 = "The notes of interface.7.rpc-pax-sequencerreceipt at spec/layerx-merge/interfaces.kvx:313195 and the matching row at spec/layerx-merge/contracts/evm-rpc.md:2723 both state HTTP and WebSocket support and contain no HTTP-only receipt claim, matching rpc/server.go:367, rpc/server.go:596 and node/proof_node_go_api_test.go:214-244."
+
+[acceptance.18.1852.1]
+feature = "18"
+req = "181852.1"
+scenario = "Given pax_sequencerReceipt registered on HTTP and WebSocket, when the interface registry and EVM RPC contract describe its transports, then both state HTTP and WebSocket support and neither labels the receipt method HTTP only."
+contract = "contracts/evm-rpc.md#pax-sequencerreceipt"
+test = "Focused grep checks of interface.7.rpc-pax-sequencerreceipt transport notes in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/evm-rpc.md (planned)"
+qualification = "UNRUN"

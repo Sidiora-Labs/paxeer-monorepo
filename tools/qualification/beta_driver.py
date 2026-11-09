@@ -49,7 +49,7 @@ MAKE = ("make", "--no-print-directory")
 FIVE_MINUTES_SECONDS = 300.0
 HTTP_TIMEOUT_SECONDS = 20.0
 TAIL_LINES = 40
-SAMPLES = ROOT / "services" / "platform" / "docs" / "samples"
+SAMPLES = ROOT / "services" / "platform" / "examples" / "samples"
 SAMPLE_INPUTS = (
     "LAYERX_API_TOKEN",
     "LAYERX_SOURCE",
@@ -1109,21 +1109,27 @@ def rust_first_payment(ctx: CaseContext) -> None:
     )
 
 
-@case("platform-qualify-adoption", "middleware/ten-line-integration")
-def middleware_ten_line_integration(ctx: CaseContext) -> None:
-    build_site = ROOT / "services" / "platform" / "docs" / "build" / "build_site.py"
+def load_adoption_sample_measurements() -> list[dict[str, object]]:
+    build_site = ROOT / "docs" / "platform" / "build" / "build_site.py"
     specification = importlib.util.spec_from_file_location("layerx_build_site", build_site)
     if specification is None or specification.loader is None:
         raise CaseFailure(f"could not load {build_site}")
     module = importlib.util.module_from_spec(specification)
+    sys.modules[specification.name] = module
     specification.loader.exec_module(module)
     try:
-        samples = module.load_samples(ROOT / "services" / "platform" / "docs")
+        samples = module.load_samples(ROOT / "docs" / "platform")
         measurements = module.measure_samples(samples)
     except module.DocumentationError as error:
         raise CaseFailure(f"documentation line budget failed: {error}") from error
     if not measurements:
         raise CaseFailure("the documentation gate measured no sample")
+    return measurements
+
+
+@case("platform-qualify-adoption", "middleware/ten-line-integration")
+def middleware_ten_line_integration(ctx: CaseContext) -> None:
+    measurements = load_adoption_sample_measurements()
     workspaces = (
         "@sidiora/layerx-seller-middleware",
         "@sidiora/layerx-buyer-middleware",

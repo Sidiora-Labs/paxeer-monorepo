@@ -1,0 +1,49 @@
+[issue.1833]
+number = 1833
+title = "[P2] Accept the seller's committed settlement metadata in the Python buyer"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Decision 2570 at spec/layerx-merge/spec.kvx:8535 requires the landing references emitted at services/platform/middleware/seller/src/index.ts:390 and asserted at services/platform/middleware/seller/test/settlement-response.test.mjs:280, but services/agent/sdk/python/layerx_sdk/x402_http.py:609 routes fetch into capture_settlement, whose line 642 passes the full extension to the strict key check at line 228 introduced by commit 18880543d1bd1922597879bf76de981183d71b7f, rejecting either landing field before receipt verification at line 649."
+close_comment = "The Python buyer rejects the landing block metadata in ordinary committed seller responses before verifying their receipts. Task 18.1833.1 tracks accepting that settlement metadata while preserving receipt authentication, independently trusted commitment evidence and downgrade refusals."
+
+[task.18.1833.1]
+title = "Issue #1833: Accept committed settlement metadata in the Python buyer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181833.1"]
+capabilities = []
+interfaces = []
+do_1 = "At services/agent/sdk/python/layerx_sdk/x402_http.py:634 and :642, separate the settlement extension from the submitted proof using a settlement-specific parser; validate landingBlockHeight as a canonical bounded hex quantity and landingBlockHash as a 32-byte hex value, require the pair together when present and bind it to independently authenticated committed evidence, then pass only the validated receipt members to the existing proof verifier; preserve the strict submitted-proof schema at :226, both proof verifications at :649, transaction and payer binding at :651, and commitment downgrade refusal at :646, following decision 2570 at spec/layerx-merge/spec.kvx:8535."
+do_2 = "Extend the real paymentPeer in services/platform/middleware/conformance/pay6/peers.mjs:42 with a committed resource and its fixture information, using the existing recorded committed receipt and trusted validator evidence from services/platform/middleware/seller/test/committed-fixture.mjs:5; obtain PAYMENT-RESPONSE from real SellerMiddleware.handle through the HTTP route at peers.mjs:68, retaining the existing receipted resource and preserving the seller header unchanged."
+do_3 = "Add test_typescript_settlement_metadata_round_trip to services/platform/middleware/conformance/pay6/test_http.py beside HttpTests at :21; exercise Python BuyerMiddleware.fetch through the real TypeScript seller's 402 and paid HTTP responses for receipted and committed fixtures, then capture the unchanged response and assert its canonical receipt, digest, transaction and resource; assert rejection of either landing field alone, malformed height or hash, references mismatching authenticated evidence, unknown extension members, substituted proof members, invalid signatures or pins, missing or invalid trusted commitment evidence and committed-to-receipted downgrades; metadata alone must never establish committed finality, and submitted proofs must still reject settlement-only members."
+symbols = ["_parse_settlement_proof", "capture_settlement", "paymentPeer", "test_typescript_settlement_metadata_round_trip"]
+touches = ["services/agent/sdk/python/layerx_sdk/x402_http.py", "services/platform/middleware/conformance/pay6/peers.mjs", "services/platform/middleware/conformance/pay6/test_http.py"]
+tests = ["services/platform/middleware/conformance/pay6/test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip"]
+planned_paths = []
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_http.py services/platform/middleware/conformance/pay6/test_http.py"
+verify_cmd = "python3 -m pytest services/platform/middleware/conformance/pay6/test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181833]
+title = "The Python buyer accepts authenticated committed TypeScript settlement responses"
+ac_1 = "Given the real seller settlement emitted by services/platform/middleware/seller/src/index.ts:381 with the landing references asserted by services/platform/middleware/seller/test/settlement-response.test.mjs:280, the Python fetch and capture path at services/agent/sdk/python/layerx_sdk/x402_http.py:609 accepts the unchanged header only after authenticating both proofs and the independently trusted commitment, binds any landing references to that verified evidence, preserves receipted behavior and refuses malformed or mismatched metadata, unknown members, signature or receipt-binding failures and commitment downgrades without broadening the submitted-proof schema at :226."
+
+[acceptance.18.1833.1]
+feature = "18"
+req = "181833.1"
+scenario = "Given real TypeScript seller responses backed by recorded receipted and committed payment evidence, when the Python buyer fetches the paid resource and captures the unmodified settlement header, then both valid responses succeed with the expected authenticated receipt and transaction while malformed or mismatched landing references, invalid receipt authentication, absent or invalid trusted commitment evidence, unknown proof members and downgrades are refused."
+contract = "contracts/platform-middleware.md#middleware-seller-ts-exports"
+test = "services/platform/middleware/conformance/pay6/test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip (planned)"
+qualification = "UNRUN"

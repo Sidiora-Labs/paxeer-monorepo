@@ -1,0 +1,50 @@
+[issue.1750]
+number = 1750
+title = "[Coherence] The 'exact signed' Claim and RefundFree requests carry Native authentication; their signature is never checked by the program"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "At this revision, programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs:209 sets Native authentication, :1240 signs the envelope separately, and :1460 checks corruption only with test-side verify_strict before :1468 routes the original request, while programs/crates/layerx-programs-ai-market/src/rewards.rs:2586 authenticates only the native principal and domain and src/dispatch.rs:651 and :675 disallow Delegate for these operations, so authenticated replay needs coverage through the production activity signature and authority checks at tests/programs/test_ai_host_boundary.c:301."
+close_comment = "Claim and RefundFree recovery coverage still checks a detached signature that the program never receives. A follow-up will prove intact and tampered requests through native activity authentication while retaining the existing recovery assertions."
+
+[task.18.1750.1]
+title = "Issue #1750: Prove authenticated Claim and RefundFree replay through native activities"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181750.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend tests/programs/test_ai_host_boundary.c:275 and its command handling at :991 to expose the actual signed CALL activity bytes and submit supplied bytes through production decoding, signature verification and authority resolution before kernel execution; do not regenerate a signature when accepting a supplied request, and never set signature_valid before those checks succeed."
+do_2 = "Add reward_signed_replay_authentication to programs/crates/layerx-programs-ai-market/tests/rewards_native.rs using Native::start at :1640 and the production snapshot reopening at tests/programs/test_ai_host_boundary.c:829: produce Claim and RefundFree through the real market lifecycle, retain their signed native activities, discard successful replies, reopen the store, and resubmit the retained bytes through the authenticated path with retained results and unchanged payout state."
+do_3 = "For each operation, submit a changed payload under its original signature and a changed signature through the same production authentication path, assert the concrete authentication refusal and unchanged market state, recipient balances and events, and verify that an envelope actor differing from the authenticated native principal is refused; preserve Native-only reward authentication at programs/crates/layerx-programs-ai-market/src/dispatch.rs:651 and :675."
+do_4 = "Connect native_recovery_and_capacity at programs/crates/layerx-programs-ai-market/tests/rewards_native.rs:2651 to the authenticated recovery proof while retaining its existing assertions and the storage recovery regression at :2652; the new test must prove production acceptance and refusal rather than relying on authenticate_request or verify_strict in programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs:1245 and :1460."
+symbols = ["execute_inner", "native_recovery_and_capacity", "reward_signed_replay_authentication"]
+touches = ["tests/programs/test_ai_host_boundary.c", "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_signed_replay_authentication"]
+planned_paths = []
+build_cmd = "make paxai-host-boundary-build"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test rewards_native reward_signed_replay_authentication -- --exact"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181750]
+title = "Reward recovery proves the authentication of the replayed request"
+ac_1 = "Given committed Claim and RefundFree operations and reopened production storage, when their signed native activities are replayed through production authentication, then intact activities return retained results without another payout and payload, signature or native-principal tampering is refused without changing market state, recipient balances or events, replacing the detached-only authentication proof at programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs:1240 and :1460 with coverage of tests/programs/test_ai_host_boundary.c:301 through :350."
+
+[acceptance.18.1750.1]
+feature = "18"
+req = "181750.1"
+scenario = "Given signed native Claim and RefundFree activities whose successful replies were lost and whose production store has reopened, when the original activities and tampered variants are submitted through production authentication, then only intact activities recover the retained results and tampered variants are refused with market state, recipient balances and events unchanged."
+contract = "contracts/programs.md#ai-market-guest"
+test = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_signed_replay_authentication (planned)"
+qualification = "UNRUN"

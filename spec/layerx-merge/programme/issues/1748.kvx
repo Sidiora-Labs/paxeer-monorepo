@@ -1,0 +1,48 @@
+[issue.1748]
+number = 1748
+title = "[Coherence] The finality proof scenario never makes reward authorization depend on the authenticated SnapshotBinding"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The proof added by commit a98636f083ddfcbfc01d2e65b588721e4c20f38d still checks witnesses in test-local CommittedRead::verify at programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs:1043 using the fixed key at :1140, then sends CLAIM with only worker, recipient and amount at :1158 and the binding's height at :1233; SnapshotBinding remains confined to queries.rs in the guest source at programs/crates/layerx-programs-ai-market/src/queries.rs:693, while the production consumer already exists in services/agent/crates/layerx-client/src/ai_market.rs:604 and :850, so spec/layerx-merge/spec.kvx:197854 still needs a regression that connects witness refusal to that consumer's reward authorization."
+close_comment = "The finality scenario rejects tampered witnesses separately from the reward action, so it does not prove that reward authorization requires an authenticated snapshot. A focused regression task will exercise the existing client consumer from committed state verification through CLAIM preparation and approval, including refusal of modified or missing evidence."
+
+[task.18.1748.1]
+title = "Issue #1748: Prove reward authorization consumes authenticated snapshot evidence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181748.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add reward_finality_authorization_requires_verified_snapshot in services/agent/crates/layerx-client/tests/ai_market_commit.rs using the existing production consumer rather than the direct CLAIM call at programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs:1229: produce market and worker/roster state through the real guest operations, authenticate its namespace head and manifest through VerifiedProgramState::verify (services/agent/crates/layerx-client/src/ai_market.rs:240) against a ChainProofVerifier-verified commit, construct CommitFinality::from_verified_program (:462), capture the real read chunks and finalize them through ObservedSnapshot::finalize (:604), then prepare, review and approve the CLAIM through FinalizedSnapshot::prepare (:850)."
+do_2 = "In the same named regression, assert that the positive path produces the exact CLAIM payload and retains the authenticated binding and snapshot id in PreparedOperation; drive modified state value, namespace key, block and app-hash witnesses, missing finality and CommitFinality::new assertions through that same fallible verification-to-authorization path and assert a typed refusal before any prepared or approved reward call is produced, preserving the existing tests and on-chain CLAIM payload. Reuse the commit and namespace proof support in services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs:292, :768 and :799 without substituting a test-local verifier or manually constructing a finalized snapshot."
+symbols = ["reward_finality_authorization_requires_verified_snapshot"]
+touches = ["services/agent/crates/layerx-client/tests/ai_market_commit.rs"]
+tests = ["services/agent/crates/layerx-client/tests/ai_market_commit.rs::reward_finality_authorization_requires_verified_snapshot"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test ai_market_commit"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test ai_market_commit reward_finality_authorization_requires_verified_snapshot -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181748]
+title = "Reward authorization is proven to require an authenticated finalized snapshot"
+ac_1 = "The regression drives the committed namespace verifier at services/agent/crates/layerx-client/src/ai_market.rs:240 through snapshot finalization at :604 into CLAIM preparation at :850 and approval, proves the resulting operation carries the verified binding, and proves modified value, key, block and app-hash witnesses or missing and unverified finality cannot produce an authorized reward call."
+
+[acceptance.18.1748.1]
+feature = "18"
+req = "181748.1"
+scenario = "Given market state produced by guest operations and authenticated committed namespace evidence, when the client verifies, captures and finalizes the snapshot and prepares and approves a CLAIM, then the reward operation retains that authenticated binding, while modified value, key, block or app-hash witnesses and missing or unverified finality refuse before reward authorization."
+contract = "contracts/programs.md#ai-market-guest"
+test = "services/agent/crates/layerx-client/tests/ai_market_commit.rs::reward_finality_authorization_requires_verified_snapshot (planned)"
+qualification = "UNRUN"

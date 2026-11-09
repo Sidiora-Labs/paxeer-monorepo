@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - sdk/launchpad/**
+      - services/launchpad/**
+      - tests/ci/data/**
+      - services/launchpad/Makefile
+      - tests/ci/test_launchpad_go_tests_wired.py
       - apps/launchpad/**
       - .github/workflows/launchpad-test.yml
       - tests/ci/test_launchpad_test_workflow.py
@@ -12,6 +16,10 @@ on:
     branches: [main]
     paths:
       - sdk/launchpad/**
+      - services/launchpad/**
+      - tests/ci/data/**
+      - services/launchpad/Makefile
+      - tests/ci/test_launchpad_go_tests_wired.py
       - apps/launchpad/**
       - .github/workflows/launchpad-test.yml
       - tests/ci/test_launchpad_test_workflow.py
@@ -55,7 +63,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
-          node-version: '22'
+          node-version: "22"
           package-manager-cache: false
       - name: Install the workspace package manager
         run: npm install --global "$(node -p 'require("./package.json").packageManager')"
@@ -66,3 +74,281 @@ jobs:
       - name: Test package
         working-directory: .
         run: pnpm --dir apps/launchpad --filter "./../../${{ matrix.package }}" --fail-if-no-match run test
+
+  launchpad-go-test:
+    name: Go test ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - sdk/launchpad/shared
+          - sdk/launchpad/protocol
+          - services/launchpad/api
+          - services/launchpad/indexer
+          - services/launchpad/pnl-tracker
+          - services/launchpad/ranking-algo
+          - services/launchpad/stats-workers
+          - services/launchpad/trading-charts
+          - services/launchpad/gateway
+          - services/launchpad/livestream
+          - services/launchpad/metadata
+          - services/launchpad/social
+          - services/launchpad/user
+          - services/launchpad/discovery
+          - services/launchpad/notifications
+          - services/launchpad/security
+          - services/launchpad/security/control
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    env:
+      GOWORK: "off"
+      GOTOOLCHAIN: go1.27.3
+      L07_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_test?sslmode=disable
+      L09_REDIS_URL: redis://127.0.0.1:26379/9
+      L09_NAMESPACE: kd_223975223975223975223975
+      SHARED_TEST_REDIS_URL: redis://127.0.0.1:26379/10
+      SHARED_TEST_MINIO_ENDPOINT: http://localhost:9000
+      SHARED_TEST_MINIO_ACCESS_KEY_ID: launchpad-test
+      SHARED_TEST_MINIO_SECRET_ACCESS_KEY: launchpad-test-password
+      BROKER_EPOCH_TEST_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      COORDINATOR_TEST_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      DELIVERY_TEST_SCHEMA: kd_223975223975223975223975
+      L34_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L34_ANVIL_URL: http://127.0.0.1:28545
+      DELIVERY_TEST_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      CORE_API_TEST_POSTGRES_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L11_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      CORE_API_TEST_REDIS_URL: redis://127.0.0.1:26379/11
+      CORE_API_TEST_NATS_URL: nats://127.0.0.1:24222
+      INDEXER_TEST_POSTGRES_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      INDEXER_TEST_REDIS_URL: redis://127.0.0.1:26379/6
+      L06_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L06_COMMIT_CRASH_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      RANKING_TEST_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L19_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      STATS_TEST_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L13_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L13_PHASE2_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L14_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L15_TEST_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L15_PHASE4_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L20_TEST_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      CHARTS_TEST_POSTGRES_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L10_TEST_POSTGRES: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L11_HISTORY_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L33_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L41_POSTGRES_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L40_TEST_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L40_TEST_APP_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      METADATA_TEST_DATABASE_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      KINDLE_PRODUCTION_TEST_DATABASE_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      KINDLE_PUBLICATION_TEST_DATABASE_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      SOCIAL_TEST_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      SOCIAL_FIXTURE_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L37_TEST_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L37_PHASE2_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L38_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      USER_TEST_DATABASE_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      USER_TEST_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      L45_DATABASE_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable
+      RANKING_TEST_REDIS_URL: redis://127.0.0.1:26379/0
+      L19_REDIS_URL: redis://127.0.0.1:26379/0
+      STATS_TEST_REDIS_URL: redis://127.0.0.1:26379/1
+      L20_REDIS_URL: redis://127.0.0.1:26379/1
+      CHARTS_TEST_REDIS_URL: redis://127.0.0.1:26379/2
+      L11_HISTORY_REDIS_URL: redis://127.0.0.1:26379/2
+      GATEWAY_TEST_REDIS_URL: redis://127.0.0.1:26379/3
+      GATEWAY_E2E_REDIS_URL: redis://127.0.0.1:26379/3
+      L40_TEST_REDIS_URL: redis://127.0.0.1:26379/4
+      METADATA_TEST_REDIS_URL: redis://127.0.0.1:26379/5
+      SOCIAL_TEST_REDIS_URL: redis://127.0.0.1:26379/7
+      SOCIAL_FIXTURE_REDIS_URL: redis://127.0.0.1:26379/7
+      L37_PHASE2_REDIS_URL: redis://127.0.0.1:26379/7
+      USER_TEST_REDIS_URL: redis://127.0.0.1:26379/8
+      L38_REDIS_ADDR: 127.0.0.1:26379
+      RANKING_TEST_NATS_URL: nats://127.0.0.1:24222
+      L19_NATS_URL: nats://127.0.0.1:24222
+      L13_PHASE3_REDIS_SERVER: /usr/bin/redis-server
+      L13_PHASE3_NATS_URL: nats://127.0.0.1:24222
+      L15_NATS_URL: nats://127.0.0.1:24222
+      L15_PHASE4_NATS_URL: nats://127.0.0.1:24222
+      L20_NATS_URL: nats://127.0.0.1:24222
+      SOCIAL_TEST_NATS_URL: nats://127.0.0.1:24222
+      L37_PHASE2_NATS_URL: nats://127.0.0.1:24222
+      L33_ANVIL_URL: http://127.0.0.1:28545
+      L47_ANVIL_URL: http://127.0.0.1:28545
+      GATEWAY_TEST_MINIO_ENDPOINT: http://localhost:9000
+      METADATA_TEST_S3_ENDPOINT: http://localhost:9000
+      USER_TEST_MINIO_ENDPOINT: http://localhost:9000
+      L35_TEST_OBJECT_ENDPOINT: http://localhost:9000
+      L10_TEST_S3_ENDPOINT: http://localhost:9000
+      GATEWAY_TEST_MINIO_ACCESS_KEY_ID: launchpad-test
+      METADATA_TEST_S3_ACCESS_KEY_ID: launchpad-test
+      USER_TEST_MINIO_ACCESS_KEY: launchpad-test
+      L35_TEST_OBJECT_ACCESS_KEY: launchpad-test
+      L10_TEST_S3_ACCESS_KEY_ID: launchpad-test
+      GATEWAY_TEST_MINIO_SECRET_ACCESS_KEY: launchpad-test-password
+      METADATA_TEST_S3_SECRET_ACCESS_KEY: launchpad-test-password
+      USER_TEST_MINIO_SECRET_KEY: launchpad-test-password
+      L35_TEST_OBJECT_SECRET_KEY: launchpad-test-password
+      L10_TEST_S3_SECRET_ACCESS_KEY: launchpad-test-password
+      L35_TEST_OBJECT_BUCKET: launchpad-user-test
+      L14_POSTGRES_SCHEMA: kd_143975143975143975143975
+      L37_PHASE2_SCHEMA: kd_373975373975373975373975
+      L37_PHASE2_CANONICAL_SCHEMA: indexer
+      NOTIFICATIONS_TEST_DATABASE_URL: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/launchpad_notifications?sslmode=disable
+      PNL_TEST_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/launchpad_pnl?sslmode=disable
+      L16_TEST_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/launchpad_pnl?sslmode=disable
+      L17_TEST_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/launchpad_pnl?sslmode=disable
+      L18_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/launchpad_pnl?sslmode=disable
+      PNL_TEST_REDIS_URL: redis://127.0.0.1:26379/12
+      PNL_TEST_NATS_URL: nats://127.0.0.1:24222
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kindle_fixture
+          POSTGRES_PASSWORD: kindle_fixture_password
+          POSTGRES_DB: kindle_fixture
+        ports: ["25432:5432"]
+        options: >-
+          --health-cmd 'pg_isready -U kindle_fixture -d kindle_fixture' --health-interval 10s
+          --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["26379:6379"]
+        options: >-
+          --health-cmd 'redis-cli ping' --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.27.3"
+          cache-dependency-path: |
+            sdk/launchpad/**/go.sum
+            services/launchpad/**/go.sum
+      - name: Set up Node.js for contract and SDK proofs
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Set up Anvil for contract proofs
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.7.1
+          cache: false
+      - name: Create the pool test database
+        env:
+          PGPASSWORD: kindle_fixture_password
+        run: |
+          psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --command "ALTER ROLE kindle_fixture CREATEDB"
+          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture kindle_test
+          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture launchpad_notifications
+          createdb --host 127.0.0.1 --port 25432 --username kindle_fixture launchpad_pnl
+      - name: Start the owned authorization chain
+        run: |
+          anvil --host 127.0.0.1 --port 28545 --chain-id 125 --threads 2 --silent > "$RUNNER_TEMP/launchpad-anvil.log" 2>&1 &
+          for attempt in {1..30}; do
+            if cast chain-id --rpc-url "$L34_ANVIL_URL"; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Install fixture binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes redis-server
+          go install github.com/nats-io/nats-server/v2@v2.11.6
+      - name: Start API NATS fixture
+        run: |
+          nats-server --addr 127.0.0.1 --port 24222 --jetstream --store_dir "$RUNNER_TEMP/launchpad-nats" > "$RUNNER_TEMP/launchpad-nats.log" 2>&1 &
+          for attempt in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/24222) 2>/dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Start object storage fixture
+        run: |
+          docker run --detach --name launchpad-minio --publish 9000:9000 \
+            --env MINIO_ROOT_USER="$SHARED_TEST_MINIO_ACCESS_KEY_ID" \
+            --env MINIO_ROOT_PASSWORD="$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          curl --fail --retry 30 --retry-connrefused --retry-delay 1 \
+            http://localhost:9000/minio/health/ready
+          curl --fail --aws-sigv4 "aws:amz:us-east-1:s3" \
+            --user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
+            --request PUT http://localhost:9000/launchpad-user-test
+      - name: Build native library for protocol producer proofs
+        working-directory: .
+        run: |
+          make build/liblayerx.a programs-release-build
+          echo "CGO_LDFLAGS=-L${GITHUB_WORKSPACE}/build" >> "$GITHUB_ENV"
+      - name: Compile launchpad contracts for API authority proofs
+        working-directory: contracts/launchpad
+        run: |
+          npm install --global "$(node -p 'require("./package.json").packageManager')"
+          pnpm install --ignore-workspace --frozen-lockfile
+          pnpm compile
+      - name: Build protocol proof dependencies
+        working-directory: .
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.module }}" = sdk/launchpad/protocol ]; then
+            build_proof_dependencies() {
+              (
+                cd "$1"
+                go list -mod=readonly -deps -test -f '{{if and (not .Standard) (not .ForTest) (ne .Name "main") .GoFiles}}{{.ImportPath}}{{end}}' . > "$RUNNER_TEMP/launchpad-proof-dependencies.txt"
+                sed -i '/^$/d' "$RUNNER_TEMP/launchpad-proof-dependencies.txt"
+                test -s "$RUNNER_TEMP/launchpad-proof-dependencies.txt"
+                xargs go build -mod=readonly < "$RUNNER_TEMP/launchpad-proof-dependencies.txt"
+              )
+            }
+            (
+              export GOTOOLCHAIN="go$(awk '$1 == "go" {print $2; exit}' go.mod)"
+              build_proof_dependencies precompiles/launchpad
+            )
+            (
+              cd sdk/launchpad/protocol/bindings/testdata/repair37/contracts
+              go mod download all
+            )
+            build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/repair37/contracts
+            (
+              cd sdk/launchpad/protocol/coverage/testdata/repair28producer
+              cp go.mod "$RUNNER_TEMP/launchpad-repair28.mod"
+              go build -modfile="$RUNNER_TEMP/launchpad-repair28.mod" -mod=mod -o "$RUNNER_TEMP/launchpad-repair28-producer" .
+            )
+          fi
+      - name: Test Go module
+        run: python3 "$GITHUB_WORKSPACE/tests/ci/data/launchpad_go_tests.py" --module .
+
+  launchpad-go-wiring:
+    name: Check Go test wiring
+    runs-on: ubuntu-latest
+    env:
+      GOWORK: "off"
+      GOTOOLCHAIN: go1.27.3
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go for the real coverage runner check
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.27.3"
+          cache-dependency-path: sdk/launchpad/shared/go.sum
+      - name: Set up Python
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
+        with:
+          python-version: "3.12"
+      - name: Install wiring test dependencies
+        run: python3 -m pip install pytest==8.3.5 PyYAML==6.0.2
+      - name: Check Go test wiring
+        run: python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py

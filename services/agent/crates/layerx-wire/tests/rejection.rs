@@ -1,18 +1,10 @@
-#[path = "support/corpus.rs"]
-mod replay_corpus;
-
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
 
 use layerx_types::result::{KnownResult, ResultCode};
 use layerx_types::vectors::CodecVector;
 use layerx_wire::decode::Decoder;
 use layerx_wire::limits::enforce;
 use layerx_wire::{check_ordered_keys, WireError};
-
-fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..")
-}
 
 fn run_vector(vector: &CodecVector) -> Result<(), WireError> {
     match vector.kind.as_str() {
@@ -167,15 +159,23 @@ fn hostile_lengths_are_constant_work_and_allocation_bounded() {
 fn rejection_taxonomy_coverage_has_no_silent_gap() {
     let mut covered = rejection_corpus();
     let mut invalid_utf8 = Decoder::new(&[0, 0, 0, 1, 0xff], 0);
-    let error = invalid_utf8.text(1).unwrap_err();
+    let Err(error) = invalid_utf8.text(1) else {
+        panic!("invalid UTF-8 was accepted");
+    };
     assert_eq!(error.result, KnownResult::NonCanonical.into());
     covered.insert(error.result.raw());
-    historical_compatibility::historical_envelope_rejections_retain_the_exact_taxonomy();
-    covered.extend([
-        KnownResult::UnknownField.raw(),
-        KnownResult::VersionUnsupported.raw(),
-        KnownResult::UnknownActivity.raw(),
-    ]);
+    let mut unknown_field = Decoder::new(&[0, 13], 0);
+    let Err(error) = unknown_field.field_id(12) else {
+        panic!("unknown field was accepted");
+    };
+    assert_eq!(error.result, KnownResult::UnknownField.into());
+    covered.insert(error.result.raw());
+    let mut unknown_version = Decoder::new(&[0, 4, 0x17, 0x01], 0);
+    let Err(error) = unknown_version.structure_header_version(0x1701) else {
+        panic!("unknown version was accepted");
+    };
+    assert_eq!(error.result, KnownResult::VersionUnsupported.into());
+    covered.insert(error.result.raw());
     let required = BTreeSet::from([
         KnownResult::Truncated.raw(),
         KnownResult::TrailingBytes.raw(),
@@ -185,55 +185,9 @@ fn rejection_taxonomy_coverage_has_no_silent_gap() {
         KnownResult::InvalidTag.raw(),
         KnownResult::UnknownField.raw(),
         KnownResult::VersionUnsupported.raw(),
-        KnownResult::UnknownActivity.raw(),
     ]);
     assert_eq!(covered, required);
 }
 
 #[path = "repair_22_33_1523.rs"]
 mod native_submission;
-
-mod historical_compatibility {
-    use super::*;
-    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-    use layerx_wire::activity::decode_signed;
-    fn registry() -> ModuleRegistry {
-        let Ok(kind) = ActivityType::new(ModuleId::Asset, 1) else {
-            panic!("valid activity type rejected");
-        };
-        let Ok(registration) = ModuleRegistration::new(ModuleId::Asset, &[kind]) else {
-            panic!("valid registration rejected");
-        };
-        let Ok(registry) = ModuleRegistry::new(&[registration]) else {
-            panic!("valid registry rejected");
-        };
-        registry
-    }
-
-    // Archive rejection classes are retained independently of native submission
-    // qualification. These are never used as native transaction error codes.
-    #[test]
-    pub fn historical_envelope_rejections_retain_the_exact_taxonomy() {
-        let corpus = replay_corpus::load(&repository_root())
-            .unwrap_or_else(|error| panic!("historical corpus: {error:?}"));
-        let template = &corpus.replay.canonical_activities[0];
-        let mut unknown_version = template.clone();
-        unknown_version[1] = 2;
-        let mut unknown_activity = template.clone();
-        unknown_activity[14..18].copy_from_slice(&0x0009_0001_u32.to_be_bytes());
-        let mut unknown_field = template.clone();
-        unknown_field[5] = 13;
-        assert_eq!(
-            decode_signed(&unknown_version, &registry()).map_err(|error| error.result),
-            Err(ResultCode::from(KnownResult::VersionUnsupported))
-        );
-        assert_eq!(
-            decode_signed(&unknown_activity, &registry()).map_err(|error| error.result),
-            Err(ResultCode::from(KnownResult::UnknownActivity))
-        );
-        assert_eq!(
-            decode_signed(&unknown_field, &registry()).map_err(|error| error.result),
-            Err(ResultCode::from(KnownResult::UnknownField))
-        );
-    }
-}

@@ -12,9 +12,8 @@ follow_up = "closure"
 
 [disposition.22.1.9.2]
 finding = "22.1.9.2"
-status = "open"
-evidence = "Although b069914d5f4fe792d9c418dc49cf7b582bda7344 removed web from genesis-modules.conf, services/platform/hosted/node/bootstrap.sh:235 still includes web in the beta profile and services/platform/hosted/node/bootstrap.sh:248 still accepts it as an enabled module, requiring programme-authored follow-up 22.1.13 to retire those options and their help text."
-follow_up = "22.1.13"
+status = "resolved"
+evidence = "Commit 9f494ac6112ce9275f419ce6c0dcb4228824dcad (2026-11-04) removed the web module references, beta-profile list and option help from services/platform/hosted/node/bootstrap.sh. On main services/platform/hosted/node/bootstrap.sh:4 delegates bootstrap to native_runtime.py instead of retaining those module options."
 
 [disposition.22.2.5.6]
 finding = "22.2.5.6"
@@ -24,9 +23,8 @@ follow_up = "closure"
 
 [disposition.22.0.1.1]
 finding = "22.0.1.1"
-status = "open"
-evidence = "Despite the input corrections in 7c4799271, spec/layerx-merge/dispositions/d10-3.kvx:106 still assigns follow-up 18.1434.1, whose spec/layerx-merge/spec.kvx:135639 status is pending, so the live closure prerequisite that every assigned follow-up be done remains unsatisfied and task 22.0.1 must await the outstanding repairs."
-follow_up = "22.0.1"
+status = "resolved"
+evidence = "Task 18.1434.1 is done on main: commit ed41b73aa7825a76ee926948a76a40893474ce6b landed persistence of the accepted Move money submission before receipt lookup and reconciliation without resending. The corresponding disposition is spec/layerx-merge/dispositions/d10-3.kvx:102 (10.20.5.5), added by commit 6589ea4af357a4832d605bd741c5e792d402c933, whose follow_up names the now-completed 18.1434.1."
 
 [disposition.22.23.10.1]
 finding = "22.23.10.1"

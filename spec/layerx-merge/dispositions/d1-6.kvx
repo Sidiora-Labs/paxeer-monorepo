@@ -1,0 +1,246 @@
+# Product evidence on main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.1.0.1.a2]
+finding = "1.0.1.a2"
+status = "resolved"
+evidence = "On main, Makefile:1201 provides the shared tests/kernel/% rule that builds tests/codec/lxp_test_case_dispatch.c with the kernel and Programs libraries; commit 834517742d landed that rule."
+
+[disposition.1.0.2.a2]
+finding = "1.0.2.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_module.h:14 declares the module-ID enum with LXP_MODULE_RESERVED_COUNT equal to 11 at line 26, preserving all eleven reserved IDs."
+
+[disposition.1.1.1.a2]
+finding = "1.1.1.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_result.h:147 registers LXP_ERR_ARBITER_REQUIRED, LXP_ERR_UNAUTHORIZED_ARBITER and LXP_ERR_ESCROW_LINK_MISMATCH as -737, -738 and -739 through LXP_RESULT_CODE_LIST."
+
+[disposition.1.1.2.a2]
+finding = "1.1.2.a2"
+status = "environment"
+evidence = "On main, src/protocol/lxp_result.c:43 returns LXP_RESULT_DOMAIN_UNKNOWN for unregistered results, using the enum member declared in include/layerx/lxp_result.h:23."
+
+[disposition.1.11.1.a2]
+finding = "1.11.1.a2"
+status = "environment"
+evidence = "On main, include/layerx/lx_asset.h:129 carries binding_authority in lx_asset_runtime, and src/modules/asset/lx_asset_execution.h:126 verifies the activity signature when that authority is absent."
+
+[disposition.1.11.4.a2]
+finding = "1.11.4.a2"
+status = "resolved"
+evidence = "On main, Makefile:197 rebuilds liblayerx.a from its declared objects after removing the previous archive at line 199, so excluded members cannot survive an update; commit 3fab521367 landed the pruning repair."
+
+[disposition.1.14.2.1.a2]
+finding = "1.14.2.1.a2"
+status = "resolved"
+evidence = "On main, tests/codec/lxp_test_sandbox_lifecycle.c:541 encodes both bytes of the staging index into a three-byte key and checks that every put increases staged_count, preserving the exhaustion assertions at line 560; commit fd9474b303 landed the repair."
+
+[disposition.1.14.2.a2]
+finding = "1.14.2.a2"
+status = "resolved"
+evidence = "On main, programs/vendor/tungstenite-0.29.0/Cargo.toml:15 supplies the tungstenite package from the dependency set restored by commit e713b182a; programs/crates/layerx-programs-arbiter/Cargo.toml:13 now depends directly on layerx-proof rather than layerx-client."
+
+[disposition.1.14.3.a2]
+finding = "1.14.3.a2"
+status = "environment"
+evidence = "On main, tests/codec/lxp_test_fee_relay_retired.c:9 identifies the historical fee relay as 0x00090008 and line 54 asserts LXP_ERR_UNKNOWN_ACTIVITY for its dispatch, while the Programs fee resolver remains available."
+
+[disposition.1.14.4.a2]
+finding = "1.14.4.a2"
+status = "environment"
+evidence = "On main, src/modules/programs/sandbox_expiry.c:14 sets MAX_EXPIRIES_PER_BATCH to 128 in the expiry-bound enum used by sandbox settlement."
+
+[disposition.1.15.1.1.a2]
+finding = "1.15.1.1.a2"
+status = "resolved"
+evidence = "On main, programs/.gitignore:3 exempts the vendored cc target sources and lines 5-6 exempt the vendored certificate and key fixtures; commit 78f66f8c19 restored the checksum-bound vendor files."
+
+[disposition.1.15.1.2.a2]
+finding = "1.15.1.2.a2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-client/src/ai_market.rs:622 constructs FinalityEvidence from the native state root, block height, block hash, app hash and store proof digest, matching programs/crates/layerx-programs-ai-market/src/queries.rs:681; commit 9a7022b287 landed the block-commit finality repair."
+
+[disposition.1.15.1.3.a2]
+finding = "1.15.1.3.a2"
+status = "resolved"
+evidence = "On main, tests/codec/lxp_test_state_feed_unbound.c:2 declares the included reference main with internal linkage and an unused attribute, preventing the unused signing path from entering the executable; commit 38c5443167 landed this change."
+
+[disposition.1.15.1.a2]
+finding = "1.15.1.a2"
+status = "resolved"
+evidence = "On main, Makefile:1205 links every shared kernel test with -lsqlite3 as well as the Programs runtime libraries; commit 38c5443167 added SQLite to this rule."
+
+[disposition.1.16.1.a2]
+finding = "1.16.1.a2"
+status = "resolved"
+evidence = "On main, include/layerx/programs.h:12 forward-declares the replay types without including the replica header, and tests/codec/lxp_test_programs_header.c:13 asserts the header remains independent; commit 415e46402a landed the include split and commit 8583cfb201 removed the retired replay consumers."
+
+[disposition.1.16.3.a2]
+finding = "1.16.3.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_kernel.h:17 sets LXP_KERNEL_MAX_MODULE_KV to 4096 and line 20 sets LXP_MODULE_MAX_STAGED_WRITES to 512, with the kernel arrays using those enum bounds."
+
+[disposition.1.17.1.a2]
+finding = "1.17.1.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_kernel.h:246 defines lxp_governance_authority with its enabled flag, network ID and public key, and line 264 retains that authority directly in lxp_kernel."
+
+[disposition.1.17.3.a2]
+finding = "1.17.3.a2"
+status = "resolved"
+evidence = "On main, programs/vendor/tungstenite-0.29.0/Cargo.toml:15 retains the websocket package restored by commit e713b182a; programs/crates/layerx-programs-arbiter/Cargo.toml:13 now uses layerx-proof directly after commit 65d4c02a50 removed its layerx-client dependency."
+
+[disposition.1.18.1.a2]
+finding = "1.18.1.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_module.h:22 reserves module ID 8 for BRIDGE and line 25 reserves ID 11 for WEB, retaining the protocol IDs independently of module registration."
+
+[disposition.1.19.1.a2]
+finding = "1.19.1.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_bridge.h:53 exposes deposit proof verification and line 67 exposes withdrawal-request handling; the header retains these supported interfaces after removal of the guarantor-certified claim types."
+
+[disposition.1.2.1.a2]
+finding = "1.2.1.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_result.h:77 registers LXP_ERR_SEQUENCE_REUSED as -301 in the canonical result list consumed by src/protocol/lxp_result.c:34."
+
+[disposition.1.2.3.a2]
+finding = "1.2.3.a2"
+status = "resolved"
+evidence = "On main, tests/codec/lxp_test_snapshot_idempotency.c:24 stages a balance directly in the journal instead of appending an idempotency row; commit 5af20d0e86 removed the kernel lookup, module-context reservation and snapshot-test append together with the retired table."
+
+[disposition.1.20.2.a2]
+finding = "1.20.2.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_result.h:148 registers LXP_ERR_UNAUTHORIZED_ARBITER as -738, and src/protocol/lxp_result.c:34 derives its name from the same result list."
+
+[disposition.1.21.3.a2]
+finding = "1.21.3.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/code.go:9 returns LXP_ERR_UNKNOWN for unregistered values, matching src/protocol/lxp_result.c:38; commit ad158e83c0 landed the Go result surface and modules/lxphost/code_test.go:7 checks parity from -2000 through 2000."
+
+[disposition.1.22.2.a2]
+finding = "1.22.2.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/read_program.go:177 passes the Programs module scope to h.withRead, matching the scoped read interface; commit 220850ae77 landed the missing argument."
+
+[disposition.1.23.3.a2]
+finding = "1.23.3.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/authority_test.go:158 funds the main account under its owner before delegated budget execution, and line 296 supplies the delegated grant and authority hash; commit 44edbdfbc2 landed the authority fixture and host changes."
+
+[disposition.1.23.7.1]
+finding = "1.23.7.1"
+status = "resolved"
+evidence = "On main, modules/lxphost/programs_registration_test.go:60 seeds the Programs fee record before deploying the ABI-5 guest, and modules/lxphost/host.go:246 selects the requested registration ABI; commit 4fc7db6573 landed this registration and its fee-backed coverage."
+
+[disposition.1.29.1.a2]
+finding = "1.29.1.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/oracle_codec_test.go:13 rejects an lx_oracle_adapter.o member and checks that lx_oracle_codec.o alone owns both encoder symbols; commit 9da559dd04 landed the corrected archive assertion."
+
+[disposition.1.3.2.a2]
+finding = "1.3.2.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_result.h:66 registers LXP_ERR_CONTEXT_MISMATCH as -213, and src/protocol/lxp_result.c:34 derives the canonical name from that entry."
+
+[disposition.1.30.1.a2]
+finding = "1.30.1.a2"
+status = "environment"
+evidence = "On main, src/network/lxp_gateway_receive.c retains no gateway claim or grant-bound implementation after commit 5d2309c3b9 retired those entry points; modules/layerxledger/keeper/grants.go:14 returns ErrNoPayerGrant for the retired grant API."
+
+[disposition.1.4.1.a2]
+finding = "1.4.1.a2"
+status = "environment"
+evidence = "On main, include/layerx/lxp_result.h:77 binds LXP_ERR_SEQUENCE_REUSED to -301 in the canonical X-macro registry, and src/protocol/lxp_result.c:34 exposes the registered name."
+
+[disposition.1.4.3.1.a2]
+finding = "1.4.3.1.a2"
+status = "resolved"
+evidence = "On main, tests/fuzz/lxp_prop_prepare_workers.c:426 constructs LX_PROGRAMS_CALL activities, matching the leading CALL-only admission at src/protocol/lxp_kernel.c:4927; commit a589a86a94 landed the CALL-based serial/parallel comparison."
+
+[disposition.1.4.3.2.a2]
+finding = "1.4.3.2.a2"
+status = "resolved"
+evidence = "On main, tests/fuzz/lxp_prop_prepare_workers.c:489 allocates the encoding arena for PREPARE_WORKERS_BATCH_SIZE plus four full activity budgets and line 426 builds Programs CALLs; commit a589a86a94 landed the per-batch capacity repair."
+
+[disposition.1.4.3.3.a2]
+finding = "1.4.3.3.a2"
+status = "resolved"
+evidence = "On main, Makefile:199 removes the previous native archive before archiving the current LIB_OBJECTS, preventing a retired batch-seal member from persisting; commit 3fab521367 landed this repair."
+
+[disposition.1.4.3.4.a2]
+finding = "1.4.3.4.a2"
+status = "resolved"
+evidence = "On main, Makefile:197 constructs the kernel archive from current LIB_OBJECTS and line 1203 links kernel tests against both the native archive and Programs runtime; commit 3fab521367 restored the live caller link closure and pruned stale members."
+
+[disposition.1.4.3.5.a2]
+finding = "1.4.3.5.a2"
+status = "resolved"
+evidence = "On main, tests/fuzz/lxp_prop_prepare_workers.c:310 asserts that the shared fee-treasury writes schedule the sixteen CALLs in sixteen ordered levels while retaining the one-worker/four-worker result comparison; commit 563747fa29 aligned the case with the state-commitment protocol."
+
+[disposition.1.4.3.a2]
+finding = "1.4.3.a2"
+status = "resolved"
+evidence = "On main, tests/fuzz/lxp_prop_prepare_workers.c:426 constructs Programs CALLs for the batch-preparation comparison rather than asset sends, matching src/protocol/lxp_kernel.c:4931; commit a589a86a94 landed the valid activity construction."
+
+[disposition.1.4.4.1.a2]
+finding = "1.4.4.1.a2"
+status = "resolved"
+evidence = "On main, tests/codec/lxp_test_global_sequence.c:261 requires LXP_ERR_SEQUENCE_GAP for the invalid global sequence and preserves the state comparisons, matching src/state/lxp_journal.c:782; commit db65f7c9c7 landed this contract-aligned test."
+
+[disposition.1.4.4.2.a2]
+finding = "1.4.4.2.a2"
+status = "resolved"
+evidence = "On main, tests/codec/lxp_test_global_sequence.c:167 initializes the asset runtime with binding_authority false and line 261 asserts LXP_ERR_SEQUENCE_GAP; commit db65f7c9c7 landed both fixture corrections."
+
+[disposition.1.4.4.a2]
+finding = "1.4.4.a2"
+status = "resolved"
+evidence = "On main, src/state/lxp_journal.c:782 refuses a sequence different from next_sequence with LXP_ERR_SEQUENCE_GAP, and tests/codec/lxp_test_global_sequence.c:261 asserts that exact result; commit db65f7c9c7 landed the corrected execution test."
+
+[disposition.1.4.6.1.a2]
+finding = "1.4.6.1.a2"
+status = "resolved"
+evidence = "On main, tools/ci/tests/test_makefile_wave1.py:34 checks the aggregate recipes for retired source names directly, preserving the exclusion assertions without the obsolete build-directory classifier; commit 5af20d0e86 landed the current aggregate check."
+
+[disposition.1.4.6.a2]
+finding = "1.4.6.a2"
+status = "resolved"
+evidence = "Commit 3fab521367 supplied explicit binding_authority values to the daemon asset-runtime literals; on main, cmd/retirement/test_layerxd_core.py:6 lists the subsequently retired process sources and line 32 asserts their absence, following their deletion in commit 05b1f8e8eb."
+
+[disposition.1.5.1.a2]
+finding = "1.5.1.a2"
+status = "environment"
+evidence = "On main, src/protocol/lxp_fee.c:71 implements lxp_fee_params_encode for versioned fee parameters, refusing unsupported versions at line 80 and insufficient output capacity at line 82."
+
+[disposition.1.7.2.1.a2]
+finding = "1.7.2.1.a2"
+status = "resolved"
+evidence = "On main, tests/fuzz/lxp_prop_stream_codec.c:350 requires LXP_ERR_NON_CANONICAL for an extended record, matching src/modules/stream/lx_stream_record.c:115; commit f1bfceca02 landed the canonical-length assertion."
+
+[disposition.1.7.2.2.a2]
+finding = "1.7.2.2.a2"
+status = "resolved"
+evidence = "On main, tests/fuzz/lxp_prop_stream_codec.c:350 compares the record-extension result directly with LXP_ERR_NON_CANONICAL, retaining the payload and round-trip checks; commit f1bfceca02 landed that assertion."
+
+[disposition.1.7.2.a2]
+finding = "1.7.2.a2"
+status = "resolved"
+evidence = "On main, src/modules/stream/lx_stream_payload.c:33 refuses a fixed-length mismatch with LXP_ERR_NON_CANONICAL and tests/fuzz/lxp_prop_stream_codec.c:350 asserts the canonical refusal for record extensions; commit f1bfceca02 landed the codec property coverage."
+
+[disposition.1.93.2.1.a2]
+finding = "1.93.2.1.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:630 fills execution fee_balance from the payer balance and modules/lxphost/simulate_test.go:33 explicitly checks the zero-fee fixtures; commit e6bb6130c9 landed the fee-balance and simulation-authority repair."
+
+[disposition.1.93.2.2.a2]
+finding = "1.93.2.2.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/simulate_test.go:23 derives a nonzero AuthorityHash from the actor public key before using the authority for execution and simulation; commit 3ccf32fe08 landed the corrected simulation tests."
+
+[disposition.1.93.2.a2]
+finding = "1.93.2.a2"
+status = "resolved"
+evidence = "On main, modules/lxphost/host.go:246 registers the Programs module and line 343 binds the governed occupancy resolver, while modules/lxphost/simulate_test.go:122 exercises CALL receipt parity; commits 95cf1c458d and 3ccf32fe08 landed the host binding and CALL-based simulation coverage."

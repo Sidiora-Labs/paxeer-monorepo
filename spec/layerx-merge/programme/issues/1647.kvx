@@ -1,0 +1,48 @@
+[issue.1647]
+number = 1647
+title = "[P2] Preserve cancellable subscription handshakes across 50 ms polls"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The cancellation adapter introduced by commit 1acab3615a57d104083c0a3adfcc106643aae38e still caps socket waits at 50 ms in services/agent/crates/layerx-client/src/subscription.rs:111, but subscribe_with_options discards Interrupted handshake state or maps timeout failures to Unavailable at services/agent/crates/layerx-client/src/subscription.rs:225, unlike the retrying receive loop at services/agent/crates/layerx-client/src/subscription.rs:359; tungstenite remains pinned to 0.29.0 at services/agent/crates/layerx-client/Cargo.toml:20 and the cancellation test establishes its subscription before passing a flag at services/agent/crates/layerx-client/tests/repair_22_33_1541.rs:567."
+close_comment = "A subscription with an unset cancellation flag can fail after the first 50 ms handshake poll despite having time left in its response budget. The repair preserves handshake progress across poll timeouts and adds delayed-handshake, establishment-cancellation and deadline-expiry coverage while retaining the existing subscription deadline bounds."
+
+[task.18.1647.1]
+title = "Issue #1647: Preserve subscription handshake progress across cancellation polls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181647.1"]
+capabilities = []
+interfaces = []
+do_1 = "Repair DeadlineTcp and subscribe_with_options in services/agent/crates/layerx-client/src/subscription.rs:111 and services/agent/crates/layerx-client/src/subscription.rs:225 so a 50 ms cancellation poll does not terminate a healthy TLS/HTTP WebSocket handshake: preserve and resume the same interrupted handshake, handle both WouldBlock and TimedOut without losing partial reads, writes or flush state, and check the original OperationDeadline and cancellation flag between polls without restarting the connection or duplicating the handshake request; retain Unavailable for actual cancellation or expiry and preserve other error mappings."
+do_2 = "Extend services/agent/crates/layerx-client/tests/repair_22_33_1541.rs with subscription_handshake_survives_cancellation_polls, subscription_handshake_can_be_cancelled and subscription_handshake_honors_absolute_deadline using real loopback TCP peers, tungstenite handshakes and public subscribe_with_options: delay handshake completion by at least 150 ms with a 2-second budget and an unset flag, assert successful newHeads subscription, notification delivery and unsubscribe on the same connection, and compare with no cancellation flag; cancel during an idle handshake after more than one 50 ms poll and assert the flag is set before Unavailable returns within one second; with an unset flag and a peer that withholds handshake completion, assert a 300 ms total budget returns Unavailable after at least 250 ms and within one second; bound and join peer threads, retain the existing control-traffic, next, close, cancellation and notification assertions at services/agent/crates/layerx-client/tests/repair_22_33_1541.rs:500, and run all subscription_ cases in that target."
+symbols = ["DeadlineTcp", "subscribe_with_options", "subscription_handshake_survives_cancellation_polls", "subscription_handshake_can_be_cancelled", "subscription_handshake_honors_absolute_deadline"]
+touches = ["services/agent/crates/layerx-client/src/subscription.rs", "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"]
+tests = ["services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_handshake_survives_cancellation_polls", "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_handshake_can_be_cancelled", "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_handshake_honors_absolute_deadline", "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_control_traffic_cannot_extend_subscribe_deadline", "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_control_traffic_cannot_extend_next_deadline", "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_control_and_notifications_share_close_deadline", "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_wait_can_be_cancelled_during_control_traffic_or_idle", "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_flushes_pong_and_delivers_real_notification"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test repair_22_33_1541"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test repair_22_33_1541 subscription_"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181647]
+title = "Cancellable subscription establishment retains handshake progress until cancellation or its total deadline"
+ac_1 = "Given the 50 ms cancellation polling adapter at services/agent/crates/layerx-client/src/subscription.rs:111 and the handshake at services/agent/crates/layerx-client/src/subscription.rs:225, an unset cancellation flag permits a real handshake delayed at least 150 ms to establish newHeads and deliver a notification within a 2-second budget without duplicate requests; cancellation during establishment and a 300 ms absolute deadline each return Unavailable within one second, expiry does not return before 250 ms, and the existing total-deadline and cancellation assertions at services/agent/crates/layerx-client/tests/repair_22_33_1541.rs:500 remain intact and pass."
+
+[acceptance.18.1647.1]
+feature = "18"
+req = "181647.1"
+scenario = "Given a newHeads subscription with an unset cancellation flag and a 2-second total budget, when a real peer delays its WebSocket handshake beyond multiple 50 ms polls, then subscription establishment, notification delivery and unsubscribe succeed without restarting the handshake, while actual establishment cancellation and deadline expiry remain bounded and existing subscription deadline tests pass."
+contract = "contracts/clients.md#a-operations"
+test = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_handshake_survives_cancellation_polls; services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_handshake_can_be_cancelled; services/agent/crates/layerx-client/tests/repair_22_33_1541.rs::subscription_handshake_honors_absolute_deadline (planned)"
+qualification = "UNRUN"
