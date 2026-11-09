@@ -11,11 +11,9 @@ use crate::{
     evaluators::{admission::ChallengeRegion, codec::verify_digest, model::VerificationError},
     evidence::SealRegion,
     policy::{RoomProfile, ROOM_PROFILE_BYTES},
-    registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     state::{
-        decode_shared_state, encode_shared_state, HeightWindow, ReplayDecision, ReplayRequest,
-        RetainedResult, Section, SharedState,
+        decode_shared_state, HeightWindow, ReplayRequest, RetainedResult, Section, SharedState,
     },
     types::{
         AccountId, Digest32, FrozenBinding, Presence, PrincipalId, RequestDigest, Signature64,
@@ -676,27 +674,16 @@ pub(crate) fn persist(
     event: &mut [u8],
 ) -> CodecResult<Outcome> {
     let state = decode_shared_state(current)?;
-    let mut section = check_call(ctx, e, &state)?;
-    let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    section.header.state_revision = revision;
+    let section = check_call(ctx, e, &state)?;
     let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
     let (features, control) = rest.split_at_mut_checked(CONTROL_CAP).ok_or(CAPACITY)?;
-    let pn = section.encode(policy)?;
     let n = CanaryRegion::decode(state.control.feature_bytes)?.write(&record, features)?;
-    let mut candidate = state.with_section(Section::PolicyLifecycle, policy.guest_index(..pn))?;
+    let mut candidate = state;
     candidate.control.feature_bytes = features.guest_index(..n);
     let result = codec::result_digest(payload)?;
-    if let Some(request) = request {
-        if candidate.record_success(request, ctx.height, result)? != ReplayDecision::Apply {
-            return Err(CONFLICT);
-        }
-    } else {
-        candidate.revision = revision;
-    }
-    if candidate.revision != revision {
-        return Err(NON_CANONICAL);
-    }
-    check_f01_capacity(pn, candidate.encoded_len()?)?;
+    let (revision, state_len) = crate::rewards::finish_feature_transition(
+        candidate, section, request, ctx.height, result, CONFLICT, policy, control, next,
+    )?;
     let common = EventCommon {
         market: e.market,
         epoch: record.epoch,
@@ -730,7 +717,6 @@ pub(crate) fn persist(
     } else {
         codec::encode_event_frame(e.operation, &common, payload, event)?
     };
-    let state_len = encode_shared_state(&candidate, next, control)?;
     Ok(Outcome::Applied {
         record,
         revision,
