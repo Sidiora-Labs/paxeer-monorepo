@@ -160737,7 +160737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1676.1]
 title = "Issue #1676: Keep portfolio statistics and controls visible during balance refresh and failure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
