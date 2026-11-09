@@ -1,0 +1,48 @@
+[issue.1700]
+number = 1700
+title = "[Coherence] The deferred Close in the blocksim CLI now re-reports every workload failure as a close failure"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The error propagation introduced by commit aff460c2b59d12f031b1ae3cd44ca0406050ea96 remains at storage/ledger_db/block/blocksim/blocksim.go:278, :306, :312 and :322, so the deferred diagnostic at storage/ledger_db/block/blocksim/cmd/blocksim/main.go:54 repeats and mislabels the same workload error returned at :81, while storage/ledger_db/block/blocksim/repair_m1160_test.go:99 checks propagation without asserting diagnostic counts or exercising that defer."
+close_comment = "Blocksim still reports a workload failure three times, including an incorrect close-failure label. A focused follow-up will report the original failure once through the CLI result handler while preserving cleanup and a nonzero exit status."
+
+[task.18.1700.1]
+title = "Issue #1700: Report each blocksim failure once with its original operation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181700.1"]
+capabilities = []
+interfaces = []
+do_1 = "At storage/ledger_db/block/blocksim/blocksim.go:274, retain first-error storage and propagation but remove the eager error print so CLIExitCode at :322 owns the terminal diagnostic; at storage/ledger_db/block/blocksim/cmd/blocksim/main.go:52 and :81, consolidate waiting and deferred Close into a production waitForBenchmark helper used by run, return the original halt error and propagate a Close error when no halt error exists, without printing or relabeling the same error during cleanup."
+do_2 = "Add TestIssue1700SingleDiagnostic in storage/ledger_db/block/blocksim/repair_m1160_test.go, extending the real generated-block, memory-store and filesystem-journal paths at :117 and :172 to capture stdout and stderr across the runner, Close and CLIExitCode and assert exactly one occurrence of each primary write, flush or prune failure with its operation, cause and exit status 1; include a teardown-only failure and a clean exit, preserve existing propagation assertions, and add storage/ledger_db/block/blocksim/cmd/blocksim/main_test.go with TestIssue1700CLICleanup exercising the production waitForBenchmark helper on a real NewBlockSim with a temporary data directory replaced by a file before context cancellation to provoke a real cleanup error, plus a clean shutdown, asserting exactly one failure diagnostic, no close-failure label, error preservation and the correct exit status."
+symbols = ["recordError", "run", "waitForBenchmark", "TestIssue1700SingleDiagnostic", "TestIssue1700CLICleanup"]
+touches = ["storage/ledger_db/block/blocksim/blocksim.go", "storage/ledger_db/block/blocksim/cmd/blocksim/main.go", "storage/ledger_db/block/blocksim/repair_m1160_test.go", "storage/ledger_db/block/blocksim/cmd/blocksim/main_test.go"]
+tests = ["storage/ledger_db/block/blocksim/repair_m1160_test.go::TestIssue1700SingleDiagnostic", "storage/ledger_db/block/blocksim/cmd/blocksim/main_test.go::TestIssue1700CLICleanup"]
+planned_paths = ["storage/ledger_db/block/blocksim/cmd/blocksim/main_test.go"]
+build_cmd = "go build ./storage/ledger_db/block/blocksim/..."
+verify_cmd = "go test -count=1 ./storage/ledger_db/block/blocksim/ ./storage/ledger_db/block/blocksim/cmd/blocksim/ -run '^(TestIssue1700SingleDiagnostic|TestIssue1700CLICleanup)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181700]
+title = "Blocksim reports its primary failure once without changing its operation or exit status"
+ac_1 = "Given a real workload or teardown failure propagated through storage/ledger_db/block/blocksim/blocksim.go:306 and :312, the CLI path at storage/ledger_db/block/blocksim/cmd/blocksim/main.go:16 and :52 emits that primary failure exactly once through CLIExitCode at storage/ledger_db/block/blocksim/blocksim.go:322, preserves its operation and cause, never relabels a workload failure as a close failure, completes cleanup and returns exit status 1; a clean shutdown returns status 0 without an error diagnostic."
+
+[acceptance.18.1700.1]
+feature = "18"
+req = "181700.1"
+scenario = "Given a blocksim workload or teardown failure and a clean-shutdown control, when the benchmark halts, deferred cleanup completes and CLIExitCode reports the result, then the failure appears exactly once with its original operation and cause and status 1, no workload error is labeled as a close failure, and the clean control has status 0 without an error diagnostic."
+contract = "contracts/sequencer.md#storage"
+test = "storage/ledger_db/block/blocksim/repair_m1160_test.go::TestIssue1700SingleDiagnostic; storage/ledger_db/block/blocksim/cmd/blocksim/main_test.go::TestIssue1700CLICleanup (planned)"
+qualification = "UNRUN"

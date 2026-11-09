@@ -1,0 +1,49 @@
+[issue.1611]
+number = 1611
+title = "[Coherence] The audit record files a false documentation-drift finding against the layerx-migrate README links, which resolve correctly"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "services/interop/crates/layerx-migrate/README.md:12 uses four parent-directory steps to reach the existing root targets docs/wiki/Migration.md:1 and migrations/README.md:1, but spec/layerx-merge/programme/audit/records/22.30.109.kvx:456 still falsely places them under services, proposes changing their climbs at :458, marks file.023 issues at :145 and doc.014 stale at :683, and reports 32 findings at :5."
+close_comment = "Both migration README links resolve correctly to the repository-root documentation. The audit record needs its false link finding removed, its README verdict and documentation status corrected to clean and accurate, and its finding count updated."
+
+[task.18.1611.1]
+title = "Issue #1611: Correct the false migration README link finding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181611.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.109.kvx:142-146 and :681-684 to mark file.023 clean and doc.014 accurate, with notes explaining that services/interop/crates/layerx-migrate/README.md:12 reaches the repository root through four parent-directory steps and both target files exist; include this exact sentence in both notes: Four parent-directory steps reach the repository root; both documentation links resolve to existing files."
+do_2 = "Remove only the false finding.migration-readme-links block at spec/layerx-merge/programme/audit/records/22.30.109.kvx:451-459 and decrement findings at :5 from 32 to 31; retain the audit revision, historical file line counts, other findings, blocking list and upgrade_ready value, and preserve the working README links."
+do_3 = "Use the focused documentation check to assert the corrected explanation, clean file.023 verdict, accurate doc.014 status, finding count of 31 and absence of the false migration-readme-links finding; retain all existing code, tests and audit checks."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.109.kvx"]
+tests = ["spec/layerx-merge/programme/audit/records/22.30.109.kvx::migration_readme_links_correction"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'Four parent-directory steps reach the repository root; both documentation links resolve to existing files.' spec/layerx-merge/programme/audit/records/22.30.109.kvx && sed -n '/^\\[file\\.023\\]$/,/^$/p' spec/layerx-merge/programme/audit/records/22.30.109.kvx | grep -Pq '^verdict = \\x22clean\\x22$' && sed -n '/^\\[doc\\.014\\]$/,/^$/p' spec/layerx-merge/programme/audit/records/22.30.109.kvx | grep -Pq '^status = \\x22accurate\\x22$' && grep -Fxq 'findings = 31' spec/layerx-merge/programme/audit/records/22.30.109.kvx && ! grep -Fq '[finding.migration-readme-links]' spec/layerx-merge/programme/audit/records/22.30.109.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181611]
+title = "The migration audit accurately records working README documentation links"
+ac_1 = "Given the correct relative links at services/interop/crates/layerx-migrate/README.md:12, the audit record at spec/layerx-merge/programme/audit/records/22.30.109.kvx:145 and :683 marks file.023 clean and doc.014 accurate, explains the four-step climb to existing root targets, omits the false finding at :451 and reduces its findings count at :5 to 31 while preserving all other findings and blocking status."
+
+[acceptance.18.1611.1]
+feature = "18"
+req = "181611.1"
+scenario = "Given the migration README links and their existing root-level targets, when the corrected audit record is checked, then file.023 is clean, doc.014 is accurate, their notes explain the valid root resolution, the false link finding is absent and the findings count is 31 without changing the README links or unrelated audit findings."
+contract = "contracts/programme.md#programme-artifacts"
+test = "spec/layerx-merge/programme/audit/records/22.30.109.kvx::migration_readme_links_correction (planned)"
+qualification = "UNRUN"

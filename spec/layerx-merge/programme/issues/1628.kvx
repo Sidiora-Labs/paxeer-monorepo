@@ -1,0 +1,50 @@
+[issue.1628]
+number = 1628
+title = "[P2] Apply virtual-chain scope to installed pending transaction filters"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The installed-filter restriction in spec/layerx-merge/contracts/virtual-chains.md:107 remains unmet: rpc/domain_ws_apis.go:113 passes scope, but rpc/filter.go:906 installs pending filters without domainScope, rpc/filter.go:324 appends every receipted transaction to every filter, and rpc/filter.go:991 returns every buffered hash without checking domain membership; commit a04ec978f9fb4157deb869e24848db0ba53742fb added the wrappers and rpc/repair_339_test.go:315 covers scoped pending lookups without installing pending hash filters."
+close_comment = "Pending transaction filters on virtual-chain endpoints still return hashes from other chains. A focused RPC repair is required to retain each filter's installation scope and return only matching hashes while preserving the root stream and filter lifecycle."
+
+[task.18.1628.1]
+title = "Issue #1628: Scope installed pending transaction filters to their virtual chain"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181628.1"]
+capabilities = []
+interfaces = []
+do_1 = "In rpc/filter.go:884 retain DomainScope on pending transaction filter installation as NewFilter already does at rpc/filter.go:799, and restrict the pending hash branch at rpc/filter.go:986 to transactions belonging to that installation domain using the same signed-chain membership as rpc/domain_index.go:59 and the scoped transaction reads; resolve membership for receipted transactions both before and after commit, preserve receipt order, and retain the complete stream for filters installed at root."
+do_2 = "Extend TestRepair_339_TenantPendingRaw in rpc/repair_339_test.go:315: install hash-only pending filters on each root, chain-1 and chain-2 HTTP and WebSocket client before the real executor produces the root/chain-1/chain-1/chain-2 batch at rpc/repair_339_test.go:354; assert exact ordered results of four, two and one hashes respectively, compare membership with ordinary scoped lookups, and require an empty array on a second poll. Reconnect WebSocket clients within the filter timeout, produce another mixed-domain batch with continuing nonces and receipt sequence, and poll the retained IDs to prove unchanged scope and exactly-once consumption; also poll a buffered batch after commit to prove membership survives the pending-to-committed transition."
+do_3 = "Use the ownership rules at rpc/filter.go:959 for pending filters: a different scoped chain receives the existing ownership error without consuming buffered changes, while root polling a chain-installed ID retains its installation scope. Add these HTTP and WebSocket assertions to TestRepair_339_TenantPendingRaw, including a successful installation-path poll after a rejected cross-chain poll; preserve the no-feed and full-transaction refusals at rpc/filter.go:893, overflow error and drain semantics at rpc/filter.go:452, expiry cancellation at rpc/filter.go:742 and unsubscribe cleanup at rpc/filter.go:908. Keep TestPendingFilterPendingTransactions at rpc/pending_filter_test.go:317 as focused coverage of root ordering, repeated polls, commit and explicit refusals."
+symbols = ["NewPendingTransactionFilter", "GetFilterChanges", "TestRepair_339_TenantPendingRaw"]
+touches = ["rpc/filter.go", "rpc/repair_339_test.go"]
+tests = ["rpc/repair_339_test.go::TestRepair_339_TenantPendingRaw", "rpc/pending_filter_test.go::TestPendingFilterPendingTransactions"]
+planned_paths = []
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./rpc/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^(TestRepair_339_TenantPendingRaw|TestPendingFilterPendingTransactions)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181628]
+title = "Installed pending transaction filters retain virtual-chain transaction membership"
+ac_1 = "Given the installed-filter contract at spec/layerx-merge/contracts/virtual-chains.md:107 and the global pending receipt stream at rpc/filter.go:324, HTTP and WebSocket pending hash filters installed at root return all receipted hashes in order, while filters installed on a chain return only that chain's hashes; successful polling consumes each batch once, membership agrees with scoped transaction lookups, and scope persists across WebSocket reconnect and transaction commit."
+ac_2 = "Pending filters follow the stored-scope ownership behavior at rpc/filter.go:959: a different chain cannot poll the filter or consume its changes, and root access to a chain-installed filter remains restricted to its installation chain; explicit unsupported and full-transaction refusals at rpc/filter.go:893, overflow at rpc/filter.go:455, expiry cancellation at rpc/filter.go:747 and unsubscribe cleanup at rpc/filter.go:910 remain intact."
+
+[acceptance.18.1628.1]
+feature = "18"
+req = "181628.1"
+scenario = "Given root, chain-1 and chain-2 HTTP and WebSocket pending filters installed before real mixed-domain execution, when clients poll before and after reconnect and commit, then root receives every hash in receipt order, each chain receives only its hashes once, cross-chain polling is refused without consuming changes, root polling of a chain filter preserves its scope, and repeated successful polls return empty arrays."
+contract = "contracts/virtual-chains.md#rpc"
+test = "rpc/repair_339_test.go::TestRepair_339_TenantPendingRaw (planned)"
+qualification = "UNRUN"

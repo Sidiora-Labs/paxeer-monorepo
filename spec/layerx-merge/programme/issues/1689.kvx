@@ -1,0 +1,49 @@
+[issue.1689]
+number = 1689
+title = "[Coherence] Middleware still calls walletParentOrigins() and browserConnectOrigins() without guarding them, so a malformed wallet origin or RPC override makes every request fail"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The strict validation introduced by commit 6e6619842983498896aa88fe82f1abd0b525af19 still throws at apps/launchpad/web/src/core/backend-origins.ts:265 and apps/launchpad/web/src/core/rpc.ts:47, while apps/launchpad/web/src/middleware.ts:16, apps/launchpad/web/src/middleware.ts:19 and apps/launchpad/web/src/middleware.ts:72 call those resolvers unguarded, apps/launchpad/web/src/core/backend-origins.ts:312 repeats the RPC lookup outside the diagnostic collector at apps/launchpad/web/src/core/backend-origins.ts:156, and the eager lookup at apps/launchpad/web/src/core/rpc.ts:54 can fail even before the configuration error branch at apps/launchpad/web/src/app/layout.tsx:38 is reached."
+close_comment = "Malformed wallet origins and RPC overrides still prevent the launchpad configuration error page from loading. The repair must keep invalid settings rejected, serve a restrictive security policy, and display the configuration error without enabling wallet embedding or contacting an alternative RPC."
+
+[task.18.1689.1]
+title = "Issue #1689: Keep configuration errors renderable under invalid wallet and RPC settings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181689.1"]
+capabilities = []
+interfaces = []
+do_1 = "Handle BackendOriginError and RpcConfigurationError explicitly in the CSP path at apps/launchpad/web/src/middleware.ts:15 and apps/launchpad/web/src/core/backend-origins.ts:291 so invalid wallet or RPC settings still produce a response with restrictive connect-src, no external wallet ancestors or frames, SAMEORIGIN framing protection and the existing baseline security headers; remove the second unguarded wallet resolution at apps/launchpad/web/src/middleware.ts:72, retain strict resolver validation and diagnostic collection at apps/launchpad/web/src/core/backend-origins.ts:156, and propagate unexpected errors rather than silently suppressing them."
+do_2 = "Remove the import-time RPC resolution at apps/launchpad/web/src/core/rpc.ts:54 from the configuration-diagnostic import path, adjust its import and re-export in apps/launchpad/web/src/core/wagmi-config.ts:4, and defer the backend-dependent runtime imports at apps/launchpad/web/src/app/layout.tsx:4 until after the configuration guard at apps/launchpad/web/src/app/layout.tsx:38; preserve validated endpoint selection for configured pages and never replace an invalid override with a default RPC."
+do_3 = "Add and register the named middlewareConfigurationErrorsRemainRenderable test in apps/launchpad/web/src/core/backend-origins.test.ts, using the real middleware, resolver and RootLayout error branch with fresh module imports after setting each invalid environment value; cover a wallet path, production HTTP, credentials, malformed values and empty comma items, each of the three invalid RPC overrides, and combined wallet/RPC errors, asserting restrictive CSP and framing headers, visible configuration diagnostics and rendered error markup without mounting backend clients; include valid wallet/RPC controls and the charting route, and keep the strict validation assertions at apps/launchpad/web/src/core/repair-22-33-900.test.ts:109 and apps/launchpad/web/src/core/repair-22-33-900.test.ts:427 unchanged."
+symbols = ["buildCsp", "middleware", "browserConnectOrigins", "PAXEER_RPC_URL", "RootLayout", "middlewareConfigurationErrorsRemainRenderable"]
+touches = ["apps/launchpad/web/src/middleware.ts", "apps/launchpad/web/src/core/backend-origins.ts", "apps/launchpad/web/src/core/rpc.ts", "apps/launchpad/web/src/core/wagmi-config.ts", "apps/launchpad/web/src/app/layout.tsx", "apps/launchpad/web/src/core/backend-origins.test.ts"]
+tests = ["apps/launchpad/web/src/core/backend-origins.test.ts::middlewareConfigurationErrorsRemainRenderable"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/core/backend-origins.test.ts -t middlewareConfigurationErrorsRemainRenderable"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181689]
+title = "Invalid wallet and RPC configuration remains rejected while the configuration error page stays available"
+ac_1 = "Given invalid wallet origins or any malformed RPC override, including values present before module import, when an ordinary launchpad request traverses the middleware at apps/launchpad/web/src/middleware.ts:44 and the configuration guard at apps/launchpad/web/src/app/layout.tsx:38, then it receives restrictive CSP and SAMEORIGIN framing protection and renders the configuration error while backendConfigurationProblems reports the offending variables, without trusting invalid origins or substituting a default RPC; valid configuration retains the origins and security headers currently asserted at apps/launchpad/web/src/core/backend-origins.test.ts:208."
+
+[acceptance.18.1689.1]
+feature = "18"
+req = "181689.1"
+scenario = "Given invalid wallet origins, invalid RPC overrides or both before module import, when an ordinary launchpad request is handled, then the middleware serves a restrictive policy and the layout renders its configuration error without external wallet framing or backend client initialization, while valid settings retain their validated origins."
+contract = "contracts/clients.md#launchpad-web-app"
+test = "apps/launchpad/web/src/core/backend-origins.test.ts::middlewareConfigurationErrorsRemainRenderable (planned)"
+qualification = "UNRUN"

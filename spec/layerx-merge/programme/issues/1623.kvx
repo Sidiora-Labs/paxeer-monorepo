@@ -1,0 +1,48 @@
+[issue.1623]
+number = 1623
+title = "[Coherence] The audit record says the operations contract is missing, but spec/layerx-merge/contracts/operations.md exists and has the cited bringup anchors"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.177.kvx:856-859 still marks the operations contract missing, although spec/layerx-merge/contracts/operations.md:469 and :710 define the anchors referenced by spec/layerx-merge/interfaces.kvx:722584 and :708847, and both anchors already existed at the audited commit 9d9e94b1751d89ba849d2d3d0f89b48fabce9756 and the record commit 133f4394fd1f68580821c4dcaed405bd7d63c616."
+close_comment = "The operations contract exists and both bringup anchors resolve; the audit entry needs correction to record the existing page and its stale configuration table. A focused correction is specified to remove the unnecessary restoration and registry-repointing proposal."
+
+[task.18.1623.1]
+title = "Issue #1623: Correct the operations contract status in the bringup audit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181623.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct only [doc.operations-contract] in spec/layerx-merge/programme/audit/records/22.30.177.kvx:856-859: use the repository-relative path spec/layerx-merge/contracts/operations.md and status stale, and replace the missing-file and restore-or-repoint claims with notes stating that #bringup-cli and #bringup-config exist at operations.md:469 and :710, including at the recorded audit revision; explain that the table at operations.md:722, :740 and :744 still lists GUARANTOR, RECEIPT_AUTHORITY and RELAY_ARCHIVE, which are absent from tools/bringup/railway-names.env:10-39."
+do_2 = "Verify the corrected entry has the full existing contract path, stale status and notes containing the statement #bringup-cli and #bringup-config exist, and verify both headings in the actual contract; retain the other audit findings and their recorded revision."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.177.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -A3 -Fx '[doc.operations-contract]' spec/layerx-merge/programme/audit/records/22.30.177.kvx | grep -Eq '^path = .spec/layerx-merge/contracts/operations[.]md.$' && grep -A3 -Fx '[doc.operations-contract]' spec/layerx-merge/programme/audit/records/22.30.177.kvx | grep -Eq '^status = .stale.$' && grep -A3 -Fx '[doc.operations-contract]' spec/layerx-merge/programme/audit/records/22.30.177.kvx | grep -F '#bringup-cli and #bringup-config exist' && grep -Fx '## bringup-cli' spec/layerx-merge/contracts/operations.md && grep -Fx '## bringup-config' spec/layerx-merge/contracts/operations.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181623]
+title = "The bringup audit distinguishes an existing stale contract from a missing page"
+ac_1 = "Given the operations contract and its bringup-cli and bringup-config headings at spec/layerx-merge/contracts/operations.md:469 and :710, when the operations documentation entry in spec/layerx-merge/programme/audit/records/22.30.177.kvx:856-859 is read, then its path resolves from the repository root, its status is stale, and its notes acknowledge both existing anchors and the obsolete configuration entries instead of proposing restoration or registry repointing."
+
+[acceptance.18.1623.1]
+feature = "18"
+req = "181623.1"
+scenario = "Given the existing operations contract contains both bringup anchors and stale configuration entries, when the corrected audit entry is checked, then it names the existing page, records stale status and acknowledges both anchors without a missing-file repair proposal."
+contract = "contracts/operations.md#bringup-cli"
+test = "Focused grep checks of [doc.operations-contract] and the two operations contract headings (planned)"
+qualification = "UNRUN"

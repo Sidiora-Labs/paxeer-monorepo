@@ -1,0 +1,48 @@
+[issue.1683]
+number = 1683
+title = "[Coherence] The v5.7.5 addr precompile still calls the context-free GetAddresses, so the new historical address-conversion route is never reached"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "precompiles/addr/legacy/v575/addr.go:173 still calls GetAddresses, which supplies an empty context at utils/helpers/legacy/v575/address.go:18 and therefore fails the tracing guard at utils/helpers/legacy/v575/associate.go:17, leaving the wiring request at utils/helpers/legacy/v575/repair_m784.kvx:7 unresolved even after commit b7f95c2d3a771a9e54803fb4e4a310e12f5aa4b0 added replay tests without changing addr.go."
+close_comment = "The v5.7.5 address precompile still discards the tracing context during signature-based address recovery. A follow-up task will forward that context to GetAddressesForContext and add a regression check for the handoff while preserving the existing historical association results."
+
+[task.18.1683.1]
+title = "Issue #1683: Forward the tracing context during v5.7.5 address recovery"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181683.1"]
+capabilities = []
+interfaces = []
+do_1 = "In precompiles/addr/legacy/v575/addr.go:173, replace helpers.GetAddresses(vBig, rBig, sBig, customMessageHash) with helpers.GetAddressesForContext(ctx, vBig, rBig, sBig, customMessageHash), forwarding the associate method's sdk.Context unchanged so utils/helpers/legacy/v575/address.go:34 can select historical conversion through its existing guard; retain the ABI, signature validation and association behavior."
+do_2 = "Add TestAddressConversionContextWiring in precompiles/addr/legacy/v575/repair_m1264_test.go:183 using go/parser and go/ast to locate PrecompileExecutor.associate in addr.go, require exactly one helpers.GetAddressesForContext call whose first argument is the method's ctx parameter and whose remaining arguments are vBig, rBig, sBig and customMessageHash, and reject any helpers.GetAddresses call there; run it together with the existing TestRepairM_1264_HistoricalStaticCallStateDiff at line 183, which signs and ABI-encodes real calldata and asserts recovered identities, mappings, balances, public keys and identical historical CALL and STATICCALL state changes through production keepers, since valid recovered keys alone cannot distinguish the two conversion branches."
+symbols = ["associate", "TestAddressConversionContextWiring"]
+touches = ["precompiles/addr/legacy/v575/addr.go", "precompiles/addr/legacy/v575/repair_m1264_test.go"]
+tests = ["precompiles/addr/legacy/v575/repair_m1264_test.go::TestAddressConversionContextWiring", "precompiles/addr/legacy/v575/repair_m1264_test.go::TestRepairM_1264_HistoricalStaticCallStateDiff"]
+planned_paths = []
+build_cmd = "go build ./precompiles/addr/legacy/v575/..."
+verify_cmd = "go test -count=1 ./precompiles/addr/legacy/v575/ -run '^(TestAddressConversionContextWiring|TestRepairM_1264_HistoricalStaticCallStateDiff)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181683]
+title = "Historical address recovery receives the association context"
+ac_1 = "The v5.7.5 associate method at precompiles/addr/legacy/v575/addr.go:136 passes its unchanged ctx to GetAddressesForContext at the recovery call currently at line 173 instead of using the empty-context wrapper at utils/helpers/legacy/v575/address.go:18, and signed historical CALL and STATICCALL retain the identities and complete state changes asserted by precompiles/addr/legacy/v575/repair_m1264_test.go:183."
+
+[acceptance.18.1683.1]
+feature = "18"
+req = "181683.1"
+scenario = "Given a signed association handled by the v5.7.5 address precompile with a historical tracing context, when its associate method recovers the addresses, then the context reaches GetAddressesForContext unchanged and historical CALL and STATICCALL preserve their recovered identities, mappings, balances and public keys."
+contract = "contracts/address-table.md#code-owned-abis-no-construct-contract"
+test = "precompiles/addr/legacy/v575/repair_m1264_test.go::TestAddressConversionContextWiring (planned)"
+qualification = "UNRUN"
