@@ -36506,3 +36506,83 @@ symbol = "test_refusal_run.py::test_every_refusal_runs_and_passes"
 observed = "Attempt 1 at a7575c8f63c0: build exit 0; verification exit 1: all six refusal rows failed at the link step of their Go packages (build/liblayerx.a and the programs host archive absent); log /out/logs/verify-1.log."
 assumption = "The runner is complete; only the profile of the task kept the kernel archives out of its gate shell."
 severity = "high"
+
+[finding.22.39.162.1]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 1 on base b1cb0b2d80c7: no revision; the model endpoint answered the first request of the session with a usage-limit refusal, no turn completed and the attempt ended at the working-time limit with no change inside scope; log /out/logs/run-task.log."
+assumption = "No product fact was tested; the task is unchanged."
+severity = "high"
+
+[finding.17.4.5.3]
+task = "17.4.5"
+file = "spec/layerx-merge/programme/tests/test_parity_coverage.py::test_installed_spec_has_no_uncovered_acceptance"
+symbol = "test_parity_coverage.py::test_installed_spec_has_no_uncovered_acceptance"
+observed = "Attempt 3: build exit 0; verification exit 1: 84 stale and 229 uncovered acceptance selectors reported by test_installed_spec_has_no_uncovered_acceptance; log /out/logs/verify-2.log."
+assumption = "The remaining selectors are grammar artifacts and unapplied map entries; the check is complete once coverage reads ownership and the map."
+severity = "high"
+
+[finding.17.1.9.1]
+task = "17.1.9"
+file = "spec/layerx-merge/programme/tests/test_receipt_order_golden.py::test_receipt_order_golden_passes"
+symbol = "test_receipt_order_golden.py::test_receipt_order_golden_passes"
+observed = "Attempt 1 at b484071f1a8e: build exit 0; verification exit 1: test_receipt_order_golden_passes failed because go test ./node for the two order cases could not link the kernel archive or the programs host archive under the mixed profile; log /out/logs/verify-1.log."
+assumption = "The golden entry and the test are complete; the profile alone prevented the link."
+severity = "high"
+
+[finding.22.39.212.1]
+task = "22.39.212"
+file = "tools/qualification/audit_repairs/test_repair_22_31_402.py"
+symbol = "test_repair_22_31_402.py"
+observed = "Attempt 1 at 57191557c5b1: build exit 0 twice; verification exit 1 twice: the manifest check, the record, the placeholder scan and 99 Python cases passed; go test failed in appenv (repair_277_test.go line 108, package viem not found) and proposals (repair_270_test.go line 173, module solc not found); log /out/logs/verify-2.log."
+assumption = "The two helper packages are correct and only uninstalled; the configuration alignment of the attempt is complete."
+severity = "high"
+
+[finding.22.39.117.7]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 7 at c19a2e3904d3: build exit 0; verification exit 2: the direct package run passed, then the make test target ran the shared module a second time and three production cases failed on objects left by the first pass (role l07_stats_owner, relation l07_rollback, role l07_phase3_stats_runtime already exist); log /out/logs/verify-1.log."
+assumption = "The fixtures of the three cases are not rerunnable; the module changes of the task are complete."
+severity = "high"
+
+[finding.22.39.213.1]
+task = "22.39.213"
+file = "spec/layerx-merge/programme/parity-stale.kvx"
+symbol = "parity-stale.kvx"
+observed = "Attempt 1 at 83c457fc182d: build exit 0; verification exit 1: the validator refused stale.24 because its replacement test every_published_activity_and_receipt_round_trips_exactly is not in structures.rs; log /out/logs/verify-1.log."
+assumption = "The 239 dispositions of the attempt are sound; one aged first-round entry blocks the validator."
+severity = "high"
+
+[finding.22.39.168.1]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 1 at 933ff2d7d58e: build exit 0; verification exit 1: nine wiring test cases failed on the pre-retirement baseline expectations before any module test ran, and two api entries of owner 22.39.154 were removed; log /out/logs/verify-1.log."
+assumption = "The wiring test and the verification contradict each other until the test asserts the retirement state; the module repairs of the attempt are unverified."
+severity = "high"
+
+[finding.17.2.8.1]
+task = "17.2.8"
+file = "spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"
+symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
+observed = "Attempt 1 at ceda589fd709: build exit 0; verification exit 1: the scan with --deleted was still running after 26 minutes 29 seconds and was stopped before the thirty-minute limit (exit -15); log /out/logs/verify-1.log."
+assumption = "The scanner design, not the test module, consumes the limit; the test is complete."
+severity = "high"
+
+[finding.22.33.223.14]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 15 at 642ca7eae683: build exit 0; verification exit 101: 21 cases passed and roster_state_fuel_scaling, maximum_state_fuel_scaling and every_routed_operation_fits_the_protocol_cpu_fuel_cap failed on OPEN_EPOCH and FinalizeAggregation refused at the cap from the roster 24/6 and at every task count of the maximum-state sweep; log /out/logs/verify-1.log."
+assumption = "The per-participant fuel of the two handlers tracks the frame size; the measurement at a fixed roster decides it."
+severity = "high"
+
+[finding.22.39.211.1]
+task = "22.39.211"
+file = "services/agent/crates"
+symbol = "crates"
+observed = "Attempt 1 at 227acaa1fe0d: build exit 0 twice; verification exit 1 twice: 108 diagnostics at the first tree and 1205 at the final tree, 1186 of them in the test targets of layerx-types, with nine members never reached; log /out/logs/verify-2.log."
+assumption = "The lint debt is spread over every member and exceeds the repair cycles of one task; the split carries it."
+severity = "high"

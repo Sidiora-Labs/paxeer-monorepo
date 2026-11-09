@@ -1,0 +1,59 @@
+[repair]
+task = "22.39.183"
+base = "a2eb1c82c5ce4bc60d1c4c68e196bfb614d4a9df"
+continuation = "Attempt 1 tree 08733aed93518466b30a2bdbb1eb5a0445031fca retained; prerequisite 22.39.177 is merged in 4566b6c79977342c0376ab20cf65fc384fbd24fe."
+decision = "spec/layerx-merge/spec.kvx [decision.3029]; GOTCHA.kvx [gotcha.3727]"
+
+[producer.header]
+source = "programs/crates/layerx-programs-runtime/src/replay_record.rs:91 ReplayRecordHeader; :101 from_boundary; :221 decode"
+fields = "identity (module_code_hash, input_digest, runtime_version, abi_version, fee_schedule_version, metering_schedule_version, trace_policy, host_base_state_root, receipt_oracle_root, balance_oracle_root), execution_parameters_digest, storage_baseline, semantic_constants, optional composition_graph, optional response_capacity"
+validation = "canonical_bytes validates the execution parameters digest, baseline root, optional graph and response capacity; the record stores the immutable header once. TracePolicy carries stride and maximum boundaries. No header field encodes maximum bytes; consumers enforce the authenticated byte bound on the complete envelope, header and raw leaf."
+
+[producer.envelope]
+source = "programs/crates/layerx-programs-runtime/src/replay_record.rs:275 ReplayRecordHeader::boundary_envelope; portable_replay.rs:325 PortableBoundary::decode_untrusted"
+layout = "LXP/program-replay-boundary-context/v2 followed by NUL, header length u32 big endian, canonical header bytes, raw leaf bytes"
+
+[producer.commitment]
+source = "programs/crates/layerx-programs-runtime/src/portable_replay.rs:636 replay_leaf_hash; replay_record.rs:437 from_captured; execute.rs:6170 call_market_sandbox_untrusted"
+layout = "SHA256(LXP/program-replay-leaf/v1 followed by NUL || boundary index u32 big endian || raw leaf length u32 big endian || raw leaf). Parent is SHA256(LXP/program-replay-node/v1 followed by NUL || left || right); odd nodes duplicate. Envelope bytes are never Merkle leaves."
+decode = "PortableBoundary::decode_with_header(raw_leaf, maximum, record.header())"
+
+[before]
+step = "step.rs BoundaryProof::verify hashes the transported raw leaf then calls decode_untrusted on it, which requires an envelope."
+market = "market.rs VerifiedMarketSandbox::boundary and bisect.rs TraceCommitment::open_leaf have the same mismatch."
+corpus = "proof_arbiter_crate.rs Corpus::paths carries raw leaves; runtime_producer_records_integer_steps_and_terminal_traps decodes raw leaves without the record header."
+failures = "GOTCHA.kvx [gotcha.3727]: runtime_producer_records_integer_steps_and_terminal_traps returns Encoding; authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice returns Witness(Encoding). These are recorded prior observations, not gates run in this task."
+
+
+[after]
+transport = "Corpus::paths wraps every raw leaf with its own record.header().boundary_envelope and keeps PortableReplayRecord::merkle_path_untrusted over the raw leaf. Runtime execution results decode with their own record.header(). The bisection unit corpus uses the same envelope transport."
+shared_consumer = "market.rs verify_boundary bounds the envelope, splits it through PortableBoundary::split_envelope, authenticates replay_leaf_hash(index, raw_leaf) and the exact Merkle path, applies the proved metadata check and calls decode_with_header."
+step = "step.rs BoundaryProof::verify checks code/input/runtime/ABI/fee/metering and the complete trace policy against ReplayMetadata; a disagreement or missing header returns ReplayError::Leaf."
+market = "market.rs VerifiedMarketSandbox::boundary calls verify_market_boundary with the authenticated profile and billing; it checks the same fields plus the baseline state root and preserves the market error types."
+bisect = "bisect.rs TraceCommitment::open_leaf uses verify_boundary with the committed root, count and maximum bytes. TraceCommitment has no replay identity fields, so it checks the header boundary capacity; SandboxStepJudge::step_holds additionally binds both headers to the sandbox authority and to each other. Public arbiter signatures and raw-leaf commitments are unchanged."
+consumer_test = "tests/repair_22_39_183.rs: authenticated_record_headers_bind_step_transport_after_reconstruction calls the real signed-admission Corpus and VerifiedReplay twice from transported producer bytes; runtime_record_envelopes_cross_market_and_bisection_leaf_consumers produces real integer and trap MarketSandboxExecution records, transports SDK profile/billing bytes and producer envelopes, and exercises the real market leaf verifier and public bisection judge. It imports market.rs by path to exercise its internal leaf consumer without fabricating an authenticated Market admission."
+negative_cases = "Header disagreements for code/input/runtime/ABI/fee/metering/maximum boundaries/stride are refused as ReplayError::Leaf, including the post leaf; raw leaves without headers are refused as Leaf. Truncated headers, oversized envelopes, raw-byte corruption, missing/extra siblings, market profile mismatches and mismatching bisection post headers are refused."
+existing_assertions = "Every existing assertion name and expectation is retained, including runtime_producer_records_integer_steps_and_terminal_traps and authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice. Their runtime-produced leaves now decode with their record header."
+
+[restored_cases]
+helper = "programs/crates/layerx-programs-arbiter/src/market.rs:31 verify_boundary, called by step.rs BoundaryProof::verify; Corpus::paths transports producer boundary_envelope bytes while the helper verifies the raw-leaf commitment."
+producer = "runtime_producer_records_integer_steps_and_terminal_traps; authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice: restored to the unfiltered proof_arbiter_crate gate after 22.39.177; names and assertions unchanged."
+contract = "programs/crates/layerx-programs-arbiter/tests/repair_22_33_215.rs:61 registry_authority_signature_drives_both_call_envelopes; :73 registry_replay_signatures_reconstruct_and_verify_adjacent_steps: the included producer uses Corpus::paths and the same shared helper; names and assertions unchanged."
+before = "GOTCHA.kvx [gotcha.3735] records Witness(Encoding) for both contract cases at producer pairs 0 -> 1; [gotcha.3727] records the two producer failures. Attempt 1 failed compilation before running these cases ([gotcha.3730])."
+after = "The unfiltered hf-done verification runs all four named cases and the new repair consumer tests; its exact revision, command, exit and private log are referenced by [qualification], without a claim before execution."
+
+[qualification]
+status = "Evidence is owned by the bounded gate runner; these references are not claims of execution or success. The final ledger records the exact verified candidate revision, command, exit and private log."
+build = "/out/run/gates.jsonl kind=build; /out/logs/build-1.log"
+verify = "/out/run/gates.jsonl kind=verify; /out/logs/verify-1.log; cg spec done 22.39.183 -f layerx-merge --root /work/paxeer-monorepo"
+acceptance = "22998.1; qualify only when hf-done passes at the same candidate revision as hf-build."
+
+[locations]
+producer_accessor = "programs/crates/layerx-programs-runtime/src/portable_replay.rs:332 PortableBoundary::split_envelope"
+transport = "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:1197 Corpus::paths"
+step = "programs/crates/layerx-programs-arbiter/src/step.rs:396 BoundaryProof::verify"
+shared = "programs/crates/layerx-programs-arbiter/src/market.rs:31 verify_boundary"
+market = "programs/crates/layerx-programs-arbiter/src/market.rs:660 VerifiedMarketSandbox::boundary; :665 verify_market_boundary"
+bisect = "programs/crates/layerx-programs-arbiter/src/bisect.rs:39 TraceCommitment::open_leaf; :148 SandboxStepJudge::step_holds"
+existing_tests = "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:1442 authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice; :1721 runtime_producer_records_integer_steps_and_terminal_traps"
+repair_tests = "programs/crates/layerx-programs-arbiter/tests/repair_22_39_183.rs:45 authenticated_record_headers_bind_step_transport_after_reconstruction; :50 runtime_record_envelopes_cross_market_and_bisection_leaf_consumers; proof_arbiter_crate.rs:1832 repair_record_header_transport"

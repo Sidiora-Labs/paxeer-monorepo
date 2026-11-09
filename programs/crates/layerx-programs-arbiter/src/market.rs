@@ -11,6 +11,7 @@ use layerx_programs_runtime::portable_replay::{
     replay_leaf_hash, replay_node_hash, PortableBoundary,
 };
 use layerx_programs_runtime::replay::{market_sandbox_baseline_root, MarketSandboxReplayAuthority};
+use layerx_programs_runtime::replay_record::ReplayRecordHeader;
 use layerx_programs_runtime::{
     AbiRevision, ArbitrationStepCommitment, FeeSchedule, FeeScheduleParameters, PrincipalId,
     ProgramId, ProgramReplayProfile, ProgramResolver, ResourceBudget, Storage, StorageNamespace,
@@ -20,11 +21,51 @@ use layerx_proof::receipt::VerifiedReceipt;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    ics23, AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, VerifiedReplayAuthority,
+    ics23, AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, ReplayError,
+    VerifiedReplayAuthority,
 };
 
 const MAX_BYTES: usize = 1_048_576;
 const MAX_NAMESPACE_VALUES_BYTES: usize = 64 * MAX_BYTES;
+
+pub(crate) fn verify_boundary(
+    proof: &BoundaryProof,
+    boundary_count: u32,
+    boundary_root: [u8; 32],
+    maximum_bytes: u32,
+    check_header: impl FnOnce(&ReplayRecordHeader) -> Result<(), ReplayError>,
+) -> Result<PortableBoundary, ReplayError> {
+    if proof.index >= boundary_count
+        || proof.leaf.is_empty()
+        || proof.leaf.len() > maximum_bytes as usize
+        || proof.siblings.len() > 12
+    {
+        return Err(ReplayError::Bounds);
+    }
+    let maximum = maximum_bytes as usize;
+    let (header, leaf) =
+        PortableBoundary::split_envelope(&proof.leaf, maximum).map_err(|_| ReplayError::Leaf)?;
+    let mut node = replay_leaf_hash(proof.index, leaf).map_err(|_| ReplayError::Leaf)?;
+    let mut count = boundary_count;
+    let mut index = proof.index;
+    for sibling in &proof.siblings {
+        if count <= 1 || ((index ^ 1) >= count && sibling != &node) {
+            return Err(ReplayError::Path);
+        }
+        node = if index & 1 == 0 {
+            replay_node_hash(node, *sibling)
+        } else {
+            replay_node_hash(*sibling, node)
+        };
+        index /= 2;
+        count = count.div_ceil(2);
+    }
+    if count != 1 || node != boundary_root {
+        return Err(ReplayError::Path);
+    }
+    check_header(&header)?;
+    PortableBoundary::decode_with_header(leaf, maximum, &header).map_err(|_| ReplayError::Leaf)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MarketEvidenceError {
@@ -617,54 +658,46 @@ impl VerifiedMarketSandbox {
                 .map_err(|_| MarketEvidenceError::Encoding)?)
     }
     fn boundary(&self, proof: &BoundaryProof) -> Result<PortableBoundary, MarketEvidenceError> {
-        if proof.index >= self.billing.boundary_count
-            || proof.leaf.len() > self.profile.maximum_bytes as usize
-            || proof.siblings.len() > 12
-        {
-            return Err(MarketEvidenceError::Bounds);
-        }
-        let mut node = replay_leaf_hash(proof.index, &proof.leaf)
-            .map_err(|_| MarketEvidenceError::Encoding)?;
-        let mut count = self.billing.boundary_count;
-        let mut index = proof.index;
-        for sibling in &proof.siblings {
-            if count <= 1 || ((index ^ 1) >= count && sibling != &node) {
-                return Err(MarketEvidenceError::Path);
-            }
-            node = if index & 1 == 0 {
-                replay_node_hash(node, *sibling)
-            } else {
-                replay_node_hash(*sibling, node)
-            };
-            index /= 2;
-            count = count.div_ceil(2);
-        }
-        if count != 1 || node != self.billing.provider_trace_root {
-            return Err(MarketEvidenceError::Path);
-        }
-        let boundary =
-            PortableBoundary::decode_untrusted(&proof.leaf, self.profile.maximum_bytes as usize)
-                .map_err(|_| MarketEvidenceError::Encoding)?;
-        let identity = boundary.arbitration.identity;
-        if identity.module_code_hash != self.profile.code_hash
-            || identity.input_digest != self.profile.input_digest
-            || identity.runtime_version != self.profile.runtime_version
-            || identity.abi_version != self.profile.abi_version
-            || identity.fee_schedule_version != self.profile.fee_schedule_version
-            || identity.metering_schedule_version != self.profile.metering_schedule_version
-            || identity.host_base_state_root != self.profile.baseline_state_root
-            || identity.trace_policy
-                != ProgramReplayProfile::new(
-                    self.profile.maximum_boundaries,
-                    self.profile.maximum_bytes,
-                )
-                .map_err(|_| MarketEvidenceError::Profile)?
-                .trace_policy()
-        {
-            return Err(MarketEvidenceError::Identity);
-        }
-        Ok(boundary)
+        verify_market_boundary(proof, &self.profile, &self.billing)
     }
+}
+
+pub(crate) fn verify_market_boundary(
+    proof: &BoundaryProof,
+    profile: &MarketSandboxProfile,
+    billing: &MarketBillingCommitment,
+) -> Result<PortableBoundary, MarketEvidenceError> {
+    verify_boundary(
+        proof,
+        billing.boundary_count,
+        billing.provider_trace_root,
+        profile.maximum_bytes,
+        |header| {
+            let identity = header.identity;
+            if identity.module_code_hash != profile.code_hash
+                || identity.input_digest != profile.input_digest
+                || identity.runtime_version != profile.runtime_version
+                || identity.abi_version != profile.abi_version
+                || identity.fee_schedule_version != profile.fee_schedule_version
+                || identity.metering_schedule_version != profile.metering_schedule_version
+                || identity.host_base_state_root != profile.baseline_state_root
+                || identity.trace_policy
+                    != ProgramReplayProfile::new(profile.maximum_boundaries, profile.maximum_bytes)
+                        .map_err(|_| ReplayError::Metadata)?
+                        .trace_policy()
+            {
+                return Err(ReplayError::Identity);
+            }
+            Ok(())
+        },
+    )
+    .map_err(|error| match error {
+        ReplayError::Bounds => MarketEvidenceError::Bounds,
+        ReplayError::Path => MarketEvidenceError::Path,
+        ReplayError::Metadata => MarketEvidenceError::Profile,
+        ReplayError::Identity => MarketEvidenceError::Identity,
+        _ => MarketEvidenceError::Encoding,
+    })
 }
 
 fn check_receipt(
