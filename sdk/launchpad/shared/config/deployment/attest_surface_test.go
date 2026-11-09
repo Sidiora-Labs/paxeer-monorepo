@@ -3,10 +3,14 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -19,30 +23,62 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-// surfaceRuntime is the 41-byte runtime every v6.12.0 surface address holds; it
-// forwards calls to the launchpad precompile at 0x1017.
-var surfaceRuntime = common.FromHex("0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3")
+// keeperSurfaceRuntime reads the keeper declaration without importing the root
+// Cosmos module into this independent SDK module.
+func keeperSurfaceRuntime(t *testing.T) []byte {
+	t.Helper()
+	file, err := parser.ParseFile(token.NewFileSet(), "../../../../../modules/launchpad/keeper/market.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var code []byte
+	ast.Inspect(file, func(node ast.Node) bool {
+		decl, ok := node.(*ast.ValueSpec)
+		if !ok || len(decl.Names) != 1 || decl.Names[0].Name != "SurfaceRuntime" {
+			return true
+		}
+		if len(decl.Values) != 1 {
+			t.Fatal("keeper SurfaceRuntime must have one initializer")
+		}
+		call, ok := decl.Values[0].(*ast.CallExpr)
+		if !ok || len(call.Args) != 1 {
+			t.Fatal("keeper SurfaceRuntime must be a hex declaration")
+		}
+		fun, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || fun.Sel.Name != "FromHex" {
+			t.Fatal("keeper SurfaceRuntime must use FromHex")
+		}
+		literal, ok := call.Args[0].(*ast.BasicLit)
+		if !ok || literal.Kind != token.STRING {
+			t.Fatal("keeper SurfaceRuntime must be a string literal")
+		}
+		value, err := strconv.Unquote(literal.Value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		code, err = hexutil.Decode(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return false
+	})
+	if len(code) == 0 {
+		t.Fatal("keeper SurfaceRuntime declaration missing or empty")
+	}
+	return code
+}
 
-const surfaceRuntimeHash = "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+const surfaceRuntimeHash = "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
 
-// attestedSurfaceManifest keeps EventEmitter as the old erc1967 proxy and USDL direct,
-// turns every other role into a surface and adds the launchpad precompile.
+// attestedSurfaceManifest preserves canonical identities and uses isolated USDL code.
 func attestedSurfaceManifest(t *testing.T, usdlCode []byte) Manifest {
 	t.Helper()
 	m := Current()
 	m.Status = "active"
 	m.ActivationHeight = 1
-	for name, r := range m.Roles {
-		switch name {
-		case "EventEmitter":
-		case "USDL":
-			r.RuntimeHash = crypto.Keccak256Hash(usdlCode).Hex()
-		default:
-			r = Role{Address: r.Address, Kind: "surface", RuntimeHash: surfaceRuntimeHash}
-		}
-		m.Roles[name] = r
-	}
-	m.Roles[LaunchpadPrecompileRole] = Role{Address: LaunchpadPrecompileAddress, Kind: "precompile"}
+	r := m.Roles["USDL"]
+	r.RuntimeHash = crypto.Keccak256Hash(usdlCode).Hex()
+	m.Roles["USDL"] = r
 	if err := m.Validate(); err != nil {
 		t.Fatalf("surface manifest invalid: %v", err)
 	}
@@ -122,29 +158,36 @@ func attestSurface(t *testing.T, mutate func(*rpcBackend, Manifest)) (Activation
 	t.Helper()
 	usdlCode := common.FromHex("0x6080604052600080fd")
 	m := attestedSurfaceManifest(t, usdlCode)
+	surfaceRuntime := keeperSurfaceRuntime(t)
 	f := fixtures(t)
-	ee := m.Roles["EventEmitter"]
-	eeAddr := common.HexToAddress(ee.Address)
-	eeImpl := common.HexToAddress(ee.ImplementationAddress)
 	b := &rpcBackend{
-		codes: map[common.Address][]byte{
-			eeAddr: runtime(f, "UUPSProxy", eeAddr),
-			eeImpl: runtime(f, "EventEmitter", eeImpl),
-			common.HexToAddress(m.Roles["USDL"].Address): usdlCode,
-		},
-		store: map[common.Address]map[common.Hash]common.Hash{eeAddr: {ImplementationSlot: addrWord(ee.ImplementationAddress)}},
+		codes: map[common.Address][]byte{},
+		store: map[common.Address]map[common.Hash]common.Hash{},
 		calls: map[string][]byte{
-			common.Bytes2Hex(selector("owner()")):        addrWord(m.Governance.ExpectedBeaconOwner).Bytes(),
-			common.Bytes2Hex(selector("pendingOwner()")): make([]byte, 32),
-			common.Bytes2Hex(selector("creationFee()")):  common.LeftPadBytes(big.NewInt(1000000).Bytes(), 32),
-			common.Bytes2Hex(selector("usdlAddress()")):  addrWord(m.Roles["USDL"].Address).Bytes(),
-			common.Bytes2Hex(selector("decimals()")):     common.LeftPadBytes([]byte{6}, 32),
+			common.Bytes2Hex(selector("owner()")):          addrWord(m.Governance.ExpectedBeaconOwner).Bytes(),
+			common.Bytes2Hex(selector("pendingOwner()")):   make([]byte, 32),
+			common.Bytes2Hex(selector("implementation()")): addrWord(m.Roles["PoolBeacon"].ImplementationAddress).Bytes(),
+			common.Bytes2Hex(selector("creationFee()")):    common.LeftPadBytes(big.NewInt(1000000).Bytes(), 32),
+			common.Bytes2Hex(selector("usdlAddress()")):    addrWord(m.Roles["USDL"].Address).Bytes(),
+			common.Bytes2Hex(selector("decimals()")):       common.LeftPadBytes([]byte{6}, 32),
 		},
 		asked: map[common.Address]bool{},
 	}
-	for _, r := range m.Roles {
-		if r.Kind == "surface" {
-			b.codes[common.HexToAddress(r.Address)] = surfaceRuntime
+	for name, r := range m.Roles {
+		addr := common.HexToAddress(r.Address)
+		impl := common.HexToAddress(r.ImplementationAddress)
+		switch r.Kind {
+		case "surface":
+			b.codes[addr] = surfaceRuntime
+		case "erc1967":
+			b.codes[addr] = runtime(f, "UUPSProxy", addr)
+			b.codes[impl] = runtime(f, name, impl)
+			b.store[addr] = map[common.Hash]common.Hash{ImplementationSlot: addrWord(r.ImplementationAddress)}
+		case "beacon":
+			b.codes[addr] = runtime(f, "PoolBeacon", addr)
+			b.codes[impl] = runtime(f, "SidioraPool", impl)
+		case "direct":
+			b.codes[addr] = usdlCode
 		}
 	}
 	h := &types.Header{Number: big.NewInt(100), Time: uint64(time.Now().Unix()), Difficulty: big.NewInt(0), GasLimit: 30000000}
@@ -168,17 +211,34 @@ func attestSurface(t *testing.T, mutate func(*rpcBackend, Manifest)) (Activation
 }
 
 func TestAttestSurfaceAndPrecompileRoles(t *testing.T) {
+	surfaceRuntime := keeperSurfaceRuntime(t)
 	if got := crypto.Keccak256Hash(surfaceRuntime).Hex(); got != surfaceRuntimeHash {
 		t.Fatalf("surface runtime hash = %s, want %s", got, surfaceRuntimeHash)
+	}
+	surfaces := 0
+	for name, role := range Current().Roles {
+		if role.Kind == "surface" {
+			surfaces++
+			if role.RuntimeHash != crypto.Keccak256Hash(surfaceRuntime).Hex() {
+				t.Fatalf("canonical %s surface pin differs from keeper: %s", name, role.RuntimeHash)
+			}
+		}
+	}
+	if surfaces != 9 {
+		t.Fatalf("canonical surface inventory = %d, want 9", surfaces)
 	}
 	t.Run("identified", func(t *testing.T) {
 		a, m, p, b := attestSurface(t, nil)
 		if len(a.Issues) != 0 || !a.Eligible {
 			t.Fatalf("issues = %v eligible = %v", a.Issues, a.Eligible)
 		}
-		for _, name := range []string{"Router", LaunchpadPrecompileRole, "EventEmitter"} {
-			if !a.Identities[name].Verified {
-				t.Fatalf("%s not verified: %+v", name, a.Identities[name])
+		for name := range m.Roles {
+			id, role := a.Identities[name], m.Roles[name]
+			if !id.Verified || !strings.EqualFold(id.Address, role.Address) || id.RuntimeHash != role.RuntimeHash || id.ImplementationHash != role.ImplementationHash {
+				t.Fatalf("%s identity differs from approved manifest: %+v", name, id)
+			}
+			if hasImplementation(role.Kind) && !strings.EqualFold(id.ImplementationAddress, role.ImplementationAddress) {
+				t.Fatalf("%s implementation differs from approved manifest: %+v", name, id)
 			}
 		}
 		for _, name := range []string{"Router", LaunchpadPrecompileRole} {
@@ -214,6 +274,36 @@ func TestAttestSurfaceAndPrecompileRoles(t *testing.T) {
 			t.Fatal("ValidateFamilyFor accepted an unidentified surface")
 		}
 	})
+	for _, tc := range []struct {
+		name, role, issue string
+		mutate            func(*rpcBackend, Manifest)
+	}{
+		{"proxy implementation code changed", "EventEmitter", "unknown_implementation_hash", func(b *rpcBackend, m Manifest) {
+			b.codes[common.HexToAddress(m.Roles["EventEmitter"].ImplementationAddress)] = []byte{0x00}
+		}},
+		{"proxy implementation address changed", "OpticalRegistry", "implementation_mismatch", func(b *rpcBackend, m Manifest) {
+			b.store[common.HexToAddress(m.Roles["OpticalRegistry"].Address)][ImplementationSlot] = addrWord(m.Roles["EventEmitter"].ImplementationAddress)
+		}},
+		{"beacon runtime changed", "PoolBeacon", "unknown_runtime_hash", func(b *rpcBackend, m Manifest) {
+			b.codes[common.HexToAddress(m.Roles["PoolBeacon"].Address)] = []byte{0x00}
+		}},
+		{"beacon implementation changed", "PoolBeacon", "implementation_mismatch", func(b *rpcBackend, m Manifest) {
+			b.calls[common.Bytes2Hex(selector("implementation()"))] = addrWord(m.Roles["EventEmitter"].ImplementationAddress).Bytes()
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a, m, p, _ := attestSurface(t, tc.mutate)
+			if a.Eligible || a.Identities[tc.role].Verified || !hasIssue(a, tc.issue, tc.role) {
+				t.Fatalf("changed %s identity accepted: %+v", tc.role, a)
+			}
+			if err := a.ValidateFor(m, p); err == nil {
+				t.Fatal("ValidateFor accepted changed identity")
+			}
+			if err := a.ValidateFamilyFor(m, p, []string{tc.role}, false); err == nil {
+				t.Fatal("ValidateFamilyFor accepted changed identity")
+			}
+		})
+	}
 	t.Run("precompile role off the precompile address", func(t *testing.T) {
 		a, m, _, _ := attestSurface(t, nil)
 		r := m.Roles[LaunchpadPrecompileRole]
