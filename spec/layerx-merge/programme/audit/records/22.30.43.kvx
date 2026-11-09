@@ -5,11 +5,11 @@
 task = "22.30.43"
 revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
 files_reviewed = 237
-findings = 32
+findings = 34
 docs_reviewed = 21
 upgrade_ready = false
 blocking = ["f002"]
-note = "Coverage includes all package members, package requirements and the producer/consumer registry surfaces. Retired-reference refusal tests are distinguished from live legacy harnesses. Missing linked contracts are listed as missing documentation; registry totals include domain-wide rows beyond this file slice."
+note = "Coverage includes all package members, package requirements and the producer/consumer registry surfaces. Retired-reference refusal tests are distinguished from live legacy harnesses. Both linked contract pages exist at the audit revision. Issue #1593 adds a focused correction of doc.020, doc.021 and f032, with documentation findings f033-f034 compared against follow-up revision 0f3fe6b8c5c1973c0e80408097cf66e06e40785f; this is not a new whole-slice review. Historical file counts are retained, cited test sources were inspected rather than rerun, and registry totals include domain-wide rows beyond this file slice."
 
 [file.001]
 path = "cmd/layerx-module-registry/main.c"
@@ -1761,9 +1761,30 @@ class = "doc-drift"
 severity = "medium"
 observed = "Registry row 5.cli-layerxctl-submit says the CLI only reports submitted/unverified until receipt verification is implemented, but verify_sequencer_signature now validates pinned keys, roots, summary effects and receipt fields. Row 5.cli-layerxctl-wire-limit still declares a main.rs layerx_wire import although it is now only a dev dependency used by tests."
 expected = "The interface registry must describe the current CLI verification guarantees and dependency surface so integrators and follow-on work do not target already removed production imports or assume receipts are unverified."
-proposal = "Update spec/layerx-merge/interfaces.kvx rows 5.cli-layerxctl-submit and 5.cli-layerxctl-wire-limit in their owning follow-up task to describe the actual verified receipt path, current imports and supported command contract; supply the missing linked sequencer contract."
+proposal = "Update spec/layerx-merge/interfaces.kvx rows 5.cli-layerxctl-submit and 5.cli-layerxctl-wire-limit in their owning follow-up task to describe the actual verified receipt path, current imports and supported command contract, linking the existing spec/layerx-merge/contracts/sequencer.md#node-cli page and reconciling its stale rows noted in f033."
 owner_domain = 5
 interface = "5.cli-layerxctl-submit"
+
+[finding.f033]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 2186
+class = "doc-drift"
+severity = "medium"
+observed = "The frozen node-cli table at :2185-2186 retains the old submit source location and a production layerx_wire::limits::MAX_MESSAGE_BYTES import. At both audit revision 6d2c32a65a1c7989a6a37abf5965929de9769ae4 and follow-up revision 0f3fe6b8c5c1973c0e80408097cf66e06e40785f, cmd/layerxctl/src/main.rs:8-17 instead uses client/proof/types and local input bounds; cmd/layerxctl/Cargo.toml:17-19 confines layerx-wire to dev dependencies. The storage table at :1173 and :1175 also records a planned layerxhost key, while storage/common/keys/store_keys.go:52-53 defines the mounted agent key and immutable host key lxphost, checked by storage/common/keys/store_keys_test.go:112-137. These are disagreements with an existing frozen contract, separate from the registry drift in f032."
+expected = "The audit must distinguish the contract's frozen revision 2a1033aa2 from implemented CLI dependencies and storage names at the audit and follow-up revisions; consumers must not infer an active production wire import or rename the persisted lxphost store."
+proposal = "Amend the node-cli and node-storage contract rows in their owning follow-up task to describe the implemented command/dependency surface and immutable lxphost key, preserving the frozen snapshot's provenance and updating planned labels only with supporting evidence."
+owner_domain = 5
+interface = "5.cli-layerxctl-wire-limit"
+
+[finding.f034]
+file = "spec/layerx-merge/contracts/consensus-fork.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The contract pins revision 2a1033aa2 at :3, but its current-state claims at :40, :50, :243 and :248 say the router publishes nothing, reset leaves Autobahn state and offline tooling opens CometBFT stores; :230 still labels ErrAutobahnOfflineStore planned. At audit revision 6d2c32a65a1c7989a6a37abf5965929de9769ae4, consensus/internal/p2p/giga_router.go:365-387 already saves responses, pushes the app hash and publishes events, consensus/cmd/tendermint/commands/reset.go:143 removes data/autobahn, and reindex_event.go:151-154 refuses Autobahn stores. Follow-up revision 0f3fe6b8c5c1973c0e80408097cf66e06e40785f retains those behaviors at giga_router.go:369-391, reset.go:175-194 and reindex_event.go:158-161. The :31 invariant also requires publication before PushAppHash, whereas both source revisions publish afterward; consensus/internal/p2p/giga_router_events_test.go:121 and :154 check emitted block and transaction payloads, without asserting that invariant's ordering."
+expected = "The audit must separate pinned planned work from behavior already implemented at its historical revision and explicitly retain the contract-versus-source event-order disagreement; source inspection does not qualify the frozen acceptance gates."
+proposal = "In the owning consensus contract follow-up, distinguish historical planned/UNRUN entries from implemented event publication, reset and offline refusal, and reconcile the :31 event-order invariant with the actual SaveFinalizeBlockResponses, Commit, PushAppHash and publish sequence without claiming an unrun gate."
+owner_domain = 15
 
 [doc.001]
 path = "docs/runbooks/paxeer-x-fork.md"
@@ -1861,13 +1882,13 @@ status = "accurate"
 notes = "Distinguishes state commit from historical state storage and describes default Pebble with optional RocksDB build support; backend-specific findings are recorded separately."
 
 [doc.020]
-path = "contracts/sequencer.md"
-status = "missing"
-notes = "Interface rows for the CLI, storage and node helpers link to this contract, but it is absent at the reviewed revision; source and acceptance criteria supplied the reviewed behavior."
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "stale"
+notes = "The link in spec/layerx-merge/interfaces.kvx:226153 resolves relative to spec/layerx-merge to this existing page's node-cli anchor (:2172); node-storage is at :1152. The page exists at audit revision 6d2c32a65a1c7989a6a37abf5965929de9769ae4 and is unchanged at follow-up revision 0f3fe6b8c5c1973c0e80408097cf66e06e40785f, but freezes revision 2a1033aa2 (:6). CLI rows :2185-2186 retain an obsolete submit location and wire import: cmd/layerxctl/src/main.rs:235-330 and :350-400 already verify pinned-key receipts, transaction binding, sequence roots, effects and view fields at the audit revision; Cargo.toml:17-19 already limits layerx-wire to tests. Storage rows :1173/:1175 propose layerxhost while storage/common/keys/store_keys.go:53 and store_keys_test.go:123 use lxphost (f033). The later cmd/layerxctl/src/main.rs:403-422 contract comment and pub(crate) run and tests/repair_22_33_1078.rs:24 (pending/explicit-height eth_call) and :123 (local bounds, help and option refusal) are follow-up changes, not evidence that those tests ran at the audit revision or that receipt verification was added afterward. Registry notes at interfaces.kvx:226154/:226164 remain stale as recorded in f032; cited tests are source evidence only."
 
 [doc.021]
-path = "contracts/consensus-fork.md"
-status = "missing"
-notes = "Consensus registry rows link to this contract, but it is absent at the reviewed revision; the source-level producer, wire decoder and consumer paths were used instead."
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "stale"
+notes = "The link in spec/layerx-merge/interfaces.kvx:647644 resolves relative to spec/layerx-merge to this existing page's cli section (:64). The page exists at audit revision 6d2c32a65a1c7989a6a37abf5965929de9769ae4 and is unchanged at follow-up revision 0f3fe6b8c5c1973c0e80408097cf66e06e40785f, while :3 pins its earlier snapshot to 2a1033aa2. CLI flag signatures at :68-75 agree with consensus/cmd/priv_val_server/main.go:37-45 despite shifted line numbers. Offline invariants at :234 agree with reindex_event.go:158-161, rollback.go:12-36 and reset.go:175-194 under consensus/cmd/tendermint/commands; the corresponding test sources reset_test.go:151, reindex_event_test.go:158/:167 and rollback_test.go:9/:19 assert removal/refusal. However, planned labels and current-state claims at :230/:243/:248 lag behavior already implemented at the audit revision. Event claims at :40/:50 are likewise stale, and :31 prescribes publication before PushAppHash while consensus/internal/p2p/giga_router.go:369-391 publishes afterward; giga_router_events_test.go:121/:154 asserts event payloads, not that ordering (f034). These focused source comparisons do not rerun consensus tests, qualify UNRUN entries or supersede historical findings f002-f003."
 
 
