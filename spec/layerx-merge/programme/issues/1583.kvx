@@ -1,0 +1,7 @@
+[issue.1583]
+number = 1583
+title = "[P2] Refresh retained Rust sequencer receipt fixtures"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit 2944d59b7a3e4a307c61f78705fa53b3d96c723b replaced the stale helper with producer vectors at services/agent/crates/layerx-client/tests/sequencer.rs:125 and :137, derives both denominations and full signed receipt bytes at services/agent/crates/layerx-client/tests/sequencer.rs:203 and :212, asserts successful receipted and committed decoding at services/agent/crates/layerx-client/tests/sequencer.rs:242 and :248, and checks the valid baseline before refusing missing paymentDenom, mismatched asset and truncated receipt mutations at services/agent/crates/layerx-client/tests/sequencer.rs:1007 and :1073 while canonical decoding and asset binding remain enforced at services/agent/crates/layerx-client/src/sequencer.rs:1071."
+close_comment = "The retained Rust sequencer tests now use producer-generated full receipts with payment and fee denominations and assert successful decoding for both receipted and committed rungs. Negative cases first establish a valid response, then verify rejection of a missing payment denomination, an asset mismatch and truncated receipt bytes."
