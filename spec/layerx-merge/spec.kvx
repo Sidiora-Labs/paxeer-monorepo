@@ -183800,7 +183800,7 @@ do_6 = "do_6 Decision 3038, gotcha 3735. The contract-consumer binary tests/repa
 
 [task.22.39.177]
 title = "Move the arbiter crate to the historical activity codec paths of layerx-wire so the programs workspace builds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.33.215"]
