@@ -76,6 +76,11 @@ export interface ActionRow {
   terminal_at: string | null;
 }
 
+/** Only intake has no claim epoch; worker mutations carry the claimed attempts. */
+export function actionLeaseEpoch(row: ActionRow): number | undefined {
+  return row.attempts === 0 ? undefined : row.attempts;
+}
+
 const COLS = `id, did, wallet_id, wallet_address, kind, status, phase, idempotency_key,
   request, plan, approval_tx_hash, approval_nonce, call_tx_hash, call_nonce,
   reserved_budget_id, reserved_value_wei::text, error_code, error,
@@ -191,7 +196,11 @@ const TERMINAL_SET = new Set<ActionStatus>([
 ]);
 
 /** Patch an action, stamping terminal_at when it enters a terminal status. */
-export async function updateAction(id: string, patch: ActionPatch, leaseEpoch?: number): Promise<ActionRow> {
+export async function updateAction(
+  id: string,
+  patch: ActionPatch,
+  leaseEpoch?: number
+): Promise<ActionRow> {
   const cols: string[] = [];
   const vals: unknown[] = [id];
   const push = (col: string, val: unknown): void => {
@@ -250,7 +259,8 @@ const INTAKE_GRACE_SECONDS = 60;
  * crashed worker's action becomes claimable again after `leaseMs`.
  */
 export async function claimNextAction(leaseMs: number): Promise<ActionRow | null> {
-  if (!Number.isSafeInteger(leaseMs) || leaseMs <= 0) throw new Error('invalid action lease duration');
+  if (!Number.isSafeInteger(leaseMs) || leaseMs <= 0)
+    throw new Error('invalid action lease duration');
   return withTransaction(async (client) => {
     const { rows } = await client.query<{ id: string }>(
       `select id from agent_actions
@@ -403,11 +413,16 @@ export interface ActionLegExecution {
 
 export function actionLegExecution(row: ActionRow, leg: ActionLeg): ActionLegExecution {
   const execution = row.request._execution as
-    Partial<Record<ActionLeg, ActionLegExecution>> | undefined;
+    | Partial<Record<ActionLeg, ActionLegExecution>>
+    | undefined;
   return execution?.[leg] ?? {};
 }
 
-async function lockedAction(client: PoolClient, id: string, leaseEpoch?: number): Promise<ActionRow> {
+async function lockedAction(
+  client: PoolClient,
+  id: string,
+  leaseEpoch?: number
+): Promise<ActionRow> {
   const selected = await client.query<ActionRow>(
     `select ${COLS} from agent_actions
       where id = $1 and ${leasePredicate('$2')} for update`,
@@ -540,10 +555,17 @@ export async function releaseActionBudget(id: string, leaseEpoch?: number): Prom
   });
 }
 
-export async function releaseActionNonce(id: string, nonce: number, leaseEpoch?: number): Promise<void> {
+export async function releaseActionNonce(
+  id: string,
+  nonce: number,
+  leaseEpoch?: number
+): Promise<void> {
   await withTransaction(async (client) => {
     await lockedAction(client, id, leaseEpoch);
-    await client.query('delete from custody_signing_reservations where action_id = $1 and nonce = $2', [id, nonce]);
+    await client.query(
+      'delete from custody_signing_reservations where action_id = $1 and nonce = $2',
+      [id, nonce]
+    );
   });
 }
 

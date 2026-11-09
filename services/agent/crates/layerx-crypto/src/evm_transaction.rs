@@ -69,12 +69,18 @@ impl std::error::Error for EvmTransactionError {}
 
 fn rlp_length(length: usize, short: u8, out: &mut Vec<u8>) {
     if length < 56 {
-        #[allow(clippy::cast_possible_truncation)]
+        #[allow(
+            clippy::cast_possible_truncation,
+            reason = "Short RLP length is at most 55 bytes"
+        )]
         out.push(short + length as u8);
     } else {
         let bytes = length.to_be_bytes();
         let skip = bytes.iter().take_while(|byte| **byte == 0).count();
-        #[allow(clippy::cast_possible_truncation)]
+        #[allow(
+            clippy::cast_possible_truncation,
+            reason = "A usize length uses at most size_of::<usize>() significant bytes"
+        )]
         out.push(short + 55 + (bytes.len() - skip) as u8);
         out.extend_from_slice(&bytes[skip..]);
     }
