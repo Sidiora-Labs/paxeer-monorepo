@@ -1,0 +1,7 @@
+[issue.1827]
+number = 1827
+title = "[P2] Keep workflow pnpm pin discovery independent of source line numbers"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 775a34c6ff79efe75976ba3dba4d1ea2376f7802 replaced the absolute-line inventory with workflow/job identities in tests/ci/test_package_manager_pins_agree.py:27, selects literal or manifest-driven install commands at tests/ci/test_package_manager_pins_agree.py:148, requires exactly one activation per recorded job at tests/ci/test_package_manager_pins_agree.py:168 and full required-job coverage at tests/ci/test_package_manager_pins_agree.py:181, and retains matrix expansion and manifest-release agreement at tests/ci/test_package_manager_pins_agree.py:195 and tests/ci/test_package_manager_pins_agree.py:218 despite the installs now occurring at .github/workflows/bridge-test.yml:160, .github/workflows/wallet-go-test.yml:78 and .github/workflows/platform.yml:205."
+close_comment = "Required pnpm installations are now discovered by workflow and owning job, with install commands identifying the activation and source lines retained for diagnostics. Moving unrelated YAML lines no longer invalidates the required-install inventory, and required-case coverage, matrix expansion and manifest-release agreement checks remain intact."

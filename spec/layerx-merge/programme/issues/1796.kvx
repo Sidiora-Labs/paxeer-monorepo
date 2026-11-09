@@ -1,0 +1,7 @@
+[issue.1796]
+number = 1796
+title = "[Coherence] The attestor job still cannot link the policy tests because the programs sandbox archive that the cgo directives require is never built"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit b101cac05bed67eb43727b29e9588e661158563b changed .github/workflows/wallet-go-test.yml:101 to make paxd-native-libs before the full attestor test command at .github/workflows/wallet-go-test.yml:109; Makefile:2531 includes programs-release-build, Makefile:2828 fixes its output directory, and Makefile:2849 builds the release sandbox archive required by services/wallet/attestor/internal/policy/testkernel/kernel.go:7, with regression coverage checking every linked archive against the preceding build targets at tests/ci/test_wallet_go_test_native_archives.py:122."
+close_comment = "The attestor check now builds both the kernel and release programs sandbox archives through paxd-native-libs before running the full attestor test suite, including the policy tests. Regression coverage checks that the preceding build targets produce every native archive linked by the attestor."

@@ -1,0 +1,50 @@
+[issue.1799]
+number = 1799
+title = "[Coherence] The SDK and middleware documentation still describe the old hosted routing and the /rpc adapter"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "sdk/wallet/README.md:180 and docs/system/sdk.md:60 still require hostedUrl for px_ reads and contracts/platform-middleware.md:40 still requires /rpc, although sdk/wallet/src/endpoint.ts:82 selects only px_register and px_requestFunds for hosted transport, sdk/wallet/src/endpoint.ts:86 sends account reads to the node, services/platform/middleware/seller/src/rpc.ts:91 requires the gateway root, and sdk/wallet/test/repair-22-31-591.test.ts:139 and services/platform/middleware/seller/test/repair-22-31-591.test.mjs:48 assert the routing introduced by commit 6cfc7652ced4aa7499c9d02fcc6a23653a642a47."
+close_comment = "The SDK and middleware documentation needs to describe the current routing: px_ reads use the node root, only px_register and px_requestFunds require hostedUrl, and HostedGatewayRpc posts to the gateway root. A documentation repair is specified to correct all three references."
+
+[task.18.1799.1]
+title = "Issue #1799: Correct the SDK and middleware endpoint routing documentation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181799.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the obsolete hosted-read routing descriptions in sdk/wallet/README.md:180 and docs/system/sdk.md:60 with the sentence `px_` reads go to the node root; only `px_register` and `px_requestFunds` require `hostedUrl`. Explain that EndpointClient.batch uses the same split, including px_getReceiptKeys among node reads, and align the surrounding account-read descriptions with sdk/wallet/src/endpoint.ts:66, sdk/wallet/src/endpoint.ts:82 and sdk/wallet/src/endpoint.ts:86; the legacy read-labelled error at sdk/wallet/src/endpoint.ts:62 is reached only by batches containing either hosted operation, not by read-only batches."
+do_2 = "Replace the obsolete adapter limitation in contracts/platform-middleware.md:40 with the sentence `HostedGatewayRpc` posts to the gateway root and rejects `/rpc` endpoints. Align the surrounding discovery wording with services/platform/middleware/seller/src/rpc.ts:91 and the root-path assertions in services/platform/middleware/seller/test/repair-22-31-591.test.mjs:48; retain the distinction between the configured hosted gateway and the node endpoint."
+do_3 = "Run the focused documentation grep assertions in verify_cmd: require the corrected read-routing sentence separately in both SDK documents, require the root-path sentence in the middleware contract, and reject the obsolete routing and compatibility assertions across those three files."
+symbols = []
+touches = ["sdk/wallet/README.md", "docs/system/sdk.md", "contracts/platform-middleware.md"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq '`px_` reads go to the node root; only `px_register` and `px_requestFunds` require `hostedUrl`.' sdk/wallet/README.md && grep -Fq '`px_` reads go to the node root; only `px_register` and `px_requestFunds` require `hostedUrl`.' docs/system/sdk.md && grep -Fq '`HostedGatewayRpc` posts to the gateway root and rejects `/rpc` endpoints.' contracts/platform-middleware.md && ! grep -nE 'Hosted reads require|Hosted reads without|routes those methods to the hosted client|sends `px_` methods to `hostedUrl`|still requires the retired `/rpc` path|cannot be used unchanged|compatibility limitation' sdk/wallet/README.md docs/system/sdk.md contracts/platform-middleware.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181799]
+title = "SDK and middleware documentation describes the implemented node and hosted routing"
+ac_1 = "Given the read methods and exact hosted-method predicate at sdk/wallet/src/endpoint.ts:82 and sdk/wallet/src/endpoint.ts:86, when a caller reads sdk/wallet/README.md:180 or docs/system/sdk.md:60, then both documents state that px_ reads, including px_getReceiptKeys, go to the node root and only px_register and px_requestFunds require hostedUrl, with batch routing following the same split."
+ac_2 = "Given the root endpoint required by services/platform/middleware/seller/src/rpc.ts:91 and the retired-path refusal asserted at services/platform/middleware/seller/test/repair-22-31-591.test.mjs:56, when a caller reads contracts/platform-middleware.md:40, then the contract states that HostedGatewayRpc posts to the configured gateway root and rejects /rpc endpoints without describing an obsolete compatibility limitation."
+
+[acceptance.18.1799.1]
+feature = "18"
+req = "181799.1"
+scenario = "Given the implemented node-read and hosted-operation split, when the SDK and middleware routing documentation is checked, then both SDK references describe node-root reads and the two operations requiring hostedUrl, and the middleware contract describes gateway-root requests with /rpc endpoints rejected."
+contract = "contracts/platform-middleware.md#middleware-seller-http-routes"
+test = "verify_cmd grep assertions over sdk/wallet/README.md, docs/system/sdk.md and contracts/platform-middleware.md (planned)"
+qualification = "UNRUN"

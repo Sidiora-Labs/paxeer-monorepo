@@ -1,0 +1,7 @@
+[issue.1835]
+number = 1835
+title = "[Coherence] Decision 2879 and task 22.39.137 do_4 remove the SequencerReceiptVerificationError pass-through from verify_rpc_payment, but existing SDK tests outside the task still assert that typed error, and the task's verification never runs them"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 5247adc56b93433fa7d8ad18a98455124a7e19df aligned both consumer suites with the PlatformSdkError-to-ValueError mapping at services/agent/sdk/python/layerx_sdk/x402_rpc.py:360: services/agent/sdk/python/tests/test_sequencer_receipt.py:319, :337, :350 and :370 assert payment-binding-mismatch and retain the typed cause, exact check and VERIFICATION_FAILURE code, tests/agent/sdk/python/test_repair_22_33_702.py:151 asserts the same signature and key failure contract, and the done task 22.39.120 includes both suites in its verification at spec/layerx-merge/spec.kvx:351809."
+close_comment = "Both SDK consumer suites now expect payment-binding-mismatch from verify_rpc_payment while preserving assertions on the underlying verifier error type, check and code for unpinned keys, out-of-range keys and bad signatures. The payment test repair includes both suites in its verification."

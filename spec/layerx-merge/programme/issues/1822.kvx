@@ -1,0 +1,50 @@
+[issue.1822]
+number = 1822
+title = "[P2] Preserve the shared Swagger contract in regeneration paths"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit a2bf776a9fbdd7265c4a1dfcc89cb2fe8e755d13 introduced the shared archive and SDK shim still present at docs/swagger/statik.go:12 and sdk/client/docs/statik/statik.go:4, but the documented root entrypoint at docs/paxeer-chain-docs.md:75 invokes scripts/update-swagger-ui-statik.sh:13 whose transform at scripts/swagger_assets.py:20 replaces the default registration with only the named registration, breaking the default consumers at wasm/app/app.go:836 and interchain/testing/simapp/app.go:693 while node/app.go:3873 uses the named namespace, and sdk/Makefile:166 and sdk/scripts/update-swagger-ui-statik.sh:2 still overwrite the shim, contrary to the single-archive, dual-namespace and schema-alias assertions at tests/ci/test_copied_artifacts_in_sync.py:180."
+close_comment = "Swagger regeneration still drops the default namespace or replaces the shared SDK import with a duplicate archive. The repair must preserve one bundle, both namespaces and both schema filenames through the root and SDK generation entrypoints, with a generation round-trip regression."
+
+[task.18.1822.1]
+title = "Issue #1822: Preserve the shared Swagger bundle through regeneration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181822.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update scripts/swagger_assets.py:11 and scripts/update-swagger-ui-statik.sh:11 so real statik output publishes one archive registered in both the default and swagger namespaces, with nonempty byte-identical swagger.yml and swagger.yaml entries sourced from the canonical schema; retain validation, failure propagation and atomic publication at scripts/swagger_assets.py:30."
+do_2 = "Replace the duplicate generation at sdk/scripts/update-swagger-ui-statik.sh:2 and sdk/Makefile:165 with the shared generation path, preserving the import-only shim at sdk/client/docs/statik/statik.go:4 and making the SDK synchronization check cover the canonical generated output while still rejecting drift."
+do_3 = "Reconcile tools/qualification/audit_repairs/test_repair_22_33_803.py:427, which currently removes the default registration from its expected output, and its entrypoint assertions at line 462 with the dual-registration contract; update tools/qualification/audit_repairs/test_repair_22_33_1380.py:119 to assert shared SDK generation and drift rejection, preserving every malformed-output, atomic-publication and nonzero-exit assertion."
+do_4 = "Add test_shared_swagger_generation_round_trip to tests/ci/test_copied_artifacts_in_sync.py beside test_statik_consumers_share_one_bundle at line 180: exercise real generation through the root script, SDK script and SDK Make target, compile and load each resulting archive with the actual statik Go filesystem through fs.New and fs.NewWithNamespace, read both schema aliases and UI assets, assert one archive and an unchanged SDK shim after each entrypoint, and prove failed generation preserves the previous artifact without fake generators or weakened synchronization checks."
+symbols = ["namespace", "publish", "test_finding_25_portable_namespace_publishes_the_real_generated_payload", "test_finding_25_generation_failures_precede_atomic_publish", "test_swagger_clean_check_source_contract", "test_shared_swagger_generation_round_trip"]
+touches = ["scripts/swagger_assets.py", "scripts/update-swagger-ui-statik.sh", "sdk/scripts/update-swagger-ui-statik.sh", "sdk/Makefile", "tools/qualification/audit_repairs/test_repair_22_33_803.py", "tools/qualification/audit_repairs/test_repair_22_33_1380.py", "tests/ci/test_copied_artifacts_in_sync.py"]
+tests = ["tests/ci/test_copied_artifacts_in_sync.py::test_shared_swagger_generation_round_trip", "tests/ci/test_copied_artifacts_in_sync.py::test_statik_consumers_share_one_bundle", "tools/qualification/audit_repairs/test_repair_22_33_803.py::test_finding_25_portable_namespace_publishes_the_real_generated_payload", "tools/qualification/audit_repairs/test_repair_22_33_803.py::test_finding_25_invalid_generation_preserves_previous_artifact", "tools/qualification/audit_repairs/test_repair_22_33_803.py::test_finding_25_generation_failures_precede_atomic_publish", "tools/qualification/audit_repairs/test_repair_22_33_1380.py::test_swagger_clean_check_source_contract"]
+planned_paths = []
+build_cmd = "python3 -m py_compile scripts/swagger_assets.py tests/ci/test_copied_artifacts_in_sync.py tools/qualification/audit_repairs/test_repair_22_33_803.py tools/qualification/audit_repairs/test_repair_22_33_1380.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py::test_shared_swagger_generation_round_trip tests/ci/test_copied_artifacts_in_sync.py::test_statik_consumers_share_one_bundle tools/qualification/audit_repairs/test_repair_22_33_803.py::test_finding_25_portable_namespace_publishes_the_real_generated_payload tools/qualification/audit_repairs/test_repair_22_33_803.py::test_finding_25_invalid_generation_preserves_previous_artifact tools/qualification/audit_repairs/test_repair_22_33_803.py::test_finding_25_generation_failures_precede_atomic_publish tools/qualification/audit_repairs/test_repair_22_33_1380.py::test_swagger_clean_check_source_contract"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181822]
+title = "Swagger regeneration preserves the shared consumer contract"
+ac_1 = "Root and SDK regeneration preserve the SDK import-only shim at sdk/client/docs/statik/statik.go:4 and produce exactly one shared archive supporting the default consumers at wasm/app/app.go:836 and interchain/testing/simapp/app.go:693 and the named consumer at node/app.go:3873, with the nonempty identical schema aliases and UI assets required by tests/ci/test_copied_artifacts_in_sync.py:180; malformed or failed generation leaves the previously published archive intact and the SDK drift check still rejects changed output."
+
+[acceptance.18.1822.1]
+feature = "18"
+req = "181822.1"
+scenario = "Given the shared Swagger bundle and SDK import shim, when the root generator or either SDK generation entrypoint regenerates the assets, then both actual statik consumer namespaces load the same complete archive, both schema aliases have identical nonempty content, the SDK shim remains unchanged, and failed generation preserves the previously published bundle."
+contract = "contracts/cosmos-fork.md#go-api"
+test = "tests/ci/test_copied_artifacts_in_sync.py::test_shared_swagger_generation_round_trip (planned)"
+qualification = "UNRUN"
