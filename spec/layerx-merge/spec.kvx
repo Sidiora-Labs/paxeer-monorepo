@@ -257384,7 +257384,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.59.7]
 title = "Retire contracts/config/checkpoint-settlement.json"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["6.51.1", "5.54.2", "5.54.3", "5.54.9", "5.54.10", "8.19.2", "8.20.2", "9.24.2", "9.27.4", "9.26.3", "10.8.2", "16.3.2", "16.3.4", "16.3.5", "16.33.1", "16.34.4", "16.36.2", "16.36.3"]
@@ -335538,7 +335538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.180]
 title = "State the rehearsal script gap as closed, record the exported-state rehearsal waiver and move the agent daemon qualification to the acceptance steps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.33.215"]
