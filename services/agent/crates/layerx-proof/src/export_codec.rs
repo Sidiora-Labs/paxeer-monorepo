@@ -240,10 +240,6 @@ impl<'a> Reader<'a> {
         Ok(self.array::<1>()?[0])
     }
 
-    fn u16(&mut self) -> Result<u16, ExportCodecError> {
-        Ok(u16::from_be_bytes(self.array()?))
-    }
-
     fn u32(&mut self) -> Result<u32, ExportCodecError> {
         Ok(u32::from_be_bytes(self.array()?))
     }
@@ -314,10 +310,6 @@ impl Writer {
 
     fn u8(&mut self, value: u8) {
         self.0.push(value);
-    }
-
-    fn u16(&mut self, value: u16) {
-        self.raw(&value.to_be_bytes());
     }
 
     fn u32(&mut self, value: u32) {
@@ -706,6 +698,10 @@ impl AccountStateRecord {
 
 /// One element of the proofs bucket.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "The public ProofRecord variant layout carries AccountStateRecord by value; boxing it would change the public signature."
+)]
 pub enum ProofRecord {
     Inclusion(InclusionRecord),
     AccountState(AccountStateRecord),

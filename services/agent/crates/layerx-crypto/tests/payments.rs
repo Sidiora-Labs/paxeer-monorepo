@@ -1,3 +1,5 @@
+#[path = "support/assertions.rs"]
+mod assertions;
 use std::{
     future::Future,
     pin::pin,
@@ -125,7 +127,7 @@ pub(crate) fn signer() -> Result<LocalSigner, Box<dyn std::error::Error>> {
 
 pub(crate) fn options(signer: &LocalSigner) -> CallOptions {
     CallOptions {
-        from: signer.evm_address().expect("derived EVM key"),
+        from: assertions::require(signer.evm_address(), "derived EVM key"),
         chain_id: 125,
         nonce: 7,
         max_priority_fee_per_gas: 2,
@@ -286,39 +288,7 @@ fn monetary_disclosures_name_every_limit_and_transfer_party(
             }
             Payment::ProgramTransfer { legs, .. } => {
                 assert!(payment_call(&payment, &options).is_err());
-                // Preserve every leg's payer, recipient and amount checks using the
-                // maintained ledger encodings; this does not submit the legacy program.
-                let mut counterparties = Vec::new();
-                let mut amounts = Vec::new();
-                for leg in legs {
-                    let burn = payment_call(
-                        &Payment::Burn {
-                            asset: leg.asset,
-                            from: leg.from,
-                            amount: leg.amount,
-                        },
-                        &options,
-                    )?;
-                    let mint = payment_call(
-                        &Payment::Mint {
-                            asset: leg.asset,
-                            to: leg.to,
-                            amount: leg.amount,
-                        },
-                        &options,
-                    )?;
-                    assert_eq!(burn.disclosure.amounts, mint.disclosure.amounts);
-                    counterparties.extend(burn.disclosure.counterparties);
-                    counterparties.extend(mint.disclosure.counterparties);
-                    amounts.extend(mint.disclosure.amounts);
-                }
-                assert_eq!(counterparties.len(), legs.len() * 2);
-                assert_eq!(amounts.len(), legs.len());
-                for (index, leg) in legs.iter().enumerate() {
-                    assert_eq!(counterparties[index * 2].account, leg.from);
-                    assert_eq!(counterparties[index * 2 + 1].account, leg.to);
-                    assert_eq!(amounts[index].value, leg.amount);
-                }
+                assert_program_transfer_disclosures(legs, &options)?;
             }
             _ => {}
         }
@@ -731,6 +701,46 @@ fn registration_fixtures_bind_their_issuer_and_preserve_legacy_payload_checks(
                 "legacy registration field at {offset}"
             );
         }
+    }
+    Ok(())
+}
+
+fn assert_program_transfer_disclosures(
+    legs: &[layerx_crypto::payments::TransferLeg],
+    options: &CallOptions,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Preserve every leg's payer, recipient and amount checks using the
+    // maintained ledger encodings; this does not submit the legacy program.
+    let mut counterparties = Vec::new();
+    let mut amounts = Vec::new();
+    for leg in legs {
+        let burn = payment_call(
+            &Payment::Burn {
+                asset: leg.asset,
+                from: leg.from,
+                amount: leg.amount,
+            },
+            options,
+        )?;
+        let mint = payment_call(
+            &Payment::Mint {
+                asset: leg.asset,
+                to: leg.to,
+                amount: leg.amount,
+            },
+            options,
+        )?;
+        assert_eq!(burn.disclosure.amounts, mint.disclosure.amounts);
+        counterparties.extend(burn.disclosure.counterparties);
+        counterparties.extend(mint.disclosure.counterparties);
+        amounts.extend(mint.disclosure.amounts);
+    }
+    assert_eq!(counterparties.len(), legs.len() * 2);
+    assert_eq!(amounts.len(), legs.len());
+    for (index, leg) in legs.iter().enumerate() {
+        assert_eq!(counterparties[index * 2].account, leg.from);
+        assert_eq!(counterparties[index * 2 + 1].account, leg.to);
+        assert_eq!(amounts[index].value, leg.amount);
     }
     Ok(())
 }

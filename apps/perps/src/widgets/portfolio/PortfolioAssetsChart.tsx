@@ -14,6 +14,7 @@ import { ChevronDown } from "lucide-react";
 import { DAILY_PNL_LIMIT, type DailyPnl } from "@/hooks/perps/useDailyPnl";
 import { weiOrZero, weiToNumber } from "@/ui/utils/format";
 import { cn } from "@/ui/utils/cn";
+import { sliceByRange } from "./PortfolioPerformanceGrid";
 
 export type AssetsTimeRange = "7D" | "30D" | "90D" | "ALL";
 
@@ -195,24 +196,15 @@ interface ChartPoint {
   value: number;
 }
 
-function rangeToDays(range: AssetsTimeRange): number {
-  if (range === "7D") return 7;
-  if (range === "30D") return 30;
-  if (range === "90D") return 90;
-  return Number.POSITIVE_INFINITY;
-}
-
 export function buildAssetSeries(
   dailyPnl: DailyPnl[],
   anchorValue: number,
   range: AssetsTimeRange,
+  now: Date = new Date(),
 ): ChartPoint[] {
   if (!dailyPnl || dailyPnl.length === 0) return [];
 
-  const maxDays = rangeToDays(range);
-  // Sort ascending (oldest → newest). The hook already sorts, but defend.
-  const sorted = [...dailyPnl].sort((a, b) => a.date.localeCompare(b.date));
-  const sliced = Number.isFinite(maxDays) ? sorted.slice(-maxDays) : sorted;
+  const sliced = sliceByRange(dailyPnl, range, now);
 
   if (sliced.length === 0) return [];
 

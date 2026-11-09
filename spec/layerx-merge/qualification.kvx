@@ -37530,3 +37530,219 @@ symbol = "test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_o
 observed = "Attempt 1 at 2c94f3dca27f: build exit 0; verification exit 1: the three restored-job cases failed at line 79 on human.yml schema-check (ubuntu-24.04) and launchpad-test.yml launchpad-go-test (ubuntu-latest) instead of the routed expression; log /out/logs/verify-1.log."
 assumption = "The routing repair belongs to 18.1843.1; the cases of the task are complete."
 severity = "high"
+
+[finding.22.39.222.2]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 2 at 46e050a8fbc2: build exit 0; verification exit 101: clippy reported 101 errors in fourteen files of the crate; log /out/logs/verify-1.log."
+assumption = "Every remaining site is inside the crate; the lint pass needs one more round."
+severity = "high"
+
+[finding.22.39.224.3]
+task = "22.39.224"
+file = "services/agent/crates/layerx-mcp"
+symbol = "layerx-mcp"
+observed = "Attempt 3 at d7d54522df48: build exit 0; verification exit 101: clippy reported 147 errors, 130 in the crate and 17 in two files of other crates loaded by path; log /out/logs/verify-1.log."
+assumption = "The cross-crate includes are the only sites the task cannot repair in place; decision 3080 removes them."
+severity = "high"
+
+[finding.22.39.219.3]
+task = "22.39.219"
+file = "services/agent/crates/layerx-client"
+symbol = "layerx-client"
+observed = "Attempt 3 at a3fdf479e848: build exit 0; verification exit 101: clippy reported eleven errors in five test files; log /out/logs/verify-1.log."
+assumption = "Eleven named sites remain; the library and the other targets are clean."
+severity = "high"
+
+[finding.22.33.223.16]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 17 at d39be6f97ce8: build exit 0; verification exit 101 after two repair cycles: three cases panicked at fuel_budget.rs line 2846 with each participant chunk at 32/8 must retain fuel margin: Some(995431), 24 passed; log /out/logs/verify-1.log."
+assumption = "The chunk is about ten percent over the cap; the remaining cases pass."
+severity = "high"
+
+[finding.18.1688.1.1]
+task = "18.1688.1"
+file = "apps/launchpad/web/src/core/rpc-configuration.test.tsx::rpcColdImportReportsInvalidOverrides"
+symbol = "rpc-configuration.test.tsx::rpcColdImportReportsInvalidOverrides"
+observed = "Attempt 1 at d579e1de6bf3: build exit 0; verification exit 1: rpcColdImportReportsInvalidOverrides timed out at 5000 ms, rpcColdImportPreservesValidatedSelection passed; the first verification at 8994fc256176 ran before the cases were registered; log /out/logs/verify-2.log."
+assumption = "The case is complete and slow; the default time-out is the only failure."
+severity = "high"
+
+[finding.18.1693.1.1]
+task = "18.1693.1"
+file = "apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx::metadata_routes_connect_editor_and_viewer"
+symbol = "route-wiring.test.tsx::metadata_routes_connect_editor_and_viewer"
+observed = "Attempt 1 at 4d246733d224: build exit 0; verification exit 1: metadata_routes_connect_editor_and_viewer timed out at 30000 ms with no step named; log /out/logs/verify-1.log."
+assumption = "The vitest time-out hides the stalled step; the labelled waitFor names it once the case time-out is wider."
+severity = "high"
+
+[finding.18.1691.1.1]
+task = "18.1691.1"
+file = "precompiles/launchpad/events_test.go::TestLogsMatchContractEvents"
+symbol = "events_test.go::TestLogsMatchContractEvents"
+observed = "Attempt 1 at 830792477a1e: build exit 0; verification exit 1: the precompile cases passed and TestRepairM_948_NativeExecutorNode failed in newRepairM948Chain (line 372) with native node recording does not match precompiles/launchpad/events.go; log /out/logs/verify-1.log."
+assumption = "Only the recording lags the producer change of the attempt."
+severity = "high"
+
+[finding.22.39.237.1]
+task = "22.39.237"
+file = "sdk/platform/generators/tests/drift.rs"
+symbol = "drift.rs"
+observed = "Attempt 1 at bca47feb9c56: build exit 2 at services/platform/Makefile.inc line 245: platform-sdkgen reported an unclassified file in the generated rust root, services/agent/crates/layerx-agent-api/src/native_send.rs; verification not run; log /out/logs/build-1.log."
+assumption = "The declaration is the only missing input; the generator and the clients are otherwise consistent."
+severity = "high"
+
+[finding.18.1817.1.2]
+task = "18.1817.1"
+file = "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"
+symbol = "native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"
+observed = "Attempt 2 at 057afa0a657d: build exit 0; verification exit 1: FileNotFoundError for core/control-plane/node_modules/.bin/tsc at the vendored case file line 134; log /out/logs/verify-1.log."
+assumption = "The case never ran; the install is the only change."
+severity = "high"
+
+[finding.18.1826.1.2]
+task = "18.1826.1"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"
+symbol = "install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"
+observed = "Attempt 2 at 5bb8137b2560: build exit 2 in the typecheck script: TS2344 at test/public-types.test.ts line 610, ExpectedSystemKey does not satisfy its constraint (expected acknowledgeAppUpdate, actual installStatus); verification not run; log /out/logs/build-1.log."
+assumption = "The public surface changed as the issue asked; only its enumeration lags."
+severity = "high"
+
+[finding.22.39.235.1]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 1 at 7be3886a3b62: build exit 101 (E0061 at lxt20_tests.rs line 71 and market_tests.rs line 125, seven arguments to a three-argument method); repair build exit 101 (E0432 at tests/repair_22_31_259.rs line 1052, no MarketStepProof in the SDK arbiter module); verification not run; logs /out/logs/build-1.log and /out/logs/build-2.log."
+assumption = "Both breaks are rewrites by the attempt of sites that compile on main."
+severity = "high"
+
+[finding.22.39.162.4]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 4 at f629a39dfed2: build exit 0; verification exit 1: TestPrivateReplayAuthorizationPostgres (context deadline exceeded after 30 s), TestHistoricalRealRangeExplorerSuffixAndParity (source owned-explorer: incomplete) and TestHistoricalSaturationPreservesLiveAndShutdownGenuineChain (source pool: identity) failed; every other package passed; log /out/logs/verify-1.log."
+assumption = "Three cases remain and each names its producer; the fourth round cleared the rest."
+severity = "high"
+
+[finding.18.1689.1.1]
+task = "18.1689.1"
+file = "apps/launchpad/web/src/core/backend-origins.test.ts::middlewareConfigurationErrorsRemainRenderable"
+symbol = "backend-origins.test.ts::middlewareConfigurationErrorsRemainRenderable"
+observed = "Attempt 1 at 6148d21d4ef6: build exit 0; verification exit 1: middlewareConfigurationErrorsRemainRenderable timed out at 5805 ms against the 5000 ms default; log /out/logs/verify-1.log."
+assumption = "The scenario ran to its final assertions; only the time budget was short."
+severity = "high"
+
+[finding.18.1633.1.3]
+task = "18.1633.1"
+file = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity"
+symbol = "px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity"
+observed = "Attempt 3 at 21c013003fab: build exit 0; verification exit 1: TestPxNodeRoot_History_TransportShapesAndRestart failed at rpc/px_node_root_history_test.go line 275, result.items[0] lacks stability; log /out/logs/verify-1.log."
+assumption = "The schema helper names the one missing object; the other fields now match."
+severity = "high"
+
+[finding.18.1711.1.3]
+task = "18.1711.1"
+file = "services/platform/middleware/conformance/pay6/walkthrough.mjs::mergedHttpEnvelopesSurviveReopen"
+symbol = "walkthrough.mjs::mergedHttpEnvelopesSurviveReopen"
+observed = "Attempt 3 at 93a3f9c399d2: build exit 0; verification exit 1: conformance_daemon_fixture_tracks_and_recovers_real_serializer_output failed at line 141 with one failing check, resumed receipt must commit the reserved budget (kind unknown, reservationState reserved); log /out/logs/verify-1.log."
+assumption = "The serializer comparison now passes; one resume check remains."
+severity = "high"
+
+[finding.18.1766.1.3]
+task = "18.1766.1"
+file = "services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js::legacyBlockCounterKeepsHeight"
+symbol = "chain.js::legacyBlockCounterKeepsHeight"
+observed = "Attempt 3 at e92dc39d937b: build exit 1: webpack Module not found for phoenix_html and phoenix under assets/js; verification not run; log /out/logs/build-1.log."
+assumption = "The tree is complete; only the gate lacked the Elixir dependencies."
+severity = "high"
+
+[finding.18.1772.1.2]
+task = "18.1772.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"
+symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
+observed = "Attempt 2 at e220cdf708bc: build exit 2: No projects matched the filters, then TS2307 for the plugin SDK package in contract.ts, app.tsx and server.ts; verification not run; log /out/logs/build-1.log."
+assumption = "The dependencies were never built; the filter is the only change."
+severity = "high"
+
+[finding.17.2.8.3]
+task = "17.2.8"
+file = "spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"
+symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
+observed = "Attempt 3 at 24283a456abe: build exit 0; verification exit 1: test_scan_reports_no_caller failed with ValueError: no owning domain for caller: modules/README.md; log /out/logs/verify-1.log."
+assumption = "The scan now reaches a documentation file with no owner; the owner rule and one README repair remain."
+severity = "high"
+
+[finding.18.1652.1.2]
+task = "18.1652.1"
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs::running main export retries HTTP 503 without a queue process restart"
+symbol = "main_export_queue_test.exs::running main export retries HTTP 503 without a queue process restart"
+observed = "Attempt 2 at 8af3c4eafa35: build exit 0; verification exit 1: two of ten balances export queue cases failed on the row comparison (persisted ids 13, 14, 15 against nil); the six main export queue cases passed; log /out/logs/verify-1.log."
+assumption = "Only the database-assigned ids differ; the exported rows match."
+severity = "high"
+
+[finding.18.1667.1.2]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 2 at e8ec2dccfbf0: build exit 0; verification exit 1: TestRecorderAllSelectedV6Executes failed at main_test.go line 197, record vector-v1-programs-positive: V1 Programs deployment reverted (LXP_ERR_VERSION_UNSUPPORTED); log /out/logs/verify-1.log."
+assumption = "The refusal is the kernel admission contract; the recipe must deploy under an admitted version."
+severity = "high"
+
+[finding.18.1823.1.2]
+task = "18.1823.1"
+file = "tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+symbol = "test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+observed = "Attempt 2 at eac60fe4def1: build exit 1 at the image build stage: Error: missing production upstream: WEB_API_UPSTREAM; verification not run; log /out/logs/build-1.log."
+assumption = "The image build is the only gate; its inputs are now complete."
+severity = "high"
+
+[finding.18.1833.1.2]
+task = "18.1833.1"
+file = "services/platform/middleware/conformance/pay6/test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip"
+symbol = "test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip"
+observed = "Attempt 3 at 31146b90f38f: build exit 0; verification exit 1: the three sub-cases of test_typescript_settlement_metadata_round_trip failed with ValueError: transaction inclusion identity mismatch at committed.py line 146; log /out/logs/verify-1.log."
+assumption = "The verifier compares the wrong bytes; the round trip is otherwise reached."
+severity = "high"
+
+[finding.18.1659.1.2]
+task = "18.1659.1"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs::replay_database_outage_recovers"
+symbol = "repair_22_31_490_test.exs::replay_database_outage_recovers"
+observed = "Attempt 2 at 76c78b18cb71: build exit 0; verification exit 2: replay_held_warnings_survive_database_outage failed at line 328, an unexpected step message carrying a successful select of block_hash rows; six cases passed; log /out/logs/verify-1.log."
+assumption = "The replay held its state; the refutation is wider than the outage it guards."
+severity = "high"
+
+[finding.18.1724.1.2]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 2 at 1bf96f08c220: build exit 0; verification exit 1: TestCurrentReceiptRestartFixture failed, producer refused nonzero restart capture (value 25, code 45 LXP_PRECOMPILE_NON_PAYABLE), result code 0x2d against 0x0; log /out/logs/verify-1.log."
+assumption = "The producer names the refusal; the capture value is the one input to change."
+severity = "high"
+
+[finding.18.1777.1.1]
+task = "18.1777.1"
+file = "services/agent/crates/layerx-agentd/src/main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+symbol = "main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+observed = "Attempt 1 at 70e0cedb2d0f: build exit 0; verification exit 101: E0308 at main.rs line 3306, expected u64 found i64, the test binary did not compile; log /out/logs/verify-1.log."
+assumption = "One type conversion blocks the case; the binary itself builds."
+severity = "high"
+
+[finding.18.1663.1.2]
+task = "18.1663.1"
+file = "apps/perps/tests/funding-rate.test.ts::funding_consumers_keep_exact_rates"
+symbol = "funding-rate.test.ts::funding_consumers_keep_exact_rates"
+observed = "Attempt 2 at f60621bb68ae: build exit 0; verification exit 1: two assertions of funding-rate.test.ts failed, the patterns parseFundingRateHourly(t.last_funding_rate_hourly) and funding8h: snap?.funding_8h ?? null, not found in the consumer sources; log /out/logs/verify-2.log."
+assumption = "The consumers carry the behaviour; the patterns paraphrase their text."
+severity = "high"
+
+[finding.18.1665.1.3]
+task = "18.1665.1"
+file = "rpc/px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+symbol = "px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+observed = "Attempt 3 at bc7cec2a5987: build exit 0; verification exit 1: TestPxNodeRoot_Assets_CursorSchema failed at rpc/px_node_root_account_test.go line 686, an error was expected for the explicit null cursor and none came; log /out/logs/verify-1.log."
+assumption = "The pointer form cannot carry the distinction; the raw form can."
+severity = "high"

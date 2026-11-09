@@ -16,7 +16,11 @@ import type { WorkerHandle } from '../src/agent/actions/worker.js';
 // actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome,
 // actionLeaseExpiryDrainsPendingRenewal,
 // actionOperationDeadlineBoundsDelayedSigning.
-// No pre-change verify ran: the explicit implementation-first gate order forbids it.
+// Former callback-less TODO collection did not execute these assertions and cannot
+// substantiate repair qualification.
+// Task 18.1662.1 cause: claimed mutations omitted the lease epoch, while cancelled
+// signing waited for wallet-session cleanup behind the delayed signing query.
+// The peer now checks the producer's lease predicates and logs every issued query.
 // Wiring request: wallet domain, services/wallet/gateway/src/index.ts: await
 // actionWorker.stop() before closing Fastify/the database pool or exiting.
 
@@ -58,6 +62,10 @@ class DatabaseFixture {
   private server?: TcpServer;
   private sockets = new Set<Socket>();
   private claimOwner: Socket | null = null;
+  private sessionLocks = new Map<
+    string,
+    { owner: Socket; depth: number; released: ReturnType<typeof deferred> }
+  >();
   url = '';
 
   reset() {
@@ -82,7 +90,30 @@ class DatabaseFixture {
 
   async execute(sql: string, args: Array<string | null>, socket: Socket): Promise<Answer> {
     const q = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+    console.error(
+      '[action-lease SQL]',
+      JSON.stringify({
+        at: Date.now(),
+        connection: socket.remotePort,
+        sql: q,
+        args,
+      })
+    );
     const [a, b, c, d, e, f, g, h, i] = args;
+    const leaseMatches = () => {
+      const epoch = q.match(/\(\(\$(\d+)::integer is null/);
+      if (!epoch) return true;
+      const value = args[Number(epoch[1]) - 1];
+      const row = this.row;
+      return (
+        row !== null &&
+        (value === null
+          ? row.attempts === 0 && row.worker_locked_until === null
+          : row.attempts === Number(value) &&
+            row.worker_locked_until !== null &&
+            Date.parse(row.worker_locked_until) > Date.now())
+      );
+    };
     if (q === 'begin') return { rows: [] };
     if (q === 'commit' || q === 'rollback') {
       if (this.claimOwner === socket) this.claimOwner = null;
@@ -90,6 +121,23 @@ class DatabaseFixture {
     }
     if (q.startsWith('select pg_advisory_xact_lock') || q.startsWith('select set_config'))
       return { rows: [] };
+    if (q.startsWith('select pg_advisory_lock(')) {
+      while (this.sessionLocks.has(a!) && this.sessionLocks.get(a!)!.owner !== socket)
+        await this.sessionLocks.get(a!)!.released.promise;
+      const held = this.sessionLocks.get(a!);
+      if (held) held.depth++;
+      else this.sessionLocks.set(a!, { owner: socket, depth: 1, released: deferred() });
+      return { rows: [{ pg_advisory_lock: null }] };
+    }
+    if (q.startsWith('select pg_advisory_unlock(')) {
+      const held = this.sessionLocks.get(a!);
+      if (!held || held.owner !== socket) return { rows: [{ pg_advisory_unlock: false }] };
+      if (--held.depth === 0) {
+        this.sessionLocks.delete(a!);
+        held.released.resolve();
+      }
+      return { rows: [{ pg_advisory_unlock: true }] };
+    }
     if (q.startsWith('insert into agent_actions')) {
       if (this.row) throw new Error('duplicate fixture action');
       const now = new Date().toISOString();
@@ -142,12 +190,15 @@ class DatabaseFixture {
         (q.includes('where did = $1')
           ? this.row.did === a && this.row.idempotency_key === b
           : this.row.id === a);
-      return { rows: matches ? [structuredClone(this.row!)] : [] };
+      return { rows: matches && leaseMatches() ? [structuredClone(this.row!)] : [] };
     }
     if (q.startsWith('update agent_actions')) {
       const row = this.row;
-      if (!row || row.id !== a) return { rows: [], count: 0 };
-      if (q.includes('worker_locked_until = clock_timestamp() +')) {
+      if (!row || row.id !== a || !leaseMatches()) return { rows: [], count: 0 };
+      if (
+        q.includes('worker_locked_until = clock_timestamp() +') &&
+        !q.includes('attempts = attempts + 1')
+      ) {
         this.renewalEntered.resolve();
         if (this.renewalGate) await this.renewalGate.promise;
         if (this.renewalError) throw new Error('injected action lease renewal database failure');
@@ -184,7 +235,8 @@ class DatabaseFixture {
         }
         this.mutations.push({ attempt: row.attempts, sql: q });
       } else {
-        for (const match of q.matchAll(/\b(\w+) = \$(\d+)/g)) {
+        const assignments = q.slice(q.indexOf(' set ') + 5, q.indexOf(' where '));
+        for (const match of assignments.matchAll(/\b(\w+) = \$(\d+)/g)) {
           const key = match[1]!,
             index = Number(match[2]) - 1;
           if (key === 'id') continue;
@@ -510,6 +562,12 @@ class DatabaseFixture {
       socket.on('close', () => {
         this.sockets.delete(socket);
         if (this.claimOwner === socket) this.claimOwner = null;
+        for (const [key, held] of this.sessionLocks) {
+          if (held.owner === socket) {
+            this.sessionLocks.delete(key);
+            held.released.resolve();
+          }
+        }
       });
     });
     await new Promise<void>((resolve) => this.server!.listen(0, '127.0.0.1', resolve));
@@ -648,6 +706,9 @@ beforeAll(async () => {
             };
             break;
           }
+          case 'eth_getTransactionReceipt':
+            result = null;
+            break;
           case 'pax_sequencerReceipt':
             receiptEntered.resolve();
             result = null;
@@ -917,9 +978,25 @@ async function actionOperationDeadlineBoundsDelayedSigning() {
   expect(db.mutations).toHaveLength(mutations);
 }
 
-test(actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers, 10000);
-test(actionLeaseLossStopsDelayedSigningAndFencesRelease, 10000);
-test(actionLeaseRenewalErrorStopsAdvancement, 10000);
-test(actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome, 10000);
-test(actionLeaseExpiryDrainsPendingRenewal, 10000);
-test(actionOperationDeadlineBoundsDelayedSigning, 10000);
+test(
+  actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers.name,
+  actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers,
+  10000
+);
+test(
+  actionLeaseLossStopsDelayedSigningAndFencesRelease.name,
+  actionLeaseLossStopsDelayedSigningAndFencesRelease,
+  10000
+);
+test(actionLeaseRenewalErrorStopsAdvancement.name, actionLeaseRenewalErrorStopsAdvancement, 10000);
+test(
+  actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome.name,
+  actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome,
+  10000
+);
+test(actionLeaseExpiryDrainsPendingRenewal.name, actionLeaseExpiryDrainsPendingRenewal, 10000);
+test(
+  actionOperationDeadlineBoundsDelayedSigning.name,
+  actionOperationDeadlineBoundsDelayedSigning,
+  10000
+);

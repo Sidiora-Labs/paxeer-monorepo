@@ -1,3 +1,4 @@
+use support::assertions;
 mod support;
 
 use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
@@ -11,8 +12,13 @@ fn payload() -> Vec<u8> {
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("fixture UTF-8"), 16)
-                .expect("fixture hex")
+            assertions::require(
+                u8::from_str_radix(
+                    assertions::require(std::str::from_utf8(pair), "fixture UTF-8"),
+                    16,
+                ),
+                "fixture hex",
+            )
         })
         .collect()
 }
@@ -70,7 +76,7 @@ fn ledger_payment_call_wraps_the_send_payload_in_send_bytes(
 }
 
 #[test]
-fn ledger_payment_call_refuses_a_malformed_payload() {
+fn ledger_payment_call_refuses_a_malformed_payload() -> Result<(), Box<dyn std::error::Error>> {
     let payload = payload();
     let options = options();
     let mut trailing = payload.clone();
@@ -84,7 +90,7 @@ fn ledger_payment_call_refuses_a_malformed_payload() {
         invalid_signature.as_slice(),
     ] {
         let mut call = ledger_payment_call(&payload, &options)
-            .expect("valid payment")
+            .map_err(|error| format!("valid payment: {error:?}"))?
             .call;
         call.data.truncate(68);
         call.data[52..68].copy_from_slice(&(malformed.len() as u128).to_be_bytes());
@@ -96,6 +102,8 @@ fn ledger_payment_call_refuses_a_malformed_payload() {
             Err(DisclosureError::MalformedPayload)
         ));
     }
+
+    Ok(())
 }
 
 #[test]
@@ -112,7 +120,7 @@ fn send_envelope_encoder_keeps_asset_ordinal_five() -> Result<(), Box<dyn std::e
     let account = layerx_crypto::account_derivation::derive_from_seed(&[5; 64], 0)?;
     let signer = layerx_crypto::signer::LocalSigner::from_derived_account(&account);
     let mut options = options();
-    options.from = signer.evm_address().expect("fixture EVM key");
+    options.from = signer.evm_address().ok_or("fixture EVM key")?;
     let debit = SendDebit {
         from: [1; 32],
         to: [2; 32],

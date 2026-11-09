@@ -42,7 +42,7 @@ const PANEL_META: Record<MarketsHighlight, { label: string; icon: React.ReactNod
  * the WS feed arrives.
  */
 function selectRows(rows: readonly MarketRow[]): Record<MarketsHighlight, MarketRow[]> {
-  const live = rows.filter((r) => r.hasLiveData);
+  const live = rows.filter((r): r is MarketRow & { change24h: number } => r.hasLiveData && r.change24h !== null);
   const newRows = rows.filter((r) => r.isNew).slice(0, PANEL_MAX_ROWS);
   const gainers = [...live]
     .sort((a, b) => b.change24h - a.change24h)
@@ -177,7 +177,7 @@ function HighlightList({
   return (
     <div className="flex flex-col">
       {rows.map((m) => {
-        const positive = m.change24h >= 0;
+        const positive = m.change24h !== null && m.change24h >= 0;
         return (
           <button
             key={m.marketId}
@@ -201,19 +201,23 @@ function HighlightList({
               </div>
             </div>
             <div className="flex flex-col items-end shrink-0">
-              <PriceFlash
-                value={m.price}
-                className="text-sm font-mono font-semibold tabular-nums text-foreground"
-              >
-                {m.price > 0 ? `$${fmtPrice(m.price)}` : "—"}
-              </PriceFlash>
+              {m.price === null ? (
+                <span className="text-sm font-mono tabular-nums text-muted-foreground">—</span>
+              ) : (
+                <PriceFlash
+                  value={m.price}
+                  className="text-sm font-mono font-semibold tabular-nums text-foreground"
+                >
+                  {m.price > 0 ? `$${fmtPrice(m.price)}` : "—"}
+                </PriceFlash>
+              )}
               <span
                 className={cn(
                   "text-[10px] font-mono tabular-nums",
-                  positive ? "text-emerald-400" : "text-red-400",
+                  m.change24h === null ? "text-muted-foreground" : positive ? "text-emerald-400" : "text-red-400",
                 )}
               >
-                {m.hasLiveData ? fmtChangePct(m.change24h) : "—"}
+                {m.hasLiveData && m.change24h !== null ? fmtChangePct(m.change24h) : "—"}
               </span>
             </div>
           </button>

@@ -1,0 +1,52 @@
+[issue.1928]
+number = 1928
+title = "[P2] Include TypeScript/TSX rows in the parity runner repair plan"
+revision = "86ae60188357c8c436f0f6e5deac9888cdfd2160"
+verdict = "task"
+evidence = "The C/Elixir-only repair introduced by 3e9b585603f53fbe51535c5de12d49de240e174e remains in spec/layerx-merge/spec.kvx:11463 and :328383 and misclassifies signed-receipt selectors in GOTCHA.kvx:18596, although spec/layerx-merge/programme/data/parity.kvx:198 and :548 select Playwright and Vitest tests (apps/wallet/package.json:15-16), while spec/layerx-merge/programme/parity.py:133-137 rejects mixed .ts/.tsx suffixes and :176 rejects either suffix alone, and spec/layerx-merge/programme/tests/test_parity_commands.py:9 covers only Go, Python and Rust dispatch."
+close_comment = "Confirmed: the wallet and signed-receipt parity rows need both Playwright and Vitest support; adding C and Elixir dispatch leaves their TypeScript and TSX selectors unsupported. The repair will preserve every selector and its ownership, correct the repair instructions, and require actual selected test results for both rows."
+
+[task.18.1928.1]
+title = "Issue #1928: Support both wallet test runners in the parity inventory"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["12.35.2", "12.33.2", "12.33.5", "12.34.1", "12.34.2"]
+reqs = ["181928.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct decision 3058 at spec/layerx-merge/spec.kvx:11461, task 17.4.6 do_4 at :328383 and gotcha 3754 at GOTCHA.kvx:18594 to identify both rows as TypeScript/TSX selectors and distinguish Playwright from Vitest; retain the existing C/Elixir repairs and make 17.4.6 require this task before its inventory run. Group selectors by owning package, runner and file within each logical row rather than splitting by extension, preserving the inventory rows at spec/layerx-merge/programme/data/parity.kvx:191 and :541, their complete selector lists, source sections, source paths, planned_by and owner_domain values."
+do_2 = "Extend command_for at spec/layerx-merge/programme/parity.py:108 to resolve the owning package and accept .ts and .tsx together when the package runner supports them: apps/wallet/vitest.config.ts:16 selects src/**/*.test.ts and src/**/*.test.tsx, while apps/wallet/playwright.wallet-app.config.ts:45 selects e2e/*.spec.ts with its explicit configuration. Construct package-relative, shell-quoted commands with exact test-name filters per file, using pnpm --dir apps/wallet exec vitest run for the component and swap selectors and pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts for send.spec.ts; do not form a file/name cross product, broaden selection, or infer the runner from .ts alone, and retain existing malformed-selector and unsupported-toolchain refusals."
+do_3 = "Add run_selected_rows to parity.py as the inventory execution path for a supplied subset of real rows and require task 17.4.6 run_all to reuse it; execute every runner group, retain each row identity, and record revision, exact command, exit, log and actual selected test counts from the runners' machine-readable results. A nonzero exit, missing result, skipped selected test or zero selected tests fails the row, and command construction never counts as a passing test. Use the existing sequencer prerequisite and receipt inputs declared by task 12.35.2 at spec/layerx-merge/spec.kvx:298890 and required by apps/wallet/e2e/send.spec.ts:875-881; preserve the selected tests and their assertions."
+do_4 = "Extend spec/layerx-merge/programme/tests/test_parity_commands.py:9 with test_typescript_rows_build_runner_groups, loading both current inventory rows and their package/runner/file groups and asserting exact command arguments, selector conservation, ownership and anchored name filters, including rejection of extra names and unrelated runners. Add spec/layerx-merge/programme/tests/test_parity_typescript.py with test_typescript_rows_execute_selected_tests, invoking run_selected_rows on just the two real inventory rows and asserting that all four selectors per row execute, every group has a real passing result, and row evidence contains the actual outcomes; use the real parser, command builder, runners and tests without replacing subprocess execution."
+symbols = ["command_for", "run_selected_rows", "test_typescript_rows_build_runner_groups", "test_typescript_rows_execute_selected_tests"]
+touches = ["spec/layerx-merge/spec.kvx", "GOTCHA.kvx", "spec/layerx-merge/programme/parity.py", "spec/layerx-merge/programme/tests/test_parity_commands.py", "spec/layerx-merge/programme/tests/test_parity_typescript.py"]
+tests = ["spec/layerx-merge/programme/tests/test_parity_commands.py::test_typescript_rows_build_runner_groups", "spec/layerx-merge/programme/tests/test_parity_typescript.py::test_typescript_rows_execute_selected_tests"]
+planned_paths = ["spec/layerx-merge/programme/tests/test_parity_typescript.py"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/parity.py spec/layerx-merge/programme/tests/test_parity_commands.py spec/layerx-merge/programme/tests/test_parity_typescript.py"
+verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_parity_commands.py spec/layerx-merge/programme/tests/test_parity_typescript.py::test_typescript_rows_execute_selected_tests -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181928]
+title = "Both wallet parity rows execute all selected TypeScript and TSX tests with their owning runners"
+ac_1 = "Given the four selectors in each of spec/layerx-merge/programme/data/parity.kvx:198 and :548, command construction groups them by package, runner and file, runs send.spec.ts through Playwright and the component and swap tests through Vitest as apps/wallet/package.json:15-16 prescribes, preserves every selector and ownership field, and cannot select additional test names."
+ac_2 = "Given those two real inventory rows, run_selected_rows executes their selected tests, rejects zero, missing, skipped or failed results, and records revision, command, exit, log and actual per-group test counts before reporting a passing row."
+ac_3 = "Decision 3058 at spec/layerx-merge/spec.kvx:11461, task 17.4.6 at :328353 and GOTCHA.kvx:18594 describe the actual TypeScript/TSX runner requirements for both rows, and the full inventory requires this repair and reuses its row execution path."
+
+[acceptance.18.1928.1]
+feature = "18"
+req = "181928.1"
+scenario = "Given the wallet and signed-receipt parity rows containing Playwright and Vitest selectors, when the inventory executes those rows, then every selected test runs through its owning runner without selector or ownership loss and only real passing test outcomes produce passing row evidence."
+contract = "contracts/programme.md#decisions"
+test = "spec/layerx-merge/programme/tests/test_parity_typescript.py::test_typescript_rows_execute_selected_tests (planned)"
+qualification = "UNRUN"
