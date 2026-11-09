@@ -66,6 +66,13 @@ image_source() {
 
 image_build_args() {
     case "$1" in
+        layerx-dashboard-web)
+            if [[ -z ${DASHBOARD_API_ORIGIN:-} || ${DASHBOARD_API_ORIGIN:-} == *[[:space:]]* ]]; then
+                printf 'DASHBOARD_API_ORIGIN must be set and contain no whitespace for layerx-dashboard-web\n' >&2
+                return 1
+            fi
+            printf -- '--build-arg DASHBOARD_API_ORIGIN=%s' "$DASHBOARD_API_ORIGIN"
+            ;;
         kernel) printf -- '--build-arg LXP_REVISION=%s' "$(git -C "${REPO_ROOT:-.}" rev-parse HEAD)" ;;
         flyci-controller) printf -- '--build-arg SOURCE_REVISION=%s' "$(git -C "${REPO_ROOT:-.}" rev-parse HEAD)" ;;
         wallet-gateway) printf -- '--build-arg SOURCE_REVISION=%s --build-arg SOURCE_TREE=%s' \

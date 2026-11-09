@@ -1,4 +1,4 @@
-use layerx_types::intent::{ProgramCall, ProgramId, PROGRAM_CALL_PAYLOAD_DOMAIN};
+use layerx_types::intent::{ProgramCall, ProgramId};
 use layerx_types::program_call::{NativeProgramCall, Resources};
 use layerx_types::program_lifecycle::{
     NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown, ProgramUpgradePolicy,
@@ -7,9 +7,7 @@ use layerx_types::program_lifecycle::{
 use sha2::{Digest, Sha256};
 
 use super::call::{abi_tail, abi_word, ledger_selector, tail, uint, word};
-use super::{
-    Activity, DisclosedNativeOperation, DisclosureError, DisclosureFields, Encoder, Expiry,
-};
+use super::{DisclosureError, Encoder, Expiry};
 
 pub(super) const PROGRAM_CALL_SIGNATURE: &str =
     "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)";
@@ -148,7 +146,7 @@ pub fn decode_program_upgrade(
     let interface = tail(args, 6, &mut cursor)?;
     let wasm = tail(args, 7, &mut cursor)?;
     let flags = uint::<1>(word(args, 2)?)?[0];
-    if cursor != args.len() || flags & !3 != 0 || (flags & 1 != 0) != !migration_hook.is_empty() {
+    if cursor != args.len() || flags & !3 != 0 || (flags & 1 != 0) == migration_hook.is_empty() {
         return Err(DisclosureError::MalformedPayload);
     }
     let clear_interface = flags & 2 != 0;
@@ -706,103 +704,4 @@ fn wind_down_operation(
             maximum_exit_amount,
         },
     }
-}
-
-pub(super) fn fields(activity: &Activity) -> Result<DisclosureFields, DisclosureError> {
-    let malformed = || DisclosureError::MalformedPayload;
-    let payload = activity.payload();
-    let ordinal = activity.activity_type().ordinal();
-    let legacy = ordinal == 3 && payload.starts_with(PROGRAM_CALL_PAYLOAD_DOMAIN);
-    if !legacy && (activity.protocol_version() != 3 || activity.network_id() == 0) {
-        return Err(malformed());
-    }
-    let operation = match ordinal {
-        1 => {
-            let value = NativeProgramDeploy::decode(payload).map_err(|_| malformed())?;
-            if value.encode().map_err(|_| malformed())? != payload {
-                return Err(malformed());
-            }
-            DisclosedNativeOperation::ProgramDeploy(Box::new(DisclosedProgramDeploy {
-                program_id: value.program_id,
-                guest_abi: value.guest_abi,
-                policy: value.policy,
-                new_hash: value.new_hash,
-                interface: value.interface.map(<[u8]>::to_vec),
-                wasm: value.wasm.to_vec(),
-            }))
-        }
-        2 => {
-            let value = NativeProgramUpgrade::decode(payload).map_err(|_| malformed())?;
-            if value.encode().map_err(|_| malformed())? != payload {
-                return Err(malformed());
-            }
-            DisclosedNativeOperation::ProgramUpgrade(Box::new(DisclosedProgramUpgrade {
-                program_id: value.program_id,
-                guest_abi: value.guest_abi,
-                old_hash: value.old_hash,
-                new_hash: value.new_hash,
-                migration_hook: value.migration_hook.to_vec(),
-                clear_interface: value.clear_interface,
-                interface: value.interface.map(<[u8]>::to_vec),
-                wasm: value.wasm.to_vec(),
-            }))
-        }
-        3 if legacy => DisclosedNativeOperation::LegacyProgramCall(Box::new(
-            ProgramCall::from_canonical_payload(payload).map_err(|_| malformed())?,
-        )),
-        3 => {
-            let value = NativeProgramCall::decode(payload).map_err(|_| malformed())?;
-            if value.encode().map_err(|_| malformed())? != payload {
-                return Err(malformed());
-            }
-            DisclosedNativeOperation::ProgramCall(Box::new(DisclosedProgramCall {
-                program_id: value.program_id,
-                guest_abi: value.guest_abi,
-                entrypoint: value.entrypoint.to_vec(),
-                calldata: value.calldata.to_vec(),
-                capabilities: value.capabilities.to_vec(),
-                access_declaration: value.access_declaration.to_vec(),
-                response_capacity: value.response_capacity,
-                resources: value.resources,
-            }))
-        }
-        7 => {
-            let value = NativeProgramWindDown::decode(payload).map_err(|_| malformed())?;
-            if value.encode().map_err(|_| malformed())? != payload {
-                return Err(malformed());
-            }
-            DisclosedNativeOperation::ProgramWindDown(Box::new(DisclosedProgramWindDown {
-                program_id: value.program_id,
-                operation: wind_down_operation(value.operation),
-            }))
-        }
-        _ => {
-            return Err(DisclosureError::UnsupportedActivity(
-                activity.activity_type().value(),
-            ))
-        }
-    };
-    let bound = activity.timestamp_bound();
-    Ok(DisclosureFields {
-        activity_type: activity.activity_type(),
-        actor: activity.actor_did().to_vec(),
-        authority: activity.authority().to_vec(),
-        counterparties: Vec::new(),
-        amounts: Vec::new(),
-        asset: [0; 32],
-        fee_limit: activity.fee_limit(),
-        expiry: Expiry {
-            not_before: bound.not_before,
-            not_after: bound.not_after,
-            payload_expires_at: bound.not_after,
-        },
-        idempotency_key: activity.idempotency_key(),
-        evm_payout_binding: None,
-        withdrawal: None,
-        payment: None,
-        authority_grant: None,
-        session_grant: None,
-        onboarding: None,
-        native_operation: Some(operation),
-    })
 }

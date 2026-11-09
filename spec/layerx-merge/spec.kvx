@@ -159948,7 +159948,7 @@ do_3 = "Attempt 2 (requalify, gotcha 3799): the attempt-1 tree ab4222df2384 stan
 
 [task.18.1815.1]
 title = "Issue #1815: Preserve selected descendant changes across ancestor type replacements"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160224,7 +160224,7 @@ do_3 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3794, decision 3068): 
 
 [task.18.1662.1]
 title = "Issue #1662: Register and execute all nine wallet repair proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160256,7 +160256,7 @@ do_5 = "Attempt 3 (continue, gotcha 3817): the attempt-2 tree 612de178d080 stand
 
 [task.18.1656.1]
 title = "Issue #1656: Display protocol snapshot TVL in six-decimal USDL units"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -160288,7 +160288,7 @@ do_5 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3790, decision 3068): 
 
 [task.22.39.234]
 title = "Restore the perps type check to one React type resolution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160444,7 +160444,7 @@ do_4 = "Attempt 3 (continue, gotcha 3823): the attempt-2 tree ed8eb25ac200 stand
 
 [task.18.1713.1]
 title = "Issue #1713: Accept exact payments within complete receipt log lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160630,7 +160630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1688.1]
 title = "Issue #1688: Report invalid RPC overrides before initializing wallet transports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160723,7 +160723,7 @@ do_5 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3790, decision 3068): 
 
 [task.18.1668.1]
 title = "Issue #1668: Remove the unused resize-handle fixture manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -160784,7 +160784,7 @@ do_4 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3770, decision 3068): 
 
 [task.18.1657.1]
 title = "Issue #1657: Apply UTC calendar windows to the Assets chart"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -182308,7 +182308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1818.1]
 title = "Issue #1818: Pass the dashboard API origin into the canonical image build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182462,7 +182462,7 @@ do_3 = "Attempt 2 (continue, gotcha 3810): the attempt-1 tree 392b746b5011 stand
 
 [task.18.1684.1]
 title = "Issue #1684: Align native receipt references and preserve producer evidence during recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191312,7 +191312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1753.1]
 title = "Issue #1753: Restore version-1 public evidence in receipt inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192443,7 +192443,7 @@ do_6 = "Attempt 4 (continue, gotcha 3819): the attempt-3 tree a724daeb709d stand
 
 [task.22.39.217]
 title = "Bring the layerx-crypto crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -302559,7 +302559,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1643.1]
 title = "Issue #1643: Align the Autobahn newHeads fixture with its committed block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347404,7 +347404,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.93.400]
 title = "Triage issue #1930: Reconcile Autobahn runner requirements across repair plans"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347435,7 +347435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.399]
 title = "Triage issue #1929: Reconcile contradictory empty-config requirements in perps repair plans"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347466,7 +347466,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.398]
 title = "Triage issue #1928: Include TypeScript/TSX rows in the parity runner repair plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347559,7 +347559,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.395]
 title = "Triage issue #1925 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347590,7 +347590,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.394]
 title = "Triage issue #1924 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348065,7 +348065,7 @@ do_3 = "Attempt 2 (continue, gotcha 3802, decision 3077): the attempt-1 tree f2e
 
 [task.18.1840.1]
 title = "Issue #1840: Use the node root endpoint in the account-binding transport-loss test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348095,7 +348095,7 @@ do_3 = "Attempt 2 (requalify, gotcha 3798): the attempt-1 tree cb0bf13491d4 stan
 
 [task.18.1838.1]
 title = "Issue #1838: Align Go and launchpad workflow assertions with the exact routed runner contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348212,7 +348212,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1821.1]
 title = "Issue #1821: Align Compose image producers and callers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348271,7 +348271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1819.1]
 title = "Issue #1819: Reject retained layout receipts with stale source bindings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348330,7 +348330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1812.1]
 title = "Issue #1812: Synchronize the activation runbook generator with the node upgrade inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
