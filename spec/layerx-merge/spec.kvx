@@ -274365,7 +274365,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.26.3]
 title = "Delete the checkpoint settlement document types from layerx-types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["9.27.4", "9.29.1", "9.12.6", "9.25.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "11.26.4", "18.1304.1", "8.4.5", "9.25.16", "13.8.3", "22.9.24", "22.99.160", "22.31.572", "22.31.620"]
