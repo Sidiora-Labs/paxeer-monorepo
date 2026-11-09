@@ -19490,3 +19490,93 @@ fix = "Task 22.39.244 reports F11 from the captured policy and the placement boo
 title = "The focused actor instruction of the host checkpoint case was not applied"
 symptom = "Task 18.1772.1 attempt 6 at 7f9a26b43f24: the tree leaves native_source_product_actor.mjs unchanged against attempt 5, so AUTH_SCOPE_DENIED persists at enrollment.js:159 through :1349 and the browser case does not select the virtual host mode (VIRTUAL_HOST_CONFIGURATION_REQUIRED); the attempt spent both cycles on the test runner options"
 fix = "The next attempt applies do_10 exactly before anything else"
+
+[gotcha.3934]
+title = "Twenty lints remain in the test targets of the programs runtime crate after the second repair cycle"
+symptom = "Task 22.39.235 attempt 3 at f3d4852c64d5: build exit 0; clippy -D warnings in cycle 2 reports thirteen doc items missing backticks at tests/repair_22_31_261.rs lines 2 to 8 and tests/repair_22_33_258.rs lines 2 to 13, five unwrap_err calls on a Result at tests/repair_22_31_488.rs lines 151, 166, 178 and 201, a redundant closure at tests/step_conformance.rs:50 and a needless borrow at tests/step_conformance.rs:181; the model session reached its working-time limit after the second cycle; log /out/logs/verify-2.log"
+fix = "The twenty sites are repaired in one pass and the record lists them"
+
+[gotcha.3935]
+title = "The launchpad module session stalled for hours on a Go module download under model endpoint reconnects"
+symptom = "Task 22.39.168 attempt 3 at 0ca51cadc0a4: the build (anvil --version and make -C services/launchpad vet) exited 0, then the Go module download of the user module ran for hours while the model endpoint answered 429 and the session reconnected until the working-time limit; no verification ran and do_8 (the connected export bucket) was not applied"
+fix = "Decision 3099: the attempt is a stall of the model session; the task relaunches as a continue with do_8 unchanged"
+
+[gotcha.3936]
+title = "The explorer build command runs pnpm inside a package pinned to yarn and the package manager of the qualification environment now refuses it"
+symptom = "Task 18.1717.1 attempt 6 at 6b410c64589a: the build pnpm --dir apps/explorer exec tsc --noEmit exits 1 with ERR_PNPM_OTHER_PM_EXPECTED because apps/explorer/package.json:295 pins packageManager to yarn 1.22.22; attempt 3 of the same task saw only a warning from an older pnpm; task 18.1679.1 attempt 4 installed the package with yarn --cwd apps/explorer install --frozen-lockfile by hand before its case ran; every qualified explorer task runs its commands as cd apps/explorer and yarn, which the qualification environment installs with the frozen lockfile"
+fix = "Decision 3107: the explorer commands of the two tasks change to the yarn form; the changed trees stand"
+
+[gotcha.3937]
+title = "The registry check refuses the guarded publication job once the gate records are emitted again"
+symptom = "Task 22.39.243 attempt 1 at 9c5a04a11157: build exit 0; the three gate jobs are named and the called workflows emit the gate records; layerx-platform-release --check then refuses job publish-crates-io must run under the release condition because the publication-job clause (main.rs:951 of the attempt tree) compares the whole condition string with the release condition while task 22.39.98 (7008181d46) wrote vars.LAYERX_RELEASE_CRATES_IO_INDEX is not empty in conjunction with the parenthesised release condition at platform.yml:487; the registries test binary did not run; log /out/logs/verify-1.log"
+fix = "Decision 3106: the clause accepts configuration guards conjoined with the parenthesised release condition"
+
+[gotcha.3938]
+title = "The retired-caller scan on main reports 2139 findings in 452 files, most of them outside live code"
+symptom = "python3 tools/paxeer-x/tests/retired_callers_test.py on the main tree at b352db3185 (excluding GOTCHA.kvx, CHANGELOG.md and CODEMAP.md per decision 3087) reports 2139 findings: custody-deposit 466, settlement-domain 184, router-joins 184, anchor 182, lni 132, layerxctl-port 122, finality-authority 110 and the rest below one hundred each; 186 findings lie in spec/layerx-merge/programme/reconcile, 72 in spec/release-v6-12-0, 25 in spec/layerx-merge/programme, 123 in tools/paxeer-x/route-catalogue.json, and several hundred in repair records (repair_*.kvx), the 4byte database under core/deps/geth/signer/fourbyte, programs/vendor, the charting library bundles under apps/launchpad/web/public and the vendored tree under tools"
+fix = "Decision 3104 scopes the catalogue before the per-package repairs of decision 3105"
+
+[gotcha.3939]
+title = "Two deleted trees of the catalogue are live by ruling and one holds only a record file"
+symptom = "The --deleted scan reports tests/daemon (finality-authority), services/agent/crates/layerx-wire (wire-codec) and services/agent/crates/layerx-client/src/lni (lni) as present: decision 542 retired the C daemon cases of tests/daemon, and the tree now holds the recorded daemon Python cases (conftest.py, recorded_paxd.py, the recorder, the serve and handover cases); decisions 910 and 921 keep layerx-wire as a workspace member (services/agent/Cargo.toml:4) and retire only its kernel activity envelope; the lni tree holds only repair_22_33_1544.kvx left behind after task 9.24.7 deleted the module"
+fix = "The first two leave the deleted-tree lists and the record moves to the crate root"
+
+[gotcha.3940]
+title = "The router-joins component lists as retired the three method names its own replacement keeps"
+symptom = "The replacement text of router-joins in tools/paxeer-x/retired_callers.json keeps the method names with one-source answers, yet its symbol list carries px_getUnifiedHistory, px_getNetwork and px_listAssets, so every live caller of the published methods (184 findings) is reported as retired"
+fix = "The three names leave the symbol list; the retired join and router symbols stay"
+
+[gotcha.3941]
+title = "The production stream relay case fails instead of starting the file-backed broker the sibling cases start"
+symptom = "Task 22.39.117 attempt 12 at ef16d9ebde7a: build exit 0; the shared chain, db, delivery and storage packages pass; make -C services/launchpad ci fails in core/api/internal/app because TestProductionStreamRelayPublishesCommittedFrames (stream_relay_production_test.go:107) calls t.Fatalf when CORE_API_TEST_NATS_URL is empty, while realBrokerProcess of sdk/launchpad/shared/delivery/natsdriver/driver_test.go:32 and the gateway identity case start a file-backed nats-server from NATS_SERVER_BINARY or the PATH for the same need; the qualification environment provides NATS_SERVER_BINARY and no broker URL; log /out/logs/verify-1.log"
+fix = "The case starts the broker from the binary when the URL is empty and keeps the URL override"
+
+[gotcha.3942]
+title = "The unified history lists up to sixteen accounts while the document still allows one"
+symptom = "Task 18.1632.1 attempt 6 at 8f5ff0492f78: build exit 0; the four px_getUnifiedHistory subcases of TestPxNodeRoot_History_ExplorerImportedRows fail at px_node_root_account_test.go:711 with result.accounts exceeds maxItems because rpc/px_history.go:80 to :96 composes the accounts of a bound identity as the EVM account (side paxeer), the canonical main account and every owned account ListOwnedAccounts returns up to fifteen (side layerx) and refuses beyond sixteen, while services/platform/hosted/gateway/openrpc.json:2071 keeps maxItems 1 and describes the single EVM indexer account; log /out/logs/verify-1.log"
+fix = "Decision 3108: the document follows the producer and allows sixteen accounts"
+
+[gotcha.3943]
+title = "Two human protocol frames of the agent runtime disagree with the daemon that answers them"
+symptom = "Task 18.1747.1 attempt 7 at c6af26c33f1e: build exit 0; native_producer_clock_units panics at repair_22_33_63.rs:2218 because AgentRuntime::pending_nonce (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1921) reads a u64 and a rung byte while the daemon answer of ACCOUNT_SEQUENCE (services/agent/crates/layerx-agentd/src/human_runtime.rs:15668) writes the u64 only, so the eight-byte payload ends in Unavailable; native_approval_clock_units panics at :2348 because native_send_preview_v2 (agent_runtime.rs:5375) converts the signature of NativeLocalGrantConsentV1, declared as sixty-four bytes at services/agent/crates/layerx-agent-api/src/identity.rs:545, into sixty-five bytes and maps the failure to Refused before any lifecycle submission; the fixture peer now serves pooled connections; log /out/logs/verify-1.log"
+fix = "Decision 3109: the agent runtime of the human service reads and writes the frames as the daemon and the shared API types define them"
+
+[gotcha.3944]
+title = "The committed receipt bundle of the native reader is refused by the export verifier before the storage witness runs"
+symptom = "Task 18.1752.1 attempt 4 at f0d3af66aebc: build exit 0; the altered-evidence loop of state_export_owner_rpc_retains_and_recovers_witnesses fails at issue_1752.rs:903 (witness refusal stage, zero eth_getProof calls) because the export path refuses at retain_committed_receipt with Binding fact 0: human_runtime.rs:17095 retains an OfflineExport whose height is the receipt height and whose bundle the native reader acquired (NativeProofRequest, read/proof_bundle.rs:820), and export::verify (export.rs:200 to :262) refuses it in one of its binding checks (rung and key, sequencer signature, protocol fields against the artifact height, validator set, two-item inclusion and the results trie value); the same fixture acquisition passes inside the test node; the session recorded that the native bundle carries the checkpoint of the following height and the ABCI result inclusion while the verifier expects the receipt height and an RLP inclusion; log /out/logs/verify-1.log"
+fix = "The verifier consumes the bundle layout the native reader produces, after the refused check is named"
+
+[gotcha.3945]
+title = "The V1 programs deployment of the recorder now reverts with an Error string instead of the version refusal"
+symptom = "Task 18.1667.1 attempt 6 at 497c7e485910: build exit 0; TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:240 with record vector-v1-programs-positive: V1 Programs deployment reverted (submit protocol 3, activity 0x00090001, ABI 1) and an 08c379a0 revert payload the recorder does not decode; the submit path uses the state commitment protocol version as do_8 required; the passing precompile case TestProgramsDeployRegistersProgram writes metering store entries directly before its deploy, which a live chain cannot do; log /out/logs/verify-2.log"
+fix = "The revert reason is decoded and the activation the unit case writes directly is provided through the chain the fixture starts"
+
+[gotcha.3946]
+title = "The restart capture still refuses the native budget create with a context mismatch after the facts were aligned by hand"
+symptom = "Task 18.1724.1 attempt 6 at 8618a1863e6e: build exit 0; TestCurrentReceiptRestartFixture fails at node/sequencer/receipt_equality_test.go:422 with LXP_ERR_CONTEXT_MISMATCH (result -213) for activity 0x30001 at height 2, protocol version 3, identity sequence 4, after do_7 aligned activity type, binding, account id, verified key, sequence and actor by hand; the keeper case TestBudgetCreateAndFund of modules/layerxpay/keeper/budget_create_test.go passes on main through the keeper; the session also reports that a nonzero value conflicts with the nonpayable budgetSpend interface and the zero-value rule of decode_signed; log /out/logs/verify-2.log"
+fix = "The restart setup reuses the keeper path of the passing case end to end and prints the facts of both sides when a mismatch persists"
+
+[gotcha.3947]
+title = "The reward reopen case fails on the roster CPU cap that task 22.33.223 owns"
+symptom = "Task 18.1749.1 attempt 5 at d6bc790807e3: build exit 0; reward_reopen_preserves_recipient_balances fails because BeginAggregation reports CPU 1,000,009 above the 1,000,000 cap with the asserted minimum roster, after the enrolment deadline of gotcha 3913 was repaired; the cap is the subject of task 22.33.223 (gotcha 3924); log /out/logs/verify-1.log"
+fix = "The task now requires 22.33.223 and moves to its wave; the next attempt runs after that task lands"
+
+[gotcha.3948]
+title = "The web image build cannot see the precompile ABI files the app imports"
+symptom = "Task 18.1823.1 attempt 6 at f936ca678ab0: the docker build of deploy/launchpad/Dockerfile.web fails in the type check of apps/launchpad/web/src/core/network/abis/canonical-abi.ts:1 because precompiles/launchpad/abi/FeesRouter.json (and Quoter.json, Router.json) are imported seven directories up from the app and the build stage does not copy precompiles/launchpad/abi; the files exist on main; the build also prints ESLint: The requested module minimatch does not provide an export named default; log /out/logs/build-1.log"
+fix = "The build stage copies the ABI directory and the lint message is recorded"
+
+[gotcha.3949]
+title = "The epoch identities restored to the obsolete runtime hash are rejected by the RPC qualification before replay"
+symptom = "Task 22.39.242 attempt 2 at 9c481226fbc1: build exit 0; six cases fail with receipt qualification rejected because services/launchpad/indexer/internal/receipt/rpc.go:705 to :716 requires every epoch whose deployment address matches a manifest role to carry exactly that role identity and refuses any other identity unless the supplemental approved list digests it, while do_3 restored the obsolete 0x6302ff80 identities on epochs 1 to 4 and 6 to 9 for the attestation case at repair_53_test.go:478; log /out/logs/verify-1.log"
+fix = "Only the epoch the attestation case checks carries the obsolete identity, through the supplemental list; the role epochs carry the manifest identity"
+
+[gotcha.3950]
+title = "The release verification job carries the registry presence guards the checker admits only on publication jobs"
+symptom = "Task 22.39.243 attempt 2 at 6a87c6bbad14: build exit 0; the registry check refuses at the verification clause of tools/platform/release/src/main.rs (:1122 of the attempt tree) because .github/workflows/platform.yml:1440 runs release-verification under a conjunction of the parenthesised presence guard of the two snapshot variables (a disjunction of two vars is-not-empty guards) and the parenthesised release condition, while that clause compares the condition with the bare release condition; the publication clause of decision 3106 admits plain guard conjuncts only and in any order; log /out/logs/verify-1.log"
+fix = "Decision 3110: one condition rule for the publication and verification jobs, with a parenthesised disjunction of presence guards as one guard"
+
+[gotcha.3951]
+title = "The browser case of the host checkpoint reaches the assignment inspection and finds its button disabled"
+symptom = "Task 18.1772.1 attempt 7 at 1ac80304421c: build exit 0; the actor now completes the host checkpoint and the reopen, the stale-evidence check passes, and the browser step that clicks Inspect assignment after the original checkpoint resolves times out because the button stays disabled (workspace-detail.tsx:629 disables it while an operation is pending or the assignment field is empty) although the Assignment field was filled through the native value setter; the page shows the assigned workspace selector without a selection; both repair cycles were used; log /out/logs/verify-2.log"
+fix = "The timeout message names the disabled reason and the step runs once the view admits it"
