@@ -1,0 +1,7 @@
+[issue.1876]
+number = 1876
+title = "Refresh wallet workspace lockfile for added SDK react-dom/jsdom dependencies"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit 661007bc729b355a7d2eb1d843c691aa23715e3c refreshed the wallet lockfiles: services/wallet/pnpm-lock.yaml:250 and services/wallet/pnpm-lock.yaml:256 now declare jsdom ^26.1.0 and react-dom ^19.3.1 matching sdk/wallet/package.json:61 and sdk/wallet/package.json:63, the SDK remains a workspace member at services/wallet/pnpm-workspace.yaml:3, frozen installs remain required for Gateway, Ceremony import and Demo at .github/workflows/wallet-test.yml:114, .github/workflows/wallet-test.yml:147 and .github/workflows/wallet-test.yml:184, and tests/ci/test_wallet_lockfiles_current.py:31 asserts a real frozen wallet workspace install succeeds."
+close_comment = "The wallet workspace lockfile now includes the SDK's jsdom and react-dom dependencies and matches the current manifest. Both development dependencies are retained, frozen-lockfile checks remain enabled, and regression coverage asserts that the wallet workspace installs with its committed lockfile."
