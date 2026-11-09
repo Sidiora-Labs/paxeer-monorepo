@@ -671,6 +671,14 @@
   ],
   "allowed_references": [
     {
+      "path": "modules/layerxanchor/keeper/custody_reader.go",
+      "lines": [
+        "custodytypes \"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types\"",
+        "// CustodyAnchor implements modules/layerxcustody/types.AnchorReader for the"
+      ],
+      "citation": "Decisions 3104 and 3122 permit this retained AnchorReader adapter and its custody types for the merge-disabled anchor (11002) and custody-deposit (11004) surfaces that still ship."
+    },
+    {
       "path": "tools/paxeer-x/retired_callers.json",
       "symbols": [
         "/v1/agent/authorized-batch",
