@@ -57,7 +57,7 @@ const fn supported_protocol_version(version: u16) -> bool {
 
 /// The Programs module ABI versions a receipt below the state-commitment
 /// protocol carries: every version `include/layerx/programs.h` allocates before
-/// the one the module registers at now.
+/// the first state-commitment registration.
 const fn supported_programs_module_version(version: u32) -> bool {
     version != 0 && version < programs_module_abi::SANDBOX_DESTROY
 }
@@ -69,6 +69,7 @@ const fn supports_program_account_state(version: u32) -> bool {
 const fn programs_version_for_protocol(protocol: u16, module: u32, account_state: bool) -> bool {
     if protocol == layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION {
         module == programs_module_abi::SANDBOX_DESTROY
+            || module == programs_module_abi::GUEST_ABI_V5
     } else if account_state {
         supports_program_account_state(module)
     } else {
@@ -937,7 +938,11 @@ pub fn verify_program_preexecution_rejection(
         return Err(VerificationFailure::at(ReceiptCheck::ProtocolVersion));
     }
     if u32::from(protocol.module_id()) != PROGRAMS_MODULE_ID
-        || protocol.module_version() != programs_module_abi::SANDBOX_DESTROY
+        || !programs_version_for_protocol(
+            protocol.protocol_version(),
+            protocol.module_version(),
+            false,
+        )
         || u16::from(protocol.operation()) != PROGRAMS_CALL_OPERATION
     {
         return Err(VerificationFailure::at(ReceiptCheck::Module));
@@ -1205,7 +1210,7 @@ mod programs_version_contract {
     fn the_module_version_ranges_are_the_kernel_headers_allocations() {
         assert_eq!(
             programs_module_abi::CURRENT,
-            programs_module_abi::SANDBOX_DESTROY
+            programs_module_abi::GUEST_ABI_V5
         );
         assert!(!supported_programs_module_version(0));
         assert!(!supports_program_account_state(0));
@@ -1244,17 +1249,26 @@ mod programs_version_contract {
     }
 
     #[test]
-    fn state_commitment_protocol_selects_exactly_programs_module_four() {
-        assert!(programs_version_for_protocol(3, 4, false));
-        assert!(programs_version_for_protocol(3, 4, true));
-        assert!(!programs_version_for_protocol(3, 3, false));
-        assert!(!programs_version_for_protocol(3, 3, true));
-        assert!(!programs_version_for_protocol(3, 5, false));
-        assert!(!programs_version_for_protocol(2, 4, false));
-        assert!(!programs_version_for_protocol(2, 4, true));
-        assert!(programs_version_for_protocol(2, 3, false));
-        assert!(programs_version_for_protocol(2, 1, false));
-        assert!(!programs_version_for_protocol(2, 1, true));
-        assert!(programs_version_for_protocol(2, 2, true));
+    fn programs_module_versions_preserve_protocol_bounds() {
+        for module in [0, 1, 2, 3, 4, 5, 6, u32::MAX] {
+            for account_state in [false, true] {
+                assert_eq!(
+                    programs_version_for_protocol(3, module, account_state),
+                    matches!(module, 4 | 5),
+                    "protocol 3, module {module}, account state {account_state}"
+                );
+                for protocol in [1, 2] {
+                    assert_eq!(
+                        programs_version_for_protocol(protocol, module, account_state),
+                        if account_state {
+                            matches!(module, 2 | 3)
+                        } else {
+                            matches!(module, 1..=3)
+                        },
+                        "protocol {protocol}, module {module}, account state {account_state}"
+                    );
+                }
+            }
+        }
     }
 }

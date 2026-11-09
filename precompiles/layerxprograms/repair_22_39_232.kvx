@@ -1,0 +1,83 @@
+[repair.22.39.232]
+requirement = "22998.1"
+decision = "3058"
+gotchas = ["3046", "3754"]
+base_revision = "93249965659c4b9cb25e6d721c9a37f9bc005106"
+baseline = "No scoped changes or earlier hf-build/hf-done ledger were present; the runner had already started this task. No baseline gate was run."
+
+[producer.canonical-events]
+owner = "layerx-programs-runtime AbiEffects and the native Programs call terminal publisher; lxphost copies the published bytes into ProgramOutcome.Events."
+introduced_by = "c5b5060fdb3b4e0d6e22bce073b443b6715f6c35 [spec:layerx-merge/22.31.259] added decodeCommittedGuestEvents and receipt digest binding to emitCallEvents."
+encoding = "programs/crates/layerx-programs-runtime/src/abi/mod.rs: AbiEffects::canonical_program_event_envelope emits LayerX/programs/events/v1 followed by NUL, big-endian u32 count, and each event's program[32], principal[32], frame[8], depth[u8], topic length[u32], topic bytes, data length[u32] and data bytes."
+validation = "programs/crates/layerx-programs-runtime/src/native_contract.rs: layerx_programs_event_envelope_validate checks the canonical envelope, execution principal and emitted count."
+publication = "src/modules/programs/call.c: layerx_programs_call_terminal_publish validates and hashes terminal.events, publishes event_envelope_payload and binds its SHA256 to the code-7 call outcome; modules/lxphost/host.go: receiptFromOutcome copies event_envelope_payload into ProgramOutcome.Events."
+reference_test = "modules/lxphost/repair_m909_test.go: TestRepairM_909_SimulationReceiptAuthorities compares the real host receipt's ProgramOutcome.Events to an independently encoded envelope carrying guest receipt facts. Read as producer evidence; not rerun by this task."
+fixture = "callOutcomeReceipt now carries the canonical zero-count envelope and its actual SHA256; appendCallGuestEvent extends that envelope with the same identities, frames, topics and data as callGuestEnvelope, increments its count and rebinds the terminal digest."
+policy = "Keep the canonical evidence requirement and every identity, ordering, bounds and digest check. No fallback or narrowing is needed."
+
+[repair.guest-log]
+contract = "precompiles/layerxprograms/LayerXPrograms.sol: ProgramGuestEvent and precompiles/layerxprograms/abi.json declare indexed emitting program plus principal, activity, frame, depth, index, lengths and digests."
+change = "emitCallEvents packs the declared guest ABI after checking canonical evidence and preserves each guest's emitting program, including a nested program distinct from the terminal's program. It continues to bind all guest activities to the terminal activity before emitting any logs."
+assertions = "TestProgramsGuestEventLogs retains its literal event topic, emitting address, per-guest program identity, ordering, frame, depth, principal, activity, lengths and SHA256 assertions, and its malformed envelope cases now begin with valid canonical evidence and a nonempty topic."
+refusals = "Additional subtests assert missing evidence, changed topic/data/program/principal/frame/depth, event order, activity, missing guest envelope and terminal digest failures without partial logs. Guest-first ordering lets the identity and byte cases reach their specific checks before terminal digest validation."
+
+[repair.call-outcome]
+change = "TestProgramsCallOutcomeLog retains metered and legacy outcomes and exact ABI assertions; the event-envelope digest expectation is the independently hashed canonical empty envelope instead of the stale 0x77 placeholder."
+context = "emitCallEvents checks EVM and StateDB before parsing receipt evidence, matching common.EmitEVMLog errors; tests assert those messages for both valid receipts and receipts missing evidence."
+
+[qualification]
+gate_ledger = "/out/run/gates.jsonl"
+build = "hf-build: the final kind=build entry records revision, command, exit and private log for go vet ./precompiles/layerxprograms/...."
+verify = "hf-done: the final kind=verify entry records revision, command, exit and private log for cg spec done 22.39.232 -f layerx-merge --root /work/paxeer-monorepo, which runs the declared focused verify_cmd with graph checks."
+verified_revision = "Resolve from the final passing kind=verify entry in gate_ledger; a passing kind=build entry must name the same revision."
+policy = "This record is written before qualification and is not amended after successful gates; no success is claimed until recorded in the private ledger."
+
+[gotcha.fixture-evidence]
+observed = "Missing ProgramOutcome.Events made every positive case fail early and made malformed-envelope cases fail before reaching the intended validation."
+action = "Build complete producer-shaped evidence and its digest before mutating the targeted envelope; retain explicit validation of canonical evidence and nil EVM precedence."
+
+[gotcha.guest-abi]
+observed = "The evidence-binding change also emitted ProgramGuestEvent(bytes32,bytes32,bytes) and reassigned nested guest program identities to the terminal program, while the declared Solidity and JSON ABI and existing assertions still require the digest envelope and emitting program."
+action = "Use the declared ABI and canonical guest identity while preserving evidence and activity checks; do not change the existing topic, data, depth or program identity assertions."
+
+[gotcha.inspection]
+observed = "Broad ledger and graph reads exceeded the tool output budget, and speculative native/kernel filenames did not exist."
+action = "Use bounded section reads and concrete source paths from host.go; all repair findings stay in this scoped record because root GOTCHA.kvx is outside the task scope."
+
+[qualification.blocker]
+task = "22.39.232"
+file = "precompiles/layerxprograms/repair_m212_test.go"
+symbol = "node.App value assignments at lines 29 and 161"
+observed = "At revision 2477c9042440a7ced6f7b68e57e8d026f9eb8b37, go vet ./precompiles/layerxprograms/... exited 1; /out/logs/build-1.log reports both unchanged assignments copy node.App containing sync.RWMutex."
+assumption = "The pre-existing copylock failures require their owning task to repair them; this task records the blocker without changing those assignments or rerunning that failure."
+severity = "blocker"
+
+[qualification.result]
+status = "implemented-not-qualified"
+build_revision = "2477c9042440a7ced6f7b68e57e8d026f9eb8b37"
+build_command = "go vet ./precompiles/layerxprograms/..."
+build_exit = 1
+build_log = "/out/logs/build-1.log"
+verification = "Not run: hf-done requires a passing hf-build; the explicit pre-existing-failure rule forbids chasing this recorded blocker."
+record_revision = "The blocker was appended after the failed build; the build revision identifies the code and record content actually checked, not this subsequent evidence-only addition."
+
+[continuation.attempt-2]
+base_revision = "027bfa65e2a8c1dcc27852c4ea1d6414ec78c44e"
+seed_revision = "fc5b1376c4e36e4e23c7aead07762872243636e7"
+decision = "2908"
+gotcha = "3763"
+baseline = "The three attempt-1 paths were already applied; no current /out/run/gates.jsonl existed and the gate configuration reported zero build and verify runs. The earlier qualification sections above retain attempt-1 evidence only."
+change = "repairM212Merge and TestRepairM_212_RetiredCustodyWiring now use the EVMTestApp pointer instead of copying node.App and its mutex. Both restore the previous LayerXHost with defer; the custody-wiring test also restores LayerXCustodyKeeper. NewPrecompileKeepers captures the selected host and custody pointers for the precompile without copying the application."
+assertions = "All assertions and the attempt-1 guest event implementation and tests are unchanged."
+producer_review = "Confirmed AbiEffects::canonical_program_event_envelope, layerx_programs_call_terminal_publish, receiptFromOutcome and TestRepairM_909_SimulationReceiptAuthorities use the encoding and receipt field recorded above."
+
+[qualification.attempt-2]
+gate_ledger = "/out/run/gates.jsonl"
+build = "Reference the final kind=build ledger entry for go vet ./precompiles/layerxprograms/...; it carries the exact candidate revision, command, exit code and private log path."
+verify = "Reference the final kind=verify ledger entry for cg spec done 22.39.232 -f layerx-merge --root /work/paxeer-monorepo; it carries the exact candidate revision, command, exit code and private log path, including focused test and graph-check evidence."
+verified_revision = "The final passing kind=verify entry's revision is the verified repair revision; the final passing kind=build entry must name that same revision."
+status = "Qualification pending when this record was written; only the referenced gate evidence establishes success. No edits follow successful qualification."
+
+[gotcha.attempt-2-inspection]
+observed = "The seed record's build failure is historical, and the current ledger does not exist until a gate runs; whole-tree graph survey output exceeds the output budget."
+action = "Keep historical evidence, record continuation separately, and use scoped source reads. Do not modify root GOTCHA.kvx or spec files outside the user-authorized scope."

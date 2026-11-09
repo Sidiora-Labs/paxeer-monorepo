@@ -182150,7 +182150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1822.1]
 title = "Issue #1822: Preserve the shared Swagger bundle through regeneration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191000,7 +191000,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1809.1]
 title = "Issue #1809: Restore the SDK registry dependency to test scope and refresh consumer locks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191089,7 +191089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1774.1]
 title = "Issue #1774: Encode every room profile setting required by inference consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191573,7 +191573,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1729.1]
 title = "Issue #1729: Prove lifecycle and registry endpoint behavior through their own commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191722,7 +191722,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1664.1]
 title = "Issue #1664: Bound registration tenants to identity subject capacity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192365,7 +192365,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.215]
 title = "Bring the layerx-types crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209"]
@@ -221096,7 +221096,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.232]
 title = "Bring the programs guest event and call outcome log tests green at the canonical guest event evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302017,7 +302017,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1810.1]
 title = "Issue #1810: Decode public node discovery in the wallet SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302047,7 +302047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1776.1]
 title = "Issue #1776: Freeze the complete 0x0907 peer-binding ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347308,7 +347308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1860.1]
 title = "Issue #1860: Guard the Node, Python and Go runtime floors with regression tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347366,7 +347366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1858.1]
 title = "Issue #1858: Recognise launchpad selectors and the wallet Vitest wrapper in the suite inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347600,7 +347600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1844.1]
 title = "Issue #1844: Select the explorer umbrella test step by its command"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347832,7 +347832,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1820.1]
 title = "Issue #1820: Preserve ECR manual-run source and tag identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348272,7 +348272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1783.1]
 title = "Issue #1783: Remove deleted issue templates from the interface inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

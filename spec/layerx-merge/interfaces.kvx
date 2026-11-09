@@ -760704,16 +760704,6 @@ status = "stable"
 contract = "contracts/operations.md#ci-formats"
 notes = "Dependency update config."
 
-[interface.16.fmt-gh-issue-template-bug-report-md]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/bug_report.md"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/bug_report.md: ---"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
 [interface.16.fmt-gh-issue-template-bug-yml]
 kind = "file_format"
 path = ".github/ISSUE_TEMPLATE/bug.yml"
@@ -760734,31 +760724,11 @@ status = "stable"
 contract = "contracts/operations.md#ci-formats"
 notes = "Issue form or template."
 
-[interface.16.fmt-gh-issue-template-enahancement-yml]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/enahancement.yml"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/enahancement.yml: name: Enhancement"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
 [interface.16.fmt-gh-issue-template-feature-yml]
 kind = "file_format"
 path = ".github/ISSUE_TEMPLATE/feature.yml"
 line = 1
 signature = ".github/ISSUE_TEMPLATE/feature.yml: name: LayerX Network feature request"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
-[interface.16.fmt-gh-issue-template-general-issue-md]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/general_issue.md"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/general_issue.md: ---"
 callers = []
 status = "stable"
 contract = "contracts/operations.md#ci-formats"

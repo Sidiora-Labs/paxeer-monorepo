@@ -1478,6 +1478,7 @@ dependencies = [
  "layerx-identity-binding",
  "layerx-indexer",
  "layerx-platform-authority",
+ "layerx-platform-identity",
  "layerx-platform-internal",
  "layerx-programs-registry",
  "layerx-programs-runtime",
