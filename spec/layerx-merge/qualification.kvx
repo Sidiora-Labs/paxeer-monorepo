@@ -38490,3 +38490,35 @@ symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
 observed = "Attempt 7 at 1ac80304421c: build exit 0; verification exit 1 in cycle 2: the browser case times out on the disabled Inspect assignment button after the host checkpoint, the reopen and the stale-evidence checks pass; log /out/logs/verify-2.log."
 assumption = "The button is disabled by a pending operation or an empty assignment the step does not wait for."
 severity = "high"
+
+[finding.18.1777.1.5]
+task = "18.1777.1"
+file = "services/agent/crates/layerx-agentd/src/main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+symbol = "main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+observed = "Attempt 5 at 69d00e492695: build exit 0; the dependents check exits 7 on E0063 in services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 before the verification; log /out/logs/dependents-1.log."
+assumption = "The dependent target is the only failure in the path of the attempt."
+severity = "high"
+
+[finding.22.39.235.4]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 4 at 717742d6533d: build exit 0; the dependents check exits 7 on E0063 in services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 before the verification; log /out/logs/dependents-1.log."
+assumption = "The dependent target is the only failure in the path of the attempt."
+severity = "high"
+
+[finding.22.39.225.6]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 6 at b84be16d823c: build exit 0 and the dependents pass; verification exit 101 in cycle 2: seventy-four clippy errors remain in the SDK test targets, forty-two in sources included from the agent daemon tests; log /out/logs/verify-2.log."
+assumption = "The include brings the daemon test sources into the SDK lint scope and the rest are ordinary sites."
+severity = "high"
+
+[finding.18.1791.1.1]
+task = "18.1791.1"
+file = "tools/qualification/audit_repairs/test_repair_22_31_594.py::test_gateway_ingress_admits_existing_control_namespace_and_pods"
+symbol = "test_repair_22_31_594.py::test_gateway_ingress_admits_existing_control_namespace_and_pods"
+observed = "Attempt 1 at 8bfd76300b90: build exit 0 and verification exit 0; the result could not be merged onto the platform integration branch because of a conflict at services/platform/hosted/testnet/deployment.yaml:3 with the issue-1790 change; the attempt was ended."
+assumption = "The two label changes combine in one labels map."
+severity = "high"
