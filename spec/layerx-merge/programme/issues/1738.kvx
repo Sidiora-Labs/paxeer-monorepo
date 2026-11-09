@@ -1,0 +1,7 @@
+[issue.1738]
+number = 1738
+title = "[Coherence] The commit says it derives the DID length pin from its prefix, but it changes no test code and the test it names is not on main"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit f6d68db3a9441f8c2362de46a4214cd5ae25f19c adds the protocol 3 rotation compiler, disclosure support and four regression cases to main after the planning-only commit 77d7cc080e3f2dff4943e6ac6f5c82419e0b6f16; services/human/crates/layerx-intents/tests/repair_22_31_557.rs:148 derives the length pin as b\"did:layerx:\".len() + 64, its identifier and disclosure assertions remain at lines 152-156, and spec/layerx-merge/spec.kvx:190087 marks task 22.31.557 done, superseding the failed attempt recorded in spec/layerx-merge/qualification.kvx:32235."
+close_comment = "The protocol 3 rotation implementation and all four regression cases are now on main. The public-key DID length pin uses the prefix length plus 64 hexadecimal characters, with the actor-identifier and disclosure assertions preserved."
