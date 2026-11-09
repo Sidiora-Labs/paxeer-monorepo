@@ -1,0 +1,50 @@
+[issue.1604]
+number = 1604
+title = "[Coherence] The audit record declares the client-parity contract missing although spec/layerx-merge/contracts/evm-rpc.md exists with that exact anchor"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.68.kvx:1236 and :1238 incorrectly call the contract absent and propose restoring it, and :1439 still marks it missing, although spec/layerx-merge/contracts/evm-rpc.md:7 contains client-parity and :26-28 and spec/layerx-merge/interfaces.kvx:312552, :312562 and :312572 retain null wording that contradicts decision 2300 at spec/layerx-merge/spec.kvx:6915 and the real HTTP/WebSocket assertion at rpc/proof_client_parity_test.go:317."
+close_comment = "The client-parity contract already exists; its raw-transaction notes and the interface registry incorrectly describe missing envelopes as null instead of the JSON string 0x. A documentation correction is needed to mark the contract stale in the audit, replace the restoration proposal with edits to the existing pages, and align those notes with the established RPC result."
+
+[task.18.1604.1]
+title = "Issue #1604: Correct the client-parity audit and missing raw-envelope documentation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181604.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct [doc.rpc-contract] at spec/layerx-merge/programme/audit/records/22.30.68.kvx:1437 to use path spec/layerx-merge/contracts/evm-rpc.md and status stale, with notes identifying the existing client-parity anchor at spec/layerx-merge/contracts/evm-rpc.md:7 and the stale raw-envelope notes at :26-28; no contract file needs restoration."
+do_2 = "Rewrite observed, expected and proposal in [finding.raw-missing-contract-drift] at spec/layerx-merge/programme/audit/records/22.30.68.kvx:1231 to identify the existing contract and direct corrections to its three raw-method notes and the corresponding registry notes at spec/layerx-merge/interfaces.kvx:312552, :312562 and :312572; retain the finding id and the distinction between Go nil bytes and their JSON encoding."
+do_3 = "Update only the three raw-method notes at spec/layerx-merge/contracts/evm-rpc.md:26-28 and spec/layerx-merge/interfaces.kvx:312552, :312562 and :312572 to specify the JSON string 0x for unknown hashes, unknown blocks and out-of-range indexes, as decision 2300 at spec/layerx-merge/spec.kvx:6915 requires; preserve uncle null results, successful envelopes and the existing Go nil acceptance statements."
+do_4 = "Verify the corrected stale status and canonical contract path in the finding, require exactly three raw-method notes mentioning 0x in both the registry and contract, and reject null in those six notes; preserve rpc/proof_client_parity_test.go:303-337 and every producer unchanged."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.68.kvx", "spec/layerx-merge/contracts/evm-rpc.md", "spec/layerx-merge/interfaces.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -A3 -F '[doc.rpc-contract]' spec/layerx-merge/programme/audit/records/22.30.68.kvx | grep -q stale && grep -A8 -F '[finding.raw-missing-contract-drift]' spec/layerx-merge/programme/audit/records/22.30.68.kvx | grep -q 'spec/layerx-merge/contracts/evm-rpc.md' && test $(sed -n '/^\\[interface.7.rpc-eth-getrawtransactionbyblockhashandindex-j38\\]/,/^\\[interface.7.rpc-eth-getstorageat\\]/p' spec/layerx-merge/interfaces.kvx | grep -c '^notes = .*0x') -eq 3 && test $(grep -c 'rpc-eth-getrawtransaction.*| notes |.*0x' spec/layerx-merge/contracts/evm-rpc.md) -eq 3 && ! grep -q 'rpc-eth-getrawtransaction.*| notes |.*null' spec/layerx-merge/contracts/evm-rpc.md && ! sed -n '/^\\[interface.7.rpc-eth-getrawtransactionbyblockhashandindex-j38\\]/,/^\\[interface.7.rpc-eth-getstorageat\\]/p' spec/layerx-merge/interfaces.kvx | grep -q '^notes = .*null'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181604]
+title = "The client-parity documentation identifies the existing contract and matches missing raw-envelope results"
+ac_1 = "The audit entry at spec/layerx-merge/programme/audit/records/22.30.68.kvx:1437 identifies spec/layerx-merge/contracts/evm-rpc.md as stale, its finding at :1231 proposes updating that existing contract and the registry rather than restoring a missing file, and all three raw-method notes at spec/layerx-merge/contracts/evm-rpc.md:26-28 and spec/layerx-merge/interfaces.kvx:312552, :312562 and :312572 specify the JSON string 0x for missing envelopes while uncle null behavior remains intact."
+
+[acceptance.18.1604.1]
+feature = "18"
+req = "181604.1"
+scenario = "Given the existing client-parity contract and decision 2300, when the audit and the three raw-method descriptions in the contract and registry are checked, then the audit marks the existing contract stale and proposes editing it, and each missing raw-envelope result is documented as the JSON string 0x while uncle results retain null."
+contract = "contracts/evm-rpc.md#client-parity"
+test = "spec/layerx-merge/contracts/evm-rpc.md::raw-envelope-documentation (planned)"
+qualification = "UNRUN"

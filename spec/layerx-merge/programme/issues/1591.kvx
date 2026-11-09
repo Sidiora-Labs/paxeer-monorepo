@@ -1,0 +1,49 @@
+[issue.1591]
+number = 1591
+title = "[Coherence] The audit record reports five registered contract pages as missing, but all five exist under spec/layerx-merge/contracts"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unsupported absence and retargeting claims remain in spec/layerx-merge/programme/audit/records/22.30.38.kvx:944 and :946 and its five missing grades start at :1180, whereas spec/layerx-merge/interfaces.kvx:112845 resolves to spec/layerx-merge/contracts/services.md:3378, the other pages exist at spec/layerx-merge/contracts/clients.md:1, spec/layerx-merge/contracts/operations.md:1, spec/layerx-merge/contracts/launchpad.md:1 and spec/layerx-merge/contracts/explorer-frontend-config.md:1, and the later repair already acknowledges their presence in services/launchpad/security/control/repair_m1020.kvx:20 without correcting the audit."
+close_comment = "All five registered contract pages exist under spec/layerx-merge/contracts, and the launchpad-security anchor resolves to the security package documentation. Repair task 18.1591.1 corrects the audit's document paths and content grades and removes the unsupported missing-pages finding and registry-retargeting proposal."
+
+[task.18.1591.1]
+title = "Issue #1591: Correct the launchpad security audit's contract-page findings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181591.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.38.kvx:1180 through :1203: resolve the five registry contract keys relative to spec/layerx-merge, record repository-relative spec/layerx-merge/contracts paths, read their content and assign accurate, stale or misleading grades with specific evidence instead of missing; spec/layerx-merge/contracts/README.md:8 defines the file-and-heading contract convention and spec/layerx-merge/contracts/services.md:3378 supplies the existing launchpad-security anchor."
+do_2 = "Remove the unsupported registry-contract-pages-missing finding at spec/layerx-merge/programme/audit/records/22.30.38.kvx:939 and its retargeting proposal, adjust the findings count at :7 from 33 to 32 and preserve all other findings and the original source revision; spec/layerx-merge/interfaces.kvx:112845 already points to the correct owning contract."
+do_3 = "Use the focused documentation check to assert that all five corrected document paths are present exactly once and that neither the unsupported finding nor a missing grade remains in this record; no registry or contract-page rewrite is required."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.38.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "for page in services clients operations launchpad explorer-frontend-config; do test $(grep -Ec '^path = .spec/layerx-merge/contracts/'$page'\\.md.$' spec/layerx-merge/programme/audit/records/22.30.38.kvx) -eq 1 || exit 1; done && grep -qx 'findings = 32' spec/layerx-merge/programme/audit/records/22.30.38.kvx && ! grep -Eq 'registry-contract-pages-missing|^status = .missing.$' spec/layerx-merge/programme/audit/records/22.30.38.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181591]
+title = "The launchpad security audit resolves registered contract pages correctly"
+ac_1 = "The five document entries at spec/layerx-merge/programme/audit/records/22.30.38.kvx:1180 through :1203 name their existing spec/layerx-merge/contracts pages and carry evidence-based content grades, and the unsupported finding at :939 and its registry-retargeting proposal are removed with the findings count corrected while all other findings remain intact."
+
+[acceptance.18.1591.1]
+feature = "18"
+req = "181591.1"
+scenario = "Given five existing specification-relative registry contract pages and the launchpad-security anchor, when the launchpad security audit resolves and reviews those pages, then it records their real paths and content grades and makes no missing-pages finding or registry-retargeting proposal for them."
+contract = "contracts/services.md#launchpad-security"
+test = "Focused grep checks of spec/layerx-merge/programme/audit/records/22.30.38.kvx in verify_cmd (planned)"
+qualification = "UNRUN"
