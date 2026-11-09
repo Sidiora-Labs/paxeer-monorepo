@@ -34,7 +34,7 @@ Perform these checks when reviewing the release PR (see below):
    cmake -B $build -DCMAKE_INSTALL_PREFIX=$dir && cmake --build $build && cmake --install $build && ls -RlAh $dir
    gcc -o ecdsa examples/ecdsa.c -I $dir/include -L $dir/lib*/ -l secp256k1 -Wl,-rpath,"$dir/lib",-rpath,"$dir/lib64" && ./ecdsa
    ```
-4. Use the [`check-abi.sh`](/tools/check-abi.sh) tool to verify that there are no unexpected ABI incompatibilities and that the version number and the release notes accurately reflect all potential ABI changes. To run this tool, the `abi-dumper` and `abi-compliance-checker` packages are required.
+4. Use the [`check-abi.sh`](https://github.com/Paxeer-Network/pax-geth/blob/d91114406b30c83e4dce2e4d966901d26f87ec1e/crypto/secp256k1/libsecp256k1/tools/check-abi.sh) tool to verify that there are no unexpected ABI incompatibilities and that the version number and the release notes accurately reflect all potential ABI changes. To run this tool, the `abi-dumper` and `abi-compliance-checker` packages are required.
    ```shell
    tools/check-abi.sh
    ```

@@ -1,12 +1,16 @@
-//! Signature preimages derived only from canonical unsigned activities.
+//! Historical kernel signature digests for checking archived envelopes.
+//!
+//! Current transaction signers use `Eip1559Call::signing_hash` in layerx-crypto.
+//! Supported receipt signatures use `crate::receipt::encode_unsigned` and
+//! `crate::hash::receipt_digest`, independently of this historical module.
 
 use layerx_types::activity::UnsignedEnvelope;
 
-use crate::activity::{encode_unsigned, encode_unsigned_envelope, Activity};
 use crate::hash::{domain, CanonicalBytes, Domain};
+use crate::historical::activity::{encode_unsigned, encode_unsigned_envelope, Activity};
 use crate::WireError;
 
-/// The exact 32-byte domain-separated digest a signer covers.
+/// The exact 32-byte domain-separated digest an archived envelope signer covered.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct SigningPreimage([u8; 32]);
 

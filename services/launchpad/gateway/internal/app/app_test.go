@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"mime/multipart"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -265,7 +264,7 @@ func TestRun_GracefulShutdown(t *testing.T) {
 	mc := internaltest.NewMinIO(t, "kl-token")
 	socialSrv := newSocial(t, &socialUpstream{})
 	metaSrv := newMetadata(t, new(string))
-	port := freePort(t)
+	port := internaltest.FreePorts(t, 1)[0]
 
 	for k, v := range map[string]string{
 		"REDIS_URL":            redisURL,
@@ -301,16 +300,6 @@ func TestRun_GracefulShutdown(t *testing.T) {
 	case <-time.After(15 * time.Second):
 		t.Fatal("Run did not return after context cancel")
 	}
-}
-
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
 }
 
 func waitListening(t *testing.T, url string) {

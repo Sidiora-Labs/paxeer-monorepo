@@ -601,7 +601,7 @@ impl ProtocolEvidence {
                 .map_err(|_| AgentFailure::Refused("invalid signed lifecycle transaction"))?;
         let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
             .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction signature"))?;
-        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, sender)
+        let disclosure = layerx_crypto::payments::bind_call(&call, sender)
             .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction disclosure"))?;
         let mut authority = [0; 32];
         authority[12..].copy_from_slice(&sender);

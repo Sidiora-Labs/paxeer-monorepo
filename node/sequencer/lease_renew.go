@@ -8,6 +8,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 )
 
+// RenewAt renews within the final half of the held lease, strictly before expiry.
+// Success includes the replicator's durable standby acknowledgement.
 func (l *LeaseHolder) RenewAt(now time.Time) error {
 	return l.renew(context.Background(), now)
 }

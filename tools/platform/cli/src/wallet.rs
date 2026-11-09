@@ -2126,7 +2126,7 @@ mod tests {
                 &policy,
                 std::time::Duration::ZERO
             ),
-            Err(layerx_sdk::rpc::RpcError::MissingFinalityTrust)
+            Err(layerx_sdk::rpc::RpcError::Pending { activity_id }) if activity_id == id
         ));
         assert!(read_policy(None, &config).is_err());
         for (field, value) in [

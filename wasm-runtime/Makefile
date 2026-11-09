@@ -70,8 +70,12 @@ release-build-alpine:
 	rm -rf libwasmvm/target/aarch64-unknown-linux-musl/release
 	rm -rf libwasmvm/target/x86_64-unknown-linux-musl/release
 	# build the muslc *.a file
-	docker run --rm -v $(shell pwd)/libwasmvm:/code $(BUILDERS_PREFIX)-alpine
-	cp libwasmvm/artifacts/libwasmvm_muslc.a internal/api
+	docker run --rm -v $(shell pwd)/libwasmvm:/code -v $(shell pwd)/builders/guest/build_muslc.sh:/opt/build_muslc.sh:ro $(BUILDERS_PREFIX)-alpine sh /opt/build_muslc.sh
+	if [ -f libwasmvm/artifacts/libwasmvm_muslc.a ]; then \
+		cp libwasmvm/artifacts/libwasmvm_muslc.a internal/api/libwasmvm_muslc.a; \
+	else \
+		cp libwasmvm/artifacts/libwasmvm_muslc.x86_64.a internal/api/libwasmvm_muslc.a; \
+	fi
 	cp libwasmvm/artifacts/libwasmvm_muslc.aarch64.a internal/api
 	python3 ../scripts/package-static-wasm.py
 	make update-bindings

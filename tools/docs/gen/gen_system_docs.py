@@ -82,11 +82,14 @@ def gen_rpc():
             embeds[typ] = re.findall(r"^\t\*?([A-Z]\w*)\s*$", body, re.M)
     server = read(rpc / "server.go")
     variables = dict(re.findall(r"(\w+)(?:, \w+)? :?= ([Nn]ew\w+)\(", server))
+    literals = dict(re.findall(r"\b(\w+)\s*:?=\s*&([A-Za-z_]\w*)\s*\{", server))
     closures = dict(re.findall(r"(\w+) := func\([^)]*\)\s*\*(\w+)\s*\{", server))
 
     def resolve(expr):
         if expr.startswith("&"):
             return expr[1:]
+        if expr in literals:
+            return literals[expr]
         if expr in closures:
             return closures[expr]
         if expr.startswith(("New", "new")):
@@ -129,7 +132,14 @@ def gen_rpc():
 
 def abi_signature(entry):
     def types(items):
-        return ", ".join((f"{i['type']} {i.get('name', '')}").strip() for i in items or [])
+        parts = []
+        for item in items or []:
+            typ = item["type"]
+            if typ.startswith("tuple"):
+                typ = f"({types(item['components'])})" + typ[len("tuple"):]
+            indexed = " indexed" if item.get("indexed") else ""
+            parts.append(f"{typ}{indexed} {item.get('name', '')}".strip())
+        return ", ".join(parts)
     sig = f"{entry.get('name', entry['type'])}({types(entry.get('inputs'))})"
     if entry.get("outputs"):
         sig += f" returns ({types(entry['outputs'])})"

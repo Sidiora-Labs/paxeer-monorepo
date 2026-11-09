@@ -1,19 +1,13 @@
 """Task 22.33.886, audit 22.30.183 f041, criterion 22998.1.
 
 The committed-copy and real-RPC tests prove the recorded producer, transport and
-consumer path; the drift and refusal tests preserve strict copy equality and all
-six V3 refusals. Continuation 6 regenerates the SDK V3 copy from the daemon's
-recorded cases, including their signed bytes, digests, predecessor and key pin.
-The inherited baseline was 48 passing and three failing cases: committed copies,
-real RPC transport, and retained V3 tampered-log drift, all blocked by the stale
-V3 copy. The bounded hf-build/hf-done ledger records the verified revision.
-The first continuation-6 gate passed 50 cases and refused the inherited /rpc
-endpoint; the transport test now uses and asserts the production node root path.
+consumer path. Task 22.39.131 follows the chain-125 RPC producer for all V1-V3
+cases, including the second V2 refusal added by 22.31.491. The committed corpus
+still comes from the daemon recording. Every copy, drift and refusal check is
+strict; the bounded hf-build/hf-done ledger records the verified revision.
 
-Wiring request: SDK conformance owns sdk/platform/go/conformance_vectors_test.go;
-align its V3 source-equality check with the retained daemon refusal recording.
-Wiring request: interop owns the bridge-relayer and gas-station tests/fixtures/
-sequencer_receipts.json copies; migrate them to the recorded committed corpus.
+The copy checker retains strict committed inclusion, signature, proof and key
+equality, plus the complete recorded receipted/refusal case lists.
 """
 
 import importlib.util
@@ -35,10 +29,11 @@ HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location(
     "receipt_vector_copies", HERE / "check_receipt_vector_copies.py"
 )
+assert spec is not None and spec.loader is not None
 vectors = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vectors)
 sys.path.insert(0, str(vectors.ROOT / "services/agent/sdk/python"))
-from layerx_sdk.x402_rpc import PaymentRpc
+from layerx_sdk.x402_rpc import CometRpc, HostedGatewayRpc, PaymentRpc
 
 
 def read(root, path):
@@ -51,11 +46,10 @@ def write(root, path, document):
 
 @pytest.fixture
 def corpus(tmp_path):
-    paths = [vectors.SOURCE, vectors.SDK, vectors.CONVERTER, vectors.EXPLORER,
+    paths = [vectors.SOURCE, vectors.RETAINED_SOURCE, vectors.SDK, vectors.CONVERTER, vectors.EXPLORER,
              vectors.COMET, vectors.INTEROP, vectors.X402]
     for name in vectors.RETAINED:
-        paths += ["sdk/platform/conformance/fixtures/" + name,
-                  "daemon/committed-fixture/vectors/" + name]
+        paths += ["sdk/platform/conformance/fixtures/" + name]
     for path in paths:
         destination = tmp_path / path
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -69,8 +63,22 @@ def test_f041_committed_copies_match_recorded_producer(capsys):
     assert result.value.code == 0
     message = capsys.readouterr().out
     assert vectors.SOURCE in message
-    assert "Compared 26 receipt vector copies" in message
-    assert "sequencer-receipt-v1.json" not in message
+    assert "Compared 27 receipt vector copies" in message
+    assert vectors.RETAINED_SOURCE not in message
+
+
+def test_f041_explorer_copy_refresh_uses_recorded_producer(corpus):
+    original = read(corpus, vectors.EXPLORER)
+    vectors.refresh_explorer_copy(corpus)
+    refreshed = read(corpus, vectors.EXPLORER)
+    assert refreshed["legacy_cases"] == original["legacy_cases"]
+    assert refreshed["legacy_refusals"] == original["legacy_refusals"]
+    assert [case["id"] for case in refreshed["cases"]] == [
+        "committed-ok", "r7-height-below-receipt", "r8-commit-height-mismatch",
+    ]
+    assert [case["id"] for case in refreshed["refusals"]] == ["unrelated-valid-header"]
+    assert refreshed["cases"][0]["settlement"] == read(corpus, vectors.SOURCE)["settlement"]
+    vectors.check_receipt_vector_copies(corpus)
 
 
 @contextmanager
@@ -104,7 +112,9 @@ def recorded_rpc(recording, explorer):
         thread = Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            yield PaymentRpc(f"http://127.0.0.1:{server.server_port}/"), requests
+            endpoint = f"http://127.0.0.1:{server.server_port}"
+            yield (PaymentRpc(endpoint + "/"), HostedGatewayRpc(endpoint + "/rpc"),
+                   CometRpc(endpoint + "/")), requests
         finally:
             server.shutdown()
             thread.join(timeout=5)
@@ -116,12 +126,20 @@ def test_f041_real_rpc_transport_feeds_copy_checker(corpus):
     explorer = read(corpus, vectors.EXPLORER)
     interop = read(corpus, vectors.INTEROP)
     transaction = recording["settlement"]["receipt"]["txHash"]
-    with recorded_rpc(recording, explorer) as (client, requests):
+    with recorded_rpc(recording, explorer) as ((client, gateway, comet), requests):
         receipt = client.receipt(transaction)
         eth_receipt = client.status(transaction)
-        keys = client.receipt_keys()
-        execution_commit = client.call("commit", ["10"])
-        validators = client.call("validators", ["10"])
+        keys = gateway.receipt_keys()
+        execution_commit = comet.call("commit", ["10"])
+        validators = comet.call("validators", ["10"])
+        for method in ("px_getReceiptKeys", "commit", "validators"):
+            with pytest.raises(ValueError, match="^invalid-node-method$"):
+                client.call(method, [])
+        with pytest.raises(ValueError, match="^invalid-gateway-method$"):
+            gateway.call("eth_getTransactionReceipt", [transaction])
+        for method in ("px_getReceiptKeys", "eth_getTransactionReceipt"):
+            with pytest.raises(ValueError, match="^invalid-comet-method$"):
+                comet.call(method, [])
     assert receipt == recording["settlement"]["receipt"]
     assert receipt["rung"] == "committed"
     assert eth_receipt["blockHash"] == receipt["blockHash"]
@@ -129,14 +147,14 @@ def test_f041_real_rpc_transport_feeds_copy_checker(corpus):
     assert keys[0].public_key == bytes(recording["authorization"]["PublicKey"])
     assert [request for _, _, request in requests] == [
         {"jsonrpc": "2.0", "id": index, "method": method, "params": params}
-        for index, (method, params) in enumerate([
-            ("pax_sequencerReceipt", [transaction]),
-            ("eth_getTransactionReceipt", [transaction]),
-            ("px_getReceiptKeys", []), ("commit", ["10"]), ("validators", ["10"]),
-        ], 1)
+        for index, method, params in [
+            (1, "pax_sequencerReceipt", [transaction]),
+            (2, "eth_getTransactionReceipt", [transaction]),
+            (1, "px_getReceiptKeys", []), (1, "commit", ["10"]), (2, "validators", ["10"]),
+        ]
     ]
-    assert all(path == "/" and content_type == "application/json"
-               for path, content_type, _ in requests)
+    assert [path for path, _, _ in requests] == ["/", "/", "/rpc", "/", "/"]
+    assert all(content_type == "application/json" for _, content_type, _ in requests)
     interop["cases"][0]["receiptJson"] = receipt
     explorer["cases"][0].update(eth_receipt=eth_receipt, commit=execution_commit, validators=validators)
     write(corpus, vectors.INTEROP, interop)
@@ -182,7 +200,7 @@ def test_f041_copy_drift_is_refused(corpus, path, location):
     original = parent[key]
     parent[key] = original + 1 if type(original) is int else original + "00"
     write(corpus, path, document)
-    with pytest.raises(ValueError, match=path):
+    with pytest.raises(ValueError, match=re.escape(path)):
         vectors.check_receipt_vector_copies(corpus)
 
 
@@ -191,6 +209,8 @@ def test_f041_copy_drift_is_refused(corpus, path, location):
     (vectors.INTEROP, "cases", 1), (vectors.INTEROP, "cases", 2), (vectors.INTEROP, "cases", 3),
     (vectors.EXPLORER, "cases", 1), (vectors.EXPLORER, "cases", 2),
     (vectors.EXPLORER, "refusals", 0),
+    ("sdk/platform/conformance/fixtures/" + vectors.RETAINED[1], "cases", 0),
+    ("sdk/platform/conformance/fixtures/" + vectors.RETAINED[1], "cases", 1),
     ("sdk/platform/conformance/fixtures/" + vectors.RETAINED[2], "cases", 0),
     ("sdk/platform/conformance/fixtures/" + vectors.RETAINED[2], "cases", 1),
     ("sdk/platform/conformance/fixtures/" + vectors.RETAINED[2], "cases", 2),
@@ -202,7 +222,7 @@ def test_f041_refusal_coverage_cannot_be_removed(corpus, path, field, index):
     document = read(corpus, path)
     del document[field][index]
     write(corpus, path, document)
-    with pytest.raises(ValueError, match=path):
+    with pytest.raises(ValueError, match=re.escape(path)):
         vectors.check_receipt_vector_copies(corpus)
 
 
@@ -250,9 +270,9 @@ def test_f041_x402_refusal_cannot_be_removed_or_accepted(corpus, operation):
 
 
 @pytest.mark.parametrize("name,location,refused_field", [
-    (vectors.RETAINED[0], ("cases", 0, "rawTransaction"), "[0].rawTransaction"),
-    (vectors.RETAINED[1], ("cases", 0, "receiptJson", "returnData"), ":receiptJson.returnData"),
-    (vectors.RETAINED[2], ("cases", 4, "receiptJson", "logs", 0, "data"), ":V3-tampered-log.logs[0].data"),
+    (vectors.RETAINED[0], ("cases", 0, "rawTransaction"), ":cases[0].rawTransaction"),
+    (vectors.RETAINED[1], ("cases", 0, "receiptJson", "returnData"), ":cases[0].receiptJson.returnData"),
+    (vectors.RETAINED[2], ("cases", 4, "receiptJson", "logs", 0, "data"), ":cases[4].receiptJson.logs[0].data"),
 ])
 def test_f041_retained_transport_drift_is_refused(corpus, name, location, refused_field):
     path = "sdk/platform/conformance/fixtures/" + name

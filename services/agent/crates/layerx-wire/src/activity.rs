@@ -1,4 +1,7 @@
-//! Canonical signed and unsigned activity-envelope wire forms.
+//! Historical kernel activity envelopes, retained only for archive compatibility.
+//!
+//! These bytes are not native transactions or current submission signing input.
+//! Use `layerx_crypto::evm_transaction` and call-bound disclosures for live calls.
 
 use layerx_types::activity::{Envelope, UnsignedEnvelope};
 use layerx_types::payload::{ActivityType, ModuleRegistry};
@@ -16,7 +19,7 @@ const MAX_DID_BYTES: usize = 255;
 const MAX_PAYLOAD_BYTES: usize = 524_288;
 const MAX_SIGNATURE_BYTES: usize = 128;
 
-/// Timestamp interval carried by a canonical activity.
+/// Timestamp interval carried by a historical activity envelope.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TimestampBound {
     /// Inclusive lower bound.

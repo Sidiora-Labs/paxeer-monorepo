@@ -1,0 +1,277 @@
+[meta]
+task = "22.39.54"
+baseline_revision = "6328d42d0812b3ba4738e34aeef00edbbcd5ab16"
+baseline_command = "python3 -m pytest -q tools/ci/tests"
+baseline_exit = 1
+baseline_log = "/out/logs/task-22-39-54-baseline.log"
+baseline_result = "19 failed, 96 passed, 262 subtests passed"
+baseline_entries = ["tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest::test_ledger_check_reads_layerx_merge_ledger", "tools/ci/tests/test_ci_loadtest_job.py::CiLoadtestJobTest::test_root_workflow_runs_loadtest_module", "tools/ci/tests/test_completion_gate.py::CompletionGateTest::test_tools_ops_completion_retired_surfaces_absent", "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_library_exclusions_exact", "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest::test_library_exclusions_exact", "tools/ci/tests/test_makefile_wave4.py::MakefileWaveFourTest::test_aggregates_dry_run_clean", "tools/ci/tests/test_makefile_wave6.py::MakefileWaveSixTest::test_aggregates_dry_run_clean", "tools/ci/tests/test_replay_golden_ci.py::ReplayGoldenCiTest::test_core_gates_and_routing_pass_without_replay_golden", "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[True-42-True]", "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[True-42-False]", "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[False-0-True]", "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[False-0-False]", "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32001-data0]", "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32001-data1]", "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32010-data2]", "tools/ci/tests/test_wallet_gate_targets.py::test_builtin_targets_exist[gate-lint.sh]", "tools/ci/tests/test_wallet_go_test_workflow.py::test_wallet_go_workflow_triggers_on_every_test_input", "tools/ci/tests/test_xweb_workflow.py::XwebWorkflowTest::test_workflow_has_no_kernel_web_job", "tools/ci/tests/test_xweb_workflow_check.py::XwebWorkflowCheckTest::test_check_passes_against_head_tree"]
+qualification_evidence = "/out/run/gates.jsonl: hf-build and hf-done bind the final candidate revision, exact command, exit and private log; no gate is claimed by this record."
+
+[baseline.1]
+test = "tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest::test_ledger_check_reads_layerx_merge_ledger"
+settlement = "deferred to task 22.39.87"
+status = "deferred"
+owner_task = "22.39.87"
+decision = 2800
+gotcha = 3445
+reason = "Decision 2800 and gotcha 3445 assign the malformed historical merge ledger to 22.39.87; this one test is explicitly deselected in both declared verification runs until that task repairs the ledger and empties tests/ci/data/tools_ci_deselect.txt. Strict validation remains active; no malformed record earns gate credit."
+
+[baseline.2]
+test = "tools/ci/tests/test_ci_loadtest_job.py::CiLoadtestJobTest::test_root_workflow_runs_loadtest_module"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Parse the exact fork-PR/public, configured runner and public fallback branches; compare loadtest with the routed repository-audit job, retain the hosted c17 sanitizer disposition of 22.39.147, and prove fixed explorer/launchpad runners and incomplete/conditional runtime setup are refused."
+
+[baseline.3]
+test = "tools/ci/tests/test_completion_gate.py::CompletionGateTest::test_tools_ops_completion_retired_surfaces_absent"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "e40b733248 renamed the retirement suite to tests/ci/test_retired_requested_retirements_absent.py; keep the existence assertion at that path."
+
+[baseline.4]
+test = "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_library_exclusions_exact"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Read LIB_EXCLUDED_SOURCES, compare the exact five exclusions and every existing C source with library membership; oracle adapter/root and challenge sources were retired in favor of native chain execution."
+
+[baseline.5]
+test = "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest::test_library_exclusions_exact"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Read the declared exclusion variable instead of inferring deleted source paths from find; assert all kept C sources except the declared exclusions are included."
+
+[baseline.6]
+test = "tools/ci/tests/test_makefile_wave4.py::MakefileWaveFourTest::test_aggregates_dry_run_clean"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "The baseline mktemp dry run is clean; the actual exit 2 is the retired test-paxeer-bond target. Use the genesis build and CLI test targets, assert both compile lines and harness flags; source membership now creates its parent in the same shell as mktemp."
+
+[baseline.7]
+test = "tools/ci/tests/test_makefile_wave6.py::MakefileWaveSixTest::test_aggregates_dry_run_clean"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "The baseline exits zero but the old quoted make command assertion is stale. Assert the actual genesis compiler source/output while retaining every aggregate and retired-source assertion."
+
+[baseline.8]
+test = "tools/ci/tests/test_replay_golden_ci.py::ReplayGoldenCiTest::test_core_gates_and_routing_pass_without_replay_golden"
+settlement = "producer repaired"
+status = "settled"
+reason = "Route explorer-backend-test and launchpad-test; provision and verify the Docker runtime before the explorer builder; retain the c17 sanitizer exclusion of 22.39.147 and keep fixed non-excluded runners, unprovisioned container use and conditional runtime setup refused."
+
+[baseline.9]
+test = "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[True-42-True]"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Use CHECK_LIVE_NODE_RPC_URL for the four node-root probes. Capture and assert each owner=node URL line, then normalize verified metadata for the existing account/network and refusal assertions; printf preserves one physical line per probe."
+
+[baseline.10]
+test = "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[True-42-False]"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Use CHECK_LIVE_NODE_RPC_URL for the four node-root probes. Capture and assert each owner=node URL line, then normalize verified metadata for the existing account/network and refusal assertions; printf preserves one physical line per probe."
+
+[baseline.11]
+test = "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[False-0-True]"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Use CHECK_LIVE_NODE_RPC_URL for the four node-root probes. Capture and assert each owner=node URL line, then normalize verified metadata for the existing account/network and refusal assertions; printf preserves one physical line per probe."
+
+[baseline.12]
+test = "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_passes_a_resolved_account[False-0-False]"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Use CHECK_LIVE_NODE_RPC_URL for the four node-root probes. Capture and assert each owner=node URL line, then normalize verified metadata for the existing account/network and refusal assertions; printf preserves one physical line per probe."
+
+[baseline.13]
+test = "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32001-data0]"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Use CHECK_LIVE_NODE_RPC_URL for the four node-root probes. Capture and assert each owner=node URL line, then normalize verified metadata for the existing account/network and refusal assertions; printf preserves one physical line per probe."
+
+[baseline.14]
+test = "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32001-data1]"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Use CHECK_LIVE_NODE_RPC_URL for the four node-root probes. Capture and assert each owner=node URL line, then normalize verified metadata for the existing account/network and refusal assertions; printf preserves one physical line per probe."
+
+[baseline.15]
+test = "tools/ci/tests/test_wallet_check_live.py::test_endpoint_account_probe_fails_a_read_refusal[-32010-data2]"
+settlement = "stale test rewritten to the live rule"
+status = "settled"
+reason = "Use CHECK_LIVE_NODE_RPC_URL for the four node-root probes. Capture and assert each owner=node URL line, then normalize verified metadata for the existing account/network and refusal assertions; printf preserves one physical line per probe."
+
+[baseline.16]
+test = "tools/ci/tests/test_wallet_gate_targets.py::test_builtin_targets_exist[gate-lint.sh]"
+settlement = "producer repaired"
+status = "settled"
+reason = "Serialize the complete gofmt shell program as one physical TSV field so local assignments cannot become target rows; retain status and unformatted-file refusals and assert all twelve targets."
+
+[baseline.17]
+test = "tools/ci/tests/test_wallet_go_test_workflow.py::test_wallet_go_workflow_triggers_on_every_test_input"
+settlement = "producer repaired"
+status = "settled"
+reason = "Add the exact wire wallet_vectors/** filter to both PR and push triggers; assert it appears once and its directory exists."
+
+[baseline.18]
+test = "tools/ci/tests/test_xweb_workflow.py::XwebWorkflowTest::test_workflow_has_no_kernel_web_job"
+settlement = "producer repaired"
+status = "settled"
+reason = "Update the strict workflow checker to current native build input filters and event/sha/ref concurrency; preserve all mutations and add refusal when native libraries are not built before Go tests."
+
+[baseline.19]
+test = "tools/ci/tests/test_xweb_workflow_check.py::XwebWorkflowCheckTest::test_check_passes_against_head_tree"
+settlement = "producer repaired"
+status = "settled"
+reason = "Baseline exits 1 because exact concurrency and filter expectations lag the workflow: xweb-test-${{ github.ref }} and retired kernel filters. Bind the current event/sha/ref expression and kept inputs and retain every negative mutation."
+
+[ledger_classification]
+revision = "6328d42d0812b3ba4738e34aeef00edbbcd5ab16"
+command = "bash scripts/ci/beta-ledger-check.sh --evidence-root <private temporary directory>"
+exit = 1
+log = "/out/logs/task-22-39-54-baseline.log"
+violation_count = 6448
+duplicate_keys = 2735
+duplicate_sections = 456
+invalid_record_headers = 3
+invalid_severity = 3250
+invalid_value_type = 1
+missing_keys = 1
+unterminated_quoted_values = 2
+retired_rule = "None: duplicate record/key rejection, literal quoting, typed values, record names and severity vocabulary are live. No rule was removed to make the malformed ledger pass."
+
+[tools.forge]
+baseline = "Both Foundry tests passed in the baseline environment."
+absent_behavior = "Skip only if shutil.which(forge) is None, naming forge and the exact command; run the unchanged contract checks whenever it exists."
+commands = ["forge config --json", "sh scripts/ci/solidity-state-surface.sh"]
+
+[gotcha.scope]
+observed = "The requested baseline has 19 failures rather than the historical twenty; both Foundry tests pass, and completion-gate and a second xweb test also fail."
+resolution = "Use the observed starting revision and complete failing list, preserve strict checks and track the ledger deferral to 22.39.87 under decision 2800 and gotcha 3445."
+
+[qualification.1]
+revision = "6f4ec4cbb88497a71b76ede3bf1385d17b04fdf1"
+command = "cg spec done 22.39.54 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "111 tests and 277 subtests passed; beta ledger validation remained blocked by its 6448 historical violations, and one xweb mutation assertion failed intermittently despite the expected refusal appearing in its output."
+repair = "Consume the full refusal pipeline instead of grep -q: under pipefail an early reader exit could turn upstream SIGPIPE into a false assertion failure; retain the exit-2 and exact keyword checks."
+
+[gotcha.xweb_pipeline]
+observed = "The xweb narrowed-crates mutation named its rejected filter correctly but grep -q returned early and pipefail observed an upstream broken pipe."
+resolution = "Use grep -F with output redirected to /dev/null so all pipeline stages consume their inputs and the exact rejection assertion stays active."
+
+[continuation]
+prior_revision = "799a0dafcb68213945ad1cabc5c0b85eed920708"
+prior_command = "cg spec done 22.39.54 -f layerx-merge --root /work/paxeer-monorepo"
+prior_exit = 1
+prior_evidence = "Attempt-1 hf-done output reproduced in the task continuation ruling (gotcha 3445)."
+prior_output_summary = "beta-ledger-check: ledger spec/layerx-merge/qualification.kvx; beta-ledger-check: 6448 violation(s); unterminated double-quoted string at line 494 and repeated finding headers/keys including finding.11.15.1 at lines 41 and 3681 and finding.16.21.1 at lines 49 and 3689; 1 failed, 112 passed, 277 subtests passed in 90.78s."
+owner_task = "22.39.87"
+deferred_test = "tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest::test_ledger_check_reads_layerx_merge_ledger"
+deselect_file = "tests/ci/data/tools_ci_deselect.txt"
+resolution = "Keep the attempt-1 implementation and all 18 settlements; read the sole authorized deselection from the data file for the subprocess suite, allowing 22.39.87 to empty it when the ledger parses."
+build_reference = "/out/run/gates.jsonl: hf-build records the final candidate revision, command, exit and private log."
+verify_reference = "/out/run/gates.jsonl: hf-done records the same final candidate revision, command, exit and private log; the record claims no unrun gate."
+
+[gotcha.ci_added_jobs]
+observed = "The continuation base adds seven JavaScript suite jobs in ci.yml with fixed ubuntu-24.04 runners, which the existing strict routing check rejects under the same live rule."
+resolution = "Give js-suite-inventory, js-node-tests, js-npm-tests, js-workspace-tests, js-pnpm-tests, js-wallet-gateway-tests and js-explorer-env-tests the existing fork-PR/public, configured runner and public fallback expression; keep the routing check strict."
+
+[continuation_3]
+prior_revision_prefix = "f188e5ea648f"
+decision = 2835
+gotcha = 3504
+observed = "Attempt 2 preserved the eighteen settlements but ran no gates because the directed deselection file was outside planned_paths; attempt 3 explicitly plans that file."
+resolution = "Create tests/ci/data/tools_ci_deselect.txt with only the ledger test assigned to 22.39.87; retain the existing subprocess reader and its sole-authorized-test assertion, all eighteen settlements and the recorded 6448-violation output summary. Task 22.39.87 empties the file after repairing the ledger."
+build_reference = "/out/run/gates.jsonl: final hf-build row records the candidate revision, exact build command, exit and private log."
+verify_reference = "/out/run/gates.jsonl: final hf-done row records the same candidate revision, cg spec done command, exit and private log for the declared narrowed verification."
+
+[qualification.2]
+revision = "cd00a0f297e3c1236a671907a88ed739cb2a97ca"
+command = "cg spec done 22.39.54 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at this same revision (/out/logs/build-1.log); hf-done reported 2 failed, 110 passed, 1 deselected and 275 subtests passed because the strict routing check rejects fixed ubuntu-latest runners on tagged-tests, autobahn-integration and hpx-registry in .github/workflows/paxeer-go-test.yml; the second pytest command did not execute."
+assumption = "The failing workflow is outside this task's explicit scope; preserve the routing check and assertions, record the inherited blocker once and do not rerun the recorded failure or claim qualification."
+
+[continuation_4]
+prior_revision = "c45e603564a241f14df421650c2edff39f667bc1"
+decisions = [2771, 2812, 2845]
+gotcha = 3516
+observed = "Attempt 3 preserved the eighteen settlements and authorized ledger deselection, but strict routing rejected the fixed runners on tagged-tests, autobahn-integration and hpx-registry in .github/workflows/paxeer-go-test.yml."
+resolution = "The workflow is now in scope; copy the runs-on line of the routed jobs of agent.yml byte for byte into those three jobs, changing nothing else in that workflow and retaining all prior repairs and assertions."
+build_reference = "/out/run/gates.jsonl: final hf-build row records the final candidate revision, exact build command, exit and private log."
+verify_reference = "/out/run/gates.jsonl: final hf-done row records the same candidate revision, cg spec done command, exit and private log for both declared pytest commands and graph checks."
+
+[qualification.3]
+revision = "537ad968b826770a95013eb5a143461bf53af170"
+command = "cg spec done 22.39.54 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at the same candidate (/out/logs/build-1.log); hf-done reported 1 failed, 110 passed, 1 deselected and 276 subtests passed: test_bridge_workflow_runs_app_job expects the bridge manifest packageManager (pnpm@10.34.9 with its integrity hash), while .github/workflows/bridge-test.yml installs pnpm@12.15.0; the second pytest command did not execute."
+assumption = "The bridge workflow and manifest are outside scope; preserve their checks, record the unrelated inherited mismatch once, and do not rerun it or claim completion. The directed three-job runner repair passed its checks in this run."
+
+[continuation_5]
+prior_revision = "15fc2db91b0626085a1aefb33fcaa5dcb26ca75a"
+decisions = [2762, 2771, 2853]
+gotcha = 3527
+main_revision = "fba11291a3aebc324b5e519d3715f6b034cdbf64"
+workflow_pin_merge = "497209f4346ec99a131179f6a6a3ead00ee494c8"
+observed = "The continuation checkout already starts on current origin/main, which contains the merged 22.39.139 workflow pin repair; no additional merge is needed. The inherited task changes preserve every main-line pnpm installation line and leave bridge-test.yml unchanged."
+resolution = "Retain the eighteen settlements, routed script jobs, three paxeer-go-test runner lines and sole authorized ledger deselection. Qualify this final candidate with hf-build followed by hf-done; if the bridge workflow assertion still fails, record it and stop without a repair cycle."
+build_reference = "/out/run/gates.jsonl: final hf-build row records the final candidate revision, exact build command, exit and private log."
+verify_reference = "/out/run/gates.jsonl: final hf-done row records the same candidate revision, cg spec done command, exit and private log for both declared pytest commands and graph checks."
+
+[qualification.4]
+revision = "121b8a33cdf54d165a5ef627713a0058f7d2acb6"
+command = "cg spec done 22.39.54 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at this same candidate (/out/logs/build-1.log); hf-done reported 1 failed, 110 passed, 1 deselected and 276 subtests passed: FoundryProfileTest.test_root_profile_grants_no_retired_paths rejects config.test == tests/solidity, which the unchanged main-line foundry.toml explicitly selects; the bridge workflow assertion passed and the second pytest command did not execute."
+assumption = "The existing assertion and foundry.toml already contradict each other on the starting main revision; foundry.toml is outside scope and do_3 requires the check to run unchanged when forge exists, so record this inherited blocker without weakening, skipping, changing the selected profile or rerunning the recorded failure."
+
+[gotcha.foundry_profile]
+observed = "An installed forge exposes the pre-existing conflict between the root profile's tests/solidity setting and the test that calls that setting retired."
+resolution = "Preserve the live forge command, assertion and out-of-scope root configuration; qualification.4 records the exact failed gate and private evidence for the owner to reconcile."
+
+[continuation_6]
+prior_revision = "ac334536eba11597ff593d4831251b2a636679fd"
+decisions = [2762, 2771, 2857]
+gotchas = [3539, 3046]
+main_revision = "d52cc786f118a0dfb064373cc05b2745f59d227f"
+producer_revision = "2c80a502c8"
+producer_path = "foundry.toml"
+producer_line = 5
+producer_rule = "test = \"tests/solidity\""
+observed = "HEAD equals current origin/main and already contains workflow pin repair 497209f4346ec99a131179f6a6a3ead00ee494c8; no additional merge is needed. Task 22.39.81 deliberately selected tests/solidity for the root kernel-contract project (foundry.toml lines 1 and 5)."
+resolution = "Supersede the preservation ruling in gotcha.foundry_profile: assert config.test resolves to tests/solidity, following the producer and decision 2857. Keep both retired-permission assertions, the live forge command, all eighteen settlements, routed jobs, workflow pins and the sole authorized ledger deselection."
+build_reference = "/out/run/gates.jsonl: final hf-build row records the final candidate revision, exact build command, exit and private log."
+verify_reference = "/out/run/gates.jsonl: final hf-done row records the same candidate revision, cg spec done command, exit and private log for both declared pytest commands and graph checks."
+stop_rule = "A further tools/ci failure from a producer landed after the merge base is recorded and stops this attempt without a repair cycle."
+
+[qualification.5]
+revision = "d1ba75e3c32ab989ce77143c16585d6bac4f41bc"
+command = "cg spec done 22.39.54 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at this same revision (/out/logs/build-1.log); hf-done reported 2 failed, 110 passed, 1 deselected and 275 subtests passed: the strict routing check rejects fixed ubuntu-24.04 runners for human.yml jobs build-lint-test and intent-fuzz and platform.yml jobs android-application-artifact, programs-acceptance, agent-sanitizers, agent-fuzz-corpus and release-promotion, which task 22.39.98 at 7008181d46 pinned while guarding live inputs; task 22.39.147 repairs those seven lines and runs the routing check from the live-input test; the Foundry assertion passed, the second pytest command did not execute and qualification is not claimed."
+
+
+[continuation_7]
+prior_revision = "d1ba75e3c32ab989ce77143c16585d6bac4f41bc"
+decisions = [2771, 2857, 2864, 2874]
+gotchas = [3554, 3567]
+starting_revision = "2bce00fc32fa1d92ee23e0f8de38acf5708e6966"
+producer_revision = "7008181d46"
+repair_task = "22.39.147"
+repair_merge = "d39a4b378ca442cd57c8c2db288b9727d56dfcad"
+observed = "The supplied checkout already merges 22.39.147, restoring the seven human/platform runner lines and the three paxeer-go-test runner lines. Task 22.39.98 at 7008181d46 produced the seven fixed runners recorded in qualification.5; they were not inherited without a producer."
+resolution = "Keep the landed launchpad ubuntu-24.04 route, repository-audit runner reference and explorer umbrella test name. Integrate the seed's parsed routing branch assertions and explicit container setup beside those changes. Keep c17 hosted under the producer's sanitizer exclusion; do_2's explicit explorer provisioning now permits its routed job, so remove only its superseded unprovisioned-container exclusion. Preserve the eighteen settlements, corrected Foundry profile and sole authorized ledger deselection."
+build_reference = "/out/run/gates.jsonl: final hf-build row binds the final candidate revision, exact build command, exit and private log."
+verify_reference = "/out/run/gates.jsonl: final hf-done row binds that same candidate revision, exact cg spec done command, exit and private log for both declared pytest commands and graph checks."
+stop_rule = "A further tools/ci failure from a producer landed after the merge base is recorded and stops this attempt without a repair cycle."
+
+[gotcha.seed_conflicts]
+observed = "Applying attempt 6 to the prerequisite merge leaves conflict markers in explorer-images.yml, launchpad-test.yml and test_ci_loadtest_job.py and reintroduces a routed c17 runner despite the new sanitizer exclusion."
+resolution = "Resolve every marker by retaining the current side and integrating the seed beside it; use repository-audit for runner equality, keep c17 hosted and provision the routed explorer job before invoking the existing umbrella test command."

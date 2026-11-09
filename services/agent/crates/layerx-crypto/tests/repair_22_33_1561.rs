@@ -44,9 +44,11 @@ fn shared_fixtures_produce_real_evm_ingress() -> Outcome {
             assert_eq!(canonical.first(), Some(&2));
             assert_eq!(canonical, produced.call.encode_unsigned());
             assert_eq!(decode_unsigned(&canonical)?, produced.call);
-            assert!(
-                layerx_wire::activity::decode_unsigned(&canonical, &support::registry()).is_err()
-            );
+            assert!(layerx_wire::historical::activity::decode_unsigned(
+                &canonical,
+                &support::registry()
+            )
+            .is_err());
             let signature = ready(sign_disclosed_call(
                 &signer,
                 &produced.call,
@@ -244,7 +246,7 @@ fn shared_fixtures_preserve_kernel_payloads_separately() -> Outcome {
         (credit, support::bridge_registry()),
     ] {
         assert!(decode_unsigned(&payload).is_err());
-        assert!(layerx_wire::activity::decode_unsigned(&payload, &registry).is_err());
+        assert!(layerx_wire::historical::activity::decode_unsigned(&payload, &registry).is_err());
     }
     Ok(())
 }

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { parseWalletReadRequest, walletReadResponseHeaders } from '@/lib/wallet-read-contract';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
 import { act, createElement, useLayoutEffect, useRef } from 'react';
@@ -111,7 +112,11 @@ beforeEach(async () => {
   latestPortfolio = undefined;
   root = null;
   server = createServer((request, response) => {
-    const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+    const url = new URL(request.url ?? '/', 'http://localhost');
+    const read = parseWalletReadRequest(url);
+    for (const [key, value] of Object.entries(walletReadResponseHeaders(read)))
+      response.setHeader(key, value);
+    const path = url.pathname;
     requests.push(path);
     if (failReads) {
       response.statusCode = 503;

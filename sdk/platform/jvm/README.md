@@ -274,10 +274,14 @@ material, never production trust anchors.
 
 The generated Human API intentionally uses `unverified`, `receipt-verified`
 and `checkpoint-finalised` in `HumanModels.HumanVerificationLevel`.
-`checkpoint-finalised` names the committed rung in that API (decision 2115);
+`checkpoint-finalised` names the committed rung in that API;
 it does not add another network finality step or change the local verifier enum.
-See the [client contract](../../../spec/layerx-merge/contracts/clients.md)
-and [receipt and key-pin contract](../../../spec/layerx-merge/contracts/sequencer.md#receipt-key-pin).
+The [README verifier, transaction binding and independent trust tests](test_repair_22_33_1394.py)
+check these evidence levels and the snippets above against the production
+verifiers and retained producer vectors. The
+[signed receipt tests](src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java)
+and [portable receipt tests](src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java)
+exercise receipt authentication and portable evidence verification.
 
 ## Streaming
 

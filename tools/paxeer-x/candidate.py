@@ -2,6 +2,7 @@
 import argparse
 import copy
 import datetime
+from functools import cache
 import json
 import os
 from pathlib import Path
@@ -43,7 +44,7 @@ def contract_request(operation, roster=None, services=None):
     if services is not None:
         request['services'] = services
     if operation == 'decisions':
-        request['foundation'] = FOUNDATION
+        request['foundation'] = foundation()
     try:
         result = subprocess.run(
             ['go', 'run', str(Path(__file__).with_name('candidate_contract.go'))],
@@ -64,7 +65,9 @@ def duplicate_free(pairs):
     return result
 
 
-FOUNDATION = contract_request('foundation')
+@cache
+def foundation():
+    return contract_request('foundation')
 
 
 def protected_path(path):
@@ -285,7 +288,7 @@ def validate(manifest, roster, repo=None, require_ready=False, mainline='refs/he
     keys(manifest, ('schema', 'created_at', 'source', 'foundation', 'services',
                     'evidence_refs', 'router_refs', 'branch_changes'), 'manifest')
     require(manifest['schema'] == SCHEMA, 'unsupported candidate schema')
-    require(manifest['foundation'] == FOUNDATION, 'foundation preservation contract changed')
+    require(manifest['foundation'] == foundation(), 'foundation preservation contract changed')
     src = manifest['source']
     keys(src, ('revision', 'tree', 'mainline_revision', 'integrated', 'dirty', 'release_credit'), 'source')
     for field in ('revision', 'tree', 'mainline_revision'):
@@ -385,7 +388,7 @@ def create(args):
                  'dependencies_ref': UNKNOWN, 'action': UNKNOWN, 'mutation_allowed': False}
                 for name, declaration in roster.items()]
     manifest = {'schema': SCHEMA, 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                'source': source_identity(args.repo, args.mainline), 'foundation': copy.deepcopy(FOUNDATION),
+                'source': source_identity(args.repo, args.mainline), 'foundation': copy.deepcopy(foundation()),
                 'services': services, 'evidence_refs': refs, 'router_refs': router, 'branch_changes': branches}
     validate(manifest, roster, args.repo, mainline=args.mainline)
     write_private(args.output, manifest)

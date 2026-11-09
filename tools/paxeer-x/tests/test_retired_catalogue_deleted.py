@@ -22,6 +22,19 @@ DELETED_TREES = {
 
 
 class RetiredCatalogueDeletedTest(unittest.TestCase):
+    def test_remaining_lni_tree_records_its_retiring_task(self):
+        catalogue = json.loads((ROOT / CATALOGUE).read_text(encoding="utf-8"))
+        entry = catalogue["components"]["lni"]
+        tree = "services/agent/crates/layerx-client/src/lni"
+        self.assertEqual(entry["retiring_trees"], {tree: "9.24.7"})
+        self.assertNotIn(tree, entry["deleted_trees"])
+        result = subprocess.run(
+            ["python3", CHECKER, "--deleted", "--component", "lni", "--path", tree],
+            cwd=ROOT, capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(tree + ":1: lni: tree retirement pending task 9.24.7", result.stdout)
+
     def test_catalogue_valid_and_self_test_passes(self):
         result = subprocess.run(
             ["python3", CHECKER, "--self-test"],

@@ -8,8 +8,9 @@ use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_ucp::{
     ucp_adapter_descriptor, Capability, CheckoutStatus, CheckoutSubmission, ExecutedUcpPayment,
-    MerchantProfile, NegotiatedCapabilities, OrderMetadata, PaymentHandler, PlatformProfile,
-    StoredOrder, UcpAdapter, UcpError, UcpIdempotencyKey, UCP_CHECKOUT_SPEC_SHA256,
+    MerchantCurrencyBinding, MerchantProfile, NegotiatedCapabilities, OrderMetadata,
+    PaymentHandler, PlatformProfile, StoredOrder, UcpAdapter, UcpError, UcpIdempotencyKey,
+    UcpServiceConfig, UCP_CHECKOUT_SPEC_SHA256,
 };
 use sha2::{Digest as _, Sha256};
 use std::fmt::Write as _;
@@ -324,7 +325,7 @@ fn checkout_completion_requires_receipt_verification() {
         &mut gateway,
         &principal,
         &submission,
-        &mut plane,
+        &mut currency_config(&submission).bind_plane(&mut plane),
         &receipt_keys(sequencer_seed),
         &trace,
         10,
@@ -395,7 +396,7 @@ fn order_state_remains_receipt_backed_or_honestly_pending() {
         &mut gateway,
         &principal,
         &submission,
-        &mut plane,
+        &mut currency_config(&submission).bind_plane(&mut plane),
         &[],
         &trace,
         20,
@@ -481,8 +482,12 @@ fn order_read_verifies_stored_receipt_on_every_access() {
         rung: evidence.rung,
     };
 
-    let order = UcpAdapter::read_order(&stored, &receipt_keys(sequencer_seed))
-        .unwrap_or_else(|error| panic!("order read: {error}"));
+    let order = UcpAdapter::read_order_with_config(
+        &stored,
+        &receipt_keys(sequencer_seed),
+        &currency_config(&stored.submission),
+    )
+    .unwrap_or_else(|error| panic!("order read: {error}"));
 
     assert_eq!(order.id, "ord_read_test");
     assert_eq!(order.checkout_id, "chk_order_read");
@@ -531,4 +536,11 @@ mod producer_checkout;
 #[test]
 fn ucp_merchant_producer() {
     producer_checkout::producer_checkout("ucp-merchant-producer");
+}
+
+fn currency_config(submission: &CheckoutSubmission) -> UcpServiceConfig {
+    UcpServiceConfig::new(
+        MerchantCurrencyBinding::new(submission.currency, submission.layerx_asset, 2, 2)
+            .unwrap_or_else(|error| panic!("merchant currency binding: {error}")),
+    )
 }

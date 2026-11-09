@@ -153,6 +153,55 @@ pub struct CommittedGrant {
     pub purpose: [u8; 32],
 }
 
+impl CommittedGrant {
+    fn verify_encoding(&self, owner: [u8; 32]) -> Result<(), CommittedReadError> {
+        use layerx_wire::decode::Decoder;
+        let decode = || -> Result<bool, layerx_wire::WireError> {
+            let mut d = Decoder::new(&self.encoding, 0);
+            d.structure_header(0x2001)?;
+            let version = d.u8()?;
+            if !matches!(version, 1..=4) || d.bytes(32)? != owner || d.bytes(32)? != owner {
+                return Ok(false);
+            }
+            let _kind = d.u8()?;
+            if d.bytes(32)?.len() != 32 {
+                return Ok(false);
+            }
+            let same_scope = d.u64()? == self.module_mask
+                && d.u16()? == self.ordinal_min
+                && d.u16()? == self.ordinal_max
+                && d.bytes(32)? == self.asset
+                && d.u128()? == self.maximum_per_activity
+                && d.u128()? == self.maximum_total
+                && d.u128()? == self.spent_total
+                && d.u64()? == self.period_length
+                && d.u128()? == self.maximum_per_period
+                && d.u128()? == self.spent_this_period
+                && d.u64()? == self.period_start
+                && d.bytes(32)? == self.purpose;
+            if !same_scope {
+                return Ok(false);
+            }
+            let _not_before = d.u64()?;
+            let _not_after = d.u64()?;
+            let _revocation_sequence = d.u64()?;
+            let revoked = d.u8()?;
+            let revoked_at = d.u64()?;
+            Ok(revoked == u8::from(self.revoked)
+                && revoked_at == self.revoked_at
+                && !self.revoked
+                && self.revoked_at == 0
+                && d.bytes(64)?.len() == 64)
+        };
+        if self.ordinal_min > self.ordinal_max
+            || !decode().map_err(|_| CommittedReadError::Selector)?
+        {
+            return Err(CommittedReadError::Selector);
+        }
+        Ok(())
+    }
+}
+
 impl CommittedCaps {
     pub const fn did(&self) -> [u8; 32] {
         self.did
@@ -628,50 +677,63 @@ impl<'a> CommittedReads<'a> {
         }
         let mut selected_grants = Vec::new();
         for id in grants {
-            let value = self.call(precompile(0x1c), &calldata(b"getGrant(bytes32)", id))?;
-            let bytes = value.canonical_bytes();
-            let revoked = uint(bytes, 1, 1)?;
-            let encoding = dynamic(bytes, 0, 3, 1_048_576)?;
-            if encoding.is_empty()
-                || revoked > 1
-                || selected_grants
-                    .iter()
-                    .any(|previous: &CommittedGrant| previous.id == *id)
+            if selected_grants
+                .iter()
+                .any(|previous: &CommittedGrant| previous.id == *id)
             {
                 return Err(CommittedReadError::Selector);
             }
-            let scope = self.call(precompile(0x1c), &calldata(b"capabilityScope(bytes32)", id))?;
-            let scope = scope.canonical_bytes();
-            if scope.len() != 384 {
-                return Err(CommittedReadError::Selector);
-            }
-            let grant = CommittedGrant {
-                id: *id,
-                encoding,
-                revoked: revoked == 1,
-                revoked_at: uint(bytes, 2, 8)? as u64,
-                module_mask: uint(scope, 0, 8)? as u64,
-                ordinal_min: uint(scope, 1, 2)? as u16,
-                ordinal_max: uint(scope, 2, 2)? as u16,
-                asset: word(scope, 3)?,
-                maximum_per_activity: uint(scope, 4, 16)?,
-                maximum_total: uint(scope, 5, 16)?,
-                spent_total: uint(scope, 6, 16)?,
-                period_length: uint(scope, 7, 8)? as u64,
-                maximum_per_period: uint(scope, 8, 16)?,
-                spent_this_period: uint(scope, 9, 16)?,
-                period_start: uint(scope, 10, 8)? as u64,
-                purpose: word(scope, 11)?,
-            };
-            if grant.ordinal_min > grant.ordinal_max {
-                return Err(CommittedReadError::Selector);
-            }
+            let grant = self.grant(*id, inventory.did)?;
             selected_grants.push(grant);
         }
         inventory.budgets = selected_budgets;
         inventory.budget_funding = selected_funding;
         inventory.grants = selected_grants;
         Ok(())
+    }
+
+    /// Reads both authority views at the held checkpoint and binds the canonical
+    /// grant's identity, scope and revocation record before admitting it.
+    pub fn grant(
+        &self,
+        id: [u8; 32],
+        owner: [u8; 32],
+    ) -> Result<CommittedGrant, CommittedReadError> {
+        let value = self.call(precompile(0x1c), &calldata(b"getGrant(bytes32)", &id))?;
+        let bytes = value.canonical_bytes();
+        let revoked = uint(bytes, 1, 1)?;
+        if revoked > 1 {
+            return Err(CommittedReadError::Selector);
+        }
+        let encoding = dynamic(bytes, 0, 3, 1_048_576)?;
+        let scope = self.call(
+            precompile(0x1c),
+            &calldata(b"capabilityScope(bytes32)", &id),
+        )?;
+        let scope = scope.canonical_bytes();
+        if scope.len() != 384 {
+            return Err(CommittedReadError::Selector);
+        }
+        let grant = CommittedGrant {
+            id,
+            encoding,
+            revoked: revoked == 1,
+            revoked_at: uint(bytes, 2, 8)? as u64,
+            module_mask: uint(scope, 0, 8)? as u64,
+            ordinal_min: uint(scope, 1, 2)? as u16,
+            ordinal_max: uint(scope, 2, 2)? as u16,
+            asset: word(scope, 3)?,
+            maximum_per_activity: uint(scope, 4, 16)?,
+            maximum_total: uint(scope, 5, 16)?,
+            spent_total: uint(scope, 6, 16)?,
+            period_length: uint(scope, 7, 8)? as u64,
+            maximum_per_period: uint(scope, 8, 16)?,
+            spent_this_period: uint(scope, 9, 16)?,
+            period_start: uint(scope, 10, 8)? as u64,
+            purpose: word(scope, 11)?,
+        };
+        grant.verify_encoding(owner)?;
+        Ok(grant)
     }
 
     pub fn program_accounts(
@@ -890,6 +952,10 @@ impl<'a> CommittedReads<'a> {
 }
 
 #[cfg(test)]
+#[path = "program_account_fixture.rs"]
+mod program_account_fixture;
+
+#[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use crate::read::BlockId;
@@ -1089,6 +1155,8 @@ pub(crate) mod tests {
         let (endpoint, worker) = endpoint(answers);
         let reads = CommittedReads::open(&endpoint, 8).expect("committed checkpoint");
         let caps = reads.capabilities([1; 20], &[1; 4]).expect("capabilities");
+        assert_eq!(caps.level(), VerificationLevel::COMMITTED);
+        assert_eq!(caps.level().wire_rank(), 6);
         assert_eq!(caps.canonical_bytes(), &[7; 32]);
         assert_eq!(caps.state_root(), checkpoint.app_hash);
         assert_eq!(caps.freshness().observed_head_sequence, 8);
@@ -1233,12 +1301,18 @@ pub(crate) mod tests {
     ) {
         let mut nonce = [0; 16];
         getrandom::fill(&mut nonce).expect("temporary directory nonce");
-        let root = std::env::temp_dir().join(format!(
-            "layerx-committed-budget-recovery-{}-{}",
-            std::process::id(),
-            hex::encode(&nonce)
-        ));
-        std::fs::create_dir(&root).expect("fresh temporary directory");
+        use std::os::unix::fs::DirBuilderExt;
+        let root = std::fs::canonicalize(std::env::temp_dir())
+            .expect("canonical temporary directory")
+            .join(format!(
+                "layerx-committed-budget-recovery-{}-{}",
+                std::process::id(),
+                hex::encode(&nonce)
+            ));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .expect("fresh private temporary directory");
         let store = crate::store::Store::open(&root).expect("recovery store");
         let tenant = crate::store::TenantId::new("committed-budget-recovery").expect("tenant");
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
@@ -1453,21 +1527,55 @@ pub(crate) mod tests {
         budget[32..64].copy_from_slice(&owner);
         stable_call(&mut answers, &checkpoint, &budget);
         stable_call(&mut answers, &checkpoint, &integer(75));
-        let mut grant = [integer(96), integer(0), integer(0), integer(3)].concat();
-        grant.extend([1, 2, 3]);
-        grant.resize(160, 0);
+        stable_call(&mut answers, &checkpoint, &integer(75));
+        use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind, GrantScope};
+        let canonical = AuthorityGrant {
+            grantor: owner,
+            grantee: owner,
+            kind: GrantKind::DelegatedCapability,
+            delegate_key: ed25519_dalek::SigningKey::from_bytes(&[6; 32])
+                .verifying_key()
+                .to_bytes(),
+            scope: GrantScope {
+                module_mask: 2,
+                ordinal_min: 5,
+                ordinal_max: 5,
+                asset,
+                maximum_per_activity: 10,
+                maximum_total: 100,
+                period_length: 1000,
+                maximum_per_period: 50,
+                period_start: 1,
+                purpose: [8; 32],
+            },
+            not_before: 1,
+            not_after: 2_000_000_000_000,
+            revocation_sequence: 1,
+            fee_budget: None,
+        }
+        .encode()
+        .expect("authority producer grant");
+        let mut grant = [
+            integer(96),
+            integer(0),
+            integer(0),
+            integer(canonical.len() as u64),
+        ]
+        .concat();
+        grant.extend(&canonical);
+        grant.resize(grant.len().div_ceil(32) * 32, 0);
         stable_call(&mut answers, &checkpoint, &grant);
         let scope = [
-            integer(1),
+            integer(2),
             integer(5),
             integer(5),
             asset,
             integer(10),
             integer(100),
-            integer(20),
+            integer(0),
             integer(1000),
             integer(50),
-            integer(10),
+            integer(0),
             integer(1),
             [8; 32],
         ]
@@ -1476,10 +1584,16 @@ pub(crate) mod tests {
         let (endpoint, worker) = endpoint(answers);
         let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
         let mut caps = reads.inventory(&did, &[asset], asset).expect("inventory");
+        assert_eq!(caps.level(), VerificationLevel::COMMITTED);
+        assert_eq!(caps.level().wire_rank(), 6);
         reads
             .inventory_records(&mut caps, &[[9; 32]], &[[6; 32]])
             .expect("selected budget and grant");
         assert_eq!(caps.budgets()[0].spent_this_period, 25);
+        let funding = caps.budget_funding(&[9; 32]).expect("funded budget");
+        assert_eq!(funding.allowance(), 75);
+        assert_eq!(funding.funded_balance(), 75);
+        assert_eq!(funding.remaining(), 75);
         assert_eq!(caps.grants()[0].maximum_per_activity, 10);
         crate::budget::VerifiedResolvedProgramCharges::assert_committed_inventory(
             &caps, &did, asset, account_id,
@@ -1543,8 +1657,8 @@ pub(crate) mod tests {
 
     #[test]
     fn program_views_decode_one_program_and_one_account_and_refuse_changed_settlement() {
-        use crate::budget::execution_state::read_program_records;
-        let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
+        use crate::budget::execution_state::read_program_records_with_account_proofs;
+        let mut checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let program = [3; 32];
         let asset = [7; 32];
         let seed = [1, 2, 3];
@@ -1554,6 +1668,14 @@ pub(crate) mod tests {
         )
         .expect("derived account")
         .bytes();
+        let proof =
+            super::program_account_fixture::committed_account(&mut checkpoint, account, asset, 50);
+        assert_eq!(
+            proof.header().header().resulting_state_root(),
+            checkpoint.app_hash
+        );
+        assert!(!proof.account().frozen);
+        let proofs = BTreeMap::from([(account, proof)]);
         let integer = |value: u64| {
             let mut word = [0; 32];
             word[24..].copy_from_slice(&value.to_be_bytes());
@@ -1594,7 +1716,7 @@ pub(crate) mod tests {
         binding.extend(seed);
         binding.resize(160, 0);
         let registered = [account, asset, integer(2)].concat();
-        let value = [integer(50), integer(0)].concat();
+        let value = [integer(50), integer(1)].concat();
         let mut account_arguments = [program, asset, integer(96), integer(3)].concat();
         account_arguments.extend(seed);
         account_arguments.resize(160, 0);
@@ -1641,7 +1763,13 @@ pub(crate) mod tests {
             }
             let (endpoint, worker) = endpoint(answers);
             let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
-            let result = read_program_records(&endpoint, reads.checkpoint(), program, &[account]);
+            let result = read_program_records_with_account_proofs(
+                &endpoint,
+                reads.checkpoint(),
+                program,
+                &[account],
+                &proofs,
+            );
             if changed {
                 assert!(matches!(
                     result,

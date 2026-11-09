@@ -1,10 +1,12 @@
 [sweep.rust-test-programs]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "39e191d88709f6b4deeb3467bab276c61af82456"
 command = "cargo test --locked --manifest-path programs/Cargo.toml -p TARGET --no-fail-fast"
-targets_total = 20
+targets_total = 21
 targets_passed = 14
 targets_failed = 6
-targets_not_run = 0
+targets_not_run = 1
+revision_source = "Runner-supplied closure revision including the landed repair receipts; every package command ran against this unchanged source revision."
+exclusions_policy = "Only the individual test names listed in the landed repair records under producer_input_tests were excluded; affected target blocks name every exclusion and record the exact command."
 
 [target.rust-test-programs.1]
 target = "layerx-interpreter-compiled-equivalent"
@@ -15,29 +17,69 @@ exit_code = 0
 target = "layerx-program-sdk"
 result = "failed"
 exit_code = 101
-observed = "emit_generated_consumers at programs/sdk/rust/tests/bindgen_conformance.rs:332:83 panicked because an explicit consumer output directory is required."
-assumption = "This is an environmental failure because PAXEER_X_BINDINGS_EMIT_DIR is unset, and the other failing conformance tests also lack their prebuilt artifact and immutable fixture directories."
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-program-sdk --no-fail-fast -- --skip canonical_fixture_generates_digest_bound_self_contained_artifacts --skip frozen_vectors_are_exact_and_shared_by_both_clients --skip generated_sources_expose_every_roundtrip_and_failure_path --skip infallible_and_difficult_names_have_stable_collision_free_symbols --skip generated_client_guest_and_typescript_are_compiler_inputs --skip canonical_domain_abi_and_dynamic_capability_matrix_is_exact --skip immutable_published_interfaces_generate_all_language_families"
+producer_input_tests_excluded = [
+    "canonical_fixture_generates_digest_bound_self_contained_artifacts",
+    "frozen_vectors_are_exact_and_shared_by_both_clients",
+    "generated_sources_expose_every_roundtrip_and_failure_path",
+    "infallible_and_difficult_names_have_stable_collision_free_symbols",
+    "generated_client_guest_and_typescript_are_compiler_inputs",
+    "canonical_domain_abi_and_dynamic_capability_matrix_is_exact",
+    "immutable_published_interfaces_generate_all_language_families",
+]
+observed = "finding_008_swift_complete_call_budget at programs/sdk/rust/tests/repair_22_31_265.rs:23:33 panicked while starting swiftc with No such file or directory (OS error 2)."
+assumption = "This is an environmental failure because the Swift compiler is missing; the same integration binary also reports missing dotnet, javac and tsc tools."
 
 [target.rust-test-programs.3]
 target = "layerx-programs-registry"
 result = "failed"
 exit_code = 101
-observed = "native_receipt_authorized_interface_reads at programs/crates/layerx-programs-registry/tests/interface_protocol.rs:149:64 panicked with missing PAXEER_X_INTERFACE_FIXTURES."
-assumption = "This is an environmental failure because the native interface fixture directory is not configured, and the input producer also lacks PAXEER_X_INTERFACE_INPUTS."
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --no-fail-fast -- --skip native_receipt_authorized_interface_reads"
+producer_input_tests_excluded = [
+    "native_receipt_authorized_interface_reads",
+]
+observed = "chain_bundle_appends_a_verified_upgrade at programs/crates/layerx-programs-registry/tests/chain_end_to_end.rs:240:10 panicked with authenticate deployment evidence: StateProof."
+assumption = "The chain end-to-end deployment evidence appears inconsistent with the current authenticated state-proof requirements."
 
 [target.rust-test-programs.4]
 target = "layerx-programs-runtime"
-result = "failed"
-exit_code = 101
-observed = "execute::market_tests::compiled_market_concurrent_leases_are_not_over_slashed_and_the_offer_closes_after_disputes at programs/crates/layerx-programs-runtime/src/market_tests.rs:104:29 panicked with actual compiled market: environment variable not found."
-assumption = "This is an environmental failure because LAYERX_MARKET_WASM is unset, so the compiled-market test cannot load its required WebAssembly artifact."
+result = "not_run"
+exit_code = 124
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-fail-fast -- --skip actual_abi_storage_refuses_a_calldata_selected_undeclared_key --skip actual_abi_prior_state_cannot_select_an_undeclared_followup_key --skip actual_nested_abi_refuses_an_undeclared_callee_write --skip fixed_table_and_passive_segment_vectors_replay_actual_mutations --skip native_storage_event_and_oracle_host_successes_replay_actual_state_and_metering --skip native_transfer_receipt_and_balance_host_successes_replay_actual_effects_and_metering --skip native_signature_verify_and_recover_successes_replay_actual_output_and_metering --skip fixed_hash_and_wide_integer_host_successes_replay_actual_output_and_metering --skip actual_guest_without_authenticated_context_refuses_every_field --skip actual_graph_boundary_preserves_context_and_refuses_edge_sixty_five --skip actual_abi_pair_restores_exact_current_baseline_and_observed_delta --skip absent_actual_storage_is_not_replaced_with_empty_storage --skip semantic_restore_retains_actual_authority_meter_storage_graph_and_context --skip budgeted_v1_cpu_exhaustion_retains_actual_usage_and_failed_graph --skip budgeted_v1_nested_refusal_and_fault_keep_the_actual_leaf --skip declared_maximum_depth_preserves_the_actual_leaf_failure --skip actual_production_capture_is_opt_in_and_bounded --skip actual_module_start_refuses_unobservable_start_state --skip actual_unreachable_has_a_distinct_retained_terminal_record --skip actual_guest_narrowing_preserves_owner_leg_and_repeated_visits --skip actual_guest_escalation_rolls_back_the_preceding_owner_leg --skip actual_native_failure_terminal_retains_class_reason_and_rejecting_frame --skip actual_returned_proposals_are_staged_by_owner_after_child_return --skip actual_late_returned_proposal_cannot_escape_atomic_owner_budget --skip actual_native_owner_budget_denial_has_authenticated_failure_terminal --skip actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal"
+producer_input_tests_excluded = [
+    "actual_abi_storage_refuses_a_calldata_selected_undeclared_key",
+    "actual_abi_prior_state_cannot_select_an_undeclared_followup_key",
+    "actual_nested_abi_refuses_an_undeclared_callee_write",
+    "fixed_table_and_passive_segment_vectors_replay_actual_mutations",
+    "native_storage_event_and_oracle_host_successes_replay_actual_state_and_metering",
+    "native_transfer_receipt_and_balance_host_successes_replay_actual_effects_and_metering",
+    "native_signature_verify_and_recover_successes_replay_actual_output_and_metering",
+    "fixed_hash_and_wide_integer_host_successes_replay_actual_output_and_metering",
+    "actual_guest_without_authenticated_context_refuses_every_field",
+    "actual_graph_boundary_preserves_context_and_refuses_edge_sixty_five",
+    "actual_abi_pair_restores_exact_current_baseline_and_observed_delta",
+    "absent_actual_storage_is_not_replaced_with_empty_storage",
+    "semantic_restore_retains_actual_authority_meter_storage_graph_and_context",
+    "budgeted_v1_cpu_exhaustion_retains_actual_usage_and_failed_graph",
+    "budgeted_v1_nested_refusal_and_fault_keep_the_actual_leaf",
+    "declared_maximum_depth_preserves_the_actual_leaf_failure",
+    "actual_production_capture_is_opt_in_and_bounded",
+    "actual_module_start_refuses_unobservable_start_state",
+    "actual_unreachable_has_a_distinct_retained_terminal_record",
+    "actual_guest_narrowing_preserves_owner_leg_and_repeated_visits",
+    "actual_guest_escalation_rolls_back_the_preceding_owner_leg",
+    "actual_native_failure_terminal_retains_class_reason_and_rejecting_frame",
+    "actual_returned_proposals_are_staged_by_owner_after_child_return",
+    "actual_late_returned_proposal_cannot_escape_atomic_owner_budget",
+    "actual_native_owner_budget_denial_has_authenticated_failure_terminal",
+    "actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal",
+]
+reason = "The package run was terminated after its 180-second allocation within the bounded inventory while execute::market_tests::repair_22_31_260_billing_unbound was still running; no complete package result was observed, so timeout exit 124 is recorded."
 
 [target.rust-test-programs.5]
 target = "wasm-instrument"
-result = "failed"
-exit_code = 101
-observed = "The binaryen-sys build script panicked at cmake-0.1.58/src/lib.rs:1132:5 because executing cmake failed with No such file or directory (OS error 2)."
-assumption = "This is an environmental failure caused by the missing cmake build tool."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-programs.6]
 target = "parity-wasm"
@@ -56,27 +98,38 @@ exit_code = 0
 
 [target.rust-test-programs.9]
 target = "layerx-programs-market"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "The doctest step failed at programs/crates/layerx-programs-market/src/settle.rs:1:5 with E0463: cannot find crate for layerx_program_sdk."
+assumption = "The doctest dependency artifact appears unavailable or incompatible with the SDK metadata produced during this package run."
 
 [target.rust-test-programs.10]
 target = "layerx-programs-ai-market"
 result = "failed"
 exit_code = 101
-observed = "deployment_refuses_state_of_another_chain_domain in programs/crates/layerx-programs-ai-market/tests/chain_domain.rs failed with Error: ApplicationError(3)."
-assumption = "This appears to be an environmental failure because the compile-time PAXAI_CHAIN_DOMAIN variable is absent, as confirmed by the companion chain-domain assertion at programs/crates/layerx-programs-ai-market/tests/chain_domain.rs:47:5."
+observed = "native_f03_schedule_capacity_role_conflicts_and_revocation failed because build/paxai-host-boundary/manifest was missing with No such file or directory (OS error 2)."
+assumption = "This is an environmental failure because the native host-boundary harness and declared Go fixture inputs were not built in this sandbox."
 
 [target.rust-test-programs.11]
 target = "layerx-programs-arbiter"
 result = "failed"
 exit_code = 101
-observed = "canonical_native_authority_matches_authenticated_historical_facts at programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:290:14 panicked with required genuine native replay corpus; no fallback: NotPresent."
-assumption = "This is an environmental failure because LAYERX_AUTHENTICATED_REPLAY_INPUTS is unset, so the test cannot load its genuine native replay corpus."
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --no-fail-fast -- --skip canonical_native_authority_matches_authenticated_historical_facts --skip genuine_signed_market_profile_claim_steps_and_cryptographic_refusals --skip authenticated_admission_authority_reaches_real_bounded_step_verifier --skip genuine_signed_serial_scheduled_trap_steps_and_bound_refusals"
+producer_input_tests_excluded = [
+    "canonical_native_authority_matches_authenticated_historical_facts",
+    "genuine_signed_market_profile_claim_steps_and_cryptographic_refusals",
+    "authenticated_admission_authority_reaches_real_bounded_step_verifier",
+    "genuine_signed_serial_scheduled_trap_steps_and_bound_refusals",
+]
+observed = "bisect::tests::dispute_over_trap_judges_the_terminal_trap_step at programs/crates/layerx-programs-arbiter/src/bisect.rs:617:26 panicked with captured boundary: Encoding."
+assumption = "The locally constructed captured boundary appears incompatible with the current replay boundary encoding requirements."
 
 [target.rust-test-programs.12]
 target = "layerx-programs-sandbox"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "activity::tests::malformed_and_replayed_sequences_are_not_canonical_submissions at programs/crates/layerx-programs-sandbox/src/activity.rs:956:70 panicked with protocol: ProtocolMismatch."
+assumption = "The malformed-activity test fixture appears inconsistent with the current protocol identity validation requirements."
 
 [target.rust-test-programs.13]
 target = "layerx-programs-fuzz"
@@ -115,5 +168,10 @@ exit_code = 0
 
 [target.rust-test-programs.20]
 target = "layerx-program-lint"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.21]
+target = "layerx-programs-integration-tests"
 result = "passed"
 exit_code = 0

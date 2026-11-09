@@ -35,7 +35,7 @@ from layerx_sdk.exchange import encode_abi_call
 from layerx_sdk.production import PlatformSdkError, SdkErrorCode
 from layerx_sdk.revert import RevertReasonError
 from layerx_sdk.web_search import _bound_payer_did, _derived, _payer_account, _payment_error
-from layerx_sdk.x402_rpc import PaymentRpcError, _decode_rpc_response
+from layerx_sdk.x402_rpc import PaymentRpc, PaymentRpcError, _decode_rpc_response
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _FIXTURES = _REPO_ROOT / "services" / "interop" / "crates" / "x-websearch" / "tests" / "fixtures"
@@ -76,6 +76,7 @@ TRUSTED_KEY = BUYER["sequencerPublicKey"]
 UNTRUSTED_KEY = f"{int(TRUSTED_KEY[:2], 16) ^ 1:02x}" + TRUSTED_KEY[2:]
 PAYER_DID = BUYER["payerDid"]
 PAYER_ADDRESS = EXCHANGE[0]["request"]["headers"]["LAYERX-PAYER-ADDRESS"]
+PAYER_ACCOUNT_DID = "did:layerx:" + PAYER_ADDRESS[2:].zfill(64)
 CURRENCIES = ("SID", "PAX", "USDC", "USDL")
 SEARCH_PAID = EXCHANGE[1]
 
@@ -98,6 +99,19 @@ RECEIPT_KEY = ReceiptKey(
     BUYER["firstBatchNumber"], BUYER["lastBatchNumber"],
 )
 EXACT_RPC = _fixture("gateway/exact.json")
+METERED_RPC = _fixture("gateway/metered.json")
+LEDGER_RPC = json.loads(
+    (_FIXTURES.parents[1] / "src/repair_22_31_169_ledger.json").read_text()
+)
+ACCOUNT_RPC = json.loads(
+    (_REPO_ROOT / "services/agent/sdk/typescript/test/recorded-web-ledger.json").read_text()
+)
+RPC_EXCHANGES = (
+    ACCOUNT_RPC["calls"]
+    + LEDGER_RPC["exchanges"]
+    + METERED_RPC["endpoints"]["gateway"]["*"]
+    + EXACT_RPC["endpoints"]["gateway"]["*"]
+)
 
 
 def _exact_evidence(currency: str) -> tuple[bytes, bytes]:
@@ -124,6 +138,8 @@ class _Replay:
     ) -> None:
         self.served: list[int] = []
         self.unrecorded: list[dict[str, str]] = []
+        self.rpc_requests: list[dict] = []
+        self.rpc_errors: list[str] = []
         replay = self
         stored = content or {}
 
@@ -150,6 +166,35 @@ class _Replay:
                     elif sent != recorded:
                         return False
                 return True
+
+            def do_POST(self) -> None:
+                request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                replay.rpc_requests.append(request)
+                assert self.path == "/"
+                assert request["jsonrpc"] == "2.0" and type(request["id"]) is int
+                assert self.headers["Content-Type"] == "application/json"
+                row = next((row for row in RPC_EXCHANGES
+                            if row["method"] == request["method"]
+                            and row["params"] == request["params"]), None)
+                if row is not None:
+                    answer = ({"error": row["error"]} if "error" in row
+                              else {"result": row["result"]})
+                elif request["method"] == "eth_getRawTransactionByHash":
+                    sent = next((row for row in RPC_EXCHANGES
+                                 if row["method"] == "eth_sendRawTransaction"
+                                 and row.get("result") == request["params"][0]), None)
+                    if sent is None:
+                        replay.rpc_errors.append(str(request))
+                        self._send(500, {}, b"unrecorded transaction")
+                        return
+                    answer = {"result": sent["params"][0]}
+                else:
+                    replay.rpc_errors.append(str(request))
+                    self._send(500, {}, b"unrecorded RPC request")
+                    return
+                self._send(200, {"Content-Type": "application/json"}, json.dumps({
+                    "jsonrpc": "2.0", "id": request["id"], **answer,
+                }).encode())
 
             def do_GET(self) -> None:
                 index = next(
@@ -213,6 +258,7 @@ class _Replay:
         self._server.shutdown()
         self._server.server_close()
         self._thread.join()
+        assert self.rpc_errors == []
 
 
 @dataclass
@@ -240,7 +286,7 @@ def _metered_sid() -> _Payer:
     payload = SEARCH_PAID["request"]["headers"]["PAYMENT-SIGNATURE"]["payload"]
     return _Payer(
         preferences=(WebSearchPreference("SID", "metered"),),
-        did=PAYER_DID,
+        did=PAYER_ACCOUNT_DID,
         grant=lambda _: WebSearchMeteredPayment(
             bytes.fromhex(BUYER["grants"]["SID"]), payload["idempotencyKey"]
         ),
@@ -283,6 +329,7 @@ def _client(
         (ReceiptKey(RECEIPT_KEY.key_id, bytes.fromhex(key),
                     RECEIPT_KEY.first_height, RECEIPT_KEY.last_height),),
         now=lambda: 1_000_000_000,
+        ledger_rpc=PaymentRpc(endpoint),
     )
 
 
@@ -484,6 +531,9 @@ class WebSearchClientTest(unittest.TestCase):
                 )
                 self.assertEqual(sidecar.served, [paid - 1, paid])
                 self.assertEqual(sidecar.unrecorded, [])
+                self.assertEqual(len(sidecar.rpc_requests), 0 if currency == "PAX" else 1)
+                self.assertTrue(all(request["method"] == "eth_call" for request in sidecar.rpc_requests))
+                self.assertTrue(all(request["params"][0]["to"].endswith("101a") for request in sidecar.rpc_requests))
             settlement = EXCHANGE[paid]["response"]["headers"]["PAYMENT-RESPONSE"]
             self.assertEqual(
                 (fetched.url, fetched.text, fetched.media_type, fetched.digest),
@@ -516,7 +566,12 @@ class WebSearchClientTest(unittest.TestCase):
 
     def test_metered_sid_settlement_repeats_the_purpose(self) -> None:
         with _Replay(copy.deepcopy(EXCHANGE)) as sidecar:
-            found = _client(sidecar.endpoint, _metered_sid()).search("paxeer")
+            with self.assertRaises(WebSearchError) as refused:
+                _client(sidecar.endpoint, _metered_sid()).search("paxeer")
+            self.assertEqual(refused.exception.code, "receipt-unverified")
+            self.assertIsInstance(refused.exception.__cause__, RevertReasonError)
+            self.assertEqual(refused.exception.__cause__.code, "LXP_NO_PAYER_GRANT")
+            self.assertIs(refused.exception.__cause__.retryable, False)
             self.assertEqual(sidecar.served, [0, 1])
             self.assertEqual(sidecar.unrecorded, [])
         settlement = SEARCH_PAID["response"]["headers"]["PAYMENT-RESPONSE"]
@@ -533,21 +588,9 @@ class WebSearchClientTest(unittest.TestCase):
             offer["extra"]["layerx"]["purposeHash"],
         )
         self.assertEqual(
-            [(result.url, result.title, result.snippet) for result in found.results],
-            [
-                (result["url"], result["title"], result["snippet"])
-                for result in SEARCH_PAID["response"]["body"]["results"]
-            ],
-        )
-        assert found.settlement is not None
-        self.assertEqual(
-            (
-                found.settlement.scheme,
-                found.settlement.currency,
-                found.settlement.payer,
-                found.settlement.transaction,
-            ),
-            ("metered", "SID", settlement["payer"], settlement["transaction"]),
+            SEARCH_PAID["request"]["headers"]["PAYMENT-SIGNATURE"]["payload"],
+            {"grantId": decode_payer_grant(bytes.fromhex(BUYER["grants"]["SID"]))["grant_id"],
+             "idempotencyKey": SEARCH_PAID["request"]["headers"]["PAYMENT-SIGNATURE"]["payload"]["idempotencyKey"]},
         )
         for purpose in (None, "44" * 32):
             steps = copy.deepcopy(EXCHANGE)
@@ -559,10 +602,12 @@ class WebSearchClientTest(unittest.TestCase):
             else:
                 layerx["purposeHash"] = purpose
             with _Replay(steps) as sidecar:
-                self._refused(
-                    lambda: _client(sidecar.endpoint, _metered_sid()).search("paxeer"),
-                    "settlement-purpose-mismatch",
-                )
+                with self.assertRaises(WebSearchError) as refused:
+                    _client(sidecar.endpoint, _metered_sid()).search("paxeer")
+                self.assertEqual(refused.exception.code, "receipt-unverified")
+                self.assertIsInstance(refused.exception.__cause__, RevertReasonError)
+                self.assertEqual(refused.exception.__cause__.code, "LXP_NO_PAYER_GRANT")
+                self.assertIs(refused.exception.__cause__.retryable, False)
                 self.assertEqual(sidecar.served, [0, 1])
 
     def test_refused_settlements(self) -> None:
@@ -645,16 +690,14 @@ class WebSearchClientTest(unittest.TestCase):
                 ],
             )
         with _Replay(copy.deepcopy(EXCHANGE)) as sidecar:
-            found = _unbounded_client(sidecar.endpoint, _metered_sid()).search("paxeer")
+            with self.assertRaises(WebSearchError) as refused:
+                _unbounded_client(sidecar.endpoint, _metered_sid()).search("paxeer")
+            self.assertEqual(refused.exception.code, "receipt-unverified")
+            self.assertIsInstance(refused.exception.__cause__, RevertReasonError)
+            self.assertEqual(refused.exception.__cause__.code, "LXP_NO_PAYER_GRANT")
+            self.assertIs(refused.exception.__cause__.retryable, False)
             self.assertEqual(sidecar.served, [0, 1])
-        assert found.settlement is not None
-        self.assertEqual(
-            (found.settlement.scheme, found.settlement.transaction),
-            (
-                "metered",
-                SEARCH_PAID["response"]["headers"]["PAYMENT-RESPONSE"]["transaction"],
-            ),
-        )
+            self.assertEqual(sidecar.unrecorded, [])
         with _Replay(copy.deepcopy(EXCHANGE)) as sidecar:
             self._refused(
                 lambda: _client(sidecar.endpoint, _exact_usdc(), UNTRUSTED_KEY).fetch(
@@ -748,7 +791,7 @@ class WebSearchClientTest(unittest.TestCase):
         for currency in CURRENCIES:
             payer = _Payer(
                 preferences=(WebSearchPreference(currency, "metered"),),
-                did=PAYER_DID,
+                did=PAYER_ACCOUNT_DID,
                 grant=lambda _, c=currency: WebSearchMeteredPayment(
                     bytes.fromhex(BUYER["grants"][c]), "22" * 32
                 ),
@@ -843,7 +886,11 @@ class WebSearchClientTest(unittest.TestCase):
             )
             self.assertEqual(sidecar.served, [0, 2])
         self._refused(
-            lambda: _client("http://example.com", _exact_usdc()), "invalid-endpoint"
+            lambda: WebSearchClient(
+                "http://example.com", "eip155:125", ASSETS["PAX"]["asset_id"],
+                _terms(), _exact_usdc(), (RECEIPT_KEY,),
+            ),
+            "invalid-endpoint",
         )
 
 

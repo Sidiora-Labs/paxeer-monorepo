@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use crate::budget::{release, BudgetLimiter, LimitRefusal, ReleaseKind};
 use crate::session::SessionRef;
 
-use super::Prepared;
+use crate::prepare::EvmPrepared;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LifecycleState {
@@ -73,7 +73,7 @@ impl PreparationLifecycle {
     pub fn register(
         &self,
         preparation_id: [u8; 32],
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         reservation_ids: Vec<[u8; 32]>,
     ) -> Result<(), LifecycleError> {
         self.register_inner(preparation_id, prepared, reservation_ids, None)
@@ -83,7 +83,7 @@ impl PreparationLifecycle {
     pub(crate) fn register_authorized(
         &self,
         preparation_id: [u8; 32],
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         reservation_ids: Vec<[u8; 32]>,
         authorization: PreparationAuthorization,
     ) -> Result<(), LifecycleError> {
@@ -101,11 +101,12 @@ impl PreparationLifecycle {
     fn register_inner(
         &self,
         preparation_id: [u8; 32],
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         reservation_ids: Vec<[u8; 32]>,
         authorization: Option<PreparationAuthorization>,
     ) -> Result<(), LifecycleError> {
-        let (not_after, payload_hash) = prepared.lifecycle_facts()?;
+        crate::prepare::verify_call_binding(prepared)
+            .map_err(|_| LifecycleError::InvalidSignedBytes)?;
         let mut records = self
             .records
             .lock()
@@ -120,11 +121,15 @@ impl PreparationLifecycle {
                 call_bound: false,
                 durable_terminal: false,
                 state: LifecycleState::Prepared,
-                not_after,
+                not_after: prepared
+                    .disclosure
+                    .expiry
+                    .not_after
+                    .min(prepared.disclosure.expiry.payload_expires_at),
                 reservation_ids,
                 signed_bytes: None,
                 activity_id: None,
-                payload_hash,
+                payload_hash: layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data),
                 terminal_at_sequence: None,
             },
         );
@@ -783,7 +788,7 @@ fn require_authorization(
     }
 }
 
-pub(crate) fn expire_elapsed(
+pub fn expire_elapsed(
     lifecycle: &PreparationLifecycle,
     limiter: &BudgetLimiter,
     core_batch_time_ms: u64,
@@ -832,7 +837,7 @@ pub(crate) fn expire_elapsed(
     Ok(report)
 }
 
-pub(crate) fn sweep_retention(
+pub fn sweep_retention(
     lifecycle: &PreparationLifecycle,
     current_sequence: u64,
     retention_sequences: u64,

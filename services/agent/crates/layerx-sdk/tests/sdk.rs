@@ -381,7 +381,7 @@ fn sdk_crate_has_no_settlement_domain_or_activity_codec() {
             "SettlementDomain",
             "GuarantorKey",
             "layerx_proof::checkpoint",
-            "layerx_wire::activity",
+            concat!("layerx_wire::", "activity"),
             "verify_checkpoint",
             "decode_signed",
         ] {

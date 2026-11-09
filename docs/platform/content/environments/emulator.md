@@ -1,6 +1,6 @@
 # The emulator
 
-The emulator is the local LayerX Network environment. It is not a mock: it runs the real protocol core transition, produces real receipts, and refuses everything the real chain refuses. What it adds is control - you can set the clock, prefund an account, inject a fault, and snapshot the whole world.
+The emulator is a local compatibility environment. It runs the LayerX kernel's real core transition and produces compatibility receipts, with controls to set the clock, prefund an account, inject a fault and snapshot state. It does not reproduce Paxeer X Network's consensus or committed block evidence.
 
 ## Starting it
 
@@ -52,7 +52,7 @@ Loopback `http://` is accepted here and only here. Every non-loopback endpoint m
 | `GET /v1/state` | State root, next sequence, batch number, clock, cell and account counts |
 | `GET /v1/receipts/{id}` | Exact receipt material |
 
-These are the real endpoints. Receipts fetched here verify with `layerx receipt verify` exactly as production receipts do, against the batch facts the emulator reports.
+These are the local endpoints. `layerx receipt verify` is a local compatibility verifier for receipts fetched here and the caller-supplied batch facts the emulator reports. A successful check establishes consistency with those facts, not public-chain finality.
 
 ## The control surface
 
@@ -83,9 +83,13 @@ Timeouts, expiries and settlement windows are real, and waiting for them in wall
 
 ## What the emulator is not
 
-It is a single local process holding state in memory. It is not a network, so it has no consensus, no other validators, and no external anchoring - `settlement-anchored` is not something a local run establishes. Differential conformance against the hosted beta network is what closes that gap, and it is a separate exercise from local development.
+It is a single local process holding state in memory, with no consensus or other validators. Advancing its clock or checking its compatibility receipts does not establish a committed block on the merged network.
 
-For an environment with real finality and other participants, use the [beta quickstart](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/86fa9803386b75d1fea152cb40cacb3f1069cf4a/docs/wiki/Quickstart.md).
+A receipt is final once its block is committed. The merged network reports `submitted`, `receipted` and `committed`; `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. External anchoring is not a later finality rung for either environment.
+
+For network finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+
+For an environment with real finality and other participants, use the [beta quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/wiki/Quickstart.md).
 
 ## Enforced by
 
@@ -93,7 +97,8 @@ For an environment with real finality and other participants, use the [beta quic
 |---|---|---|
 | Atomic settlement | `protocol` | The emulator runs the real core transition; a rejected activity leaves no partial state. |
 | Conserved supply | `protocol` | Prefunding creates balance explicitly; nothing else does. |
-| Offline receipt verification | `protocol` | Emulator receipts verify by the same pure function as production receipts. |
+| Offline receipt verification | `protocol` | Emulator receipts use the pure local compatibility verifier; its result does not establish network finality. |
 | Replay refusal | `protocol` | Resubmitting a canonical activity is refused here as it is in production. |
 | Unknown is a real outcome | `agent-layer` | `drop_receipt` produces a genuine unknown, so you can test that you keep it unknown. |
 | Beta faucet funding | `hosted-surface` | Not present locally - `--prefund` and the prefund endpoint replace it. |
+| Scheduled beta resets | `hosted-surface` | The emulator keeps its state until restarted; the hosted beta network is reset on its published calendar. |

@@ -7,7 +7,10 @@ import (
 	"crypto/sha256"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
+	"syscall"
 	"testing"
 	"time"
 
@@ -26,15 +29,42 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm"
 	protoio "github.com/gogo/protobuf/io"
 	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
+type commitReleaseAppOptions struct {
+	app.TestAppOpts
+}
+
+func (options commitReleaseAppOptions) Get(name string) interface{} {
+	if name == app.FlagSSImportNumWorkers {
+		return 1
+	}
+	return options.TestAppOpts.Get(name)
+}
+
 func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
+	ctx, stop := context.WithTimeout(t.Context(), 30*time.Second)
+	defer stop()
+	// Snapshot restore and app commit have synchronous paths without cancellation.
+	// Run the real scenario in a child so the deadline also bounds those paths.
+	const child = "PAXEER_TEST_STANDBY_COMMIT_CHILD"
+	if os.Getenv(child) != "1" {
+		command := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestDriverReleasesNextOpenAcrossStandbyCommit$", "-test.count=1", "-test.v")
+		command.Env = append(os.Environ(), child+"=1")
+		command.Cancel = func() error { return command.Process.Signal(syscall.SIGQUIT) }
+		command.WaitDelay = time.Second
+		output, err := command.CombinedOutput()
+		require.NoError(t, ctx.Err(), "standby commit scenario exceeded its deadline:\n%s", output)
+		require.NoError(t, err, "%s", output)
+		return
+	}
 	wasOCC := app.EnableOCC
 	app.EnableOCC = false
 	t.Cleanup(func() { app.EnableOCC = wasOCC })
-	ctx := context.Background()
 	dir := t.TempDir()
 	newPV := func(name string) *privval.FilePV {
 		t.Helper()
@@ -110,16 +140,18 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 	require.Equal(t, int64(1), primary.StakingKeeper.GetLastValidatorPower(primary.GetCheckCtx(), standbyAddr))
 	var snapshot bytes.Buffer
 	require.NoError(t, primary.CommitMultiStore().Snapshot(uint64(committedTip), protoio.NewDelimitedWriter(&snapshot)))
-	backup := app.Setup(t, true, false, false, func(ba *baseapp.BaseApp) {
-		ba.SetOccEnabled(false)
-		ba.SetStoreLoader(func(ms sdk.CommitMultiStore) error {
-			if err := ms.LoadLatestVersion(); err != nil {
+	backup := app.New(dbm.NewMemDB(), nil, true, map[int64]bool{}, t.TempDir(), 1, false,
+		tmconfig.TestConfig(), app.MakeEncodingConfig(), wasm.EnableAllProposals,
+		commitReleaseAppOptions{}, app.EmptyWasmOpts, nil, func(ba *baseapp.BaseApp) {
+			ba.SetOccEnabled(false)
+			ba.SetStoreLoader(func(ms sdk.CommitMultiStore) error {
+				if err := ms.LoadLatestVersion(); err != nil {
+					return err
+				}
+				_, err := ms.Restore(uint64(committedTip), 0, protoio.NewDelimitedReader(bytes.NewReader(snapshot.Bytes()), 64<<20))
 				return err
-			}
-			_, err := ms.Restore(uint64(committedTip), 0, protoio.NewDelimitedReader(bytes.NewReader(snapshot.Bytes()), 64<<20))
-			return err
+			})
 		})
-	})
 	t.Cleanup(func() { require.NoError(t, backup.Close()) })
 	backup.ChainID = testChainID
 	require.Equal(t, primary.LastCommitID().Hash, backup.LastCommitID().Hash)
@@ -168,12 +200,17 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 	cfg.NonceQueueMaxPerSender, cfg.NonceQueueMaxTotal = 4, 8
 	n, err := sequencer.NewNode(cfg, primary)
 	require.NoError(t, err)
-	t.Cleanup(func() { n.Replicator.Close(); n.WAL.Close() })
+	t.Cleanup(func() { require.NoError(t, n.Stop()) })
 	require.NoError(t, n.Start(ctx))
+	cancelled, cancelRelease := context.WithCancel(ctx)
+	cancelRelease()
+	beforeCancelledRelease := driverEntries(t, cfg.WALDir)
+	require.ErrorIs(t, n.Driver.OnCommitContext(cancelled, committedTip, primary.LastCommitID().Hash), context.Canceled)
+	require.Equal(t, beforeCancelledRelease, driverEntries(t, cfg.WALDir))
 	var commits []int64
 	primary.SetCommitListener(func(height int64, hash []byte) error {
 		require.Equal(t, height-1, backup.LastBlockHeight())
-		err := n.Driver.OnCommit(height, hash)
+		err := n.Driver.OnCommitContext(ctx, height, hash)
 		require.NoError(t, err, "OPEN for height %d must be acknowledged before the standby commits height %d", height+1, height)
 		require.Equal(t, height-1, backup.LastBlockHeight())
 		commits = append(commits, height)
@@ -221,11 +258,29 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 			require.Equal(t, height, a.LastBlockHeight())
 			if a == primary {
 				require.Equal(t, height-1, backup.LastBlockHeight())
-				entries := driverEntries(t, standbyWAL)
-				opened, ok := entries[len(entries)-1].(*wal.Open)
+				// RenewAt appends locally before waiting for its standby ACK. Drain
+				// waits behind that release; compare only after the logs converge.
+				ack, err := n.Replicator.Drain(ctx)
+				require.NoError(t, err)
+				require.Equal(t, sequencer.AckOK, ack.Status)
+				var entries, primaryEntries []wal.Entry
+				require.Eventually(t, func() bool {
+					primaryEntries = driverEntries(t, cfg.WALDir)
+					entries = driverEntries(t, standbyWAL)
+					return reflect.DeepEqual(primaryEntries, entries)
+				}, replicationTimeout, time.Millisecond, "all records, including renewed leases, must be acknowledged")
+				require.Equal(t, primaryEntries, entries)
+				tail := len(entries) - 1
+				for tail >= 0 {
+					if _, lease := entries[tail].(*wal.Lease); !lease {
+						break
+					}
+					tail--
+				}
+				require.GreaterOrEqual(t, tail, 0)
+				opened, ok := entries[tail].(*wal.Open)
 				require.True(t, ok)
 				require.Equal(t, uint64(height+1), opened.Height)
-				require.Equal(t, entries, driverEntries(t, cfg.WALDir))
 			}
 		}
 		require.Equal(t, primary.LastCommitID().Hash, backup.LastCommitID().Hash, "committed state diverged at height %d", height)

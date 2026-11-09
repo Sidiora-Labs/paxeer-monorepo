@@ -265,7 +265,7 @@ The current grammar (`grammarVersions: [3, 3]`) includes:
   stored unvalidated.
 - **hyperfide platform thread state kinds** `"hyperfide/<name>"`: `extension.state` kinds owned by
   hyperfide platform, which any bridge may emit and the server validates against
-  `packages/domain/src/thread-provider-state.ts`. `hyperfide/provider-commands`
+  `lib/domain/src/thread-provider-state.ts`. `hyperfide/provider-commands`
   carries `{ commands: [{ name, description, inputHint? }] }`, the slash
   commands the provider offers in the thread now (the composer's `/` menu,
   `hyperfide platform thread commands`). `hyperfide/session-options` carries `{ options }`, the
@@ -612,16 +612,18 @@ Recordings are the input of the replay and parity kit published in
 `@hyperfide/plugin-sdk/provider-bridge/testing` (how a plugin uses it: the
 authoring skill's providers.md, "Testing a bridge"). In this repository,
 redacted first-party recordings live under
-`packages/provider-bridge-protocol/recordings`, one `<provider>/<cell>`
+`core/provider-bridge-protocol/recordings`, one `<provider>/<cell>`
 directory per live-QA matrix cell with a `manifest.json`;
-`scripts/provider-recordings/redact.mjs` and `package-cells.mjs` produce them
-and raw recordings stay out of git. `recordings/row-counts.json` pins each
-cell's event, row, `provider/unhandled`, and grammar-drop counts;
+`tools/workspace/provider-recordings/redact.mjs` and
+`tools/workspace/provider-recordings/package-cells.mjs` produce them and raw
+recordings stay out of git.
+`core/provider-bridge-protocol/recordings/row-counts.json` pins each cell's
+event, row, `provider/unhandled`, and grammar-drop counts;
 `parity.self.test.ts` checks the pins and replays every cell through the
 current bridge on each commit, and `UPDATE_PARITY_ROW_COUNTS=1` rewrites the
 pins deliberately. `pnpm parity` compares two checkouts
 ([debugging-and-qa.md](debugging-and-qa.md)); differences a migration PR
-intends go in `recordings/parity-allowlist.json` with the PR and reason, and
+intends go in `core/provider-bridge-protocol/recordings/parity-allowlist.json` with the PR and reason, and
 an entry that masks nothing fails the run. A recording is never rewritten:
 when a bridge change alters its output,
 `pnpm --filter @hyperfide/provider-parity rerecord [--plan-with <checkout>]` writes
@@ -633,5 +635,5 @@ The conformance kit runs the same recordings as its recorded-traffic
 scenario set: `checkRecordedCellReplay` replays a bridge's cells and reports
 `recorded/<cell>/{replays, events-schema-valid, grammar, turn-lifecycle,
 not-empty}` per cell. The pi, Claude Code, and Codex plugins' tests use only
-public dependencies, so `packages/provider-parity` replays their committed
+public dependencies, so `tools/provider-parity` replays their committed
 cells instead.

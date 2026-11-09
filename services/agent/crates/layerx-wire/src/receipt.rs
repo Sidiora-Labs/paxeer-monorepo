@@ -21,6 +21,35 @@ const KERNEL_MODULE_COUNT: u16 = 11;
 const SEQUENCER_LAYOUT_VERSION: u32 = 1;
 const MAX_PROOF_DEPTH: usize = 32;
 const BATCH_ENCODED_BYTES: usize = 354;
+const MAX_CHECKPOINT_SIGNATURES: usize = 32;
+const MAX_SETTLEMENT_REFERENCE_BYTES: usize = 1024;
+/// Maximum full certificate: header, proof, sorted length-prefixed signatures,
+/// threshold and settlement reference, including every length/count prefix.
+pub const MAX_CHECKPOINT_BYTES: usize = {
+    let Some(signatures) = MAX_CHECKPOINT_SIGNATURES.checked_mul((4 + 32) + (4 + 64)) else {
+        panic!("checkpoint signatures exceed usize");
+    };
+    let fields = [
+        BATCH_ENCODED_BYTES,
+        4,
+        MAX_MESSAGE_BYTES,
+        4,
+        signatures,
+        4,
+        4,
+        MAX_SETTLEMENT_REFERENCE_BYTES,
+    ];
+    let mut total = 0_usize;
+    let mut index = 0;
+    while index < fields.len() {
+        let Some(next) = total.checked_add(fields[index]) else {
+            panic!("checkpoint certificate exceeds usize");
+        };
+        total = next;
+        index += 1;
+    }
+    total
+};
 const REPLAY_RECEIPT_BYTES: usize = 106;
 const PROGRAM_OUTCOME_V1: u32 = 0x5052_4731;
 const PROGRAM_OUTCOME_V2: u32 = 0x5052_4732;
@@ -1756,6 +1785,56 @@ pub struct CheckpointCertificate {
 }
 
 impl CheckpointCertificate {
+    /// Constructs bounded, ordered historical checkpoint material.
+    /// Decoding or constructing this value does not verify its signatures.
+    ///
+    /// # Errors
+    /// Rejects excessive fields, invalid thresholds and unsorted guarantors.
+    pub fn new(
+        header: BatchHeader,
+        validity_proof: Vec<u8>,
+        guarantor_signatures: Vec<([u8; 32], [u8; 64])>,
+        threshold: u32,
+        settlement_reference: Vec<u8>,
+    ) -> Result<Self, WireError> {
+        let certificate = Self {
+            header,
+            validity_proof,
+            guarantor_signatures,
+            threshold,
+            settlement_reference,
+        };
+        certificate.validate()?;
+        Ok(certificate)
+    }
+
+    fn validate(&self) -> Result<(), WireError> {
+        enforce(self.validity_proof.len(), MAX_MESSAGE_BYTES, 0)?;
+        enforce(
+            self.guarantor_signatures.len(),
+            MAX_CHECKPOINT_SIGNATURES,
+            0,
+        )?;
+        enforce(
+            self.settlement_reference.len(),
+            MAX_SETTLEMENT_REFERENCE_BYTES,
+            0,
+        )?;
+        let threshold = usize::try_from(self.threshold)
+            .map_err(|_| WireError::known(KnownResult::AttestationThreshold, 0))?;
+        if threshold == 0 || threshold > self.guarantor_signatures.len() {
+            return Err(WireError::known(KnownResult::AttestationThreshold, 0));
+        }
+        if self
+            .guarantor_signatures
+            .windows(2)
+            .any(|pair| pair[0].0 >= pair[1].0)
+        {
+            return Err(WireError::known(KnownResult::UnsortedSequence, 0));
+        }
+        Ok(())
+    }
+
     /// Returns the canonical batch header committed by this certificate.
     #[must_use]
     pub const fn header(&self) -> &BatchHeader {
@@ -1795,11 +1874,12 @@ impl CheckpointCertificate {
 /// Rejects invalid batch bytes, unsorted guarantors, threshold violations, and
 /// exceeded proof/reference bounds.
 pub fn decode_checkpoint(bytes: &[u8]) -> Result<CheckpointCertificate, WireError> {
-    let mut decoder = Decoder::new(bytes, MAX_MESSAGE_BYTES + 1024);
+    enforce(bytes.len(), MAX_CHECKPOINT_BYTES, 0)?;
+    let mut decoder = Decoder::new(bytes, MAX_CHECKPOINT_BYTES);
     let header_bytes = decoder.fixed(BATCH_ENCODED_BYTES)?;
     let header = decode_batch_header(header_bytes)?;
     let validity_proof = decoder.bytes_owned(MAX_MESSAGE_BYTES)?;
-    let signature_count = decoder.sequence_length(32)?;
+    let signature_count = decoder.sequence_length(MAX_CHECKPOINT_SIGNATURES)?;
     let mut guarantor_signatures = Vec::with_capacity(signature_count);
     let mut previous: Option<[u8; 32]> = None;
     for _ in 0..signature_count {
@@ -1821,7 +1901,7 @@ pub fn decode_checkpoint(bytes: &[u8]) -> Result<CheckpointCertificate, WireErro
             decoder.offset(),
         ));
     }
-    let settlement_reference = decoder.bytes_owned(1024)?;
+    let settlement_reference = decoder.bytes_owned(MAX_SETTLEMENT_REFERENCE_BYTES)?;
     decoder.finish()?;
     Ok(CheckpointCertificate {
         header,
@@ -1838,26 +1918,22 @@ pub fn decode_checkpoint(bytes: &[u8]) -> Result<CheckpointCertificate, WireErro
 ///
 /// Rejects invalid thresholds, ordering, and bounds.
 pub fn encode_checkpoint(certificate: &CheckpointCertificate) -> Result<Vec<u8>, WireError> {
-    let threshold = usize::try_from(certificate.threshold)
-        .map_err(|_| WireError::known(KnownResult::AttestationThreshold, 0))?;
-    if threshold == 0 || threshold > certificate.guarantor_signatures.len() {
-        return Err(WireError::known(KnownResult::AttestationThreshold, 0));
-    }
-    let keys: Vec<_> = certificate
-        .guarantor_signatures
-        .iter()
-        .map(|(identifier, _)| identifier.as_slice())
-        .collect();
-    crate::check_ordered_keys(&keys)?;
-    let mut encoder = Encoder::new(MAX_MESSAGE_BYTES + BATCH_ENCODED_BYTES + 4096);
+    certificate.validate()?;
+    let mut encoder = Encoder::new(MAX_CHECKPOINT_BYTES);
     encoder.fixed(&encode_batch_header(&certificate.header)?)?;
     encoder.bytes(&certificate.validity_proof, MAX_MESSAGE_BYTES)?;
-    encoder.sequence_length(certificate.guarantor_signatures.len(), 32)?;
+    encoder.sequence_length(
+        certificate.guarantor_signatures.len(),
+        MAX_CHECKPOINT_SIGNATURES,
+    )?;
     for (guarantor_id, signature) in &certificate.guarantor_signatures {
         encoder.bytes(guarantor_id, 32)?;
         encoder.bytes(signature, 64)?;
     }
     encoder.u32(certificate.threshold)?;
-    encoder.bytes(&certificate.settlement_reference, 1024)?;
+    encoder.bytes(
+        &certificate.settlement_reference,
+        MAX_SETTLEMENT_REFERENCE_BYTES,
+    )?;
     Ok(encoder.finish())
 }

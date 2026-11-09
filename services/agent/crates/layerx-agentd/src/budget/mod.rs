@@ -41,9 +41,10 @@ pub use program_lifecycle_settlement::verify_native_lifecycle_binding;
 pub mod program_settlement;
 mod program_sources;
 pub use program_sources::{
-    read_native_effect_budget_sources, read_native_lifecycle_budget_sources,
-    read_program_budget_sources, ProgramSourceError, ResolvedProgramCharge, ResolvedProgramSource,
-    VerifiedProgramBudgetAllocations, VerifiedResolvedProgramCharges,
+    read_native_effect_budget_sources, read_native_effect_budget_sources_call,
+    read_native_lifecycle_budget_sources, read_program_budget_sources,
+    read_program_budget_sources_call, ProgramSourceError, ResolvedProgramCharge,
+    ResolvedProgramSource, VerifiedProgramBudgetAllocations, VerifiedResolvedProgramCharges,
 };
 #[path = "hold.rs"]
 mod recovery;
@@ -343,11 +344,7 @@ fn reinstall_enrolment(
         successor: None,
     };
     let bytes = record.encode()?;
-    store.put_local(index.clone(), stable_id.to_vec())?;
-    if let Err(error) = store.put_local(key, bytes) {
-        store.remove_local(&index)?;
-        return Err(error.into());
-    }
+    store.commit_local_records(vec![(index, stable_id.to_vec()), (key, bytes)])?;
     Ok(record)
 }
 

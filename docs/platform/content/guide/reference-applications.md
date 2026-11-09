@@ -1,6 +1,6 @@
 # Reference applications
 
-Four cloneable applications live under `services/platform/examples`: a buyer agent that pays a metered API through buyer middleware, the paid API protected by seller middleware, a merchant shop with durable receipt-backed orders and signed settlement webhooks, and a marketplace implemented as a LayerX Network program.
+Four cloneable applications live under `services/platform/examples`: a buyer agent that pays a metered API through buyer middleware, the paid API protected by seller middleware, a merchant shop with durable receipt-backed orders and signed settlement webhooks, and a marketplace implemented as a LayerX kernel program.
 
 The checked-in `services/platform/examples/reference-apps.json` is the launch manifest. It names the exact emulator and beta command for every application. Public endpoints, the receipt protocol version (`protocolVersion`, `3` for both profiles) and the names of required environment variables are declared in each application's `layerx.example.json`; selecting a profile is the only way to select a network. A profile without a selectable `protocolVersion` is refused by name, and `run-reference-apps.mjs --check` refuses a profile whose declared version differs from the version the emulator scenario runs. Tokens remain server-side environment values and are never compiled into browser code.
 

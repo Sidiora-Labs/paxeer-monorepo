@@ -1,3 +1,6 @@
+#[path = "support/journal_entries.rs"]
+mod journal_entries;
+
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -76,8 +79,7 @@ fn journal_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
 }
 
 fn remove_journal(path: &Path) -> TestResult {
-    std::fs::remove_file(path)?;
-    std::fs::remove_dir(path.parent().ok_or("journal directory missing")?)?;
+    std::fs::remove_dir_all(path.parent().ok_or("journal directory missing")?)?;
     Ok(())
 }
 
@@ -751,7 +753,7 @@ fn budget_charged_through_precompile() -> TestResult {
     );
     let entries = std::fs::read_to_string(&harness.path)?
         .lines()
-        .map(serde_json::from_str::<Entry>)
+        .map(journal_entries::entry)
         .collect::<Result<Vec<_>, _>>()?;
     assert_eq!(entries.len(), 6);
     assert!(entries

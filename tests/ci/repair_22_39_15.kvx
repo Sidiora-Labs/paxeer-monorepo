@@ -1,0 +1,17 @@
+[repair.22.39.15]
+decision = "2787"
+acceptance = "22998.1"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+repair = "Point the published verification specification's fork-detector reference at ../detection/README.md instead of the upstream URL that returns 404."
+build_cmd = "python3 -m py_compile tests/ci/test_consensus_spec_links.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_consensus_spec_links.py"
+verified_revision = "The exact candidate revision is named in the private /out/run/gates.jsonl hf-done record, together with command, exit code and log path; the final handoff copies that evidence."
+
+[case.verification_relative_links]
+test = "tests/ci/test_consensus_spec_links.py::test_verification_spec_relative_links_resolve"
+criterion = "Every relative inline link and reference definition in verification/*.md resolves from its containing document to an existing filesystem target, including directory links; fragment-only links resolve to the containing file."
+coverage = "Sweep all verification Markdown files, decode URL paths, remove query and fragment components for filesystem resolution, report every missing target with its source line, and reject empty document or relative-link inventories."
+
+[case.local_fork_detector]
+test = "tests/ci/test_consensus_spec_links.py::test_fork_detector_reference_is_local"
+criterion = "Exactly one fork-detector reference definition targets ../detection/README.md and resolves to the repository's existing detection README file."

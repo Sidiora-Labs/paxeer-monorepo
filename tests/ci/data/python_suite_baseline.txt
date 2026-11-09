@@ -1,0 +1,2 @@
+# Exact failing module | retiring task | observed failure (gotcha 3514).
+services/platform/hosted/node/tests/test_reset_state.py | 22.39.133 | The supervisor socket is visible with its creation mode between the bind and the chmod of generation_transport.py serve, so the 0o660 assertion at line 347 races the server.

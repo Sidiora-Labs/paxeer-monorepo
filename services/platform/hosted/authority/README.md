@@ -40,10 +40,9 @@ cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.to
 cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_33_1473
 ```
 
-The focused documentation regression
-[`repair_22_33_1473.rs`](tests/repair_22_33_1473.rs) runs production receipt
-lookup, protected key loading and TLS routing in-process with committed signed
-receipts and loopback peers. It requires no environment variable, credential,
+The focused [service configuration, receipt transport and protected key tests](tests/repair_22_33_1473.rs)
+run production receipt lookup, protected key loading and TLS routing in-process
+with committed signed receipts and loopback peers. They require no environment variable, credential,
 live endpoint, external binary, subprocess toolchain, native artifact or device.
 
 Other integration targets live in [`tests/`](tests):
@@ -52,12 +51,12 @@ Other integration targets live in [`tests/`](tests):
 client against the binary with a private CA;
 [`budget_proof_exports.rs`](tests/budget_proof_exports.rs) covers budget exports;
 [`maintenance_identity.rs`](tests/maintenance_identity.rs) covers identity
-evidence. [`repair_22_31_207.rs`](tests/repair_22_31_207.rs) drives native
-execution and reopened committed state, while
-[`repair_22_31_208.rs`](tests/repair_22_31_208.rs) covers mixed receipt sequences
-and block heights, retained-state reopening, native proof refusals and budget
+evidence. The [receipt key rotation, retention and replay tests](tests/repair_22_31_207.rs)
+drive native execution and reopened committed state, while the
+[mixed receipt height, native proof and budget TLS tests](tests/repair_22_31_208.rs)
+cover mixed receipt sequences and block heights, retained-state reopening,
+native proof refusals and budget
 export across TLS. Recorded inputs live in [`tests/fixtures`](tests/fixtures).
-Only the focused target above is the gate for this documentation repair.
 
 Human integration evidence is mandatory before enabling human routes in a
 deployment. Retain the tested revision, exact command, exit code and private
@@ -137,17 +136,13 @@ this is not an independently bootstrapped light client. LNI receipt sourcing is 
 503 with retry guidance. It does not assert that all optional human-state proofs
 or downstream services are available.
 
-For audit finding `authority-readme-lni` (record `22.30.85`), task `22.33.1473`
-maps the repair to `readme_matches_service_sources_and_configuration`,
-`documented_receipt_transport_and_tls_refusals`, and
-`documented_protected_key_list_and_restart_rules` in the focused target.
-The private `hf-build`/`hf-done` ledger is the qualification record and names
-the verified revision, command, exit code and log location. No baseline verify
-was run: the implementation-first order and prohibition on a manual verify
-take precedence over the conflicting unchanged-tree step; no pre-change test
-failure is claimed. Wiring request: `spec/layerx-merge/spec.kvx` —
-platform/domain8 task-record owner: retain this finding/test mapping and the
-runner's qualification evidence; the task's scope excludes manual spec edits.
+The focused target includes `readme_matches_service_sources_and_configuration`,
+which checks linked sources and documented settings;
+`documented_receipt_transport_and_tls_refusals`, which exercises receipt lookup
+and TLS refusal paths; and `documented_protected_key_list_and_restart_rules`,
+which checks protected key files and restart behavior. These checks cover the
+receipt-source configuration and transport described here. They do not replace
+the Human integration evidence required above.
 
 ## Human agent contract
 

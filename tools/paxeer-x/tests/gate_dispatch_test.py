@@ -12,7 +12,7 @@ import unittest
 sys.dont_write_bytecode = True
 TOOLS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS))
-from candidate import SCHEMA, UNKNOWN, BINDING_FIELDS, Invalid, load_private, write_private
+from candidate import SCHEMA, UNKNOWN, BINDING_FIELDS, SERVICE_CATALOGUE, Invalid, load_private, write_private
 
 PASS_GATE = '''#!/bin/sh
 # paxeer-x-services: svc-01
@@ -20,7 +20,7 @@ if [ -n "${GATE_MARKER:-}" ]; then echo ran >> "$GATE_MARKER"; fi
 echo "PAXEER_X_GATE tests=3 skipped=0"
 '''
 SERVICES = ''.join('[service.svc-%02d]\npurpose = "purpose"\nroute = "route"\ndependencies = "none"\n\n' % i
-                   for i in range(1, 32))
+                   for i in range(1, 41))
 TASKS = {'1.1': ['1'], '1.2': ['1'], '1.3': ['3'], '1.4': ['3'], '1.5': ['3'], '1.6': ['3'],
          '1.9': ['2']}
 
@@ -36,8 +36,11 @@ class GateDispatchTest(unittest.TestCase):
         for name in ('candidate.py', 'candidate_contract.go', 'route-catalogue.json',
                      'verify-task.sh', 'release.sh'):
             shutil.copy2(TOOLS / name, self.tools / name)
-        self.spec = self.tools / 'gates/registry.kvx'
-        self.spec.write_text('[meta]\nstatus = "active"\n\n' + SERVICES + ''.join(
+        self.spec = self.repo / SERVICE_CATALOGUE
+        self.spec.parent.mkdir(parents=True)
+        self.spec.write_text('[meta]\nstatus = "active"\n\n' + SERVICES)
+        registry = self.tools / 'gates/registry.kvx'
+        registry.write_text('[meta]\nstatus = "active"\n\n' + ''.join(
             '[task.%s]\ntitle = "task %s"\nstatus = "pending"\nreqs = %s\n\n' % (task, task, json.dumps(reqs))
             for task, reqs in TASKS.items()))
         self.gate('1.1', PASS_GATE)

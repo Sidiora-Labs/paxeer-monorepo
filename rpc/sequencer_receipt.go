@@ -141,7 +141,7 @@ type SequencerReceiptView struct {
 	GasUsed           hexutil.Uint64        `json:"gasUsed"`
 	CumulativeGasUsed hexutil.Uint64        `json:"cumulativeGasUsed"`
 	EffectiveGasPrice hexutil.Uint64        `json:"effectiveGasPrice"`
-	PaymentDenom      string                `json:"paymentDenom"`
+	PaymentDenom      string                `json:"paymentDenom"` // SHA-256 of this denomination is the signed receipt asset.
 	FeeDenom          string                `json:"feeDenom"`
 	FeeAmount         *hexutil.Big          `json:"feeAmount"`
 	Sponsor           common.Address        `json:"sponsor"`
@@ -375,7 +375,8 @@ type ReceiptKey struct {
 	LastHeight  uint64        `json:"lastHeight"`
 }
 
-// ReceiptKeysResult carries the node's governed receipt keys, including an empty list.
+// ReceiptKeysResult is the object envelope for the node's governed receipt keys.
+// Heights are JSON numbers; an empty key set is encoded as {"keys": []}.
 type ReceiptKeysResult struct {
 	Keys []ReceiptKey `json:"keys"`
 }

@@ -468,7 +468,7 @@ impl LocalServer {
             "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap(),
             "head_sequence":fixture.budget_state["observed_head_sequence"],
             "revocation_sequence":fixture.budget_state["revocation_sequence"],
-            "verification_level":"checkpoint_finalised", "frozen":false,
+            "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "frozen":false,
             "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap()}]
         });
         let server = Self::spawn(listener, move |stream| {
@@ -1048,7 +1048,11 @@ fn approval_release_tracks_from_grant_through_submission_receipt_and_restart() {
     ));
     let shared = Arc::new(Mutex::new(store));
     let mut owner = runtime.owner(&fixture, &peers, Arc::clone(&shared));
-    let core_time = must(endpoint.block_by_number(sequence)).unwrap().timestamp;
+    let core_time = must(endpoint.block_by_number(sequence))
+        .unwrap()
+        .timestamp
+        .checked_mul(1_000)
+        .expect("protocol timestamp in milliseconds");
     let activity = must(layerx_types::payload::ActivityType::new(
         layerx_types::payload::ModuleId::Asset,
         5,
@@ -1369,6 +1373,7 @@ fn submit_frame(request: &HumanSubmit) -> Vec<u8> {
 }
 
 fn assert_refused(response: &[u8]) {
+    // TRACK authorization and release lookup refuse outside managed_agent.
     assert_eq!(
         response,
         layerx_agentd::human::encode_response(Err(HumanOperationError::Refused))

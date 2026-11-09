@@ -1,5 +1,6 @@
 //! Canonical, allocation-free big-endian codecs. Decode validates before exposing a view.
 //! Caller-provided output buffers are transport scratch, never authoritative state.
+use crate::types::GuestIndex as _;
 use crate::{
     dispatch::{CallBoundary, Operation, SequencePolicy},
     errors::{
@@ -17,6 +18,7 @@ use crate::{
     MAX_CHUNK_BYTES, MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_PAYLOAD_BYTES, MAX_RESULT_BYTES,
     MAX_RESULT_PAYLOAD_BYTES, MAX_STATE_BYTES, MAX_WORKERS, SCHEMA_VERSION,
 };
+#[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
 use sha2::{Digest, Sha256};
 
 pub const PARTICIPANT_METADATA_DOMAIN_V1: &str = "PAXAI/worker-metadata/v1";
@@ -40,30 +42,164 @@ pub fn encode_manifest_v2(
     output_size(out, size, MAX_MANIFEST_BYTES)?;
     let mut w = Writer::new(out);
     w.u16(2)?;
-    w.put(&manifest.manifest_v1[2..])?;
+    w.put(manifest.manifest_v1.guest_index(2..))?;
     manifest.capabilities.write(&mut w)?;
     Ok(w.len())
 }
 
-/// One concrete streaming implementation shared by the artifact, reputation and
-/// cursor codecs. Slice arguments keep array lengths out of monomorphization;
-/// guest calls retain one copy of SHA-256's update and finalization paths.
-pub(crate) struct Sha256State(Sha256);
+/// One compact streaming implementation for guest software hashing, including
+/// preimages larger than the host primitive accepts. Native debug calls compare
+/// every result with the existing sha2 implementation.
+pub(crate) struct Sha256State {
+    state: [u32; 8],
+    block: [u8; 64],
+    used: usize,
+    length: u64,
+    #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+    reference: Sha256,
+}
+
+#[inline(always)]
+fn copy_hash_bytes(destination: &mut [u8], source: &[u8]) {
+    #[cfg(target_arch = "wasm32")]
+    crate::guest_cell::copy_slice_inline(destination, source);
+    #[cfg(not(target_arch = "wasm32"))]
+    destination.copy_from_slice(source);
+}
+
+const SHA256_ROUNDS: [u32; 64] = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+];
 
 impl Sha256State {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn new() -> Self {
-        Self(Sha256::new())
+        Self {
+            state: [
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+                0x5be0cd19,
+            ],
+            block: [0; 64],
+            used: 0,
+            length: 0,
+            #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+            reference: Sha256::new(),
+        }
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn update(&mut self, bytes: &[u8]) {
-        self.0.update(bytes);
+        #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+        self.reference.update(bytes);
+        self.length = self.length.wrapping_add(bytes.len() as u64);
+        self.absorb(bytes);
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
-    pub(crate) fn finalize(self) -> [u8; 32] {
-        self.0.finalize().into()
+    fn absorb(&mut self, mut bytes: &[u8]) {
+        while !bytes.is_empty() {
+            let n = bytes.len().min(64 - self.used);
+            copy_hash_bytes(
+                self.block.guest_index_mut(self.used..self.used + n),
+                bytes.guest_index(..n),
+            );
+            self.used += n;
+            bytes = bytes.guest_index(n..);
+            if self.used == 64 {
+                compress_sha256(&mut self.state, &self.block);
+                self.used = 0;
+            }
+        }
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn finalize(mut self) -> [u8; 32] {
+        let bits = self.length.wrapping_mul(8).to_be_bytes();
+        self.absorb(&[0x80]);
+        if self.used > 56 {
+            self.absorb(([0; 64]).guest_index(..64 - self.used));
+        }
+        self.absorb(([0; 64]).guest_index(..56 - self.used));
+        self.absorb(&bits);
+        let mut digest = [0; 32];
+        for (chunk, word) in digest
+            .as_chunks_mut::<{ 4 }>()
+            .0
+            .iter_mut()
+            .map(|chunk| chunk.as_mut_slice())
+            .zip(self.state)
+        {
+            copy_hash_bytes(chunk, &word.to_be_bytes());
+        }
+        #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+        {
+            let reference: [u8; 32] = self.reference.finalize().into();
+            debug_assert_eq!(digest, reference);
+        }
+        digest
+    }
+}
+
+// The table-driven rounds of the vendored sha2 soft_compact backend, shared by
+// every block instead of instantiating its unrolled software backend in the guest.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn compress_sha256(state: &mut [u32; 8], block: &[u8; 64]) {
+    let mut schedule = [0_u32; 64];
+    for (word, bytes) in schedule.iter_mut().zip(
+        block
+            .as_chunks::<{ 4 }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice()),
+    ) {
+        *word = u32::from_be_bytes([
+            *bytes.guest_index(0),
+            *bytes.guest_index(1),
+            *bytes.guest_index(2),
+            *bytes.guest_index(3),
+        ]);
+    }
+    for i in 16..64 {
+        let x = *schedule.guest_index(i - 15);
+        let s0 = x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3);
+        let y = *schedule.guest_index(i - 2);
+        let s1 = y.rotate_right(17) ^ y.rotate_right(19) ^ (y >> 10);
+        *schedule.guest_index_mut(i) = schedule
+            .guest_index(i - 16)
+            .wrapping_add(s0)
+            .wrapping_add(*schedule.guest_index(i - 7))
+            .wrapping_add(s1);
+    }
+    let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *state;
+    for (word, constant) in schedule.iter().zip(SHA256_ROUNDS) {
+        let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
+        let choose = (e & f) ^ ((!e) & g);
+        let t1 = h
+            .wrapping_add(s1)
+            .wrapping_add(choose)
+            .wrapping_add(constant)
+            .wrapping_add(*word);
+        let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
+        let majority = (a & b) ^ (a & c) ^ (b & c);
+        let t2 = s0.wrapping_add(majority);
+        h = g;
+        g = f;
+        f = e;
+        e = d.wrapping_add(t1);
+        d = c;
+        c = b;
+        b = a;
+        a = t1.wrapping_add(t2);
+    }
+    for (word, value) in state.iter_mut().zip([a, b, c, d, e, f, g, h]) {
+        *word = word.wrapping_add(value);
     }
 }
 
@@ -87,13 +223,326 @@ pub(crate) fn sort_by<T>(values: &mut [T], compare: impl FnMut(&T, &T) -> core::
         let mut compare = compare;
         for i in 1..values.len() {
             let mut j = i;
-            while j > 0 && compare(&values[j], &values[j - 1]).is_lt() {
-                values.swap(j, j - 1);
+            while j > 0 && compare(values.guest_index(j), values.guest_index(j - 1)).is_lt() {
+                values.guest_swap(j, j - 1);
                 j -= 1;
             }
         }
     }
 }
+
+impl crate::types::InitialField for crate::evaluators::admission::ChallengeCategory {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
+        Self::SignatureOrDomain
+    }
+}
+impl crate::types::InitialField for crate::evaluators::model::GrantStatus {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
+        Self::Pending
+    }
+}
+impl crate::types::InitialField for crate::workers::WorkerState {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
+        Self::Enrolled
+    }
+}
+impl crate::types::InitialField for crate::rooms::RoomState {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
+        Self::Open
+    }
+}
+impl crate::types::InitialField for crate::rooms::AskState {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
+        Self::Open
+    }
+}
+impl crate::types::InitialField for crate::rooms::DealState {
+    fn initial(_: crate::types::CheckedIdentityBytes<'_>) -> Self {
+        Self::Open
+    }
+}
+impl crate::types::InitialField for crate::policy::RoomProfile {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn initial(seed: crate::types::CheckedIdentityBytes<'_>) -> Self {
+        Self {
+            minimum_bond: 0,
+            canary_ratio_bps: 0,
+            lap_size_tokens: 0,
+            challenge_window_blocks: 0,
+            slash_fraction_bps: 0,
+            host_share_bps: 0,
+            protocol_share_bps: 0,
+            settlement_account: crate::types::InitialField::initial(seed),
+        }
+    }
+}
+// Borrow scalar fields so endian conversion stays in one shared writer rather
+// than being inlined into each record's table construction.
+pub(crate) enum WriteField<'a> {
+    Bytes(&'a [u8]),
+    Id32(&'a [u8; 32]),
+    U8(u8),
+    U16(&'a u16),
+    U32(&'a u32),
+    U64(&'a u64),
+    U128(&'a u128),
+}
+macro_rules! write_destination {
+    (id32, $value:expr) => {
+        $crate::codec::WriteField::Id32($value)
+    };
+    (put, $value:expr) => {
+        $crate::codec::WriteField::Bytes($value)
+    };
+    (u8, $value:expr) => {
+        $crate::codec::WriteField::U8($value)
+    };
+    (u16, $value:expr) => {
+        $crate::codec::WriteField::U16(&$value)
+    };
+    (u32, $value:expr) => {
+        $crate::codec::WriteField::U32(&$value)
+    };
+    (u64, $value:expr) => {
+        $crate::codec::WriteField::U64(&$value)
+    };
+    (u128, $value:expr) => {
+        $crate::codec::WriteField::U128(&$value)
+    };
+}
+pub(crate) use write_destination;
+macro_rules! field_list {
+    ($($kind:ident: $value:expr;)+) => {
+        &[$($crate::codec::write_destination!($kind, $value),)+]
+    };
+}
+pub(crate) use field_list;
+macro_rules! write_fields {
+    ($w:expr; $($kind:ident: $value:expr;)+) => {
+        $w.fields($crate::codec::field_list!($($kind: $value;)+))
+    };
+}
+pub(crate) use write_fields;
+
+// A record decoder exposes its value only after this loop has overwritten every
+// destination in wire order. A short/invalid field returns immediately; seeded
+// scratch is never used as a fallback for malformed input.
+pub(crate) enum ReadField<'a> {
+    Checked32(&'a mut [u8; 32]),
+    Policy32(&'a mut [u8; 32]),
+    U8(&'a mut u8),
+    U16(&'a mut u16),
+    U32(&'a mut u32),
+    U64(&'a mut u64),
+    U128(&'a mut u128),
+    Boolean(&'a mut bool),
+    Version(&'a mut Version),
+    Score(&'a mut Score),
+    PublicKey32(&'a mut PublicKey32),
+    Fixed4(&'a mut [u8; 4]),
+    Fixed8(&'a mut [u8; 8]),
+    Fixed16(&'a mut [u8; 16]),
+    Fixed32(&'a mut [u8; 32]),
+    Fixed64(&'a mut [u8; 64]),
+    PresencePrincipal(&'a mut Presence<PrincipalId>),
+    RoomProfile(&'a mut crate::policy::RoomProfile),
+    ChallengeCategory(&'a mut crate::evaluators::admission::ChallengeCategory),
+    GrantStatus(&'a mut crate::evaluators::model::GrantStatus),
+    WorkerState(&'a mut crate::workers::WorkerState),
+    RoomState(&'a mut crate::rooms::RoomState),
+    AskState(&'a mut crate::rooms::AskState),
+}
+
+// All identity destinations share one checked copy, while factories keep the
+// caller's concrete identity type. Failed validation never mutates a destination.
+#[allow(non_snake_case)]
+impl<'a> ReadField<'a> {
+    pub(crate) fn PrincipalId(out: &'a mut PrincipalId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn ProgramId(out: &'a mut ProgramId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn MarketId(out: &'a mut MarketId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn WorkerId(out: &'a mut WorkerId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn EvaluatorId(out: &'a mut EvaluatorId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn AccountId(out: &'a mut AccountId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn AssetId(out: &'a mut AssetId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn RequestId(out: &'a mut RequestId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn TaskId(out: &'a mut TaskId) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn Digest32(out: &'a mut Digest32) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn ChainDomain(out: &'a mut ChainDomain) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn RequestDigest(out: &'a mut RequestDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn ReportDigest(out: &'a mut ReportDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn AttestationDigest(out: &'a mut AttestationDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn CommitmentDigest(out: &'a mut CommitmentDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn RosterDigest(out: &'a mut RosterDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn ResultDigest(out: &'a mut ResultDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn StateDigest(out: &'a mut StateDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn EvidenceRoot(out: &'a mut EvidenceRoot) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn MetadataDigest(out: &'a mut MetadataDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn RubricDigest(out: &'a mut RubricDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn PolicyDigest(out: &'a mut PolicyDigest) -> Self {
+        Self::Checked32(out.decode_destination())
+    }
+    pub(crate) fn PolicyDigest32(out: &'a mut Digest32) -> Self {
+        Self::Policy32(out.decode_destination())
+    }
+    pub(crate) fn PolicyRubric(out: &'a mut RubricDigest) -> Self {
+        Self::Policy32(out.decode_destination())
+    }
+    pub(crate) fn PolicyAccount(out: &'a mut AccountId) -> Self {
+        Self::Policy32(out.decode_destination())
+    }
+}
+
+#[inline(never)]
+pub(crate) fn read_fields(r: &mut Reader<'_>, fields: &mut [ReadField<'_>]) -> CodecResult<()> {
+    for field in fields {
+        match field {
+            ReadField::Checked32(out) => {
+                **out = *r.checked_identity()?.bytes();
+            }
+            ReadField::Policy32(out) => {
+                let bytes = r.take(32)?.try_into().map_err(|_| NON_CANONICAL)?;
+                **out = *crate::types::CheckedIdentityBytes::new(bytes)
+                    .map_err(|_| crate::errors::F01_INVALID_POLICY)?
+                    .bytes();
+            }
+            ReadField::U8(out) => **out = r.u8()?,
+            ReadField::U16(out) => **out = r.u16()?,
+            ReadField::U32(out) => **out = r.u32()?,
+            ReadField::U64(out) => **out = r.u64()?,
+            ReadField::U128(out) => **out = r.u128()?,
+            ReadField::Boolean(out) => **out = r.boolean()?,
+            ReadField::Version(out) => **out = r.version()?,
+            ReadField::Score(out) => **out = r.score()?,
+            ReadField::PublicKey32(out) => r.copy_into(&mut out.0)?,
+            ReadField::Fixed4(out) => r.copy_into(out.guest_index_mut(..))?,
+            ReadField::Fixed8(out) => r.copy_into(out.guest_index_mut(..))?,
+            ReadField::Fixed16(out) => r.copy_into(out.guest_index_mut(..))?,
+            ReadField::Fixed32(out) => r.copy_into(out.guest_index_mut(..))?,
+            ReadField::Fixed64(out) => r.copy_into(out.guest_index_mut(..))?,
+            ReadField::PresencePrincipal(out) => **out = r.presence(|r| r.principal_id())?,
+            ReadField::RoomProfile(out) => **out = r.room_profile()?,
+            ReadField::ChallengeCategory(out) => {
+                **out = crate::evaluators::admission::ChallengeCategory::decode(r.u8()?)?
+            }
+            ReadField::GrantStatus(out) => {
+                **out = crate::evaluators::model::GrantStatus::decode(r.u8()?)?
+            }
+            ReadField::WorkerState(out) => **out = crate::workers::WorkerState::from_u8(r.u8()?)?,
+            ReadField::RoomState(out) => **out = crate::rooms::RoomState::decode(r.u8()?)?,
+            ReadField::AskState(out) => **out = crate::rooms::AskState::decode(r.u8()?)?,
+        }
+    }
+    Ok(())
+}
+
+pub(crate) trait FixedField {
+    fn destination(&mut self) -> ReadField<'_>;
+}
+macro_rules! fixed_fields {
+    ($($size:literal => $variant:ident),+ $(,)?) => {$(
+        impl FixedField for [u8; $size] {
+            fn destination(&mut self) -> ReadField<'_> { ReadField::$variant(self) }
+        }
+    )+};
+}
+fixed_fields! { 4 => Fixed4, 8 => Fixed8, 16 => Fixed16, 32 => Fixed32, 64 => Fixed64 }
+macro_rules! field_destination {
+    (Fixed, $out:expr) => {
+        $crate::codec::FixedField::destination($out)
+    };
+    ($kind:ident, $out:expr) => {
+        $crate::codec::ReadField::$kind($out)
+    };
+}
+pub(crate) use field_destination;
+
+macro_rules! read_record {
+    ($r:expr, $record:ident { $($prefix:ident = $before:expr;)* };
+     $first:ident = $read:expr;
+     $($field:ident : $kind:ident),+ $(,)?) => {{
+        $(let $prefix = $before;)*
+        let $first = $read;
+        let seed = $crate::types::CheckedIdentity::seed(&$first);
+        let mut value = $record {
+            $($prefix,)* $first,
+            $($field: $crate::types::InitialField::initial(seed),)+
+        };
+        $crate::codec::read_fields($r, &mut [
+            $($crate::codec::field_destination!($kind, &mut value.$field),)+
+        ])?;
+        value
+    }};
+}
+pub(crate) use read_record;
+macro_rules! read_values {
+    ($r:expr; scalars; $($field:ident : $kind:ident),+ $(,)?) => {{
+        $(let mut $field = Default::default();)+
+        $crate::codec::read_fields($r, &mut [
+            $($crate::codec::field_destination!($kind, &mut $field),)+
+        ])?;
+        ($($field,)+)
+    }};
+    ($r:expr; seed = $seed:expr; $($field:ident : $kind:ident),+ $(,)?) => {{
+        let seed = $crate::types::CheckedIdentity::seed(&$seed);
+        $(let mut $field = $crate::types::InitialField::initial(seed);)+
+        $crate::codec::read_fields($r, &mut [
+            $($crate::codec::field_destination!($kind, &mut $field),)+
+        ])?;
+        ($($field,)+)
+    }};
+    ($r:expr; $first:ident = $read:expr; $($field:ident : $kind:ident),+ $(,)?) => {{
+        let $first = $read;
+        let seed = $crate::types::CheckedIdentity::seed(&$first);
+        $(let mut $field = $crate::types::InitialField::initial(seed);)+
+        $crate::codec::read_fields($r, &mut [
+            $($crate::codec::field_destination!($kind, &mut $field),)+
+        ])?;
+        ($first, $($field,)+)
+    }};
+}
+pub(crate) use read_values;
 
 #[derive(Clone, Copy)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -110,14 +559,28 @@ macro_rules! read_identity {
         ///
         /// # Errors
         /// Propagates the reader and the identity constructor's refusals.
-        #[cfg_attr(target_arch = "wasm32", inline(never))]
+        #[cfg_attr(target_arch = "wasm32", inline(always))]
+        #[cfg_attr(not(target_arch = "wasm32"), inline(always))]
         pub fn $method(&mut self) -> CodecResult<$ty> {
-            $ty::new(self.fixed()?)
+            Ok($ty::from_checked(self.checked_identity()?))
         }
     )+};
 }
 
 impl<'a> Reader<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn checked_identity(&mut self) -> CodecResult<crate::types::CheckedIdentityBytes<'a>> {
+        crate::types::CheckedIdentityBytes::new(
+            self.take(32)?.try_into().map_err(|_| NON_CANONICAL)?,
+        )
+    }
+
+    /// Reads a nonzero salt, retaining its distinct invalid-salt status.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn salt32(&mut self) -> CodecResult<Salt32> {
+        Salt32::new(self.fixed()?)
+    }
+
     read_identity! {
         principal_id: PrincipalId,
         program_id: ProgramId,
@@ -141,7 +604,21 @@ impl<'a> Reader<'a> {
         metadata_digest: MetadataDigest,
         rubric_digest: RubricDigest,
         policy_digest: PolicyDigest,
-        salt32: Salt32,
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn policy_digest32(&mut self) -> CodecResult<Digest32> {
+        Digest32::new(self.fixed()?).map_err(|_| crate::errors::F01_INVALID_POLICY)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn policy_rubric(&mut self) -> CodecResult<RubricDigest> {
+        RubricDigest::new(self.fixed()?).map_err(|_| crate::errors::F01_INVALID_POLICY)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn policy_account(&mut self) -> CodecResult<AccountId> {
+        AccountId::new(self.fixed()?).map_err(|_| crate::errors::F01_INVALID_POLICY)
     }
 
     /// Reads a nonzero big-endian version.
@@ -190,6 +667,11 @@ impl<'a> Reader<'a> {
     pub fn remaining(&self) -> usize {
         self.input.len() - self.offset
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn room_profile(&mut self) -> CodecResult<crate::policy::RoomProfile> {
+        crate::policy::RoomProfile::decode(self.take(crate::policy::ROOM_PROFILE_BYTES)?)
+    }
+
     /// Consumes exactly `length` bytes.
     ///
     /// # Errors
@@ -201,11 +683,17 @@ impl<'a> Reader<'a> {
         self.offset = end;
         Ok(bytes)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn copy_into(&mut self, out: &mut [u8]) -> CodecResult<()> {
+        out.guest_copy_from_slice(self.take(out.len())?);
+        Ok(())
+    }
+
     /// Consumes a fixed `N`-byte array.
     ///
     /// # Errors
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[inline(always)]
     pub fn fixed<const N: usize>(&mut self) -> CodecResult<[u8; N]> {
         self.take(N)?.try_into().map_err(|_| NON_CANONICAL)
     }
@@ -215,7 +703,7 @@ impl<'a> Reader<'a> {
     /// Propagates `take`'s `ARITHMETIC`/`NON_CANONICAL` refusals.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn u8(&mut self) -> CodecResult<u8> {
-        Ok(self.fixed::<1>()?[0])
+        Ok(*(self.fixed::<1>()?).guest_index(0))
     }
     /// Reads a big-endian `u16`.
     ///
@@ -350,6 +838,24 @@ impl<'a> Writer<'a> {
     pub const fn is_empty(&self) -> bool {
         self.offset == 0
     }
+    /// Writes ordered wire fields through one checked loop. Each failed write
+    /// stops at the same field and leaves the same previously written prefix.
+    #[inline(never)]
+    pub(crate) fn fields(&mut self, fields: &[WriteField<'_>]) -> CodecResult<()> {
+        for field in fields {
+            match field {
+                WriteField::Bytes(bytes) => self.put(bytes)?,
+                WriteField::Id32(bytes) => self.put(bytes.guest_index(..))?,
+                WriteField::U8(value) => self.u8(*value)?,
+                WriteField::U16(value) => self.u16(**value)?,
+                WriteField::U32(value) => self.u32(**value)?,
+                WriteField::U64(value) => self.u64(**value)?,
+                WriteField::U128(value) => self.u128(**value)?,
+            }
+        }
+        Ok(())
+    }
+
     /// Appends `bytes`.
     ///
     /// # Errors
@@ -360,10 +866,17 @@ impl<'a> Writer<'a> {
         self.output
             .get_mut(self.offset..end)
             .ok_or(CAPACITY)?
-            .copy_from_slice(bytes);
+            .guest_copy_from_slice(bytes);
         self.offset = end;
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn room_profile(&mut self, value: &crate::policy::RoomProfile) -> CodecResult<()> {
+        let mut bytes = [0; crate::policy::ROOM_PROFILE_BYTES];
+        value.encode(&mut bytes)?;
+        self.put(&bytes)
+    }
+
     /// Writes one byte.
     ///
     /// # Errors
@@ -464,7 +977,7 @@ fn schema(r: &mut Reader<'_>) -> CodecResult<()> {
 /// Returns `NON_CANONICAL` for empty, over-39-digit, leading-zero or non-digit text; `ARITHMETIC` when the value overflows `u128`.
 pub fn decimal_u128(text: &str) -> CodecResult<u128> {
     let b = text.as_bytes();
-    if b.is_empty() || b.len() > 39 || (b.len() > 1 && b[0] == b'0') {
+    if b.is_empty() || b.len() > 39 || (b.len() > 1 && *b.guest_index(0) == b'0') {
         return Err(NON_CANONICAL);
     }
     let mut value = 0_u128;
@@ -494,12 +1007,14 @@ pub fn decimal_u64(text: &str) -> CodecResult<u64> {
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the domain is empty, non-ASCII or contains NUL, or the digest is all zero.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn domain_hash(domain: &str, bytes: &[u8]) -> CodecResult<Digest32> {
     if domain.is_empty() || !domain.is_ascii() || domain.as_bytes().contains(&0) {
         return Err(NON_CANONICAL);
     }
     hash_parts(domain, &[bytes])
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn hash_parts(domain: &str, parts: &[&[u8]]) -> CodecResult<Digest32> {
     Digest32::new(sha256(
         [domain.as_bytes(), &[0]]
@@ -538,7 +1053,7 @@ fn sha256_parts<'p>(parts: &mut dyn Iterator<Item = &'p [u8]>) -> CodecResult<[u
                 // Preserve arbitrary-length hashing without replaying or cloning
                 // the iterator: resume in software with the buffered prefix.
                 let mut h = Sha256State::new();
-                h.update(&preimage[..length]);
+                h.update(preimage.guest_index(..length));
                 h.update(part);
                 for part in parts {
                     h.update(part);
@@ -546,11 +1061,13 @@ fn sha256_parts<'p>(parts: &mut dyn Iterator<Item = &'p [u8]>) -> CodecResult<[u
                 return Ok(h.finalize());
             }
             let end = length + part.len();
-            preimage[length..end].copy_from_slice(part);
+            preimage
+                .guest_index_mut(length..end)
+                .guest_copy_from_slice(part);
             length = end;
         }
         use layerx_program_sdk::crypto::{hash, HashAlgorithm, HashInput};
-        return HashInput::new(&preimage[..length])
+        return HashInput::new(preimage.guest_index(..length))
             .and_then(|input| hash(HashAlgorithm::Sha256, input))
             .map_err(|_| crate::errors::HOST_CAPABILITY);
     }
@@ -671,6 +1188,7 @@ impl<'a> ValidatedEnvelope<'a> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the digest is all zero.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn request_digest(&self) -> CodecResult<RequestDigest> {
         RequestDigest::new(domain_hash("PAXAI/request/v1", self.unsigned)?.bytes())
     }
@@ -692,7 +1210,14 @@ impl Envelope<'_> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         let m = self.operation.metadata();
-        self.operation.validate_payload_length(self.payload.len())?;
+        if let Err(error) = self.operation.validate_payload_length(self.payload.len()) {
+            if self.operation == crate::dispatch::RevealScore
+                && self.payload.len() < crate::commit_reveal::commitment::REVEAL_MIN_BYTES
+            {
+                decode_reveal_score(self.payload)?;
+            }
+            return Err(error);
+        }
         if self.payload.len() > MAX_PAYLOAD_BYTES || self.expiry == 0 {
             return Err(NON_CANONICAL);
         }
@@ -741,6 +1266,7 @@ impl Envelope<'_> {
     ///
     /// # Errors
     /// Returns `EXPIRED` when `expiry` is zero or `height` has reached it.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn check_expiry(&self, height: u64) -> CodecResult<()> {
         if self.expiry == 0 || height >= self.expiry {
             Err(EXPIRED)
@@ -752,6 +1278,7 @@ impl Envelope<'_> {
     ///
     /// # Errors
     /// Returns `WRONG_DOMAIN`, `WRONG_PROGRAM` or `WRONG_MARKET` for the first mismatch, in that order.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn check_domain(
         &self,
         chain: ChainDomain,
@@ -778,6 +1305,16 @@ fn registry_before_epoch(selector: u16) -> bool {
 /// Returns `CAPACITY` when the input or payload exceeds its cap; `NON_CANONICAL` for a bad magic, zero identity, unknown authentication kind, short or trailing input; `BAD_VERSION` for a wrong schema; `UNKNOWN_OPERATION` for an unknown selector; propagates `Envelope::validate` refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
+    let (envelope, unsigned) = decode_envelope_fields(input, false)?;
+    envelope.validate()?;
+    Ok(ValidatedEnvelope { envelope, unsigned })
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn decode_envelope_fields(
+    input: &[u8],
+    canary: bool,
+) -> CodecResult<(Envelope<'_>, &[u8])> {
     if input.len() > MAX_ENVELOPE_BYTES {
         return Err(CAPACITY);
     }
@@ -787,19 +1324,28 @@ pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
     }
     schema(&mut r)?;
     let operation = Operation::decode(r.u16()?)?;
-    let chain = r.chain_domain()?;
-    let program = r.program_id()?;
-    let market = r.market_id()?;
-    let actor = r.principal_id()?;
-    let epoch = r.u64()?;
-    let config = r.u64()?;
-    let roster = read_optional_roster(&mut r)?;
+    let (chain, program, market, actor, epoch, config) = crate::codec::read_values!(&mut r; chain = r.chain_domain()?;
+        program: ProgramId,
+        market: MarketId,
+        actor: PrincipalId,
+        epoch: U64,
+        config: U64,
+    );
+    let roster = if canary {
+        Presence::Present(r.roster_digest()?)
+    } else {
+        read_optional_roster(&mut r)?
+    };
     let sequence = r.u64()?;
     let expiry = r.u64()?;
     let request = r.request_id()?;
     let payload = r.bytes(MAX_PAYLOAD_BYTES)?;
-    let unsigned = &input[..r.offset()];
-    let authentication = match r.u8()? {
+    let unsigned = input.guest_index(..r.offset());
+    let kind = r.u8()?;
+    if canary && kind != 0 {
+        return Err(UNAUTHORIZED);
+    }
+    let authentication = match kind {
         0 => Authentication::Native,
         1 => Authentication::Delegate {
             key: PublicKey32(r.fixed()?),
@@ -823,8 +1369,7 @@ pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
         payload,
         authentication,
     };
-    envelope.validate()?;
-    Ok(ValidatedEnvelope { envelope, unsigned })
+    Ok((envelope, unsigned))
 }
 /// Encodes a validated envelope into `output`.
 ///
@@ -833,6 +1378,14 @@ pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_envelope(value: &Envelope<'_>, output: &mut [u8]) -> CodecResult<usize> {
     value.validate()?;
+    encode_envelope_fields(value, output)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn encode_envelope_fields(
+    value: &Envelope<'_>,
+    output: &mut [u8],
+) -> CodecResult<usize> {
     let size = ENVELOPE_PREFIX_BYTES
         .checked_add(value.payload.len())
         .and_then(|n| {
@@ -848,29 +1401,47 @@ pub fn encode_envelope(value: &Envelope<'_>, output: &mut [u8]) -> CodecResult<u
     w.put(b"PAXAI1")?;
     w.u16(SCHEMA_VERSION)?;
     w.u16(value.operation.selector())?;
-    w.put(value.chain.as_bytes())?;
-    w.put(value.program.as_bytes())?;
-    w.put(value.market.as_bytes())?;
-    w.put(value.actor.as_bytes())?;
-    w.u64(value.epoch)?;
-    w.u64(value.config)?;
+    crate::codec::write_fields!(w;
+        id32: value.chain.as_bytes();
+        id32: value.program.as_bytes();
+        id32: value.market.as_bytes();
+        id32: value.actor.as_bytes();
+        u64: value.epoch;
+        u64: value.config;
+    )?;
     match value.roster {
         Presence::Absent => w.put(&[0; 32])?,
         Presence::Present(d) => w.put(d.as_bytes())?,
     }
-    w.u64(value.sequence)?;
-    w.u64(value.expiry)?;
-    w.put(value.request.as_bytes())?;
+    crate::codec::write_fields!(w;
+        u64: value.sequence;
+        u64: value.expiry;
+        id32: value.request.as_bytes();
+    )?;
     w.bytes(value.payload, MAX_PAYLOAD_BYTES)?;
     match value.authentication {
         Authentication::Native => w.u8(0)?,
         Authentication::Delegate { key, signature } => {
-            w.u8(1)?;
-            w.put(&key.0)?;
-            w.put(&signature.0)?;
+            crate::codec::write_fields!(w;
+                u8: 1;
+                put: &key.0;
+                put: &signature.0;
+            )?;
         }
     }
     Ok(w.len())
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn write_frozen_binding(w: &mut Writer<'_>, b: &FrozenBinding) -> CodecResult<()> {
+    crate::codec::write_fields!(w;
+        id32: b.chain.as_bytes();
+        id32: b.program.as_bytes();
+        id32: b.market.as_bytes();
+        u64: b.epoch;
+        u64: b.config.get();
+    )?;
+    w.put(b.roster.as_bytes())
 }
 
 /// Writes the common evaluator binding without a schema prefix.
@@ -879,12 +1450,7 @@ pub fn encode_envelope(value: &Envelope<'_>, output: &mut [u8]) -> CodecResult<u
 /// Propagates the writer's `ARITHMETIC`/`CAPACITY` refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn write_evaluator_binding(w: &mut Writer<'_>, b: &EvaluatorBinding) -> CodecResult<()> {
-    w.put(b.frozen.chain.as_bytes())?;
-    w.put(b.frozen.program.as_bytes())?;
-    w.put(b.frozen.market.as_bytes())?;
-    w.u64(b.frozen.epoch)?;
-    w.u64(b.frozen.config.get())?;
-    w.put(b.frozen.roster.as_bytes())?;
+    write_frozen_binding(w, &b.frozen)?;
     w.put(b.evaluator.as_bytes())?;
     w.u64(b.grant.get())?;
     w.u64(b.key_version.get())
@@ -907,6 +1473,7 @@ impl EvaluatorBinding {
     ///
     /// # Errors
     /// Propagates `check_domain` refusals; returns `WRONG_EPOCH`, `WRONG_CONFIG` or `WRONG_ROSTER` for the first mismatch, in that order.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn matches_envelope(&self, e: &Envelope<'_>) -> CodecResult<()> {
         e.check_domain(self.frozen.chain, self.frozen.program, self.frozen.market)?;
         if e.epoch != self.frozen.epoch {
@@ -919,6 +1486,31 @@ impl EvaluatorBinding {
             Ok(())
         }
     }
+}
+
+/// Checks the common domain, expiry and frozen epoch binding in wire refusal order.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn check_frozen_envelope(
+    envelope: &Envelope<'_>,
+    ctx: &crate::registry_ops::CallContext,
+    frozen: &FrozenBinding,
+) -> CodecResult<()> {
+    let market = derive_market(ctx.chain, ctx.program)?;
+    envelope.check_domain(ctx.chain, ctx.program, market)?;
+    envelope.check_expiry(ctx.height)?;
+    if frozen.market != market {
+        return Err(WRONG_MARKET);
+    }
+    if envelope.epoch != frozen.epoch {
+        return Err(WRONG_EPOCH);
+    }
+    if envelope.config != frozen.config.get() {
+        return Err(WRONG_CONFIG);
+    }
+    if envelope.roster != Presence::Present(frozen.roster) {
+        return Err(WRONG_ROSTER);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -987,9 +1579,9 @@ impl Iterator for ScoreEntries<'_> {
         let index = self.index;
         self.index += 1;
         Some(match self.vector {
-            ScoreVector::Typed(v) => Ok(v[index]),
+            ScoreVector::Typed(v) => Ok(*v.guest_index(index)),
             ScoreVector::Encoded(v) => {
-                let mut r = Reader::new(&v[index * 36..(index + 1) * 36]);
+                let mut r = Reader::new(v.guest_index(index * 36..(index + 1) * 36));
                 read_score_entry(&mut r)
             }
         })
@@ -1066,7 +1658,7 @@ pub fn decode_report(input: &[u8]) -> CodecResult<ReportBody<'_>> {
 pub fn report_digest(report: &ReportBody<'_>) -> CodecResult<ReportDigest> {
     let mut bytes = [0; REPORT_MAX_BYTES];
     let n = encode_report(report, &mut bytes)?;
-    ReportDigest::new(domain_hash("PAXAI/score-report/v1", &bytes[..n])?.bytes())
+    ReportDigest::new(domain_hash("PAXAI/score-report/v1", bytes.guest_index(..n))?.bytes())
 }
 /// Attestation digest over a report digest.
 ///
@@ -1104,7 +1696,7 @@ pub fn commitment_digest(
 ) -> CodecResult<CommitmentDigest> {
     let mut b = [0; 256];
     let n = encode_commitment_preimage(binding, report, salt, &mut b)?;
-    CommitmentDigest::new(domain_hash("PAXAI/score-commit/v1", &b[..n])?.bytes())
+    CommitmentDigest::new(domain_hash("PAXAI/score-commit/v1", b.guest_index(..n))?.bytes())
 }
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -1156,7 +1748,7 @@ pub fn decode_reveal_score(input: &[u8]) -> CodecResult<RevealScorePayload<'_>> 
         return Err(CAPACITY);
     }
     let mut r = Reader::new(input);
-    let report = decode_report(r.bytes(REPORT_MAX_BYTES)?)?;
+    let report = crate::evaluators::codec::decode_report_body(r.bytes(REPORT_MAX_BYTES)?)?;
     let signature = Signature64(r.fixed()?);
     let salt = r.salt32()?;
     r.finish()?;
@@ -1178,7 +1770,7 @@ pub fn encode_reveal_score(v: &RevealScorePayload<'_>, out: &mut [u8]) -> CodecR
     let mut body = [0; REPORT_MAX_BYTES];
     let n = encode_report(&v.report, &mut body)?;
     let mut w = Writer::new(out);
-    w.bytes(&body[..n], REPORT_MAX_BYTES)?;
+    w.bytes(body.guest_index(..n), REPORT_MAX_BYTES)?;
     w.put(&v.signature.0)?;
     w.put(&v.salt.bytes())?;
     Ok(w.len())
@@ -1197,25 +1789,28 @@ pub fn encode_worker_roster(v: &WorkerRosterEntry, out: &mut [u8]) -> CodecResul
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_worker_roster(w: &mut Writer<'_>, v: &WorkerRosterEntry) -> CodecResult<()> {
-    w.put(v.worker.as_bytes())?;
-    w.put(v.owner.as_bytes())?;
-    w.put(v.recipient.as_bytes())?;
-    w.u64(v.generation.get())?;
-    w.u64(v.key_version.get())?;
-    w.put(&v.public_key.0)?;
+    crate::codec::write_fields!(w;
+        id32: v.worker.as_bytes();
+        id32: v.owner.as_bytes();
+        id32: v.recipient.as_bytes();
+        u64: v.generation.get();
+        u64: v.key_version.get();
+        put: &v.public_key.0;
+    )?;
     w.put(v.metadata.as_bytes())
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_worker_roster(r: &mut Reader<'_>) -> CodecResult<WorkerRosterEntry> {
-    Ok(WorkerRosterEntry {
-        worker: r.worker_id()?,
-        owner: r.principal_id()?,
-        recipient: r.account_id()?,
-        generation: r.version()?,
-        key_version: r.version()?,
-        public_key: PublicKey32(r.fixed()?),
-        metadata: r.metadata_digest()?,
-    })
+    Ok(
+        crate::codec::read_record!(r, WorkerRosterEntry {  }; worker = r.worker_id()?;
+            owner: PrincipalId,
+            recipient: AccountId,
+            generation: Version,
+            key_version: Version,
+            public_key: PublicKey32,
+            metadata: MetadataDigest
+        ),
+    )
 }
 /// Decodes one worker roster entry.
 ///
@@ -1291,23 +1886,26 @@ pub fn encode_evaluator_roster(v: &EvaluatorRosterEntry, out: &mut [u8]) -> Code
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_evaluator_roster(w: &mut Writer<'_>, v: &EvaluatorRosterEntry) -> CodecResult<()> {
-    w.put(v.evaluator.as_bytes())?;
-    w.put(v.owner.as_bytes())?;
-    w.u64(v.grant.get())?;
-    w.u64(v.key_version.get())?;
-    w.put(&v.public_key.0)?;
+    crate::codec::write_fields!(w;
+        id32: v.evaluator.as_bytes();
+        id32: v.owner.as_bytes();
+        u64: v.grant.get();
+        u64: v.key_version.get();
+        put: &v.public_key.0;
+    )?;
     w.put(v.rubric.as_bytes())
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_evaluator_roster(r: &mut Reader<'_>) -> CodecResult<EvaluatorRosterEntry> {
-    Ok(EvaluatorRosterEntry {
-        evaluator: r.evaluator_id()?,
-        owner: r.principal_id()?,
-        grant: r.version()?,
-        key_version: r.version()?,
-        public_key: PublicKey32(r.fixed()?),
-        rubric: r.rubric_digest()?,
-    })
+    Ok(
+        crate::codec::read_record!(r, EvaluatorRosterEntry {  }; evaluator = r.evaluator_id()?;
+            owner: PrincipalId,
+            grant: Version,
+            key_version: Version,
+            public_key: PublicKey32,
+            rubric: RubricDigest
+        ),
+    )
 }
 /// Decodes one evaluator roster entry.
 ///
@@ -1339,11 +1937,14 @@ impl Roster<'_> {
         if self.workers.len() > 32 || self.evaluators.len() > 8 {
             return Err(CAPACITY);
         }
-        if self.workers.windows(2).any(|p| p[0].worker >= p[1].worker)
+        if self
+            .workers
+            .windows(2)
+            .any(|p| p.guest_index(0).worker >= p.guest_index(1).worker)
             || self
                 .evaluators
                 .windows(2)
-                .any(|p| p[0].evaluator >= p[1].evaluator)
+                .any(|p| p.guest_index(0).evaluator >= p.guest_index(1).evaluator)
         {
             return Err(NON_CANONICAL);
         }
@@ -1361,10 +1962,12 @@ pub fn encode_roster(v: &Roster<'_>, out: &mut [u8]) -> CodecResult<usize> {
     let n = 54 + v.workers.len() * 176 + v.evaluators.len() * 144;
     output_size(out, n, ROSTER_MAX_BYTES)?;
     let mut w = Writer::new(out);
-    w.u16(SCHEMA_VERSION)?;
-    w.put(v.market.as_bytes())?;
-    w.u64(v.epoch)?;
-    w.u64(v.config.get())?;
+    crate::codec::write_fields!(w;
+        u16: SCHEMA_VERSION;
+        id32: v.market.as_bytes();
+        u64: v.epoch;
+        u64: v.config.get();
+    )?;
     w.u16(u16::try_from(v.workers.len()).map_err(|_| ARITHMETIC)?)?;
     for entry in v.workers {
         write_worker_roster(&mut w, entry)?;
@@ -1470,7 +2073,7 @@ pub fn decode_roster(input: &[u8]) -> CodecResult<RosterView<'_>> {
 pub fn roster_digest(v: &Roster<'_>) -> CodecResult<RosterDigest> {
     let mut b = [0; ROSTER_MAX_BYTES];
     let n = encode_roster(v, &mut b)?;
-    RosterDigest::new(domain_hash("PAXAI/roster/v1", &b[..n])?.bytes())
+    RosterDigest::new(domain_hash("PAXAI/roster/v1", b.guest_index(..n))?.bytes())
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -1678,25 +2281,28 @@ pub struct EventCommon {
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_event_common(w: &mut Writer<'_>, v: &EventCommon) -> CodecResult<()> {
-    w.u16(SCHEMA_VERSION)?;
-    w.put(v.market.as_bytes())?;
-    w.u64(v.epoch)?;
-    w.u64(v.config.get())?;
-    w.u64(v.revision)?;
-    w.put(v.request.as_bytes())?;
+    crate::codec::write_fields!(w;
+        u16: SCHEMA_VERSION;
+        id32: v.market.as_bytes();
+        u64: v.epoch;
+        u64: v.config.get();
+        u64: v.revision;
+        id32: v.request.as_bytes();
+    )?;
     w.put(v.result.as_bytes())
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_event_common(r: &mut Reader<'_>) -> CodecResult<EventCommon> {
     schema(r)?;
-    Ok(EventCommon {
-        market: r.market_id()?,
-        epoch: r.u64()?,
-        config: r.version()?,
-        revision: r.u64()?,
-        request: r.request_digest()?,
-        result: r.result_digest()?,
-    })
+    Ok(
+        crate::codec::read_record!(r, EventCommon {  }; market = r.market_id()?;
+            epoch: U64,
+            config: Version,
+            revision: U64,
+            request: RequestDigest,
+            result: ResultDigest
+        ),
+    )
 }
 /// Encodes the common event header.
 ///
@@ -1747,9 +2353,11 @@ pub fn encode_commit_event(v: &CommitAccepted, out: &mut [u8]) -> CodecResult<us
     output_size(out, 194, MAX_EVENT_BYTES)?;
     let mut w = Writer::new(out);
     write_event_common(&mut w, &v.common)?;
-    w.put(v.evaluator.as_bytes())?;
-    w.put(v.commitment.as_bytes())?;
-    w.u64(v.accepted_height)?;
+    crate::codec::write_fields!(w;
+        id32: v.evaluator.as_bytes();
+        id32: v.commitment.as_bytes();
+        u64: v.accepted_height;
+    )?;
     Ok(w.len())
 }
 /// Decodes a commit-accepted event.
@@ -1783,11 +2391,13 @@ pub fn encode_reveal_event(v: &RevealScoreEvent, out: &mut [u8]) -> CodecResult<
     output_size(out, 228, MAX_EVENT_BYTES)?;
     let mut w = Writer::new(out);
     write_event_common(&mut w, &v.common)?;
-    w.put(v.evaluator.as_bytes())?;
-    w.put(v.report.as_bytes())?;
-    w.put(v.evidence.as_bytes())?;
-    w.u16(v.vector_count)?;
-    w.u64(v.admitted_height)?;
+    crate::codec::write_fields!(w;
+        id32: v.evaluator.as_bytes();
+        id32: v.report.as_bytes();
+        id32: v.evidence.as_bytes();
+        u16: v.vector_count;
+        u64: v.admitted_height;
+    )?;
     Ok(w.len())
 }
 /// Decodes a reveal-score event.
@@ -1798,10 +2408,11 @@ pub fn encode_reveal_event(v: &RevealScoreEvent, out: &mut [u8]) -> CodecResult<
 pub fn decode_reveal_event(input: &[u8]) -> CodecResult<RevealScoreEvent> {
     let mut r = Reader::new(input);
     let common = read_event_common(&mut r)?;
-    let evaluator = r.evaluator_id()?;
-    let report = r.report_digest()?;
-    let evidence = r.evidence_root()?;
-    let vector_count = r.u16()?;
+    let (evaluator, report, evidence, vector_count) = crate::codec::read_values!(&mut r; evaluator = r.evaluator_id()?;
+        report: ReportDigest,
+        evidence: EvidenceRoot,
+        vector_count: U16,
+    );
     if !(1..=32).contains(&vector_count) {
         return Err(NON_CANONICAL);
     }
@@ -1820,6 +2431,7 @@ pub fn decode_reveal_event(input: &[u8]) -> CodecResult<RevealScoreEvent> {
 ///
 /// # Errors
 /// Returns `CAPACITY` when the topic exceeds 64 bytes or `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn event_topic(operation: Operation, out: &mut [u8]) -> CodecResult<usize> {
     let name = operation.metadata().name.as_bytes();
     let n = 9 + name.len();
@@ -1891,10 +2503,10 @@ pub fn encode_event_frame(
     // Fixed common-owned event suffixes are validated, including nonzero digests/counts.
     match operation.selector() {
         0x0401 => {
-            decode_commit_event(&out[..n])?;
+            decode_commit_event(out.guest_index(..n))?;
         }
         0x0402 => {
-            decode_reveal_event(&out[..n])?;
+            decode_reveal_event(out.guest_index(..n))?;
         }
         _ => {}
     }
@@ -1949,13 +2561,15 @@ pub fn encode_read_header(v: &ReadHeader, out: &mut [u8]) -> CodecResult<usize> 
         };
     output_size(out, n, 192)?;
     let mut w = Writer::new(out);
-    w.u16(SCHEMA_VERSION)?;
-    w.u64(v.revision)?;
-    w.put(v.digest.as_bytes())?;
-    w.u32(v.total_bytes)?;
-    w.put(v.chain.as_bytes())?;
-    w.put(v.program.as_bytes())?;
-    w.put(v.market.as_bytes())?;
+    crate::codec::write_fields!(w;
+        u16: SCHEMA_VERSION;
+        u64: v.revision;
+        id32: v.digest.as_bytes();
+        u32: v.total_bytes;
+        id32: v.chain.as_bytes();
+        id32: v.program.as_bytes();
+        id32: v.market.as_bytes();
+    )?;
     w.presence(&v.epoch, |w, e| w.u64(*e))?;
     w.u64(v.config.get())?;
     w.presence(&v.roster, |w, d| w.put(d.as_bytes()))?;
@@ -1973,11 +2587,12 @@ pub fn decode_read_header(input: &[u8]) -> CodecResult<ReadHeader> {
     let mut r = Reader::new(input);
     schema(&mut r)?;
     let revision = r.u64()?;
-    let digest = r.state_digest()?;
-    let total_bytes = r.u32()?;
-    let chain = r.chain_domain()?;
-    let program = r.program_id()?;
-    let market = r.market_id()?;
+    let (digest, total_bytes, chain, program, market) = crate::codec::read_values!(&mut r; digest = r.state_digest()?;
+        total_bytes: U32,
+        chain: ChainDomain,
+        program: ProgramId,
+        market: MarketId,
+    );
     let epoch = r.presence(Reader::u64)?;
     let config = r.version()?;
     let roster = r.presence(|r| r.roster_digest())?;
@@ -2115,11 +2730,13 @@ pub fn encode_chunk_response(v: &ChunkResponse<'_>, out: &mut [u8]) -> CodecResu
     v.validate()?;
     output_size(out, 52 + v.bytes.len(), 8244)?;
     let mut w = Writer::new(out);
-    w.u16(SCHEMA_VERSION)?;
-    w.u64(v.revision)?;
-    w.put(v.digest.as_bytes())?;
-    w.u32(v.total_bytes)?;
-    w.u32(v.offset)?;
+    crate::codec::write_fields!(w;
+        u16: SCHEMA_VERSION;
+        u64: v.revision;
+        id32: v.digest.as_bytes();
+        u32: v.total_bytes;
+        u32: v.offset;
+    )?;
     w.u16(u16::try_from(v.bytes.len()).map_err(|_| ARITHMETIC)?)?;
     w.put(v.bytes)?;
     Ok(w.len())
@@ -2209,7 +2826,7 @@ impl StateFrame<'_> {
             let charge = size
                 .checked_add(if index == 5 { STATE_GLOBAL_BYTES } else { 0 })
                 .ok_or(ARITHMETIC)?;
-            if charge > STATE_SECTION_CAPS[index] {
+            if charge > *STATE_SECTION_CAPS.guest_index(index) {
                 return Err(CAPACITY);
             }
             total = total.checked_add(size).ok_or(ARITHMETIC)?;
@@ -2230,15 +2847,17 @@ pub fn encode_state(v: &StateFrame<'_>, out: &mut [u8]) -> CodecResult<usize> {
     let n = v.encoded_len()?;
     output_size(out, n, MAX_STATE_BYTES)?;
     let mut w = Writer::new(out);
-    w.put(b"PAXAS1")?;
-    w.u16(SCHEMA_VERSION)?;
-    w.u64(v.revision)?;
+    crate::codec::write_fields!(w;
+        put: b"PAXAS1";
+        u16: SCHEMA_VERSION;
+        u64: v.revision;
+    )?;
     for (i, section) in v.sections.iter().enumerate() {
         w.u16(u16::try_from(i + 1).map_err(|_| ARITHMETIC)?)?;
         w.u16(0)?;
         w.bytes(
             section,
-            STATE_SECTION_CAPS[i] - 8 - if i == 5 { 16 } else { 0 },
+            *STATE_SECTION_CAPS.guest_index(i) - 8 - if i == 5 { 16 } else { 0 },
         )?;
     }
     Ok(w.len())
@@ -2264,7 +2883,7 @@ pub fn decode_state(input: &[u8]) -> CodecResult<StateFrame<'_>> {
             return Err(NON_CANONICAL);
         }
         r.reserved(2)?;
-        *section = r.bytes(STATE_SECTION_CAPS[i] - 8 - if i == 5 { 16 } else { 0 })?;
+        *section = r.bytes(*STATE_SECTION_CAPS.guest_index(i) - 8 - if i == 5 { 16 } else { 0 })?;
     }
     r.finish()?;
     let v = StateFrame { revision, sections };
@@ -2284,6 +2903,7 @@ pub fn state_digest(input: &[u8]) -> CodecResult<StateDigest> {
 ///
 /// # Errors
 /// Returns `UNAUTHORIZED` when an immediate caller program is present.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn compare_direct_call(immediate_caller: Presence<ProgramId>) -> CodecResult<()> {
     if immediate_caller == Presence::Absent {
         Ok(())
@@ -2295,6 +2915,7 @@ pub fn compare_direct_call(immediate_caller: Presence<ProgramId>) -> CodecResult
 ///
 /// # Errors
 /// Returns `UNAUTHORIZED` when authentication is not native or the actor differs.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn compare_native_principal(
     envelope: &Envelope<'_>,
     invoking_principal: PrincipalId,

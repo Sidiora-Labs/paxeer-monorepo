@@ -190,6 +190,15 @@
       "transport": "http",
       "authentication": "gateway-api-key",
       "version": "paxeer-x.ui-bindings.v2"
+    },
+    {
+      "id": "node_rpc",
+      "purpose": "Committed inference market reads",
+      "exposure": "product",
+      "discovery_path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1"
     }
   ],
   "routes": [
@@ -39386,6 +39395,76 @@
         ".ico"
       ],
       "asset_max_path_bytes": 1023
+    },
+    {
+      "id": "node_rpc:px_getInferenceRooms",
+      "service": "node_rpc",
+      "method": "px_getInferenceRooms",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceRoom",
+      "service": "node_rpc",
+      "method": "px_getInferenceRoom",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceDeal",
+      "service": "node_rpc",
+      "method": "px_getInferenceDeal",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferencePeer",
+      "service": "node_rpc",
+      "method": "px_getInferencePeer",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceReceipts",
+      "service": "node_rpc",
+      "method": "px_getInferenceReceipts",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
     }
   ]
 }

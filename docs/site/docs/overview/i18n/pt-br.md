@@ -2,7 +2,7 @@
 
 Paxeer X Network reúne pagamentos, execução de programas e operações de agentes autônomos em uma única rede.
 
-[English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · [简体中文](zh-cn.md) · Português · [Deutsch](de.md) · [Français](fr.md)
+[English](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · [简体中文](zh-cn.md) · Português · [Deutsch](de.md) · [Français](fr.md)
 
 ## O que é o LayerX Network
 
@@ -10,7 +10,7 @@ LayerX é o kernel integrado à Paxeer X Network. O nó `paxd` executa uma únic
 
 O host `modules/lxphost` integra o kernel C17 e o runtime de programas Rust ao nó Go. `node/app.go` registra os módulos nativos e verifica a ordem das transações nas propostas. O estado persistido da cadeia sustenta os saldos, as permissões, os pagamentos e os programas. As subcadeias são domínios de locatários: namespaces no banco de dados, criados sem infraestrutura de uma nova rede.
 
-Este monorepo da Sidiora Labs contém o nó, o kernel, os contratos, os serviços, os aplicativos e os SDKs. A referência da integração é [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx).
+Este monorepo da Sidiora Labs contém o nó, o kernel, os contratos, os serviços, os aplicativos e os SDKs. A referência da integração é [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/spec/layerx-merge/spec.kvx).
 
 ### Módulos e precompiles
 
@@ -90,7 +90,7 @@ Os serviços têm alvos próprios: `make agent-build`, `make human-build`, `make
 - [Endpoints JSON-RPC públicos](../../reference/public-rpc.md)
 - [Layout do monorepo](../monorepo.md)
 - [Gates de qualificação](../../operators/qualification.md)
-- [Especificações](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
+- [Especificações](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/)
 
 ## SDKs e integrações
 
@@ -108,14 +108,14 @@ Os serviços têm alvos próprios: `make agent-build`, `make human-build`, `make
 
 ## Contribuindo
 
-Leia [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md) antes de abrir um pull request. Mudanças no protocolo começam em `spec/`. Não divulgue uma vulnerabilidade suspeita em uma issue pública; siga [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md).
+Leia [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md) antes de abrir um pull request. Mudanças no protocolo começam em `spec/`. Não divulgue uma vulnerabilidade suspeita em uma issue pública; siga [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md).
 
 ## Segurança
 
-Reporte vulnerabilidades pelo relatório privado do GitHub, conforme descrito em [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md).
+Reporte vulnerabilidades pelo relatório privado do GitHub, conforme descrito em [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md).
 
 ## Licença
 
-Licenciado sob a Licença Apache, Versão 2.0. Consulte [`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) e [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE).
+Licenciado sob a Licença Apache, Versão 2.0. Consulte [`LICENSE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE) e [`NOTICE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/NOTICE).
 
 Paxeer X Network é desenvolvido pela Sidiora Labs.

@@ -23,6 +23,7 @@ def test_builtin_targets_exist(script):
         timeout=10,
     )
 
+    assert "malformed target line" not in result.stderr, result.stdout + result.stderr
     assert "syntax: ok\n" in result.stdout, result.stdout + result.stderr
     assert "targets:\n" in result.stdout, result.stdout + result.stderr
     rows = [
@@ -30,10 +31,14 @@ def test_builtin_targets_exist(script):
         for line in result.stdout.split("targets:\n", 1)[1].splitlines()
     ]
     assert len(rows) == (6 if script == "gate-test.sh" else 12)
+    assert len({row[0] for row in rows}) == len(rows)
     for label, status, directory, command in rows:
         assert status == "exists", f"{script}: {label}: {directory}"
         assert (ROOT / directory).is_dir(), f"{script}: {label}: {directory}"
         assert command, f"{script}: {label}: missing command"
+        if label.endswith("-gofmt"):
+            assert 'local status="$1" out="$2"' in command
+            assert 'gofmt_result "$status" "$out"' in command
         if label.startswith("rust-human"):
             assert directory == "services/human"
         elif label.startswith("rust-platform"):

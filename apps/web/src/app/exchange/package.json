@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@layerx/exchange-integration",
   "private": true,
   "type": "module",

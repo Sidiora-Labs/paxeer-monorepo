@@ -1,0 +1,183 @@
+[repair.22.31.617]
+base_revision = "20f1f239c8bf8fa18b019bb5bc4b89bb11d76fb0"
+decision = "2790"
+gotcha = "3414"
+summary = "One unlocked metadata resolution per sub-project, without cargo update or manifest edits. Seven lock graphs needed changes; pay2 was already current and receives only a provenance comment."
+verified_revision_evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit code and private log for hf-build and hf-done; the final response copies the last gate receipt. The candidate includes this record, so its own revision is retained externally rather than embedded in the content it hashes."
+build_command = "for d in fuzz qualification/pay2 tests/boundary tests/isolation tests/parity tests/qualify tools/audit-verify tools/policy-harness; do cargo metadata --locked --format-version 1 --manifest-path services/agent/$d/Cargo.toml > /dev/null || exit 1; done"
+verify_command = "python3 -m pytest -q tests/ci/test_agent_subproject_lockfiles_current.py"
+
+[lock.fuzz]
+path = "services/agent/fuzz/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/agent/fuzz/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/out/logs/resolve-22-31-617-fuzz.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = ["layerx-sdk"]
+
+[lock.fuzz.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek", "layerx-programs-registry"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "Promotes ed25519-dalek and layerx_programs_registry from dev-dependencies to normal dependencies, so path consumers require both edges. Both packages were already locked; no package version or checksum changes."
+
+[lock.qualification_pay2]
+path = "services/agent/qualification/pay2/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/agent/qualification/pay2/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/out/logs/resolve-22-31-617-qualification-pay2.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = []
+prior_refresh_commit = "38318969492e2e493de792dceaac3b8ba0da62dd"
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "The prior refresh already contains both promoted SDK dependencies and all current manifest constraints; this resolution produced no semantic or byte changes. Only a provenance comment was added so the required task path records the refresh; no package entries, versions, dependencies or checksums changed."
+
+[lock.tests_boundary]
+path = "services/agent/tests/boundary/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/agent/tests/boundary/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/out/logs/resolve-22-31-617-tests-boundary.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = ["layerx-programs-ai-market"]
+
+[lock.tests_boundary.layerx-programs-ai-market]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = []
+removed_dependencies = ["spin"]
+manifest = "programs/crates/layerx-programs-ai-market/Cargo.toml"
+manifest_commit = "051e6c3e005144ad52c5a631a01b4ba75e1ff4b9"
+reason = "Removes the wasm32 spin dependency. The spin package remains locked because other dependencies still use it; no package version or checksum changes."
+
+[lock.tests_isolation]
+path = "services/agent/tests/isolation/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/agent/tests/isolation/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/out/logs/resolve-22-31-617-tests-isolation.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = ["layerx-sdk"]
+
+[lock.tests_isolation.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek", "layerx-programs-registry"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "Promotes ed25519-dalek and layerx_programs_registry from dev-dependencies to normal dependencies, so path consumers require both edges. Both packages were already locked; no package version or checksum changes."
+
+[lock.tests_parity]
+path = "services/agent/tests/parity/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/agent/tests/parity/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/out/logs/resolve-22-31-617-tests-parity.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = ["layerx-sdk"]
+
+[lock.tests_parity.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek", "layerx-programs-registry"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "Promotes ed25519-dalek and layerx_programs_registry from dev-dependencies to normal dependencies, so path consumers require both edges. Both packages were already locked; no package version or checksum changes."
+
+[lock.tests_qualify]
+path = "services/agent/tests/qualify/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/agent/tests/qualify/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/out/logs/resolve-22-31-617-tests-qualify.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = ["layerx-sdk"]
+
+[lock.tests_qualify.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek", "layerx-programs-registry"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "Promotes ed25519-dalek and layerx_programs_registry from dev-dependencies to normal dependencies, so path consumers require both edges. Both packages were already locked; no package version or checksum changes."
+
+[lock.tools_audit_verify]
+path = "services/agent/tools/audit-verify/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/agent/tools/audit-verify/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/out/logs/resolve-22-31-617-tools-audit-verify.log"
+added_entries = []
+removed_entries = []
+version_changes = ["rustls: 0.23.45 -> 0.23.46"]
+changed_entries = ["layerx-programs-ai-market", "layerx-sdk", "rustls"]
+
+[lock.tools_audit_verify.layerx-programs-ai-market]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = []
+removed_dependencies = ["spin"]
+manifest = "programs/crates/layerx-programs-ai-market/Cargo.toml"
+manifest_commit = "051e6c3e005144ad52c5a631a01b4ba75e1ff4b9"
+reason = "Removes the wasm32 spin dependency. The spin package remains locked because other dependencies still use it; no package version or checksum changes."
+
+[lock.tools_audit_verify.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek", "layerx-programs-registry"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "Promotes ed25519-dalek and layerx_programs_registry from dev-dependencies to normal dependencies, so path consumers require both edges. Both packages were already locked; no package version or checksum changes."
+
+[lock.tools_audit_verify.rustls]
+version_before = "0.23.45"
+version_after = "0.23.46"
+added_dependencies = []
+removed_dependencies = []
+manifests = ["services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-sdk/Cargo.toml"]
+manifest_commit = "6378efda0ae0782ae6309252b62765b666650452"
+reason = "Both consuming manifests raise the exact rustls pin from =0.23.45 to =0.23.46, requiring the version and registry checksum replacement."
+checksum_before = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum_after = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
+
+[lock.tools_policy_harness]
+path = "services/agent/tools/policy-harness/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/agent/tools/policy-harness/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/out/logs/resolve-22-31-617-tools-policy-harness.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = ["layerx-sdk"]
+
+[lock.tools_policy_harness.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek", "layerx-programs-registry"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "Promotes ed25519-dalek and layerx_programs_registry from dev-dependencies to normal dependencies, so path consumers require both edges. Both packages were already locked; no package version or checksum changes."

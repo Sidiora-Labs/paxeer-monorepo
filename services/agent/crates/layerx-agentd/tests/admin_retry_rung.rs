@@ -35,8 +35,9 @@ fn backlog(requested: VerificationLevel) -> VerificationBacklog {
 }
 
 #[test]
-fn settlement_anchored_retry_is_refused() {
-    let (mut surface, root) = surface("settlement-anchored");
+#[allow(deprecated)]
+fn retired_settlement_retry_is_refused() {
+    let (mut surface, root) = surface("retired-settlement");
     let context = must(OperatorContext::new("retry-operator", [3; 32]));
     let mut progress = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
 
@@ -57,8 +58,8 @@ fn settlement_anchored_retry_is_refused() {
 }
 
 #[test]
-fn checkpoint_finalised_retry_requests_committed() {
-    let (mut surface, root) = surface("checkpoint-finalised");
+fn committed_retry_requests_committed() {
+    let (mut surface, root) = surface("committed");
     let context = must(OperatorContext::new("retry-operator", [4; 32]));
     let mut progress = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
 
@@ -66,7 +67,7 @@ fn checkpoint_finalised_retry_requests_committed() {
         must(surface.retry_verification(
             &context,
             &mut progress,
-            backlog(VerificationLevel::CHECKPOINT_FINALISED),
+            backlog(VerificationLevel::COMMITTED),
             DEADLINE_MS,
             DEADLINE_MS,
             1,

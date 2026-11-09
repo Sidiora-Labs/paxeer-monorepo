@@ -62,6 +62,9 @@ contract SidioraProxyTimelockTest {
         require(timelock.readyAt(id) == scheduledAt + DELAY, "ready time");
         require(timelock.operationNonce() == nonce + 1, "nonce not advanced");
         require(!timelock.completed(id), "scheduled operation completed");
+        require(
+            timelock.operationId(address(treasury), 0, upgradeData, SALT, nonce) == id, "scheduled operation lookup"
+        );
         _assertNotApplied();
     }
 

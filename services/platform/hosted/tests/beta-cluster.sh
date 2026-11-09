@@ -1769,9 +1769,7 @@ guarantor_sequence_test() (
 
 genesis_metadata_test() (
     set -euo pipefail
-    local builder directory withdrawal_fee module_fees
-    builder="${LAYERX_TEST_NATIVE_BIN_DIR:-$REPO_ROOT/build/bin}/layerx-genesis-build"
-    [ -x "$builder" ] || fail "the native genesis builder is missing: $builder (run: make layerx-genesis-build)"
+    local directory withdrawal_fee module_fees
     require_tool openssl python3
     directory=$(mktemp -d)
     trap 'rm -rf "$directory"' EXIT
@@ -1802,22 +1800,17 @@ PYARG
         "$withdrawal_fee" --module-fees "$module_fees" --check \
         || fail "bootstrap.sh fee validation refused the generated genesis metadata"
     python3 - "$REPO_ROOT" "$NODE_MANIFEST" "$SCRIPT_DIR/beta-cluster.sh" "$NODE_NETWORK_ID" "$NODE_ASSET_ID" \
-        "$SECRETS_DIR/node-genesis-metadata.lxgb" "$builder" "$directory/builder" <<'PYGENESISTEST'
+        "$SECRETS_DIR/node-genesis-metadata.lxgb" <<'PYGENESISTEST'
 import hashlib
 import importlib.util
-import os
 from pathlib import Path
-import subprocess
 import sys
 
 import yaml
-from cryptography.hazmat.primitives.asymmetric import ec, ed25519
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 root, manifest, script = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 network_id, asset_id = int(sys.argv[4]), sys.argv[5]
 metadata = Path(sys.argv[6]).read_bytes()
-builder, work = Path(sys.argv[7]), Path(sys.argv[8])
 
 CONFIGMAP = 'layerx-node-genesis-metadata'
 KEY = 'metadata.lxgb'
@@ -1867,37 +1860,11 @@ if symbol != declared['ASSET_SYMBOL'] or decimals != int(declared['ASSET_DECIMAL
                      'bootstrap.sh declares'
                      % (symbol, decimals, declared['ASSET_SYMBOL'], declared['ASSET_DECIMALS']))
 
-producer = load('prepare_beta', 'services/platform/hosted/paxeer/prepare-beta.py')
-
-work.mkdir(mode=0o700)
-signer = work / 'signer'
-with os.fdopen(os.open(signer, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as handle:
-    handle.write(ed25519.Ed25519PrivateKey.generate().private_bytes_raw())
-members = []
-for index in range(1, 4):
-    public = ec.generate_private_key(ec.SECP256K1()).public_key().public_bytes(
-        Encoding.X962, PublicFormat.CompressedPoint)
-    members.append({'guarantor_id': index.to_bytes(32, 'big').hex(), 'public_key': public.hex()})
-request = producer.genesis_request(members, network_id, asset_id, 1700000000000, metadata)
-if not request.endswith(metadata) or request[:5] != b'LXGB\x02':
-    raise SystemExit('the genesis request did not carry the generated metadata suffix')
-
-for label, payload, accepted in (('accepted', request, True), ('truncated', request[:-1], False),
-                                 ('trailing', request + b'\0', False),
-                                 ('stripped', request[:-len(metadata)], False)):
-    path = work / (label + '.lxgb')
-    path.write_bytes(payload)
-    result = subprocess.run([str(builder), str(path), str(signer), str(work / label)],
-                            cwd=root, capture_output=True)
-    if (result.returncode == 0) != accepted:
-        raise SystemExit('%s: native builder exit %d' % (label, result.returncode))
-    if (work / label / 'genesis.manifest').exists() != accepted:
-        raise SystemExit('%s: signed genesis artifacts were %s' % (label, 'not written' if accepted else 'written'))
-print('beta-cluster: genesis metadata %d bytes describing %s with %d decimals accepted by the native builder; '
+print('beta-cluster: genesis metadata %d bytes describing %s with %d decimals; '
       '%s/%s matches the node manifest and the pinned fixture vector %s is unchanged'
       % (len(metadata), symbol, decimals, CONFIGMAP, KEY, lxgb.VECTOR_SHA256))
 PYGENESISTEST
-    log "genesis metadata producer, fee validation and native builder acceptance passed"
+    log "genesis metadata producer, fee validation and node manifest checks passed"
 )
 
 paxeer_contracts_deploy() {

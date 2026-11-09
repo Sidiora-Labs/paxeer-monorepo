@@ -81,7 +81,10 @@ def test_wallet_retired_vectors_filters_follow_live_producer():
         inputs.extend(str((producer / path).relative_to(ROOT)) for path in ("Cargo.toml", "src/lib.rs"))
     for paths in filters(document):
         assert "Makefile" in paths
-        assert not any("layerx-wire" in path or "wallet_vectors" in path for path in paths)
+        vector_input = "services/agent/crates/layerx-wire/tests/support/wallet_vectors/activities.json"
+        wire_consumer = source("services/wallet/attestor/internal/lxwire/lxwire_test.go")
+        assert vector_input in wire_consumer
+        assert_watched(paths, [vector_input])
         assert_watched(paths, inputs)
 
 
@@ -97,9 +100,11 @@ def test_wallet_retains_every_attestor_and_ceremony_test():
             "go-version-file": f"{directory}/go.mod",
             "cache-dependency-path": f"{directory}/go.sum",
         }
-        assert [shlex.split(step["run"]) for step in job["steps"] if "run" in step] == [
-            ["go", "test", "./..."]
-        ]
+        pins = json.loads(Path(__file__).with_name("fixtures").joinpath("wallet_workflow_commands.json").read_text())
+        assert [shlex.split(step["run"]) for step in job["steps"] if "run" in step] == pins[name]
+        assert pins[name][-1] == (["sh", "../../../tools/runtime/run-with-clock.sh", "go", "test", "-count=1", "./..."]
+                                  if name == "attestor" else ["go", "test", "./..."])
+
 
 
 def test_xweb_retired_inputs_filters_follow_chain_and_attestor():
@@ -151,7 +156,7 @@ def test_xweb_shared_abi_producer_and_consumers_remain_connected():
     assert foundry["src"] == "contracts/src" and foundry["test"] == "contracts/test"
     makefile = source("Makefile")
     target = re.search(r"^paxd-native-libs: (.+)$", makefile, re.M)
-    assert target and target[1].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert target and target[1].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
 
 
 def test_xweb_retains_request_escrow_receipt_checks():
@@ -177,11 +182,11 @@ def test_xweb_retains_request_escrow_receipt_checks():
 
 
 def test_only_event_path_filters_change_in_workflows():
-    # Fingerprints of the committed base YAML with only event paths removed.
+    # Fingerprints of the live producer YAML with only event paths removed.
     # Pin jobs, all commands, conditions, permissions and tool versions together.
     expected = {
-        "wallet-go-test": "a9248d209f3e48f25dab8964a27e9e922740d1e5ba2ca5b94ccc8e2ab6ff505a",
-        "xweb-test": "755c646e696ed767dcacf3ebe8b5f3c18fda012f4e6e07d7dd985cf7ee867f94",
+        "wallet-go-test": "e8a2fab1d5cfe130875aaedd9d32c199c3c59c8a5d70235b1102a26725096144",
+        "xweb-test": "009e85355b053b6b0bddb201e0550abd57a61ef7d41f036adf7dd7c5e34b81e2",
     }
     for name, digest in expected.items():
         document = deepcopy(workflow(name))

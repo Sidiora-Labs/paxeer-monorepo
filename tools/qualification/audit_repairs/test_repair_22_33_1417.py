@@ -134,7 +134,7 @@ def test_035_source_transports_authenticate_and_serialize_the_real_catalogue():
     assert 'json!({"jsonrpc":"2.0", "id":id, "result":document})' in rpc
     dispatch = rust_function("rpc.rs", "dispatch")
     assert 'if method == "px_getRouteCatalogue"' in dispatch
-    assert 'crate::routes::rpc_catalogue(config, request, &id, value.get("params"))' in dispatch
+    assert 'super::routes::rpc_catalogue(config, request, &id, value.get("params"))' in dispatch
     transport = rust_function("rpc.rs", "route")
     assert "serde_json::from_slice::<Value>(&request.body)" in transport
     assert "dispatch(config, request, &value)" in transport
@@ -157,13 +157,18 @@ def test_035_production_ingress_refuses_retired_subtree_before_dispatch():
         r'return response\(404, "not_found", None\);', ingress, re.S,
     )
     assert ingress.index('if path == "/rpc"') < ingress.index("routes::route(")
-    assert 'if request.path == "/" && request.method == "POST"' in ingress
-    assert "return rpc::route(config, request);" in ingress
+    assert "public_reads::route(config, request)" in ingress
+    public = rust_function("public_reads.rs", "route")
+    assert 'matches!(request.path.as_str(), "/" | "/openrpc.json")' in public
+    assert "return Some(super::rpc::route(config, request));" in public
+    rpc = rust_function("rpc.rs", "route")
+    assert 'if request.path != "/"' in rpc
+    assert 'if request.method != "POST"' in rpc
 
 
 def test_035_inherited_repair_preserves_entire_openrpc_document():
     snapshot = json.loads((
-        GATEWAY / "tests/fixtures/repair_22_33_1417_openrpc.json"
+        Path(__file__).with_name("fixtures") / "repair_22_33_1417_openrpc.json"
     ).read_text())
     assert snapshot["base_revision"] == "b06a8e8502aeb3eee0ed79afb1979f134a140ff1"
     assert snapshot["source"] == "services/platform/hosted/gateway/openrpc.json"

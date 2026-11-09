@@ -204,6 +204,8 @@ fn proof_namespace_registry_consumes_both_public_verifiers() {
         .iter()
         .find(|case| string(case, "id") == "committed-payExact")
         .unwrap();
+    let recording: Value = serde_json::from_slice(RECORDING).unwrap();
+    assert_eq!(case["signedReceipt"], recording["positive"]["receipt"]);
     let proof = proof(case);
     let set = validators(case);
     let chain_id = string(&vectors["provenance"], "chainId");

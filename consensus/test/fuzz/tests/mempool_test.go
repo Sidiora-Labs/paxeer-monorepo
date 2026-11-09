@@ -11,12 +11,14 @@ import (
 )
 
 func FuzzMempool(f *testing.F) {
-	cfg := config.DefaultMempoolConfig()
-	cfg.Broadcast = false
-
-	mp := mempool.NewTxMempool(cfg.ToMempoolConfig(), kvstore.NewProxy(), mempool.NopMetrics(), mempool.NopTxConstraintsFetcher)
+	f.Add([]byte{})
+	f.Add([]byte("key=value"))
+	f.Add([]byte{0xff, 0x00, 0x01})
 
 	f.Fuzz(func(t *testing.T, data []byte) {
+		cfg := config.DefaultMempoolConfig()
+		cfg.Broadcast = false
+		mp := mempool.NewTxMempool(cfg.ToMempoolConfig(), kvstore.NewProxy(), mempool.NopMetrics(), mempool.NopTxConstraintsFetcher)
 		_, _ = mp.CheckTx(t.Context(), data)
 	})
 }

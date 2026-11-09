@@ -108,14 +108,19 @@ def admit_test_manifest(path, source, targets, root=ROOT):
     return artifacts
 
 
-def build_test_targets(path, targets, target_directory):
-    path = Path(path).absolute()
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    before = BUILD.source_identity(ROOT)
+def test_build_command(targets, target_directory):
     command = ['cargo', 'test', '--locked', '--manifest-path', str(ROOT / 'services/agent/Cargo.toml'),
                '-p', 'layerx-agentd', '--target-dir', str(target_directory), '--no-run', '--message-format=json']
     for target in targets:
         command.extend(['--test', target])
+    return command
+
+
+def build_test_targets(path, targets, target_directory):
+    path = Path(path).absolute()
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    before = BUILD.source_identity(ROOT)
+    command = test_build_command(targets, target_directory)
     log = path.with_name(path.name + '.log')
     fd = os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as stream:

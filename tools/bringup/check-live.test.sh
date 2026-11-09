@@ -322,7 +322,7 @@ chmod +x "$work/bin/railway"
 
 # A local curl stand-in: answers eth_blockNumber for the public names, at the
 # fixed head minus the lag CHECK_LIVE_TEST_LAG ("apiN:blocks ...") assigns,
-# answers a readiness request to an app's .internal name with the body and
+# answers a readiness request to an app's private network host with the body and
 # the -w status code, 503 for the ports CHECK_LIVE_TEST_BOUNDARY_DOWN lists
 # and 000 when no readable --cert client identity is presented,
 # fails to connect for the names in CHECK_LIVE_TEST_DOWN, and hands any
@@ -335,7 +335,7 @@ chmod +x "$work/bin/railway"
 # With CHECK_LIVE_TEST_GAS set, the chain name and the node's root answer
 # from the files of that directory, as the gas cases below describe.
 # CHECK_LIVE_TEST_AGENT_RPC_CODE and CHECK_LIVE_TEST_AGENT_RPC. A process-group
-# .internal name answers /readyz ready to a request with a client certificate.
+# private network host answers /readyz ready to a request with a client certificate.
 # CHECK_LIVE_TEST_AGENT_RPC_CODE and CHECK_LIVE_TEST_AGENT_RPC. The public
 # wallet name walletfx and the wallet gateway's fixture app answer as the
 # gateway does: /healthz, /readyz with every component up, and /v1/wallet/me
@@ -1043,7 +1043,7 @@ fi
 # archive.paxeer.network ending at its own fixture ISRG Root X1; a copy of bash
 # named layerx-indexer carries the indexer environment and a real SQLite
 # database with the cursor tables; and a curl wrapper ahead on PATH answers
-# the indexer's .internal /healthz to the internal CA the ca cases left on its
+# the indexer's private network host /healthz to the internal CA the ca cases left on its
 # volume, the /comet location and the router's history methods.
 indexer=indexer
 ix="$work/indexer"
@@ -1190,7 +1190,6 @@ LAYERX_RAILWAY_BIN="$ix/bin/railway" PATH="$indexer_path" CHECK_LIVE_TEST_PROGRA
 LAYERX_INDEXER_DB="$ix/state/indexer.sqlite" LAYERX_INDEXER_LISTEN='[::]:8095' LAYERX_INDEXER_START_BLOCK=25000000 \
 	LAYERX_INDEXER_EVM_URL=https://api7.mainnet-beta.paxeer.network LAYERX_INDEXER_EVM_CA_DER="$ix/chain/root-X1.der" \
 	LAYERX_INDEXER_COMET_URL=https://api7.mainnet-beta.paxeer.network/comet LAYERX_INDEXER_COMET_CA_DER="$ix/chain/root-X1.der" \
-	LAYERX_INDEXER_RELAY_URL=https://archive.paxeer.network LAYERX_INDEXER_RELAY_CA_DER="$ix/chain/root-X1.der" \
 	"$ix/layerx-indexer" -c 'sleep 600; wait' &
 internal_pids="$internal_pids $!"
 : >"$CHECK_LIVE_TEST_STDIN"
@@ -1579,7 +1578,7 @@ printf '@@sites\n' >"$CHECK_LIVE_TEST_EDGE"
 expect check_live_edge_empty_manifest "$work/hosts-good.env" 1 edge -- \
 	"fail manifest contract=invalid" \
 	"check-live: 1 check(s) failed"
-printf 'api-mainnet-beta.paxeer.network\trailway\tgateway.up.railway.app:443\t-\n' | edge_fixture
+printf 'api-mainnet-beta.paxeer.network\trailway\tgateway.example.net:443\t-\n' | edge_fixture
 export CHECK_LIVE_TEST_DNS="api-mainnet-beta:up-edge up-edge:up-edge search:up-edge machine:up-edge"
 expect check_live_edge_passing "$work/hosts-good.env" 0 edge -- \
 	"pass manifest names=1" \
@@ -1587,9 +1586,9 @@ expect check_live_edge_passing "$work/hosts-good.env" 0 edge -- \
 	"pass api-mainnet-beta.paxeer.network mode=http kind=railway edge=yes tls=verified body=match" \
 	"check-live: all checks passed"
 {
-	printf 'api-mainnet-beta.paxeer.network\trailway\tgateway.up.railway.app:443\t-\n'
-	printf 'search.paxeer.network\trailway\tsearch.up.railway.app:443\t-\n'
-	printf 'hooks.paxeer.network\trailway\tmissing.up.railway.app:443\t-\n'
+	printf 'api-mainnet-beta.paxeer.network\trailway\tgateway.example.net:443\t-\n'
+	printf 'search.paxeer.network\trailway\tsearch.example.net:443\t-\n'
+	printf 'hooks.paxeer.network\trailway\tmissing.example.net:443\t-\n'
 	printf 'machine.paxeer.network\tstream\tstream.box.test:9454\t-\n'
 } | edge_fixture
 printf '\tserver up-validator-a:443;\n' >>"$CHECK_LIVE_TEST_EDGE"
@@ -2262,7 +2261,7 @@ esac
 SH
 chmod +x "$work/retire/bin/curl" "$work/retire/bin/docker"
 export RETIRE_TEST_STATE="$work/retire/container"
-echo "$(($(date -u +%s) - 120)) paxeer-wallet-gateway.fly.dev" >"$work/retire/state/applied-at"
+echo "$(($(date -u +%s) - 120)) paxeer-wallet-gateway.example.net" >"$work/retire/state/applied-at"
 retire="$root/services/wallet/deploy/cutover/retire.sh"
 
 echo "true unless-stopped" >"$RETIRE_TEST_STATE"
@@ -2306,7 +2305,7 @@ else
 fi
 
 echo "true unless-stopped" >"$RETIRE_TEST_STATE"
-echo "$(date -u +%s) paxeer-wallet-gateway.fly.dev" >"$work/retire/state/applied-at"
+echo "$(date -u +%s) paxeer-wallet-gateway.example.net" >"$work/retire/state/applied-at"
 CUTOVER_CONTAINER=legacy-wallet CUTOVER_PUBLIC_HOST=walletfx.example.com CUTOVER_STATE_DIR="$work/retire/state" \
 	CUTOVER_SOAK_SECONDS=600 PATH="$work/retire/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$retire" \
 	expect retire_container_soak_not_over - 1 -- \
@@ -2629,7 +2628,7 @@ mv "$work/ramp-rollout.kvx" "$fx/deploy/rollout.kvx"
 
 cp "$root/services/platform/ramps/sandbox-journey.sh" "$fx/services/platform/ramps/"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"volume":"vol_fixture"}]}}]'
-printf 'ramp.paxeer.network\trailway\tramp.up.railway.app:443\t-\n' | edge_fixture
+printf 'ramp.paxeer.network\trailway\tramp.example.net:443\t-\n' | edge_fixture
 export CHECK_LIVE_TEST_EDGE_CURRENT=1 LAYERX_RAILWAY_BIN="$role_bin/railway"
 export CHECK_LIVE_TEST_DNS="ramp:up-edge up-edge:up-edge"
 PATH="$work/ramp-bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_ramp_passing "$work/hosts-good.env" 0 ramp -- \
@@ -2639,7 +2638,7 @@ PATH="$work/ramp-bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_l
 	"check-live: all checks passed"
 
 rm -f "$work/ramp-state"/*
-printf 'ramp.paxeer.network\trailway\tramp.up.railway.app:443\t-\n' | edge_fixture
+printf 'ramp.paxeer.network\trailway\tramp.example.net:443\t-\n' | edge_fixture
 cp "$work/roles/ramp/status.json" "$work/roles/ramp/status.good"
 python3 - "$work/roles/ramp/status.json" <<'PYRAMPBAD'
 import json,sys

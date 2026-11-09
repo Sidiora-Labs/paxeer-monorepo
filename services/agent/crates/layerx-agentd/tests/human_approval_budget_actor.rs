@@ -399,7 +399,7 @@ impl LocalServer {
             "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap(),
             "head_sequence":fixture.budget_state["observed_head_sequence"],
             "revocation_sequence":fixture.budget_state["revocation_sequence"],
-            "verification_level":"checkpoint_finalised", "frozen":false,
+            "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "frozen":false,
             "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap()}]
         });
         let server = Self::spawn(listener, move |stream| {
@@ -1189,11 +1189,15 @@ fn human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings() {
         u128::from_be_bytes(facts[66..82].try_into().unwrap()),
         expected_remaining
     );
+    assert_eq!(facts[82], layerx_types::rung::Rung::Committed.wire_rank());
     assert_eq!(
         facts[82],
-        layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+        layerx_types::verify::VerificationLevel::from_wire_rank(state.verification)
+            .expect("current budget observation label")
+            .rung()
+            .expect("current budget observation rung")
+            .wire_rank()
     );
-    assert_eq!(facts[82], state.verification);
     assert_ne!(&facts[83..115], &[0; 32]);
     assert_eq!(&facts[115..123], &sequence.to_be_bytes());
     assert_eq!(&facts[123..155], &asset);
@@ -1202,6 +1206,7 @@ fn human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings() {
             &socket,
             &operation(approval_id, held_digest, sequence.checked_sub(1).unwrap())
         ),
+        // The approval owner refuses the stale sequence before any managed-agent guard.
         refusal_frame(b"operation.refused")
     );
     let mut changed_digest = held_digest;

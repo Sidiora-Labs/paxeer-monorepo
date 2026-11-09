@@ -587,6 +587,7 @@ fn a_program_request_is_attested_exchanged_and_fulfilled() -> Checked {
             signed
         );
         drop(relay);
+        drop(exchange);
         let restored_exchange = Arc::new(ProgramExchange::open(&scratch.0.join("exchange"), &[])?);
         let mut relay = make_relay(&scratch, &rpc, restored_exchange, AttestorSet::default())?;
         assert_eq!(

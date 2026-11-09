@@ -121,6 +121,7 @@ request = "ActivityQueryRequest"
 response = "ActivityPage"
 
 [operation.activity.entry]
+golden_responses = ["historical-decode/activity.entry.response.json"]
 authorization_class = "read"
 method = "GET"
 path = "/v1/activity/{entry_id}"
@@ -136,6 +137,8 @@ response = "ExportArtefact"
 idempotency = true
 
 [operation.activity.export.evidence]
+golden_responses = ["historical-decode/activity.export.evidence.response.json"]
+golden_artifacts = ["current/activity.evidence.bundle"]
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/activity/exports/evidence"

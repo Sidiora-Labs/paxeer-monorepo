@@ -67,7 +67,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-integration-test.yml'
@@ -136,7 +135,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-integration-test.yml'
@@ -148,7 +146,7 @@ on:
       - release/**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -164,7 +162,7 @@ jobs:
   # from GHCR (tagged with the run id) and download paxd as a small artifact.
   prepare-cluster:
     name: Prepare integration test cluster
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     # packages:write required to push images and buildx cache to GHCR. Fork PRs
     # cannot publish org packages, so integration tests cannot run from forks; a
@@ -174,7 +172,7 @@ jobs:
       packages: write
       contents: read
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Load integration registry configuration
         run: python3 .github/workflows/scripts/integration_registry.py environment
       - name: Login to Docker Hub
@@ -220,7 +218,7 @@ jobs:
           labels: pax-chain.ci-run-id=${{ github.run_id }}
           cache-from: type=registry,ref=${{ env.GHCR_RPCNODE }}:cache
           cache-to: ${{ github.event_name == 'push' && format('type=registry,ref={0}:cache,mode=max', env.GHCR_RPCNODE) || '' }}
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.25.8'
           cache-dependency-path: go.sum
@@ -238,7 +236,7 @@ jobs:
       - name: Package CI artifacts
         run: tar -czf integration-build.tar.gz build/paxd
       - name: Upload integration CI artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: paxeer-integration-ci-artifacts
           path: integration-build.tar.gz
@@ -247,16 +245,13 @@ jobs:
   integration-tests:
     name: Integration Test (${{ matrix.test.name }})
     needs: prepare-cluster
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       packages: read
       contents: read
     env:
       JOB_TIMEOUT: 28m
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      DAPP_TESTS_MNEMONIC: ${{ secrets.DAPP_TESTS_MNEMONIC }}
     strategy:
       # other jobs should run even if one integration test fails
       fail-fast: false
@@ -553,13 +548,13 @@ jobs:
           },
         ]
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Load integration registry configuration
         run: python3 .github/workflows/scripts/integration_registry.py environment
       - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
         with:
-          python-version: '3.10'
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+          python-version: '3.12'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: '22'
 
@@ -571,7 +566,7 @@ jobs:
         run: sudo apt-get install -y jq
 
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.25.8'
           cache-dependency-path: go.sum
@@ -668,7 +663,7 @@ jobs:
 
       - name: Upload logs directory
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: paxeer-integration-logs-${{ steps.log_artifact_meta.outputs.artifact_name }}
           path: artifacts/pax-${{ steps.log_artifact_meta.outputs.artifact_name }}
@@ -676,7 +671,7 @@ jobs:
 
       - name: Upload RPC parity test report
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: paxeer-rpc-parity-report-${{ steps.log_artifact_meta.outputs.artifact_name }}
           path: tests/integration/rpc_tests/reports/merged
@@ -684,7 +679,7 @@ jobs:
 
   integration-test-check:
     name: Integration Test Check
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     needs: [prepare-cluster, integration-tests]
     if: always()
     defaults:

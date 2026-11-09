@@ -41,7 +41,11 @@ def test_beta_ledger_has_metadata_and_no_unexecuted_records():
     assert "hf-build" in header and "hf-done" in header
     contract = (ROOT / "docs/platform/content/beta.md").read_text(encoding="utf-8")
     assert "spec/layerx-beta/qualification.kvx" in contract
-    assert "`[meta]`" in contract
+    assert "## Evidence ledger" in contract
+    assert "Only a gate record raises a surface." in contract
+    assert "Without executed checks, the report stays `no-go`" in contract
+    assert "| report_status | no-go |" in contract
+    assert "| evidence_ledger | spec/layerx-beta/qualification.kvx |" in contract
 
 
 @pytest.mark.parametrize("arguments", [["--check"], []])

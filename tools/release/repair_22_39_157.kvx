@@ -1,0 +1,55 @@
+[repair.22.39.157]
+base_revision = "215e9d31d2501e5207b4bb09ec9130e66ccaf154"
+requirement = "22998.1"
+scope = "tools/release and tests/ci/data/tools_python_suite_baseline.json"
+baseline = "The initial task gate ledger has no build or verification runs; no baseline run is claimed. All 22 tools/release baseline entries are retired without deleting, skipping or weakening tests."
+qualification = "The private /out/run/gates.jsonl build and verify records bind the final candidate revision, exact commands, exit codes and private log locations; this record makes no independent gate claim."
+environment = "Decision 2896 requires real zstd, build/liblayerx.a and localhost sshd with batch authentication before qualification; Go resolves through PATH. Environment provisioning is recorded in /out/logs/release-prerequisites.log, /out/logs/release-native-library.log and /out/logs/release-sandbox-library.log; the Go-linked sandbox archive is built from the real host-ffi package."
+
+[repair.release_identity]
+producer = "tools/release/version.json:2-3 declares upgrade v7.0 and binary version v7.0.0; tools/release/upgrade_info.py:27 release_identity and :236 release derive plan, tag and asset names from it."
+implementation = "fleet_check.py reads the identity, validates/emits the distinct version and plan, and queries AppliedPlan with the plan name. rehearsal/receipt.sh emits the binary version separately from the plan already loaded by rehearse-v6120.sh:184-185. snapshot.sh derives its archive name from version.json, matching rollback.sh:207 archive."
+assertions = "test_repair_22_33_889.py ASSETS, release_fixture and test_build_distribution use v7.0.0 release assets and tag; recorded_rpc binds the v7.0 AppliedPlan query; emit_environment, publish_receipt and test_rehearsal_evidence_binding supply both identities to the real producers. test_programme_driver_consumes_rpc_evidence follows programme.py:3053 check_plan_and_version for the v7.0 plan, v7.0.0 version and unchanged height refusals."
+assertions_fleet = "test_fleet_check.py inputs_env and test_inputs_phase_rejects_wrong_binary_checksum follow fleet_check.py check_inputs asset names at :783-786 and tag at :764-767; test_preflight_on_local_paxd follows Outcome's separate version and plan."
+assertions_node = "test_upgrade_info.py test_release_accepts_merge_plan_and_uses_monorepo_asset retains the release URL/tag/plan checks, generates a real plan-info document with a leader and receipt key covering height 21, and checks the full node document including info; upgrade_info.py:298 node_plan_info requires that merge data and :108 validates it."
+assertions_copy = "rehearsal/test_repair_22_33_893.py test_release_signing_without_relay_import copies version.json into its isolated SDK-only root, as programme.py:65 reads it during module load; all signing and retired-import refusals remain."
+
+[repair.programme]
+producer = "rehearsal/programme.py:65-67 reads version.json; precompiles/common/precompiles.go:29 declares MergeUpgrade v7.0. precompiles/spot/abi/share.json is the native share ABI loaded by programme.py ABI_PATHS."
+assertions = "test_programme.py test_protobuf_queries asserts the exact protobuf bytes 0a0476372e30 for v7.0. exercise_driver_check supplies plan and release_version from version.json just as the real driver does before calling programme_args."
+share_golden = "rehearsal/share.golden.json is regenerated directly from every function, event and error of precompiles/spot/abi/share.json, canonical signatures and Keccak-256; programme.py spot_golden selects it for native share. The precompile's share.golden.json belongs to abi/share-solidity.json per precompiles/spot/abi_share_test.go:39 and is preserved. test_spot_abis_match_golden retains complete exact equality; ERC20 selector/event and total surface checks remain."
+
+[repair.diagnostics]
+producer = "fleet_check.py:932-933 load_config rejects --no-rehearsal for full/post before reading pool counts; :966-978 allows env-based diagnostic markets with candidate checksum and POOL_COUNT validation. Its CLI documents that limit."
+assertions = "test_market_phases_read_rehearsal_receipt_by_default checks the exact first refusal for each phase and retains pool-count checks in markets. test_full_phase_reads_env_with_no_rehearsal explicitly checks full/post refusal, then retains version, empty-pool and candidate-checksum assertions through markets. No production rollback receipt check is bypassed."
+go_toolchain = "LocalChainTests.setUpClass resolves the real Go executable with shutil.which on PATH and fails explicitly if absent; all six local chain tests still build and run the real paxd."
+
+[repair.rewind]
+producer = "rollback.sh:207 archive requires the current release-version filename; :328 refuses missing snapshots before :474-487 compares signer state and enforces distinct chain identity and fresh keys. repair_22_31_331.kvx finding.validator-signing-rewind documents the signing safety contract."
+assertions = "All five rewind refusal expectations stay intact: post-halt signing, fresh consensus identities and different consensus chain identity. Fixing snapshot.sh makes their real snapshots visible to rollback. test_repair_22_31_331.py retained-data paths follow rollback's data.v7.0.0-r1 naming; upgrade metadata and final receipt producers use the current plan/version. The isolated restore still reopens the retained SQLite history and checks readiness."
+
+[gotcha.environment]
+observed = "This sandbox initially has Go on PATH but no zstd, native archive or sshd; those are declared qualification prerequisites, not release-test defects."
+action = "Provision the real prerequisites before the bounded gates; retain installation and native build output in private evidence."
+
+[gotcha.merge_plan]
+observed = "The release/node integration case supplied only a binaries map although upgrade_info.py now requires merge leaders and receipt keys for v7.0 node activation."
+action = "Drive the real plan-info producer and preserve its complete document through the node consumer; do not relax the producer validation or the release assertions."
+
+[qualification.first_run]
+revision = "08812893f1b8d6b504c5c02e6c55bcc7c68143a1"
+build = "zstd --version > /dev/null && test -s build/liblayerx.a && bash -n tools/release/snapshot.sh && python3 -m py_compile tools/release/upgrade_info.py; exit 0; /out/logs/build-1.log"
+verify = "cg spec done 22.39.157 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log; 3 failed, 115 passed, 25 subtests passed"
+repair = "One scoped repair addresses all three consumer-drift failures; final qualification remains bound by the subsequent build and verify entries of /out/run/gates.jsonl."
+
+[repair.distribution_plan_check]
+producer = "upgrade_info.py:236 release takes its document name from version.json upgrade, v7.0, independently of the v7.0.0 asset version."
+assertions = "tests/build.test.sh:149 release_directory_contents now reads the declared plan and checks exactly that name and the same paxd checksum; its top-level asset version follows version.json. test_build_distribution still drives that real shell consumer and refuses an extra retired artifact."
+
+[repair.fresh_driver_refusal_order]
+producer = "rehearse-v6120.sh:189 requires --plan-info for v7.0 before :190-192 check SOURCE_DATA and the other required inputs."
+assertions = "test_rehearsal_requires_fresh_driver expects that exact first refusal, while retaining the nonzero memoized status, absent success receipt/binding, and refusal of stale WORK."
+
+[repair.merge_rpc_transcript]
+producer = "programme.py:3072-3086 check_plan_and_version adds eth_chainId, retired-custody depositCount and root px_getNetwork probes for v7.0; rpc/px_account.go:293-297 defines discovery with optional consensus and precompiles/layerxcustody/retire_test.go:66 asserts the exact Error(string) reason emitted by precompiles/common/retire.go:51."
+assertions = "recorded_rpc follows those existing wire contracts with exact request validation, ABI-encoded retirement error data, chain ID 0x7d and the discovery object. test_programme_driver_consumes_rpc_evidence asserts all five methods in order on all four nodes, preserves wrong-height/version refusals, and continues through the real driver, HTTP client and ABI decoder. No production method is replaced."

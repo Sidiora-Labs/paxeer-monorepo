@@ -440,6 +440,14 @@ export interface PlanIntentRequest {
 }
 
 export interface IntentLeg {
+  to?: Hex;
+  value?: string;
+  calldata?: Hex;
+  nonce?: number;
+  chain_id?: number;
+  gas_limit?: number;
+  max_fee_per_gas?: string;
+  max_priority_fee_per_gas?: string;
   index: number;
   mechanism: string;
   domain: IntentDomain;
@@ -493,7 +501,9 @@ export type JourneyState =
   | 'done-finalised'
   | 'still-checking'
   | 'refused'
-  | 'waiting-for-you';
+  | 'waiting-for-you'
+  | 'closed'
+  | 'awaiting-approval';
 
 export interface IntentSubmission {
   journey_id: string;
@@ -527,6 +537,8 @@ export interface EvidenceRef {
 }
 
 export interface JourneyStage {
+  tx_hash?: Hex;
+  nonce?: number;
   stage_id: string;
   copy_key: string;
   state: JourneyState;

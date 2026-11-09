@@ -31,11 +31,11 @@ use layerx_agent_api::track::{
 };
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
-    prepare_activity_for_protocol, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareRequest, Prepared,
+    prepare_activity, verify_call_binding, EvmPreparationDefaults, EvmPrepareRequest, EvmPrepared,
+    PrecompileCall, ProductionEvmPreparationBoundary,
 };
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
-use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
+use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_identity_provider::{AssertionConfig, AssertionVerifier, Policy, Server, State};
@@ -56,10 +56,9 @@ use layerx_human_service::store::{PrincipalId, PrincipalScope, PrincipalStore, R
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::{Call, Client as AgentClient};
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::clock::Clock;
-use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::TimestampSeconds;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
@@ -343,28 +342,6 @@ struct ReceiptSpec {
     fee: u128,
 }
 
-struct RecordedCore(CorePreparationState);
-
-impl CorePreparationBoundary for RecordedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
-    }
-}
-
-fn raw_transaction(nonce: usize, data: u8) -> Vec<u8> {
-    layerx_crypto::evm_transaction::Eip1559Call {
-        chain_id: 125,
-        nonce: u64::try_from(nonce).unwrap_or_else(|error| panic!("nonce: {error:?}")),
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 10,
-        gas_limit: 100_000,
-        to: [0x22; 20],
-        data: vec![data],
-    }
-    .sign(&[0xa5; 32])
-    .unwrap_or_else(|error| panic!("sign transaction: {error:?}"))
-}
-
 struct RealAgentLayer {
     store: AgentStore,
     outbox: Outbox,
@@ -372,7 +349,8 @@ struct RealAgentLayer {
     tenant: TenantId,
     registry: ModuleRegistry,
     specifications: BTreeMap<[u8; 32], ReceiptSpec>,
-    preparations: BTreeMap<[u8; 32], Prepared>,
+    preparations: BTreeMap<[u8; 32], EvmPrepared>,
+    sender: Option<[u8; 20]>,
     receipts: BTreeMap<[u8; 32], ReceiptMaterial>,
     submissions: BTreeMap<String, [u8; 32]>,
     signers: Vec<[u8; 32]>,
@@ -393,6 +371,7 @@ impl RealAgentLayer {
             registry: registry(),
             specifications,
             preparations: BTreeMap::new(),
+            sender: None,
             receipts: BTreeMap::new(),
             submissions: BTreeMap::new(),
             signers: Vec::new(),
@@ -427,6 +406,14 @@ impl RealAgentLayer {
 }
 
 impl AgentBoundary for RealAgentLayer {
+    fn bind_transaction_sender(&mut self, sender: [u8; 20]) -> Result<(), AgentBoundaryError> {
+        if sender == [0; 20] || self.sender.is_some_and(|bound| bound != sender) {
+            return Err(AgentBoundaryError::Refused);
+        }
+        self.sender = Some(sender);
+        Ok(())
+    }
+
     fn prepare(
         &mut self,
         call: &Call<IdempotentMutation<ApiPrepareRequest>>,
@@ -439,46 +426,31 @@ impl AgentBoundary for RealAgentLayer {
                 .specifications
                 .get(&key)
                 .ok_or(AgentBoundaryError::CorruptResponse)?;
-            let mut core = RecordedCore(CorePreparationState {
-                network_id: NETWORK_ID,
-                account_sequence: request.account_sequence.get(),
-                protocol_timestamp: request.timestamp_bound.not_before.get().saturating_add(1),
-                observed_head_sequence: 88,
-                module_registry: self.registry.clone(),
-            });
-            let prepared = prepare_activity_for_protocol(
-                &mut core,
-                PreparationDefaults {
-                    timestamp_span: request
-                        .timestamp_bound
-                        .not_after
-                        .get()
-                        .saturating_sub(request.timestamp_bound.not_before.get()),
-                    fee_limit: Amount::from_u128(request.fee_limit.get()),
+            if specification.activity != asset_send() {
+                return Err(AgentBoundaryError::Refused);
+            }
+            let node = layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
+                .map_err(|_| AgentBoundaryError::Unavailable)?;
+            let boundary = ProductionEvmPreparationBoundary::new(&node.url, &[])
+                .map_err(|_| AgentBoundaryError::Unavailable)?;
+            let prepared = prepare_activity(
+                &boundary,
+                EvmPreparationDefaults {
+                    max_priority_fee_per_gas: 1,
+                    max_fee_per_gas: request.fee_limit.get(),
                     maximum_payload_bytes: 1_024,
                 },
-                PrepareRequest {
-                    actor: Did::new(request.actor.as_str().as_bytes())
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                    authority: Authority::owner(&self.owner)
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                    activity_type: specification.activity,
-                    expected_account_sequence: Some(request.account_sequence.get()),
-                    timestamp_bound: Some(
-                        TimestampBound::new(
-                            request.timestamp_bound.not_before.get(),
-                            request.timestamp_bound.not_after.get(),
-                        )
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                    ),
-                    fee_limit: Some(Amount::from_u128(request.fee_limit.get())),
-                    idempotency_key: IdempotencyKey::new(key),
-                    payload: request.payload.as_bytes().to_vec(),
+                EvmPrepareRequest {
+                    from: self.sender.ok_or(AgentBoundaryError::Refused)?,
+                    call: PrecompileCall::ledger_transfer(request.payload.as_bytes().to_vec()),
+                    expected_nonce: Some(request.account_sequence.get()),
+                    max_priority_fee_per_gas: Some(1),
+                    max_fee_per_gas: Some(request.fee_limit.get()),
                     declared_payload_limit: 1_024,
                 },
-                SEND_PROTOCOL,
             )
             .map_err(|_| AgentBoundaryError::Refused)?;
+            verify_call_binding(&prepared).map_err(|_| AgentBoundaryError::CorruptResponse)?;
             self.preparations.insert(key, prepared);
         }
         let prepared = self
@@ -489,20 +461,28 @@ impl AgentBoundary for RealAgentLayer {
         Ok(AgentPreparation {
             preparation_ref: PreparationRef::new(format!("prep-{}", hex(&key)))
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            unsigned_canonical_bytes: prepared.canonical_bytes.clone(),
-            signing_preimage: prepared.signing_preimage.to_vec(),
+            unsigned_canonical_bytes: prepared.call.encode_unsigned(),
+            signing_preimage: prepared.signing_hash.to_vec(),
             disclosure: prepared.disclosure.clone(),
             actor: request.actor.clone(),
             authority: request.authority.clone(),
             account_sequence: request.account_sequence.get(),
-            pending_nonce: request.account_sequence.get(),
+            pending_nonce: prepared.call.nonce,
             not_before: request.timestamp_bound.not_before.get(),
             not_after: request.timestamp_bound.not_after.get(),
             fee_limit: request.fee_limit.get(),
-            activity_type: prepared.envelope.activity_type(),
-            payload: prepared.envelope.payload().as_bytes().to_vec(),
-            payload_hash: prepared.envelope.payload_hash(),
-            idempotency_key: prepared.envelope.idempotency_key().bytes(),
+            activity_type: self.specifications[&key].activity,
+            payload: request.payload.as_bytes().to_vec(),
+            payload_hash: layerx_wire::hash::payload_hash_for(
+                &layerx_types::payload::Payload::new(
+                    &self.registry,
+                    self.specifications[&key].activity,
+                    request.payload.as_bytes(),
+                )
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+            )
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+            idempotency_key: key,
         })
     }
 
@@ -518,16 +498,38 @@ impl AgentBoundary for RealAgentLayer {
             .get(&key)
             .cloned()
             .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let signature: [u8; 64] = mutation
+        let signature: [u8; 65] = mutation
             .operation
             .signature
             .as_bytes()
             .try_into()
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let signed = attach_kernel_signature(&prepared, signature)
+        if signer_public_key != self.owner {
+            return Err(AgentBoundaryError::Refused);
+        }
+        let signing = SigningPreparation {
+            actor_address: self.sender.ok_or(AgentBoundaryError::Refused)?,
+            transaction: prepared,
+        };
+        let signed = attach_external_signature(&signing, signature)
             .map_err(|_| AgentBoundaryError::Refused)?;
-        verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
-            .map_err(|_| AgentBoundaryError::Refused)?;
+        let verified =
+            verify_before_submit(&signed, &signing, &signing.actor_address, &self.registry)
+                .map_err(|_| AgentBoundaryError::Refused)?;
+        let (submitted_call, submitted_signature) =
+            layerx_crypto::evm_transaction::decode_signed(&signed)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        assert_eq!(
+            submitted_call.signing_hash(),
+            signing.transaction.signing_hash
+        );
+        assert_eq!(submitted_call, signing.transaction.call);
+        assert_eq!(
+            layerx_crypto::evm_transaction::recover_sender(&submitted_call, &submitted_signature)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+            signing.actor_address
+        );
+        assert_eq!(verified.exact_bytes(), signed);
         self.signers.push(signer_public_key);
         let raw = if let Some(id) = self.outbox_submissions.get(&key) {
             self.outbox
@@ -535,7 +537,7 @@ impl AgentBoundary for RealAgentLayer {
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?
                 .to_vec()
         } else {
-            raw_transaction(self.outbox_submissions.len(), key[0])
+            verified.into_exact_bytes()
         };
         let submission_id = match self
             .outbox

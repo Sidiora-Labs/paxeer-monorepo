@@ -43,9 +43,10 @@ ifneq ($(filter x86_64 i386 i486 i586 i686 aarch64 arm64,$(C_TARGET_ARCH)),)
 CONSENSUS_CFLAGS := -mgeneral-regs-only
 endif
 
-LIB_SOURCES := $(filter-out src/storage/lxp_projection.c \
+LIB_EXCLUDED_SOURCES := src/storage/lxp_projection.c \
 	src/network/lx_oracle_adapter.c src/sequencer/lx_oracle_root.c \
-	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c, \
+	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c
+LIB_SOURCES := $(filter-out $(LIB_EXCLUDED_SOURCES), \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
 LIB_SOURCE_MEMBERSHIP := $(BUILD_DIR)/liblayerx.sources
@@ -187,9 +188,8 @@ $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): Makefile
 force-lib-source-membership:
 
 $(LIB_SOURCE_MEMBERSHIP): force-lib-source-membership
-	@mkdir -p $(@D)
-	@set -eu; \
-		tmp=$$(mktemp "$@.XXXXXX"); \
+	@set -eu; mkdir -p "$(@D)"; \
+		tmp=$$(mktemp "$(@D)/liblayerx.sources.XXXXXX"); \
 		trap 'rm -f "$$tmp"' EXIT HUP INT TERM; \
 		printf '%s\n' $(LIB_SOURCES) > "$$tmp"; \
 		if ! cmp -s "$$tmp" "$@"; then mv -f "$$tmp" "$@"; fi
@@ -249,7 +249,7 @@ $(BUILD_DIR)/tests/lxp_test_arena_asan: tests/protocol/lxp_test_arena.c \
 test-arena: $(BUILD_DIR)/tests/lxp_test_arena \
 		$(BUILD_DIR)/tests/lxp_test_arena_asan
 	$(BUILD_DIR)/tests/lxp_test_arena
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:poison_heap=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:poison_heap=1 \
 		$(BUILD_DIR)/tests/lxp_test_arena_asan
 
 $(BUILD_DIR)/tests/lxp_test_harness: tests/lxp_test_harness.c \
@@ -265,7 +265,39 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 test-tests-python:
 	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
-		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
+		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci tools/ci/tests
+	bash tools/ci/tests/publish-images.test.sh
+	bash tools/ci/tests/workflow-runner-check.sh
+
+.PHONY: test-python-suites
+test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tests/explorer_fixture
+	PYTHONPATH=$(CURDIR)/services/agent/sdk/python \
+		LAYERX_TEST_BUILD_DIR="$(abspath $(BUILD_DIR))" \
+		python3 tests/ci/run_python_suites.py
+
+TOOLS_PYTHON_SUITES :=
+include tools/release/tests/python-tests.mk
+include tools/release/rehearsal/python-tests.mk
+include tools/bringup/tests/python-tests.mk
+include tools/containers/python-tests.mk
+include tools/deps/tests/python-tests.mk
+include tools/rollout/python-tests.mk
+include tools/deploy/python-tests.mk
+include tools/docs/gen/python-tests.mk
+include tools/spec/python-tests.mk
+include tools/benchmark/python-tests.mk
+include tools/jev/tests/python-tests.mk
+include tools/jev/checks/python-tests.mk
+include tools/paxeer-x/tests/python-tests.mk
+
+.PHONY: test-tools-python
+# Exact inherited failures and their retiring tasks are tracked in tests/ci/data/tools_python_suite_baseline.json.
+test-tools-python:
+	python3 -c 'import json, os, sys; cases = json.load(open("tests/ci/data/tools_python_suite_baseline.json")); os.execvp("python3", ["python3", "-m", "pytest", "-q", *sys.argv[1:], *["--deselect=" + case["nodeid"] for case in cases]])' $(TOOLS_PYTHON_SUITES)
+
+.PHONY: test-qualification-python
+test-qualification-python:
+	python3 -m pytest -q tools/qualification -m 'not native'
 
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
@@ -1129,7 +1161,8 @@ test-contract-state-surface:
 	scripts/ci/solidity-state-surface.sh
 
 test-contracts: test-contract-state-surface
-	FOUNDRY_TEST=tests/solidity forge test --offline --root . --no-dynamic-test-linking
+	FOUNDRY_PROFILE=names forge test --offline --root . --no-dynamic-test-linking -vvv
+	FOUNDRY_PROFILE=governance forge test --offline --root . --no-dynamic-test-linking -vvv
 
 qualify-replay:
 	tools/lxp_qual_replay_matrix.sh
@@ -1198,7 +1231,7 @@ qualify-fuzz-run: $(BUILD_DIR)/tests/test_fuzz_smoke
 		"$(FUZZ_QUAL_ITERATIONS)"
 
 qualify-fuzz: qualify-fuzz-run
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:strict_string_checks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:strict_string_checks=1 \
 	$(MAKE) --no-print-directory BUILD_DIR=build/qualification/fuzz-asan \
 		EXTRA_CFLAGS="$(SANITIZER_CFLAGS) -fsanitize=address" \
 		EXTRA_LDFLAGS="-fsanitize=address" FUZZ_QUAL_ITERATIONS=25000 \
@@ -1322,7 +1355,7 @@ $(BUILD_DIR)/tests/lxp_fuzz_codec: tests/fuzz/lxp_fuzz_codec.c \
 		-fsanitize=address,undefined $^ -fsanitize=address,undefined -o $@
 
 fuzz-codec-smoke: $(BUILD_DIR)/tests/lxp_fuzz_codec
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	UBSAN_OPTIONS=halt_on_error=1 $(BUILD_DIR)/tests/lxp_fuzz_codec
 
 $(BUILD_DIR)/tests/lxp_test_hash: tests/crypto/lxp_test_hash.c $(LIBRARY)
@@ -1380,7 +1413,7 @@ test-crypto-suite: test-crypto-hash test-crypto-ed25519 \
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_ct
 
 test-crypto-sanitizers:
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	$(MAKE) --no-print-directory BUILD_DIR=build/crypto-asan \
 		EXTRA_CFLAGS="$(SANITIZER_CFLAGS) -fsanitize=address" \
 		EXTRA_LDFLAGS="-fsanitize=address" test-crypto-suite
@@ -1454,7 +1487,7 @@ $(BUILD_DIR)/tests/lxp_test_arith_property_san: $(ARITH_PROPERTY_SOURCES) \
 test-arith-property: $(BUILD_DIR)/tests/lxp_test_arith_property \
 		$(BUILD_DIR)/tests/lxp_test_arith_property_san
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_arith_property
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	UBSAN_OPTIONS=halt_on_error=1 $(BUILD_DIR)/tests/lxp_test_arith_property_san
 
 $(BUILD_DIR)/tests/lxp_test_nofloat: tests/arith/lxp_test_nofloat.c $(LIBRARY)
@@ -2398,7 +2431,7 @@ agent-test-sdk-ts:
 
 agent-test-sdk-py:
 	$(MAKE) agent-test-sdk-generate
-	PYTHONPATH=services/agent/sdk/python python3 -m unittest discover -s tests/agent/sdk/python -p 'test_*.py'
+	PYTHONPATH=services/agent/sdk/python python3 -m pytest -q tests/agent/sdk/python services/agent/sdk/python/tests
 	PYTHONPATH=services/agent/sdk/python python3 -m compileall -q services/agent/sdk/python/layerx_sdk services/agent/sdk/python/examples
 
 agent-test-sdk-parity:
@@ -2478,7 +2511,7 @@ PAXEER_FORWARDED_TARGETS := autobahn-integration-test build-docker-node \
 	docker-cluster-start-ci docker-cluster-start-giga-mixed \
 	docker-cluster-start-monitoring docker-cluster-start-skipbuild \
 	docker-cluster-stop docker-cluster-stop-monitoring \
-	ensure-integration-ci-images giga-integration-test \
+	ensure-integration-ci-images evmone-lib giga-integration-test \
 	giga-mixed-integration-test install install-bench install-mock-balances \
 	install-rocksdb install-with-race-detector kill-pax-node kill-rpc-node \
 	lint loadtest rocksdb-source-check run-local-node run-rpc-node \
@@ -2495,11 +2528,11 @@ paxeer-build:
 	GOPROXY=off $(PAXEER_MAKE) build
 
 .PHONY: paxd-native-libs paxd-build test-lxphost test-paxd-domain paxd-version-check
-paxd-native-libs: $(LIBRARY) programs-release-build
+paxd-native-libs: $(LIBRARY) programs-release-build evmone-lib
 
 paxd-build: paxd-native-libs
 	version=$$(jq -er .version tools/release/version.json) && \
-		GOPROXY=off $(PAXEER_MAKE) build LDFLAGS="-X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Version=$$version"
+		GOPROXY=off $(PAXEER_MAKE) build VERSION="$$version"
 
 test-lxphost: paxd-native-libs
 	CGO_ENABLED=1 go test ./modules/lxphost/...
@@ -2626,7 +2659,25 @@ specgen-lint:
 	go vet ./tools/specgen
 	go run ./tools/specgen -root . -check
 
-core-test-all: test test-kernel test-module-ctx test-dispatch test-receipts \
+.PHONY: test-core-ports core-test-all
+
+test-core-ports: $(BUILD_DIR)/tests/kernel/codec/lxp_test_handover_retired \
+	$(BUILD_DIR)/tests/kernel/codec/lxp_test_state_feed_unbound \
+	$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_payer_grant \
+	$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_prepare_workers
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/kernel/codec/lxp_test_handover_retired \
+		handover_activity_refused governance_fee_keeps_key
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/kernel/codec/lxp_test_state_feed_unbound \
+		programs_runtime_without_feed feed_does_not_change_roots retired_feed_symbols_absent
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_payer_grant \
+		payer_grant_roundtrip payer_grant_mutation_canonical
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_prepare_workers \
+		prepare_one_vs_four_workers_equal
+
+$(BUILD_DIR)/tests/kernel/codec/lxp_test_state_feed_unbound \
+$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_prepare_workers: tests/programs/test_call_activity.c
+
+core-test-all: test-core-ports test test-kernel test-module-ctx test-dispatch test-receipts \
 	test-state-root test-ledger-accounts test-ledger-transfer test-ledger-set \
 	test-ledger-send test-ledger-receive test-ledger-send-allowance \
 	test-ledger-receipt test-asset-registry \
@@ -2720,24 +2771,19 @@ interop-build-ramps:
 interop-test-ramps-sandbox:
 	sh services/platform/ramps/sandbox-journey.sh
 
-INTEROP_CARGO ?= cargo
-INTEROP_MANIFEST := services/interop/Cargo.toml
-
 .PHONY: interop-build interop-test interop-lint interop-test-x402 interop-test-mandates interop-test-migration interop-test-migration-testnets interop-test-ucp interop-test-portable interop-test-visa-tap interop-test-mirrors
 
 interop-build:
 	$(INTEROP_CARGO) build --manifest-path $(INTEROP_MANIFEST) --locked --workspace
 
 interop-test:
-	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked --workspace
+	python3 tests/ci/interop_workspace_test.py --cargo "$(INTEROP_CARGO)" --manifest-path "$(INTEROP_MANIFEST)"
 
 interop-test-mirrors:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-mirror
 	cargo test --manifest-path services/interop/contracts/solana-mirror/Cargo.toml --locked
-	forge test --root . --contracts services/interop/contracts/ethereum-mirror \
-		--match-path services/interop/contracts/ethereum-mirror/test/LayerXMirrorArchive.t.sol \
-		--use 0.8.30 --evm-version paris --optimize --optimizer-runs 100000 \
-		--via-ir --no-metadata
+	forge test --root services/interop/contracts/ethereum-mirror \
+		--evm-version paris --no-dynamic-test-linking -vvv
 
 interop-test-x402:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-x402
@@ -2921,13 +2967,6 @@ programs-executed-v4-fixture: programs-build
 programs-check-executed-v4-fixture: programs-build
 	$(MAKE) $(BUILD_DIR)/tests/programs_call_activity
 	python3 sdk/platform/conformance/fixtures/generate_executed_program_v4_fixture.py --encoder $(BUILD_DIR)/tests/programs_call_activity --check
-
-.PHONY: programs-executed-fixture programs-check-executed-fixture
-programs-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $<
-
-programs-check-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $< --check
 
 $(BUILD_DIR)/tests/programs_metering_schedule: tests/programs/test_metering_schedule.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build

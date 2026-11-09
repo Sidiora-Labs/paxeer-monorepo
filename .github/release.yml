@@ -1,3 +1,5 @@
+# Manual PR labels: app-hash-breaking, non-app-hash-breaking.
+# Maintainers select the app-hash impact; release categories use area labels.
 changelog:
   exclude:
     labels:

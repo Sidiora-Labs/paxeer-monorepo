@@ -188,7 +188,7 @@ pub fn evidence_startup_config(receipt_signer: &SigningKey) -> StartupConfig {
             tenant.clone(),
             PathBuf::from("/etc/layerx/human-signer.kvx"),
         )]),
-        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::CHECKPOINT_FINALISED)]),
+        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::COMMITTED)]),
         receipt_key_source: ReceiptKeySource::PinnedFile(authority_path),
     }
 }

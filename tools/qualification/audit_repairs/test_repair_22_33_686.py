@@ -188,7 +188,7 @@ def test_readme_network_doc_merged_node_build_and_release():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     recipe = makefile.split("\npaxd-build: paxd-native-libs\n", 1)[1].split("\n\n", 1)[0]
     assert "tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe

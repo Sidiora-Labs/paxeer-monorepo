@@ -35,8 +35,21 @@ readonly DATABASE_PROBE_HOST='localhost'
 CONTAINER_SCRIPT=$(
   cat <<'CONTAINER_SCRIPT_END'
 set -e
+compiler_binaries_available() {
+  command -v node >/dev/null 2>&1 &&
+    node -e "require.resolve('solc', {paths: ['./apps/explorer/priv']})" >/dev/null 2>&1 &&
+    command -v vyper >/dev/null 2>&1
+}
+if [ "${1:-}" = 'test' ] && ! compiler_binaries_available; then
+  echo 'mix-in-builder: compiler tools unavailable; excluding compiler-tagged tests' >&2
+  set -- "$@" --exclude compiler
+fi
 if [ "${MIX_IN_BUILDER_BROWSER_DRIVER:-0}" = "1" ] && ! command -v chromedriver >/dev/null 2>&1; then
   apk add --no-cache chromium-chromedriver >&2
+fi
+if [ "${1:-}" = 'test' ]; then
+  mix ecto.create --quiet
+  mix ecto.migrate
 fi
 exec mix "$@"
 CONTAINER_SCRIPT_END

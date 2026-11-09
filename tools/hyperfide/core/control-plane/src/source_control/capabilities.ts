@@ -1,4 +1,5 @@
 import { assertSourceRecoveryAdmission } from "./recovery.js";
+import { SOURCE_EVENT_ACTIONS } from "./events.js";
 import { randomUUID } from "node:crypto";
 import type { InvocationContext } from "../transport/protocol.js";
 import {
@@ -171,6 +172,7 @@ const MUTATIONS = new Set([
   "source.contributions.create",
 ]);
 const METADATA_ONLY = new Set([
+  SOURCE_EVENT_ACTIONS.lifecycle,
   "source.queries.batch",
   "source.transfers.read",
   "source.transfers.complete",

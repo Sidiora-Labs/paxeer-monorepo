@@ -3,6 +3,7 @@ package layerxpay
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
@@ -13,9 +14,37 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+const (
+	streamOpenForAsk = "streamOpenForAsk"
+	askStreamOf      = "askStreamOf"
+)
+
+func (p *Executor) openAskStream(ctx sdk.Context, method *abi.Method, caller common.Address, args []interface{}, id [32]byte, evm *vm.EVM) ([]byte, error) {
+	askRef := args[0].([32]byte)
+	if err := p.keeper.StreamOpenForAsk(ctx, caller, id, askRef, args[1].(common.Address), args[2].(*big.Int), args[3].(uint8), args[4].(*big.Int), args[5].([32]byte)); err != nil {
+		return nil, err
+	}
+	values, err := payEvents[AskStreamOpened].pack(args, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := emitPayEvent(evm, AskStreamOpened, askRef, values); err != nil {
+		return nil, err
+	}
+	return method.Outputs.Pack(id)
+}
+
 func (p *Executor) streamHandlers(ctx sdk.Context, method *abi.Method, caller common.Address, args []interface{}, key [32]byte, evm *vm.EVM) ([]byte, error) {
 	id := args[0].([32]byte)
 	switch method.Name {
+	case streamOpenForAsk:
+		return p.openAskStream(ctx, method, caller, args, key, evm)
+	case askStreamOf:
+		streamID, err := p.keeper.AskStreamOf(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		return method.Outputs.Pack(streamID)
 	case "getStream":
 		record, err := p.keeper.GetStream(ctx, id)
 		if err != nil {

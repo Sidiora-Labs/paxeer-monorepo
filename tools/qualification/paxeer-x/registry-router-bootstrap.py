@@ -308,7 +308,7 @@ class NativeBootstrap:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument('--inputs', required=True)
     parser.add_argument('--check-stage', choices=STAGES)
     args = parser.parse_args()

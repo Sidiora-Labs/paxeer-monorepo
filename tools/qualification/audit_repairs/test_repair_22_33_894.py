@@ -182,7 +182,7 @@ def test_readme_two_domains_build_and_run_guidance_has_no_daemon():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
@@ -297,7 +297,7 @@ def test_readme_two_domains_directory_build_and_release_are_merged():
     assert deps == ["paxd-native-libs"]
     assert "jq -er .version tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
-    assert make_rule("Makefile", "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build"]
+    assert make_rule("Makefile", "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert make_rule("chain.mk", "build") == (
         ["paxd-native-libs"], "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd",
     )
