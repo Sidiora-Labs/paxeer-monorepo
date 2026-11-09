@@ -1,0 +1,28 @@
+{
+  "source_revision": "2910889b640274b1b6f2bd14a2fba25019093bb2",
+  "python_sdk": {
+    "local_sha256": {
+      "test_ai_market_commit.py": "08d8040bf478c8e44ec991a2901c263fc194555ccaddcf210fb89a2200c2833d",
+      "test_px_commit.py": "58dec34db20ff5190e6679315ac3168b93fe561bf14caae5b161ad69ef5ce5ee",
+      "test_receipt_generated_current.py": "3f438666460c17baf14cc2a1938e99581e621ab95531f894bca64b0e23e15e82",
+      "test_retired_kernel_receipts.py": "a708465a766c939b042310cacb709ccf0621011960c940ce4092cdd6831be841",
+      "test_revert_retryable.py": "5b03a8179beccf9f6ce8dc7f883b372eb46d6067faa0383d75b21f50a1815615",
+      "test_sequencer_receipt.py": "9d664e5adf8eb4e9ec0d858dbbb195970887e6821009aec0ef0ff668b03da52a",
+      "test_spot_call.py": "320cd8e62db028df964fd7ac833f73616efb696155f852b19788f46d3de86ef7",
+      "test_web_search_sequencer.py": "af9dca5051db70c4929502d23c5387944fb888029189ebc587c6adf666a64a62",
+      "test_x402_draw_sequencer.py": "263666bb8dcc61d7faded9da5f39fb3091e14d05c7f928c51b5e9613e5a5b8d3",
+      "test_x402_http_sequencer.py": "abadb985246296a2a7746cc6bceba5abd4a7f9188a983053caf932212c8f1e7c",
+      "test_x402_rpc_surface.py": "d7ca4dc716b5f35748e415e469aeea59eec6854dbe55371e12936594d3bce229"
+    },
+    "central_module_count": 44,
+    "central_sha256": "6c7cd00d8ebe43d94f916ab95123bf8bfe5d2d0f8b41136bf2ffde6a6a38dd67",
+    "discovery_extensions": [
+      "test_x402_rpc_surface.py"
+    ]
+  },
+  "clock_requests": [
+    "services/agent/crates/layerx-mcp/tests/support/native_reads.rs | owning domain 9 | Replace ambient clock reads with injected Clock or the shared test adapter.",
+    "services/agent/crates/layerx-mcp/tests/support/seller_server.rs | owning domain 9 | Replace ambient clock reads with injected Clock or the shared test adapter.",
+    "services/agent/crates/layerx-sdk/tests/issue_1764.rs | owning domain 9 | Replace ambient clock reads with injected Clock or the shared test adapter."
+  ]
+}
