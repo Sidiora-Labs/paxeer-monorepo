@@ -1,5 +1,9 @@
 import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
+import {
+  nativeCheckpointAcknowledgmentSchema,
+  nativeCheckpointDetailSchema,
+} from "../environment-slices/contract.js";
 
 const id = z.string().uuid();
 const revision = z.string().regex(/^sha256:[a-f0-9]{64}$/);
@@ -162,6 +166,9 @@ export type SourceWorkspaceStage =
   | "ACCEPTED"
   | "EXPORTED";
 export type SourceWorkspaceEvidence = {
+  projectId: string;
+  workspaceGeneration: string;
+  scopeGeneration: string;
   workspaceId: string;
   revisionId: string;
   stage: Exclude<SourceWorkspaceStage, "DIRTY" | "UPLOADING">;
@@ -176,7 +183,13 @@ export type SourceClosureReadiness = {
 };
 export function sourceCheckpointReceiptMatches(
   operationId: string,
-  action: Extract<SourceActionInput, { kind: "checkpoint" }>,
+  action: Pick<
+    Extract<SourceActionInput, { kind: "checkpoint" }>,
+    | "workspaceId"
+    | "workspaceGeneration"
+    | "scopeGeneration"
+    | "overlayGeneration"
+  >,
   result: unknown,
 ): boolean {
   if (!result || typeof result !== "object") return false;
@@ -203,6 +216,46 @@ export function sourceCheckpointReceiptMatches(
     revision.safeParse(value.revision_id).success &&
     value.revision_id === workspace.checkpoint_revision_id &&
     value.revision_id === workspace.base_revision_id
+  );
+}
+export type SourceCheckpointAcknowledgment = z.infer<
+  typeof nativeCheckpointAcknowledgmentSchema
+>;
+export function sourceHostCheckpointMatches(
+  checkpoint: unknown,
+  authoritative: unknown,
+): checkpoint is SourceCheckpointAcknowledgment {
+  const parsed = nativeCheckpointAcknowledgmentSchema.safeParse(checkpoint);
+  if (!parsed.success || !authoritative || typeof authoritative !== "object")
+    return false;
+  const value = parsed.data,
+    workspace = authoritative as Record<string, unknown>;
+  const result = value.result,
+    receipt = result.receipt;
+  const scope = workspace.scope as Record<string, unknown> | undefined;
+  return (
+    sourceCheckpointReceiptMatches(
+      value.operationId,
+      {
+        workspaceId: value.workspaceId,
+        workspaceGeneration: value.workspaceGeneration,
+        scopeGeneration: value.scopeGeneration,
+        overlayGeneration: value.overlayGeneration,
+      },
+      result,
+    ) &&
+    workspace.workspace_id === value.workspaceId &&
+    workspace.workspace_generation === result.workspace.workspace_generation &&
+    workspace.scope_generation === value.scopeGeneration &&
+    workspace.authority_epoch === result.workspace.authority_epoch &&
+    workspace.base_revision_id === result.revision_id &&
+    workspace.checkpoint_revision_id === result.revision_id &&
+    !!scope &&
+    (["organisation_id", "repository_id", "security_domain_id"] as const).every(
+      (key) =>
+        scope[key] === result.workspace.scope[key] &&
+        scope[key] === receipt.scope[key],
+    )
   );
 }
 export const hostCapabilitiesSchema = z.object({
@@ -235,11 +288,7 @@ export const sourceHostContract = defineRpcContract({
   },
   checkpoint: {
     input: z.object({ sliceId: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
-    output: z.object({
-      sliceId: z.string(),
-      snapshotChain: z.array(z.string()),
-      fallbackReason: z.string().nullable(),
-    }),
+    output: nativeCheckpointDetailSchema,
   },
 });
 export const sourceContract = defineRpcContract({
@@ -267,11 +316,7 @@ export const sourceContract = defineRpcContract({
   },
   checkpointHost: {
     input: z.object({ projectId: z.string(), workspaceId: id }).strict(),
-    output: z.object({
-      sliceId: z.string(),
-      snapshotChain: z.array(z.string()),
-      fallbackReason: z.string().nullable(),
-    }),
+    output: nativeCheckpointDetailSchema,
   },
 
   projects: {
