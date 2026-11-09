@@ -1,0 +1,50 @@
+[issue.1665]
+number = 1665
+title = "Node px_listAssets does not implement its declared cursor schema"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "rpc/px_assets.go:182 accepts no cursor and rpc/px_assets.go:198 omits next_cursor and order while rpc/px_assets.go:76 and rpc/px_assets.go:119 scan pages of 500 and retain lexical asset order, contradicting the adopted OpenRPC schema at spec/layerx-merge/contracts/evm-rpc.md:3597 and services/platform/hosted/gateway/openrpc.json:1291,1309,1397 introduced by ac3a6069b65fcb434cdb8726a931bca731040387; rpc/px_node_root_account_test.go:328,345,406 covers refusals without a successful asset page, whereas services/platform/hosted/indexer/src/store.rs:2558 already provides registration-order keyset pages and services/platform/hosted/gateway/tests/repair_22_33_1440.rs:595 proves gateway continuation."
+close_comment = "Confirmed: node px_listAssets cannot yet continue registration-order pages using the published cursor schema. Task 18.1665.1 tracks node cursor validation, next_cursor and order fields, and producer-backed pagination tests while preserving explicit upstream errors."
+
+[task.18.1665.1]
+title = "Issue #1665: Serve cursor-based asset pages from the node"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181665.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change ListAssets and assetRecords in rpc/px_assets.go:64,182 to accept the optional canonical positive decimal signed-64-bit cursor declared at services/platform/hosted/gateway/openrpc.json:1291, reject malformed, non-string, zero, negative, noncanonical, overflowing and extra arguments with -32602 before upstream access, and fetch exactly one /v1/assets page with limit=16 and the supplied cursor using the producer contract at services/platform/hosted/indexer/src/api.rs:644 and services/platform/hosted/indexer/src/store.rs:2558; preserve registration order without sorting or following continuation internally, validate the upstream envelope and advancing continuation, return next_cursor as a string or null and order as registration, and retain joined_limit=16, one committed metadata height, nullable metadata and fail-closed upstream errors within the schema's ten-second aggregate deadline."
+do_2 = "Add TestPxNodeRoot_Assets_CursorSchema to rpc/px_node_root_account_test.go using newPxRootAccountHarness at rpc/px_node_root_account_test.go:58 and pxRootAssertSchema at rpc/px_node_root_account_test.go:418; replay unmodified pages recorded from the production indexer's Store::register_assets and api::handle over a real HTTP listener, retaining their producer provenance in the test, and use the real node metadata paths and HTTP/WebSocket clients rather than hand-built success envelopes. Register more than 32 assets in an order different from asset-id sorting and assert first, subsequent, final and empty pages, exact continuation, no duplicates or omissions, repeat-read stability, one limit=16 indexer exchange per valid call, schema parity on every result, invalid-cursor refusal before any indexer exchange, missing and unreachable upstream refusals, malformed upstream refusal, null metadata on unsupported reads, and continuation after restarting the node against the same producer records."
+do_3 = "Replace the lexical-sort statement at spec/layerx-merge/contracts/evm-rpc.md:3612 with the registration-order cursor contract, including one bounded page and null terminal continuation, keeping the OpenRPC adoption at spec/layerx-merge/contracts/evm-rpc.md:3597 intact; preserve the existing refusal assertions at rpc/px_node_root_account_test.go:328,345,406."
+do_4 = "Keep the SDK pagination work owned by the existing task 22.31.212 and the gateway handoff at services/platform/hosted/gateway/tests/repair_22_33_1440.rs:10; the node implements the same published cursor and registration-order fields without changing SDK or gateway sources."
+symbols = ["ListAssets", "assetRecords", "TestPxNodeRoot_Assets_CursorSchema"]
+touches = ["rpc/px_assets.go", "rpc/px_node_root_account_test.go", "spec/layerx-merge/contracts/evm-rpc.md"]
+tests = ["rpc/px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema", "rpc/px_node_root_account_test.go::TestPxNodeRoot_Account_ConfigAndIndexerUnavailable", "rpc/px_node_root_account_test.go::TestPxNodeRoot_Account_ValidationRefusalsAndUnbound"]
+planned_paths = []
+build_cmd = "go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestPxNodeRoot_(Assets_CursorSchema|Account_ConfigAndIndexerUnavailable|Account_ValidationRefusalsAndUnbound)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181665]
+title = "Node asset pages conform to the declared cursor schema"
+ac_1 = "For the schema at services/platform/hosted/gateway/openrpc.json:1291,1309,1397 adopted at spec/layerx-merge/contracts/evm-rpc.md:3597, node HTTP and WebSocket calls accept an omitted cursor or one canonical positive signed-64-bit decimal cursor, reject invalid arguments with -32602 before upstream access, select at most sixteen assets in producer registration order with one indexer page per call, return next_cursor and order, retain local metadata at the returned committed height and explicit unavailable errors, and traverse first, subsequent, final and empty pages without duplicates or omissions across a node restart."
+
+[acceptance.18.1665.1]
+feature = "18"
+req = "181665.1"
+scenario = "Given more than 32 assets registered by the production indexer in nonlexical order and a node reading committed metadata, when HTTP and WebSocket clients traverse px_listAssets using each returned cursor and continue after a node restart, then every asset appears once in registration order, each response matches OpenRPC with at most sixteen assets and a terminal null cursor, each valid request reads one indexer page, and invalid cursors and unavailable upstreams produce their declared errors."
+contract = "contracts/evm-rpc.md#px-node-root-account"
+test = "rpc/px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema (planned)"
+qualification = "UNRUN"
