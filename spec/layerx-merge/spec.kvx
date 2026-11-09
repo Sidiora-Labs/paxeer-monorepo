@@ -317855,7 +317855,7 @@ do_6 = "Finding 17.1.7.3: the golden run's panic is node behaviour task 22.6.11 
 
 [task.17.1.8]
 title = "Capture the custody release golden that replaced the bond return"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["17.1.7", "6.0.9"]
