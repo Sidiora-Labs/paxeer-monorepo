@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import type { PortfolioBalanceSnapshot } from '../src/page-modules/portfolio/balances';
 import type { DailyPnl } from '../src/hooks/perps/useDailyPnl';
 import { weiToNumber } from '../src/ui/utils/format';
 
@@ -15,13 +16,18 @@ function overviewProps(daily: { dailyPnl: DailyPnl[]; skippedDays: number; histo
   return {
     isConnected: true, hasVault: true, address: '0x0000000000000000000000000000000000000001',
     totalVaultUsd: 10, unrealizedPnl: 0, openPositions: 0, realizedPnl: 0, totalTrades: 0, balances: [],
+    balanceSnapshot: {
+      address: '0x0000000000000000000000000000000000000001',
+      account: { status: 'loading' }, wallet: { status: 'loading' },
+    } satisfies PortfolioBalanceSnapshot,
+    onRetryBalances() { assert.fail('Server rendering must not retry balances'); },
     ...page.overviewDailyPnlProps(daily),
     isLoading: false, privacy: false,
     onTogglePrivacy() {}, onRefresh() {}, onConnect() {}, onDeposit() {}, onWithdraw() {},
   };
 }
 
-test('portfolioPageShowsDailyPnlErrorAndSkippedDays', async () => {
+async function portfolioPageShowsDailyPnlErrorAndSkippedDays() {
   const page = await import('../src/page-modules/portfolio/index');
   const { PortfolioOverviewPanel } = await import('../src/widgets/portfolio/PortfolioOverviewPanel');
   const failed = renderToStaticMarkup(createElement(PortfolioOverviewPanel, overviewProps({ dailyPnl: [], skippedDays: 0, historyCapped: false, isLoading: false, error: new Error('both reads failed') }, page)));
@@ -29,7 +35,8 @@ test('portfolioPageShowsDailyPnlErrorAndSkippedDays', async () => {
   const partial = renderToStaticMarkup(createElement(PortfolioOverviewPanel, overviewProps({ dailyPnl: [day('2026-10-21', TENTH)], skippedDays: 3, historyCapped: false, isLoading: false, error: null }, page)));
   assert.match(partial, /3 days skipped/);
   assert.doesNotMatch(partial, /Performance history is unavailable/);
-});
+}
+test(portfolioPageShowsDailyPnlErrorAndSkippedDays);
 
 test('performanceCardsSumWeiExactly', async () => {
   const { sevenDayTotals } = await import('../src/widgets/portfolio/PerformanceCards');

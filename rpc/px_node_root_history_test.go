@@ -13,6 +13,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -46,6 +48,7 @@ type pxHistoryReplay struct {
 	mu     sync.Mutex
 	native map[string]bool
 	calls  []string
+	txHash string
 }
 
 // Replay the committed producer's documents through a real HTTP listener. No
@@ -68,6 +71,7 @@ func newPxHistoryReplay(t *testing.T) *pxHistoryReplay {
 		if replay.native[strings.TrimPrefix(path, "/v1/history/")] {
 			path = "/native-empty"
 		}
+		txHash := replay.txHash
 		replay.mu.Unlock()
 		key := path + "?" + r.URL.Query().Encode()
 		recording, ok := entries[key]
@@ -77,9 +81,20 @@ func newPxHistoryReplay(t *testing.T) *pxHistoryReplay {
 			return
 		}
 		require.Equal(t, http.MethodGet, r.Method)
+		body := recording.Body
+		if txHash != "" && strings.HasPrefix(path, "/v1/history/") {
+			var page map[string]interface{}
+			require.NoError(t, json.Unmarshal(body, &page))
+			for _, value := range page["items"].([]interface{}) {
+				value.(map[string]interface{})["tx_hash"] = txHash
+			}
+			var err error
+			body, err = json.Marshal(page)
+			require.NoError(t, err)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(recording.Status)
-		_, _ = w.Write(recording.Body)
+		_, _ = w.Write(body)
 	}))
 	t.Cleanup(replay.server.Close)
 	return replay
@@ -128,6 +143,127 @@ func pxHistoryIDs(result map[string]interface{}) []string {
 	return ids
 }
 
+func TestPxNodeRoot_History_TransactionHashParity(t *testing.T) {
+	encoded, err := os.ReadFile("testdata/px-history/responses.json")
+	require.NoError(t, err)
+	var recordings []pxHistoryRecording
+	require.NoError(t, json.Unmarshal(encoded, &recordings))
+	type transaction struct {
+		ID         string             `json:"id"`
+		TxID       string             `json:"tx_id"`
+		TxHash     string             `json:"tx_hash"`
+		FinalBasis string             `json:"final_basis"`
+		Stability  history.Stability  `json:"stability"`
+		Settlement history.Settlement `json:"settlement"`
+	}
+	var producer struct {
+		Items []transaction `json:"items"`
+	}
+	for _, recording := range recordings {
+		if recording.Path == "/v1/history/"+pxHistoryAddress && recording.Query == "limit=50" {
+			require.NoError(t, json.Unmarshal(recording.Body, &producer))
+		}
+	}
+	require.NotEmpty(t, producer.Items)
+	expected := map[string]string{}
+	for _, row := range producer.Items {
+		require.NotEmpty(t, row.TxID)
+		require.NotContains(t, expected, row.ID)
+		expected[row.ID] = row.TxID
+	}
+	encoded, err = os.ReadFile("testdata/px-history/gateway-recording.json")
+	require.NoError(t, err)
+	var gateway struct {
+		Items []transaction `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &gateway))
+	require.Len(t, gateway.Items, len(expected))
+	gatewayHashes := map[string]string{}
+	gatewayBases := map[string]string{}
+	gatewayStability := map[string]history.Stability{}
+	gatewaySettlement := map[string]history.Settlement{}
+	for _, row := range gateway.Items {
+		require.Contains(t, expected, row.ID)
+		require.NotContains(t, gatewayHashes, row.ID)
+		require.Equal(t, expected[row.ID], row.TxID)
+		require.Equal(t, expected[row.ID], row.TxHash)
+		require.Equal(t, "block_commit", row.FinalBasis)
+		gatewayHashes[row.ID] = row.TxHash
+		gatewayBases[row.ID] = row.FinalBasis
+		gatewayStability[row.ID] = row.Stability
+		gatewaySettlement[row.ID] = row.Settlement
+	}
+	sdkPath, err := filepath.Abs("../services/agent/sdk/typescript/src/history.ts")
+	require.NoError(t, err)
+	expectedJSON, err := json.Marshal(expected)
+	require.NoError(t, err)
+	const decode = `
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const { decodePaxeerHistoryPage, decodeUnifiedHistoryPage } = await import(process.argv[1]);
+const result = JSON.parse(readFileSync(0, "utf8"));
+const expected = JSON.parse(process.argv[3]);
+const page = process.argv[2] === "px_getHistory"
+  ? decodePaxeerHistoryPage(result)
+  : decodeUnifiedHistoryPage(result);
+assert.ok(page.items.length > 0);
+assert.equal(page.items.length, Object.keys(expected).length);
+assert.deepEqual(page.items.map(row => row.id).sort(), Object.keys(expected).sort());
+for (const row of page.items) {
+  assert.equal(row.txHash, expected[row.id]);
+}
+`
+	replay := newPxHistoryReplay(t)
+	h := newPxRootAccountHarness(t)
+	require.Equal(t, h.height, h.app.LastCommitID().Version)
+	pxHistoryStart(t, h, replay.server.URL)
+	for _, upstream := range []string{"producer", "conflicting_tx_hash"} {
+		t.Run(upstream, func(t *testing.T) {
+			if upstream == "conflicting_tx_hash" {
+				replay.mu.Lock()
+				replay.txHash = "0x" + strings.Repeat("a", 64)
+				replay.mu.Unlock()
+				for _, txID := range expected {
+					require.NotEqual(t, replay.txHash, txID)
+				}
+			}
+			for i, client := range h.clients {
+				for _, method := range []string{"px_getHistory", "px_getUnifiedHistory"} {
+					t.Run([]string{"http", "websocket"}[i]+"/"+method, func(t *testing.T) {
+						ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+						defer cancel()
+						var result json.RawMessage
+						require.NoError(t, client.CallContext(ctx, &result, method, pxHistoryAddress))
+						var page struct {
+							Items []transaction `json:"items"`
+						}
+						require.NoError(t, json.Unmarshal(result, &page))
+						require.NotEmpty(t, page.Items)
+						require.Len(t, page.Items, len(expected))
+						seen := map[string]bool{}
+						for _, row := range page.Items {
+							require.Contains(t, expected, row.ID)
+							require.NotContains(t, seen, row.ID)
+							seen[row.ID] = true
+							require.Equal(t, expected[row.ID], row.TxID)
+							require.Equal(t, expected[row.ID], row.TxHash)
+							require.Equal(t, gatewayHashes[row.ID], row.TxHash)
+							require.Equal(t, gatewayBases[row.ID], row.FinalBasis)
+							require.Equal(t, gatewayStability[row.ID], row.Stability)
+							require.Equal(t, gatewaySettlement[row.ID], row.Settlement)
+						}
+						command := exec.CommandContext(ctx, "node", "--experimental-strip-types", "--input-type=module", "--eval", decode,
+							(&url.URL{Scheme: "file", Path: sdkPath}).String(), method, string(expectedJSON))
+						command.Stdin = bytes.NewReader(result)
+						output, err := command.CombinedOutput()
+						require.NoError(t, err, "TypeScript history decoder: %s", output)
+					})
+				}
+			}
+		})
+	}
+}
+
 func TestPxNodeRoot_History_TransportShapesAndRestart(t *testing.T) {
 	replay := newPxHistoryReplay(t)
 	h := newPxRootAccountHarness(t)
@@ -154,6 +290,18 @@ func TestPxNodeRoot_History_TransportShapesAndRestart(t *testing.T) {
 			} else {
 				require.Equal(t, []string{"3", "6", "9", "11"}, pxHistoryIDs(result))
 				rows := result["items"].([]interface{})
+				for _, value := range rows {
+					row := value.(map[string]interface{})
+					require.NotEmpty(t, row["tx_id"])
+					require.Equal(t, row["tx_id"], row["tx_hash"])
+					require.Equal(t, "block_commit", row["final_basis"])
+					require.Equal(t, map[string]interface{}{
+						"level": "reversible", "source": "block_commit", "finalized_boundary": nil,
+					}, row["stability"])
+					require.Equal(t, map[string]interface{}{
+						"level": "unverified", "source": nil, "reason": "no_verified_checkpoint_evidence",
+					}, row["settlement"])
+				}
 				require.Equal(t, "1000000000000000000", rows[0].(map[string]interface{})["amount"])
 				require.Equal(t, float64(18), rows[0].(map[string]interface{})["asset_metadata"].(map[string]interface{})["decimals"])
 				require.Nil(t, rows[3].(map[string]interface{})["asset_metadata"])

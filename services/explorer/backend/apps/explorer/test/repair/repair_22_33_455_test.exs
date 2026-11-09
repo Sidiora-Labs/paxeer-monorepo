@@ -274,7 +274,17 @@ defmodule Explorer.Repair2233455Test do
 
     before_retry = Repo.all(MainExportQueue)
     assert {:retry, retry} = MainExporter.run(before_retry, nil)
-    assert length(retry.addresses) == 2
+    assert retry == before_retry
+
+    retry_chunks =
+      retry |> MainExporter.prepare_export_data() |> MultichainSearch.extract_batch_import_params_into_chunks()
+
+    assert length(Enum.flat_map(retry_chunks, & &1.addresses)) == 2
+
+    for key <- [:addresses, :block_ranges, :hashes, :address_coin_balances] do
+      assert Enum.sort(Enum.flat_map(retry_chunks, & &1[key])) == Enum.sort(Enum.flat_map(chunks, & &1[key]))
+    end
+
     assert Repo.aggregate(MainExportQueue, :count) == 3
     assert Enum.all?(Repo.all(MainExportQueue), &(&1.retries_number == 1))
     assert_export_request()
