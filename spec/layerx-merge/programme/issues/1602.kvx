@@ -1,0 +1,7 @@
+[issue.1602]
+number = 1602
+title = "[Coherence] The rewritten web program path test is compiled but never run, so its new result-code and balance assertions are unverified"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit 01876211ebf09c513c374f283eb4344613d69307 added self-contained current ABI-v5 and historical ABI-v4 cases registered at tests/test_web_program_path.c:712 and run without a wasm argument at tests/test_web_program_path.c:721, and the completed task's verify_cmd at spec/layerx-merge/spec.kvx:300082 explicitly executes that binary, covering the LXP_OK assertions at tests/test_web_program_path.c:599 and tests/test_web_program_path.c:675, the doubled fee balance at tests/test_web_program_path.c:678 and the event decoding and digest checks at tests/test_web_program_path.c:654, although tests/ci/test_retired_state_withdraw_web.py:35 and Makefile:2947 still only build it."
+close_comment = "The web program path suite now has self-contained current and historical ABI cases, and its verification command executes the binary. These cases check successful requests, repeated-request fee balances, fee-account creation and the emitted request bytes and digest."
