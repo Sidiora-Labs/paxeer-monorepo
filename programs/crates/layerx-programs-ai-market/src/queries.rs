@@ -943,7 +943,18 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11
     let policy = shared.section(Section::PolicyLifecycle)?;
     *out.guest_index_mut(0) = decoded(policy, || policy_of(&shared));
     *out.guest_index_mut(10) = match *out.guest_index(0) {
-        Availability::Available => Availability::NotEnabled,
+        Availability::Available => match policy_of(&shared).and_then(|policy| {
+            let bytes = shared.room_market()?.1;
+            let book = crate::rooms::RoomBook::decode(bytes)?;
+            if *book.counts().guest_index(0) == 0 {
+                return Ok(Availability::NotEnabled);
+            }
+            placement::PlacementBook::decode(bytes, policy.current.commitments.model_artifact)?;
+            Ok(Availability::Available)
+        }) {
+            Ok(availability) => availability,
+            Err(_) => Availability::ContentUnavailable,
+        },
         availability => availability,
     };
     *out.guest_index_mut(1) = decoded(shared.section(Section::IdentityRoster)?, || {

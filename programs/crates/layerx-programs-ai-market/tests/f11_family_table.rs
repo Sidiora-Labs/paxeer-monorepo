@@ -10,6 +10,7 @@ use layerx_programs_ai_market::{
     queries::{feature_availability, Availability},
     registry::{derive_rewards_account, F01_SECTION_CAP},
     registry_ops,
+    rooms::{self, OpenRoomRequest, RoomBook, OPEN_ROOM_REQUEST_BYTES},
     state::{self, Control, ReplayTable, Section, SharedState},
     types::{
         AccountId, AssetId, Authentication, ChainDomain, Digest32, Presence, PrincipalId,
@@ -18,6 +19,7 @@ use layerx_programs_ai_market::{
     F11_ASK_UNFUNDED, F11_BATCH_UNSEALED, F11_BID_BELOW_FLOOR, F11_BOND_INSUFFICIENT,
     F11_BOND_LOCKED, F11_CHALLENGE_WINDOW_CLOSED, F11_ROOM_CLOSED, F11_ROOM_UNKNOWN,
     F11_ROSTER_DIGEST_MISMATCH, F11_SPLIT_EXCEEDS_SETTLED, MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES,
+    MAX_RESULT_BYTES, MAX_STATE_BYTES,
 };
 
 #[test]
@@ -331,6 +333,15 @@ fn f11_availability_has_eleven_entries_from_encoded_shared_state() -> CodecResul
 #[test]
 fn f11_availability_is_not_enabled_for_a_created_market_without_a_room_profile() -> CodecResult<()>
 {
+    let bytes = created_market()?;
+    let availability = feature_availability(&bytes)?;
+    assert_eq!(availability.len(), 11);
+    assert_eq!(availability[0], Availability::Available);
+    assert_eq!(availability[10], Availability::NotEnabled);
+    Ok(())
+}
+
+fn created_market() -> CodecResult<Vec<u8>> {
     let chain = ChainDomain::new([1; 32])?;
     let program = ProgramId::new([2; 32])?;
     let owner = PrincipalId::new([3; 32])?;
@@ -379,10 +390,135 @@ fn f11_availability_is_not_enabled_for_a_created_market_without_a_room_profile()
     let mut bytes = vec![0; state.encoded_len()?];
     let mut scratch = vec![0; Section::Control.payload_cap()];
     let n = state::encode_shared_state(&state, &mut bytes, &mut scratch)?;
-    let availability = feature_availability(&bytes[..n])?;
-    assert_eq!(availability.len(), 11);
+    bytes.truncate(n);
+    Ok(bytes)
+}
+
+fn room_market_capture() -> CodecResult<Vec<u8>> {
+    let current = created_market()?;
+    let shared = state::decode_shared_state(&current)?;
+    let header =
+        registry_ops::PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?.header;
+    let admission = layerx_programs_ai_market::admission::AdmissionTable::decode(
+        layerx_programs_ai_market::reputation_transition::split_joint(
+            shared.section(Section::ReputationAdmission)?,
+        )?
+        .1,
+    )?;
+    let roster = RosterDigest::new(
+        layerx_programs_ai_market::roster::roster_digest(&admission, 0)?.bytes(),
+    )?;
+    let request = OpenRoomRequest {
+        room_id: Digest32::new([9; 32])?,
+        model_digest: market_policy()?.task_policy.commitments.model_artifact,
+        runtime_digest: Digest32::new([10; 32])?,
+        profile: market_policy()?.room_profile,
+    };
+    let mut payload = vec![0; OPEN_ROOM_REQUEST_BYTES];
+    let n = request.encode(&mut payload)?;
+    payload.truncate(n);
+    let envelope = Envelope {
+        operation: dispatch::OpenRoom,
+        chain: header.deployment_chain_domain,
+        program: header.program_id,
+        market: header.market_id,
+        actor: header.owner_principal,
+        epoch: 0,
+        config: 1,
+        roster: Presence::Present(roster),
+        sequence: 2,
+        expiry: 100,
+        request: RequestId::new([11; 32])?,
+        payload: &payload,
+        authentication: Authentication::Native,
+    };
+    let mut encoded = vec![0; MAX_ENVELOPE_BYTES];
+    let n = codec::encode_envelope(&envelope, &mut encoded)?;
+    let mut next = vec![0; MAX_STATE_BYTES];
+    let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
+    let mut event = vec![0; MAX_EVENT_BYTES];
+    let mut result = vec![0; MAX_RESULT_BYTES];
+    let routed = dispatch::route(
+        &registry_ops::CallContext {
+            chain: envelope.chain,
+            program: envelope.program,
+            principal: envelope.actor,
+            height: header.origin_height,
+        },
+        &encoded[..n],
+        Some(&current),
+        dispatch::Buffers {
+            next: &mut next,
+            scratch: &mut scratch,
+            event: &mut event,
+            result: &mut result,
+        },
+    )?;
+    let dispatch::Routed::Applied { state_len, .. } = routed else {
+        panic!("OpenRoom must apply: {routed:?}");
+    };
+    next.truncate(state_len);
+    let shared = state::decode_shared_state(&next)?;
+    assert_eq!(
+        RoomBook::decode(shared.room_market()?.1)?
+            .room(request.room_id)?
+            .unwrap()
+            .profile,
+        request.profile
+    );
+    Ok(next)
+}
+
+#[test]
+fn f11_availability_is_available_for_a_captured_room_profile_and_placement_book() -> CodecResult<()>
+{
+    let bytes = room_market_capture()?;
+    let shared = state::decode_shared_state(&bytes)?;
+    let book = shared.room_market()?.1;
+    assert_eq!(RoomBook::decode(book)?.counts(), [1, 0, 0, 0]);
+    assert_eq!(
+        layerx_programs_ai_market::queries::placement::PlacementBook::decode(
+            book,
+            market_policy()?.task_policy.commitments.model_artifact,
+        )?
+        .counts(),
+        [0, 0]
+    );
+    let availability = feature_availability(&bytes)?;
     assert_eq!(availability[0], Availability::Available);
-    assert_eq!(availability[10], Availability::NotEnabled);
+    assert_eq!(availability[10], Availability::Available);
+    Ok(())
+}
+
+#[test]
+fn f11_availability_is_content_unavailable_for_an_undecodable_room_book() -> CodecResult<()> {
+    let bytes = room_market_capture()?;
+    let shared = state::decode_shared_state(&bytes)?;
+    let book = shared.room_market()?.1;
+    let mut malformed_books = Vec::new();
+    let mut bad_magic = book.to_vec();
+    bad_magic[0] ^= 1;
+    malformed_books.push(bad_magic);
+    let mut bad_version = book.to_vec();
+    bad_version[4..6].copy_from_slice(&(rooms::ROOM_BOOK_VERSION + 1).to_be_bytes());
+    malformed_books.push(bad_version);
+    let mut bad_profile = book.to_vec();
+    let bond_start = 14 + 4 * 32 + 2;
+    bad_profile[bond_start..bond_start + 16].fill(0);
+    malformed_books.push(bad_profile);
+    malformed_books.push(book[..book.len() - 1].to_vec());
+    for malformed in malformed_books {
+        assert!(RoomBook::decode(&malformed).is_err());
+        let mut settlement = vec![0; Section::SettlementClaims.payload_cap()];
+        let n = shared.encode_room_market(&malformed, &mut settlement)?;
+        let candidate = shared.replace_section(Section::SettlementClaims, &settlement[..n])?;
+        let mut encoded = vec![0; MAX_STATE_BYTES];
+        let mut scratch = vec![0; Section::Control.payload_cap()];
+        let n = state::encode_shared_state(&candidate, &mut encoded, &mut scratch)?;
+        let availability = feature_availability(&encoded[..n])?;
+        assert_eq!(availability[0], Availability::Available);
+        assert_eq!(availability[10], Availability::ContentUnavailable);
+    }
     Ok(())
 }
 
