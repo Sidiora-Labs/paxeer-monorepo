@@ -119,7 +119,7 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizerTest do
              }
            ],
            _options ->
-          eth_get_block_by_number_response(id, encoded_expected_block_number, block_to_process.hash, [transaction_hash])
+          eth_get_block_by_number_response(id, block_to_process.number, block_to_process.hash, [transaction_hash])
         end
       )
     end
@@ -169,7 +169,7 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizerTest do
     end)
   end
 
-  defp eth_get_block_by_number_response(id, encoded_block_number, block_hash, transaction_hashes) do
+  defp eth_get_block_by_number_response(id, block_number, block_hash, transaction_hashes) do
     {:ok,
      [
        %{
@@ -178,11 +178,11 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizerTest do
            "difficulty" => "0x0",
            "gasLimit" => "0x0",
            "gasUsed" => "0x0",
-           "hash" => block_hash,
+           "hash" => to_string(block_hash),
            "extraData" => "0x0",
            "logsBloom" => "0x0",
            "miner" => "0x0",
-           "number" => encoded_block_number,
+           "number" => EthereumJSONRPC.integer_to_quantity(block_number),
            "parentHash" => "0x0",
            "receiptsRoot" => "0x0",
            "size" => "0x0",
