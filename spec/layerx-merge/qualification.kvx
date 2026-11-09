@@ -37866,3 +37866,131 @@ symbol = "layerx-client"
 observed = "Attempt 4 at 59a578ed9d2d: build exit 0; verification exit 101 (second cycle): cargo clippy -D warnings reported a long literal at the path-included gateway file evm.rs line 603 and an inclusive range at snapshot_binding_v2.rs line 136; log /out/logs/verify-2.log."
 assumption = "One foreign include and one range remain."
 severity = "high"
+
+[finding.22.39.224.4]
+task = "22.39.224"
+file = "services/agent/crates/layerx-mcp"
+symbol = "layerx-mcp"
+observed = "Attempt 4 at 62aa8143dd41: build exit 0 after two compile repairs; verification exit 101: cargo clippy -D warnings reported sixteen sites in the test targets of layerx-mcp; log /out/logs/verify-2.log."
+assumption = "Every site is listed with its line; the repair is mechanical."
+severity = "high"
+
+[finding.22.39.237.2]
+task = "22.39.237"
+file = "sdk/platform/generators/tests/drift.rs"
+symbol = "drift.rs"
+observed = "Attempt 2 at 340dd64bcd63: build exit 0 after one repair; verification exit 101: three of twenty-nine drift cases failed at tests/drift.rs lines 295 and 315 expecting untracked where the gate reports unclassified; log /out/logs/verify-1.log."
+assumption = "The gate is right; three cases assert the older wording."
+severity = "high"
+
+[finding.18.1772.1.3]
+task = "18.1772.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"
+symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
+observed = "Attempt 3 at 66e5678a78c5: build exit 0 with No projects matched the filters; verification exit 1: case 4_3.py failed its first PostgreSQL fixture query because core/control-plane was never installed or built; log /out/logs/verify-1.log."
+assumption = "The tree was never exercised; the build command was the defect."
+severity = "high"
+
+[finding.18.1817.1.3]
+task = "18.1817.1"
+file = "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"
+symbol = "native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"
+observed = "Attempt 3 at f5b92f974ba4: build exit 0; verification exit 1: case 2_2.py raised FileNotFoundError for core/control-plane/node_modules/.bin/tsc at native_source_fixture.py line 134; log /out/logs/verify-1.log."
+assumption = "The case never ran; the build command missed the control-plane install."
+severity = "high"
+
+[finding.18.1823.1.3]
+task = "18.1823.1"
+file = "tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+symbol = "test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+observed = "Attempt 3 at 65702d7b2220: build exit 1: docker build of the web stage failed in webpack with Module not found ./abis.js from the SDK package index and four unresolved @x402 subpath imports from @coinbase/cdp-sdk; verification did not run; log /out/logs/build-1.log."
+assumption = "The image is correct; the application it packages does not build."
+severity = "high"
+
+[finding.18.1826.1.3]
+task = "18.1826.1"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"
+symbol = "install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"
+observed = "Attempt 3 at 56c16701eaa7: build exit 0; verification exit 1: the install-status case skipped with SKIP: no PostgreSQL server binaries and the skip failed the run; no database was provisioned; log /out/logs/verify-1.log."
+assumption = "The tree is untested, not wrong; the environment lacked the server binaries."
+severity = "high"
+
+[finding.17.2.8.4]
+task = "17.2.8"
+file = "spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"
+symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
+observed = "Attempt 4 at 980f5ade7d40: build exit 0; verification exit 1: test_scan_reports_no_caller failed, the scan with the deleted-tree option exited 1 with 2342 hits in 452 files; log /out/logs/verify-1.log."
+assumption = "The scan works; the tree still carries the retired names and the owners must remove them."
+severity = "high"
+
+[finding.18.1665.1.4]
+task = "18.1665.1"
+file = "rpc/px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+symbol = "px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+observed = "Attempt 4 at f44e4f4d2903: build exit 0; verification exit 1: two cases expected -32001 and received -32602 missing value for required argument 0, the raw message parameter being required when omitted; log /out/logs/verify-1.log."
+assumption = "Omitted and explicit null differ only on the raw params list; the decoder must see it."
+severity = "high"
+
+[finding.18.1667.1.3]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 3 at 22e45e6d127c: build exit 0; verification exit 1: TestRecorderAllSelectedV6Executes failed, record vector-v1-programs-positive: V1 Programs deployment reverted, reason LXP_ERR_VERSION_UNSUPPORTED; log /out/logs/verify-1.log."
+assumption = "One version pair separates the vector from the kernel."
+severity = "high"
+
+[finding.22.39.235.2]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 2 at 5e1a4256cbf6: build exit 0 in the second cycle; dependents check exit 101 on layerx-agentd test target repair_22_33_1535 (five canonical_receipt_reference sites, foreign to the task); verification did not run; log /out/logs/dependents-1.log."
+assumption = "The crate is repaired; a foreign red target blocked the gate."
+severity = "high"
+
+[finding.18.1724.1.3]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 3 at 0d8f766dd62f: build exit 0; verification exit 1 twice: the first cycle captured result code 1 and a zero transfer (want 25 wei, got 0) at receipt_equality_test.go line 430; the second cycle failed at line 546 with LXP_ERR_CONTEXT_MISMATCH from budgetCreateNative; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The forged account record and the pre-block context are the mismatch."
+severity = "high"
+
+[finding.18.1752.1.1]
+task = "18.1752.1"
+file = "services/agent/crates/layerx-agentd/tests/issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+symbol = "issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+observed = "Attempt 1 at ef27f3e176fd: build exit 0; verification exit 101 (second cycle): state_export_owner_rpc_retains_and_recovers_witnesses failed at line 809, the production export after the restored storage answer returned 403 PolicyRefusal owner.refused where 200 was expected; log /out/logs/verify-2.log."
+assumption = "Every step before the last passes; one refusal hides its cause."
+severity = "high"
+
+[finding.18.1747.1.4]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 4 at 89874b4d4aa4: build exit 0; verification exit 101: native_approval_clock_units and native_producer_clock_units panicked at line 1671, the custody refused with Kms(UnsupportedNativeConsent); log /out/logs/verify-1.log."
+assumption = "The bootstrap is complete; the fixture custody cannot sign what the production path signs."
+severity = "high"
+
+[finding.18.1803.1.3]
+task = "18.1803.1"
+file = "apps/perps/tests/embedded-wallet.test.ts::chainIdFromChainObject"
+symbol = "embedded-wallet.test.ts::chainIdFromChainObject"
+observed = "Attempt 3 at 10ea96433864: build exit 0; verification exit 1: chainIdFromChainObject failed at line 106 with Missing expected rejection; the other two cases passed; log /out/logs/verify-1.log."
+assumption = "The producer disables the feature before it validates the endpoint; the case asserted the reverse order."
+severity = "high"
+
+[finding.18.1693.1.3]
+task = "18.1693.1"
+file = "apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx::metadata_routes_connect_editor_and_viewer"
+symbol = "route-wiring.test.tsx::metadata_routes_connect_editor_and_viewer"
+observed = "Attempt 3 at 9880e79c7e90 (first cycle b2e3cf7f3451): build exit 0; verification exit 1 in the first cycle (the case passed, two unhandled rejections from publishChartMeasurement failed the run) and in the second cycle the done record refused the symbol TokenMetadataPage as not defined in the graph; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The routes connect; one event crosses realms and one symbol was unresolvable."
+severity = "high"
+
+[finding.22.39.219.5]
+task = "22.39.219"
+file = "services/agent/crates/layerx-client"
+symbol = "layerx-client"
+observed = "Attempt 5 at f4cc14241df4: build exit 0; dependents check exit 101 on layerx-agentd test target repair_22_33_1535 (foreign to the task); the other thirty dependents compiled; verification did not run; log /out/logs/dependents-1.log."
+assumption = "The crate is clean; a foreign red target blocked the gate."
+severity = "high"
