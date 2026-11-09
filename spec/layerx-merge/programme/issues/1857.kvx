@@ -1,0 +1,7 @@
+[issue.1857]
+number = 1857
+title = "[Coherence] The EVM dependency helper embeds a package-lock.json that the commit never added, so the relayer test package no longer compiles"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit 5bc0e4ad561af80e3330b736a8c272e604d69b9a added the tracked services/interop/crates/layerx-bridge-relayer/tests/support/evm/package-lock.json:1 matching package.json:4 in that directory, satisfying the include at services/interop/crates/layerx-bridge-relayer/tests/support/evm_dependencies.rs:17 and the npm ci invocation at services/interop/crates/layerx-bridge-relayer/tests/support/evm_dependencies.rs:23 used by services/interop/crates/layerx-bridge-relayer/tests/repair_22_31_160.rs:42, while tests/ci/data/interop_test_baseline.json:1 remains empty."
+close_comment = "The relayer EVM test lockfile is now committed alongside its manifest, so the compile-time include resolves and npm ci receives the pinned dependency tree. The relayer baseline exclusions remain retired."

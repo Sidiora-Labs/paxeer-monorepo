@@ -1,0 +1,48 @@
+[issue.1868]
+number = 1868
+title = "[Coherence] The launchpad/perps logo row is dropped as 'different artworks', but the two logos are the same artwork and drifted apart only when task 22.39.70 shrank one copy"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit bbfdff2207750090af2a44abb4413ac6c5bab020 changed only the launchpad logo from the shared blob 8214cb3aa160713875d4776eadf58f177465fb3b to the 38,350-byte vector at apps/launchpad/web/public/icons/logo.svg:1, while apps/perps/public/assets/logo.svg:7 retains the 1,626,439-byte raster-backed export exposed by apps/perps/src/assets/index.ts:40; commit f21aec13152e75c46ff95a73637627a7fbcd45c3 removed their byte-sync row using the incorrect artwork distinction and unchanged-logo commit 637c9c63da15d53eae493665591a26bcb2799d6c recorded at tests/ci/repair_22_39_152.kvx:353, so tests/ci/test_copied_artifacts_in_sync.py:214 no longer compares them and tests/ci/test_web_asset_weight.py:64 still permits the oversized copy."
+close_comment = "The perps public logo still contains the oversized raster export of the same artwork already optimized for launchpad, and its synchronization check is missing. The follow-up repair will use the compact logo in both apps, restore the byte-identity inventory entry, correct its provenance record, and enforce the size and synchronization checks."
+
+[task.18.1868.1]
+title = "Issue #1868: Share the compact launchpad and perps logo and restore its synchronization check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181868.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace apps/perps/public/assets/logo.svg:1 with the exact compact vector bytes from apps/launchpad/web/public/icons/logo.svg:1, preserving the public URL declared at apps/perps/src/assets/index.ts:40; restore their bytes relationship beside the other shared artwork at tests/ci/data/intentional_copies.txt:12 and correct removed.20 at tests/ci/repair_22_39_152.kvx:353 to identify the same source artwork, its one-sided optimization by bbfdff2207750090af2a44abb4413ac6c5bab020, and restoration of the row removed by f21aec13152e75c46ff95a73637627a7fbcd45c3."
+do_2 = "In tests/ci/test_web_asset_weight.py:20 add the perps logo to OPTIMIZED_ASSETS with dimensions 42 by 42 and remove only its obsolete LARGE_ASSET_ALLOWLIST entry at line 64, retaining every existing assertion; add test_shared_launchpad_perps_logo in tests/ci/test_copied_artifacts_in_sync.py beside line 214 to require the exact inventory relationship, byte-identical real logo files below the existing 500,000-byte cap, 42 by 42 vector dimensions without embedded raster data, unchanged public URL declarations, and corrected removed.20 provenance."
+symbols = ["OPTIMIZED_ASSETS", "LARGE_ASSET_ALLOWLIST", "test_shared_launchpad_perps_logo"]
+touches = ["apps/perps/public/assets/logo.svg", "tests/ci/data/intentional_copies.txt", "tests/ci/repair_22_39_152.kvx", "tests/ci/test_web_asset_weight.py", "tests/ci/test_copied_artifacts_in_sync.py"]
+tests = ["tests/ci/test_copied_artifacts_in_sync.py::test_shared_launchpad_perps_logo", "tests/ci/test_web_asset_weight.py::test_public_assets_under_weight_cap"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_copied_artifacts_in_sync.py tests/ci/test_web_asset_weight.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py::test_shared_launchpad_perps_logo tests/ci/test_web_asset_weight.py::test_public_assets_under_weight_cap"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181868]
+title = "Launchpad and perps publish the same compact logo with enforced synchronization"
+ac_1 = "The perps public logo exposed by apps/perps/src/assets/index.ts:40 equals the compact vector at apps/launchpad/web/public/icons/logo.svg:1 byte for byte, is 42 by 42 and below 500,000 bytes without raster embedding, has an explicit bytes relationship enforced through tests/ci/test_copied_artifacts_in_sync.py:214, and replaces its obsolete weight allowance at tests/ci/test_web_asset_weight.py:64 with the existing optimized-asset checks at line 169; the provenance record at tests/ci/repair_22_39_152.kvx:353 identifies the shared artwork and the actual optimization and row-removal commits."
+
+[acceptance.18.1868.1]
+feature = "18"
+req = "181868.1"
+scenario = "Given the same logo packaged at the launchpad and perps public URLs, when the focused asset checks inspect the real files, inventory and provenance record, then both logos are identical compact 42 by 42 vectors below 500,000 bytes, their bytes relationship is present and enforced, and the record attributes their former drift to the one-sided optimization."
+contract = "contracts/perps-client.md#app"
+test = "tests/ci/test_copied_artifacts_in_sync.py::test_shared_launchpad_perps_logo (planned)"
+qualification = "UNRUN"

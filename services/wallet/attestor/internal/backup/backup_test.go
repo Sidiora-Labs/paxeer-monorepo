@@ -2,19 +2,25 @@ package backup
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"io"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/audit"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/replica"
@@ -346,6 +352,332 @@ func TestRetainWithLedgerDeletesOnlyShipped(t *testing.T) {
 	if len(deleted) != 0 || err == nil || !strings.Contains(err.Error(), Name("node-1", 2)) {
 		t.Fatalf("retention deleted %v with error %v", deleted, err)
 	}
+}
+
+func TestRetainReappearingArchivedSnapshots(t *testing.T) {
+	f := newFixture(t)
+	host, _ := repairM147Signer(t)
+	client, private := repairM147Signer(t)
+	peer := repairM147Replica(t, host, client.PublicKey())
+	addr, connections := retainReplicaConnections(t, peer)
+	root, remote := t.TempDir(), t.TempDir()
+	keyPath, hostPath := filepath.Join(root, "client-key"), filepath.Join(root, "host-key")
+	if err := os.WriteFile(keyPath, private, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(hostPath, ssh.MarshalAuthorizedKey(host.PublicKey()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := replica.Config{Addr: addr, User: "backup-test", KeyFile: keyPath, HostKeyFile: hostPath, RemoteDir: remote, Interval: replica.MinInterval, SnapshotDir: f.dir, LedgerPath: filepath.Join(root, replica.LedgerFileName)}
+	var shipper *replica.Shipper
+	var w *Writer
+	reopen := func() {
+		t.Helper()
+		var err error
+		shipper, err = replica.New(cfg, log.New(io.Discard, "", 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		w = f.writer(t, 1, shipper.Ledger())
+	}
+	reopen()
+	read := func(path string) []byte {
+		t.Helper()
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	restore := func(s Snapshot, raw []byte) {
+		t.Helper()
+		if err := os.WriteFile(s.Path, raw, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write := func() Snapshot {
+		t.Helper()
+		s, err := w.write("archived-retention")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	remoteCopies := make(map[string][]byte)
+	uploads := 0
+	ship := func(want int) {
+		t.Helper()
+		before := connections.Load()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		n, err := shipper.Ship(ctx)
+		if err != nil || n != want {
+			t.Fatalf("Ship = %d, %v; want %d uploads", n, err, want)
+		}
+		uploads += n
+		if want == 0 && connections.Load() != before {
+			t.Fatal("duplicate or retirement pass contacted the replica")
+		}
+		if connections.Load() != int64(uploads) {
+			t.Fatalf("replica connections = %d, want one per new upload (%d)", connections.Load(), uploads)
+		}
+	}
+	assertRemote := func() {
+		t.Helper()
+		if got := listDir(t, remote); len(got) != len(remoteCopies) {
+			t.Fatalf("remote files = %v, want %d published snapshots", got, len(remoteCopies))
+		}
+		for name, want := range remoteCopies {
+			if !bytes.Equal(read(filepath.Join(remote, name)), want) {
+				t.Fatalf("remote snapshot %s changed", name)
+			}
+		}
+		if uploads != len(remoteCopies) || connections.Load() != int64(uploads) {
+			t.Fatalf("uploads = %d, connections = %d, unique remote snapshots = %d", uploads, connections.Load(), len(remoteCopies))
+		}
+	}
+	assertLocal := func(snaps ...Snapshot) {
+		t.Helper()
+		want := make([]string, 0, len(snaps))
+		for _, s := range snaps {
+			want = append(want, s.Name)
+		}
+		sort.Strings(want)
+		if got := listDir(t, f.dir); !reflect.DeepEqual(got, want) {
+			t.Fatalf("local snapshots = %v, want %v", got, want)
+		}
+	}
+	retain := func(want ...string) {
+		t.Helper()
+		deleted, err := w.Retain()
+		if err != nil || !reflect.DeepEqual(deleted, want) {
+			t.Fatalf("Retain = %v, %v; want %v", deleted, err, want)
+		}
+	}
+	assertActive := func(s Snapshot) {
+		t.Helper()
+		entries := shipper.Ledger().Entries()
+		if len(entries) != 1 || entries[0].Name != s.Name {
+			t.Fatalf("active ledger = %+v, want only %s", entries, s.Name)
+		}
+		if size := len(read(cfg.LedgerPath)); size > 512 {
+			t.Fatalf("one-snapshot active ledger grew with retired history: %d bytes", size)
+		}
+	}
+
+	unshipped, err := w.WriteSnapshot("never-shipped")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unshippedRaw := read(unshipped.Path)
+	if err := os.Remove(unshipped.Path); err != nil {
+		t.Fatal(err)
+	}
+	a := write()
+	aRaw := read(a.Path)
+	ship(1)
+	remoteCopies[a.Name] = aRaw
+	aEntry, ok := shipper.Ledger().Lookup(a.Name)
+	if !ok {
+		t.Fatal("snapshot A was not actively acknowledged")
+	}
+	if err := shipper.Ledger().Record(aEntry); !errors.Is(err, replica.ErrLedger) {
+		t.Fatalf("active duplicate acknowledgment accepted: %v", err)
+	}
+	b := write()
+	bRaw := read(b.Path)
+	ship(1)
+	remoteCopies[b.Name] = bRaw
+	activeBeforeArchive := read(cfg.LedgerPath)
+	assertLocal(a, b)
+	retain(a.Name)
+	assertLocal(b)
+	ship(0)
+	assertActive(b)
+	archived, ok, err := shipper.Ledger().Archived(a.Name)
+	if err != nil || !ok || archived != aEntry {
+		t.Fatalf("archived A = %+v, %v, %v; want %+v", archived, ok, err, aEntry)
+	}
+	for pass := 0; pass < 4; pass++ {
+		if pass > 0 {
+			reopen()
+		}
+		restore(a, aRaw)
+		before := read(cfg.LedgerPath)
+		ship(0)
+		if pass >= 2 {
+			reopen()
+		}
+		if _, ok := shipper.Ledger().Lookup(a.Name); ok {
+			t.Fatal("recognizing archived A repopulated the active ledger")
+		}
+		if err := shipper.Ledger().Record(aEntry); !errors.Is(err, replica.ErrLedger) {
+			t.Fatalf("archived duplicate acknowledgment accepted on pass %d: %v", pass, err)
+		}
+		retain(a.Name)
+		assertLocal(b)
+		retain()
+		ship(0)
+		assertActive(b)
+		if !bytes.Equal(read(cfg.LedgerPath), before) {
+			t.Fatal("recognition or retention rewrote the active ledger")
+		}
+		assertRemote()
+	}
+
+	const history = 64
+	latest := b
+	var validArchived Snapshot
+	var validArchivedRaw []byte
+	for i := 2; i < history; i++ {
+		next := write()
+		raw := read(next.Path)
+		ship(1)
+		remoteCopies[next.Name] = raw
+		if entries := shipper.Ledger().Entries(); len(entries) != 2 {
+			t.Fatalf("history %d: active entries = %d, want two locally present acknowledgments", i, len(entries))
+		}
+		retain(latest.Name)
+		latest = next
+		ship(0)
+		assertLocal(latest)
+		assertActive(latest)
+		if i == 2 {
+			validArchived, validArchivedRaw = next, raw
+		}
+		if i%8 == 0 {
+			reopen()
+			assertActive(latest)
+		}
+	}
+	if uploads != history {
+		t.Fatalf("history uploaded %d snapshots, want %d", uploads, history)
+	}
+	reopen()
+	restore(a, aRaw)
+	ship(0)
+	reopen()
+	retain(a.Name)
+	assertActive(latest)
+	assertLocal(latest)
+	assertRemote()
+
+	restore(unshipped, unshippedRaw)
+	f.assertRestorable(t, unshipped.Path)
+	retain()
+	assertLocal(unshipped, latest)
+	if _, ok := shipper.Ledger().Lookup(unshipped.Name); ok {
+		t.Fatal("unshipped snapshot acquired an active acknowledgment")
+	}
+	if _, ok, err := shipper.Ledger().Archived(unshipped.Name); ok || err != nil {
+		t.Fatalf("unshipped snapshot acquired archived evidence: %v, %v", ok, err)
+	}
+	changedDigest := append([]byte(nil), aRaw...)
+	changedDigest[len(changedDigest)-1] ^= 1
+	changedSize := append(append([]byte(nil), aRaw...), 0)
+	for _, changed := range [][]byte{changedDigest, changedSize} {
+		restore(a, changed)
+		reopen()
+		before := connections.Load()
+		if n, err := shipper.Ship(context.Background()); n != 0 || !errors.Is(err, replica.ErrLedger) || !strings.Contains(err.Error(), a.Name) {
+			t.Fatalf("changed archived snapshot shipped: count=%d error=%v", n, err)
+		}
+		if connections.Load() != before {
+			t.Fatal("changed archived snapshot reached the remote transport")
+		}
+		deleted, err := w.Retain()
+		if len(deleted) != 0 || err == nil || !strings.Contains(err.Error(), a.Name) || !strings.Contains(err.Error(), "differs from the shipped copy") {
+			t.Fatalf("changed archived snapshot retention = %v, %v", deleted, err)
+		}
+		assertLocal(unshipped, a, latest)
+		if !bytes.Equal(read(a.Path), changed) || !bytes.Equal(read(unshipped.Path), unshippedRaw) {
+			t.Fatal("retention changed a protected local snapshot")
+		}
+		assertActive(latest)
+		assertRemote()
+	}
+
+	restore(a, aRaw)
+	restore(b, bRaw)
+	restore(validArchived, validArchivedRaw)
+	for _, s := range []Snapshot{a, b} {
+		key := sha256.Sum256([]byte(s.Name))
+		digest := hex.EncodeToString(key[:])
+		archivePath := filepath.Join(cfg.LedgerPath+".archive", digest[:2], digest+".json")
+		if err := os.WriteFile(archivePath, []byte("{"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reopen()
+	before := connections.Load()
+	if n, err := shipper.Ship(context.Background()); n != 0 || !errors.Is(err, replica.ErrLedger) {
+		t.Fatalf("invalid archive accepted by shipping: count=%d error=%v", n, err)
+	}
+	if connections.Load() != before {
+		t.Fatal("invalid archive reached the remote transport")
+	}
+	deleted, err := w.Retain()
+	if !reflect.DeepEqual(deleted, []string{validArchived.Name}) || !errors.Is(err, replica.ErrLedger) || !strings.Contains(err.Error(), a.Name) || !strings.Contains(err.Error(), b.Name) {
+		t.Fatalf("invalid archives did not accumulate retention errors while retaining valid files: deleted=%v error=%v", deleted, err)
+	}
+	assertLocal(unshipped, a, b, latest)
+	if !bytes.Equal(read(a.Path), aRaw) || !bytes.Equal(read(b.Path), bRaw) || !bytes.Equal(read(unshipped.Path), unshippedRaw) {
+		t.Fatal("archive errors changed protected snapshots")
+	}
+	assertActive(latest)
+	assertRemote()
+	if err := os.WriteFile(cfg.LedgerPath, activeBeforeArchive, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reopen()
+	retain(a.Name, b.Name)
+	assertLocal(unshipped, latest)
+	assertRemote()
+}
+
+func retainReplicaConnections(t *testing.T, peer string) (string, *atomic.Int64) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	connections := new(atomic.Int64)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	t.Cleanup(func() { ln.Close(); wg.Wait() })
+	go func() {
+		defer wg.Done()
+		for {
+			local, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			connections.Add(1)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer local.Close()
+				remote, err := net.DialTimeout("tcp", peer, 10*time.Second)
+				if err != nil {
+					t.Errorf("connect real replica: %v", err)
+					return
+				}
+				defer remote.Close()
+				_ = local.SetDeadline(time.Now().Add(15 * time.Second))
+				_ = remote.SetDeadline(time.Now().Add(15 * time.Second))
+				done := make(chan struct{})
+				go func() {
+					_, _ = io.Copy(remote, local)
+					remote.Close()
+					close(done)
+				}()
+				_, _ = io.Copy(local, remote)
+				local.Close()
+				<-done
+			}()
+		}
+	}()
+	return ln.Addr().String(), connections
 }
 
 func TestRestoreFileIntoEmptyDirectory(t *testing.T) {

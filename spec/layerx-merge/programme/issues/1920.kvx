@@ -1,0 +1,7 @@
+[issue.1920]
+number = 1920
+title = "[Coherence] Acceptance 1.964.3 now points at a test that never checks the fresh-store not-found half of its scenario"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "Acceptance 1.964.3 of done task 1.93.1 (spec/layerx-merge/spec.kvx:147856) must map its unchanged fresh-store and wind-down scenario (spec/layerx-merge/spec.kvx:102119) to TestReadProgramAccountsOpaqueCopy (modules/lxphost/read_program_test.go:173), TestReadWindDownAndRetirementOpaqueCopy (modules/lxphost/read_program_test.go:222) and TestReadProgramLifecycleProducers (modules/lxphost/read_program_test.go:412 and modules/lxphost/read_program_test.go:436), since commit fd017cc6a718075b2541f39d2df92301f713c34c assigned both acceptances 1.964.2 and 1.964.3 only the lifecycle selector (spec/layerx-merge/spec.kvx:102113 and spec/layerx-merge/spec.kvx:102121), whose reads follow successful activities and omit fresh-store not-found assertions."
+close_comment = "The acceptance mapping needs to include TestReadProgramAccountsOpaqueCopy and TestReadWindDownAndRetirementOpaqueCopy for fresh-store not-found coverage, while retaining TestReadProgramLifecycleProducers for records produced by wind-down activities. These assertions already exist; the specification must reference them together to cover the full scenario."

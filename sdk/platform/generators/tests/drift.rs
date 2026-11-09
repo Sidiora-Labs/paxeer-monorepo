@@ -792,6 +792,45 @@ fn repository_conformance_root_declares_every_shipped_handwritten_file() {
     }
 }
 
+#[test]
+fn repository_python_discovery_files_are_declared() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let live =
+        capture(&root).unwrap_or_else(|error| panic!("capture repository pipeline: {error}"));
+    let lock = root.join("sdk/platform/pipeline.kvx");
+    let source = fs::read_to_string(&lock)
+        .unwrap_or_else(|error| panic!("read {}: {error}", lock.display()));
+    let committed = parse_lock(&source).unwrap_or_else(|error| panic!("parse lock: {error}"));
+    let discovery_files = [
+        "python/TESTING.md",
+        "python/tests/test_collection_contract.py",
+    ];
+    for relative in discovery_files {
+        assert!(
+            root.join("services/agent/sdk").join(relative).is_file(),
+            "Python discovery file {relative} must remain shipped"
+        );
+    }
+    for (label, pipeline) in [("captured", &live), ("committed", &committed)] {
+        let output = pipeline
+            .outputs
+            .iter()
+            .find(|output| output.name == "agent-compatibility")
+            .unwrap_or_else(|| panic!("no {label} agent-compatibility output"));
+        assert_eq!(output.root, "services/agent/sdk");
+        for relative in discovery_files {
+            assert!(
+                output.handwritten.iter().any(|path| path == relative),
+                "{label} agent-compatibility must declare {relative} handwritten"
+            );
+            assert!(
+                !output.files.iter().any(|(path, _)| path == relative),
+                "{label} agent-compatibility must not classify {relative} as generated"
+            );
+        }
+    }
+}
+
 fn missing_jvm_component_types(source: &str) -> BTreeSet<String> {
     let mut namespace = "";
     let mut declarations = BTreeSet::new();

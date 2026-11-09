@@ -1,0 +1,51 @@
+[issue.1893]
+number = 1893
+title = "[Coherence] The ledger is declared complete while it leaves out the commits that change the upgrade plan handlers in node/upgrades.go"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "tools/ci/consensus_commit_gate.py:11 omits node/upgrades.go and its filter at tools/ci/consensus_commit_gate.py:77 therefore excludes upgrade-handler-only changes; ten of the seventeen commits touching that file in 68c8887a..8c5a7acd are absent from docs/release/consensus-commits.md:32, including 74b284ed2b0901e49e0a1a7f0b860a552ebb48c0 and 1db0093cc683d93618cbeb19420276d8f43948cf whose changes remain at node/upgrades.go:222 and node/upgrades.go:506, while docs/release/7.0.0-readiness-checklist.md:24 is checked despite the completeness requirement at spec/layerx-merge/spec.kvx:11222 and tools/ci/tests/test_consensus_commit_gate.py:204 derives coverage from the same incomplete filter."
+close_comment = "The 7.0.0 consensus ledger still omits changes to the upgrade plan handlers, including the anchor deletion ordering guard and merge plan information changes. The repair must include node/upgrades.go in consensus discovery, regenerate the affected ledger rows and add regression coverage for handler-only commits."
+
+[task.18.1893.1]
+title = "Issue #1893: Include upgrade plan handler changes in the consensus ledger"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181893.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add the exact path node/upgrades.go to CONSENSUS_PATHS in tools/ci/consensus_commit_gate.py:11, preserving test-file exclusions and head-pinned ledger lookup; the registered handlers at node/upgrades.go:218 and ordering guard at node/upgrades.go:222 change consensus behavior."
+do_2 = "Regenerate the v7.0.0 inventory in docs/release/consensus-commits.md:26 from exclusive base 68c8887a9520542d2878da3d6a44920ddd71b4b1 through the repair revision using tools/ci/consensus_ledger_rows.py:21 and the gate's discovery functions, inserting all missing handler-change rows in history order and refreshing consensus paths on existing rows without duplicate hashes; retain the preserved initial row and historical table at docs/release/consensus-commits.md:217 and update the recorded generation head."
+do_3 = "Add test_upgrade_handler_commits_require_ledger_rows to tools/ci/tests/test_consensus_commit_gate.py beside the subprocess coverage at line 69: create real Git history with an unlisted commit changing only node/upgrades.go, assert the gate exits 1 and names its hash and path, run the real row generator and assert its four-column output includes that hash and path, commit the generated row and assert the gate exits 0; also assert a node/upgrades_test.go-only commit passes and a dirty ledger cannot approve the earlier unlisted head."
+do_4 = "Strengthen test_v7_ledger_covers_history_from_latest_v6120_commit at tools/ci/tests/test_consensus_commit_gate.py:187 to require 74b284ed2b0901e49e0a1a7f0b860a552ebb48c0 and 1db0093cc683d93618cbeb19420276d8f43948cf explicitly and independently enumerate node/upgrades.go history from the ledger base through HEAD to assert every such revision has exactly one current-table row with that path, retaining the existing exact inventory, historical-table and row-path assertions."
+symbols = ["CONSENSUS_PATHS", "test_upgrade_handler_commits_require_ledger_rows", "test_v7_ledger_covers_history_from_latest_v6120_commit"]
+touches = ["tools/ci/consensus_commit_gate.py", "tools/ci/tests/test_consensus_commit_gate.py", "docs/release/consensus-commits.md"]
+tests = ["tools/ci/tests/test_consensus_commit_gate.py::test_upgrade_handler_commits_require_ledger_rows", "tools/ci/tests/test_consensus_commit_gate.py::test_v7_ledger_covers_history_from_latest_v6120_commit"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/ci/consensus_commit_gate.py tools/ci/tests/test_consensus_commit_gate.py"
+verify_cmd = "python3 -m pytest tools/ci/tests/test_consensus_commit_gate.py::test_upgrade_handler_commits_require_ledger_rows tools/ci/tests/test_consensus_commit_gate.py::test_v7_ledger_covers_history_from_latest_v6120_commit -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181893]
+title = "The 7.0.0 consensus ledger includes upgrade plan handler commits"
+ac_1 = "Given a commit changing only node/upgrades.go, whose handlers are registered at node/upgrades.go:218, when the consensus gate runs over a range containing it, then it refuses the commit until its full hash and path appear in the ledger at the requested head, and the row generator emits the missing row."
+ac_2 = "The current table at docs/release/consensus-commits.md:32 contains exactly one row for every node/upgrades.go revision from exclusive base 68c8887a9520542d2878da3d6a44920ddd71b4b1 through HEAD, including 74b284ed2b0901e49e0a1a7f0b860a552ebb48c0 and 1db0093cc683d93618cbeb19420276d8f43948cf, with all qualifying consensus paths and the coordinated v7.0 upgrade, while the historical table remains intact."
+
+[acceptance.18.1893.1]
+feature = "18"
+req = "181893.1"
+scenario = "Given real Git history containing a handler-only change to node/upgrades.go, when the gate and row generator inspect an unlisted head and then a head recording the generated row, then the gate first refuses with the commit hash and path and subsequently passes, while the repository ledger independently covers every upgrade-handler revision including both cited missing commits."
+contract = "contracts/tools-ops.md#ci-scripts"
+test = "tools/ci/tests/test_consensus_commit_gate.py::test_upgrade_handler_commits_require_ledger_rows (planned)"
+qualification = "UNRUN"

@@ -1,6 +1,6 @@
 defmodule Indexer.Fetcher.PaxeerX.PriceAcceptanceReplay do
   @moduledoc """
-  Advances the durable acceptance replay on startup, retrying held jobs until complete.
+  Advances the durable acceptance replay on startup, retrying held and deferred jobs until complete.
   """
 
   use GenServer, restart: :transient
@@ -41,6 +41,10 @@ defmodule Indexer.Fetcher.PaxeerX.PriceAcceptanceReplay do
 
       {:ok, _count} ->
         Process.send_after(self(), :replay, state.interval)
+        {:noreply, state}
+
+      :deferred ->
+        Process.send_after(self(), :replay, state.retry_interval)
         {:noreply, state}
 
       {:error, _reason} ->

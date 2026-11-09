@@ -1,0 +1,48 @@
+[issue.1917]
+number = 1917
+title = "[Coherence] The new qualification record for attempt 7 of 22.39.117 names an unrelated chain test as its file and symbol instead of the production test cases that failed"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit 564eae1972e8f0de2a2cfe4db230b52c29ca529b introduced finding.22.39.117.7 with the chain attribution still present at spec/layerx-merge/qualification.kvx:36544 and spec/layerx-merge/qualification.kvx:36545, identical to attempt 6 at spec/layerx-merge/qualification.kvx:36480 and spec/layerx-merge/qualification.kvx:36481, although its observed collisions at spec/layerx-merge/qualification.kvx:36546 originate in sdk/launchpad/shared/db/production/production_test.go:153, sdk/launchpad/shared/db/production/production_test.go:266 and sdk/launchpad/shared/db/production/production_test.go:363 under the three cases named by task 22.39.117 do_9 at spec/layerx-merge/spec.kvx:216511 and decision 3048 at spec/layerx-merge/spec.kvx:11401, whereas sdk/launchpad/shared/chain/client_test.go:569 declares the unrelated chain read-adapter test."
+close_comment = "The attempt-7 qualification finding misidentifies three production database failures as a chain read-adapter failure. A focused correction will identify production_test.go and TestPostgresRoleAndNumericBoundaries as the first failing case, preserving the recorded failure details."
+
+[task.18.1917.1]
+title = "Issue #1917: Correct the production database finding attribution"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181917.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change only the file and symbol fields of finding.22.39.117.7 at spec/layerx-merge/qualification.kvx:36544 and spec/layerx-merge/qualification.kvx:36545: file becomes sdk/launchpad/shared/db/production/production_test.go and symbol becomes TestPostgresRoleAndNumericBoundaries, the first failing case declared at sdk/launchpad/shared/db/production/production_test.go:150; the other two cases are TestPostgresCoordinatorAndCancellation at sdk/launchpad/shared/db/production/production_test.go:228 and TestPhase3CancellationAndAuthorization at sdk/launchpad/shared/db/production/production_test.go:358."
+do_2 = "Check both corrected fields within finding.22.39.117.7 specifically, preserving its task, observed, assumption and severity values at spec/layerx-merge/qualification.kvx:36543 and spec/layerx-merge/qualification.kvx:36546, and leave other findings and the database fixture repair assigned to task 22.39.117 unchanged."
+symbols = []
+touches = ["spec/layerx-merge/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "sed -n '/^\\[finding\\.22\\.39\\.117\\.7\\]$/,+3p' spec/layerx-merge/qualification.kvx | grep -P '^file = \\x22sdk/launchpad/shared/db/production/production_test\\.go\\x22$' && sed -n '/^\\[finding\\.22\\.39\\.117\\.7\\]$/,+3p' spec/layerx-merge/qualification.kvx | grep -P '^symbol = \\x22TestPostgresRoleAndNumericBoundaries\\x22$'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181917]
+title = "The attempt-7 finding identifies its failing production database test"
+ac_1 = "The file and symbol fields of finding.22.39.117.7 at spec/layerx-merge/qualification.kvx:36544 and spec/layerx-merge/qualification.kvx:36545 name sdk/launchpad/shared/db/production/production_test.go and TestPostgresRoleAndNumericBoundaries, matching the first colliding role creation at sdk/launchpad/shared/db/production/production_test.go:153, while the recorded failure details and all other findings remain unchanged."
+
+[acceptance.18.1917.1]
+feature = "18"
+req = "181917.1"
+scenario = "Given the attempt-7 finding describing three production database object collisions, when its file and symbol are read, then they identify production_test.go and TestPostgresRoleAndNumericBoundaries and the recorded failure details remain unchanged."
+contract = "contracts/launchpad.md#launchpad-tools"
+test = "spec/layerx-merge/qualification.kvx::finding.22.39.117.7 field checks (planned)"
+qualification = "UNRUN"

@@ -40,6 +40,7 @@ var (
 
 type Shipped interface {
 	Lookup(name string) (replica.LedgerEntry, bool)
+	Archived(name string) (replica.LedgerEntry, bool, error)
 }
 
 type Config struct {
@@ -266,6 +267,13 @@ func (w *Writer) retain() ([]string, error) {
 		p := filepath.Join(w.cfg.Dir, s.name)
 		if w.cfg.Shipped != nil {
 			entry, ok := w.cfg.Shipped.Lookup(s.name)
+			if !ok {
+				entry, ok, err = w.cfg.Shipped.Archived(s.name)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("backup: archived acknowledgment for %s: %w", s.name, err))
+					continue
+				}
+			}
 			if !ok {
 				continue
 			}

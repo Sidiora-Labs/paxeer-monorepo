@@ -1,0 +1,48 @@
+[issue.1867]
+number = 1867
+title = "[Coherence] The wallet suite baseline is not retired: all 31 repaired cases are still listed and CI still skips them"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "tests/ci/data/wallet_vitest_baseline.json:2 still begins the 31 exclusions consumed by tools/ci/run_wallet_vitest.py:48 and .github/workflows/wallet-test.yml:29, while sdk/wallet/test/repair_22_39_145.kvx:7 explicitly defers removal despite the empty-baseline requirement of the done task at spec/layerx-merge/spec.kvx:157401; commit 5577807085a205dc03e13c98ad58d876c8d3e1c6 repairs the wallet cases without changing that baseline."
+close_comment = "The wallet test baseline still excludes the 31 repaired cases. The follow-up task will empty the baseline and add a regression check that every repaired case name is included by the wallet test runner."
+
+[task.18.1867.1]
+title = "Issue #1867: Retire the wallet test baseline and protect inclusion of repaired cases"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181867.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the 31 entries beginning at tests/ci/data/wallet_vitest_baseline.json:2 with an empty JSON list, retaining the file and the existing runner: tools/ci/run_wallet_vitest.py:48 already admits every name when the list is empty; preserve all repaired wallet tests and producer changes from commit 5577807085a205dc03e13c98ad58d876c8d3e1c6."
+do_2 = "Strengthen test_sdk_wallet_job_runs_the_baseline_script at tests/ci/test_pnpm_workspace_roots.py:258 to require an empty committed baseline and explicitly check all 31 former full names, captured from the baseline before removal, against the actual runner pattern in Python and JavaScript; preserve exact-name exclusion, escaping and near-match assertions with independent matcher inputs so empty-list iteration cannot vacuously replace their coverage, and retain workflow routing and command-forwarding assertions."
+symbols = ["test_sdk_wallet_job_runs_the_baseline_script"]
+touches = ["tests/ci/data/wallet_vitest_baseline.json", "tests/ci/test_pnpm_workspace_roots.py"]
+tests = ["tests/ci/test_pnpm_workspace_roots.py::test_sdk_wallet_job_runs_the_baseline_script"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_pnpm_workspace_roots.py"
+verify_cmd = "python3 -m pytest tests/ci/test_pnpm_workspace_roots.py::test_sdk_wallet_job_runs_the_baseline_script -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181867]
+title = "The wallet runner includes every repaired baseline case"
+ac_1 = "The baseline at tests/ci/data/wallet_vitest_baseline.json:1 is an empty JSON list, and the focused wiring test at tests/ci/test_pnpm_workspace_roots.py:258 proves that the real pattern from tools/ci/run_wallet_vitest.py:43 admits all 31 former names in Python and JavaScript while retaining matcher boundary and workflow-command coverage."
+
+[acceptance.18.1867.1]
+feature = "18"
+req = "181867.1"
+scenario = "Given the 31 repaired wallet cases and an empty baseline, when the wallet runner constructs its test-name pattern, then every repaired full name is admitted and the focused wiring test rejects any reintroduced baseline entry."
+contract = "contracts/tools-ops.md#ci-scripts"
+test = "tests/ci/test_pnpm_workspace_roots.py::test_sdk_wallet_job_runs_the_baseline_script (planned)"
+qualification = "UNRUN"

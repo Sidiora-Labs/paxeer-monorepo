@@ -1,0 +1,7 @@
+[issue.1907]
+number = 1907
+title = "[Coherence] The resolved disposition for 22.39.26.3 credits its dependency fix to a commit that never touched the requirements file"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "The closure evidence at spec/layerx-merge/dispositions/d22-32.kvx:7, produced by the done task at spec/layerx-merge/spec.kvx:350878 whose contract requires the repair commit at spec/layerx-merge/spec.kvx:350885, must credit 3740acfa3e25ea3b4aa157330f14dc50a37b0c47 for jsonschema and pycryptodome at tools/qualification/requirements.txt:6 and tools/qualification/requirements.txt:16 and credit 08a7f84469261145f5c25b8b8901ea854ea3bf91 for the target at Makefile:299 and its tests at tests/ci/test_qualification_suites_have_ci_host.py:13, since only the former commit added the requirements file."
+close_comment = "The closure evidence for finding 22.39.26.3 needs to credit 3740acfa3e for the jsonschema and pycryptodome declarations. Credit 08a7f84469 for the qualification target and related tests; the dependency declarations already exist."

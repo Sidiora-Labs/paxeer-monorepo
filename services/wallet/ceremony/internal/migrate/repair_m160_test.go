@@ -9,6 +9,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/base64"
@@ -18,6 +19,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -26,15 +29,567 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/dealer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/attestor"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/envelope"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/testsupport"
 )
+
+type refreshRotationMember struct {
+	close         func() error
+	reopen        func()
+	adopt         func(string, string, string) error
+	record        func(string, func([]byte) ([]byte, error)) error
+	share         func(string) [32]byte
+	importReceipt func(string) []byte
+	epoch         func(string, uint64) error
+	interrupt     bool
+}
+
+func refreshRotationHTTP(t *testing.T, certFile, keyFile, caFile string) *http.Client {
+	t.Helper()
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(caFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(raw) {
+		t.Fatal("invalid ceremony CA")
+	}
+	transport := &http.Transport{TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: pool, MinVersion: tls.VersionTLS12}}
+	t.Cleanup(transport.CloseIdleConnections)
+	return &http.Client{Transport: transport, Timeout: 30 * time.Second}
+}
+
+func refreshRotationPost(ctx context.Context, client *http.Client, endpoint string, value any) ([]byte, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	raw, err = io.ReadAll(resp.Body)
+	if err == nil && resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, raw)
+	}
+	return raw, err
+}
+
+func TestRefreshRecoveryAfterRotation(t *testing.T) {
+	for _, held := range []bool{false, true} {
+		for _, adopted := range []int{0, 2} {
+			t.Run(fmt.Sprintf("held=%t/adopted=%d", held, adopted), func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+				defer cancel()
+				wallet := &m160Wallet{Wallet: Wallet{ID: "rotation-wallet", UserID: "rotation-owner", Address: "0x4444444444444444444444444444444444444444", ChainID: 125, MainAccountID: strings.Repeat("11", 32)}}
+				wallet.original = originalIdentity{KeyID: "held-identity", Owner: wallet.UserID}
+				rpc := m160RPC(t, []*m160Wallet{wallet})
+				authority := testsupport.StartWalletNodes(t, rpc)
+				token := authority.OwnerToken(t, wallet.UserID)
+				claims, err := base64.RawURLEncoding.DecodeString(strings.Split(token, ".")[1])
+				if err != nil {
+					t.Fatal(err)
+				}
+				var issuer struct {
+					Issuer string `json:"iss"`
+				}
+				if err = json.Unmarshal(claims, &issuer); err != nil {
+					t.Fatal(err)
+				}
+				cfg := authority.Config(t)
+				root := filepath.Dir(authority.GatewayAuthority()["WALLET_CUSTODY_INVENTORY_FILE"])
+				data := t.TempDir()
+				members := make([]refreshRotationMember, attestor.NodeCount)
+				peers, apis := make([]net.Listener, len(members)), make([]net.Listener, len(members))
+				peerAddresses := make([]string, len(members))
+				listen := func(address string) net.Listener {
+					l, e := net.Listen("tcp", address)
+					if e != nil {
+						t.Fatal(e)
+					}
+					return l
+				}
+				for i := range members {
+					peers[i], apis[i] = listen("127.0.0.1:0"), listen("127.0.0.1:0")
+					peerAddresses[i] = peers[i].Addr().String()
+					cfg.Nodes[i].URL = "https://" + apis[i].Addr().String()
+				}
+				var inventoryMu sync.Mutex
+				epochs := make([]uint64, len(members))
+				var approval testsupport.CeremonyInventoryKey
+				publish := func() {
+					all := make([][]testsupport.CeremonyInventoryKey, len(members))
+					for i := range all {
+						key := approval
+						key.Epoch = epochs[i]
+						all[i] = []testsupport.CeremonyInventoryKey{key}
+					}
+					authority.PublishInventory(t, all)
+				}
+				for i := range members {
+					i := i
+					member := &members[i]
+					nodeCfg := (dealer.ShareBundle{}).CeremonyNodeConfig()
+					nodeCfg.NodeID = cfg.Nodes[i].ID
+					nodeCfg.DataDir, nodeCfg.NodeKeyFile = filepath.Join(data, nodeCfg.NodeID), filepath.Join(root, nodeCfg.NodeID+"-store.key")
+					nodeCfg.CertFile, nodeCfg.KeyFile, nodeCfg.CAFile = filepath.Join(root, nodeCfg.NodeID+".pem"), filepath.Join(root, nodeCfg.NodeID+"-tls.pem"), cfg.CAFile
+					nodeCfg.OperatorCAFile, nodeCfg.GatewayCAFile = cfg.CAFile, filepath.Join(filepath.Dir(cfg.GatewayCertFile), "ca.pem")
+					nodeCfg.InventoryFile = filepath.Join(root, nodeCfg.NodeID+"-inventory.jwt")
+					nodeCfg.InventoryPublicKeyFile = authority.GatewayAuthority()["WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE"]
+					nodeCfg.Issuer, nodeCfg.Tenant, nodeCfg.ChainID = "http://127.0.0.1:1/auth/v1", "ceremony-fixture", 125
+					nodeCfg.JWKSURL, nodeCfg.TokenIssuer, nodeCfg.TokenAudience, nodeCfg.RPCURL = issuer.Issuer+"/jwks", issuer.Issuer, "authenticated", rpc
+					nodeCfg.KernelPolicyJSON = []byte(`{"version":1,"defaults":{"modules":{"asset":[5]}}}`)
+					nodeCfg.PolicyJSON = []byte(`{"version":1,"defaults":{"chain_id":125,"kinds":["operator_verification","lx_bind"],"rate_per_minute":1000}}`)
+					for j, peer := range cfg.Nodes {
+						nodeCfg.AddPeer(peer.ID, peerAddresses[j], hex.EncodeToString(peer.Pin[:]))
+					}
+					var closeStore func() error
+					nodeCfg.BeforeRefreshCommit = func() {
+						if member.interrupt {
+							member.interrupt = false
+							if e := closeStore(); e != nil {
+								t.Error(e)
+							}
+						}
+					}
+					nodeCfg.ApproveRefresh = func(_ string, epoch uint64) {
+						inventoryMu.Lock()
+						defer inventoryMu.Unlock()
+						epochs[i] = epoch
+						publish()
+					}
+					open := func(peer, api net.Listener) {
+						real, e := nodeCfg.Open(peer, api)
+						if e != nil {
+							t.Fatal(e)
+						}
+						member.close, closeStore = real.Close, real.Store.Close
+						member.adopt = real.Store.RestartCeremonyRefresh
+						member.importReceipt = func(key string) []byte {
+							receipt, e := real.Store.ImportReceipt(key)
+							if held {
+								if e == nil {
+									t.Fatal("held identity acquired an import receipt")
+								}
+								return nil
+							}
+							if e != nil {
+								t.Fatal(e)
+							}
+							raw, e := json.Marshal(receipt)
+							if e != nil {
+								t.Fatal(e)
+							}
+							return raw
+						}
+						member.record = func(key string, edit func([]byte) ([]byte, error)) error {
+							return real.Store.UpdateRecord("ceremony-refresh", key, edit)
+						}
+						member.share = func(key string) [32]byte {
+							var digest [32]byte
+							if e := real.Store.WithShare(key, func(raw []byte) error { digest = sha256.Sum256(raw); return nil }); e != nil {
+								t.Fatal(e)
+							}
+							return digest
+						}
+						member.epoch = func(key string, epoch uint64) error {
+							rec, e := real.Store.Get(key)
+							if e != nil {
+								return e
+							}
+							rec.Epoch = epoch
+							return real.Store.WithShare(key, func(raw []byte) error { return real.Store.Put(rec, raw) })
+						}
+					}
+					open(peers[i], apis[i])
+					apiAddress := strings.TrimPrefix(cfg.Nodes[i].URL, "https://")
+					member.reopen = func() {
+						if e := member.close(); e != nil {
+							t.Fatal(e)
+						}
+						open(listen(peerAddresses[i]), listen(apiAddress))
+					}
+					t.Cleanup(func() {
+						if e := member.close(); e != nil {
+							t.Error(e)
+						}
+					})
+				}
+				newClient := func() *attestor.Client {
+					c, e := attestor.New(cfg)
+					if e != nil {
+						t.Fatal(e)
+					}
+					t.Cleanup(c.Close)
+					return c
+				}
+				client := newClient()
+				operator := refreshRotationHTTP(t, cfg.CertFile, cfg.KeyFile, cfg.CAFile)
+				opts := Options{CeremonyID: "rotation", JournalDir: t.TempDir(), JournalKey: bytes.Repeat([]byte{0x73}, 32)}
+				if err = os.Chmod(opts.JournalDir, 0700); err != nil {
+					t.Fatal(err)
+				}
+				journal := walletJournal{Version: 1, CeremonyID: opts.CeremonyID, Members: client.Membership()}
+				c := &journal.Secp
+				if held {
+					gateway := refreshRotationHTTP(t, cfg.GatewayCertFile, cfg.GatewayKeyFile, cfg.CAFile)
+					approval = testsupport.CeremonyInventoryKey{KeyID: wallet.original.KeyID, Curve: attestor.CurveEd25519, Owner: wallet.UserID, Operations: []string{"generate"}}
+					publish()
+					var wg sync.WaitGroup
+					failures := make([]error, len(members))
+					for i := range members {
+						wg.Add(1)
+						go func(i int) {
+							defer wg.Done()
+							_, failures[i] = refreshRotationPost(ctx, gateway, cfg.Nodes[i].URL+"/v1/keys/generate", map[string]any{"session_id": "generate-original", "key_id": wallet.original.KeyID, "curve": "ed25519", "owner": wallet.UserID, "account": wallet.Address})
+						}(i)
+					}
+					wg.Wait()
+					for _, e := range failures {
+						if e != nil {
+							t.Fatal(e)
+						}
+					}
+					rows, e := client.DescribeCeremony(ctx, wallet.original.KeyID)
+					if e != nil {
+						t.Fatal(e)
+					}
+					wallet.original.PublicKey = rows[0].PublicKey
+					c = &journal.Identity
+					*c = curveJournal{KeyID: wallet.original.KeyID, Curve: attestor.CurveEd25519, PublicKey: wallet.original.PublicKey, RefreshSession: "aborted-attempt", VerifySession: "possession", PossessionMessage: wallet.original.message(wallet.Wallet)}
+				} else {
+					bundles, pub, e := dealer.Split(dealer.Ed25519, big.NewInt(71), client.NodeIDs())
+					if e != nil {
+						t.Fatal(e)
+					}
+					defer wipeBundles(bundles)
+					*c, e = newCurveJournal("imported-key", bundles, pub)
+					if e != nil {
+						t.Fatal(e)
+					}
+					approval = testsupport.CeremonyInventoryKey{KeyID: c.KeyID, Curve: c.Curve, PublicKey: c.PublicKey, Owner: wallet.UserID, Operations: []string{"import", "refresh", "sign"}}
+					publish()
+					if _, e = client.ImportCeremony(ctx, opts.CeremonyID, c.ImportSession, c.KeyID, wallet.UserID, wallet.Address, bundles, pub); e != nil {
+						t.Fatal(e)
+					}
+					c.Imported = true
+				}
+				approval = testsupport.CeremonyInventoryKey{KeyID: c.KeyID, Curve: c.Curve, PublicKey: c.PublicKey, Owner: wallet.UserID, Operations: []string{"import", "refresh", "sign"}}
+				publish()
+				previous := c.RefreshSession
+				request := attestor.RefreshRequest{ExistingKey: held, CeremonyID: opts.CeremonyID, ImportSessionID: c.ImportSession, SessionID: previous, KeyID: c.KeyID, ExpectedEpoch: &c.BaseEpoch}
+				// Interrupt real protocol runs before all participants join.
+				for _, indices := range [][]int{{0, 1, 2, 3}, {4}} {
+					attempt, stop := context.WithTimeout(ctx, 500*time.Millisecond)
+					var wg sync.WaitGroup
+					for _, i := range indices {
+						wg.Add(1)
+						go func(i int) {
+							defer wg.Done()
+							_, _ = refreshRotationPost(attempt, operator, cfg.Nodes[i].URL+attestor.PathRefresh, request)
+						}(i)
+					}
+					wg.Wait()
+					stop()
+				}
+				// Settle the interrupted attempt through the authenticated coordinator.
+				peerClient := func(i int) *http.Client {
+					id := cfg.Nodes[i].ID
+					return refreshRotationHTTP(t, filepath.Join(root, id+".pem"), filepath.Join(root, id+"-tls.pem"), cfg.CAFile)
+				}
+				vote := map[string]any{"key_id": c.KeyID, "session_id": previous, "epoch": uint64(1), "phase": "recover_abort"}
+				raw, err := refreshRotationPost(ctx, peerClient(1), "https://"+peerAddresses[0]+"/v1/peer/refresh", vote)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var decision struct {
+					Decision string `json:"decision"`
+				}
+				if err = json.Unmarshal(raw, &decision); err != nil || decision.Decision != "abort" {
+					t.Fatalf("coordinator did not abort: %s %v", raw, err)
+				}
+				vote["phase"] = decision.Decision
+				for i := 1; i < len(members); i++ {
+					if _, err = refreshRotationPost(ctx, peerClient(0), "https://"+peerAddresses[i]+"/v1/peer/refresh", vote); err != nil {
+						t.Fatal(err)
+					}
+				}
+				for i := range members {
+					members[i].reopen()
+				}
+				path := journalPath(opts, wallet.ID)
+				interrupted := errors.New("stopped after replacement journal save")
+				save := func() error {
+					if e := atomicSealed(path, opts.JournalKey, journalDomain(opts, wallet.ID), journal); e != nil {
+						return e
+					}
+					if c.RefreshRecoverySession != "" && !c.Refreshed {
+						return interrupted
+					}
+					return nil
+				}
+				resume := func() error {
+					if held {
+						return resumeHeldIdentity(ctx, client, opts, wallet.Wallet, c, wallet.original, save)
+					}
+					return resumeCurve(ctx, client, opts, wallet.Wallet, c, save)
+				}
+				if err = resume(); !errors.Is(err, interrupted) {
+					t.Fatalf("rotation save interruption: %v", err)
+				}
+				replacement := c.RefreshSession
+				if replacement == previous || c.RefreshRecoverySession != previous || c.Refreshed {
+					t.Fatal("replacement was not sealed before replay")
+				}
+				for i := 0; i < adopted; i++ {
+					if err = members[i].adopt(c.KeyID, previous, replacement); err != nil {
+						t.Fatal(err)
+					}
+				}
+				client.Close()
+				for i := range members {
+					members[i].reopen()
+				}
+				client = newClient()
+				load := func() {
+					raw, e := os.ReadFile(path)
+					if e != nil {
+						t.Fatal(e)
+					}
+					if e = openValue(opts.JournalKey, journalDomain(opts, wallet.ID), raw, &journal); e != nil {
+						t.Fatal(e)
+					}
+					c = &journal.Secp
+					if held {
+						c = &journal.Identity
+					}
+				}
+				load()
+				inspect := func() ([]attestor.DescribeResponse, error) {
+					return client.InspectRefreshRecoveryWithPreviousSession(ctx, opts.CeremonyID, c.ImportSession, c.RefreshSession, c.RefreshRecoverySession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch)
+				}
+				rows, err := inspect()
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, row := range rows {
+					want := previous
+					if i < adopted {
+						want = replacement
+					}
+					if row.RefreshSessionID != want {
+						t.Fatalf("unexpected durable attempt: %+v", row)
+					}
+				}
+				if _, err = client.InspectRefreshRecovery(ctx, opts.CeremonyID, c.ImportSession, replacement, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch); !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("strict inspection accepted previous attempt: %v", err)
+				}
+				if err = client.ReconcileCeremony(ctx, opts.CeremonyID, c.ImportSession, replacement, c.KeyID, c.PublicKey, c.Curve, 1); !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("incomplete final reconciliation accepted: %v", err)
+				}
+				sealedBefore, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				sharesBefore := make([][32]byte, len(members))
+				importsBefore := make([][]byte, len(members))
+				for i := range members {
+					sharesBefore[i] = members[i].share(c.KeyID)
+					importsBefore[i] = members[i].importReceipt(c.KeyID)
+				}
+				retained := func() {
+					raw, e := os.ReadFile(path)
+					if e != nil || !bytes.Equal(raw, sealedBefore) {
+						t.Fatal("refusal changed sealed journal")
+					}
+					for i := range members {
+						if members[i].share(c.KeyID) != sharesBefore[i] {
+							t.Fatal("refusal changed shares")
+						}
+					}
+					if c.Refreshed || c.RefreshSession != replacement || !held && len(c.Shares) != 5 {
+						t.Fatal("refusal discarded recovery material")
+					}
+				}
+				save = func() error { return atomicSealed(path, opts.JournalKey, journalDomain(opts, wallet.ID), journal) }
+				for _, field := range []string{"previous", "ceremony", "import", "key", "public", "curve", "base"} {
+					t.Run("journal-"+field, func(t *testing.T) {
+						before := *c
+						oldCeremony := opts.CeremonyID
+						switch field {
+						case "previous":
+							c.RefreshRecoverySession = "unrelated"
+						case "ceremony":
+							opts.CeremonyID = "unrelated"
+						case "import":
+							c.ImportSession = "unrelated"
+						case "key":
+							c.KeyID = "unrelated"
+						case "public":
+							c.PublicKey = "00"
+						case "curve":
+							c.Curve = attestor.CurveSecp256k1
+						case "base":
+							c.BaseEpoch = 1
+						}
+						if _, e := inspect(); e == nil {
+							t.Fatalf("accepted mismatched %s", field)
+						}
+						*c = before
+						opts.CeremonyID = oldCeremony
+						retained()
+					})
+				}
+				for _, mutation := range []struct {
+					name, field string
+					value       any
+				}{
+					{"session", "session_id", "unrelated"}, {"ceremony", "ceremony_id", "unrelated"}, {"import", "import_session_id", "unrelated"}, {"key", "key_id", "unrelated"}, {"public", "public_key", []byte{0}}, {"curve", "curve", "secp256k1"}, {"members", "participants", []string{"n1"}}, {"base", "base_epoch", uint64(1)}, {"state", "state", "complete"}, {"decision", "decision", ""}, {"commit", "decision", "commit"}, {"existing", "existing_key", !held},
+				} {
+					t.Run("previous-"+mutation.name, func(t *testing.T) {
+						var original []byte
+						if e := members[4].record(c.KeyID, func(raw []byte) ([]byte, error) {
+							original = append([]byte(nil), raw...)
+							var state map[string]any
+							if e := json.Unmarshal(raw, &state); e != nil {
+								return nil, e
+							}
+							state[mutation.field] = mutation.value
+							return json.Marshal(state)
+						}); e != nil {
+							t.Fatal(e)
+						}
+						// A non-aborted state must also lack the abort decision: describe
+						// correctly exposes any durable abort decision as aborted.
+						if mutation.name == "state" {
+							if e := members[4].record(c.KeyID, func(raw []byte) ([]byte, error) {
+								var state map[string]any
+								if e := json.Unmarshal(raw, &state); e != nil {
+									return nil, e
+								}
+								state["decision"] = "commit"
+								return json.Marshal(state)
+							}); e != nil {
+								t.Fatal(e)
+							}
+						}
+						if e := resume(); e == nil {
+							t.Fatalf("accepted previous %s", mutation.name)
+						}
+						retained()
+						if e := members[4].record(c.KeyID, func([]byte) ([]byte, error) { return original, nil }); e != nil {
+							t.Fatal(e)
+						}
+					})
+				}
+				if err = members[4].epoch(c.KeyID, 1); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = inspect(); !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("previous attempt at next epoch accepted: %v", err)
+				}
+				retained()
+				if err = members[4].epoch(c.KeyID, 0); err != nil {
+					t.Fatal(err)
+				}
+				if adopted > 0 {
+					var original []byte
+					if err = members[0].record(c.KeyID, func(raw []byte) ([]byte, error) {
+						original = append([]byte(nil), raw...)
+						var state map[string]any
+						if e := json.Unmarshal(raw, &state); e != nil {
+							return nil, e
+						}
+						state["state"] = "staged"
+						state["decision"] = "commit"
+						return json.Marshal(state)
+					}); err != nil {
+						t.Fatal(err)
+					}
+					if _, err = inspect(); !errors.Is(err, attestor.ErrDisagree) {
+						t.Fatalf("mixed commit and previous abort accepted: %v", err)
+					}
+					retained()
+					if err = members[0].record(c.KeyID, func([]byte) ([]byte, error) { return original, nil }); err != nil {
+						t.Fatal(err)
+					}
+				}
+				// A real commit interrupted on one store must retain the journal.
+				members[4].interrupt = true
+				if err = resume(); err == nil {
+					t.Fatal("missing final member interruption")
+				}
+				members[4].reopen()
+				inventoryMu.Lock()
+				epochs[4] = 0
+				publish()
+				inventoryMu.Unlock()
+				load()
+				if c.Refreshed || c.RefreshSession != replacement || c.RefreshRecoverySession != previous {
+					t.Fatal("partial completion changed recovery identity")
+				}
+				if held {
+					rows, err = client.DescribeCeremony(ctx, c.KeyID)
+				} else {
+					err = client.ReconcileCeremony(ctx, opts.CeremonyID, c.ImportSession, replacement, c.KeyID, c.PublicKey, c.Curve, 1)
+				}
+				if !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("incomplete commit reconciled: %v", err)
+				}
+				client.Close()
+				for i := range members {
+					members[i].reopen()
+				}
+				client = newClient()
+				if err = resume(); err != nil {
+					t.Fatalf("saved replacement did not resume: %v", err)
+				}
+				load()
+				if !c.Refreshed || c.Epoch != 1 || c.RefreshSession != replacement || c.RefreshRecoverySession != previous {
+					t.Fatal("replacement rotated again or failed to complete")
+				}
+				rows, err = client.InspectRefreshRecovery(ctx, opts.CeremonyID, c.ImportSession, replacement, c.KeyID, c.PublicKey, c.Curve, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, row := range rows {
+					if row.Epoch != 1 || row.RefreshState != "complete" || row.RefreshSessionID != replacement || row.Refresh.Decision != "commit" || row.Refresh.AuditSequence == 0 || row.PublicKey != c.PublicKey || members[i].share(c.KeyID) == sharesBefore[i] {
+						t.Fatalf("member did not refresh original key: %+v", row)
+					}
+				}
+				for i := range members {
+					if !bytes.Equal(importsBefore[i], members[i].importReceipt(c.KeyID)) {
+						t.Fatal("recovery re-imported shares")
+					}
+				}
+				if held && (c.KeyID != wallet.original.KeyID || c.PublicKey != wallet.original.PublicKey || c.Verification == nil || !ed25519.Verify(mustHex(wallet.original.PublicKey), c.Verification.Message, c.Verification.Signature)) {
+					t.Fatal("held identity replaced or original signature missing")
+				}
+				if !held && (!c.Imported || len(c.Shares) != 5 || c.Verification == nil) {
+					t.Fatal("imported recovery material or verification lost")
+				}
+			})
+		}
+	}
+}
 
 // These fixtures are peers of the production migration, not replacements for
 // its planner, client, binding verification, journal or recovery implementation.
