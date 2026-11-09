@@ -241,7 +241,7 @@ jobs:
       - name: Package CI artifacts
         run: tar -czf integration-build.tar.gz build/paxd
       - name: Upload integration CI artifacts
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: paxeer-integration-ci-artifacts
           path: integration-build.tar.gz
@@ -669,7 +669,7 @@ jobs:
 
       - name: Upload logs directory
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: paxeer-integration-logs-${{ steps.log_artifact_meta.outputs.artifact_name }}
           path: artifacts/pax-${{ steps.log_artifact_meta.outputs.artifact_name }}
@@ -677,7 +677,7 @@ jobs:
 
       - name: Upload RPC parity test report
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: paxeer-rpc-parity-report-${{ steps.log_artifact_meta.outputs.artifact_name }}
           path: tests/integration/rpc_tests/reports/merged
