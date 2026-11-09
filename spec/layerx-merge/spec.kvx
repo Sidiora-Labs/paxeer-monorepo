@@ -348175,7 +348175,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1850.1]
 title = "Issue #1850: Keep Autobahn integration on a Docker-capable runner and guard its indirect runtime dependency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1843.1"]
