@@ -1,0 +1,48 @@
+[issue.1741]
+number = 1741
+title = "[Coherence] The test's module header calls repair_22_33_233.kvx historical attempt-1 evidence that it supersedes, but the same commit adds that file as the attempt-6 record"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:18-19 still calls the repair record historical and superseded, contradicting the current record at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx:5 and its platform wiring request at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx:50-51, with both files unchanged since commit 8510976ba57895ae6df45c220ca73d4d9732c1d7."
+close_comment = "The test header still contradicts the current repair record and its platform wiring request. The follow-up task makes the header identify repair_22_33_233.kvx as authoritative and point to its wiring.platform block."
+
+[task.18.1741.1]
+title = "Issue #1741: Identify the authoritative AI market repair record in the test header"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181741.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the contradictory module documentation at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:18-22 with an explicit reference to repair_22_33_233.kvx as the authoritative repair record and its wiring.platform block as the current platform wiring request, consistent with programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx:50-51."
+do_2 = "Use the focused documentation grep to require both authoritative-record and wiring.platform references and reject the historical-record and supersession claims; retain the existing test functions and assertions at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:443 and programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:521."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fxq '//! The authoritative repair record is repair_22_33_233.kvx.' programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs && grep -Fxq '//! Its [wiring.platform] block records the current platform wiring request.' programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs && ! grep -Eq 'historical attempt-1 evidence|supersedes its dependency wiring request' programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181741]
+title = "The AI market test header identifies one authoritative repair record"
+ac_1 = "The module documentation at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:18-22 identifies repair_22_33_233.kvx as authoritative and directs platform wiring requests to its wiring.platform block at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx:50-51, with no historical-record or supersession claim."
+
+[acceptance.18.1741.1]
+feature = "18"
+req = "181741.1"
+scenario = "Given the AI market repair record and its platform wiring request, when the test module header is checked, then it identifies that record as authoritative and points to wiring.platform without claiming the record is historical or superseded."
+contract = "contracts/programs.md#ai-market-guest"
+test = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs::authoritative_record_reference grep (planned)"
+qualification = "UNRUN"

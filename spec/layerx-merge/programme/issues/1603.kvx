@@ -1,0 +1,48 @@
+[issue.1603]
+number = 1603
+title = "[Coherence] The benchmark file entries carry an 'issues' verdict but a note saying their expectations agree with current shapes"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.63.kvx:851 and spec/layerx-merge/programme/audit/records/22.30.63.kvx:857 still claim agreement despite the issues verdicts and findings 001 through 004 at spec/layerx-merge/programme/audit/records/22.30.63.kvx:901, spec/layerx-merge/programme/audit/records/22.30.63.kvx:911, spec/layerx-merge/programme/audit/records/22.30.63.kvx:921 and spec/layerx-merge/programme/audit/records/22.30.63.kvx:931, whereas commit 5ed2e071fced4663a503c5ffec01d645a8bc825e repaired the benchmark code without correcting these notes."
+close_comment = "The benchmark implementation now supports benchmark initialization, selected database options, complete transaction batches and the block lifecycle, but its audit notes still contradict the recorded findings. A focused documentation task will identify the reviewed helpers and benchmark, link each entry to its findings and distinguish the original audit from the subsequent repair."
+
+[task.18.1603.1]
+title = "Issue #1603: Align benchmark audit notes with their recorded findings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181603.1"]
+capabilities = []
+interfaces = []
+do_1 = "Rewrite only the notes of file.140 and file.141 at spec/layerx-merge/programme/audit/records/22.30.63.kvx:851 and spec/layerx-merge/programme/audit/records/22.30.63.kvx:857: identify setup, SetupWithGenesisAccounts and InitializeWasmApp as the reviewed helpers and BenchmarkTxSending as the reviewed benchmark; replace the empty assertion list and agreement claims with concrete findings 001 and 002 for initialization and database selection, and 003 and 004 for transaction counts and block lifecycle. Explain that these are findings at the audit revision and cite their subsequent repair in commit 5ed2e071fced4663a503c5ffec01d645a8bc825e; preserve the audit revision, file verdicts, findings and counts."
+do_2 = "Use the focused grep gate to require both corrected review descriptions and finding references and reject the empty assertion list or agreement template in file.140 and file.141. Ground the repair reference in wasm/benchmarks/app_test.go:29, wasm/benchmarks/app_test.go:252 and wasm/benchmarks/bench_test.go:111, with existing regression coverage at wasm/benchmarks/repair_m1271_test.go:20, wasm/benchmarks/repair_m1271_test.go:83, wasm/benchmarks/repair_m1271_test.go:100 and wasm/benchmarks/repair_m1271_test.go:136; this documentation correction changes no Go tests."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.63.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -F 'Reviewed helpers: setup, SetupWithGenesisAccounts, InitializeWasmApp. Concrete findings 001 and 002 describe the audited initialization and database-selection discrepancies.' spec/layerx-merge/programme/audit/records/22.30.63.kvx && grep -F 'Reviewed benchmark: BenchmarkTxSending. Concrete findings 003 and 004 describe the audited transaction-count and block-lifecycle discrepancies.' spec/layerx-merge/programme/audit/records/22.30.63.kvx && ! sed -n '/^\\[file.140\\]$/,/^\\[file.142\\]$/p' spec/layerx-merge/programme/audit/records/22.30.63.kvx | grep -E 'Reviewed assertions: \\.|Expectations agree'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181603]
+title = "Benchmark audit file notes consistently explain their issues verdicts"
+ac_1 = "The file.140 and file.141 notes at spec/layerx-merge/programme/audit/records/22.30.63.kvx:851 and spec/layerx-merge/programme/audit/records/22.30.63.kvx:857 identify the reviewed helpers or benchmark and the applicable findings (001 and 002, or 003 and 004), contain neither an empty reviewed-assertions list nor the clean-test agreement claim, and distinguish the original findings from repair commit 5ed2e071fced4663a503c5ffec01d645a8bc825e without altering historical verdicts or findings."
+
+[acceptance.18.1603.1]
+feature = "18"
+req = "181603.1"
+scenario = "Given benchmark audit file entries with issues verdicts and findings 001 through 004, when their notes are read independently, then each names its reviewed helpers or benchmark and its applicable discrepancies, identifies the subsequent repair and makes no contradictory clean-test claim."
+contract = "contracts/programme.md#programme-artifacts"
+test = "spec/layerx-merge/programme/audit/records/22.30.63.kvx::benchmark_file_notes (planned)"
+qualification = "UNRUN"
