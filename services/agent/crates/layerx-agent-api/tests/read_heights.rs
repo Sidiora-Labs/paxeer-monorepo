@@ -15,7 +15,8 @@ use layerx_agent_api::{Amount, TimestampSeconds};
 use layerx_client::sequencer::ReceiptKeyEntry;
 
 fn bytes(value: u8) -> CanonicalBytes {
-    CanonicalBytes::new(vec![value]).expect("nonempty canonical bytes")
+    CanonicalBytes::new(vec![value])
+        .unwrap_or_else(|error| panic!("nonempty canonical bytes: {error:?}"))
 }
 
 fn freshness() -> Freshness {
@@ -52,10 +53,11 @@ fn bundle(rung: Rung) -> ProofBundle {
 }
 
 #[test]
-fn verified_read_carries_achieved_rung_and_height_freshness() {
+fn verified_read_carries_achieved_rung_and_height_freshness() -> Result<(), String> {
     let value = BalanceValue {
-        account: AccountRef::new("account").unwrap(),
-        asset: Asset::new("LXP").unwrap(),
+        account: AccountRef::new("account")
+            .map_err(|error| format!("required value: {error:?}"))?,
+        asset: Asset::new("LXP").map_err(|error| format!("required value: {error:?}"))?,
         amount: Amount(u128::MAX),
         canonical_state: bytes(1),
         height: freshness().value_height,
@@ -96,10 +98,10 @@ fn verified_read_carries_achieved_rung_and_height_freshness() {
         deadline: TimestampSeconds(1),
     }
     .validate()
-    .unwrap();
+    .map_err(|error| format!("required value: {error:?}"))?;
     assert_eq!(availability.requested_rung, Rung::Receipted);
     let selector = ModuleStateSelector {
-        module: ModuleRef::new("module").unwrap(),
+        module: ModuleRef::new("module").map_err(|error| format!("required value: {error:?}"))?,
         key: bytes(2),
     };
     assert_eq!(selector.key.as_bytes(), &[2]);
@@ -129,7 +131,7 @@ fn verified_read_carries_achieved_rung_and_height_freshness() {
     let estimate = projection
         .clone()
         .into_projection("gas estimate", observed)
-        .unwrap();
+        .map_err(|error| format!("required value: {error:?}"))?;
     assert_eq!(estimate.projected.denom, "sponsor-denom");
     assert_eq!(estimate.projected.gas_units, u64::MAX);
     assert_eq!(
@@ -140,10 +142,12 @@ fn verified_read_carries_achieved_rung_and_height_freshness() {
         projection.into_projection("gas estimate", freshness()),
         Err(ContractError::Mismatch("fee_snapshot_height"))
     );
+
+    Ok(())
 }
 
 #[test]
-fn history_selector_pages_by_block_position_cursor() {
+fn history_selector_pages_by_block_position_cursor() -> Result<(), String> {
     let cursor = HistoryCursor {
         block_height: 9_007_199_254_740_993,
         tx_index: u64::MAX,
@@ -166,7 +170,9 @@ fn history_selector_pages_by_block_position_cursor() {
         block_height,
         tx_index,
         log_index,
-    } = page.next_cursor.unwrap();
+    } = page
+        .next_cursor
+        .ok_or_else(|| "required value".to_owned())?;
     assert_eq!(
         (block_height, tx_index, log_index),
         (9_007_199_254_740_993, u64::MAX, 0)
@@ -215,10 +221,12 @@ fn history_selector_pages_by_block_position_cursor() {
         height: page.height,
     };
     assert_eq!(end.next_cursor, None);
+
+    Ok(())
 }
 
 #[test]
-fn proof_bundle_mirror_requires_receipted_or_committed_rungs() {
+fn proof_bundle_mirror_requires_receipted_or_committed_rungs() -> Result<(), String> {
     for target in [
         ProofBundleTarget::Activity([1; 32]),
         ProofBundleTarget::Receipt([1; 32]),
@@ -250,18 +258,21 @@ fn proof_bundle_mirror_requires_receipted_or_committed_rungs() {
                     assert!(ProofBundle::check_response(&request, &response).is_err());
                 }
                 (_, Rung::Committed) => {
-                    ProofBundle::check_response(&request, &response)
-                        .expect("committed evidence satisfies the selector minimum");
+                    ProofBundle::check_response(&request, &response).unwrap_or_else(|error| {
+                        panic!("committed evidence satisfies the selector minimum: {error:?}")
+                    });
                     let committed_request = ReadRequest {
                         requested_rung: Rung::Committed,
                         ..request
                     };
-                    ProofBundle::check_response(&committed_request, &response)
-                        .expect("committed evidence satisfies an explicit committed request");
+                    (ProofBundle::check_response(&committed_request, &response)).map_err(|error| format!("committed evidence satisfies an explicit committed request: {error:?}"))?;
                 }
                 (_, Rung::Receipted) => {
-                    ProofBundle::check_response(&request, &response)
-                        .expect("receipted evidence satisfies Activity and Receipt requests");
+                    (ProofBundle::check_response(&request, &response)).unwrap_or_else(|error| {
+                        panic!(
+                            "receipted evidence satisfies Activity and Receipt requests: {error:?}"
+                        )
+                    });
                 }
             }
         }
@@ -296,18 +307,22 @@ fn proof_bundle_mirror_requires_receipted_or_committed_rungs() {
     invalid.commit = Some(bytes(1));
     assert!(invalid.validate().is_err());
     invalid = bundle(Rung::Committed);
-    invalid.raw_transaction = CanonicalBytes::new(vec![1; MAX_PROOF_BUNDLE_BYTES]).unwrap();
+    invalid.raw_transaction = CanonicalBytes::new(vec![1; MAX_PROOF_BUNDLE_BYTES])
+        .map_err(|error| format!("required value: {error:?}"))?;
     assert!(invalid.validate().is_err());
+
+    Ok(())
 }
 
 #[test]
-fn offline_export_mirror_has_no_certificates() {
-    let facts = vec![FactRef::new(format!("receipt:{}", "01".repeat(32))).unwrap()];
+fn offline_export_mirror_has_no_certificates() -> Result<(), String> {
+    let facts = vec![FactRef::new(format!("receipt:{}", "01".repeat(32)))
+        .map_err(|error| format!("required value: {error:?}"))?];
     let request = validate_export_request(ReadRequest {
         selector: facts.clone(),
         requested_rung: Rung::Committed,
     })
-    .unwrap();
+    .map_err(|error| format!("required value: {error:?}"))?;
     let export = OfflineExport {
         facts: facts.clone(),
         bundles: vec![bundle(Rung::Committed)],
@@ -365,4 +380,6 @@ fn offline_export_mirror_has_no_certificates() {
         .validate(),
         Err(ContractError::OutOfRange("offline_rung"))
     );
+
+    Ok(())
 }
