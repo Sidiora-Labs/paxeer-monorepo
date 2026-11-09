@@ -63,11 +63,11 @@ async function conformance_node_router_fixture_uses_root_and_separate_hosted_ide
   assert.equal(suite.results().length, 3, "checkout, verified payment/restart and tampering must all execute");
   assert.deepEqual(suite.results().filter((result) => !result.ok), []);
   assert.equal(new URL(observed.nodeUrl).pathname, "/");
-  assert.equal(new URL(observed.hostedGatewayUrl).pathname, "/rpc");
+  assert.equal(new URL(observed.hostedGatewayUrl).pathname, "/");
   assert.notEqual(new URL(observed.nodeUrl).origin, new URL(observed.hostedGatewayUrl).origin);
   assert.equal(observed.hosted.length, 1);
   const identity = observed.hosted[0];
-  assert.equal(identity.path, "/rpc");
+  assert.equal(identity.path, "/");
   assert.equal(identity.authorization, "Bearer identity-conformance-token");
   assert.deepEqual(identity.request.params, [toHex(facts.payTo)]);
   assert.equal(identity.request.method, "px_resolveAccount");
@@ -116,7 +116,7 @@ async function conformance_node_router_fixture_uses_root_and_separate_hosted_ide
   assert.ok(paidReceiptCalls.length > 0);
   for (const call of paidReceiptCalls) assert.equal(call.response.body.result.receipt, payment.signedReceipt);
   assert.throws(() => new PaymentRpc(`${new URL(observed.nodeUrl).origin}/rpc`), /invalid-rpc-endpoint/u);
-  assert.throws(() => new HostedGatewayRpc(`${new URL(observed.hostedGatewayUrl).origin}/`), /invalid-rpc-endpoint/u);
+  assert.throws(() => new HostedGatewayRpc(`${new URL(observed.hostedGatewayUrl).origin}/rpc`), /invalid-rpc-endpoint/u);
   assert.throws(() => new PaymentRpc(observed.nodeUrl).call("px_resolveAccount", [SERVICE_PAYEE_ACCOUNT]), /invalid-node-method/u);
   assert.throws(() => new HostedGatewayRpc(observed.hostedGatewayUrl).call("pax_sequencerReceipt", [receipt.txHash]), /invalid-gateway-method/u);
 }
