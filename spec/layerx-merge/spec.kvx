@@ -182420,7 +182420,7 @@ do_4 = "Attempt 2 (continue, gotcha 3804, decision 3077): the attempt-1 tree fc2
 
 [task.18.1817.1]
 title = "Issue #1817: Reject unsupported sparse-workspace profiles before source writes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191615,7 +191615,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1756.1]
 title = "Issue #1756: Match capability-install response evidence to Human validation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
