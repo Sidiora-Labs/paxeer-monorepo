@@ -159110,7 +159110,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1613.1]
 title = "Issue #1613: Align the legacy importer integration test and audit verdict with the real gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218749,7 +218749,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1631.1]
 title = "Issue #1631: Initialize accepted genesis fixtures through the canonical bank keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -300118,7 +300118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1626.1]
 title = "Issue #1626: Preserve sparse redelegation page continuations at the scan cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344196,7 +344196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1697.1]
 title = "Issue #1697: Align the indexer operational contract with status and dead-letter policy behavior"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344227,7 +344227,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1692.1]
 title = "Issue #1692: Exclude every launchpad SDK dist output and nested web build output from provenance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344286,7 +344286,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1621.1]
 title = "Issue #1621: Correct KMS provenance paths and prove the real source layout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344317,7 +344317,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1620.1]
 title = "Issue #1620: Correct the explorer audit’s contract-page findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344347,7 +344347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1619.1]
 title = "Issue #1619: Correct the explorer HTTP contract assessment in audit 22.30.144"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344377,7 +344377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1612.1]
 title = "Issue #1612: Correct the wallet audit contract references"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
