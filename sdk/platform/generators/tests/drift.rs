@@ -831,6 +831,190 @@ fn repository_python_discovery_files_are_declared() {
     }
 }
 
+#[test]
+fn ucp_checkout_fixture_classification_survives_check_and_write() {
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let source = fs::read_to_string(lock_path(&repository))
+        .unwrap_or_else(|error| panic!("read committed pipeline: {error}"));
+    let committed =
+        parse_lock(&source).unwrap_or_else(|error| panic!("parse committed pipeline: {error}"));
+    let conformance = |pipeline: &pipeline::Pipeline| {
+        let mut output = pipeline
+            .outputs
+            .iter()
+            .find(|output| output.name == "platform-conformance")
+            .unwrap_or_else(|| panic!("no platform-conformance output"))
+            .clone();
+        output.files.sort_by(|left, right| left.0.cmp(&right.0));
+        output
+    };
+    let receipts = [
+        "fixtures/receipt-sequencer-v1.json",
+        "fixtures/sequencer-receipt-fee-token-v1.json",
+        "fixtures/sequencer-receipt-v1.json",
+        "fixtures/ucp-checkout-receipt-v1.json",
+    ];
+    let declared = conformance(&committed);
+    for relative in receipts {
+        assert!(
+            declared.handwritten.iter().any(|path| path == relative),
+            "committed inventory must declare {relative} handwritten"
+        );
+        assert!(
+            !declared.files.iter().any(|(path, _)| path == relative),
+            "{relative} must retain its external producer"
+        );
+    }
+
+    let root = directory("ucp-checkout-classification");
+    let listing = Command::new("git")
+        .arg("-C")
+        .arg(&repository)
+        .args([
+            "ls-files",
+            "-z",
+            "--",
+            "services/agent/schema/agent-api",
+            "services/human/schema/human-api",
+            "services/agent/tools/sdk-gen",
+            "services/human/tools/api-gen",
+            "services/agent/crates/layerx-agent-api/src",
+            "services/agent/crates/layerx-sdk/src",
+            "services/agent/sdk",
+            "apps/web/src/api/generated",
+            "sdk/platform",
+            "programs/sdk/rust/src/abi_policy.rs",
+            "precompiles/layerxprograms/abi.json",
+        ])
+        .output()
+        .unwrap_or_else(|error| panic!("list real pipeline inputs: {error}"));
+    assert!(
+        listing.status.success(),
+        "list real pipeline inputs: {listing:?}"
+    );
+    let listing = String::from_utf8(listing.stdout)
+        .unwrap_or_else(|error| panic!("decode real pipeline paths: {error}"));
+    let mut fixtures = Vec::new();
+    for relative in listing.split('\0').filter(|path| !path.is_empty()) {
+        let destination = root.join(relative);
+        fs::create_dir_all(
+            destination
+                .parent()
+                .unwrap_or_else(|| panic!("no parent for {relative}")),
+        )
+        .unwrap_or_else(|error| panic!("create parent for {relative}: {error}"));
+        fs::copy(repository.join(relative), destination)
+            .unwrap_or_else(|error| panic!("copy real pipeline input {relative}: {error}"));
+        if relative.starts_with("sdk/platform/conformance/fixtures/") {
+            let bytes = fs::read(repository.join(relative))
+                .unwrap_or_else(|error| panic!("read producer fixture {relative}: {error}"));
+            fixtures.push((relative.to_owned(), bytes));
+        }
+    }
+    for arguments in [
+        ["init", "-q"].as_slice(),
+        ["add", "--force", "--", "."].as_slice(),
+    ] {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(arguments)
+            .output()
+            .unwrap_or_else(|error| panic!("git {arguments:?}: {error}"));
+        assert!(output.status.success(), "git {arguments:?}: {output:?}");
+    }
+    for relative in receipts {
+        assert!(
+            fixtures
+                .iter()
+                .any(|(path, _)| path == &format!("sdk/platform/conformance/{relative}")),
+            "real producer corpus {relative} must be copied"
+        );
+    }
+    let ucp = fs::read_to_string(
+        root.join("sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json"),
+    )
+    .unwrap_or_else(|error| panic!("read UCP producer corpus: {error}"));
+    assert!(
+        ucp.contains(r#""generator": "rpc/sequencer_receipt_vectors_test.go""#),
+        "UCP corpus must come from the sequencer receipt producer"
+    );
+
+    let assert_preserved = || {
+        let source = fs::read_to_string(lock_path(&root))
+            .unwrap_or_else(|error| panic!("read copied inventory: {error}"));
+        let inventory =
+            parse_lock(&source).unwrap_or_else(|error| panic!("parse copied inventory: {error}"));
+        assert_eq!(
+            conformance(&inventory),
+            declared,
+            "regeneration must preserve conformance outputs and handwritten declarations"
+        );
+        let live =
+            capture(&root).unwrap_or_else(|error| panic!("capture real pipeline copy: {error}"));
+        assert_eq!(
+            conformance(&live),
+            declared,
+            "capture must classify the real corpora as handwritten"
+        );
+        for (relative, bytes) in &fixtures {
+            assert_eq!(
+                &fs::read(root.join(relative))
+                    .unwrap_or_else(|error| panic!("read copied fixture {relative}: {error}")),
+                bytes,
+                "producer fixture {relative} must remain byte-identical"
+            );
+        }
+    };
+    assert_preserved();
+    check(&root, &lock_path(&root))
+        .unwrap_or_else(|error| panic!("check before regeneration: {error}"));
+    write_lock(&root, &lock_path(&root))
+        .unwrap_or_else(|error| panic!("regenerate with UCP declaration: {error}"));
+    assert_preserved();
+    check(&root, &lock_path(&root))
+        .unwrap_or_else(|error| panic!("check after regeneration: {error}"));
+    let regenerated = fs::read_to_string(lock_path(&root))
+        .unwrap_or_else(|error| panic!("read regenerated inventory: {error}"));
+    assert_eq!(
+        regenerated, source,
+        "only the UCP classification should change the inventory"
+    );
+
+    let declaration = "\"fixtures/ucp-checkout-receipt-v1.json\" = \"handwritten\"\n";
+    assert_eq!(regenerated.matches(declaration).count(), 1);
+    let unclassified = regenerated.replacen(declaration, "", 1);
+    fs::write(lock_path(&root), &unclassified)
+        .unwrap_or_else(|error| panic!("remove only UCP declaration: {error}"));
+    let diagnostic = "unclassified file in generated kvx root: sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json; generate it or declare it under [handwritten.platform-conformance]";
+    let check_error = check(&root, &lock_path(&root))
+        .err()
+        .unwrap_or_else(|| panic!("check accepted unclassified UCP corpus"));
+    assert_eq!(check_error, format!("{diagnostic} in the pipeline lock"));
+    let write_error = write_lock(&root, &lock_path(&root))
+        .err()
+        .unwrap_or_else(|| panic!("write_lock accepted unclassified UCP corpus"));
+    assert_eq!(
+        write_error,
+        format!("{diagnostic} in {}", lock_path(&root).display())
+    );
+    assert_eq!(
+        fs::read_to_string(lock_path(&root))
+            .unwrap_or_else(|error| panic!("read rejected inventory: {error}")),
+        unclassified,
+        "rejected regeneration must not reseal the unclassified corpus"
+    );
+    for (relative, bytes) in &fixtures {
+        assert_eq!(
+            &fs::read(root.join(relative))
+                .unwrap_or_else(|error| panic!("read rejected fixture {relative}: {error}")),
+            bytes,
+            "rejected regeneration must preserve {relative}"
+        );
+    }
+    cleanup(&root);
+}
+
 fn missing_jvm_component_types(source: &str) -> BTreeSet<String> {
     let mut namespace = "";
     let mut declarations = BTreeSet::new();
