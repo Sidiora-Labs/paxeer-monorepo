@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 
+import pytest
 import yaml
 
 from test_pnpm_workspace_roots import (
@@ -13,6 +14,7 @@ from test_pnpm_workspace_roots import (
     pnpm_directory,
     run_directory,
 )
+from test_workflow_runs_on_routed import ROUTED
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +25,25 @@ WORKSPACE = ROOT / "apps/launchpad"
 def launchpad_workflow():
     # BaseLoader preserves GitHub's `on` key instead of treating it as YAML 1.1 true.
     return yaml.load((ROOT / WORKFLOW).read_text(), Loader=yaml.BaseLoader)
+
+
+@pytest.mark.parametrize(
+    ("workflow_name", "job_name"),
+    (
+        ("paxeer-go-test.yml", "tagged-tests"),
+        ("paxeer-go-test.yml", "autobahn-integration"),
+        ("paxeer-go-test.yml", "hpx-registry"),
+        ("launchpad-test.yml", "launchpad-test"),
+    ),
+)
+def test_workflow_runner_contracts_match_routed_jobs(workflow_name, job_name):
+    workflow = yaml.load(
+        (ROOT / ".github/workflows" / workflow_name).read_text(),
+        Loader=yaml.BaseLoader,
+    )
+    assert workflow["jobs"][job_name]["runs-on"] == ROUTED, (
+        f"{workflow_name}:{job_name}: expected the exact routed runner expression"
+    )
 
 
 def test_launchpad_workflow_covers_every_package_with_a_test_script():
@@ -52,11 +73,7 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
     assert len(matrix) == len(set(matrix)), "Each package must run exactly once"
     assert "exclude" not in job["strategy"]["matrix"]
     assert job["strategy"]["fail-fast"] == "false"
-    assert job["runs-on"] == (
-        "${{ (github.event_name == 'pull_request' && "
-        "github.event.pull_request.head.repo.full_name != github.repository) "
-        "&& 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
-    )
+    assert job["runs-on"] == ROUTED
     assert "if" not in job
     assert "continue-on-error" not in job
     assert job["defaults"]["run"]["working-directory"] == "apps/launchpad"
