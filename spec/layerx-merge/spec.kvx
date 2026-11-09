@@ -160549,7 +160549,7 @@ do_4 = "Attempt 2 (continue, gotcha 3775, decision 2908): the attempt-1 tree e00
 
 [task.18.1711.1]
 title = "Issue #1711: Align retained conformance consumers with the authenticated receipt digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160800,7 +160800,7 @@ do_3 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3770, decision 3068): 
 
 [task.18.1663.1]
 title = "Issue #1663: Retarget funding assertions to maintained consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.234"]
@@ -302224,7 +302224,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.18.1834.1]
 title = "Issue #1834: Enforce retired payer-grant symbol absence in the built archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1846.1"]
@@ -302438,7 +302438,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1691.1]
 title = "Issue #1691: Align FeesRouter event origins with the production surface identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
