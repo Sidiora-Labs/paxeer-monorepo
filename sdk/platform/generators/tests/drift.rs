@@ -293,7 +293,7 @@ fn retired_lifecycle_output_is_unclassified() {
         .err()
         .unwrap_or_else(|| panic!("lifecycle drift must fail the normal gate"));
     assert!(
-        error.contains("untracked file in generated go root"),
+        error.contains("unclassified file in generated go root: sdk/platform/go/program_lifecycle_generated.go; generate it or declare it under [handwritten.platform-go] in the pipeline lock"),
         "{error}"
     );
     assert!(error.contains("program_lifecycle_generated.go"), "{error}");
@@ -489,7 +489,7 @@ fn undeclared_file_in_an_explicit_output_root_fails_the_gate() {
     );
     expect_failure(
         &root,
-        "untracked file in generated jvm root: sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/Unlisted.java",
+        "unclassified file in generated jvm root: sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/Unlisted.java; generate it or declare it under [handwritten.platform-jvm] in the pipeline lock",
     );
     cleanup(&root);
 }
@@ -516,7 +516,7 @@ fn declared_handwritten_file_passes_and_survives_regeneration() {
     place(&root, "sdk/platform/conformance/README.md", "conformance\n");
     expect_failure(
         &root,
-        "untracked file in generated kvx root: sdk/platform/conformance/README.md",
+        "unclassified file in generated kvx root: sdk/platform/conformance/README.md; generate it or declare it under [handwritten.platform-conformance] in the pipeline lock",
     );
     declare_handwritten(&root, "platform-conformance", "README.md");
     check(&root, &lock_path(&root)).unwrap_or_else(|error| panic!("declared file: {error}"));
