@@ -182583,7 +182583,7 @@ do_5 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3790, decision 3068): 
 
 [task.18.1625.1]
 title = "Issue #1625: Align launchpad surface identities with the guarded keeper runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -412912,7 +412912,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1651.1]
 title = "Issue #1651: Migrate BENS controller regressions to production HTTP routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.236"]
