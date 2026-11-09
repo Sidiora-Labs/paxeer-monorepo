@@ -162406,7 +162406,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.34]
 title = "Fund an ask and show peer earnings in the wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.38.31"]
