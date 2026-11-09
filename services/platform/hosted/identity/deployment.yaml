@@ -68,7 +68,12 @@ spec:
   podSelector: {matchLabels: {app: layerx-identity}}
   policyTypes: [Ingress]
   ingress:
-    - from: [{podSelector: {matchLabels: {app: layerx-testnet-control}}}, {podSelector: {matchLabels: {app: layerx-faucet}}}, {podSelector: {matchLabels: {app: layerx-gateway}}}, {namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-developer}}}]
+    - from:
+        - podSelector: {matchLabels: {app: layerx-testnet-control}}
+        - podSelector: {matchLabels: {app: layerx-faucet}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-mainnet-beta}}
+          podSelector: {matchLabels: {app: layerx-gateway}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-developer}}
       ports: [{protocol: TCP, port: 9443}]
 ---
 apiVersion: networking.k8s.io/v1

@@ -26,7 +26,7 @@ spec:
             - name: LAYERX_HUMAN_SERVICE_URL
               value: https://layerx-human.layerx-testnet.svc:9443
             - name: LAYERX_GATEWAY_URL
-              value: https://layerx-gateway.layerx-testnet.svc.cluster.local/
+              value: https://layerx-gateway.layerx-mainnet-beta.svc.cluster.local/
             - name: LAYERX_HUMAN_WEB_ORIGIN
               value: https://paxportwallet.com
             - name: PAXEER_X_EXPLORER_BASE_URL
@@ -185,7 +185,10 @@ spec:
     - protocol: TCP
       port: 443
   - to:
-    - podSelector:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: layerx-mainnet-beta
+      podSelector:
         matchLabels:
           app: layerx-gateway
     ports:
@@ -196,7 +199,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: layerx-human-web-gateway
-  namespace: layerx-testnet
+  namespace: layerx-mainnet-beta
 spec:
   podSelector:
     matchLabels:
@@ -205,7 +208,10 @@ spec:
   - Ingress
   ingress:
   - from:
-    - podSelector:
+    - namespaceSelector:
+        matchLabels:
+          layerx.io/gateway-peer-namespace: "true"
+      podSelector:
         matchLabels:
           app: layerx-human-web
     ports:
