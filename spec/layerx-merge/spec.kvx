@@ -346801,7 +346801,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.333]
 title = "Triage issue #1863 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346832,7 +346832,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.332]
 title = "Triage issue #1862 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346863,7 +346863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.331]
 title = "Triage issue #1861 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346894,7 +346894,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.330]
 title = "Triage issue #1860 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346925,7 +346925,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.329]
 title = "Triage issue #1859 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346956,7 +346956,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.328]
 title = "Triage issue #1858 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -346987,7 +346987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.327]
 title = "Triage issue #1857 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347018,7 +347018,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.326]
 title = "Triage issue #1856 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347049,7 +347049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.325]
 title = "Triage issue #1855: The platform SDK contract still says the .NET project targets net8.0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347080,7 +347080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.324]
 title = "Triage issue #1854 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347111,7 +347111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.323]
 title = "Triage issue #1853 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
