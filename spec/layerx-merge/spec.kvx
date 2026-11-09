@@ -348653,7 +348653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.106]
 title = "Triage issue #1633: Preserve tx_hash in node-root history responses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348715,7 +348715,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.104]
 title = "Triage issue #1631: Accepted-genesis test invokes deliberately disabled Giga InitGenesis"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348777,7 +348777,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.102]
 title = "Triage issue #1629: Restore retention eligibility for reappearing archived snapshots"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348808,7 +348808,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.101]
 title = "Triage issue #1628: Apply virtual-chain scope to installed pending transaction filters"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
