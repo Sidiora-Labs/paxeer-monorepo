@@ -11374,6 +11374,24 @@ value = "Until 22.39.211 lands and brings every member of services/agent under t
 basis = "Gotcha 3739, decisions 2908 and 3039"
 affects = ["22.39.209", "22.39.211"]
 
+[decision.3044]
+title = "An attempt that re-ran an earlier tree without the standing ruling of its predecessor is a repeat, and the next attempt follows that ruling unchanged from the tree it names"
+value = "When an attempt starts before the ruling written for its predecessor is recorded, re-runs an earlier tree and performs no work, its failures are the failures already ruled: no new ruling, finding or decision is written for it, the standing ruling applies in full to the next attempt from the tree the ruling names, and the repeat is recorded in one gotcha. An attempt that made no change because the model endpoint refused its session is relaunched on the task as written."
+basis = "Gotcha 3740, decisions 2951 and 2952"
+affects = ["22.39.119", "22.39.162"]
+
+[decision.3045]
+title = "Acceptance coverage is decided by the tests lists, task ownership and path existence, stale selectors are disposed in the stale map, and the release owner applies the map to the acceptance entries"
+value = "The parity coverage check of 17.4.5 treats an acceptance as covered when a task names its selector in tests, or when every task that holds its requirement is done or superseded and the selector names a path that exists on the tree or a command check (a selector beginning with make, cargo, grep or go, or ending in a parenthesised note on its gate); a selector with a disposition in spec/layerx-merge/programme/parity-stale.kvx is checked against its replacement, or skipped when retired; the stale rule keeps the grammar of decision 2194. Every selector that remains stale or uncovered under these rules is a defect disposed in the stale map by task 22.39.213 (a second round of entries under the rules of 22.31.438, validated by parity_stale_check.py), never a reason to weaken the check. After 22.39.213 lands the release owner applies the whole map to the acceptance entries of the spec: a replacement entry receives its replacement selector and a retired entry carries the retired marker with its reason, in one spec commit, and the coverage check then runs on the corrected selectors."
+basis = "Gotcha 3741, decisions 2194 and 2195, task 22.31.438, the record spec/layerx-merge/programme/parity-open-selectors.txt"
+affects = ["17.4.5", "22.39.213"]
+
+[decision.3046]
+title = "The programme tasks that run every golden or every parity row on the merged candidate carry the kernel archive profile in advance"
+value = "Decision 3041 gives the kernel archive profile to a programme task whose verification runs Go tests of a kernel-linked package. The candidate gate task 17.0.9 runs every golden of the programme and the parity inventory task 17.4.6 runs every parity row, so both run the node package tests among their rows; they carry the kernel archive profile now, before a first attempt fails on the link step, together with the receipt order golden task 17.1.9. A programme task added later whose rows include a golden or a parity row of the node, programs or kernel domains carries the profile from its first attempt."
+basis = "Gotcha 3742, decisions 1709 and 3041, gotcha 3738"
+affects = ["17.1.9", "17.0.9", "17.4.6"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -40264,6 +40282,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.213]
+title = "Dispose the open acceptance selectors of the parity coverage check in the stale map, second round"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/programme/parity-stale.kvx", "spec/layerx-merge/programme/parity_stale_check.py", "spec/layerx-merge/programme/parity-open-selectors.txt"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/parity_stale_check.py spec/layerx-merge/programme/parity-stale.kvx spec/layerx-merge/programme/parity-open-selectors.txt && test $(grep -c 'disposition = ' spec/layerx-merge/programme/parity-stale.kvx) -ge 225"
+do_1 = "do_1 Decision 3045, gotcha 3741. spec/layerx-merge/programme/parity-open-selectors.txt records the report of the parity coverage check: a stale section of 84 acceptance selectors (acceptance id, selector, owning tasks) whose file or test name is absent from the tree, and an uncovered section of 229 selectors named in the tests of no task. For every selector of the stale section add one entry to spec/layerx-merge/programme/parity-stale.kvx, continuing the numbering after the last existing entry, with acceptance, file, test and disposition: replacement with replacement = path::TestName naming a test that exists on the current tree and proves the same fact (search the tree for the moved or renamed test first), or retired with a reason of at least twenty words stating why the fact no longer applies and which test or document carries the behaviour now. No entry stays pending."
+symbols = []
 
 [capability.22.39.212]
 title = "Align the bridge chain configurations, tests and release records with the governed signer manifest"
@@ -183764,7 +183791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.209]
 title = "Remove the unused binding named level in the agent RPC adapters so the agent lint target passes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = []
@@ -183795,7 +183822,7 @@ do_4 = "Attempt 3 (continue, gotcha 3739, decisions 3039 and 3043): the attempt-
 
 [task.22.39.183]
 title = "Make the arbiter decode kernel boundary leaves through the record header the runtime producer authenticates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.31.577", "22.33.215", "21.53.1", "22.39.177"]
@@ -212283,6 +212310,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2939, gotcha 3646: the baseline names this task for eighteen further indexer cases that the Go gate of 22.39.75 reached at 9621d9237eec: thirteen in internal/processor (the canonical fencing case refused by a truncate of a table with a foreign key reference, the canonical outage case refused by disallowing connections on the current database, the qualified production ingestion and four TestRepair54 and TestRepair_54 recovery and qualification cases with receipt qualification rejected, the two NativeReadModelProjection cases whose HTTP consumer answers status unavailable with mode unavailable, and the five replay_postgres_test.go cases refused with SQLSTATE 42P08 on the tenth parameter), three in internal/receipt (the TestRepair_53 cases, receipt qualification rejected) and two in internal/source (the TestRepair56Postgres discovery cases, receipt qualification rejected). Before any other repair determine whether the five replay refusals come from the github.com/jackc/pgx/v5 v5.11.0 upgrade of the indexer manifest that the tidy of 22.39.75 introduced over v5.10.0: run the replay package at v5.10.0 and at v5.11.0 under the job environment and record both results; restore v5.10.0 with the tidy repeated if the upgrade is the cause, otherwise type the tenth parameter in the replay query. The fencing and outage cases open their control connection on the maintenance database of the fixture and truncate with the dependent tables; the projection cases follow the producer that sets the mode of the HTTP consumer; the receipt cases follow do_2. Delete the eighteen entries with the fifteen of do_3 and record each repair with its producer line."
+do_5 = "Attempt 2 (relaunch, decision 3044): attempt 1 made no change because the model endpoint refused its session for a usage limit and no turn completed; the task stands as written from the current main: bring the launchpad indexer Go module tests to green and retire their baseline entries as do_1 and do_2 say, with the qualification environment of the task (foundry present, the indexer database and redis variables provisioned). Run the build once and the verification once at the final revision and record both by reference."
 
 [task.22.39.160]
 title = "Make the nested Go module tools/paxctl pass the read-only dependency listing the checksum test runs"
@@ -317604,7 +317632,7 @@ planned_paths = ["spec/layerx-merge/programme/gates.py", "spec/layerx-merge/prog
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/gates.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_programme_gate.py::test_programme_gate_passes_on_candidate spec/layerx-merge/programme/tests/test_programme_gate.py::test_mixed_revisions_are_refused -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "None needed; the programme gate writes evidence only."
 max_builds = 1
@@ -317833,7 +317861,7 @@ do_6 = "Finding 17.1.7.3: the golden run's panic is node behaviour task 22.6.11 
 
 [task.17.1.8]
 title = "Capture the custody release golden that replaced the bond return"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 46
 requires = ["17.1.7", "6.0.9"]
@@ -317881,7 +317909,7 @@ planned_paths = ["spec/layerx-merge/programme/data/goldens/receipt-order.kvx", "
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_receipt_order_golden.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_receipt_order_golden.py::test_receipt_order_golden_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Delete the receipt-order golden."
 max_builds = 1
@@ -317891,6 +317919,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3742, decisions 1709, 3041 and 3046): the attempt-1 tree b484071f1a8e stands unchanged (the [golden.receipt-order] entry naming the two node cases and the leader schedule rule it protects, and the test module with test_receipt_order_golden_passes). The qualification environment of this attempt prebuilds the kernel archive and the programs host archive, so the node package links and the two cases run. Make no change to the tree unless a case names a defect in the golden entry itself. Run the build once and the verification once at the final revision and record both by reference; if the golden still reports false, record the failing case within the one allowed repair cycle and rerun once."
 
 [task.17.2.1]
 title = "Record the retired components with their owning domain and refusal"
@@ -318078,7 +318107,7 @@ do_4 = "Finding 17.2.6.1: stale_rows ignores a component whose deleted_trees is 
 
 [task.17.2.7]
 title = "Run every retired-surface refusal once on the merged revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["17.2.6", "6.0.9", "3.0.9"]
@@ -318385,7 +318414,7 @@ title = "Check that every acceptance test of the merged spec has a parity row or
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.4.4", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "2.90.1", "8.90.1", "8.90.2", "8.90.3", "10.90.1", "9.90.2", "16.90.1", "18.90.1", "22.31.438"]
+requires = ["17.4.4", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "2.90.1", "8.90.1", "8.90.2", "8.90.3", "10.90.1", "9.90.2", "16.90.1", "18.90.1", "22.31.438", "22.39.213"]
 reqs = ["17043.1"]
 capabilities = ["17.4.5"]
 interfaces = []
@@ -318412,6 +318441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Finding 17.4.5.1: this check runs over the installed spec and is green only when every acceptance test exists, so the task now follows the sixteen domain completion gates; continue from attempt 1 (0afa1228f) and report any selector still stale then as a finding against its task."
 do_5 = "Finding 17.4.5.2 and decisions 2194 and 2195: continue from attempt 2 (8aeb2ac23). Rewrite the stale check of uncovered() in spec/layerx-merge/programme/parity.py to the grammar of decision 2194: a name with a dot after the last :: is a dotted unittest name present when each component appears as a whole word in the file; for .exs, .ts, .tsx, .mjs and .js files the name is a title present when it appears literally or when a describe title and a test title in the file concatenate with one space to it; a path whose base name is not a test source (*_test.go, a .rs file under tests/ or src/, .exs, *.test.ts, *.test.mjs, test_*.py, *Tests.swift) is a document check present when the path exists; an acceptance whose req appears in the reqs of a task that is not done is planned and never stale; every other selector whose file exists and lacks the name is stale and is printed with its owning tasks. Make test_installed_spec_has_no_uncovered_acceptance assert that both the missing list and the stale list are empty. The 20 absent tests are written by tasks 2.90.1, 8.90.1, 8.90.2, 8.90.3, 10.90.1, 9.90.2, 16.90.1, 18.90.1, which this task now requires, and the six selector corrections of decision 2195 are in the spec already, so on the merged revision the check is green or names a real gap."
 do_6 = "Attempt 3: 136 acceptance selectors name files or tests that no longer exist; task 22.31.438 maps each to its current test or retires it with a reason, and the owner applies the map to the acceptance entries. This gate requires 22.31.438 and runs on the corrected selectors."
+do_7 = "Attempt 4 (continue after 22.39.213 lands; gotcha 3741, decisions 2194, 2195 and 3045): the attempt-3 tree stands (uncovered() in parity.py with the grammar of decision 2194, tests/test_parity_coverage.py). Merge main once 22.39.213 is on it and the release owner has applied the stale map to the acceptance entries. Extend uncovered() per decision 3045: an acceptance is covered when a task names its selector in tests, or when every task holding its requirement is done or superseded and the selector names an existing path or a command check (a selector beginning with make, cargo, grep or go, or ending in a parenthesised note on its gate); a selector with a disposition in spec/layerx-merge/programme/parity-stale.kvx is checked against its replacement or skipped when retired; the stale grammar stays as it is. The report prints every selector that remains stale or uncovered with its acceptance id and owners, and test_installed_spec_has_no_uncovered_acceptance asserts that the list is empty; the check itself is never weakened beyond these rules. Run the build once and the verification once at the final revision and record both by reference; if selectors remain, record each with its owning task in the record of the task and stop within the one allowed cycle."
 
 [task.17.4.6]
 title = "Run the parity inventory once on the merged revision"
@@ -318432,7 +318462,7 @@ planned_paths = ["spec/layerx-merge/programme/parity.py", "spec/layerx-merge/pro
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/parity.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Revert parity.py."
 max_builds = 1
@@ -335984,6 +336014,37 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.213]
+title = "Dispose the open acceptance selectors of the parity coverage check in the stale map, second round"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.31.438"]
+reqs = ["22998.1"]
+capabilities = ["22.39.213"]
+interfaces = []
+do_1 = "do_1 Decision 3045, gotcha 3741. spec/layerx-merge/programme/parity-open-selectors.txt records the report of the parity coverage check: a stale section of 84 acceptance selectors (acceptance id, selector, owning tasks) whose file or test name is absent from the tree, and an uncovered section of 229 selectors named in the tests of no task. For every selector of the stale section add one entry to spec/layerx-merge/programme/parity-stale.kvx, continuing the numbering after the last existing entry, with acceptance, file, test and disposition: replacement with replacement = path::TestName naming a test that exists on the current tree and proves the same fact (search the tree for the moved or renamed test first), or retired with a reason of at least twenty words stating why the fact no longer applies and which test or document carries the behaviour now. No entry stays pending."
+do_2 = "do_2 For the uncovered section, an entry is needed only for a selector that names a path absent from the tree, a selector that is a command rather than a path (beginning with make, cargo, grep or go), a selector that matches no acceptance test string literally, and a selector whose requirement no task holds; decision 3045 covers every other uncovered selector by ownership and path existence. Each such entry receives the acceptance id the selector belongs to (resolve it through the spec), the same disposition rules as do_1, and for a command check a replacement that names the existing document or script path the command exercises."
+do_3 = "do_3 Extend spec/layerx-merge/programme/parity_stale_check.py so it validates every entry under the rules of 22.31.438 (a replacement path exists and contains the test name, a retired entry carries its reason), accepts the record path as an optional second argument and then requires that every stale-section selector and every do_2 selector of the record has an entry; it exits 0 only when every entry is decided and every required selector is present."
+do_4 = "do_4 Record the counts by disposition and the list of uncovered selectors covered by ownership in the header comment of parity-stale.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["spec/layerx-merge/programme/parity-stale.kvx", "spec/layerx-merge/programme/parity_stale_check.py", "spec/layerx-merge/programme/parity-open-selectors.txt"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/parity_stale_check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/parity_stale_check.py spec/layerx-merge/programme/parity-stale.kvx spec/layerx-merge/programme/parity-open-selectors.txt && test $(grep -c 'disposition = ' spec/layerx-merge/programme/parity-stale.kvx) -ge 225"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.208]
 title = "Write the closure dispositions of domains 14, 16, 17, 18 and 21 for 124 findings"
 status = "done"
@@ -337418,6 +337479,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (relaunch, gotcha 3592, decision 2895): attempt 1 made no change because the seventeen test files of do_1 live in tests/agent/sdk/python; those files, the SDK package and the baseline file are now the touches, and the build and verification collect tests/agent/sdk/python together with services/agent/sdk/python/tests so the baseline conftest applies. Repair the tests and the SDK as do_1 and do_2 say, delete the retired entries, leave the entries of 22.39.120 in place, and record each corrected test with the producer line it follows in tests/agent/sdk/python/repair_22_39_119.kvx. Run the build once and the verification once at the final revision and record both by reference."
 do_4 = "Attempt 4 (continue, gotcha 3657, decisions 2521, 2908, 2951 and 2952): the attempt-3 tree 51d796cb3476 stands (the seventeen repaired test files, the three SDK module corrections, the forty-six retired entries, the record). The build step now runs npm ci --ignore-scripts --no-audit --no-fund at the repository root before collection, and tests/agent/sdk/python/test_repair_22_31_147.py, test_repair_22_33_17.py and test_repair_22_33_702.py are in the touches from this round. Per decision 2951 bring the two payment files to the payment RPC producer of 22.39.137: hosted reads (receipt_keys, the px method family) construct HostedGatewayRpc(endpoint, headers) and node calls keep PaymentRpc(endpoint, headers); the endpoint protections of test_rpc_endpoint_protections_apply_to_explicit_gateway_too and the redirect refusal are asserted against HostedGatewayRpc; the live payment evidence cases obtain their receipt keys from the hosted client; the payer identity and network cases follow the current producer network and the distinct signer and ledger payer identities; no admission is widened and no assertion is weakened. Per decision 2952 rewrite the assertion at test_repair_22_33_702.py line 409 so it states that every retained entry is an original entry at 3a0f70d0fc and that no entry of 22.39.120 is retained, and move the 524289-byte deploy encoding of test_program_lifecycle.py test_c_signed_fixtures_and_refusals inside its assertRaises block. Record each corrected case with the producer line it follows in tests/agent/sdk/python/repair_22_39_119.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 5 (continue, gotcha 3740, decision 3044): attempt 4 ran the attempt-2 tree before the ruling of attempt 4 applied and changed nothing; do_4 stands in full for attempt 5 from the attempt-3 tree 51d796cb3476. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.22.39.115]
 title = "Set the twelve first-party packages that are not at 0.1.0 to 0.1.0 and test the rule"

@@ -1735,7 +1735,6 @@ fn budget_record_wire(
     head: u64,
     activity_id: Option<&[u8; 32]>,
 ) -> (Value, Option<VerificationStatus>) {
-    let level = crate::agent_rpc_dispatch::rung_name;
     let (mut value, verification) = match record {
         BudgetRecord::Protocol(view) => (
             serde_json::json!({

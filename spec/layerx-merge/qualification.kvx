@@ -36506,3 +36506,27 @@ symbol = "test_refusal_run.py::test_every_refusal_runs_and_passes"
 observed = "Attempt 1 at a7575c8f63c0: build exit 0; verification exit 1: all six refusal rows failed at the link step of their Go packages (build/liblayerx.a and the programs host archive absent); log /out/logs/verify-1.log."
 assumption = "The runner is complete; only the profile of the task kept the kernel archives out of its gate shell."
 severity = "high"
+
+[finding.22.39.162.1]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 1 on base b1cb0b2d80c7: no revision; the model endpoint answered the first request of the session with a usage-limit refusal, no turn completed and the attempt ended at the working-time limit with no change inside scope; log /out/logs/run-task.log."
+assumption = "No product fact was tested; the task is unchanged."
+severity = "high"
+
+[finding.17.4.5.3]
+task = "17.4.5"
+file = "spec/layerx-merge/programme/tests/test_parity_coverage.py::test_installed_spec_has_no_uncovered_acceptance"
+symbol = "test_parity_coverage.py::test_installed_spec_has_no_uncovered_acceptance"
+observed = "Attempt 3: build exit 0; verification exit 1: 84 stale and 229 uncovered acceptance selectors reported by test_installed_spec_has_no_uncovered_acceptance; log /out/logs/verify-2.log."
+assumption = "The remaining selectors are grammar artifacts and unapplied map entries; the check is complete once coverage reads ownership and the map."
+severity = "high"
+
+[finding.17.1.9.1]
+task = "17.1.9"
+file = "spec/layerx-merge/programme/tests/test_receipt_order_golden.py::test_receipt_order_golden_passes"
+symbol = "test_receipt_order_golden.py::test_receipt_order_golden_passes"
+observed = "Attempt 1 at b484071f1a8e: build exit 0; verification exit 1: test_receipt_order_golden_passes failed because go test ./node for the two order cases could not link the kernel archive or the programs host archive under the mixed profile; log /out/logs/verify-1.log."
+assumption = "The golden entry and the test are complete; the profile alone prevented the link."
+severity = "high"
