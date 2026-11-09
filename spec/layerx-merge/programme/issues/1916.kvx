@@ -1,0 +1,49 @@
+[issue.1916]
+number = 1916
+title = "[Coherence] Moving the candidate gate task 17.0.9 to the go-cgo profile drops the forge and Node toolchains that its wave-gate reruns need"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The change in commit 203da869b3c2ca1eeb4b0c5e5436ef568eb405af remains at spec/layerx-merge/spec.kvx:321578 despite the wave reruns required at :321568: scripts/gates/wave-5.sh:5, scripts/gates/wave-6.sh:5 and scripts/gates/wave-programme.sh:5 reach Makefile:2713 and Makefile:2717, which require Forge and the Node suites (Makefile:1747), while spec/layerx-merge/programme/data/sandbox-profiles.kvx:10 provides neither and its mixed union at :55 has no archive prebuild at :57."
+close_comment = "The programme candidate gate still requires Forge and Node alongside the kernel-linked Go tooling. The follow-up restores its complete toolchain declaration and preserves the archive prebuilds while keeping every wave-gate check."
+
+[task.18.1916.1]
+title = "Issue #1916: Preserve every toolchain required by the programme candidate gate"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181916.1"]
+capabilities = []
+interfaces = []
+do_1 = "In spec/layerx-merge/spec.kvx:321558, restore task 17.0.9 to mixed at :321578 and explicitly declare the immutable union of go-cgo, rust, solidity, node and python toolchains and their required dependency allowlists; include the Node packages reached by the wave scripts, rather than inheriting only the wallet package allowance at spec/layerx-merge/programme/data/sandbox-profiles.kvx:21. Preserve the eight wave reruns and their evidence and revision checks at spec/layerx-merge/spec.kvx:321568."
+do_2 = "Because mixed has no automatic prebuild (spec/layerx-merge/programme/data/sandbox-profiles.kvx:57), prepend the existing kernel and programs archive make command from :12 and the Solidity library bootstrap from :32 to task 17.0.9's build_cmd at spec/layerx-merge/spec.kvx:321575, retaining its Python compilation. Correct decision 3046 at spec/layerx-merge/spec.kvx:11391 to describe the wave-gate reruns and their complete toolchain requirements, preserving its kernel-linking requirement."
+do_3 = "Extend spec/layerx-merge/programme/tests/test_sandbox_profiles.py:46 with test_candidate_gate_preserves_required_toolchains using the real task and profile manifests and the wave scripts' command lists: assert the candidate's mixed declaration covers Forge, solc, Node, pnpm, Python, Go with cgo and Rust, and that its build command retains both native archives and the Solidity library bootstrap before Python compilation; retain the existing profile and archive assertions and do not execute aggregate gates in this regression."
+symbols = ["test_candidate_gate_preserves_required_toolchains"]
+touches = ["spec/layerx-merge/spec.kvx", "spec/layerx-merge/programme/tests/test_sandbox_profiles.py"]
+tests = ["spec/layerx-merge/programme/tests/test_sandbox_profiles.py::test_candidate_gate_preserves_required_toolchains"]
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_sandbox_profiles.py"
+verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_sandbox_profiles.py::test_candidate_gate_preserves_required_toolchains -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181916]
+title = "The programme candidate gate retains all toolchains and native prerequisites required by its wave gates"
+ac_1 = "Given the wave reruns required by spec/layerx-merge/spec.kvx:321568 and their Forge and Node dependencies at Makefile:2715, Makefile:2721 and Makefile:1747, task 17.0.9 declares the complete mixed toolchain union and preserves the kernel and programs archive prebuild of spec/layerx-merge/programme/data/sandbox-profiles.kvx:12 and the Solidity bootstrap at :32, without removing any gate or assertion."
+
+[acceptance.18.1916.1]
+feature = "18"
+req = "181916.1"
+scenario = "Given the programme candidate task and the real wave-gate command lists, when their required toolchains and prebuilds are checked against the candidate declaration, then Forge, solc, Node, pnpm, Python, Go with cgo and Rust are covered and both native archives and the Solidity libraries are prepared before compilation."
+contract = "contracts/programme.md#programme-gate"
+test = "spec/layerx-merge/programme/tests/test_sandbox_profiles.py::test_candidate_gate_preserves_required_toolchains (planned)"
+qualification = "UNRUN"
