@@ -1,0 +1,49 @@
+[issue.1878]
+number = 1878
+title = "Live campaign can promote task-component evidence to full-case PASS"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The defect introduced by acbbb018ff1601c1509473636701c2cdeb4b8080 remains at tools/hyperfide/tests/hyperfide/support/source_control_live_campaign.py:155, which admits manifest filenames without checking contents, :205, which maps exit zero to PASS, and :250, which selects only a case before :254 promotes wrapper results; tools/hyperfide/tests/hyperfide/qualify.py:847 selects the manifest's registration and :768 preserves INCOMPLETE for successful component evidence, including the 20-assertion SCM-024 component at tools/hyperfide/tests/hyperfide/source-control/registrations/0.2.json:6 instead of the 60-assertion full variant at tools/hyperfide/tests/hyperfide/source-control/registrations/verifier-scm-024.json:4 required by spec/layerx-merge/source-control/live-campaign.kvx:388, while tools/hyperfide/tests/hyperfide/source-control/closure.py:140 independently rejects component closure and :157 requires checked full-case PASS."
+close_comment = "Confirmed: the live campaign can accept component evidence under a full-case manifest filename and incorrectly mark the case PASS, while release closure independently rejects that evidence. Follow-up task 18.1878.1 requires exact full-case manifest binding and independently checked receipts for every required variant before a case can pass."
+
+[task.18.1878.1]
+title = "Issue #1878: Require complete checked full-case evidence for live campaign PASS"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181878.1"]
+capabilities = []
+interfaces = []
+do_1 = "Bind each supplied manifest in tools/hyperfide/tests/hyperfide/support/source_control_live_campaign.py:155 to its expected registration before any case launch: require full-case scope, the exact registered_variant and canonical case, the exact registered and registry full assertion inventories, and the registered backend variant; reuse the canonical manifest validation at tools/hyperfide/tests/hyperfide/qualify.py:480 and retain immutable manifest identity through qualification so substituted bytes or one variant copied to other required filenames cannot satisfy admission."
+do_2 = "Replace process-exit-only case promotion at tools/hyperfide/tests/hyperfide/support/source_control_live_campaign.py:205 and :254 with validation of the actual qualifier receipt and its independent checker result: require matching receipt identity and hash, admitted manifest and registration hashes, current registry and source identity, exact full-case scope, registered variant, case selection and complete successful assertion inventory, and full_case_status PASS; use the checks at tools/hyperfide/tests/hyperfide/source-control/closure.py:140 and :152 as the existing contract, require every distinct expected variant, preserve timeout and descendant failure handling, and retain UNRUN for absent inputs without promoting invalid or incomplete evidence."
+do_3 = "Extend tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py:26 with focused live-campaign tests using the real qualifier, checker and native capture producer already exercised at :84: reject an otherwise valid task-component manifest placed under verifier-scm-024.json and a valid full-case variant copied under multiple required filenames; reject component, incomplete, stale-source, wrong-case, wrong-variant, tampered or unchecked receipts even when the qualifier process exits zero, and prove complete independently checked receipts for all expected variants produce case PASS while missing inputs remain UNRUN, preserving every existing checker and full-case assertion."
+symbols = ["inventory", "run_record", "run_campaign", "test_live_campaign_rejects_component_and_reused_variant", "test_live_campaign_requires_checked_full_case_receipts", "test_live_campaign_accepts_complete_variant_inventory"]
+touches = ["tools/hyperfide/tests/hyperfide/support/source_control_live_campaign.py", "tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py"]
+tests = ["tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py::ReleaseCampaignTest::test_live_campaign_rejects_component_and_reused_variant", "tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py::ReleaseCampaignTest::test_live_campaign_requires_checked_full_case_receipts", "tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py::ReleaseCampaignTest::test_live_campaign_accepts_complete_variant_inventory"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/hyperfide/tests/hyperfide/support/source_control_live_campaign.py tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py"
+verify_cmd = "python3 -m pytest tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py -k live_campaign -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181878]
+title = "Live campaign PASS requires exact complete independently checked full-case evidence"
+ac_1 = "Given full-case registrations selected by tools/hyperfide/tests/hyperfide/support/source_control_live_campaign.py:118, each supplied manifest SHALL match its expected registration, exact canonical case and complete assertion inventory before launch, and the case status at :254 SHALL become PASS only after every distinct required variant has a matching independently checked receipt with current source identity, complete successful assertions and full_case_status PASS; component manifests, reused variants, incomplete or unverified receipts SHALL never produce case PASS."
+
+[acceptance.18.1878.1]
+feature = "18"
+req = "181878.1"
+scenario = "Given required full-case manifest filenames and real qualifier evidence, when a component manifest or another required variant is substituted or a receipt lacks complete independent verification, then admission or promotion refuses case PASS, while exact complete checked evidence for every required variant passes and absent inputs remain UNRUN."
+contract = "contracts/tools-ops.md#qualification-harness"
+test = "tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py::ReleaseCampaignTest::test_live_campaign_requires_checked_full_case_receipts (planned)"
+qualification = "UNRUN"
