@@ -159990,7 +159990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1770.1]
 title = "Issue #1770: Accept the Explorer Ask flag in startup validation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160232,7 +160232,7 @@ do_5 = "Requalify attempt 1 at 9402211da8e3 with the npm build and verification 
 
 [task.18.1720.1]
 title = "Issue #1720: Keep home transaction history within its calendar-day window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -220885,7 +220885,7 @@ do_6 = "Attempt 2 (continue after 22.39.162 lands; gotcha 3777): merge main once
 
 [task.18.1690.1]
 title = "Issue #1690: Prove native role origins and initialization refusals through production methods"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347219,7 +347219,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.236]
 title = "Run a Redis container beside the database container of the explorer backend test environment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
