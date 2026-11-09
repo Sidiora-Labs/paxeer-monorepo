@@ -38178,3 +38178,195 @@ symbol = "one_source_reads.rs"
 observed = "Attempt 1 at c1dde6555d4d: build exit 0; verification exit 101: 165 passed, 7 failed (the two readiness contract cases with NotPresent, schema_lists_every_public_method 22 against 17, both px_listAssets cases with -32001 invalid_identifier, px_getBalances document mismatch, px_get_account_reads_no_kernel_backend 503); log /out/logs/verify-1.log."
 assumption = "The seven failures are red on main independent of the endpoint path and are repaired at their producer."
 severity = "high"
+
+[finding.18.1749.1.3]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 3 at 7b5c49a06f71: build exit 0; verification exit 101: reward_reopen_preserves_recipient_balances panics at repair_22_33_261.rs:359 with ApplicationError(529) for the participant enrolment at height 66 after a -601 setup line; log /out/logs/verify-2.log."
+assumption = "The generated enrolment carries a valid deadline for its height and the native setup is funded."
+severity = "high"
+
+[finding.22.39.225.4]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 4 at 1f2452926c23 (base 0f2f833488): build exit 0; verification exit 101 in cycle 2: clippy -D warnings fails needless_return at crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs:360 after cycle 1 repaired six library sites; log /out/logs/verify-2.log."
+assumption = "The one remaining site is the last lint in the crate."
+severity = "high"
+
+[finding.18.1777.1.3]
+task = "18.1777.1"
+file = "services/agent/crates/layerx-agentd/src/main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+symbol = "main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+observed = "Attempt 3 at e1aea2ac8369: build exit 0; verification exit 101: inference_availability_uses_gateway_credentials fails at main.rs:2885, components F11 is not-enabled where available is required; the tree differs from attempt 2 by a comment only; log /out/logs/verify-1.log."
+assumption = "The reward feature enabled in the captured market projects F11 as available."
+severity = "high"
+
+[finding.18.1679.1.4]
+task = "18.1679.1"
+file = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx::tokenTransferLiveUpdatesFollowDisplayPage"
+symbol = "TokenTransfer.spec.tsx::tokenTransferLiveUpdatesFollowDisplayPage"
+observed = "Attempt 4 at 53337efc891d: build exit 0; verification exit 1: tokenTransferLiveUpdatesFollowDisplayPage fails at the step select 50 rows (TokenTransfer.spec.tsx:67) after 2 s while the select 25 rows step passed; the case ran 21.8 s; log /out/logs/verify-1.log."
+assumption = "The fifty-row render exceeds 2 s in the gate and the sized timeout observes the value."
+severity = "high"
+
+[finding.18.1717.1.4]
+task = "18.1717.1"
+file = "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+symbol = "LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+observed = "Attempt 4 at d92a00495405 (base 0f2f833488): no command ran; the session log holds thread.started and turn.started only until the working-time limit after 29 minutes; no build and no verification."
+assumption = "The model session stalled; the task stands as ruled for attempt 4."
+severity = "high"
+
+[finding.18.1632.1.4]
+task = "18.1632.1"
+file = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+symbol = "px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+observed = "Attempt 4 at 7670b1df7fd5 (base 0f2f833488): no command ran; the session log holds thread.started and turn.started only until the working-time limit after 29 minutes; no build and no verification."
+assumption = "The model session stalled; the task stands as ruled for attempt 4."
+severity = "high"
+
+[finding.22.39.242.1]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 1 at a84b541f2322: build exit 0; verification exit 1: TestRepairM_999_ReceiptQualifiedBackfill, TestRepairM_995_NativeReceiptAttribution, TestRepair_53_native_swap_qualification and TestRepair_53_tenant_transaction_qualification fail, the first with rehydrate historical creation: receipt qualification rejected and the swap case at repair_53_test.go:478 where the recorded obsolete runtime identity must fail attestation; log /out/logs/verify-2.log."
+assumption = "Only the manifest entries of the packet needed the re-record."
+severity = "high"
+
+[finding.22.39.240.2]
+task = "22.39.240"
+file = "services/platform/hosted/gateway/tests/one_source_reads.rs"
+symbol = "one_source_reads.rs"
+observed = "Attempt 2 at 1d644f35fe65: build exit 0; verification exit 101: unified_history_with_a_did_selector_resolves_through_addr fails with -32005 Read unavailable while the other cases of the binary pass; log /out/logs/verify-1.log."
+assumption = "The parallel test binary exhausts the shared window before the case reads."
+severity = "high"
+
+[finding.18.1667.1.5]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 5 at a13ea2374c97: build exit 0; verification exit 1: the deploy with ABI version 1 reverts with LXP_ERR_VERSION_UNSUPPORTED from state_record.c:406; log /out/logs/verify-2.log."
+assumption = "The envelope version is the only difference from the production submit path."
+severity = "high"
+
+[finding.18.1747.1.6]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 6 at eed8dfaa7024: build exit 0; verification exit 101: must(preview_send_v2) fails Unavailable at repair_22_33_63.rs:2153 and must(advanced) fails Agent(Refused) at :2294 after the clock regression authority read; log /out/logs/verify-2.log."
+assumption = "The second frame on the pooled connection is never served by the fixture."
+severity = "high"
+
+[finding.22.33.223.18]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 19 at 0c1c636578c6: build exit 0; verification exit 101: the OPEN_EPOCH operation at 32 participants and 8 evaluators fails BudgetExceeded Cpu 1000003 after candidates six and seven; log /out/logs/verify-2.log."
+assumption = "The roster load per call is the dominant cost of the step."
+severity = "high"
+
+[finding.22.39.222.3]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 3 at 86e2e0b8456e: build exit 0; verification exit 101: clippy -D warnings fails redundant_field_names at human_runtime.rs:5352 and :5448; log /out/logs/verify-1.log."
+assumption = "The two sites are the last lints of the crate."
+severity = "high"
+
+[finding.18.1724.1.5]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 5 at 183b0f6fb177: build exit 0; verification exit 1: budgetCreateNative fails LXP_CONTEXT_MISMATCH in the restart budget setup at height 2, identity sequence 4; log /out/logs/verify-2.log."
+assumption = "The create facts of the restart setup follow the first block instead of the executing one."
+severity = "high"
+
+[finding.18.1823.1.5]
+task = "18.1823.1"
+file = "tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+symbol = "test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+observed = "Attempt 5 at 58788d6f719b: no command ran; the session log holds a reconnect notice after a usage limit answer of the endpoint and nothing further until the working-time limit; no build and no verification."
+assumption = "The model session stalled; the task stands as ruled for attempt 5."
+severity = "high"
+
+[finding.22.39.219.7]
+task = "22.39.219"
+file = "services/agent/crates/layerx-client"
+symbol = "layerx-client"
+observed = "Attempt 7 at a6a2b3f98a84: no command ran; the session log holds a reconnect notice after a usage limit answer of the endpoint and nothing further until the working-time limit; no build and no verification."
+assumption = "The model session stalled; the task stands as ruled for attempt 7."
+severity = "high"
+
+[finding.22.39.225.5]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 5 at a56888ee0266: no command ran; the session log holds a reconnect notice after a usage limit answer of the endpoint and nothing further until the working-time limit; no build and no verification."
+assumption = "The model session stalled; the task stands as ruled for attempt 5."
+severity = "high"
+
+[finding.17.5.7.6]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 6 at 9b215c97f3d5: build exit 2 at make platform-build: layerx-platform-release --check tools/platform/release/registries.kvx refuses release gate programs-acceptance must run through scripts/ci/release-gate.sh; log /out/logs/build-1.log."
+assumption = "The refusal comes from main and not from the attempt tree."
+severity = "high"
+
+[finding.18.1717.1.5]
+task = "18.1717.1"
+file = "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+symbol = "LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+observed = "Attempt 5 at 3e43ad1d9d5f: build exit 0; verification exit 1: LayoutSearchResults.spec.tsx:222 finds no combobox named All chains inside the filters region; only the tabs render; log /out/logs/verify-1.log."
+assumption = "The select renders only once the multichain configuration carries chains."
+severity = "high"
+
+[finding.18.1749.1.4]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 4 at 5e4ecdb9c872: build exit 0; verification exit 101: reward_reopen_preserves_recipient_balances fails at rewards_native.rs:2677 with BudgetExceeded Cpu 1000009 at BeginAggregation; log /out/logs/verify-1.log."
+assumption = "A smaller roster keeps the aggregation of the case under the cap."
+severity = "high"
+
+[finding.18.1632.1.5]
+task = "18.1632.1"
+file = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+symbol = "px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+observed = "Attempt 5 at fbc0d2f3390e: build exit 0; verification exit 1: TestPxNodeRoot_History_ExplorerImportedRows fails in every px_getUnifiedHistory subcase because the document validation of px_node_root_account_test.go:698 rejects rows whose side is layerx against the enumeration that admits only paxeer; log /out/logs/verify-1.log."
+assumption = "The document lags the unified history rows the gateway returns."
+severity = "high"
+
+[finding.18.1752.1.3]
+task = "18.1752.1"
+file = "services/agent/crates/layerx-agentd/tests/issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+symbol = "issue_1752.rs::state_export_owner_rpc_retains_and_recovers_witnesses"
+observed = "Attempt 3 at 351ea0188683: build exit 0; verification exit 101: state_export_owner_rpc_retains_and_recovers_witnesses fails at tests/issue_1752.rs:877 (witness refusal stage) with Binding fact 0 from retain_committed_receipt at export.rs:200 before any witness call; log /out/logs/verify-1.log."
+assumption = "The served bundle key is outside the fixture trust set."
+severity = "high"
+
+[finding.22.38.7.5]
+task = "22.38.7"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"
+symbol = "f11_bonds.rs"
+observed = "Attempt 5 at d2b06b45b51b: build exit 0; verification exit 101: eight bond cases fail at f11_bonds.rs:334 with CAPACITY 0x0016 at OpenRoom height 898, one with 0x0901; log /out/logs/verify-1.log."
+assumption = "The fixture state is shorter than one room record."
+severity = "high"
+
+[finding.18.1777.1.4]
+task = "18.1777.1"
+file = "services/agent/crates/layerx-agentd/src/main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+symbol = "main.rs::inference_availability_tests::inference_availability_uses_gateway_credentials"
+observed = "Attempt 4 at 7fc8cb94d0f4: build exit 0; verification exit 101: inference_availability_uses_gateway_credentials fails at main.rs:2885, components F11 not-enabled where available is required; queries.rs:945 to :948 hard-code the entry; log /out/logs/verify-1.log."
+assumption = "The producer never reports F11 as available on main."
+severity = "high"
+
+[finding.18.1772.1.6]
+task = "18.1772.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"
+symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
+observed = "Attempt 6 at 7f9a26b43f24: build exit 0; verification exit 1: AUTH_SCOPE_DENIED at enrollment.js:159 persists and native_source_product_actor.mjs is unchanged against attempt 5; log /out/logs/verify-2.log."
+assumption = "The instruction was never applied."
+severity = "high"

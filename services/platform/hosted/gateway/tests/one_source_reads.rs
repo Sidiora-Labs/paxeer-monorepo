@@ -3,6 +3,9 @@ include!("../src/main.rs");
 #[path = "openrpc_methods.rs"]
 mod openrpc_methods;
 
+#[path = "support/repair_22_31_202.rs"]
+mod schema_support;
+
 use layerx_platform_gateway::evm;
 use layerx_platform_internal::http as internal_http;
 use layerx_platform_internal::tls::{Origin, Upstream};
@@ -251,8 +254,8 @@ fn chain_only_environment(
         (
             "LAYERX_GATEWAY_PAXEER_RPC_URLS".to_owned(),
             json!([
-                format!("https://localhost:{chain_port}/rpc"),
-                format!("https://localhost:{unused}/rpc")
+                format!("https://localhost:{chain_port}"),
+                format!("https://localhost:{unused}")
             ])
             .to_string(),
         ),
@@ -706,6 +709,51 @@ fn px_get_account_reads_no_kernel_backend() {
         json!({"durable_store": "ready"}),
         "{readiness}"
     );
+    for name in ["consensus", "indexer"] {
+        assert_eq!(
+            readiness["backends"][name],
+            json!({"state":"unavailable", "reason":"not_configured"})
+        );
+    }
+    let (status, schema) = gateway.get("/openrpc.json");
+    assert_eq!(status, 200);
+    let methods = schema["methods"].as_array().unwrap();
+    assert_eq!(methods.len(), layerx_platform_gateway::ROUTER_METHODS.len());
+    for name in layerx_platform_gateway::ROUTER_METHODS {
+        assert_eq!(
+            methods
+                .iter()
+                .filter(|method| method["name"] == name)
+                .count(),
+            1
+        );
+    }
+    for name in [
+        "px_getInferenceRooms",
+        "px_getInferenceRoom",
+        "px_getInferenceDeal",
+        "px_getInferencePeer",
+        "px_getInferenceReceipts",
+    ] {
+        assert!(!methods.iter().any(|method| method["name"] == name));
+        assert_eq!(gateway.rpc(name, &json!([]))["error"]["code"], -32601);
+    }
+    let unused = free_port();
+    let consensus_url = format!("https://localhost:{unused}");
+    for (indexer, consensus, backend) in [
+        (Some(unused), None, "indexer"),
+        (None, Some(consensus_url.as_str()), "consensus"),
+    ] {
+        let degraded = start_gateway_with_consensus(&redis, chain.port, indexer, consensus);
+        let (status, readiness) = degraded.get("/readyz");
+        assert_eq!(status, 503, "{readiness}");
+        assert_eq!(readiness["status"], "degraded");
+        assert_eq!(readiness["backends"]["paxeer_chain"]["state"], "ready");
+        assert_eq!(
+            readiness["backends"][backend],
+            json!({"state":"unavailable", "reason":"unreachable"})
+        );
+    }
 }
 
 fn abi_word(value: u128) -> Vec<u8> {
@@ -867,6 +915,8 @@ fn px_list_assets_reads_metadata_for_every_bank_asset_of_a_full_page() {
     assert!(answer.get("error").is_none(), "{answer}");
     assert_eq!(answer["result"]["height"], 16, "{answer}");
     assert_eq!(answer["result"]["joined_limit"], 16, "{answer}");
+    assert_eq!(answer["result"]["next_cursor"], Value::Null, "{answer}");
+    assert_eq!(answer["result"]["order"], "registration", "{answer}");
     let assets = answer["result"]["assets"].as_array().unwrap();
     assert_eq!(assets.len(), 16, "{answer}");
     for (number, asset) in assets.iter().enumerate() {
@@ -983,17 +1033,6 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
 
     let store = Store::open_in_memory().unwrap();
     let mut rows = Vec::new();
-    // The first sorted asset is registered beyond the first indexer page.
-    for number in (0..501).rev() {
-        rows.push(AssetRow {
-            asset: format!("z{number:04}"),
-            chain: "paxeer".to_owned(),
-            kind: "erc20".to_owned(),
-            address: None,
-            denom: None,
-            metadata: json!({}),
-        });
-    }
     let mut expected = Vec::new();
     for byte in [0x44, 0x33, 0x22, 0x11] {
         let asset_id = hex(&[byte; 32]);
@@ -1022,10 +1061,19 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
             json!({"asset_id":asset_id,"denom":denom,"kind":kind,"name":null,"symbol":null,"decimals":null,"supply":null})
         });
     }
-    for number in 0..10 {
-        expected.push(json!({"asset_id":format!("z{number:04}"),"denom":null,"kind":"erc20","name":null,"symbol":null,"decimals":null,"supply":null}));
+    for number in (0..501).rev() {
+        rows.push(AssetRow {
+            asset: format!("z{number:04}"),
+            chain: "paxeer".to_owned(),
+            kind: "erc20".to_owned(),
+            address: None,
+            denom: None,
+            metadata: json!({}),
+        });
+        if expected.len() < 16 {
+            expected.push(json!({"asset_id":format!("z{number:04}"),"denom":null,"kind":"erc20","name":null,"symbol":null,"decimals":null,"supply":null}));
+        }
     }
-    expected.sort_by(|a, b| a["asset_id"].as_str().cmp(&b["asset_id"].as_str()));
     store.register_assets(&rows).unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let indexer_address = listener.local_addr().unwrap();
@@ -1041,10 +1089,17 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
     assert!(answer.get("error").is_none(), "{answer}");
     assert_eq!(
         answer["result"],
-        json!({"height":16,"assets":expected,"joined_limit":16})
+        json!({"height":16,"assets":expected,"joined_limit":16,"next_cursor":"16","order":"registration"})
     );
+    let schema: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap();
+    let schema = &schema["methods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|method| method["name"] == "px_listAssets")
+        .unwrap()["result"]["schema"];
     assert!(
-        openrpc_methods::px_list_assets_result_matches_schema(&answer["result"]),
+        schema_support::matches_schema(&answer["result"], schema),
         "served asset rows must satisfy the published schema: {answer}"
     );
     for (field, value) in [
@@ -1059,7 +1114,7 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
         let mut invalid = answer["result"].clone();
         invalid["assets"][0][field] = value;
         assert!(
-            !openrpc_methods::px_list_assets_result_matches_schema(&invalid),
+            !schema_support::matches_schema(&invalid, schema),
             "schema must reject invalid {field}: {invalid}"
         );
     }
@@ -1092,6 +1147,16 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
     let invalid = gateway.rpc("px_listAssets", &json!(["unexpected"]));
     assert_eq!(invalid["error"]["code"], -32602);
     assert!(state.lock().unwrap().take_calls().is_empty());
+    let continued = gateway.rpc("px_listAssets", &json!([answer["result"]["next_cursor"]]));
+    let expected: Vec<_> = (475..491).rev().map(|number| {
+        json!({"asset_id":format!("z{number:04}"),"denom":null,"kind":"erc20","name":null,"symbol":null,"decimals":null,"supply":null})
+    }).collect();
+    assert_eq!(
+        continued["result"],
+        json!({"height":16,"assets":expected,"joined_limit":16,"next_cursor":"32","order":"registration"})
+    );
+    assert!(schema_support::matches_schema(&continued["result"], schema));
+    assert_snapshot(&state.lock().unwrap().take_calls(), 0, 0);
 }
 
 #[test]
