@@ -1,0 +1,48 @@
+[issue.1802]
+number = 1802
+title = "[Coherence] The perps app now crashes at startup in the browser when the embedded-wallet endpoint is unset, which also takes down injected wallets"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The endpoint throw introduced by commit 8a2e6447fb97f400ce1f6e8252587d5fa4a23f46 remains at apps/perps/src/core/wallet/embedded/client.ts:30 before the disabled-feature return at :51, so getPaxeerWallet at :63 aborts browser connector construction at apps/perps/src/core/wagmi.ts:36 before injected at :47 and module-level configuration at :50, while apps/perps/src/core/wallet/embedded/PaxeerProvider.tsx:227 also evaluates the throwing resolver, apps/perps/Dockerfile:33 and apps/perps/deploy/docker-compose.yml:33 default the endpoint to empty, and apps/perps/tests/repair-22-31-603.test.ts:24 supplies a publishable key in the existing refusal coverage at :37."
+close_comment = "The missing endpoint currently prevents wallet startup even when the embedded wallet is disabled, blocking injected wallets as well. The fix is tracked in task 18.1802.1: return the disabled state before validating the endpoint, while retaining the named configuration error when the embedded wallet is enabled without an endpoint."
+
+[task.18.1802.1]
+title = "Issue #1802: Preserve injected wallets when the embedded wallet is disabled"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181802.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/perps/src/core/wallet/embedded/client.ts:26, return null for a missing or empty NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY before validating the endpoint at :29 or resolving RPC configuration at :42, preserving the server return at :27 and the enabled-wallet endpoint error naming NEXT_PUBLIC_PAXEER_WALLET_API at :32; retain the configured endpoint with no default required by spec/layerx-merge/spec.kvx:9643 (decision 2755), and let getPaxeerWallet at :62 return null so apps/perps/src/core/wagmi.ts:47 retains the injected connector."
+do_2 = "Extend apps/perps/tests/repair-22-31-603.test.ts with a declared disabled_embedded_wallet_keeps_injected_connector function registered using test(disabled_embedded_wallet_keeps_injected_connector): for absent and empty publishable keys with absent, empty, whitespace-only and configured endpoints, assert the real resolvePaxeerConfig and getPaxeerWallet return null; exercise real browser-context initialization of wagmiConfig from apps/perps/src/core/wagmi.ts:50 and assert the injected connector remains available without an embedded connector, without replacing either connector or the client; assert the server path returns null, and retain the existing missing_endpoint_refuses_with_the_setting_name and configured_endpoint_is_used_by_the_embedded_client cases at :37 and :49 unchanged."
+symbols = ["resolvePaxeerConfig", "disabled_embedded_wallet_keeps_injected_connector"]
+touches = ["apps/perps/src/core/wallet/embedded/client.ts", "apps/perps/tests/repair-22-31-603.test.ts"]
+tests = ["apps/perps/tests/repair-22-31-603.test.ts::disabled_embedded_wallet_keeps_injected_connector", "apps/perps/tests/repair-22-31-603.test.ts::missing_endpoint_refuses_with_the_setting_name", "apps/perps/tests/repair-22-31-603.test.ts::configured_endpoint_is_used_by_the_embedded_client"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/perps exec node --test --test-concurrency=1 --import tsx tests/repair-22-31-603.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181802]
+title = "A disabled embedded wallet leaves injected wallets available"
+ac_1 = "Given a browser with no publishable key or an empty publishable key, when the endpoint is absent, empty, whitespace-only or configured, resolvePaxeerConfig and getPaxeerWallet at apps/perps/src/core/wallet/embedded/client.ts:26 and :62 return null and the real wagmiConfig at apps/perps/src/core/wagmi.ts:50 initializes with the injected connector and no embedded connector; server resolution remains null, while an enabled embedded wallet with an absent, empty or whitespace-only endpoint still throws an error naming NEXT_PUBLIC_PAXEER_WALLET_API and a configured enabled wallet still uses its explicit endpoint."
+
+[acceptance.18.1802.1]
+feature = "18"
+req = "181802.1"
+scenario = "Given an embedded wallet disabled by an absent or empty publishable key, when the perps wallet configuration initializes with no endpoint, then configuration returns the disabled state and injected wallets remain available; an enabled embedded wallet still refuses a missing endpoint with the setting name and uses its configured endpoint when supplied."
+contract = "contracts/perps-client.md#core"
+test = "apps/perps/tests/repair-22-31-603.test.ts::disabled_embedded_wallet_keeps_injected_connector (planned)"
+qualification = "UNRUN"
