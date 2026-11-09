@@ -159948,7 +159948,7 @@ do_3 = "Attempt 2 (requalify, gotcha 3799): the attempt-1 tree ab4222df2384 stan
 
 [task.18.1815.1]
 title = "Issue #1815: Preserve selected descendant changes across ancestor type replacements"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160224,7 +160224,7 @@ do_3 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3794, decision 3068): 
 
 [task.18.1662.1]
 title = "Issue #1662: Register and execute all nine wallet repair proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182308,7 +182308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1818.1]
 title = "Issue #1818: Pass the dashboard API origin into the canonical image build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348212,7 +348212,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1821.1]
 title = "Issue #1821: Align Compose image producers and callers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
