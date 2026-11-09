@@ -157,15 +157,128 @@ func TestRepair_54_NativeProjectionIdentityGuards(t *testing.T) {
 	}
 }
 
-func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
-	if os.Getenv("L06_POSTGRES_DSN") == "" {
-		t.Skip("PostgreSQL integration coverage requires L06_POSTGRES_DSN; the in-memory repair gate runs independently")
+func repair54ProjectionDelivery(t *testing.T, pool *pgxpool.Pool, batch store.CanonicalBatch, envelopes []*decode.DecodedEnvelope, timestamp int64) (*delivery.Store, func(context.Context, pgx.Tx) error) {
+	t.Helper()
+	ddl, err := delivery.SchemaDDL("indexer")
+	if err != nil {
+		t.Fatal(err)
 	}
+	if _, err = pool.Exec(context.Background(), ddl); err != nil {
+		t.Fatal(err)
+	}
+	policy := delivery.Policy{Subjects: map[string]bool{"native.swap": true}, EventTypes: map[string]bool{"Swap": true}}
+	durable, err := delivery.NewStore(pool, "indexer", policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestHash, err := deployment.Current().Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stager, err := publisher.NewDurableStager(durable, manifestHash, map[string]string{"Swap": "native.swap"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(envelopes[1].Event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := batch.Records[1]
+	event := publisher.RawCanonicalEvent{EventType: "Swap", TxHash: raw.TransactionHash, TraceID: batch.BatchID,
+		SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(raw.Height, 10), TransactionIndex: strconv.FormatUint(uint64(raw.TransactionIndex), 10), LogIndex: strconv.FormatUint(uint64(raw.LogIndex), 10)},
+		EmittedAt:   time.Unix(timestamp, 0).UTC(), Payload: payload}
+	return durable, func(ctx context.Context, tx pgx.Tx) error { return stager.Stage(ctx, tx, event) }
+}
+
+func repair54AssertProjectionStatus(t *testing.T, deps httpapi.StatusDeps, height int64) {
+	t.Helper()
+	for _, tc := range []struct {
+		name, component                    string
+		configure                          func(*httpapi.StatusDeps)
+		heightAvailable, deliveryAvailable bool
+	}{
+		{name: "canonical", heightAvailable: true, deliveryAvailable: true},
+		{name: "missing mode", component: "mode", configure: func(d *httpapi.StatusDeps) { d.Mode = "" }},
+		{name: "wrong stream", component: "canonicalWatermark", configure: func(d *httpapi.StatusDeps) { d.CanonicalStreamID += "-missing" }, deliveryAvailable: true},
+		{name: "missing delivery", component: "deliveryConfiguration", configure: func(d *httpapi.StatusDeps) { d.Delivery = nil }, heightAvailable: true},
+		{name: "missing lag budget", component: "deliveryConfiguration", configure: func(d *httpapi.StatusDeps) { d.MaxDeliveryLag = 0 }, heightAvailable: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := deps
+			if tc.configure != nil {
+				tc.configure(&d)
+			}
+			router := chi.NewRouter()
+			httpapi.RegisterStatus(router, d)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/status", nil))
+			var status struct {
+				Pools       *int64             `json:"totalPoolsIndexed"`
+				Swaps       *int64             `json:"totalSwapsIndexed"`
+				Last        *int64             `json:"lastProcessedBlock"`
+				Mode        httpapi.StatusMode `json:"mode"`
+				Stream      string             `json:"canonicalStreamId"`
+				Status      string             `json:"status"`
+				Unavailable []string           `json:"unavailableComponents"`
+				Delivery    *struct {
+					PendingRows            int64   `json:"pendingRows"`
+					PendingBytes           int64   `json:"pendingBytes"`
+					QuarantinedRows        int64   `json:"quarantinedRows"`
+					Age                    float64 `json:"oldestUnpublishedAgeSeconds"`
+					LeaseExpiryCount       int64   `json:"leaseExpiryCount"`
+					AcknowledgementLatency int64   `json:"maxAcknowledgementLatencyMs"`
+				} `json:"delivery"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil {
+				t.Fatal(err)
+			}
+			wantCode, wantStatus := http.StatusOK, "ok"
+			if tc.component != "" {
+				wantCode, wantStatus = http.StatusServiceUnavailable, "unavailable"
+				if !reflect.DeepEqual(status.Unavailable, []string{tc.component}) {
+					t.Fatalf("unavailable components: %s", response.Body.String())
+				}
+			} else if len(status.Unavailable) != 0 {
+				t.Fatalf("healthy components: %s", response.Body.String())
+			}
+			if response.Code != wantCode || status.Status != wantStatus || status.Mode != d.Mode || status.Pools == nil || *status.Pools != 1 || status.Swaps == nil || *status.Swaps != 1 {
+				t.Fatalf("HTTP consumer code=%d: %s", response.Code, response.Body.String())
+			}
+			wantStream := ""
+			if d.Mode == httpapi.StatusCanonical {
+				wantStream = d.CanonicalStreamID
+			}
+			if status.Stream != wantStream || (tc.heightAvailable && (status.Last == nil || *status.Last != height)) || (!tc.heightAvailable && status.Last != nil) {
+				t.Fatalf("canonical progress: %s", response.Body.String())
+			}
+			if !tc.deliveryAvailable {
+				if status.Delivery != nil {
+					t.Fatalf("unavailable delivery: %s", response.Body.String())
+				}
+				return
+			}
+			health, err := deps.Delivery.Stats(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := status.Delivery
+			if got == nil || got.PendingRows != 1 || got.PendingRows != health.PendingRows || got.PendingBytes <= 0 || got.PendingBytes != health.PendingBytes || got.QuarantinedRows != health.QuarantinedRows || got.LeaseExpiryCount != health.LeaseExpiryCount || got.AcknowledgementLatency != health.MaxAcknowledgementLatencyMS || got.Age < 0 || got.Age > deps.MaxDeliveryLag.Seconds() {
+				t.Fatalf("committed delivery health: %s; store=%+v", response.Body.String(), health)
+			}
+		})
+	}
+}
+
+func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
 	ctx := context.Background()
 	batch, envelopes, timestamp, poolAddress, token, txHash := repair54NativeProjectionFixture(t)
 	height := batch.Blocks[0].Height
 	var err error
 	_, pool := canonicaltest.New(t)
+	durable, stage := repair54ProjectionDelivery(t, pool, batch, envelopes, timestamp)
+	if err = store.New(pool).UpsertCursor(ctx, 125, height-1); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = pool.Exec(ctx, `INSERT INTO indexer.indexer_ingest_watermarks VALUES(125,$1,$2,$2)`, batch.StreamID, height-1); err != nil {
 		t.Fatal(err)
 	}
@@ -179,8 +292,10 @@ func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
 		// The immutable factory proof normally seeds this cache in projectQualifiedLegacy.
 		id := int64(42)
 		p.nftCache[strings.ToLower(poolAddress.Hex())] = &id
-		err := p.projectLegacyEnvelopes(c, batch, envelopes, map[string]int64{strings.ToLower(txHash.Hex()): timestamp}, nil, nil)
-		return nil, err
+		if err := p.projectLegacyEnvelopes(c, batch, envelopes, map[string]int64{strings.ToLower(txHash.Hex()): timestamp}, nil, nil); err != nil {
+			return nil, err
+		}
+		return nil, stage(c, canonical.Tx)
 	}
 	// Fail at the final canonical write, after the real read-model handlers ran.
 	if _, err = pool.Exec(ctx, `CREATE FUNCTION indexer.repair54_reject() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'repair54 atomic rollback'; END $$; CREATE TRIGGER repair54_reject BEFORE INSERT ON indexer.indexer_ingest_commits FOR EACH ROW EXECUTE FUNCTION indexer.repair54_reject()`); err != nil {
@@ -188,6 +303,9 @@ func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
 	}
 	if err = st.CommitProjectedCanonicalTx(ctx, batch, project); err == nil || !strings.Contains(err.Error(), "repair54 atomic rollback") {
 		t.Fatalf("rollback boundary: %v", err)
+	}
+	if health, err := durable.Stats(ctx); err != nil || health != (delivery.Stats{}) {
+		t.Fatalf("rolled-back delivery=%+v %v", health, err)
 	}
 	queries := sqlcdb.New(pool)
 	if count, err := queries.GetPoolCount(ctx); err != nil || count != 0 {
@@ -220,16 +338,9 @@ func TestRepair54Postgres_NativeReadModelProjection(t *testing.T) {
 	if amount != "100" || virtual != "11" || fee != "7" || claim != "7" || eventID != strings.ToLower(txHash.Hex())+"-1" {
 		t.Fatalf("native rows: %s %s %s %s %s", amount, virtual, fee, claim, eventID)
 	}
-	router := chi.NewRouter()
-	httpapi.RegisterStatus(router, httpapi.StatusDeps{Store: st, ChainID: 125, StartTime: time.Now()})
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/status", nil))
-	var status struct {
-		Pools int `json:"totalPoolsIndexed"`
-		Swaps int `json:"totalSwapsIndexed"`
-	}
-	if err = json.Unmarshal(response.Body.Bytes(), &status); err != nil || response.Code != 200 || status.Pools != 1 || status.Swaps != 1 {
-		t.Fatalf("HTTP consumer: %s %v", response.Body.String(), err)
+	repair54AssertProjectionStatus(t, httpapi.StatusDeps{Store: st, ChainID: 125, StartTime: time.Now(), Mode: httpapi.StatusCanonical, CanonicalStreamID: batch.StreamID, Delivery: durable, MaxDeliveryLag: time.Minute}, height)
+	if cursor, err := st.GetCursor(ctx, 125); err != nil || cursor == nil || *cursor != height-1 {
+		t.Fatalf("legacy cursor changed: %v %v", cursor, err)
 	}
 	if watermark, err := st.GetCanonicalWatermark(ctx, 125, batch.StreamID); err != nil || watermark != height {
 		t.Fatalf("committed watermark=%d %v", watermark, err)
@@ -707,14 +818,19 @@ type repair54MemoryStore struct {
 }
 
 type repair54MemoryState struct {
-	height  int64
-	tables  map[string]map[string][]any
-	raw     map[string]store.RawRecord
-	batches map[string]store.CanonicalBatch
-	blocks  map[int64]string
+	height          int64
+	legacyHeight    int64
+	deliveryCreated map[string]time.Time
+	tables          map[string]map[string][]any
+	raw             map[string]store.RawRecord
+	batches         map[string]store.CanonicalBatch
+	blocks          map[int64]string
 }
 
-type repair54MemoryDB struct{ state *repair54MemoryState }
+type repair54MemoryDB struct {
+	state  *repair54MemoryState
+	stream string
+}
 
 func repair54NewMemoryStore(t *testing.T, height int64, stream string) *repair54MemoryStore {
 	t.Helper()
@@ -722,7 +838,7 @@ func repair54NewMemoryStore(t *testing.T, height int64, stream string) *repair54
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := &repair54MemoryDB{state: &repair54MemoryState{height: height, tables: map[string]map[string][]any{}, raw: map[string]store.RawRecord{}, batches: map[string]store.CanonicalBatch{}, blocks: map[int64]string{}}}
+	db := &repair54MemoryDB{stream: stream, state: &repair54MemoryState{height: height, legacyHeight: height, deliveryCreated: map[string]time.Time{}, tables: map[string]map[string][]any{}, raw: map[string]store.RawRecord{}, batches: map[string]store.CanonicalBatch{}, blocks: map[int64]string{}}}
 	return &repair54MemoryStore{Store: store.NewFromDBTX(db), db: db, stream: stream, guard: guard}
 }
 
@@ -733,10 +849,32 @@ func (m *repair54MemoryStore) GetCanonicalWatermark(ctx context.Context, chain i
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	if chain != 125 || stream != m.stream {
-		return 0, store.ErrWatermark
+	return m.Store.GetCanonicalWatermark(ctx, chain, stream)
+}
+func (m *repair54MemoryStore) Stats(ctx context.Context) (delivery.Stats, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var health delivery.Stats
+	if err := ctx.Err(); err != nil {
+		return health, err
 	}
-	return m.db.state.height, nil
+	now := time.Now()
+	for key, values := range m.db.state.tables["delivery_outbox"] {
+		if len(values) != 5 {
+			return delivery.Stats{}, store.ErrIntegrity
+		}
+		wire, ok := values[4].([]byte)
+		created, exists := m.db.state.deliveryCreated[key]
+		if !ok || !exists || created.IsZero() {
+			return delivery.Stats{}, store.ErrIntegrity
+		}
+		health.PendingRows++
+		health.PendingBytes += int64(len(wire))
+		if age := now.Sub(created).Seconds(); age > health.OldestUnpublishedAgeSeconds {
+			health.OldestUnpublishedAgeSeconds = age
+		}
+	}
+	return health, nil
 }
 func (m *repair54MemoryStore) AcquireLease(ctx context.Context, chain int32, stream, owner string, ttl time.Duration) (int64, error) {
 	m.mu.Lock()
@@ -815,7 +953,10 @@ func (m *repair54MemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b 
 		return store.ErrWatermark
 	}
 	original := m.db.state
-	next := &repair54MemoryState{height: original.height, tables: map[string]map[string][]any{}, raw: map[string]store.RawRecord{}, batches: map[string]store.CanonicalBatch{}, blocks: map[int64]string{}}
+	next := &repair54MemoryState{height: original.height, legacyHeight: original.legacyHeight, deliveryCreated: map[string]time.Time{}, tables: map[string]map[string][]any{}, raw: map[string]store.RawRecord{}, batches: map[string]store.CanonicalBatch{}, blocks: map[int64]string{}}
+	for key, created := range original.deliveryCreated {
+		next.deliveryCreated[key] = created
+	}
 	for table, rows := range original.tables {
 		next.tables[table] = map[string][]any{}
 		for key, row := range rows {
@@ -851,7 +992,7 @@ func (m *repair54MemoryStore) CommitProjectedCanonicalTx(ctx context.Context, b 
 			return store.ErrIntegrity
 		}
 	}
-	db := &repair54MemoryDB{state: next}
+	db := &repair54MemoryDB{state: next, stream: m.stream}
 	tx := &repair54MemoryTx{db: db}
 	if err := m.guard.Assert(ctx, tx); err != nil {
 		return err
@@ -956,7 +1097,11 @@ func (db *repair54MemoryDB) Exec(ctx context.Context, sql string, args ...any) (
 	default:
 		return pgconn.CommandTag{}, fmt.Errorf("unsupported in-memory table: %s", table)
 	}
-	return db.insert(table, key, args)
+	tag, err := db.insert(table, key, args)
+	if err == nil && table == "delivery_outbox" && tag.RowsAffected() == 1 {
+		db.state.deliveryCreated[key] = time.Now()
+	}
+	return tag, err
 }
 
 type repair54MemoryRow struct {
@@ -995,8 +1140,16 @@ func (db *repair54MemoryDB) QueryRow(ctx context.Context, sql string, args ...an
 		return row(int64(len(db.table("pools"))))
 	case strings.Contains(sql, "-- name: GetSwapCount"):
 		return row(int64(len(db.table("swaps"))))
+	case sql == `SELECT raw_complete_height,typed_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=$1 AND stream_id=$2`:
+		if len(args) != 2 || args[0] != int32(125) || args[1] != db.stream {
+			return missing
+		}
+		return row(db.state.height, db.state.height)
 	case strings.Contains(sql, "-- name: GetCursor"):
-		return row(int32(125), db.state.height, pgtype.Timestamp{})
+		if len(args) != 1 || args[0] != int32(125) {
+			return missing
+		}
+		return row(int32(125), db.state.legacyHeight, pgtype.Timestamp{})
 	case strings.Contains(sql, "-- name: GetPoolBy"):
 		for _, values := range db.table("pools") {
 			switch {
@@ -1099,6 +1252,8 @@ func TestRepair_54_NativeReadModelProjection(t *testing.T) {
 	ctx := context.Background()
 	batch, envelopes, timestamp, poolAddress, token, txHash := repair54NativeProjectionFixture(t)
 	height := batch.Blocks[0].Height
+	_, pool := canonicaltest.New(t)
+	_, stage := repair54ProjectionDelivery(t, pool, batch, envelopes, timestamp)
 	memory := repair54NewMemoryStore(t, height-1, batch.StreamID)
 	var err error
 	batch.Fence, err = memory.AcquireLease(ctx, 125, batch.StreamID, batch.Owner, 30*time.Second)
@@ -1109,11 +1264,17 @@ func TestRepair_54_NativeReadModelProjection(t *testing.T) {
 		p := New(Deps{Store: canonical.Store, ChainID: 125, EventEmitterAddress: deployment.Current().Roles["EventEmitter"].Address})
 		id := int64(42)
 		p.nftCache[strings.ToLower(poolAddress.Hex())] = &id
-		return nil, p.projectLegacyEnvelopes(c, batch, envelopes, map[string]int64{strings.ToLower(txHash.Hex()): timestamp}, nil, nil)
+		if err := p.projectLegacyEnvelopes(c, batch, envelopes, map[string]int64{strings.ToLower(txHash.Hex()): timestamp}, nil, nil); err != nil {
+			return nil, err
+		}
+		return nil, stage(c, canonical.Tx)
 	}
 	memory.rejectCommit = true
 	if err = memory.CommitProjectedCanonicalTx(ctx, batch, project); err == nil || !strings.Contains(err.Error(), "repair54 atomic rollback") {
 		t.Fatalf("rollback boundary: %v", err)
+	}
+	if health, err := memory.Stats(ctx); err != nil || health != (delivery.Stats{}) {
+		t.Fatalf("rolled-back delivery=%+v %v", health, err)
 	}
 	queries := sqlcdb.New(memory.db)
 	if count, err := queries.GetPoolCount(ctx); err != nil || count != 0 {
@@ -1125,7 +1286,7 @@ func TestRepair_54_NativeReadModelProjection(t *testing.T) {
 	if len(memory.db.state.raw) != 0 || len(memory.db.state.blocks) != 0 || len(memory.db.state.batches) != 0 {
 		t.Fatal("canonical effects escaped rollback")
 	}
-	for _, table := range []string{"pool_state_snapshots", "fee_distributions", "airdrop_claims"} {
+	for _, table := range []string{"pool_state_snapshots", "fee_distributions", "airdrop_claims", "delivery_outbox"} {
 		if len(memory.db.table(table)) != 0 {
 			t.Fatalf("%s escaped rollback", table)
 		}
@@ -1152,17 +1313,21 @@ func TestRepair_54_NativeReadModelProjection(t *testing.T) {
 	if swap[6] != "100" || snapshot[2] != "11" || fee[4] != "7" || claim[5] != "7" || swap[0] != strings.ToLower(txHash.Hex())+"-1" {
 		t.Fatalf("native quantities or immutable key: %v %v %v %v", swap, snapshot, fee, claim)
 	}
-	router := chi.NewRouter()
-	httpapi.RegisterStatus(router, httpapi.StatusDeps{Store: memory.Store, ChainID: 125, StartTime: time.Now()})
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/status", nil))
-	var status struct {
-		Pools int   `json:"totalPoolsIndexed"`
-		Swaps int   `json:"totalSwapsIndexed"`
-		Last  int64 `json:"lastProcessedBlock"`
+	repair54AssertProjectionStatus(t, httpapi.StatusDeps{Store: memory.Store, ChainID: 125, StartTime: time.Now(), Mode: httpapi.StatusCanonical, CanonicalStreamID: batch.StreamID, Delivery: memory, MaxDeliveryLag: time.Minute}, height)
+	if cursor, err := memory.Store.GetCursor(ctx, 125); err != nil || cursor == nil || *cursor != height-1 {
+		t.Fatalf("legacy cursor changed: %v %v", cursor, err)
 	}
-	if err = json.Unmarshal(response.Body.Bytes(), &status); err != nil || response.Code != 200 || status.Pools != 1 || status.Swaps != 1 || status.Last != height {
-		t.Fatalf("HTTP consumer: %s %v", response.Body.String(), err)
+	for _, key := range []struct {
+		chain  int32
+		stream string
+	}{{1, batch.StreamID}, {125, ""}, {125, batch.StreamID + "-missing"}} {
+		if _, err := memory.Store.GetCanonicalWatermark(ctx, key.chain, key.stream); err == nil {
+			t.Fatalf("invalid canonical watermark accepted: %+v", key)
+		}
+	}
+	var unexpected int64
+	if err := memory.db.QueryRow(ctx, "SELECT unsupported").Scan(&unexpected); err == nil || !strings.Contains(err.Error(), "unsupported in-memory QueryRow") {
+		t.Fatalf("unsupported query accepted: %v", err)
 	}
 	if watermark, err := memory.GetCanonicalWatermark(ctx, 125, batch.StreamID); err != nil || watermark != height {
 		t.Fatalf("committed watermark=%d %v", watermark, err)

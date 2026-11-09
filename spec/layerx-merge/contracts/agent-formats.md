@@ -230,7 +230,7 @@ Interface: `interface.9.fmt-receipt-evidence`.
 | Rung | One byte: 1 receipted, 2 committed |
 | Canonical receipt | Big-endian u32 byte length, then exact nonempty receipt bytes |
 
-`store_verified_if_absent` with `TransactionReceiptEvidence` persists receipt bytes under `ObjectKind::Receipt`, object id `receipt:transaction:` followed by the raw transaction hash. Evidence uses `ObjectKind::Configuration`, object id `receipt-evidence:` followed by the same hash. Both keys include the tenant. This storage boundary checks hash, byte equality and minimum rung; it is not itself a cryptographic receipt verifier.
+`store_verified_if_absent` with `AuthenticatedTransactionReceipt` persists receipt bytes under `ObjectKind::Receipt`, object id `receipt:transaction:` followed by the raw transaction hash. Evidence uses `ObjectKind::Configuration`, object id `receipt-evidence:` followed by the same hash. Both keys include the tenant. The capability is obtained through `AuthenticatedTransactionReceipt::from_authenticated` from the production receipt verifier, which authenticates producer-emitted receipt bytes against pinned receipt keys and their authorized height ranges and checks the receipt fields against the execution view. Committed evidence additionally requires a verified committed header and receipt coverage proof; a claimed committed rung, landing receipt or covering block alone is insufficient. The storage boundary checks hash, byte equality and minimum rung after authentication. Raw `TransactionReceiptEvidence` at Receipted or Committed is refused with `UnauthenticatedIngress` (`receipt.unauthenticated_ingress`) without writing either key, even when it matches an existing authenticated record.
 
 `serve_evidence` returns the record by tenant and transaction hash, checks the metadata hash and exact stored receipt bytes, and returns `None` for an absent evidence key. Identical writes are idempotent; conflicting metadata is refused. A stronger rung can replace a weaker rung for the same observation, while a weaker repeat preserves the stronger record. Submitted evidence is refused as `receipt.not_receipted`. Bad encodings or mismatched stored bytes yield `receipt.corrupt`.
 
@@ -240,8 +240,9 @@ The useful criteria remain:
 
 | Criterion | Existing coverage and assertion |
 | --- | --- |
-| `acceptance.9.18.1` / `req.9018.1` | [receipt_store_v2.rs](../../../services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs), `receipt_evidence_round_trips_by_transaction_hash`: height 12 and index 1 round-trip with all fields and exact bytes, including after reopening; the stored prefixes are `LXRE` v2 and `LXRM` v2 |
+| `acceptance.9.18.1` / `req.9018.1` | [receipt_store_v2.rs](../../../services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs), `receipt_evidence_round_trips_by_transaction_hash`: producer-derived transaction hash, height, index, success/revert status, gas used, bloom, signature and rung round-trip with exact receipt bytes, including after reopening; the stored prefixes are `LXRE` v2 and `LXRM` v2 |
 | `acceptance.9.18.2` / `req.9018.2` | Same file, `version_one_receipt_evidence_is_refused`: persisted v1 evidence produces `receipt.evidence_version` and remains unchanged |
+| `req.181721.1` | [receipts.rs](../../../services/agent/crates/layerx-agentd/tests/receipts.rs), `first_verified_ingress_is_stored_before_it_is_served`, `repeated_verified_ingress_refuses_conflicts_without_replacing_the_first_receipt` and `raw_transaction_evidence_is_refused_without_writing`: authenticated first-write visibility, exact bytes after reopening, idempotence, tenant isolation, durable conflict preservation and raw Receipted/Committed refusal before and after authenticated storage and reopening; `receipt_store_v2.rs` retains monotonic-rung and legacy-version coverage |
 
 ## receipt-metadata
 

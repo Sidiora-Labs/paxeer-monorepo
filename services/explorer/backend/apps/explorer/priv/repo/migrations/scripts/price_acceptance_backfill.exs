@@ -18,7 +18,14 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
     do: GenServer.call(server, {:step, batch_size}, :infinity)
 
   def pending? do
-    %{rows: [[pending]]} = Repo.query!("SELECT EXISTS (SELECT 1 FROM #{@table} WHERE completed = false)")
+    %{rows: [[pending]]} =
+      Repo.query!("""
+      SELECT EXISTS (
+        SELECT 1 FROM #{@table} j JOIN blocks b ON b.hash = j.block_hash
+        WHERE j.completed = false AND b.consensus = true
+      )
+      """)
+
     pending
   end
 
@@ -63,8 +70,14 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
 
   defp run_step(batch_size, options) do
     case next_job() do
-      nil -> :complete
-      job -> replay(job, batch_size, options)
+      nil ->
+        case Repo.query!("SELECT EXISTS (SELECT 1 FROM #{@table} WHERE completed = false)").rows do
+          [[true]] -> :deferred
+          [[false]] -> :complete
+        end
+
+      job ->
+        replay(job, batch_size, options)
     end
   rescue
     error -> {:error, {:replay_failed, Exception.message(error)}}

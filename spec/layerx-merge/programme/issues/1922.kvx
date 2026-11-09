@@ -1,0 +1,48 @@
+[issue.1922]
+number = 1922
+title = "[Coherence] The layerx-agentd-host and layerx-mcp lint tasks lint targets whose source files lie outside the paths those tasks may touch"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The host scope is repaired at spec/layerx-merge/spec.kvx:187341 and its daemon dependency at :187333, but the pending MCP task still limits touches to the crate at :187310 while linting all targets at :187314, including services/agent/crates/layerx-mcp/Cargo.toml:41's external services/agent/tests/mcp/injection.rs, and capability.22.39.224 repeats the missing scope at spec/layerx-merge/spec.kvx:43544 despite decision.3057 at :11457."
+close_comment = "The host lint task already covers the daemon binary and its host tests. The MCP injection test still falls outside its lint task's permitted paths; the follow-up adds that source to the task and capability scopes while retaining the full lint gate and all injection assertions."
+
+[task.18.1922.1]
+title = "Issue #1922: Include the MCP injection source in its lint repair scope"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181922.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add services/agent/tests/mcp/injection.rs to the touches lists of pending task.22.39.224 and capability.22.39.224 in spec/layerx-merge/spec.kvx:187310 and :43544, alongside the existing crate path: services/agent/crates/layerx-mcp/Cargo.toml:39 registers that test and :41 locates its source outside the crate, while decision.3057 at spec/layerx-merge/spec.kvx:11457 requires every linted source to be in scope; retain the all-targets build and lint commands at :187313 and :187314 and the repaired host scope at :187341."
+do_2 = "Check the touches line in each of task.22.39.224 and capability.22.39.224 for the explicit services/agent/tests/mcp/injection.rs source; preserve the injection test and its fifteen-case assertion at services/agent/tests/mcp/injection.rs:187 and :191, the daemon library-only lint at spec/layerx-merge/spec.kvx:187376, and the limits test scope precedent at :187159."
+symbols = []
+touches = ["spec/layerx-merge/spec.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "sed -n '/^[[]task[.]22[.]39[.]224[]]$/,/^$/p' spec/layerx-merge/spec.kvx | grep -E '^touches = .*services/agent/crates/layerx-mcp.*services/agent/tests/mcp/injection[.]rs' && sed -n '/^[[]capability[.]22[.]39[.]224[]]$/,/^$/p' spec/layerx-merge/spec.kvx | grep -E '^touches = .*services/agent/crates/layerx-mcp.*services/agent/tests/mcp/injection[.]rs'"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181922]
+title = "MCP lint repair scope covers its external injection target"
+ac_1 = "The touches lists of task.22.39.224 and capability.22.39.224 at spec/layerx-merge/spec.kvx:187310 and :43544 include services/agent/tests/mcp/injection.rs, the source registered at services/agent/crates/layerx-mcp/Cargo.toml:41, so the all-targets lint at spec/layerx-merge/spec.kvx:187314 can be repaired within its declared paths."
+
+[acceptance.18.1922.1]
+feature = "18"
+req = "181922.1"
+scenario = "Given the MCP injection target is outside its crate directory, when the task and capability scope declarations are checked, then both touches lists explicitly include services/agent/tests/mcp/injection.rs and retain the existing crate scope."
+contract = "contracts/programme.md#decisions"
+test = "spec/layerx-merge/spec.kvx::task.22.39.224 and capability.22.39.224 touches checks (planned)"
+qualification = "UNRUN"
