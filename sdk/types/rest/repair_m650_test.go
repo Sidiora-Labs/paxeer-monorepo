@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
+	rpcserver "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/server"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
@@ -180,6 +181,55 @@ func TestRepairM_650_FeeRepresentations(t *testing.T) {
 			}
 			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 			repairM650AssertTx(t, amino, response.Body.Bytes(), producer, wantFees)
+		})
+	}
+}
+
+func TestReadRESTReqReportsEffectiveBodyLimit(t *testing.T) {
+	amino, router, producer, path := repairM650Handler()
+	wire, err := amino.MarshalAsJSON(producer)
+	require.NoError(t, err)
+	for _, configuredLimit := range []int64{500_000, 1_000_000, 2_000_000, 0} {
+		t.Run(fmt.Sprintf("configured_limit_%d", configuredLimit), func(t *testing.T) {
+			effectiveLimit := int64(rest.MaxRequestBodyBytes)
+			if configuredLimit > 0 && configuredLimit < effectiveLimit {
+				effectiveLimit = configuredLimit
+			}
+			server := httptest.NewServer(rpcserver.MaxBytesHandler(router, configuredLimit))
+			t.Cleanup(server.Close)
+			for _, knownLength := range []bool{true, false} {
+				for _, size := range []int64{effectiveLimit, effectiveLimit + 1} {
+					t.Run(fmt.Sprintf("known_length_%t/bytes_%d", knownLength, size), func(t *testing.T) {
+						payload := append(append([]byte(nil), wire...), bytes.Repeat([]byte(" "), int(size)-len(wire))...)
+						var stream io.Reader = bytes.NewReader(payload)
+						if !knownLength {
+							stream = io.MultiReader(stream)
+						}
+						request, err := http.NewRequest(http.MethodPost, server.URL+path, stream)
+						require.NoError(t, err)
+						if knownLength {
+							require.Equal(t, size, request.ContentLength)
+						} else {
+							require.Zero(t, request.ContentLength)
+						}
+						request.Header.Set("Content-Type", "application/json")
+						response, err := server.Client().Do(request)
+						require.NoError(t, err)
+						defer response.Body.Close()
+						body, err := io.ReadAll(response.Body)
+						require.NoError(t, err)
+						require.Equal(t, "true", response.Header.Get("Deprecation"))
+						require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+						if size > effectiveLimit {
+							require.Equal(t, http.StatusRequestEntityTooLarge, response.StatusCode, string(body))
+							require.JSONEq(t, fmt.Sprintf(`{"error":"request body exceeds maximum size of %d bytes"}`, effectiveLimit), string(body))
+							return
+						}
+						require.Equal(t, http.StatusOK, response.StatusCode, string(body))
+						repairM650AssertTx(t, amino, body, producer, producer.BaseReq.Fees)
+					})
+				}
+			}
 		})
 	}
 }
