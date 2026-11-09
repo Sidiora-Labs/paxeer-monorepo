@@ -19605,3 +19605,8 @@ fix = "The planned paths of both tasks now carry the lockfile and the held resul
 title = "The chain select trigger of the explorer search results carries no accessible name because the toolkit select never forwards trigger properties"
 symptom = "Task 18.1717.1 attempt 7 at adfd8670f810: build exit 0; searchResultsRoutesKeepOneHeaderAndLiveSearch fails at LayoutSearchResults.spec.tsx:228 because the single combobox inside the filters has no accessible name (label null, text All chains) and the query by the names Select chain or All chains finds nothing; apps/explorer/toolkit/chakra/select.tsx:255 to :263 renders SelectControl without the triggerProps that SelectControl spreads on its trigger (:49), so ui/shared/externalChains/ChainSelect.tsx cannot name its trigger; log /out/logs/verify-1.log"
 fix = "Decision 3112: the toolkit select forwards trigger properties and the chain select names its trigger Chain"
+
+[gotcha.3957]
+title = "The launchpad Go wiring test still asserts a literal runner image after the workflow moved to the routed runner expression"
+symptom = "Task 22.39.168 attempt 4 at 5234eca6cedb: build exit 0; the verification stops at tests/ci/test_launchpad_go_tests_wired.py:51 because test_launchpad_workflow_has_go_job asserts runs-on equals ubuntu-latest while .github/workflows/launchpad-test.yml:80 carries the routed runner expression (the fork guard, vars.CI_LINUX_RUNNER and the ubuntu-24.04 fallback) since the routed form was restored on the workflows (commit e0a5a9cb96) and issue 1843; the other forty-one wiring cases pass and no Go module ran; the test file is among the touches of the task; log /out/logs/verify-1.log"
+fix = "Decision 3113: the wiring test asserts the routed form through the shared runner check"

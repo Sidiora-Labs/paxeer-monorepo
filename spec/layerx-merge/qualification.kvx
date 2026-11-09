@@ -38530,3 +38530,11 @@ symbol = "LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveS
 observed = "Attempt 7 at adfd8670f810: build exit 0; verification exit 1: searchResultsRoutesKeepOneHeaderAndLiveSearch fails at LayoutSearchResults.spec.tsx:228, the combobox inside the filters has no accessible name; log /out/logs/verify-1.log."
 assumption = "The accessible name is the only missing piece between the single header and the passing case."
 severity = "high"
+
+[finding.22.39.168.4]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 4 at 5234eca6cedb: build exit 0; verification exit 1: test_launchpad_workflow_has_go_job fails at tests/ci/test_launchpad_go_tests_wired.py:51 asserting ubuntu-latest against the routed runs-on expression; no Go module ran; log /out/logs/verify-1.log."
+assumption = "The wiring assertion is the only failure before the module runs."
+severity = "high"
