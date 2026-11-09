@@ -11242,6 +11242,12 @@ value = "QuarantineAfterRollback of sdk/launchpad/shared/delivery/store.go verif
 basis = "Gotcha 3718, decision 2908, gotcha 3046"
 affects = ["22.39.117"]
 
+[decision.3022]
+title = "A declared document that the historical module still reads is not deleted by a retirement task; the task retires its trust role and asserts the reader set"
+value = "When a retirement task of the kernel programme targets a document whose only non-test readers are the historical modules decision 3006 keeps (layerx-types historical, layerx-wire historical), the document stays in the tree as their archival producer and the task retires its trust role instead: the retirement test asserts that no source file outside the historical module and outside test, fixture, vector, build-input and image paths references the document, that the document keeps its declared schema through the harness helper, and that every remaining reference belongs to a recorded reader set the test lists by path. The retirement harness exposes the reference scan of assert_retired as a function returning the references for a set of paths so such a test shares its scanner; assert_retired keeps its behaviour. The task record names the trust readers the earlier tasks deleted and the readers that remain."
+basis = "Gotcha 3719, decisions 928, 3006 and 2910, task 9.27.4"
+affects = ["6.59.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -257302,11 +257308,11 @@ do_2 = "Write tests/bridge/retired/test_retired_checkpoint_settlement.py (planne
 do_3 = "The live references outside the retired set at HEAD are docker/kernel/Dockerfile:354, docker/kernel/Dockerfile:397, docker/layerx/Dockerfile:17, docker/layerx/Dockerfile.dockerignore:101, docker/paxeer/Dockerfile.paxd-node:11, docker/platform-node/Dockerfile:42, services/agent/crates/layerx-client/tests/availability_daemon.rs:273, services/agent/crates/layerx-proof/src/settlement.rs:10; their owners remove them through the wiring requests listed on this task."
 do_4 = "Leave contracts/config/native-state-proofs.json:1 and contracts/config/client.toml:1 in place; they are not part of the retired set."
 symbols = ["test_checkpoint_settlement_is_retired"]
-touches = ["contracts/config/checkpoint-settlement.json", "tests/bridge/retired/test_retired_checkpoint_settlement.py", "services/platform/hosted/node/tests/sequencer-seed-test.py", "services/platform/hosted/node/tests/signer-test.py"]
+touches = ["contracts/config/checkpoint-settlement.json", "tests/bridge/retired/kernel_retirement.py"]
 tests = ["tests/bridge/retired/test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"]
-planned_paths = ["tests/bridge/retired/test_retired_checkpoint_settlement.py"]
+planned_paths = ["tests/bridge/retired/test_retired_checkpoint_settlement.py", "tests/bridge/retired/repair_6_59_7.kvx"]
 build_cmd = "python3 -m py_compile tests/bridge/retired/test_retired_checkpoint_settlement.py"
-verify_cmd = "python3 -m pytest tests/bridge/retired/test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired -q"
+verify_cmd = "test -s tests/bridge/retired/repair_6_59_7.kvx && test -s contracts/config/checkpoint-settlement.json && python3 -m pytest -q tests/bridge/retired/test_retired_checkpoint_settlement.py tests/bridge/retired/test_kernel_retirement_harness.py tests/ci/test_image_compile_inputs_not_ignored.py"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-chain-modules"
@@ -257321,6 +257327,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Delete settlement_document() and the certificate_threshold checks that call it from services/platform/hosted/node/tests/sequencer-seed-test.py:79 and services/platform/hosted/node/tests/signer-test.py:642, the two readers of contracts/config/checkpoint-settlement.json that do_3 does not list (decision.2018); the two scripts keep their other cases."
+do_6 = "Attempt 2 (continue, gotcha 3719, decisions 928, 2910, 3006 and 3022): restore contracts/config/checkpoint-settlement.json from the base tree unchanged; the task now retires the trust role of the document, not the file. In tests/bridge/retired/kernel_retirement.py factor the reference scan of assert_retired into a function live_references(paths, root) that returns the sorted reference strings the scan produces, and make assert_retired call it so its behaviour and the harness test do not change. Rewrite tests/bridge/retired/test_retired_checkpoint_settlement.py so test_checkpoint_settlement_is_retired asserts three facts: checkpoint_settlement() loads the document with its declared schema; live_references([the document]) contains no path under a src directory other than services/agent/crates/layerx-types/src/historical/settlement.rs; and the set of referencing paths equals the reader set the test lists (the historical module and its two tests, the proof test support historical_checkpoint.rs, the hosted node TLS test support, the vector generator, the image compile inputs test, the layerx Dockerfile and the three ignore files, the settlement domain migration test, the makefile 104.30.2.mk, the retired-caller tests, the jev ledger fixture, the bring-up runtime contract test and the harness itself), as the attempt-1 verification log enumerates them. The two hosted node tests need no change and leave the touches from this round. Record the trust readers 9.27.4 deleted, the remaining reader set and the decision in tests/bridge/retired/repair_6_59_7.kvx (a planned path). Run the build once and the verification once at the final revision and record both by reference; if the reader set differs from the listed one, correct the list to the scan within the one allowed cycle and rerun once."
 
 [task.6.59.8]
 title = "Retire contracts/config/native-withdrawal-proof.json"

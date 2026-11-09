@@ -36322,3 +36322,11 @@ symbol = "activity_codec.rs"
 observed = "Attempt 1 at 4977cff751ba: build exit 0; verification exit 101: the activity_codec target passed and authority_from_prestate failed its producer-qualified case at tests/authority_from_prestate.rs line 290 for want of LAYERX_AUTHENTICATED_REPLAY_INPUTS; the two remaining targets never ran; log /out/logs/verify-1.log."
 assumption = "The verification text omitted the exclusion decision 2496 requires; the tree is sound."
 severity = "high"
+
+[finding.6.59.7.1]
+task = "6.59.7"
+file = "tests/bridge/retired/test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"
+symbol = "test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"
+observed = "Attempt 1 at 814ead680779: build exit 0; verification exit 1: assert_retired found live references to the deleted document in seventeen files led by the historical settlement module and the proof test support; log /out/logs/verify-1.log."
+assumption = "The document is the archival producer of the historical readers; deleting it contradicts decision 3006, and no trust reader remains."
+severity = "high"
