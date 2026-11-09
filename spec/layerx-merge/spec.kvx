@@ -153575,7 +153575,7 @@ do_4 = "Attempt 2 (continue, gotcha 3725, decisions 2908 and 3017): the attempt-
 
 [task.22.39.178]
 title = "Refresh the wallet workspace lockfiles for the SDK manifest and install the services/wallet workspace in the SDK test job"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.145", "22.39.94"]
