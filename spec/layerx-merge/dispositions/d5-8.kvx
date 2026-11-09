@@ -1,0 +1,111 @@
+# Source: main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.5.11.2.a2]
+finding = "5.11.2.a2"
+status = "resolved"
+evidence = "Commit 590812668e removes the retired embedded-chain lookup declarations from node/genesis/genesis.go:1, which now contains only the genesis package declaration; the retired chain IDs are no longer embedded there."
+
+[disposition.5.12.2.a2]
+finding = "5.12.2.a2"
+status = "resolved"
+evidence = "Commit e88cc4bd30 removes composite-store validation from ParseFlatKVConfig, which returns cfg and nil at storage/config/flatkv_parse.go:55 after parsing optional fields; DataDir remains validated when the complete FlatKV configuration is checked at storage/state_db/sc/flatkv/config/config.go:154."
+
+[disposition.5.13.2.1.a2]
+finding = "5.13.2.1.a2"
+status = "resolved"
+evidence = "Commits 3bce15444 and a10483b1e0 provide GetDenomPaused and EncodeTokenFactorySetDenomPaused respectively; node/wasmbinding/queries.go:133 dispatches the paused-denom query, and modules/tokenfactory/client/wasm/encoder.go:73 constructs MsgSetDenomPaused."
+
+[disposition.5.13.2.a2]
+finding = "5.13.2.a2"
+status = "resolved"
+evidence = "Commit 16d116a9a3 wires paused-denom Wasm dispatch to the existing providers; node/wasmbinding/queries.go:134 calls GetDenomPaused and modules/tokenfactory/client/wasm/encoder.go:73 provides the matching pause-message encoder."
+
+[disposition.5.16.4.1.a2]
+finding = "5.16.4.1.a2"
+status = "resolved"
+evidence = "Commit 01fac65e18 assigns testChainID to each giga wrapper at node/sequencer/seal_giga_test.go:42 before FinalizeBlock receives that same chain ID at line 67."
+
+[disposition.5.16.4.a2]
+finding = "5.16.4.a2"
+status = "environment"
+evidence = "engine/executor/lib/evmlib.go:15 loads the platform evmone library for InitEvmoneVM, and node/sequencer/seal_giga_test.go:46 and line 50 require non-nil VM instances for the primary and replay applications."
+
+[disposition.5.17.2.1.a2]
+finding = "5.17.2.1.a2"
+status = "resolved"
+evidence = "Commit e856ff1c9c initializes the block gas limits through resolutionBlockGas in both SealBatch fixtures, retained at node/sequencer/seal_test.go:73 and line 126 before transaction admission."
+
+[disposition.5.17.2.a2]
+finding = "5.17.2.a2"
+status = "resolved"
+evidence = "Commit e856ff1c9c removes Layers and OpenLayer from node/sequencer/layers.go, which now declares SequenceBatchFields at line 26; node/sequencer/seal.go:73 provides SealBatch and node/sequencer/seal_test.go:70 exercises deferred-balance sealing."
+
+[disposition.5.19.1.a2]
+finding = "5.19.1.a2"
+status = "resolved"
+evidence = "Commit c5218c16d supplies GetCustomPrecompilesE, currently at precompiles/setup.go:288, and commit 90e07859c switches application construction to it; node/app.go:1151 handles the provider's error before retaining the custom precompile set."
+
+[disposition.5.31.1.a2]
+finding = "5.31.1.a2"
+status = "environment"
+evidence = "consensus/types/sequencer.go:24 declares LeaderSource with its LeaderSchedule(height) method returning activation height, leaders and error; the interface declaration is present on main and supplies the committed-chain leader schedule contract."
+
+[disposition.5.4.5.1.a2]
+finding = "5.4.5.1.a2"
+status = "resolved"
+evidence = "Commit 1208b07546 replaces the check-context parent ID with committed block state at node/app.go:3584. node/sequencer/executor_header_test.go:48 sets a distinct parent ID and line 67 requires LastBlockID to equal the committed block's own hash."
+
+[disposition.5.4.5.a2]
+finding = "5.4.5.a2"
+status = "resolved"
+evidence = "Commit 238dc2034f adds App.LastBlockID, currently declared at node/app.go:3584, satisfying the production Host method at node/sequencer/executor.go:78 and populating the next open header at line 265."
+
+[disposition.5.46.7.a2]
+finding = "5.46.7.a2"
+status = "resolved"
+evidence = "Commit 71ea3e7967 marshals the sequencer genesis with explicit activation_height, leaders and receipt_keys JSON tags at daemon/paxd/cmd/new_app_test.go:70, matching the module's decoded shape."
+
+[disposition.5.48.1.a2]
+finding = "5.48.1.a2"
+status = "resolved"
+evidence = "Commit 1e850131cd deletes cmd/layerx-module-registry/node.c and removes the read-node command path; cmd/layerx-module-registry/main.c:93 remains the registry CLI entry point without the retired node reader."
+
+[disposition.5.49.1.a2]
+finding = "5.49.1.a2"
+status = "resolved"
+evidence = "Commit 817eafdef removes the fresh-custody builder and reserve-account support; cmd/layerx-genesis/lxp_genesis_builder.c:240 retains the fresh-empty builder and line 254 retains snapshot migration without lxp_genesis_build_fresh_custody."
+
+[disposition.5.5.12.a2]
+finding = "5.5.12.a2"
+status = "resolved"
+evidence = "Commit bd41925be1 compares plain proposer-address byte slices at node/sequencer/node_test.go:118, preserving exact byte equality between the validator public-key address and the sealed header."
+
+[disposition.5.55.5.3.a2]
+finding = "5.55.5.3.a2"
+status = "resolved"
+evidence = "Commit f93d74e1c propagates standby refusal reasons and removes stale retained lease frames after acknowledgement; node/sequencer/standby.go:486 excludes lease epochs below the primary's acknowledged epoch during retransmission retention."
+
+[disposition.5.6.4.a2]
+finding = "5.6.4.a2"
+status = "resolved"
+evidence = "Commit 17f3d738c removes sequencerPinnedLeader; node/upgrades.go:803 retains unmountedPlanStores to check required stores for the selected upgrade plan."
+
+[disposition.5.61.2.a2]
+finding = "5.61.2.a2"
+status = "environment"
+evidence = "consensus/Makefile:14 defines LD_FLAGS with the linked consensus version, line 15 includes those flags in BUILD_FLAGS, and the build and install recipes consume BUILD_FLAGS at lines 67 and 71."
+
+[disposition.5.69.1.a2]
+finding = "5.69.1.a2"
+status = "resolved"
+evidence = "Commit 6b42b0744a makes BlockSearch load Autobahn query hits through the giga BlockByNumber call at consensus/internal/rpc/core/blocks.go:424; commit fb94b36a4 adds the route conformance assertion for the returned height-three block."
+
+[disposition.5.98.1.1.a2]
+finding = "5.98.1.1.a2"
+status = "resolved"
+evidence = "Commit 9d87ee2aa supplies the separate validation genesis at tools/qualification/localnode/v6120-node.sh:558 and inherits consensus timeout and synchrony values at lines 409 through 412; the startup genesis omits spot at line 413 so the v6.12.0 handler can initialize its store."
+
+[disposition.5.98.1.a2]
+finding = "5.98.1.a2"
+status = "resolved"
+evidence = "Commit 9d87ee2aa adds the halt-export-derived v6.12.0 bootstrap; tools/qualification/localnode/v6120-node.sh:413 leaves spot uninitialized in the startup genesis and line 629 schedules the upgrade at the initial block height."

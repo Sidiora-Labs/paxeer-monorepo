@@ -115,12 +115,13 @@ async function pushProvider(browser: ReturnType<typeof browserSubscription>) {
   await once(server, 'listening');
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Missing fixture address');
+  const port = address.port;
   // Route real TLS sockets to the isolated provider; hostname verification stays enabled.
   function createAgent(options: https.AgentOptions): https.Agent {
     return new https.Agent({
       ...options,
       ca: cert,
-      port: address.port,
+      port,
       lookup: (_hostname, options, callback) => {
         if (options.all) callback(null, [{ address: '127.0.0.1', family: 4 }]);
         else callback(null, '127.0.0.1', 4);

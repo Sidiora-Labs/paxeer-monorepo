@@ -254,6 +254,13 @@ func (k *Keeper) MigrateLegacyReceiptsBatch(ctx sdk.Context, batchSize int) (int
 	return migrated, nil
 }
 
+func formatVMError(vmError string, precompileError error) string {
+	if vmError != "" && precompileError != nil {
+		return fmt.Sprintf("%s|%s", vmError, precompileError.Error())
+	}
+	return vmError
+}
+
 func (k *Keeper) WriteReceipt(
 	ctx sdk.Context,
 	stateDB *state.DBImpl,
@@ -273,7 +280,7 @@ func (k *Keeper) WriteReceipt(
 		BlockNumber:       uint64(ctx.BlockHeight()), // nolint:gosec
 		TransactionIndex:  uint32(ctx.TxIndex()),     //nolint:gosec
 		EffectiveGasPrice: msg.GasPrice.Uint64(),
-		VmError:           vmError,
+		VmError:           formatVMError(vmError, stateDB.GetPrecompileError()),
 		Logs:              utils.Map(ethLogs, ConvertEthLog),
 		LogsBloom:         bloom[:],
 	}
@@ -296,9 +303,6 @@ func (k *Keeper) WriteReceipt(
 	if perr := stateDB.GetPrecompileError(); perr != nil {
 		if receipt.Status > 0 {
 			logger.Error("Transaction succeeded in execution but has precompile error ", "tx", receipt.TxHashHex, "err", perr)
-		} else {
-			// append precompile error to VM error
-			receipt.VmError = fmt.Sprintf("%s|%s", receipt.VmError, perr.Error())
 		}
 	}
 

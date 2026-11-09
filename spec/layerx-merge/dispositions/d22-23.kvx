@@ -1,0 +1,527 @@
+# Closure dispositions for task 22.39.191.
+# Product evidence is read from main-line revision a26369c7eda603cb28bcdd8cef55c35df7d248ee (origin/main).
+
+[disposition.22.33.1256.1]
+finding = "22.33.1256.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v606/repair_m1256_test.go:272."
+
+[disposition.22.33.1257.1]
+finding = "22.33.1257.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v610/repair_m1257_test.go:247."
+
+[disposition.22.33.1258.1]
+finding = "22.33.1258.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v614/repair_m1258_test.go:168."
+
+[disposition.22.33.1259.1]
+finding = "22.33.1259.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v620/repair_m1259_test.go:237."
+
+[disposition.22.33.1259.2]
+finding = "22.33.1259.2"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v620/repair_m1259_test.go:237."
+
+[disposition.22.33.1260.1]
+finding = "22.33.1260.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v630/repair_m1260_test.go:255."
+
+[disposition.22.33.1260.2]
+finding = "22.33.1260.2"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v630/repair_m1260_test.go:255."
+
+[disposition.22.33.1261.1]
+finding = "22.33.1261.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v640/repair_m1261_test.go:248."
+
+[disposition.22.33.1261.2]
+finding = "22.33.1261.2"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v640/repair_m1261_test.go:248."
+
+[disposition.22.33.1262.1]
+finding = "22.33.1262.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v555/repair_m1262_test.go:254."
+
+[disposition.22.33.1263.1]
+finding = "22.33.1263.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/distribution/legacy/v562/repair_m1263_test.go:239."
+
+[disposition.22.33.1264.1]
+finding = "22.33.1264.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/addr/legacy/v575/repair_m1264_test.go:183."
+
+[disposition.22.33.1265.1]
+finding = "22.33.1265.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/ibc/repair_m1265_test.go:20."
+
+[disposition.22.33.1265.2]
+finding = "22.33.1265.2"
+status = "resolved"
+evidence = "Commit 3b061d6fd7 encodes the signed TimestampedSignatureData with the application codec at precompiles/ibc/repair_m1265_test.go:196 and requires exactly one nonempty acknowledgement at precompiles/ibc/repair_m1265_test.go:221, retaining the authenticated transfer and settlement checks."
+
+[disposition.22.33.1265.3]
+finding = "22.33.1265.3"
+status = "resolved"
+evidence = "Commit 3b061d6fd7 advances the source light client with a signed header at precompiles/ibc/repair_m1265_test.go:60, persists its authenticated consensus state at the proof height at line 70, and reopens the source before checking the timeout and replay results at lines 81 and 169."
+
+[disposition.22.33.1267.1]
+finding = "22.33.1267.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/gov/repair_m1267_test.go:51."
+
+[disposition.22.33.1271.1]
+finding = "22.33.1271.1"
+status = "resolved"
+evidence = "Commit 5ed2e071fc funds the benchmark accounts in the fee denomination at wasm/benchmarks/app_test.go:125 and computes the minimum gas fee at wasm/benchmarks/app_test.go:248. InitializeWasmApp accepts WASM options at line 98 and passes them with the selected database into setup at line 131."
+
+[disposition.22.33.1271.2]
+finding = "22.33.1271.2"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at wasm/benchmarks/repair_m1271_test.go:20."
+
+[disposition.22.33.1275.1]
+finding = "22.33.1275.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/wasmd/repair_m1275_test.go:116."
+
+[disposition.22.33.1275.2]
+finding = "22.33.1275.2"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/wasmd/repair_m1275_test.go:116."
+
+[disposition.22.33.1275.3]
+finding = "22.33.1275.3"
+status = "resolved"
+evidence = "Commit b7f6c3c421 supplies checksum-checked pointer runtimes through precompiles/common/pointer_artifacts.go:28 and installs the corrected runtime only over its authenticated predecessor at line 72. precompiles/wasmd/repair_m1275_test.go:152 checks every selector relocation and preserves all other artifact bytes before the delegatecall cases."
+
+[disposition.22.33.1276.1]
+finding = "22.33.1276.1"
+status = "resolved"
+evidence = "Commit c69998ffae retains the signed CLI, legacy REST and gRPC query suite through TestRepairM_1276_IntegrationSignedCommittedQueries at interchain/testing/repair_m1276_test.go:239, alongside the destination timeout state and callback assertions at line 230."
+
+[disposition.22.33.1276.2]
+finding = "22.33.1276.2"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at interchain/testing/repair_m1276_test.go:23."
+
+[disposition.22.33.1277.1]
+finding = "22.33.1277.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at interchain/testing/mock/repair_m1277_test.go:43."
+
+[disposition.22.33.1277.2]
+finding = "22.33.1277.2"
+status = "resolved"
+evidence = "Commit cf2bc6a265 restores missing controller port capabilities during genesis import at interchain/modules/apps/27-interchain-accounts/controller/keeper/genesis.go:15 and records every imported port for subsequent exports at line 24. interchain/testing/mock/repair_m1277_test.go:224 checks binding, export identity and repeated-import capability stability."
+
+[disposition.22.33.1278.1]
+finding = "22.33.1278.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at interchain/testing/simapp/repair_m1278_test.go:26."
+
+[disposition.22.33.1278.2]
+finding = "22.33.1278.2"
+status = "environment"
+evidence = "Main carries SignAndDeliverResult at interchain/testing/simapp/test_helpers.go:351, which commits the block and checks the commit error at line 379 while retaining the delivery outcome. The delivery-error persistence regression lives at interchain/testing/simapp/repair_m1278_test.go:95 in commit e1809a1b0f."
+
+[disposition.22.33.1280.1]
+finding = "22.33.1280.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/bank/repair_m1280_test.go:20."
+
+[disposition.22.33.1282.1]
+finding = "22.33.1282.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/xweb/repair_m1282_test.go:49."
+
+[disposition.22.33.1282.2]
+finding = "22.33.1282.2"
+status = "resolved"
+evidence = "Commit 70eb37f649 aligns XWebProgramRequested in precompiles/xweb/XWeb.sol:85 and contracts/src/precompiles/IXWeb.sol:85 to programId, requestId, kind, payload and sequence. precompiles/xweb/repair_m1282_test.go:57 compares the named ABI inputs and event topic with the Solidity declaration."
+
+[disposition.22.33.1283.1]
+finding = "22.33.1283.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/pointer/repair_m1283_test.go:90."
+
+[disposition.22.33.1284.1]
+finding = "22.33.1284.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at precompiles/solo/repair_m1284_test.go:135."
+
+[disposition.22.33.1288.1]
+finding = "22.33.1288.1"
+status = "resolved"
+evidence = "Commit d611f9b0b4 connects the snapshot recovery case at wasm/x/wasm/keeper/repair_m1288_test.go:166 to the committed-state and WASM-extension restore at wasm/x/wasm/keeper/snapshotter_integration_test.go:178. The reopened destination retains pinned-code state and repopulates its native cache at line 201."
+
+[disposition.22.33.1288.2]
+finding = "22.33.1288.2"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at wasm/x/wasm/keeper/repair_m1288_test.go:22."
+
+[disposition.22.33.1292.1]
+finding = "22.33.1292.1"
+status = "resolved"
+evidence = "Commit 0889a51ee7 gives the RPC configuration import the distinct alias rpcconfig at rpc/repair_m1292_test.go:41 while the geth transport import remains rpc at line 48. The file declares the real profiled-tracer and cancellation regression entry points at lines 131 and 140."
+
+[disposition.22.33.1293.1]
+finding = "22.33.1293.1"
+status = "resolved"
+evidence = "Commit 1e72661f0a registers subscription shutdown with the WebSocket server at rpc/server.go:583 and cancels and joins its workers at rpc/subscribe.go:796. rpc/repair_m1293_test.go:369 retains repeated server start/stop coverage and requires the consensus client count to return to zero at line 384."
+
+[disposition.22.33.1297.1]
+finding = "22.33.1297.1"
+status = "resolved"
+evidence = "Commit e1dc70e203 retains the expiry-race proof at rpc/repair_m1297_test.go:61, which polls a selected filter before delayed cleanup and requires its refreshed entry and feed subscription to survive at lines 99 and 104. The same test then checks that genuinely expired entries and subscriptions are removed at line 115."
+
+[disposition.22.33.1297.2]
+finding = "22.33.1297.2"
+status = "resolved"
+evidence = "Commit e1dc70e203 supplies all eight named repair entry points in rpc/repair_m1297_test.go:35, including the expiry race and the six registered producer proofs at line 138. The proof dispatcher at line 131 requires each real-code proof to exist before calling it, and the ticker-bound case at line 46 retains explicit invalid-duration refusals."
+
+[disposition.22.33.1299.1]
+finding = "22.33.1299.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at rpc/config/repair_m1299_test.go:28."
+
+[disposition.22.33.13.1]
+finding = "22.33.13.1"
+status = "resolved"
+evidence = "Commit 7435b17141 restores the boundary deployment document consumed by services/platform/hosted/gateway/tests/repair_22_31_345.rs:13 and carries the permit and deadline into its TLS connection handler at line 76. services/agent/crates/layerx-agentd/tests/repair_22_33_13.rs:168 retains the capability graph restart and ancestry checks."
+
+[disposition.22.33.1301.1]
+finding = "22.33.1301.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at rpc/tests/repair_m1301_test.go:16."
+
+[disposition.22.33.1302.1]
+finding = "22.33.1302.1"
+status = "resolved"
+evidence = "Commit 65d57338b5 exports producer-created kernel records and validates their genesis representation at modules/layerxpay/types/repair_m1302_test.go:54. The destination imports that snapshot at line 179, commits and reopens its host, and compares the exported records and escrow views after recovery at line 184."
+
+[disposition.22.33.1302.2]
+finding = "22.33.1302.2"
+status = "resolved"
+evidence = "Commit 65d57338b5 exports producer-created kernel records and validates their genesis representation at modules/layerxpay/types/repair_m1302_test.go:54. The destination imports that snapshot at line 179, commits and reopens its host, and compares the exported records and escrow views after recovery at line 184."
+
+[disposition.22.33.1302.3]
+finding = "22.33.1302.3"
+status = "resolved"
+evidence = "Commit 65d57338b5 uses the current kernel-record genesis representation at modules/layerxpay/types/repair_m1302_test.go:70 and the typed InitGenesis and ErrInvalidGenesis API at line 84. Refused snapshots preserve the destination stores at line 86, and the unchanged valid snapshot round-trips at line 179."
+
+[disposition.22.33.1302.4]
+finding = "22.33.1302.4"
+status = "environment"
+evidence = "The layerxpay genesis and escrow proofs are declared in the root-module package at modules/layerxpay/types/repair_m1302_test.go:33 and modules/layerxpay/types/repair_m1302_test.go:261. The genesis proof imports the real producer snapshot, reopens the host and checks the retained views at line 184."
+
+[disposition.22.33.1303.1]
+finding = "22.33.1303.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at modules/layerxpay/keeper/repair_m1303_test.go:37."
+
+[disposition.22.33.1309.1]
+finding = "22.33.1309.1"
+status = "resolved"
+evidence = "Commit b5d7208832 assigns independently reserved P2P addresses before both consensus starts at sdk/server/repair_m1309_test.go:409 and line 484. The unsupported-store case checks the typed ErrVersionedStateUnsupported refusal at line 383 and keeps the supported-store committed-state comparison at line 396."
+
+[disposition.22.33.1309.2]
+finding = "22.33.1309.2"
+status = "resolved"
+evidence = "Commit b5d7208832 gives rollback recovery persistent consensus databases at sdk/server/repair_m1309_test.go:407 and verifies both state and blockstore directories after the original node stops at line 431. The recovered application hash is compared after reopening at line 482 and against the restarted node block at line 504."
+
+[disposition.22.33.1313.1]
+finding = "22.33.1313.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at sdk/server/rosetta/lib/internal/service/repair_m1313_test.go:184."
+
+[disposition.22.33.1316.1]
+finding = "22.33.1316.1"
+status = "resolved"
+evidence = "Commit d56c2b440d propagates the fallible transaction factory result through CLI callers at sdk/x/auth/client/cli/tx_sign.go:69 and modules/tokenfactory/client/cli/tx.go:80, returning constructor errors before signing or broadcasting. The corresponding regression cases remain on main at sdk/server/grpc/repair_m1316_test.go:76."
+
+[disposition.22.33.1318.1]
+finding = "22.33.1318.1"
+status = "environment"
+evidence = "The examples contract is exercised by Python functions in tools/qualification/audit_repairs/test_repair_22_33_1318.py:41 and line 68, comparing application profiles, receipt pins and paid offers with the maintained guide. services/platform/examples/README.md:26 publishes the application-specific root JSON-RPC and receipt-key configuration."
+
+[disposition.22.33.1321.1]
+finding = "22.33.1321.1"
+status = "environment"
+evidence = "Main carries the native boundary initialization and restart drift proof at services/platform/hosted/paxeer/tests/repair_22_33_1321.rs:151, including immutable-input drift refusal at line 201. The native library and retained boundary binary are declared in services/platform/hosted/paxeer/Cargo.toml:8 and line 18 by the landed ef11ec4bc2 result."
+
+[disposition.22.33.1321.2]
+finding = "22.33.1321.2"
+status = "environment"
+evidence = "Main carries the native boundary initialization and restart drift proof at services/platform/hosted/paxeer/tests/repair_22_33_1321.rs:151, including immutable-input drift refusal at line 201. The native library and retained boundary binary are declared in services/platform/hosted/paxeer/Cargo.toml:8 and line 18 by the landed ef11ec4bc2 result."
+
+[disposition.22.33.1322.1]
+finding = "22.33.1322.1"
+status = "resolved"
+evidence = "Commit d5401ed95b restores the platform boundary crate manifest; main declares layerx-platform-paxeer-boundary at services/platform/hosted/paxeer/Cargo.toml:2 and its retained binary at line 18. Its proof dependencies remain declared at line 33 alongside the native library and tool targets."
+
+[disposition.22.33.1322.2]
+finding = "22.33.1322.2"
+status = "resolved"
+evidence = "Commit d5401ed95b restores the platform boundary crate manifest; main declares layerx-platform-paxeer-boundary at services/platform/hosted/paxeer/Cargo.toml:2 and its retained binary at line 18. Its proof dependencies remain declared at line 33 alongside the native library and tool targets."
+
+[disposition.22.33.1323.1]
+finding = "22.33.1323.1"
+status = "resolved"
+evidence = "Commit d5401ed95b restores the platform boundary crate manifest; main declares layerx-platform-paxeer-boundary at services/platform/hosted/paxeer/Cargo.toml:2 and its retained binary at line 18. Its proof dependencies remain declared at line 33 alongside the native library and tool targets."
+
+[disposition.22.33.1323.2]
+finding = "22.33.1323.2"
+status = "resolved"
+evidence = "Commit 49e1a5b38d consumes the maintained native deployment profile in services/platform/hosted/paxeer/tests/support/genesis_transport.rs:447, checks its chain identity, and parses its RPC origin through NodeEndpoint at line 456. services/platform/hosted/paxeer/tests/repair_22_33_1323.rs:60 registers that profile-consumer proof with the genesis transport cases."
+
+[disposition.22.33.1323.3]
+finding = "22.33.1323.3"
+status = "resolved"
+evidence = "Commit 49e1a5b38d passes an explicit deadline to genesis::response at services/platform/hosted/paxeer/tests/support/genesis_transport.rs:102 and to route at line 405. services/platform/hosted/paxeer/tests/repair_22_33_1323.rs:48 retains the bounded genesis deadline case through that support module."
+
+[disposition.22.33.1329.1]
+finding = "22.33.1329.1"
+status = "environment"
+evidence = "The webhooks regression is a Rust integration target at services/platform/hosted/webhooks/tests/repair_22_33_1329.rs:517, where guest capture, authenticated membership and restart handling use the real market outbox. Its receiver recovery and durable effect replay case is declared in the same file at line 617, as landed in 2c1ebce24a."
+
+[disposition.22.33.1329.2]
+finding = "22.33.1329.2"
+status = "environment"
+evidence = "The webhooks regression is a Rust integration target at services/platform/hosted/webhooks/tests/repair_22_33_1329.rs:517, where guest capture, authenticated membership and restart handling use the real market outbox. Its receiver recovery and durable effect replay case is declared in the same file at line 617, as landed in 2c1ebce24a."
+
+[disposition.22.33.1329.3]
+finding = "22.33.1329.3"
+status = "resolved"
+evidence = "Commit d5401ed95b restores the platform boundary crate manifest; main declares layerx-platform-paxeer-boundary at services/platform/hosted/paxeer/Cargo.toml:2 and its retained binary at line 18. Its proof dependencies remain declared at line 33 alongside the native library and tool targets."
+
+[disposition.22.33.1329.4]
+finding = "22.33.1329.4"
+status = "resolved"
+evidence = "Commit d5401ed95b restores the platform boundary crate manifest; main declares layerx-platform-paxeer-boundary at services/platform/hosted/paxeer/Cargo.toml:2 and its retained binary at line 18. Its proof dependencies remain declared at line 33 alongside the native library and tool targets."
+
+[disposition.22.33.133.1]
+finding = "22.33.133.1"
+status = "resolved"
+evidence = "Commit a32c26bb72 declares the five EthereumJS packages in apps/wallet/package.json:61 and solc at apps/wallet/package.json:82, making the swap execution fixture part of the wallet application dependency set. The hook regression remains at apps/wallet/src/lib/swap/sdk/repair-22-33-133.test.ts:444."
+
+[disposition.22.33.133.2]
+finding = "22.33.133.2"
+status = "resolved"
+evidence = "Commit b1c7d9e85f supplies the oracle getPrice and isPriceStale calls at apps/wallet/src/lib/swap/sdk/repair-22-33-133.test.ts:247 and both spot and launchpad quote calls at lines 261 and 271. The registered hook cases at line 551 retain replacement, refusal, loading and stale-result checks for those responses."
+
+[disposition.22.33.1331.1]
+finding = "22.33.1331.1"
+status = "environment"
+evidence = "The webhooks crate declares layerx-proof at services/platform/hosted/webhooks/Cargo.toml:24 and layerx-committed-proof at line 37. Its chain verifier authenticates the governed keys against the committed app hash at services/platform/hosted/webhooks/src/chain.rs:650 before verifying the receipt at line 662, while tools/qualification/audit_repairs/test_repair_22_33_1331.py:57 checks manifest and lock agreement."
+
+[disposition.22.33.1334.1]
+finding = "22.33.1334.1"
+status = "resolved"
+evidence = "Commit 1a9c9e5c06 makes the payment compatibility proofs return Box<dyn std::error::Error> at services/agent/crates/layerx-crypto/tests/repair_22_33_1334.rs:12 and line 153. The malformed-send proof obtains its payload from payments::send_fixture at line 157 and retains signed-call verification and changed-payload refusals."
+
+[disposition.22.33.1336.1]
+finding = "22.33.1336.1"
+status = "resolved"
+evidence = "Commit d5401ed95b restores the platform boundary crate manifest; main declares layerx-platform-paxeer-boundary at services/platform/hosted/paxeer/Cargo.toml:2 and its retained binary at line 18. Its proof dependencies remain declared at line 33 alongside the native library and tool targets."
+
+[disposition.22.33.1336.2]
+finding = "22.33.1336.2"
+status = "resolved"
+evidence = "Commit 7435b17141 restores the boundary document included by services/platform/hosted/gateway/tests/repair_22_31_345.rs:13. That consumer supplies the production connection permit and deadline at line 76 and expects the boundary identity probe document at line 367."
+
+[disposition.22.33.1336.3]
+finding = "22.33.1336.3"
+status = "resolved"
+evidence = "Commit 4d5af60003 supplies identity, committed_state and state_clock in services/platform/hosted/gateway/tests/repair_22_33_1336.rs:36 and lines 49-50. The same Config retains explicit receipt-key parsing at line 38 and the maintained route registry at line 30."
+
+[disposition.22.33.1336.4]
+finding = "22.33.1336.4"
+status = "resolved"
+evidence = "Commit 4d5af60003 reads the gateway response to its declared Content-Length at services/platform/hosted/gateway/tests/repair_22_33_1336.rs:147 and enforces bounded headers and body. Explicit shutdown asserts the worker join at line 199, while Drop performs cleanup without asserting at line 209."
+
+[disposition.22.33.1336.5]
+finding = "22.33.1336.5"
+status = "resolved"
+evidence = "Commit 4d5af60003 keeps the altered tap-payment refusal at services/platform/hosted/gateway/tests/repair_22_33_1336.rs:389 and registers root WebSocket upgrades at services/platform/hosted/gateway/src/main.rs:2059. Commit 3402ba1f66 reconciles the 145-route assertion at services/platform/hosted/gateway/src/explorer_proxy.rs:465 and the unavailable-surface refusal contract at services/platform/hosted/gateway/openrpc.json:6."
+
+[disposition.22.33.1336.6]
+finding = "22.33.1336.6"
+status = "resolved"
+evidence = "Commit 4d5af60003 registers GET / WebSocket upgrades with ws::serve at services/platform/hosted/gateway/src/main.rs:2059, and services/platform/hosted/gateway/tests/repair_22_33_1336.rs:442 requires the authentication refusal 401. The public history path still returns the explicit public_read_rate_limit error when its quota is exhausted at services/platform/hosted/gateway/src/history.rs:692."
+
+[disposition.22.33.135.1]
+finding = "22.33.135.1"
+status = "environment"
+evidence = "The wallet SDK declares its agent SDK dependency at sdk/wallet/package.json:55 and builds that SDK before its own build and type check at lines 37 and 41. The auth-refresh and receipt-transport regressions remain registered at sdk/wallet/test/repair-22-33-135.test.ts:699 and line 707."
+
+[disposition.22.33.135.2]
+finding = "22.33.135.2"
+status = "resolved"
+evidence = "Commit 55130d54f0 constructs JWT headers and claims with base64url encoding at sdk/wallet/test/repair-22-33-135.test.ts:41 and signs the exact header.payload bytes with HMAC-SHA256 at line 47. Session setup consumes that token at line 124 before the auth-refresh and wallet request cases."
+
+[disposition.22.33.1364.1]
+finding = "22.33.1364.1"
+status = "resolved"
+evidence = "Commit ea2e88ad0a resolves production wallet and agent integration source imports in place at services/platform/examples/test/repair-22-33-1364.test.mjs:19 and binds viem resolution to the agent-spend package at line 23. The example declares viem and the agent dependencies at services/platform/examples/agent-spend/package.json:11."
+
+[disposition.22.33.1364.2]
+finding = "22.33.1364.2"
+status = "environment"
+evidence = "Main carries the wallet review recovery and concurrent retry proofs at services/platform/examples/test/repair-22-33-1364.test.mjs:205 and line 231 in commit ea2e88ad0a. The example returns a retained wallet-consent preparation through the owner handoff at services/platform/examples/agent-spend/index.mjs:60."
+
+[disposition.22.33.1364.3]
+finding = "22.33.1364.3"
+status = "environment"
+evidence = "Main carries the wallet review recovery and concurrent retry proofs at services/platform/examples/test/repair-22-33-1364.test.mjs:205 and line 231 in commit ea2e88ad0a. The example returns a retained wallet-consent preparation through the owner handoff at services/platform/examples/agent-spend/index.mjs:60."
+
+[disposition.22.33.1366.1]
+finding = "22.33.1366.1"
+status = "environment"
+evidence = "The hosted internal Rust target includes the shared probe suite at services/platform/hosted/internal/tests/repair_22_33_1366.rs:1. services/platform/tests/repair_22_33_1366.rs:61 and line 152 require stalled or over-limit clients to be killed and reaped through the production probe_process support module."
+
+[disposition.22.33.1366.2]
+finding = "22.33.1366.2"
+status = "resolved"
+evidence = "Commit d5401ed95b restores the platform boundary crate manifest; main declares layerx-platform-paxeer-boundary at services/platform/hosted/paxeer/Cargo.toml:2 and its retained binary at line 18. Its proof dependencies remain declared at line 33 alongside the native library and tool targets."
+
+[disposition.22.33.1366.3]
+finding = "22.33.1366.3"
+status = "resolved"
+evidence = "Commit d5401ed95b restores the platform boundary crate manifest; main declares layerx-platform-paxeer-boundary at services/platform/hosted/paxeer/Cargo.toml:2 and its retained binary at line 18. Its proof dependencies remain declared at line 33 alongside the native library and tool targets."
+
+[disposition.22.33.1366.4]
+finding = "22.33.1366.4"
+status = "resolved"
+evidence = "Commit eac248fa31 exposes the identity seal and verification modules to the internal integration harness at services/platform/hosted/internal/tests/repair_22_31_356.rs:7 and line 15. The focused probe target includes its shared production-process suite at services/platform/hosted/internal/tests/repair_22_33_1366.rs:1, retaining deadline, output-bound and failed-process diagnostics checks."
+
+[disposition.22.33.1366.5]
+finding = "22.33.1366.5"
+status = "resolved"
+evidence = "Commit 1a3c69501c reads Uint256 balance bytes through the current bytes() accessor at services/platform/hosted/core/src/public_reads.rs:95 and formats the public balance at line 112. The consumer still refuses account, balance or nonce mismatches at line 96 before constructing the public response."
+
+[disposition.22.33.1368.1]
+finding = "22.33.1368.1"
+status = "resolved"
+evidence = "Commit 566c5bb8d9 adds the named Go regression functions at sdk/platform/dotnet/repair_m1368_test.go:159, line 193 and line 217 for payload bounds, supported program constructors and bounded stream history. The same file checks the production C# project reference at line 147 and the behavioral cases at line 180."
+
+[disposition.22.33.1374.1]
+finding = "22.33.1374.1"
+status = "resolved"
+evidence = "Commit 84cf259b84 carries position-size changes into accounting and recovery; main updates the position at services/platform/perf-db/src/engine.rs:900 and publishes the prevalidated open-interest totals at line 1151. services/platform/perf-db/tests/repair_22_33_1374.rs:160 and line 190 retain long and short exposure recovery through both WAL and snapshot paths."
+
+[disposition.22.33.1375.1]
+finding = "22.33.1375.1"
+status = "resolved"
+evidence = "Commit c43af8ab84 makes the perf-db binary parse addresses and hashes through typed Results at services/platform/perf-db/src/main.rs:249 and line 253, preserving descriptive parse errors. services/platform/perf-db/tests/repair_22_33_1375.rs:306 exercises the CLI validation path."
+
+[disposition.22.33.1376.1]
+finding = "22.33.1376.1"
+status = "resolved"
+evidence = "Commit 2ccd8dff4b propagates typed referral-tier and API-key insertion errors during snapshot restore at services/platform/perf-db/src/storage/relational.rs:109 and line 138. Mutation handling also maps invalid tier and key changes to InvalidArgument at lines 365 and 388 before reporting success."
+
+[disposition.22.33.1391.1]
+finding = "22.33.1391.1"
+status = "resolved"
+evidence = "Commit 7c6c50d0b9 aligns the JVM program activity and receipt metadata with eth_getTransactionByHash at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2919 and line 3014. The fee-token regression verifies the published producer-signed receipt and distinct payment and fee assets at sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java:138."
+
+[disposition.22.33.1391.2]
+finding = "22.33.1391.2"
+status = "resolved"
+evidence = "Commit 7c6c50d0b9 aligns the JVM program activity and receipt metadata with eth_getTransactionByHash at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2919 and line 3014. The fee-token regression verifies the published producer-signed receipt and distinct payment and fee assets at sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java:138."
+
+[disposition.22.33.1391.3]
+finding = "22.33.1391.3"
+status = "resolved"
+evidence = "Commit 7c6c50d0b9 uses the published fee-token vector in sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java:139, verifies its sequencer signature at line 147, and binds the payment asset to usid independently of the uhpx fee summary at line 156. sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java:48 registers that producer-vector proof."
+
+[disposition.22.33.1397.1]
+finding = "22.33.1397.1"
+status = "resolved"
+evidence = "Commit e452559c03 includes paymentDenom uhpx beside feeDenom in the current lifecycle receipt at sdk/platform/swift/Tests/LayerXSDKTests/Repair22331397Tests.swift:348. The lifecycle case at line 278 decodes the native deployment vector and builds its signed activity before checking the transaction and receipt path."
+
+[disposition.22.33.14.1]
+finding = "22.33.14.1"
+status = "resolved"
+evidence = "Commit 7435b17141 restores the boundary document included by services/platform/hosted/gateway/tests/repair_22_31_345.rs:13. That consumer supplies the production connection permit and deadline at line 76 and expects the boundary identity probe document at line 367."
+
+[disposition.22.33.14.2]
+finding = "22.33.14.2"
+status = "resolved"
+evidence = "Commit e973a0729a retains the durable watermark restart proof at services/agent/crates/layerx-agentd/tests/ingest.rs:125 and routes the repair target to the real subscription and history ingestion cases at services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs:5. Commit bd9b774f46 promotes receipted logs with the current committed evidence level at services/agent/crates/layerx-agentd/src/events/ingest.rs:1120."
+
+[disposition.22.33.14.3]
+finding = "22.33.14.3"
+status = "resolved"
+evidence = "The native send prepare request owns prepare_digest at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851, as carried by task 22.31.550 in commit f962769107. The digest belongs to the wire type used by the daemon and its RPC contract consumer, and the ingestion repair target remains at services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs:5."
+
+[disposition.22.33.14.4]
+finding = "22.33.14.4"
+status = "resolved"
+evidence = "The native send prepare request owns prepare_digest at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851, as carried by task 22.31.550 in commit f962769107. The digest belongs to the wire type used by the daemon and its RPC contract consumer, and the ingestion repair target remains at services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs:5."
+
+[disposition.22.33.14.5]
+finding = "22.33.14.5"
+status = "resolved"
+evidence = "Commit bd9b774f46 promotes retained and pending receipted events to COMMITTED at services/agent/crates/layerx-agentd/src/events/ingest.rs:1120 and line 1140. The durable decoder accepts historical level byte 4 as COMMITTED at line 606, preserving recovery of already stored records."
+
+[disposition.22.33.14.6]
+finding = "22.33.14.6"
+status = "resolved"
+evidence = "Commit d6543a4874 ports the Human producer assertion to purpose.consent_public_key at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681, comparing it with the session owner key. The agent ingestion target still includes the real producer cases at services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs:5."
+
+[disposition.22.33.1400.1]
+finding = "22.33.1400.1"
+status = "resolved"
+evidence = "Commit 185e02b301 returns the authenticated sequencer receipt digest from services/platform/examples/support/runtime.mjs:196 and compares portable evidence with verifySequencerReceipt output at services/platform/middleware/seller/src/index.ts:472. services/platform/examples/test/repair-22-33-1400.test.mjs:86 retains the producer-digest agreement and tamper refusals."
+
+[disposition.22.33.1400.2]
+finding = "22.33.1400.2"
+status = "resolved"
+evidence = "Commit 185e02b301 derives the merchant purpose from the offered resource and binds it into the signed transaction at services/platform/examples/test/support/merchant-receipt.mjs:34. The helper signs the resulting sequencer receipt and verifies the exact digest at line 93, retaining offer-bound evidence for the merchant cases."
+
+[disposition.22.33.1400.3]
+finding = "22.33.1400.3"
+status = "resolved"
+evidence = "Commit 185e02b301 derives the merchant purpose from the offered resource and binds it into the signed transaction at services/platform/examples/test/support/merchant-receipt.mjs:34. The helper signs the resulting sequencer receipt and verifies the exact digest at line 93, retaining offer-bound evidence for the merchant cases."
+
+[disposition.22.33.1400.4]
+finding = "22.33.1400.4"
+status = "environment"
+evidence = "The examples receipt client publishes the digest authenticated by verifySequencerReceipt and retains the node receipt JSON at services/platform/examples/support/runtime.mjs:183 and line 196. services/platform/examples/test/repair-22-33-1400.test.mjs:86 exercises that evidence through the seller payment verifier on main."
+
+[disposition.22.33.1400.5]
+finding = "22.33.1400.5"
+status = "resolved"
+evidence = "Commit 185e02b301 restores persisted fulfillment by transaction key before requesting another settlement at services/platform/middleware/seller/src/index.ts:270 and line 280. The merchant checks the webhook transaction against the retained raw transaction before consuming payment proof at services/platform/middleware/merchant/src/index.ts:331, and the restart replay case requires one resource release at services/platform/examples/test/repair-22-33-1400.test.mjs:232."
+
+[disposition.22.33.1400.6]
+finding = "22.33.1400.6"
+status = "resolved"
+evidence = "Commit 185e02b301 validates the webhook transaction hash against the retained raw transaction at services/platform/middleware/merchant/src/index.ts:331 before verifyPaymentReceipt at line 336. The post-verification binding at line 345 compares the authenticated digest and transaction, preserving the proof for a later matching delivery after an early mismatch refusal."
+
+[disposition.22.33.1402.1]
+finding = "22.33.1402.1"
+status = "resolved"
+evidence = "Commit 7a57acce11 restores the EVM utility implementation, including Keccak at services/platform/hosted/paxeer/evm.py:67 and Rpc at line 343. The owner proof remains at services/platform/hosted/human/test_repair_22_33_1402.py:15, while the explorer consumer explicitly refuses program reads at apps/web/src/explorer/client.ts:223."
+
+[disposition.22.33.1402.2]
+finding = "22.33.1402.2"
+status = "environment"
+evidence = "The Human web deployment reads its explorer base URL from a ConfigMap at services/platform/hosted/human/web-deployment.yaml:32 and supplies the internal CA to the web client at line 37. The maintained explorer program consumer at apps/web/src/explorer/client.ts:220 validates identifiers and returns the explicit program-read unavailable error at line 223."
+
+[disposition.22.33.1410.1]
+finding = "22.33.1410.1"
+status = "resolved"
+evidence = "Commit c086bbbffc orders the dashboard history expectation newest first at services/platform/hosted/dashboard/tests/repair_22_33_1410.rs:357 and checks the complete principal-specific result at line 370. The product pages that principal index at services/platform/hosted/dashboard/src/gateway.rs:201 and looks up retained receipt evidence directly by activity at services/platform/hosted/dashboard/src/receipts.rs:34."

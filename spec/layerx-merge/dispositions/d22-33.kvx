@@ -1,0 +1,505 @@
+[disposition.22.99.106.1]
+finding = "22.99.106.1"
+status = "environment"
+evidence = "On main, modules/evm/module.go:56 derives default genesis from the EVM types and validates decoded genesis before accepting it at line 61; the existing module implementation remains in place. The module continues to expose its genesis and codec interfaces, with no additional EVM repair required by this finding."
+
+[disposition.22.99.117.1]
+finding = "22.99.117.1"
+status = "resolved"
+evidence = "On main, storage/state_db/sc/memiavl/tree.go:166 and :172 use nextVersionU32 for insertion and removal, honoring the configured initial version; rpc/sequencer_receipt.go:580 binds paymentDenom to the signed asset. Commit 491fb7b61c landed these repairs."
+
+[disposition.22.99.117.2]
+finding = "22.99.117.2"
+status = "resolved"
+evidence = "On main, programs/tests/vectors/ics23-admission-evidence-app-hash.json:38 contains the height-1200 root produced with the configured initial version. Commit 491fb7b61c regenerated the admission, market namespace, module catalogue and EVM storage app-hash vectors from their keeper producers."
+
+[disposition.22.99.117.3]
+finding = "22.99.117.3"
+status = "environment"
+evidence = "On main, programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:289 requires authenticated replay and signed admission manifests, while tests/ics23_iavl.rs:5 consumes the committed Go ICS23 vector directly. The arbiter authenticates the real corpus rather than inventing replay evidence."
+
+[disposition.22.99.144.1]
+finding = "22.99.144.1"
+status = "resolved"
+evidence = "On main, node/sequencer/limits.go:87 preserves ErrInvalidChainID for unknown chains and distinguishes inactive registered domains at line 93. Commit 607875f357 also aligned allowance, receipt recovery, activation, microbatch and standby assertions with the keeper-backed sequencer contracts in node/sequencer/limits_test.go and the related package tests."
+
+[disposition.22.99.145.1]
+finding = "22.99.145.1"
+status = "resolved"
+evidence = "On main, precompiles/layerxprograms/submit.go:20 retains the EVM and XWeb keepers in each executor, and fuzz_test.go:129 checks view errors by method. Commit f159967bdc aligned the executor, owner-authority assertions, exported constructor comparisons and decoded ABI proof arguments with those contracts."
+
+[disposition.22.99.145.2]
+finding = "22.99.145.2"
+status = "resolved"
+evidence = "On main, precompiles/layerxprograms/fuzz_test.go:131 expects LXP_UNKNOWN_FIELD for absent getRetirementControl state and LXP_NOT_FOUND for the other absent views. Commit f159967bdc landed this distinction without changing the forwarded kernel error."
+
+[disposition.22.99.145.3]
+finding = "22.99.145.3"
+status = "environment"
+evidence = "On main, precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go:308 obtains actual Python SDK transaction bytes and line 335 sends both SDK encodings through the precompile. The proof retains the real Python cryptography and TypeScript SDK consumers and checks their observed responses at lines 403-406."
+
+[disposition.22.99.148.1]
+finding = "22.99.148.1"
+status = "resolved"
+evidence = "On main, sdk/platform/conformance/fixtures/intent-plan-v1.json:5 keeps request endpoints unresolved and places resolved accounts and EVM addresses in result legs at line 41. Commit 10fe4690e5 landed the fixture correction under the request/result contract."
+
+[disposition.22.99.148.2]
+finding = "22.99.148.2"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/src/intent.ts:430 accepts the closed plan field set, derives sponsorship from leg nonces at line 434 and decodes flat per-leg calldata and fee fields at line 486. Commit cb50180548 aligned both SDK decoders and the shared fixture with that wire shape."
+
+[disposition.22.99.148.3]
+finding = "22.99.148.3"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/program-executed-v3.test.ts:9 parses the application execution document and line 23 verifies the receipt using the producer corpus and encoder. Commit 10fe4690e5 replaced the mismatching receipt expectations with the producer encoding while preserving module-version refusals."
+
+[disposition.22.99.148.4]
+finding = "22.99.148.4"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/test/repair-22-31-148.test.ts:325 supplies recorded receipt keys to the web payer and line 197 derives verifier keys from the committed receipt vector. Commit 10fe4690e5 aligned SDK routing, receipt authentication and package test-script assertions with the current producers."
+
+[disposition.22.99.150.1]
+finding = "22.99.150.1"
+status = "environment"
+evidence = "On main, services/agent/sdk/python/pyproject.toml:1 selects the local build_backend, whose build_wheel function in services/agent/sdk/python/build_backend.py constructs the distributable wheel with deterministic entries and metadata. The SDK exposes the wheel build interface and does not declare an editable-build hook."
+
+[disposition.22.99.150.2]
+finding = "22.99.150.2"
+status = "resolved"
+evidence = "On main, tests/bridge/retired/test_retired_bridge_emergency_exit.py:4 retains the EmergencyExit.sol absence assertion under its distinct module name. Commit 24446b7d8c renamed the bridge retirement module without changing its contents, separating it from the CI retirement module."
+
+[disposition.22.99.150.3]
+finding = "22.99.150.3"
+status = "environment"
+evidence = "On main, tests/bridge/retired/test_retired_bridge_emergency_exit.py:4 still asserts retirement of contracts/EmergencyExit.sol. The distinct bridge module name landed in 24446b7d8c while preserving the same contract-retirement check."
+
+[disposition.22.99.154.1]
+finding = "22.99.154.1"
+status = "environment"
+evidence = "On main, services/interop/crates/layerx-bridge-relayer/tests/outbound_isolation.rs:203 loads a genuine captured boundary corpus with an independent SHA256 pin, and line 981 applies the capture prerequisite policy. The relayer boundary proof remains tied to captured executable, configuration and receipt-journal provenance."
+
+[disposition.22.99.155.1]
+finding = "22.99.155.1"
+status = "environment"
+evidence = "On main, services/platform/hosted/indexer/tests/history_position.rs:797 consumes application-produced payment logs and line 945 consumes ledger logs before reopening the real store. The indexer authenticates and persists those producer events; the native producer remains part of the precompile proof path."
+
+[disposition.22.99.155.2]
+finding = "22.99.155.2"
+status = "resolved"
+evidence = "On main, programs/Cargo.lock:893 records layerx-programs-ai-market and its runtime dependencies, including the committed proof crate. Commit 10a900f4bc refreshed the programs, agent, human and platform locks for the market manifest change."
+
+[disposition.22.99.155.3]
+finding = "22.99.155.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/tests/names_api.rs:210 compares API answers with tests/vectors/names/indexer_api_v1.json, whose registry-owner event is classified as transfer. Commit 6bae59f682 landed the vector correction matching the names projection."
+
+[disposition.22.99.155.4]
+finding = "22.99.155.4"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/tests/ai_reputation_finality.rs:872 derives the retained epoch count from LIMIT and line 925 checks finalized eviction with an archive locator. Commit 6bae59f682 supplies canonical native membership proofs and preserves eviction and reopen assertions."
+
+[disposition.22.99.155.5]
+finding = "22.99.155.5"
+status = "environment"
+evidence = "On main, services/platform/hosted/indexer/tests/history_position.rs:799 reads the payment producer document from stdin and line 946 reads the ledger producer document. Both proofs consume real application events and store paths supplied by their corresponding precompile proof producers."
+
+[disposition.22.99.155.6]
+finding = "22.99.155.6"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/reputation_codec.rs:237 sizes the reputation-root buffer from the actual domain-prefix length, including its terminator, plus every permitted record. Commit 101f526f03 landed the full-capacity root repair."
+
+[disposition.22.99.155.7]
+finding = "22.99.155.7"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/tests/ai_reputation_finality.rs:870 constructs the retention ring from the market LIMIT, and programs/crates/layerx-programs-ai-market/src/reputation_codec.rs:237 reserves the full domain prefix and record capacity. Commits 101f526f03 and 6bae59f682 repair the root encoding and its indexer consumers."
+
+[disposition.22.99.155.8]
+finding = "22.99.155.8"
+status = "resolved"
+evidence = "On main, services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs:617 expects NotYetProduced before reward funding, and tests/repair_22_33_1445.rs:645 requires the request to return between 250 ms and two seconds before the three-second peer hold. Commit 6bae59f682 landed these consumer contracts under decisions 2997 and 2998."
+
+[disposition.22.99.156.1]
+finding = "22.99.156.1"
+status = "resolved"
+evidence = "On main, programs/vendor/wasm-instrument/src/gas_metering/validation.rs:378 freezes independent expected control-flow costs for prepaid continuations and checks both conditional arms and complete loop costs. Commit 3a508e8102 landed the corrected validation with default-feature memory-growth metering retained."
+
+[disposition.22.99.159.1]
+finding = "22.99.159.1"
+status = "resolved"
+evidence = "On main, services/agent/Cargo.lock:828 contains layerx-client and line 1058 contains layerx-sdk with their current dependencies; commit 10a900f4bc refreshed the workspace lock. Commit 220f30f862 restored tests/fixtures/authority/provider-subject/consent.activity, consumed at services/agent/crates/layerx-agentd/src/human_runtime.rs:20131."
+
+[disposition.22.99.16.1]
+finding = "22.99.16.1"
+status = "environment"
+evidence = "On main, services/launchpad/user/internal/account/connected_integration_test.go:189 exercises encrypted export and single-use download through real object storage, and line 771 exercises gateway socket revocation and HTTP writes. Those product integration paths retain explicit object-store and gateway configuration inputs."
+
+[disposition.22.99.26.1]
+finding = "22.99.26.1"
+status = "resolved"
+evidence = "On main, modules/layerxexchange/keeper/proofs.go:38 wraps the finalized-root refusal without a source location, and lines 52 and 84 preserve typed invalid-proof errors. Commit 9c50244391 removed source-path-bearing keeper wrappers from the exchange paths."
+
+[disposition.22.99.26.2]
+finding = "22.99.26.2"
+status = "resolved"
+evidence = "On main, precompiles/perps/switch_test.go:572 checks the historical and live constructors against their respective vectors, including byte-exact revert comparisons at line 694. Commit 4a29ea6600 preserves the historical keeper revert without adding the live LXP_UNKNOWN prefix."
+
+[disposition.22.99.28.1]
+finding = "22.99.28.1"
+status = "resolved"
+evidence = "On main, sdk/platform/go/sequencer_receipt_test.go:66 now requires all thirteen producer conformance cases, including the later committed refusal. Commit 1266da0106 aligned payment-asset verification, provenance-derived portable vectors, committed proof indexes and externally authorized lifecycle calls; 21e7fad723 subsequently added the thirteenth case."
+
+[disposition.22.99.28.2]
+finding = "22.99.28.2"
+status = "resolved"
+evidence = "On main, sdk/platform/conformance/fixtures/vector-v4-committed.json is the canonical committed-rung fixture, consumed by sdk/platform/go rather than a private testdata copy. Commit 1266da0106 refreshed it from provenance sources while preserving recorded signatures, and 74ef78b42b re-recorded it for chain id 125."
+
+[disposition.22.99.30.1]
+finding = "22.99.30.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/core/network/deployment.ts:69 contains the treasury identity and line 77 contains the launchpadPrecompile identity, with their addresses at lines 86-87. Commit 8ff27bfcae landed the missing role alignment; d104b0a6bd subsequently generated the reviewed deployment export."
+
+[disposition.22.99.31.1]
+finding = "22.99.31.1"
+status = "resolved"
+evidence = "On main, services/wallet/attestor/internal/policy/policy_test.go:602 retains typed-data chain pinning and line 653 checks the current send-authorization kinds. Commit ce616535ab aligned permit verification, the expanded perps selector set and untrusted approval refusals with the shipped policy."
+
+[disposition.22.99.31.2]
+finding = "22.99.31.2"
+status = "resolved"
+evidence = "On main, services/wallet/deploy/attestor-policy.json:11 includes lx_send_authorization, line 36 carries the perps selector allowlist and line 100 constrains trusted spenders. Commit ce616535ab landed the deploy-policy ordering together with its consumer assertions."
+
+[disposition.22.99.31.3]
+finding = "22.99.31.3"
+status = "resolved"
+evidence = "On main, services/wallet/attestor/internal/server/native_purpose_test.go:260 exercises real custody profiles and line 541 exercises native-send profiles. Commit 6391e34850 made their native consumer integration pass with the built library while retaining owner, grant and signing-profile checks."
+
+[disposition.22.99.35.1]
+finding = "22.99.35.1"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:25419 declares req.22056 with both ac_1 and ac_2, including the signing preparation's call-bound disclosure and absence of a second authorization record. Commit 53c47293dd landed the specgen repair with the referenced criterion present."
+
+[disposition.22.99.35.2]
+finding = "22.99.35.2"
+status = "resolved"
+evidence = "On main, tools/specgen/adapters.go:11 renders the compact workflow pointer, and line 50 emits its ownership marker and adapter wrapper. Commit 53c47293dd aligned the renderer, snapshots and generated pointers with the canonical spec renderer."
+
+[disposition.22.99.35.3]
+finding = "22.99.35.3"
+status = "environment"
+evidence = "On main, tools/specgen/adapters.go:11 builds the shared brief from workflow fields, and line 50 wraps the same brief in each IDE's required format. The renderer has a single canonical output shape for the pointer files, carried by commit 53c47293dd."
+
+[disposition.22.99.35.4]
+finding = "22.99.35.4"
+status = "environment"
+evidence = "On main, .cursor/rules/spec-workflow.mdc is the generated workflow pointer and tools/specgen/adapters.go:55 renders its ownership marker, frontmatter and shared brief. Commit 53c47293dd carries the renderer and snapshots, and the pointer directs readers to the canonical workflow and active feature."
+
+[disposition.22.99.45.1]
+finding = "22.99.45.1"
+status = "environment"
+evidence = "On main, programs/vendor/wasm-instrument/src/gas_metering/validation.rs:378 retains the control-flow cost validator for the vendored metering implementation. The vendored crate retains default-feature memory-growth metering and the fixed translated continuation costs checked by that validator."
+
+[disposition.22.99.50.1]
+finding = "22.99.50.1"
+status = "resolved"
+evidence = "On main, services/agent/Cargo.lock:828 records layerx-client and line 1058 records layerx-sdk with the dependency entries required by their manifests. Commit 93caf955b1 refreshed the agent lock and 10a900f4bc incorporated the subsequent market dependency changes."
+
+[disposition.22.99.51.1]
+finding = "22.99.51.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/host-tests/serve_routes.rs:308 serves the closed receipt-key object accepted by the production decoder at line 315. Commit b014d764f6 aligned readiness fixtures with that schema and supplied the disposable node integration for the host proofs."
+
+[disposition.22.99.51.2]
+finding = "22.99.51.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/host-tests/node_integration.rs:204 obtains a disposable node and host-tests/serve_routes.rs:315 decodes the emitted receipt keys with layerx-client. Commit b014d764f6 also removed retired reconnect controls and corrected the host payer-audit receipt-key encoding."
+
+[disposition.22.99.52.1]
+finding = "22.99.52.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-mcp/tests/daemon_bound.rs:180 binds a session to core_height, and tests/repair_22_31_223.rs:704 serves node reads at the root. Commit 1fa8b3bc67 aligned the MCP submission object and store ownership with the current daemon and receipt contracts."
+
+[disposition.22.99.52.2]
+finding = "22.99.52.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-mcp/tests/daemon_bound.rs:434 checks the bound core height and tests/repair_22_31_223.rs:1033 releases the control-store writer before reopening routes. Commit 1fa8b3bc67 landed the MCP fixture and native-submission corrections while preserving verified-receipt requirements."
+
+[disposition.22.99.52.3]
+finding = "22.99.52.3"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-mcp/tests/repair_22_31_223.rs:1033 drops the fixture's control writer before opening daemon-bound routes. Commit 1fa8b3bc67 repaired writer lifetimes in that target and tests/scope.rs, preserving the single-writer store contract."
+
+[disposition.22.99.52.4]
+finding = "22.99.52.4"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-mcp/tests/repair_22_31_223.rs:704 accepts POST at the node root and line 717 validates the accountId selector and owner. Commit 1fa8b3bc67 aligned the account and grant views with the current node route rather than the retired /rpc path."
+
+[disposition.22.99.55.1]
+finding = "22.99.55.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-kms/src/store.rs:629 returns SelfCustodied for wallet access after handover, with the same typed refusal for signing paths at lines 823 and 983. Commit 312f4b1cca aligned provider assertions with that contract and retained the runtime clock for the attestor integration."
+
+[disposition.22.99.58.1]
+finding = "22.99.58.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-identity-provider/src/state.rs:173 explicitly unlocks the state file on drop, and tests/catalog.rs:40 loads the generated catalog through the production reader. Commit 63852348e3 landed the restart lock repair and the signed assertion and catalog consumer corrections."
+
+[disposition.22.99.58.2]
+finding = "22.99.58.2"
+status = "resolved"
+evidence = "On main, services/human/Cargo.lock:1203 records the market crate and its cryptographic dependencies. Commit 10a900f4bc refreshed the human workspace lock, and 2cbf91aae8 subsequently refreshed it for the current custody consumer."
+
+[disposition.22.99.58.3]
+finding = "22.99.58.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/human/provision.py:194 requires call_selectors in each preset, validates nonempty four-byte hex selectors at line 202 and copies the validated preset into the output at line 217. Commit 63852348e3 replaced preset activity_types with the consumer's selector schema."
+
+[disposition.22.99.64.1]
+finding = "22.99.64.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-client/src/sequencer.rs:1014 includes paymentDenom in the exact receipt field set and line 1066 decodes and bounds it. Commit 8f26909112 landed the denomination-to-signed-asset validation used by interop receipt consumers."
+
+[disposition.22.99.64.2]
+finding = "22.99.64.2"
+status = "resolved"
+evidence = "On main, services/interop/Cargo.lock:1375 records layerx-client, line 1592 records layerx-platform-gateway and line 3449 records the vendored wasm-instrument. Commit a16bb0b969 refreshed both interop and tools-platform locks for the changed manifests."
+
+[disposition.22.99.72.1]
+finding = "22.99.72.1"
+status = "resolved"
+evidence = "On main, services/platform/Cargo.lock:1386 includes layerx-platform-authority and line 2607 includes signal-hook alongside the gateway at line 1471. Commit f7646b1ab9 landed the gateway manifest and lock alignment."
+
+[disposition.22.99.72.2]
+finding = "22.99.72.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/degraded.rs:634 requires ready status with configured backends available while reporting unconfigured consensus separately at line 642. Commit f7646b1ab9 aligned configured-only readiness and removed the retired custody routes from tools/paxeer-x/route-catalogue.json."
+
+[disposition.22.99.72.3]
+finding = "22.99.72.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/gateway/tests/chain_reads.rs:56 creates a unique TempDir retained by the fixture at line 48 for its real TLS Redis data. Commit f7646b1ab9 removed the shared fixed-directory collision while retaining readiness assertions."
+
+[disposition.22.99.72.4]
+finding = "22.99.72.4"
+status = "environment"
+evidence = "On main, services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs:371 checks px_getReceiptKeys, and line 576 loads the actual TypeScript ai_market SDK consumer. The gateway response remains checked through the SDK's real receipt-key decoder and its declared cryptographic dependencies."
+
+[disposition.22.99.72.5]
+finding = "22.99.72.5"
+status = "resolved"
+evidence = "On main, services/platform/Cargo.lock:1471 records the gateway with its agent, client and authority dependencies. Commit 10a900f4bc refreshed the platform lock for the market manifest change, followed by 5806a45f02 for the runtime-clock dependency graph."
+
+[disposition.22.99.76.1]
+finding = "22.99.76.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/custody.rs:239 carries the call-bound disclosure and digest, and line 445 compares the grant's disclosure digest with the preparation. Commit 28fb1aae3d migrated the session-key test to the call-bound shape and 1a58241e71 removed the legacy preparation module."
+
+[disposition.22.99.76.2]
+finding = "22.99.76.2"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-runtime/src/market_tests.rs:1273 checks forged, replayed, unauthorized and premature dispute moves, and line 1478 asserts plain usage has no adjudicated state. Commit 017c2e8156 aligned the dispute fixture with the real compiled guest and the refusal of an unadjudicated usage claim."
+
+[disposition.22.99.77.10]
+finding = "22.99.77.10"
+status = "resolved"
+evidence = "On main, programs/Cargo.toml:62 gives the market guest the size-oriented release profile, and Makefile:3023 builds it with the explicit chain domain. Commit 101f526f03 landed the market repair; 6fce630c2d subsequently records a 499972-byte production guest at programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940, below the unchanged 524184-byte deployment bound."
+
+[disposition.22.99.77.11]
+finding = "22.99.77.11"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:2853 checks native evaluator capacity, role conflicts and revocation, while src/epoch.rs:714 reuses prepared rollover tables. Commit 101f526f03 landed the capacity encoding and bounded epoch-opening repairs."
+
+[disposition.22.99.77.12]
+finding = "22.99.77.12"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/epoch.rs:714 reuses validated admission and worker tables, and src/evaluators/admission.rs:165 parses previously validated report rows without rehashing their bodies. Commit 101f526f03 landed these reductions while tests/fuel_budget.rs:1706 retains the protocol-cap comparison for every routed operation."
+
+[disposition.22.99.77.13]
+finding = "22.99.77.13"
+status = "resolved"
+evidence = "On main, tests/programs/test_ai_host_boundary.c:418 encodes a 16384-byte response capacity and line 445 checks the layout with 16, 4096 and 16384-byte capacities. Commit 101f526f03 carries the corrected native payload and layout checks without changing the runtime result-header contract."
+
+[disposition.22.99.77.14]
+finding = "22.99.77.14"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/tests/custody.rs:239 carries the call-bound disclosure and line 445 checks its digest against the signed grant. The market's native boundary encodes the complete response capacity at tests/programs/test_ai_host_boundary.c:418; neither interface requires the removed second authorization field."
+
+[disposition.22.99.77.15]
+finding = "22.99.77.15"
+status = "environment"
+evidence = "On main, Makefile:3022 explicitly requires wasm-opt, and rpc/repair_478_test.go:153 packages the guest with -Oz before enforcing the 524184-byte deployment limit at line 156. The native product uses the optimized artifact and retains the payload bound."
+
+[disposition.22.99.77.16]
+finding = "22.99.77.16"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/native_send_producer.rs:681 compares the V2 purpose's consent_public_key with the authenticated owner's public key. Commit d6543a4874 replaced the retired owner_public_key field access with this V2 consent binding."
+
+[disposition.22.99.77.17]
+finding = "22.99.77.17"
+status = "resolved"
+evidence = "On main, tests/programs/test_ai_host_boundary.c:443 checks the encoded response-capacity offsets and programs/crates/layerx-programs-ai-market/src/epoch.rs:714 reuses prepared rollover state. Commit 101f526f03 landed the native layout repair and eliminated repeated opening and reveal decoding while retaining the CPU cap in tests/fuel_budget.rs:1706."
+
+[disposition.22.99.77.18]
+finding = "22.99.77.18"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-runtime/src/host/mod.rs:847 accounts the retained snapshot, instruction, instance and host bytes separately and line 855 checks both remaining-byte and remaining-work limits. Commit 41f31ec2fc landed retained-state accounting; 101f526f03 landed the market's report and epoch reader reuse."
+
+[disposition.22.99.77.19]
+finding = "22.99.77.19"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-runtime/src/host/mod.rs:844 distinguishes canonical arbitration instance size from retained snapshot size and refuses only when the checked retained charges exceed the remaining limits at line 855. Commit 41f31ec2fc repaired retained-boundary charging and 101f526f03 reduced market decode costs under the unchanged fuel cap."
+
+[disposition.22.99.77.1]
+finding = "22.99.77.1"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:1656 requires the F03_NO_SCORES code for an empty vector, and src/queries.rs:904 requires rank 4 for finalized consumption. Commit 101f526f03 aligned routed refusals and snapshot consumers with the authenticated finality binding rather than manufacturing a rank promotion."
+
+[disposition.22.99.77.20]
+finding = "22.99.77.20"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/host_boundary.rs:520 authenticates the receipt occupancy attachment and line 570 includes the actual occupancy payment in balance conservation. Commit 101f526f03 aligned native readers, reward authority, snapshot bindings and repeated decoding with their producers; 41f31ec2fc repaired retained-supplement accounting."
+
+[disposition.22.99.77.21]
+finding = "22.99.77.21"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-runtime/src/host/mod.rs:847 bounds the retained supplement's actual state, and programs/crates/layerx-programs-ai-market/src/queries.rs:904 keeps finalized consumption gated on rank 4. Commits 41f31ec2fc and 101f526f03 landed the retained-state repair and market reader, finality and fuel corrections."
+
+[disposition.22.99.77.22]
+finding = "22.99.77.22"
+status = "resolved"
+evidence = "On main, tests/programs/test_ai_host_boundary.c:659 validates the version-2 replay record, checks its version byte at line 691 and parses its declared and captured boundary counts at lines 704-713. Commit 101f526f03 carries the updated C consumer for the runtime replay record introduced by 1342437ee8."
+
+[disposition.22.99.77.23]
+finding = "22.99.77.23"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/queries.rs:930 returns eleven feature-availability entries, and tests/view_binding.rs:353 requires all eleven absent entries to be NotYetProduced. Commit 101f526f03 aligned the availability consumers with the producer width."
+
+[disposition.22.99.77.24]
+finding = "22.99.77.24"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940 records the production guest at 499972 bytes with the unchanged 524184-byte deployment bound at line 5944. Commit 6fce630c2d landed the subsequent shared-code reductions; the stronger 484184-byte headroom target remains separately identified at line 5946."
+
+[disposition.22.99.77.25]
+finding = "22.99.77.25"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/canonical_contract.rs:439 freezes all 72 selectors and src/queries.rs:930 exposes eleven availability entries. Commit 101f526f03 reconciled the canonical operation, refusal, joint-section and native reward consumers, while tests/fuel_budget.rs:1678 retains execution of every routed operation under the protocol cap."
+
+[disposition.22.99.77.26]
+finding = "22.99.77.26"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/epoch.rs:689 composes the already validated state and line 714 reuses prepared rollover tables rather than duplicating the whole decode path. Commits 101f526f03 and 6fce630c2d landed the shared implementation and subsequent production guest reductions below the deployment payload bound."
+
+[disposition.22.99.77.27]
+finding = "22.99.77.27"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940 records a 499972-byte guest and line 5945 records 24212 bytes of deployment headroom. Commit 6fce630c2d landed that size reduction without changing the 524184-byte deployment ceiling."
+
+[disposition.22.99.77.28]
+finding = "22.99.77.28"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/canonical_contract.rs:439 checks the current 72-selector contract and src/queries.rs:930 exposes the current eleven-slot availability contract. Commit 101f526f03 repaired canonical refusals, joint-section readers and native reward authorization, and 06be02228f subsequently corrected the ordered read-header decoder."
+
+[disposition.22.99.77.29]
+finding = "22.99.77.29"
+status = "resolved"
+evidence = "On main, services/platform/ramps/reference/tests/repair_22_33_1487.rs:37 embeds the tracked localhost.pem and localhost.p12 from tests/fixtures/repair_fixtures. Commit d122f710b5 restored these TLS fixtures and their tracking exceptions together with the SDK CA fixture."
+
+[disposition.22.99.77.2]
+finding = "22.99.77.2"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/human_runtime.rs:20131 includes tests/fixtures/authority/provider-subject/consent.activity as the signed provider-subject consent input. Commit 220f30f862 restored that fixture, and 10a900f4bc refreshed the associated workspace locks."
+
+[disposition.22.99.77.30]
+finding = "22.99.77.30"
+status = "resolved"
+evidence = "On main, rpc/repair_478_test.go:153 applies the same -Oz packaging to the guest before the payload assertion at line 156; the assertion measures packaged bytes. Commit 101f526f03 landed that artifact selection and 6fce630c2d subsequently reduced the production guest to the 499972 bytes recorded at programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5940."
+
+[disposition.22.99.77.31]
+finding = "22.99.77.31"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/evaluators/admission.rs:557 validates sealed evidence against the opened binding and line 571 preserves live worker/evaluator ROLE_CONFLICT refusal. Commit 101f526f03 landed the canonical refusal, joint-reader, native reward and bounded-execution corrections; 06be02228f subsequently repaired read-header field ordering."
+
+[disposition.22.99.77.32]
+finding = "22.99.77.32"
+status = "resolved"
+evidence = "On main, rpc/repair_478_test.go:217 requires Fund to stay within the production allowance and line 219 imposes the tighter packaged-candidate ceiling of 994968 CPU fuel. Commit 101f526f03 landed the Fund-path repair; 6fce630c2d records current production Fund at 850810 CPU fuel in programs/crates/layerx-programs-ai-market/src/repair_22_39_167.kvx:5955."
+
+[disposition.22.99.77.33]
+finding = "22.99.77.33"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/evaluators/admission.rs:165 reuses validated report bodies, src/epoch.rs:714 reuses prepared opening tables and tests/host_boundary.rs:570 conserves balances including actual occupancy fees. Commit 101f526f03 landed these market and native-reader repairs with strict report, replay and authority checks retained."
+
+[disposition.22.99.77.34]
+finding = "22.99.77.34"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:1678 checks every routed operation and line 1706 collects any protocol-cap overruns, while tests/host_boundary.rs:520 authenticates occupancy charges. Commit 101f526f03 landed the joint-reader and native receipt-backed reward repairs, followed by the read-header correction in 06be02228f."
+
+[disposition.22.99.77.3]
+finding = "22.99.77.3"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/reputation_codec.rs:237 reserves the actual length of the NUL-terminated reputation-root domain prefix plus the full permitted record table. Commit 101f526f03 repaired the full-LIMIT encoding without increasing the record limit."
+
+[disposition.22.99.77.4]
+finding = "22.99.77.4"
+status = "resolved"
+evidence = "On main, tests/programs/test_ai_host_boundary.c:691 checks the real replay record version and lines 707-713 expose and validate captured boundary counts and fuel. Commit 101f526f03 landed the native payload and replay diagnostics; 6fce630c2d subsequently reduced the production guest below its deployment bound."
+
+[disposition.22.99.77.5]
+finding = "22.99.77.5"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/build.rs:1 only emits Cargo rebuild and wasm target-feature linker directives; it no longer reads the Makefile for a chain-domain fallback. Commit 101f526f03 landed this build-script correction, while Makefile:3023 supplies PAXAI_CHAIN_DOMAIN explicitly to the guest build."
+
+[disposition.22.99.77.6]
+finding = "22.99.77.6"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/src/epoch.rs:714 reuses validated rollover tables and src/evaluators/admission.rs:165 reads already authenticated report rows without rehashing them. Commit 101f526f03 landed the opening and reveal reductions, with the protocol CPU ceiling still enforced at tests/fuel_budget.rs:1706."
+
+[disposition.22.99.77.7]
+finding = "22.99.77.7"
+status = "resolved"
+evidence = "On main, tests/programs/test_ai_host_boundary.c:443 checks the native CALL layout and programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:1678 executes every routed operation against the protocol cap. Commit 101f526f03 landed the native capacity, replay and bounded-reader repairs."
+
+[disposition.22.99.77.8]
+finding = "22.99.77.8"
+status = "resolved"
+evidence = "On main, Makefile:3023 exports the selected chain domain into the size-oriented guest build and programs/crates/layerx-programs-ai-market/src/evaluators/admission.rs:557 checks sealed evidence against its binding. Commit 101f526f03 reconciled domain and admission consumers; 6fce630c2d subsequently reduced the production guest below the deployment limit."
+
+[disposition.22.99.77.9]
+finding = "22.99.77.9"
+status = "resolved"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:1656 preserves the specific F03 refusal and tests/canonical_contract.rs:454 checks every named application error code. Commit 101f526f03 aligned the encoded fixtures and error propagation, and 6fce630c2d subsequently landed the production guest reductions."
+
+[disposition.22.99.92.1]
+finding = "22.99.92.1"
+status = "resolved"
+evidence = "On main, tests/ci/test_kernel_suite_retired_uses.py:6 scans surviving C and header sources for retired callers while preserving absence assertions. Commit e40b733248 aligned kernel retirement, replay, codec and genesis consumers, and d21d394b3b subsequently settled bridge-credit retirement against its dedicated absence proofs."
+
+[disposition.22.99.92.2]
+finding = "22.99.92.2"
+status = "resolved"
+evidence = "On main, tests/codec/lxp_test_bridge_claims_retired.c:19 declares typed weak absence probes instead of calling the retired withdrawal and deposit-root functions. Commit e40b733248 retained the null-symbol and header-absence assertions while separating retirement probes from surviving callers."
+
+[disposition.22.99.92.3]
+finding = "22.99.92.3"
+status = "resolved"
+evidence = "On main, services/platform/hosted/node/bootstrap.sh:4 delegates bootstrap to native_runtime.py, whose lines 259-266 use paxd initialization and genesis validation. Commit 9f494ac611 replaced the legacy fixed-module bootstrap with the native node configuration contract; 93caf955b1 and 10a900f4bc refreshed the agent dependency lock."
+
+[disposition.22.99.92.4]
+finding = "22.99.92.4"
+status = "resolved"
+evidence = "On main, services/platform/hosted/node/bootstrap.sh:4 invokes the native bootstrap, and native_runtime.py:259 initializes paxd rather than resolving the retired daemon. Commit 9f494ac611 landed that replacement; e40b733248 retained tests/vectors/codec/generate.py at the path consumed by the Rust vector test."
+
+[disposition.22.99.92.5]
+finding = "22.99.92.5"
+status = "resolved"
+evidence = "On main, services/platform/hosted/node/bootstrap.sh:4 delegates to native_runtime.py, which initializes and validates paxd at lines 259-266 and starts it at line 343. Commit 9f494ac611 replaced the retired-daemon bootstrap and supervisor with the native runtime."
+
+[disposition.22.99.92.6]
+finding = "22.99.92.6"
+status = "environment"
+evidence = "On main, tests/codec/lxp_test_bridge_claims_retired.c:19 retains typed weak absence probes and tests/ci/test_kernel_suite_retired_uses.py:6 retains the surviving-source scan. Commit e40b733248 preserves the codec generator at tests/vectors/codec/generate.py, the source path consumed by the Rust vector integration."
+
+[disposition.22.99.92.7]
+finding = "22.99.92.7"
+status = "resolved"
+evidence = "On main, tests/ci/test_retired_finality_vector.py:8 asserts the retired finality vector is absent and line 13 excludes bytecode-cache directories from the tracked-reference scan. Commit e40b733248 removed the committed Python caches while retaining the actual vector and source-reference retirement assertions."
+

@@ -1,0 +1,95 @@
+[disposition.17.0.1.1.a2]
+finding = "17.0.1.1.a2"
+status = "resolved"
+evidence = "Commit 4f51fd61b8 landed the repository-compatible KVX reader on main. spec/layerx-merge/programme/kvx.py:15 strips comments outside quoted strings, spec/layerx-merge/programme/kvx.py:31 accepts booleans and preserves raw string escapes, and spec/layerx-merge/programme/kvx.py:77 reports the duplicate header location."
+
+[disposition.17.0.1.2.a2]
+finding = "17.0.1.2.a2"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/programme/tests/test_kvx.py:45 uses the absent finding.0.0.0 section for its duplicate fixture and requires the second appended header's line. Commit 4f51fd61b8 landed that fixture together with the reader."
+
+[disposition.17.0.1.a2]
+finding = "17.0.1.a2"
+status = "resolved"
+evidence = "Commit 4f51fd61b8 replaced JSON string decoding with the KVX string rule on main. spec/layerx-merge/programme/kvx.py:38 retains the bytes between quotes and only unescapes quoted double quotes, preserving the specification's raw backslash sequences."
+
+[disposition.17.1.2.a2]
+finding = "17.1.2.a2"
+status = "resolved"
+evidence = "Commit 0cda599bce added the missing activation gate declarations on main. spec/layerx-merge/programme/data/activation-plan.kvx:6 names activationPrecompileGate for v6.9, and spec/layerx-merge/programme/data/activation-plan.kvx:24 names mergePrecompileGate for v7.0."
+
+[disposition.17.3.4.1]
+finding = "17.3.4.1"
+status = "open"
+evidence = "On main, node/merge_rehearsal_test.go:122 still requires installation of sequencer state and enables sequencing only after the upgrade height at node/merge_rehearsal_test.go:126. Pending task 22.39.182 requires this first-sequenced-block check and the complete migration rehearsal to supply the candidate release evidence."
+follow_up = "22.39.182"
+
+[disposition.17.3.4.2]
+finding = "17.3.4.2"
+status = "environment"
+evidence = "The main-line migration contract activates sequencing only after the merge block at node/merge_rehearsal_test.go:126 and preserves leader and activation-height state at node/merge_rehearsal_test.go:130. spec/layerx-merge/programme/tests/test_rehearsal_run.py:38 requires all four rehearsal results to succeed."
+
+[disposition.17.3.4.3]
+finding = "17.3.4.3"
+status = "open"
+evidence = "On main, spec/layerx-merge/programme/tests/test_rehearsal_run.py:38 still requires all four migration steps to succeed, including the unchanged first-block transition in node/merge_rehearsal_test.go:126. Pending task 22.39.182 requires those migration checks as candidate release evidence."
+follow_up = "22.39.182"
+
+[disposition.17.4.5.1]
+finding = "17.4.5.1"
+status = "open"
+evidence = "On main, spec/layerx-merge/programme/parity.py:108 translates exact parity selectors into commands, but task 17.4.5 remains pending at spec/layerx-merge/spec.kvx:318249. Its acceptance-coverage closure must still account for the selectors owned by pending tasks."
+follow_up = "17.4.5"
+
+[disposition.17.4.5.2]
+finding = "17.4.5.2"
+status = "open"
+evidence = "The main-line parity selector parser at spec/layerx-merge/programme/parity.py:116 still validates path and test-name syntax before choosing a toolchain. The selector-grammar and coverage completion task 17.4.5 remains pending at spec/layerx-merge/spec.kvx:318249."
+follow_up = "17.4.5"
+
+[disposition.17.5.1.1.a2]
+finding = "17.5.1.1.a2"
+status = "open"
+evidence = "On main, scripts/gates/wave-0.sh:4 declares the dry-run, workspace build and workspace lint stages. The required aggregate result is still pending under task 17.5.1 at spec/layerx-merge/spec.kvx:318312."
+follow_up = "17.5.1"
+
+[disposition.17.5.1.a2]
+finding = "17.5.1.a2"
+status = "open"
+evidence = "The retired layerxd process is absent on main, while scripts/gates/wave-0.sh:5 still requires the complete workspace build and lint. Task 17.5.1 remains pending at spec/layerx-merge/spec.kvx:318312, so its aggregate closure is still open."
+follow_up = "17.5.1"
+
+[disposition.17.5.2.1.a2]
+finding = "17.5.2.1.a2"
+status = "open"
+evidence = "On main, scripts/gates/wave-1.sh:4 requires workspace build, workspace tests, core tests and the sanitizer suite. The owning aggregate task 17.5.2 remains pending at spec/layerx-merge/spec.kvx:318358."
+follow_up = "17.5.2"
+
+[disposition.17.5.2.9]
+finding = "17.5.2.9"
+status = "open"
+evidence = "The wave-1 aggregate still includes the full workspace build and test targets at scripts/gates/wave-1.sh:4 on main. Its required result remains pending under task 17.5.2 at spec/layerx-merge/spec.kvx:318358."
+follow_up = "17.5.2"
+
+[disposition.17.5.2.a2]
+finding = "17.5.2.a2"
+status = "open"
+evidence = "The retired layerxd source is absent on main, but scripts/gates/wave-1.sh:4 continues to require the full workspace build and subsequent aggregate targets. Task 17.5.2 remains pending at spec/layerx-merge/spec.kvx:318358."
+follow_up = "17.5.2"
+
+[disposition.17.5.3.5]
+finding = "17.5.3.5"
+status = "open"
+evidence = "On main, scripts/gates/wave-2.sh:5 requires workspace build, workspace tests, core tests and agent tests. The owning aggregate task 17.5.3 remains pending at spec/layerx-merge/spec.kvx:318397."
+follow_up = "17.5.3"
+
+[disposition.17.5.4.4]
+finding = "17.5.4.4"
+status = "open"
+evidence = "On main, scripts/gates/wave-3.sh:4 requires workspace build and tests together with agent, interop and programs tests. The aggregate closure remains pending under task 17.5.4 at spec/layerx-merge/spec.kvx:318434."
+follow_up = "17.5.4"
+
+[disposition.17.9.1.a2]
+finding = "17.9.1.a2"
+status = "resolved"
+evidence = "Commit 00e26a2268 aligned the off-chain service catalogue with domains 3 through 16 on main. spec/layerx-merge/programme/tests/test_service_catalogue.py:17 accepts that range, covering the domain-16 merge-tools and rollout-controller records in spec/layerx-merge/programme/data/services.kvx:112 and spec/layerx-merge/programme/data/services.kvx:252."

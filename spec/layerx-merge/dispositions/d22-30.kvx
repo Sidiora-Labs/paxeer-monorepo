@@ -1,0 +1,523 @@
+# Task 22.39.198: closure dispositions for the 22.33 series.
+# Evidence source: origin/main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+# Order: spec/layerx-merge/programme/closure/22.39.198.ids.
+
+[disposition.22.33.755.1]
+finding = "22.33.755.1"
+status = "resolved"
+evidence = "On main, rpc/repair_m755_test.go:208 removes object-array casts, Promise casts and ReturnType timer annotations before parsing the production utility functions, while the deadline cases at line 658 retain cancellation assertions. Commit e955eaf4edd915b4668966e869fbf79baddb8448 landed this change."
+
+[disposition.22.33.761.1]
+finding = "22.33.761.1"
+status = "resolved"
+evidence = "On main, tests/integration/upgrade_module/scripts/upgrade_runtime.py:453 records the launch start timestamp before creating the child, and await_launch at line 419 requires fresh markers and node statuses. Commit 772b957489bf11e2923efdef3eab0e8aed95f5ab landed this change."
+
+[disposition.22.33.761.2]
+finding = "22.33.761.2"
+status = "environment"
+evidence = "On main, tests/integration/upgrade_module/scripts/upgrade_runtime.py:419 accepts launch completion only with fresh markers and distinct responsive node identities; tools/qualification/audit_repairs/test_repair_22_33_761.py:147 checks duplicate identities and stale markers are refused."
+
+[disposition.22.33.761.3]
+finding = "22.33.761.3"
+status = "resolved"
+evidence = "On main, tests/integration/upgrade_module/scripts/upgrade_runtime.py:441 implements launch and its bounded readiness checks, and tools/qualification/audit_repairs/test_repair_22_33_761.py:25 imports that retained module directly. Commit 772b957489bf11e2923efdef3eab0e8aed95f5ab landed this change."
+
+[disposition.22.33.766.1]
+finding = "22.33.766.1"
+status = "resolved"
+evidence = "On main, modules/tokenfactory/client/cli/tx.go:80 receives both the transaction factory and its error from NewFactoryCLI and returns the error before generating a transaction. Commit d56c2b440d86236f7181237b0e521270c7801d50 landed this change."
+
+[disposition.22.33.766.2]
+finding = "22.33.766.2"
+status = "environment"
+evidence = "On main, tools/benchmark/loadtest/repair_m766_test.go:268 checks cancellation of an outstanding scrape, and the cases at lines 297 and 319 cover shutdown signals and duplicate statistics heights without accepting extra observations."
+
+[disposition.22.33.77.1]
+finding = "22.33.77.1"
+status = "environment"
+evidence = "On main, apps/perps/src/core/graphql/client.ts:88 assigns an authentication scope to each session generation and restarts authenticated work when that generation changes; apps/perps/tests/repair-22-33-77.test.ts:291 registers the session isolation and cancellation checks."
+
+[disposition.22.33.77.2]
+finding = "22.33.77.2"
+status = "environment"
+evidence = "On main, apps/perps/src/core/graphql/client.ts:88 assigns an authentication scope to each session generation and restarts authenticated work when that generation changes; apps/perps/tests/repair-22-33-77.test.ts:291 registers the session isolation and cancellation checks."
+
+[disposition.22.33.776.1]
+finding = "22.33.776.1"
+status = "environment"
+evidence = "On main, tools/containers/check.sh:219 compares the declared out-of-scope Dockerfiles with the tracked inventory, and tools/containers/test_repair_22_33_776.py:26 checks that inventory while line 60 rejects unreviewed scope changes."
+
+[disposition.22.33.78.1]
+finding = "22.33.78.1"
+status = "environment"
+evidence = "On main, apps/perps/src/core/rpc.ts:24 supplies the numbered public chain-125 RPC roots and the aggregate root, while apps/perps/tests/repair-22-33-78.test.ts:195 checks that a dynamically discovered market reaches chart history."
+
+[disposition.22.33.79.1]
+finding = "22.33.79.1"
+status = "environment"
+evidence = "On main, apps/perps/src/core/datafeed/perps.ts:260 advances the cache only for newer history bars, and line 291 admits equal-time live updates under a symbol-and-resolution series key; reconnect resets only the matching series at line 310."
+
+[disposition.22.33.79.2]
+finding = "22.33.79.2"
+status = "environment"
+evidence = "On main, apps/perps/src/core/datafeed/perps.ts:260 advances the cache only for newer history bars, and line 291 admits equal-time live updates under a symbol-and-resolution series key; reconnect resets only the matching series at line 310."
+
+[disposition.22.33.796.1]
+finding = "22.33.796.1"
+status = "resolved"
+evidence = "On main, tools/bringup/repair_m796_test.go:828 requires the runtime inventory to contain paxd, attestor and bringup-inspect and validates its actual transitive source closure at line 831, with missing-source and missing-transitive rejection cases at line 850. Commit 9ded4b7ea12b05afb9cc28a177ad797d384355d9 landed this change."
+
+[disposition.22.33.80.1]
+finding = "22.33.80.1"
+status = "environment"
+evidence = "On main, apps/perps/src/core/errors/classify.ts:98 maps FetchPolicyError timeout, abort and network kinds to API_TIMEOUT, RUNTIME_ABORTED and API_OFFLINE before diagnostic-text classification; apps/perps/tests/repair-22-33-80.test.ts:57 checks that changing the diagnostic text preserves the typed timeout classification."
+
+[disposition.22.33.80.2]
+finding = "22.33.80.2"
+status = "environment"
+evidence = "On main, apps/perps/src/core/errors/classify.ts:98 maps FetchPolicyError timeout, abort and network kinds to API_TIMEOUT, RUNTIME_ABORTED and API_OFFLINE before diagnostic-text classification; apps/perps/tests/repair-22-33-80.test.ts:57 checks that changing the diagnostic text preserves the typed timeout classification."
+
+[disposition.22.33.81.1]
+finding = "22.33.81.1"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-81.test.ts:185 checks that take-profit and stop-loss prices survive every ladder rung in placeOrder calldata, and line 245 checks cross-margin account risk against the ABI-decoded account snapshot."
+
+[disposition.22.33.81.2]
+finding = "22.33.81.2"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-81.test.ts:185 checks that take-profit and stop-loss prices survive every ladder rung in placeOrder calldata, and line 245 checks cross-margin account risk against the ABI-decoded account snapshot."
+
+[disposition.22.33.810.1]
+finding = "22.33.810.1"
+status = "resolved"
+evidence = "On main, tools/qualification/paxeer-x/fixtures/xweb_fixture.py:39 imports its retained sibling xweb_native_evm.py, whose calldata and signing helpers at lines 73 and 85 use the agent SDK transaction codec. Commit fe9bc6ebcf2369e89b69645b4f84a5eeb7ed861f landed this change."
+
+[disposition.22.33.810.2]
+finding = "22.33.810.2"
+status = "resolved"
+evidence = "On main, services/platform/hosted/paxeer/evm.py:67 supplies Keccak-256 and line 111 derives the secp256k1 public point, retaining the EVM helpers consumed by the qualification modules. Commit 7a57acce11f6b3053a32372641eedd7f94947ddf landed this change."
+
+[disposition.22.33.810.3]
+finding = "22.33.810.3"
+status = "environment"
+evidence = "On main, tools/qualification/paxeer-x/tests/test_repair_22_33_810.py:276 checks native registry discovery and reopening, and line 300 checks authenticated, idempotent publication across restart against the retained registry producer."
+
+[disposition.22.33.810.4]
+finding = "22.33.810.4"
+status = "resolved"
+evidence = "On main, tools/qualification/paxeer-x/fixtures/xweb_native_evm.py:15 imports the agent SDK EVM transaction codec and implements transaction signing at line 85, with the sibling fixture selecting this module at tools/qualification/paxeer-x/fixtures/xweb_fixture.py:39. Commit fe9bc6ebcf2369e89b69645b4f84a5eeb7ed861f landed this change."
+
+[disposition.22.33.811.1]
+finding = "22.33.811.1"
+status = "resolved"
+evidence = "On main, tools/chain/upgrade-replay/repair_m811_test.go:138 initializes the retained anchor genesis and module version map before committing the historical snapshot, then invokes the production activation replay at line 153 and checks recovered activation height at line 227. Commit 5233a3b7ab184e70c96d13d5a1eb3ee2170c936a landed this change."
+
+[disposition.22.33.82.1]
+finding = "22.33.82.1"
+status = "environment"
+evidence = "On main, apps/perps/src/core/paxscan/socket/useSocketChannel.tsx:18 canonicalizes join parameters and line 57 keys channel identity by topic and those parameters; apps/perps/tests/repair-22-33-82.test.ts:224 checks that removing one subscriber preserves the other subscriber's joined channel."
+
+[disposition.22.33.82.2]
+finding = "22.33.82.2"
+status = "environment"
+evidence = "On main, apps/perps/src/core/paxscan/socket/useSocketChannel.tsx:18 canonicalizes join parameters and line 57 keys channel identity by topic and those parameters; apps/perps/tests/repair-22-33-82.test.ts:224 checks that removing one subscriber preserves the other subscriber's joined channel."
+
+[disposition.22.33.820.1]
+finding = "22.33.820.1"
+status = "resolved"
+evidence = "On main, tools/loadtest/go.mod:5 declares the generator module's direct dependencies, including go-ethereum, go-cmp and uint256, alongside the retained scenario proof in tools/loadtest/generator/scenarios/repair_m820_test.go. Commit 45813af2c1c74225572da94aa7f7f49cff08d975 landed this change."
+
+[disposition.22.33.826.1]
+finding = "22.33.826.1"
+status = "environment"
+evidence = "On main, services/platform/perps-data/internal/replay/repair_m826_test.go:205 reads the rebuilt PnL, volume and win-rate boards through REST backed by stored projections, and line 209 rejects any accidental node access on those projection routes."
+
+[disposition.22.33.826.2]
+finding = "22.33.826.2"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/internal/decode/spot.go:464 registers exactly Transfer and Approval for share pointers, matching the deployed share ABI; services/platform/perps-data/internal/graphql/repair_m829_test.go:456 requires the historical OwnershipTransferred event to remain an unknown-topic raw row. Commit c5271779fe74b3d610d388674241a5aec8a114f2 landed this change."
+
+[disposition.22.33.827.1]
+finding = "22.33.827.1"
+status = "environment"
+evidence = "On main, services/platform/perps-data/internal/store/repair_m827_test.go:145 decodes source logs through the production registry and writes their block to the store; line 166 rejects a fixture if any source log fails decoding."
+
+[disposition.22.33.827.2]
+finding = "22.33.827.2"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/internal/decode/spot.go:464 registers exactly Transfer and Approval for share pointers, matching the deployed share ABI; services/platform/perps-data/internal/graphql/repair_m829_test.go:456 requires the historical OwnershipTransferred event to remain an unknown-topic raw row. Commit c5271779fe74b3d610d388674241a5aec8a114f2 landed this change."
+
+[disposition.22.33.827.3]
+finding = "22.33.827.3"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/migrations/0016_spot_board_omissions.sql:3 creates spot_board_omissions and line 8 creates spot_board_generation with nonnegative omission counts, preserving absence of a generation until a board fold is published. Commit cdb6399b596672cf98b5e24a6ea86bea3490f6e3 landed this change."
+
+[disposition.22.33.828.1]
+finding = "22.33.828.1"
+status = "environment"
+evidence = "On main, services/platform/perps-data/internal/rest/repair_m828_test.go:148 checks a durable leaderboard across database reopening, while line 138 checks unknown-kind validation before any database or node access and line 305 covers an empty board."
+
+[disposition.22.33.829.1]
+finding = "22.33.829.1"
+status = "resolved"
+evidence = "On main, services/platform/perps-data/internal/decode/spot.go:464 registers exactly Transfer and Approval for share pointers, matching the deployed share ABI; services/platform/perps-data/internal/graphql/repair_m829_test.go:456 requires the historical OwnershipTransferred event to remain an unknown-topic raw row. Commit c5271779fe74b3d610d388674241a5aec8a114f2 landed this change."
+
+[disposition.22.33.83.1]
+finding = "22.33.83.1"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-83.test.ts:174 checks page selection and pointer-event state during resizing, and line 204 checks cancellation leaves no committed dimensions; the same case checks restoration of page interaction after unmount."
+
+[disposition.22.33.83.2]
+finding = "22.33.83.2"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-83.test.ts:174 checks page selection and pointer-event state during resizing, and line 204 checks cancellation leaves no committed dimensions; the same case checks restoration of page interaction after unmount."
+
+[disposition.22.33.832.1]
+finding = "22.33.832.1"
+status = "environment"
+evidence = "On main, services/platform/perps-data/loadtest/repair_m832_test.go:192 drives the production load profile and line 198 requires committed fills and rolling statistics for all eighteen markets; line 201 requires every delivery-outbox row to carry a persisted broker acknowledgement."
+
+[disposition.22.33.837.1]
+finding = "22.33.837.1"
+status = "resolved"
+evidence = "On main, tools/paxctl/go.mod:12 declares go-ethereum and line 41 selects the retained geth fork, while tools/paxctl/sidecar/shadow/repair_m837_test.go:420 requires source and binary provenance, successful receipts and a nonempty node transcript for the read-only and creation cases. Commit eae8286bf2d1f68c64b016973cecd5f03ab43b0e landed this change."
+
+[disposition.22.33.839.1]
+finding = "22.33.839.1"
+status = "resolved"
+evidence = "On main, tools/paxctl/sidecar/server/server.go:234 receives both results and error from RecentResults and line 252 does the same for GetResult, returning typed HTTP failures before serializing successful results. Commit d58b38336b06a0e61afe2069c77c404575864e9b landed this change."
+
+[disposition.22.33.849.1]
+finding = "22.33.849.1"
+status = "environment"
+evidence = "On main, tools/qualification/audit_repairs/test_repair_22_33_849.py:70 requires every program-operations source path to exist, and line 215 checks that the connected path reads the native committed receipt and retains duplicate and tampering refusals."
+
+[disposition.22.33.853.1]
+finding = "22.33.853.1"
+status = "environment"
+evidence = "On main, tools/qualification/paxeer-x/human-service-contract.py:58 admits only bounded private compiler records, line 151 checks the service record schema, and line 204 verifies the clock record against the current source hashes and predecessor record."
+
+[disposition.22.33.864.1]
+finding = "22.33.864.1"
+status = "resolved"
+evidence = "On main, tools/qualification/release_runner.py:206 requires the real-node crash boundaries around node WAL, state mutation, block commit, receipt publication and acknowledgement; tools/qualification/tests/test_repair_22_33_864.py:249 checks this current inventory and missing-evidence refusals. Commit d82c0d3a33eecab421223a8309642a324e58261a landed this change."
+
+[disposition.22.33.877.1]
+finding = "22.33.877.1"
+status = "resolved"
+evidence = "On main, tools/qualification/paxeer-x/tests/test_repair_22_33_877.py:113 selects V2-pax-transfer-insufficient-funds for terminal-0, and sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:328 retains that committed refusal with empty returnData and logs; the terminal consumer at tools/qualification/paxeer-x/native-terminal-outcome.py:118 still requires those empty execution fields. Commit 58e4e6fae8b2e5c160767edbec37c627a6e41938 landed this change."
+
+[disposition.22.33.877.2]
+finding = "22.33.877.2"
+status = "resolved"
+evidence = "On main, tools/qualification/paxeer-x/tests/test_repair_22_33_877.py:113 selects V2-pax-transfer-insufficient-funds for terminal-0, and sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:328 retains that committed refusal with empty returnData and logs; the terminal consumer at tools/qualification/paxeer-x/native-terminal-outcome.py:118 still requires those empty execution fields. Commit 58e4e6fae8b2e5c160767edbec37c627a6e41938 landed this change."
+
+[disposition.22.33.879.1]
+finding = "22.33.879.1"
+status = "resolved"
+evidence = "On main, modules/tokenfactory/client/cli/tx.go:80 receives both the transaction factory and its error from NewFactoryCLI and returns the error before generating a transaction. Commit d56c2b440d86236f7181237b0e521270c7801d50 landed this change."
+
+[disposition.22.33.880.1]
+finding = "22.33.880.1"
+status = "resolved"
+evidence = "On main, modules/tokenfactory/client/cli/tx.go:80 receives both the transaction factory and its error from NewFactoryCLI and returns the error before generating a transaction. Commit d56c2b440d86236f7181237b0e521270c7801d50 landed this change."
+
+[disposition.22.33.886.1]
+finding = "22.33.886.1"
+status = "resolved"
+evidence = "On main, tests/conformance/test_repair_22_33_886.py:49 includes the producer and all retained consumer copies, and line 60 requires the copy checker to accept all 27 receipt-vector copies while checking their recorded producer provenance. Commit 56c0f69099ee42ef28ab776f5149207578ac6dca landed this change."
+
+[disposition.22.33.886.2]
+finding = "22.33.886.2"
+status = "resolved"
+evidence = "On main, tests/conformance/test_repair_22_33_886.py:124 feeds original recorded receipts through the RPC transport into the copy checker, and line 163 mutates the block hash and requires the specific receiptJson.blockHash refusal. Commit 56c0f69099ee42ef28ab776f5149207578ac6dca landed this change."
+
+[disposition.22.33.886.3]
+finding = "22.33.886.3"
+status = "resolved"
+evidence = "On main, tests/conformance/test_repair_22_33_886.py:70 refreshes the explorer copy from the recorded producer and checks that legacy cases survive, with the copied settlement compared directly to the source at line 80. Commit 56c0f69099ee42ef28ab776f5149207578ac6dca landed this change."
+
+[disposition.22.33.886.4]
+finding = "22.33.886.4"
+status = "resolved"
+evidence = "On main, tests/conformance/test_repair_22_33_886.py:77 retains the committed-ok, below-receipt-height and mismatched-commit-height V3 cases, and line 81 submits the refreshed explorer copy to the strict receipt-vector checker. Commit 56c0f69099ee42ef28ab776f5149207578ac6dca landed this change."
+
+[disposition.22.33.886.5]
+finding = "22.33.886.5"
+status = "resolved"
+evidence = "On main, tests/conformance/test_repair_22_33_886.py:49 enumerates the SDK, explorer, Comet, interop and x402 copies together with retained platform fixtures; line 66 requires the complete 27-copy comparison. Commit 56c0f69099ee42ef28ab776f5149207578ac6dca landed this change."
+
+[disposition.22.33.886.6]
+finding = "22.33.886.6"
+status = "environment"
+evidence = "On main, tests/conformance/test_repair_22_33_886.py:170 retains mutations of source hashes, transaction proofs, receipt digests and block identities as refusal inputs for the receipt-vector copy checker."
+
+[disposition.22.33.887.1]
+finding = "22.33.887.1"
+status = "resolved"
+evidence = "On main, tools/benchmark/loadtest/contracts/jupiter/Cargo.toml:24 resolves pax-cosmwasm to the retained sibling crate, whose tools/benchmark/loadtest/contracts/pax-cosmwasm/src/lib.rs:8 defines PaxMsg and line 56 defines PaxQueryWrapper for the Jupiter contract. Commit 70dde764c90c7b5ba441dec6f4a3ad24f35bf918 landed this change."
+
+[disposition.22.33.889.1]
+finding = "22.33.889.1"
+status = "resolved"
+evidence = "On main, tools/release/tests/test_repair_22_33_889.py:713 delegates merged-scenario checks to the producer's current registry contract, and tools/release/tests/test_programme.py:641 requires each registered merged check to have a callable implementation and matching driver invocation. Commit a195f38f4fdd324d5a0b14c13536d9b225579b53 landed this change."
+
+[disposition.22.33.889.2]
+finding = "22.33.889.2"
+status = "resolved"
+evidence = "On main, tools/release/tests/test_repair_22_33_889.py:713 delegates merged-scenario checks to the producer's current registry contract, and tools/release/tests/test_programme.py:641 requires each registered merged check to have a callable implementation and matching driver invocation. Commit a195f38f4fdd324d5a0b14c13536d9b225579b53 landed this change."
+
+[disposition.22.33.891.1]
+finding = "22.33.891.1"
+status = "resolved"
+evidence = "On main, tests/test_authority_multisig.c:491 checks the extended grant version on encoded authority bytes, and tests/test_genesis_module_table.c:408 verifies the producer's signed genesis and snapshot directly without settlement registration. Commit 59105e8058bac56ec499ed424c1277f4f2d14a5b landed this change."
+
+[disposition.22.33.891.2]
+finding = "22.33.891.2"
+status = "resolved"
+evidence = "On main, src/ledger/lx_account_registry.c:21 classifies reserve and withdrawals as system accounts and line 605 refuses their creation only for credit authority, retaining genesis and governance creation. Commit 1c16917749e5dc0f280f81920c73347066570177 landed this change."
+
+[disposition.22.33.891.3]
+finding = "22.33.891.3"
+status = "resolved"
+evidence = "On main, tests/test_genesis_module_table.c:809 requires a zero-guarantor historical downgrade to return NON_CANONICAL, then supplies the historical guarantor at line 815 and requires VERSION_UNSUPPORTED, preserving both distinct refusal contracts. Commit 59105e8058bac56ec499ed424c1277f4f2d14a5b landed this change."
+
+[disposition.22.33.892.1]
+finding = "22.33.892.1"
+status = "resolved"
+evidence = "On main, tests/test_genesis_reconcile.c:107 checks a signed historical attestation with mismatched supply, then checks matching supply, an unfinalised registration and a corrupted signature before registering the C test at line 141. Commit 01876211ebf09c513c374f283eb4344613d69307 landed this change."
+
+[disposition.22.33.892.2]
+finding = "22.33.892.2"
+status = "resolved"
+evidence = "On main, src/ledger/lx_account_registry.c:605 permits system reserve and withdrawals creation by genesis authority while rejecting credit authority, and tests/test_reserve_reconcile.c:63 opens its asset accounts through that genesis path. Commit 1c16917749e5dc0f280f81920c73347066570177 landed this change."
+
+[disposition.22.33.897.1]
+finding = "22.33.897.1"
+status = "resolved"
+evidence = "On main, sdk/wallet/src/receipt.ts:690 supplies an empty options object when the abort signal is absent and a signal-bearing object when it is present, preserving exactOptionalPropertyTypes; apps/web/e2e/repair-22-33-897.test.ts:128 still requires the wallet to submit type-2 chain-125 transactions. Commit 1ac6b44d52df083fd299176981f6e88b03b622ab landed this change."
+
+[disposition.22.33.897.2]
+finding = "22.33.897.2"
+status = "resolved"
+evidence = "On main, apps/web/e2e/repair-22-33-897.test.ts:8 imports happy-dom from the web dependency, and line 17 verifies that its resolved package version and entry match the direct web manifest declaration. Commit c9dfc5d630111652f1daa7edff9c34c33ae69681 landed this change."
+
+[disposition.22.33.900.1]
+finding = "22.33.900.1"
+status = "environment"
+evidence = "On main, apps/launchpad/web/src/core/repair-22-33-900.test.ts:19 includes the retained runtime-authority production cases, while line 95 checks wallet-parent origins against both CSP and bridge configuration and line 259 checks the admitted parent pins outbound messages."
+
+[disposition.22.33.909.1]
+finding = "22.33.909.1"
+status = "resolved"
+evidence = "On main, modules/tokenfactory/client/cli/tx.go:80 receives both the transaction factory and its error from NewFactoryCLI and returns the error before generating a transaction. Commit d56c2b440d86236f7181237b0e521270c7801d50 landed this change."
+
+[disposition.22.33.909.2]
+finding = "22.33.909.2"
+status = "resolved"
+evidence = "On main, modules/lxphost/repair_m909_test.go:61 produces the send payload with EncodeSendPayload, derives its context hash with the production domain codec and re-encodes it; line 228 binds receipt-authority simulation to the persisted canonical receipt. Commit 881ec671232414a293501de5848d06ede996fe48 landed this change."
+
+[disposition.22.33.914.1]
+finding = "22.33.914.1"
+status = "environment"
+evidence = "On main, tools/launchpad/production/dispatcher/tests/test_repair_22_33_914.py:68 checks moved owned leaves survive patch staging, and line 93 checks all fifty ownership handoffs and refuses foreign paths before a staged tree is accepted."
+
+[disposition.22.33.917.1]
+finding = "22.33.917.1"
+status = "resolved"
+evidence = "On main, launchpad/spec/production-system/integration/migrations/pnl-reward-approval.json supplies the reward migration approval and registry.json binds it; services/launchpad/pnl-tracker/internal/app/repair_m917_test.go:57 validates that production registry and line 135 retains drift, unapproved-release and reader-version refusals. Commit 3924248dd2fc42125eb6f7c5b735d475471e379b landed this change."
+
+[disposition.22.33.917.2]
+finding = "22.33.917.2"
+status = "resolved"
+evidence = "On main, services/launchpad/pnl-tracker/go.mod declares the dependencies of the retained application and migration-contract tests, and services/launchpad/pnl-tracker/internal/app/repair_m917_test.go:37 checks both fresh installation and existing-schema upgrade contracts. Commit 3924248dd2fc42125eb6f7c5b735d475471e379b landed this change."
+
+[disposition.22.33.919.1]
+finding = "22.33.919.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/widgets/holder-rewards/repair-22-33-919.test.ts:25 installs Event and CustomEvent from the same DOM window used by wallet discovery, and lines 269-270 register the sorting and grid-pagination checks. Commit 96bf6f1ce98e3b217e3284c7236aeda6de269b87 landed this change."
+
+[disposition.22.33.92.1]
+finding = "22.33.92.1"
+status = "resolved"
+evidence = "On main, services/interop/crates/layerx-ap2/tests/repair_22_33_92.rs:133 checks original node transaction evidence, and line 209 requires repeated mandate authorization to preserve the idempotency key; the settlement proof at line 182 binds the original receipt digest. Commit 6d6f376f6207fc8c14b6893e8d660b0199a3102e landed this change."
+
+[disposition.22.33.921.1]
+finding = "22.33.921.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/widgets/social/repair-22-33-921.test.ts:30 supplies authorized feed source identities, revisions and tombstones, and lines 157 and 179 register real feed and pool pagination cases alongside deadline and caller-cancellation checks. Commit 101233f919605be9d308764908ea84c11efa84c2 landed this change."
+
+[disposition.22.33.923.1]
+finding = "22.33.923.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.test.ts:152 checks recovery of a submitted chain-launch journal across newly created providers, connectors, caches and components, preserving only the durable draft and requiring one submission. Commit 7c8beed53cd937dd1147b1d1aec200387ce644df landed this change."
+
+[disposition.22.33.930.1]
+finding = "22.33.930.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/widgets/profile/portfolio-chart.tsx:59 binds hover state to its points and clears it when the series changes, while apps/launchpad/web/src/widgets/profile/repair-22-33-930.test.ts:287 delivers the preview load event before checking image-removal and save behavior. Commit 73765d2e6275dd94098230e3ef110914396605c2 landed this change."
+
+[disposition.22.33.935.1]
+finding = "22.33.935.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/widgets/terminal/right-rail/repair-22-33-935.test.ts:284 registers concrete storage-fallback and position-pagination functions, including snapshot changes, failed continuations and sign-out; the sign-out case at line 279 requires all displayed amounts to clear. Commit 59b428d7d84f1b57e2be06858e5bc69d9674ecd5 landed this change."
+
+[disposition.22.33.939.1]
+finding = "22.33.939.1"
+status = "environment"
+evidence = "On main, tools/launchpad/production/bootstrap/tests/test_repair_22_33_939.py:74 compares the canonical workspace to seventeen production Go modules and a separate tool inventory, and line 121 checks application and SDK package membership without mutating the source tree."
+
+[disposition.22.33.94.1]
+finding = "22.33.94.1"
+status = "resolved"
+evidence = "On main, tools/qualification/audit_repairs/test_repair_22_33_94.py:104 derives provider references for all three card, bank and RTP credited journeys and line 144 retains rejection of the original unbound submission; services/interop/specs/conformance/fiat/sequenced-journeys.json contains the provider-bound journey records. Commit 598470643f56478bbb8d322f86a6afe377908c27 landed this change."
+
+[disposition.22.33.94.2]
+finding = "22.33.94.2"
+status = "resolved"
+evidence = "On main, tools/qualification/audit_repairs/test_repair_22_33_94.py:104 derives provider references for all three card, bank and RTP credited journeys and line 144 retains rejection of the original unbound submission; services/interop/specs/conformance/fiat/sequenced-journeys.json contains the provider-bound journey records. Commit 598470643f56478bbb8d322f86a6afe377908c27 landed this change."
+
+[disposition.22.33.94.3]
+finding = "22.33.94.3"
+status = "resolved"
+evidence = "On main, tools/qualification/audit_repairs/test_repair_22_33_94.py:42 resolves each journey's declared fixture and case, and line 63 validates that capture rather than substituting a shared payExact receipt. Commit 598470643f56478bbb8d322f86a6afe377908c27 landed this change."
+
+[disposition.22.33.94.4]
+finding = "22.33.94.4"
+status = "resolved"
+evidence = "On main, tools/qualification/audit_repairs/test_repair_22_33_94.py:81 reads the receipt sequence from receiptJson.seq, and line 160 resolves each journey's declared fixture and retains its original producer provenance and digest. Commit 598470643f56478bbb8d322f86a6afe377908c27 landed this change."
+
+[disposition.22.33.941.1]
+finding = "22.33.941.1"
+status = "environment"
+evidence = "On main, tools/launchpad/production/bootstrap/snapshot/snapshot.py:11 excludes Python bytecode directories from the source inventory and line 32 excludes .pyc files; tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py:152 checks generated outputs and secrets remain excluded."
+
+[disposition.22.33.943.1]
+finding = "22.33.943.1"
+status = "resolved"
+evidence = "On main, modules/launchpad/keeper/grpc_query_fee_accounting.go:15 reads total liabilities from the keeper and lines 19-37 read and return the persisted pool, epoch and claim counters instead of hardcoded zero counts. Commit 82672da364eb2dec17a7b430b81ab05ef5f7cf3d landed this change."
+
+[disposition.22.33.943.2]
+finding = "22.33.943.2"
+status = "resolved"
+evidence = "On main, modules/launchpad/keeper/feerights.go:103 propagates a linked pool's fee-right owner and strategy into its stored market before writing the right, and modules/launchpad/keeper/repair_m943_test.go:108 compares every committed-store key and value to the query context. Commit 82672da364eb2dec17a7b430b81ab05ef5f7cf3d landed this change."
+
+[disposition.22.33.944.1]
+finding = "22.33.944.1"
+status = "resolved"
+evidence = "On main, modules/launchpad/keeper/fee_accounting_counts.go:42 increments a collection counter only when adding a new key, and modules/launchpad/keeper/grpc_query_fee_accounting.go:19 returns the persisted pool, epoch and claim counts to query consumers. Commit 82672da364eb2dec17a7b430b81ab05ef5f7cf3d landed this change."
+
+[disposition.22.33.944.2]
+finding = "22.33.944.2"
+status = "resolved"
+evidence = "On main, modules/tokenfactory/client/cli/tx.go:80 receives both the transaction factory and its error from NewFactoryCLI and returns the error before generating a transaction. Commit d56c2b440d86236f7181237b0e521270c7801d50 landed this change."
+
+[disposition.22.33.946.1]
+finding = "22.33.946.1"
+status = "resolved"
+evidence = "On main, modules/launchpad/keeper/custody.go:105 exposes ErrOverflow through both Unwrap and Cause on quote-ledger overflow, and modules/launchpad/keeper/fees.go:138 wraps ErrInvalidHookResponse together with the underlying hook error, preserving registered producer identities. Commit 3c39be6047a5ab1407a546feb04eee442f04cc2e landed this change."
+
+[disposition.22.33.946.2]
+finding = "22.33.946.2"
+status = "resolved"
+evidence = "On main, modules/tokenfactory/client/cli/tx.go:80 receives both the transaction factory and its error from NewFactoryCLI and returns the error before generating a transaction. Commit d56c2b440d86236f7181237b0e521270c7801d50 landed this change."
+
+[disposition.22.33.948.1]
+finding = "22.33.948.1"
+status = "resolved"
+evidence = "On main, sdk/launchpad/protocol/bindings/repair_m948_test.go:371 exercises the native executor through mined contract calls, and line 426 checks decoded TokenDeployed, MarketCreated, NftMint and PoolRegistered events against the resulting receipts. Commit b0ac70d99b0f0117905df0472c09709e71f2efe8 landed this change."
+
+[disposition.22.33.95.1]
+finding = "22.33.95.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 constructs exact Quantity values from big-endian bytes and converts them through for_operation before comparing observed available balances. Commit 0f2268dc6df5ece6ef28c675fea5b5c6cd214d9c landed this change."
+
+[disposition.22.33.95.2]
+finding = "22.33.95.2"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 constructs exact Quantity values from big-endian bytes and converts them through for_operation before comparing observed available balances. Commit 0f2268dc6df5ece6ef28c675fea5b5c6cd214d9c landed this change."
+
+[disposition.22.33.954.1]
+finding = "22.33.954.1"
+status = "environment"
+evidence = "On main, tools/launchpad/delivery/test_repair_22_33_954.py:158 checks durable ingestion both before and after receipt polling, and line 167 requires the reported p99 to include measured clock uncertainty with chain-transaction commit as timestamp authority."
+
+[disposition.22.33.955.1]
+finding = "22.33.955.1"
+status = "environment"
+evidence = "On main, apps/launchpad/web/package.json:7 declares pnpm and lines 18-19 declare the local SDKs through workspace dependencies; apps/launchpad/web/test/repair-22-33-955.test.mjs:68 checks that browser-manifest source hashes survive transport and reopening."
+
+[disposition.22.33.956.1]
+finding = "22.33.956.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/shell/mobile-bottom-nav.tsx:88 derives More activity from eligible destination routes and line 123 uses that value independently of whether the sheet is open; apps/launchpad/web/src/shell/repair-22-33-956.test.ts:60 requires no accent before an eligible active session exists. Commit 90ad4677b365cd36e819ded9c94f05eea35f3acb landed this change."
+
+[disposition.22.33.957.1]
+finding = "22.33.957.1"
+status = "resolved"
+evidence = "On main, sdk/launchpad/protocol/contracts/v1/examples.json retains the frozen schema examples, and sdk/launchpad/shared/db/production/repair_m957_test.go:19 pins their checksum, schema digest and complete 108-endpoint inventory before comparing legacy and generated Pool readers. Commit 48beb26c001322261d5bc94f54b2a9c363097f93 landed this change."
+
+[disposition.22.33.964.1]
+finding = "22.33.964.1"
+status = "resolved"
+evidence = "On main, tools/launchpad/production/interfaces/test_repair_22_33_964.py:66 writes the admitted operation record's catalog and resolves every schema identifier against actual SDK declarations before binding the capability checker inputs at line 95. Commit 07b138ce33d028252d8492c23782a9f812ec045d landed this change."
+
+[disposition.22.33.964.2]
+finding = "22.33.964.2"
+status = "resolved"
+evidence = "On main, tools/launchpad/production/interfaces/test_materialize.py:17 derives authority from the admitted SDK operation record and line 123 writes its semantic catalog and supplementary inputs; tools/launchpad/production/interfaces/test_repair_22_33_964.py:177 binds that derived catalog before checking the materializer suite. Commit 07b138ce33d028252d8492c23782a9f812ec045d landed this change."
+
+[disposition.22.33.965.1]
+finding = "22.33.965.1"
+status = "resolved"
+evidence = "On main, tools/launchpad/production/load/repair_m965_test.go:26 invokes the retained Python module's named unittest cases with a bounded context, and lines 35-64 register the capability, manifest, v1/v2 contract, route-catalog and final-admission proofs. Commit c811b4e065e3e7a5f766c1d5e06afd7e48701ea3 landed this change."
+
+[disposition.22.33.970.1]
+finding = "22.33.970.1"
+status = "environment"
+evidence = "On main, apps/launchpad/web/package.json:7 declares pnpm and line 18 binds the local SDK through workspace dependencies; apps/launchpad/web/test/repair-22-33-970.test.mjs:131 checks that the metadata upload carries the admitted session and the exact PNG bytes before its signed revision-bound patch."
+
+[disposition.22.33.973.1]
+finding = "22.33.973.1"
+status = "resolved"
+evidence = "On main, tools/launchpad/production/tests/test_repair_22_33_973.py:85 binds the approval digest to the selected bindings, and line 135 checks the real materializer's semantic and catalog-manifest digests; tools/launchpad/production/bootstrap/prelude-review-22.33.973.json:11 retains the reviewed control-source digest. Commit 04e2416154ef332bb51ce62d6364a15ad76c7250 landed this change."
+
+[disposition.22.33.974.1]
+finding = "22.33.974.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/app/api/errors/repair-22-33-974.test.ts:189 registers all five concrete beacon-boundary functions, while apps/launchpad/web/src/app/api/errors/route.ts:52 cancels a body exceeding the 64 KiB byte cap and returns 413. Commit b0c7958dbfa4ebb74aa8075c51f4ef333034dcbd landed this change."
+
+[disposition.22.33.974.2]
+finding = "22.33.974.2"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/app/api/errors/repair-22-33-974.test.ts:24 retains the initialized Sentry client as the fixture handle, line 36 flushes that client between cases and line 41 closes the client after checking the captured envelopes. Commit b0c7958dbfa4ebb74aa8075c51f4ef333034dcbd landed this change."
+
+[disposition.22.33.987.1]
+finding = "22.33.987.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts:79 checks durable placement recovery, requiring a reopened provider to resume the existing hash and preserve a single broadcast, and line 128 checks recovery of a reviewed route against its saved transaction and settlement. Commit 163342e56c4746a6b0670e2136fffe42036f4777 landed this change."
+
+[disposition.22.33.988.1]
+finding = "22.33.988.1"
+status = "resolved"
+evidence = "On main, apps/launchpad/web/src/widgets/home/callouts-widget.tsx:68 records newly seen identities while paused and increments pending only for visible arrivals, retaining the count through eviction and removal; apps/launchpad/web/src/widgets/home/repair-22-33-988.test.ts:158 checks the first arrival and subsequent full-page counts. Commit 16983951e552a8c858501646b2cf2e1852c0145f landed this change."
+
+[disposition.22.33.99.1]
+finding = "22.33.99.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 constructs exact Quantity values from big-endian bytes and converts them through for_operation before comparing observed available balances. Commit 0f2268dc6df5ece6ef28c675fea5b5c6cd214d9c landed this change."
+
+[disposition.22.33.995.1]
+finding = "22.33.995.1"
+status = "resolved"
+evidence = "On main, services/launchpad/indexer/internal/decode/repair_m995_test.go:240 checks native receipt attribution and line 289 checks role provenance from the recorded producer, with conservative-evidence and receipt-identity cases at lines 312 and 361; services/launchpad/go.work:6 now declares Go 1.27.0, as landed by commit 17f3c834e0. Commit 04b288540e1e33089770c9097afd7b3de18cd7bd landed this change."
+
+[disposition.22.33.998.1]
+finding = "22.33.998.1"
+status = "resolved"
+evidence = "On main, services/launchpad/go.work:6 declares Go 1.27.0 for all launchpad members, and services/launchpad/indexer/internal/publisher/repair_m998_test.go:24 requires retired webhook configuration to return ErrLegacyWebhookRetired without targets. Commit 17f3c834e0179289568dfc5ead058964f409256a landed this change."
+
+[disposition.22.33.999.1]
+finding = "22.33.999.1"
+status = "resolved"
+evidence = "On main, services/launchpad/indexer/internal/config/repair_m999_test.go:43 canonicalizes recorded read keys by normalizing empty parameters and the zero eth_call sender while retaining target, input and block identity; services/launchpad/go.work:6 carries the Go 1.27.0 workspace repair from commit 17f3c834e0. Commit e5d4d34a11280d82214c3d017d36d2c0144fbc60 landed this change."

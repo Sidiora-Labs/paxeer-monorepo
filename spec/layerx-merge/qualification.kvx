@@ -36306,3 +36306,203 @@ symbol = "repair_22_33_223.rs"
 observed = "Attempt 12 at 013e3cee50c3: build exit 0; verification exit 1: every ADMIT_TASK and SealEvidence row within the cap, OPEN_EPOCH refused at 1000006 attempted fuel from a constant 63175-byte state input at every task count, eight RevealScore rows and six aggregation rows over the cap; record sections of the final sweep in the task record; log /out/logs/verify-1.log."
 assumption = "The three handlers read roster-bounded or whole-state inputs that the task count does not move; the admission bounding is complete."
 severity = "high"
+
+[finding.22.39.117.2]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 2 at 194dca6166ee: build exit 0; verification exit 1: chain, db, delivery and storage passed with their real services and the natsdriver package failed one case, TestPhase3ActualOrderedPoisonAndHundredDuplicates (poison quarantine missing for the unknown-version variant, no rows in result set); log /out/logs/verify-1.log."
+assumption = "The quarantine read-back refuses an empty affected-pool list and rolls the row back; the guards and the baseline change of the task are complete."
+severity = "high"
+
+[finding.22.39.177.1]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+symbol = "activity_codec.rs"
+observed = "Attempt 1 at 4977cff751ba: build exit 0; verification exit 101: the activity_codec target passed and authority_from_prestate failed its producer-qualified case at tests/authority_from_prestate.rs line 290 for want of LAYERX_AUTHENTICATED_REPLAY_INPUTS; the two remaining targets never ran; log /out/logs/verify-1.log."
+assumption = "The verification text omitted the exclusion decision 2496 requires; the tree is sound."
+severity = "high"
+
+[finding.6.59.7.1]
+task = "6.59.7"
+file = "tests/bridge/retired/test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"
+symbol = "test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"
+observed = "Attempt 1 at 814ead680779: build exit 0; verification exit 1: assert_retired found live references to the deleted document in seventeen files led by the historical settlement module and the proof test support; log /out/logs/verify-1.log."
+assumption = "The document is the archival producer of the historical readers; deleting it contradicts decision 3006, and no trust reader remains."
+severity = "high"
+
+[finding.22.39.117.3]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 3 at 76bb1147bf8a: build exit 0 (cd sdk/launchpad/shared and go vet); verification exit 1: the four shared package trees passed and make -C services/launchpad ci failed in shared/redis (L09_REDIS_URL is not set) and in shared/config/deployment and shared/config/capabilities (anvil not found on PATH); log /out/logs/verify-1.log."
+assumption = "Only the environment is at fault; every other launchpad package passed at the attempt tree."
+severity = "high"
+
+[finding.22.39.177.2]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+symbol = "activity_codec.rs"
+observed = "Attempt 2 at 791076fd4c6d: build exit 0; verification exit 101: activity_codec, authority_from_prestate (with the exclusion of decision 3015) and repair_22_33_215 passed, proof_arbiter_crate failed two cases with Err(Encoding) at tests/proof_arbiter_crate.rs line 1794 and Err(Witness(Encoding)) at line 1538, the retirement grep passed; log /out/logs/verify-1.log."
+assumption = "The admission change routes a boundary leaf through the historical encoder; the two cases pass on main."
+severity = "high"
+
+[finding.22.33.223.12]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 13 at f3500b77dd19: build exit 0; dependents exit 0; verification exit 101 after two repair cycles: roster_state_fuel_scaling, maximum_state_fuel_scaling and every_routed_operation_fits_the_protocol_cpu_fuel_cap failed (BudgetExceeded for Cpu at attempted 1000003 to 1000040 against 1000000 on the four handlers at rosters 16, 24 and 32; one routed execution without measured fuel after application error 2305 at the sealed_task_set step); log /out/logs/verify-2.log."
+assumption = "The overages are marginal rescans and the unmeasured execution is a fixture ordering defect; the cap is right."
+severity = "high"
+
+[finding.22.39.180.1]
+task = "22.39.180"
+file = "tests/ci/test_release_docs_gap_markers.py"
+symbol = "test_release_docs_gap_markers.py"
+observed = "Attempt 1 at bbe08676b47c: build exit 0 (py_compile of the two tests); verification exit 1: thirty-three cases passed and one failed at tests/ci/test_release_docs_gap_markers.py line 195, asserting decision 2521 in the hosted gateway section of the service operator runbook; log /out/logs/verify-1.log."
+assumption = "The test is the stale consumer of a rewrite that removed decision numbers; the documents are right."
+severity = "high"
+
+[finding.22.39.178.1]
+task = "22.39.178"
+file = "tests/ci/test_wallet_test_workflow.py"
+symbol = "test_wallet_test_workflow.py"
+observed = "Attempt 1 at 6df4284976e6: build exit 0 at the second build; verification exit 1: twelve cases passed and test_wallet_setup_provides_web_locks failed asserting the named import of the lock registry that the two widget tests replaced; log /out/logs/verify-1.log."
+assumption = "The consumer asserts the names of a producer that changed; the widget files and the lockfiles are right."
+severity = "high"
+
+[finding.22.39.179.1]
+task = "22.39.179"
+file = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+symbol = "repair-22-33-206.test.ts"
+observed = "Attempt 1 at dfa11a0e570d: build exit 2 (cd apps/wallet, corepack enable, pnpm install --frozen-lockfile and pnpm exec tsc --noEmit -p tsconfig.json) with TS18047 and TS2339 at apps/wallet/src/server/repair-22-33-168.test.ts line 123; the verification never ran; log /out/logs/build-1.log."
+assumption = "The type errors predate the task and sit in a file outside its touches; the expectation change is sound."
+severity = "high"
+
+[finding.6.59.7.2]
+task = "6.59.7"
+file = "tests/bridge/retired/test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"
+symbol = "test_retired_checkpoint_settlement.py::test_checkpoint_settlement_is_retired"
+observed = "Attempt 2 at d0c441866ae8: build exit 0; verification exit 1 at the second run: sixty-one cases passed and test_layerx_image_includes_reachable failed at tests/ci/test_image_compile_inputs_not_ignored.py line 290; the publication refused files changed outside the touches (two hosted node test scripts with whitespace-only changes); log /out/logs/verify-2.log."
+assumption = "The image test is pre-existing red since 9.27.4 and the scope refusal is inherited whitespace; the retirement itself is complete."
+severity = "high"
+
+[finding.22.39.177.3]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+symbol = "activity_codec.rs"
+observed = "Attempt 3 at 677da57e8c4b: build exit 0; verification exit 101: activity_codec, authority_from_prestate (with the exclusion of decision 3015) and repair_22_33_215 passed and proof_arbiter_crate failed the two cases of gotcha 3721 with Err(Encoding) at line 1794 and Err(Witness(Encoding)) at line 1538; the record traces both to the continuation base; log /out/logs/verify-1.log."
+assumption = "The retirement is complete and the two failures belong to the arbiter consumer defect that 22.39.183 repairs."
+severity = "high"
+
+[finding.22.39.117.4]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 4 at 0addf46863ce (base fa374671b962): build exit 0; verification exit 2: every launchpad module passed except shared/redis, where three cases failed with namespace required because L09_NAMESPACE was unset in the qualification environment; log /out/logs/verify-1.log."
+assumption = "The failure is environmental; nothing in the tree of the task is at fault."
+severity = "high"
+
+[finding.22.0.1.2]
+task = "22.0.1"
+file = "spec/layerx-merge/programme/tests/test_dispositions_closure.py::test_dispositions_closure_passes_when_every_finding_is_dispositioned"
+symbol = "test_dispositions_closure.py::test_dispositions_closure_passes_when_every_finding_is_dispositioned"
+observed = "Attempt 3 at affbadc49b (base 8c5a7acd05): build exit 0; verification exit 1 with 2481 problem lines, 2472 missing disposition blocks and nine disposition problems; log /out/logs/verify-1.log."
+assumption = "The gate script is right; the record is incomplete and the numbered closure tasks complete it."
+severity = "high"
+
+[finding.22.39.177.4]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+symbol = "activity_codec.rs"
+observed = "Attempt 3 at 677da57e8c4b (base fa374671b9): build exit 0; verification exit 1: the activity_codec, authority_from_prestate and repair_22_33_215 targets passed and proof_arbiter_crate failed two cases, runtime_producer_records_integer_steps_and_terminal_traps and authenticated_producer_crosses_authority_and_bounded_replay_consumers_twice; log /out/logs/verify-1.log."
+assumption = "The two cases need the boundary leaf consumer of 22.39.183 and nothing in the retirement tree."
+severity = "high"
+
+[finding.22.39.183.1]
+task = "22.39.183"
+file = "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs"
+symbol = "proof_arbiter_crate.rs"
+observed = "Attempt 1 at 08733aed93 (base 466c2f53c4): build exit 101 with seven errors in src/admission.rs and src/activity_codec.rs, unresolved imports of the kernel activity codec from layerx_wire, files the attempt did not change; the verification never ran; log /out/logs/build-1.log."
+assumption = "The crate compiles once the retirement of 22.39.177 is merged; the consumer of this task is unaffected."
+severity = "high"
+
+[finding.17.5.1.19]
+task = "17.5.1"
+file = "spec/layerx-merge/programme/tests/test_wave_0_gate.py::test_wave_0_gate_passes"
+symbol = "test_wave_0_gate.py::test_wave_0_gate_passes"
+observed = "Attempt 20 at 855a3c3508 (base f503ea87f1, 2026-11-01): build exit 0; verification exit 1: platform-build-all failed in services/platform/middleware/seller/src/rpc.ts on the retired SDK type MerkleProof, since deleted by 39f0199fb2; log /out/logs/verify-1.log."
+assumption = "The seller import is gone from main and the arbiter build is the only remaining red target of the workspace build."
+severity = "high"
+
+[finding.6.0.9.1]
+task = "6.0.9"
+file = "modules/evm/client/cli/completion_gate_test.go::TestChainModulesCompletionRetiredSurfacesAbsent"
+symbol = "completion_gate_test.go::TestChainModulesCompletionRetiredSurfacesAbsent"
+observed = "Attempt 1 at 9afa710deb (base 8c5a7acd05): build exit 0; verification exit 1: 12 of 582 subcases failed, the kept settlement document, the ten height-gated verifier entries and the renamed planned test of 6.52.2; log /out/logs/verify-1.log."
+assumption = "The 570 passing subcases show the inventory is right apart from the twelve entries the decisions re-classify."
+severity = "high"
+
+[finding.22.39.117.5]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 5 at d115388f9b (base e418f06937): build exit 0; verification exit 1: every sdk/launchpad module passed and services/launchpad/api/internal/app failed three cases, two for the absent compiled artifact BeaconProxy.json and one for the unset CORE_API_TEST_POSTGRES_URL; log /out/logs/verify-1.log."
+assumption = "The failures are environment inputs the public job provides; the task tree is complete."
+severity = "high"
+
+[finding.22.33.223.13]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 14 at c35ee22bb79c (base fa374671b962): build exit 0 twice, dependents exit 0 twice, verification exit 1 twice: 21 cases passed and three failed (every_routed_operation_fits_the_protocol_cpu_fuel_cap, roster_state_fuel_scaling, maximum_state_fuel_scaling) on cpu refusals of OPEN_EPOCH at 24/6 and 32/8, FinalizeAggregation at 16/4 and above and the fourth ProcessAggregation chunk at 32/8; log /out/logs/verify-2.log."
+assumption = "The refusals are the per-participant costs the sweep slopes show, not the rescans attempt 14 removed; the fixture is sound since no admission refusal occurred."
+severity = "high"
+
+[finding.22.39.177.5]
+task = "22.39.177"
+file = "programs/crates/layerx-programs-arbiter/tests/activity_codec.rs"
+symbol = "activity_codec.rs"
+observed = "Attempt 4 at 1e0231e12e70 (base a26369c7eda6): build exit 0; verification exit 1: activity_codec, authority_from_prestate and proof_arbiter_crate passed (two filtered), repair_22_33_215 failed two cases, registry_authority_signature_drives_both_call_envelopes and registry_replay_signatures_reconstruct_and_verify_adjacent_steps, with inner runtime result Witness(Encoding) at the boundary pair replay; log /out/logs/verify-1.log."
+assumption = "The two cases fail on the producer defect of decision 3029 that 22.39.183 owns; the retirement tree is complete."
+severity = "high"
+
+[finding.22.39.209.1]
+task = "22.39.209"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "agent_rpc_adapters.rs"
+observed = "Attempt 1 at 6c2da1a64f69 (base a26369c7eda6): build exit 0; verification exit 1: the record and the grep passed and cargo clippy failed with eight errors in services/agent/crates/layerx-types (five missing Errors sections, two unused self arguments, one item after statements), none in layerx-agentd; log /out/logs/verify-1.log."
+assumption = "The daemon crate itself is lint-clean at the attempt tree; the failures belong to the types crate the gate reached through the workspace."
+severity = "high"
+
+[finding.22.39.117.6]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 6 at b7b8ec69ce77 (base 47b44760f795): build exit 0; verification exit 1: every launchpad package passed except sdk/launchpad/shared/db/production, where TestPhase2ConcurrentIndexesAndRecovery failed in its cleanup with private migration database cleanup failed, context deadline exceeded (online_indexes_test.go line 39) after a 2.05 s lock wait; log /out/logs/verify-1.log."
+assumption = "The environment now mirrors the public job completely; the one failure is a three-second fixture deadline on a forced database drop."
+severity = "high"
+
+[finding.22.39.209.2]
+task = "22.39.209"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "agent_rpc_adapters.rs"
+observed = "Attempt 2 at 50823218f0a3: build exit 0; verification exit 1: the bounded clippy gate reported 1440 errors inside layerx-agentd under the workspace lints; log /out/logs/verify-1.log."
+assumption = "The change of the task is complete; the lint state of the crate on main is the failure and belongs to the lint owner task."
+severity = "high"
+
+[finding.17.1.8.1]
+task = "17.1.8"
+file = "spec/layerx-merge/programme/tests/test_custody_golden.py::test_custody_and_anchor_goldens_pass"
+symbol = "test_custody_golden.py::test_custody_and_anchor_goldens_pass"
+observed = "Attempt 1 at 9380fccc111a: build exit 0; verification exit 1: both goldens failed at the link step of their Go packages (build/liblayerx.a and the programs host archive absent); log /out/logs/verify-1.log."
+assumption = "The goldens are complete; only the profile of the task kept the kernel archives out of its gate shell."
+severity = "high"
+
+[finding.17.2.7.1]
+task = "17.2.7"
+file = "spec/layerx-merge/programme/tests/test_refusal_run.py::test_every_refusal_runs_and_passes"
+symbol = "test_refusal_run.py::test_every_refusal_runs_and_passes"
+observed = "Attempt 1 at a7575c8f63c0: build exit 0; verification exit 1: all six refusal rows failed at the link step of their Go packages (build/liblayerx.a and the programs host archive absent); log /out/logs/verify-1.log."
+assumption = "The runner is complete; only the profile of the task kept the kernel archives out of its gate shell."
+severity = "high"

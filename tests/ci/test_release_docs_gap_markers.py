@@ -6,7 +6,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_DOCS = ROOT / "docs/release"
-CLOSED_IDS = {"D1", "D2", "D3", "D4", "D7", "D9", "D12", "D14", "D16"}
+CLOSED_IDS = {"D1", "D2", "D3", "D4", "D6", "D7", "D9", "D12", "D14", "D16"}
 
 
 def _read_doc(name):
@@ -64,13 +64,10 @@ def test_gap_table_lists_only_open_ids():
     text = _read_doc("upgrade-plan")
     gaps = _table_rows(_section(text, "Known gaps"))
     assert gaps[0] == ["ID", "Path", "Gap"]
-    assert [row[0] for row in gaps[1:]] == ["D5", "D6"]
+    assert [row[0] for row in gaps[1:]] == ["D5"]
     assert gaps[1][1] == "spec/layerx-merge/spec.kvx"
     assert "17.0.9" in gaps[1][2]
     assert "pending" in gaps[1][2]
-    assert gaps[2][1] == "tools/release/rehearse-v6120.sh"
-    assert "v6.12.0" in gaps[2][2]
-    assert "rollback" in gaps[2][2]
 
     support = _table_rows(_section(text, "Implemented release support"))
     assert support[0] == ["ID", "Present support", "Source"]
@@ -81,6 +78,7 @@ def test_gap_table_lists_only_open_ids():
         "D2": ".github/workflows/paxeer-release-check.yml:65",
         "D3": "tools/release/upgrade_info.py:343",
         "D4": "tools/release/swap.sh:37",
+        "D6": "tools/release/rehearse-v6120.sh",
         "D7": "sdk/wallet/src/endpoint.ts:66",
         "D9": "services/explorer/backend/config/runtime.exs:315",
         "D12": "docs/release/consensus-commits.md:1",
@@ -90,6 +88,12 @@ def test_gap_table_lists_only_open_ids():
     for gap_id, fact, source in support[1:]:
         assert "Gap" not in fact
         assert sources[gap_id] in source
+    rehearsal = next(row for row in support[1:] if row[0] == "D6")
+    for fact in (
+        "tools/release/version.json", "--plan-info", "v7.0", "node upgrade files"
+    ):
+        assert fact in rehearsal[1]
+    assert "tests/ci/test_release_merge_rehearsal.py" in rehearsal[2]
     _assert_no_closed_gap_markers(text)
 
 
@@ -116,16 +120,14 @@ def test_checklist_has_no_closed_gaps():
     gap_items = [
         line for line in text.splitlines() if "**Gap" in line and "- [ ]" in line
     ]
-    assert len(gap_items) == 4
+    assert len(gap_items) == 3
     assert [re.findall(r"\bD\d+\b", line) for line in gap_items] == [
         ["D5"],
         ["D5"],
-        ["D6"],
         [],
     ]
     assert "17.0.9" in gap_items[0]
-    assert "rehearse-v6120.sh" in gap_items[2]
-    assert "check-attestor-manifest.py" in gap_items[3]
+    assert "check-attestor-manifest.py" in gap_items[2]
     for source in (
         "tools/release/version.json:2",
         "tools/release/upgrade_info.py:27",
@@ -174,12 +176,10 @@ def test_service_operator_runbook_has_only_open_gaps():
     assert gaps[0] == ["Path", "Gap"]
     assert [row[0] for row in gaps[1:]] == [
         "services/bridge/deploy/attestors.json",
-        "spec/layerx-merge/spec.kvx",
     ]
     assert "pending governance" in gaps[1][1]
-    assert "Agent daemon tasks still pending" in gaps[2][1]
     marked = [line for line in text.splitlines() if "**Gap" in line]
-    assert len(marked) == 3  # Definition, pending agent tasks, attestor manifest.
+    assert len(marked) == 2  # Definition and attestor manifest.
     support = _table_rows(_section(text, "Implemented service support"))
     assert len(support[1:]) == 5
     for path in (
@@ -192,7 +192,11 @@ def test_service_operator_runbook_has_only_open_gaps():
         assert any(path in row[0] for row in support[1:])
     gateway = _section(text, "Hosted gateway")
     assert "`api1` to `api14`" in gateway
-    assert "decision 2521" in gateway
+    assert (
+        "upgraded public node root URLs" in gateway
+        and "the node root serves the `px_` methods" in text
+        and "there is no `/rpc` path and no separate router" in text
+    )
     assert "https://api1.mainnet-beta.paxeer.network/" in gateway
     assert "https://api8.mainnet-beta.paxeer.network/" in gateway
     assert "one internal" not in text
@@ -200,3 +204,66 @@ def test_service_operator_runbook_has_only_open_gaps():
     assert "only `px_register` and `px_requestFunds`" in text
     assert "`Kernel archive`" in text
     assert "Text still says public nodes do not serve" not in text
+
+
+ORDERED_REHEARSAL_TESTS = (
+    "TestMergeRehearsalFirstSequencedBlock",
+    "TestExportAfterMergeKeepsSequencerState",
+    "TestMergePlanActivatesGatedPrecompiles",
+    "TestAnchorStoreDeletedAtStep",
+)
+PROGRAMME_REHEARSAL_TEST = "test_rehearsal_passes_on_merged_revision"
+
+
+def test_exported_state_rehearsal_waiver_retains_candidate_evidence():
+    plan = _read_doc("upgrade-plan")
+    timeline = next(row for row in _table_rows(plan) if row[0] == "T−16 d")
+    go = _section(plan, "5. Go / no-go criteria")
+    checklist = _section(
+        _read_doc("readiness-checklist"), "Release checks and rehearsal evidence"
+    )
+    for evidence in (" ".join(timeline), go, checklist):
+        assert "release owner" in evidence
+        assert "decision 3020" in evidence
+        assert "waiv" in evidence
+        assert "exported-state rehearsal" in evidence.lower()
+        assert "halt and swap evidence" in evidence.lower()
+        assert "candidate release report" in evidence
+        assert PROGRAMME_REHEARSAL_TEST in evidence
+        positions = [evidence.index(name) for name in ORDERED_REHEARSAL_TESTS]
+        assert positions == sorted(positions)
+    assert "spec/layerx-merge/programme/tests/test_rehearsal_run.py::" in go
+    waiver_items = [
+        line
+        for line in checklist.splitlines()
+        if "- [ ]" in line and "waiv" in line
+    ]
+    assert len(waiver_items) == 2
+    for item in waiver_items:
+        assert "decision 3020" in item
+        assert "candidate release report" in item
+        assert PROGRAMME_REHEARSAL_TEST in item
+        assert "**Gap" not in item
+    assert 'UPGRADE "v7.0" NEEDED' in waiver_items[1]
+
+
+def test_agent_daemon_qualification_is_after_s_acceptance():
+    agent = _section(_read_doc("service-operator-runbook"), "Agent daemon")
+    acceptance = agent.split("**Acceptance after `S` (decision 3020).**", 1)[1]
+    for evidence in (
+        "exact deployed revision",
+        "before opening writes",
+        "only after `px_getReceiptKeys` returns the plan's keys",
+        "readiness result and receipt-key response",
+        "A scheduled job settles",
+        "settlement evidence",
+        "Node logs show no `agent end block failed`",
+        "Retain the node logs",
+    ):
+        assert evidence in acceptance
+    assert "**Gap" not in agent
+    checklist = _read_doc("readiness-checklist")
+    after_s = _section(checklist, "After `S` (acceptance)")
+    assert "agent daemon passes release qualification after `S`" in after_s
+    assert "exact deployed revision" in after_s
+    assert "agent daemon passes" not in _section(checklist, "Services")
