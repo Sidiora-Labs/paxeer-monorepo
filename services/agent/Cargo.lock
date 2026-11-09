@@ -944,6 +944,34 @@ dependencies = [
  "layerx-client",
  "layerx-crypto",
  "layerx-interop-gateway",
+ "layerx-mcp-test-support",
+ "layerx-programs-registry",
+ "layerx-proof",
+ "layerx-sdk",
+ "layerx-types",
+ "layerx-x402",
+ "openssl",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sha3",
+ "zeroize",
+]
+
+[[package]]
+name = "layerx-mcp-test-support"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "ed25519-dalek",
+ "k256",
+ "layerx-agent-api",
+ "layerx-agentd",
+ "layerx-client",
+ "layerx-crypto",
+ "layerx-interop-gateway",
+ "layerx-mcp",
  "layerx-programs-registry",
  "layerx-proof",
  "layerx-sdk",

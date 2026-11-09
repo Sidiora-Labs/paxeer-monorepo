@@ -38,6 +38,8 @@ pub struct ReceiptValue {
 }
 
 impl ReceiptValue {
+    /// # Errors
+    /// Returns an error if the sequencer signature is unverified, protocol receipt evidence is missing, or the encoded height is invalid.
     pub fn from_sequencer_signed(
         canonical_receipt: CanonicalBytes,
         keys: &[layerx_proof::inclusion::SequencerAuthorization],
@@ -331,7 +333,7 @@ pub fn history(
             offset: u32::try_from(consumed).map_err(|_| ReadToolError::Arithmetic)?,
         }))
     } else {
-        value.next_cursor.clone().map(Continuation::Core)
+        value.next_cursor.map(Continuation::Core)
     };
     let complete = next.is_none();
     Ok(VerifiedToolResult {
