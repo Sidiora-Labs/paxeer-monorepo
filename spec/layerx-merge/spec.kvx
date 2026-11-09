@@ -317934,7 +317934,7 @@ do_4 = "Attempt 2 (continue, gotcha 3738, decisions 1709 and 3041): the attempt-
 
 [task.17.1.9]
 title = "Capture the receipt order equals block order golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 47
 requires = ["17.1.8", "5.0.9"]
@@ -336089,7 +336089,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.213]
 title = "Dispose the open acceptance selectors of the parity coverage check in the stale map, second round"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.31.438"]
