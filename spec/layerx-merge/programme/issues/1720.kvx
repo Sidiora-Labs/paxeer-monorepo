@@ -1,0 +1,52 @@
+[issue.1720]
+number = 1720
+title = "Keep the home chart within its stated calendar-day window"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 5319611d653b2ac13055377553f39f93636bfa25 introduced the null filter still present at apps/explorer/ui/home/indicators/utils/chart.ts:36, apps/explorer/ui/home/indicators/ChainIndicatorsChart.tsx:30 then selects observations by count despite the 14-day label at apps/explorer/ui/home/Stats.tsx:27, the backend supplies dated counts with a configurable history_size default of 30 at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex:153, and apps/explorer/ui/home/repair-22-35-4.spec.tsx:179 checks returned samples without asserting date bounds, so January 1-30 with January 29 missing displays January 16-28 and January 30 instead of staying within January 17-30."
+close_comment = "The home transaction chart can include dates older than its stated 14-day window when observations are missing. The follow-up fix will select the calendar window before excluding missing values, preserve real zeroes, and add coverage for sparse history and date boundaries."
+
+[task.18.1720.1]
+title = "Issue #1720: Keep home transaction history within its calendar-day window"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181720.1"]
+capabilities = []
+interfaces = []
+do_1 = "Pass HISTORY_DAYS from StatsHistory at apps/explorer/ui/home/Stats.tsx:22 into an optional calendar-window argument of useChartDataQuery at apps/explorer/ui/home/indicators/useChartDataQuery.tsx:21 and getChartData at apps/explorer/ui/home/indicators/utils/chart.ts:41; apply the window in prepareChartItems at apps/explorer/ui/home/indicators/utils/chart.ts:34 before filtering missing observations, and remove the observation-count slicing and its days prop from apps/explorer/ui/home/indicators/ChainIndicatorsChart.tsx:25 after updating its home caller."
+do_2 = "Anchor the window to the latest valid UTC calendar date in the raw response, including dated null observations, and compute its inclusive start by subtracting (days - 1) calendar days from that date; preserve ascending order, exclude invalid or missing values without converting them to zero, and preserve existing unbounded behaviour for callers that omit the window, including multichain charts and both transaction-history data sources selected at apps/explorer/ui/home/indicators/useChartDataQuery.tsx:95."
+do_3 = "Extend apps/explorer/ui/home/repair-22-35-4.spec.tsx:179 with a declared test function homeChartCalendarDayWindow registered by its function name; exercise the real preparation functions and home query-to-chart path, assert the dates and values reaching the chart rather than point counts alone, and retain the existing null-removal and zero-preservation assertions at apps/explorer/ui/home/repair-22-35-4.spec.tsx:188 and apps/explorer/ui/home/repair-22-35-4.spec.tsx:200."
+do_4 = "In homeChartCalendarDayWindow, assert that January 1-30 with January 29 null retains January 17-28 and January 30 only, that sparse and unsorted histories never pull older dates into the window, that leading and trailing nulls do not shift the raw-date anchor, and that all-null and empty histories remain unavailable; cover a real zero, exact inclusive lower and upper bounds, the preceding excluded date, month and year rollover, leap day, and UTC day boundaries without filling missing dates."
+symbols = ["prepareChartItems", "getChartData", "useChartDataQuery", "StatsHistory", "ChainIndicatorsChart", "homeChartCalendarDayWindow"]
+touches = ["apps/explorer/ui/home/indicators/utils/chart.ts", "apps/explorer/ui/home/indicators/useChartDataQuery.tsx", "apps/explorer/ui/home/Stats.tsx", "apps/explorer/ui/home/indicators/ChainIndicatorsChart.tsx", "apps/explorer/ui/home/repair-22-35-4.spec.tsx"]
+tests = ["apps/explorer/ui/home/repair-22-35-4.spec.tsx::homeChartCalendarDayWindow"]
+planned_paths = []
+build_cmd = "yarn --cwd apps/explorer tsc --noEmit -p tsconfig.json"
+verify_cmd = "yarn --cwd apps/explorer vitest run ui/home/repair-22-35-4.spec.tsx -t '^homeChartCalendarDayWindow$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181720]
+title = "Home transaction history respects its stated calendar-day window"
+ac_1 = "Given dated daily samples for January 1-30 with January 29 missing, the 14-day home history labelled at apps/explorer/ui/home/Stats.tsx:27 displays only January 17-28 and January 30, with no January 16 sample admitted by the observation-count slicing at apps/explorer/ui/home/indicators/ChainIndicatorsChart.tsx:30."
+ac_2 = "The preparation path at apps/explorer/ui/home/indicators/utils/chart.ts:34 bounds dates before excluding missing values, uses the latest raw UTC calendar date even when its value is null, preserves real zeroes, never fills missing dates with zeroes, and leaves callers without a requested window unbounded."
+ac_3 = "The regression extending apps/explorer/ui/home/repair-22-35-4.spec.tsx:179 asserts dates and values through the home chart data path for sparse and unsorted history, leading and trailing nulls, empty and all-null responses, inclusive date bounds, UTC boundaries, month and year rollover, and leap day."
+
+[acceptance.18.1720.1]
+feature = "18"
+req = "181720.1"
+scenario = "Given daily transaction history containing missing observations and real zeroes, when the home chart requests 14 days, then every displayed date lies within the inclusive 14 UTC calendar days ending on the latest raw dated observation, missing observations remain missing, and a real zero remains zero across sparse histories and calendar boundaries."
+contract = "contracts/explorer-frontend.md#pages"
+test = "apps/explorer/ui/home/repair-22-35-4.spec.tsx::homeChartCalendarDayWindow (planned)"
+qualification = "UNRUN"
