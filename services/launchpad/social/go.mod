@@ -3,7 +3,7 @@
 // [SECTION 13]
 module github.com/Sidiora-Technologies/KindleLaunch/media/social
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/Sidiora-Technologies/KindleLaunch/core/notifications v0.0.0

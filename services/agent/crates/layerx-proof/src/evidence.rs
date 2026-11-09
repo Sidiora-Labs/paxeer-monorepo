@@ -5,7 +5,8 @@ use layerx_types::{rung::Rung, verify::VerificationLevel};
 use crate::level::Achieved;
 
 /// Receipt, inclusion and state identifiers inseparably paired with an achieved
-/// level. These verifiers establish at most [`Rung::Receipted`].
+/// level. Receipt, activity, receipt-inclusion and state verification establish
+/// at most [`Rung::Receipted`]; they cannot authenticate a Comet commit.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Evidence {
     achieved: Achieved,

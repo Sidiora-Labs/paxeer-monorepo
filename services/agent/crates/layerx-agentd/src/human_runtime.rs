@@ -4245,8 +4245,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .authority
             .registry(context.peer())
             .map_err(map_core)?;
-        let activity = layerx_wire::activity::decode_signed(&signed_activity, &registry)
-            .map_err(|_| HumanOperationError::Refused)?;
+        let activity =
+            layerx_wire::historical::activity::decode_signed(&signed_activity, &registry)
+                .map_err(|_| HumanOperationError::Refused)?;
         if activity.actor_did() != context.principal().agent.as_bytes()
             || activity.network_id()
                 != u32::try_from(
@@ -4258,7 +4259,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Refused)?
             || activity.protocol_version() != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
             || activity.idempotency_key() != indexed.idempotency_key
-            || layerx_wire::hash::activity_id(&activity)
+            || layerx_wire::historical::hash::activity_id(&activity)
                 .map_err(|_| HumanOperationError::Refused)?
                 != activity_id
             || activity.activity_type().module() != layerx_types::payload::ModuleId::Programs
@@ -4364,7 +4365,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .authority
             .registry(context.peer())
             .map_err(map_core)?;
-        let activity = layerx_wire::activity::decode_signed(signed, &registry)
+        let activity = layerx_wire::historical::activity::decode_signed(signed, &registry)
             .map_err(|_| HumanOperationError::Refused)?;
         if activity.actor_did() != context.principal().agent.as_bytes()
             || activity.network_id()
@@ -10793,9 +10794,11 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                 let (identity, authority, registry) = {
                     let mut operations = self.lock_operations()?;
                     let registry = operations.authority.registry(peer).map_err(map_core)?;
-                    let activity =
-                        layerx_wire::activity::decode_signed(&signed_activity, &registry)
-                            .map_err(|_| HumanOperationError::Refused)?;
+                    let activity = layerx_wire::historical::activity::decode_signed(
+                        &signed_activity,
+                        &registry,
+                    )
+                    .map_err(|_| HumanOperationError::Refused)?;
                     let did =
                         Did::new(activity.actor_did()).map_err(|_| HumanOperationError::Refused)?;
                     let identity = operations
@@ -12966,10 +12969,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .bytes_for_transmission(identifier)
             .map_err(|_| HumanOperationError::Refused)?
             .to_vec();
-        let activity = layerx_wire::activity::decode_signed(&bytes, &registry)
+        let activity = layerx_wire::historical::activity::decode_signed(&bytes, &registry)
             .map_err(|_| HumanOperationError::Refused)?;
         if activity.idempotency_key() != identifier
-            || layerx_wire::hash::activity_id(&activity)
+            || layerx_wire::historical::hash::activity_id(&activity)
                 .map_err(|_| HumanOperationError::Refused)?
                 != expected_activity
             || u64::from(activity.network_id())
@@ -12982,7 +12985,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             return Err(HumanOperationError::Refused);
         }
         {
-            let canonical = layerx_wire::activity::encode_unsigned(&activity)
+            let canonical = layerx_wire::historical::activity::encode_unsigned(&activity)
                 .map_err(|_| HumanOperationError::Refused)?;
             let id: [u8; 32] = Sha256::digest(&canonical).into();
             let tenant =
@@ -14966,7 +14969,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             outbox
                 .exact_signed_bytes(idempotency_key)
                 .ok()
-                .and_then(|bytes| layerx_wire::activity::decode_signed(bytes, registry).ok())
+                .and_then(|bytes| {
+                    layerx_wire::historical::activity::decode_signed(bytes, registry).ok()
+                })
                 .is_some_and(|activity| activity.actor_did() == agent_did)
         };
         let with_evidence = inventory
@@ -20108,8 +20113,13 @@ pub(crate) mod activity_submission_index_tests {
                 &[kind],
             ),
         )]));
-        let activity = must(layerx_wire::activity::decode_signed(bytes, &registry));
-        assert_eq!(must(layerx_wire::activity::encode_signed(&activity)), bytes);
+        let activity = must(layerx_wire::historical::activity::decode_signed(
+            bytes, &registry,
+        ));
+        assert_eq!(
+            must(layerx_wire::historical::activity::encode_signed(&activity)),
+            bytes
+        );
         let registration = must(layerx_crypto::payments::SponsoredRegistration::decode(
             activity.payload(),
         ));
@@ -20154,7 +20164,9 @@ pub(crate) mod activity_submission_index_tests {
         must(builder.payload_hash(activity.payload_hash()));
         must(builder.payload(payload));
         let envelope = must(builder.build());
-        let canonical = must(layerx_wire::activity::encode_unsigned_envelope(&envelope));
+        let canonical = must(layerx_wire::historical::activity::encode_unsigned_envelope(
+            &envelope,
+        ));
         let key: [u8; 32] = must(activity.authority().try_into());
         let signature: &[u8; 64] =
             must(activity.signature().expect("fixture signature").try_into());
