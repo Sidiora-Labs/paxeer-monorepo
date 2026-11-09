@@ -192069,7 +192069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1639.1]
 title = "Issue #1639: Classify the UCP checkout receipt fixture and prove check and regeneration preserve it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.237"]
@@ -348176,7 +348176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1843.1]
 title = "Issue #1843: Align explorer backend routing coverage with its routed runner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
