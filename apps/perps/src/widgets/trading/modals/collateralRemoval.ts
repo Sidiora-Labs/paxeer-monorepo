@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import type { Address, PublicClient } from "viem";
+import { BaseError, ContractFunctionRevertedError, type Address, type PublicClient } from "viem";
 import {
   buildGetAccount,
   buildGetMarginTiers,
@@ -58,8 +58,38 @@ export async function readCollateralRemovalRisk(
     ? state.maintenanceMarginUsd : marketMaintenanceUsd;
   const headroom = state.equityUsd - maintenanceMarginUsd;
   const equityLimit = headroom > 0n ? (headroom - 1n) / USD_PER_COLLATERAL_UNIT : 0n;
-  const maxRemoval = [equityLimit, state.withdrawable, state.collateral]
-    .reduce((limit, value) => value < limit ? value : limit);
+  // Withdrawable includes account-wide initial margin, order reserves and the
+  // governed floor. Stored collateral is pre-settlement and excludes profits.
+  let maxRemoval = equityLimit < state.withdrawable ? equityLimit : state.withdrawable;
+  async function admits(amount: bigint) {
+    try {
+      // eth_call executes settlement and its per-position native-unit rounding
+      // without writing state. Pin it to the same block as every risk read.
+      await client.simulateContract({
+        ...buildRemoveCollateral(positionId, amount), account, blockNumber,
+      });
+      return true;
+    } catch (error) {
+      const revert = error instanceof BaseError
+        ? error.walk((cause) => cause instanceof ContractFunctionRevertedError)
+        : undefined;
+      if (revert instanceof ContractFunctionRevertedError &&
+          revert.data?.errorName === "PerpsInsufficientMargin") return false;
+      // Transport failures, unavailable prices and all other reverts disable
+      // removal rather than masquerading as a smaller available balance.
+      throw error;
+    }
+  }
+  if (maxRemoval > 0n && !await admits(maxRemoval)) {
+    let lower = 0n;
+    let upper = maxRemoval;
+    while (upper - lower > 1n) {
+      const middle = (lower + upper) / 2n;
+      if (await admits(middle)) lower = middle;
+      else upper = middle;
+    }
+    maxRemoval = lower;
+  }
   return {
     positionId, account, blockNumber, equityUsd: state.equityUsd,
     maintenanceMarginUsd, marketMaintenanceUsd, maxRemoval,
