@@ -1,0 +1,48 @@
+[issue.1719]
+number = 1719
+title = "Restore token category filters on browser history navigation"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "apps/explorer/ui/pages/Tokens.tsx:44 initializes tokenTypes only on mount, :52 and :93-107 use that state for the API filter and selected category, and :201-203 keys TokensContent only by bridged/all, so the category handler at :77-80 and :109-125 pushes history through apps/explorer/ui/shared/pagination/useQueryWithPages.ts:227-257 but Back from NFT to Fungible leaves the NFT selection and API filter active; apps/explorer/ui/tokens/repair-22-35-5.spec.tsx:71-89 tests forward clicks using the router at apps/explorer/ui/shared/layout/testWrapper.tsx:75-96, whose push and history methods never navigate."
+close_comment = "Browser Back and Forward can restore a token category URL while leaving a different category selected and queried. The follow-up repair will restore the selected chip and API filter together, preserve search, sorting and bridged views, and avoid extra requests or history entries."
+
+[task.18.1719.1]
+title = "Issue #1719: Synchronize token category filters with browser history"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181719.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/explorer/ui/pages/Tokens.tsx:39-53 and :77-125, make the validated URL token types the source of the category selection and API filter on initial load, shallow navigation, Back and Forward, retaining the existing token type mappings and the bridged/all resource distinction at :51 and :201-203; synchronization must not invoke a filter-change handler or push/replace history, category clicks must add only their intended history entry, and the bridged transition at :116-121 must preserve unrelated query parameters and search/sorting while resetting only incompatible filters and pagination."
+do_2 = "Add apps/explorer/ui/pages/Tokens.history.spec.tsx with the declared tokenCategoryHistoryRestoresFilters function registered as a named test, exercising the real Next router, browser History API, token page, query client and HTTP request path rather than router/query doubles; use the real-router and HTTP-listener approach in apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts:96-158, and assert after settled initial load, Fungible then NFT clicks, Back and Forward that the URL, aria-pressed chip and actual token request type agree, search/sort and unrelated query parameters survive, All clears type, and Bridged/all history retains its endpoint and chain filter semantics, with request counts and history length proving synchronization adds no duplicate requests or entries."
+symbols = ["TokensContent", "tokenCategoryHistoryRestoresFilters"]
+touches = ["apps/explorer/ui/pages/Tokens.tsx", "apps/explorer/ui/pages/Tokens.history.spec.tsx"]
+tests = ["apps/explorer/ui/pages/Tokens.history.spec.tsx::tokenCategoryHistoryRestoresFilters"]
+planned_paths = ["apps/explorer/ui/pages/Tokens.history.spec.tsx"]
+build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/explorer exec vitest run apps/explorer/ui/pages/Tokens.history.spec.tsx -t '^tokenCategoryHistoryRestoresFilters$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181719]
+title = "Token category URLs, selected chips and API filters agree through history navigation"
+ac_1 = "Given the mount-only tokenTypes state at apps/explorer/ui/pages/Tokens.tsx:44 and its consumers at :52 and :93-107, when Fungible and NFT selections are traversed with browser Back and Forward, then the restored URL type, selected chip and token request type agree, All clears the type filter, search/sorting and unrelated query parameters survive, bridged/all navigation retains the correct endpoint and applicable chain filters, and synchronization adds neither duplicate requests nor history entries."
+
+[acceptance.18.1719.1]
+feature = "18"
+req = "181719.1"
+scenario = "Given a token markets URL with search, sorting and unrelated query parameters, when Fungible and NFT are selected and browser Back and Forward traverse those selections and All/Bridged transitions, then the URL, selected category and API filters agree while preserving applicable parameters without duplicate requests or history entries."
+contract = "contracts/explorer-frontend.md#pages"
+test = "apps/explorer/ui/pages/Tokens.history.spec.tsx::tokenCategoryHistoryRestoresFilters (planned)"
+qualification = "UNRUN"

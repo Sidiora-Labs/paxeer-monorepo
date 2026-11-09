@@ -1,0 +1,50 @@
+[issue.1721]
+number = 1721
+title = "Migrate retained receipt-store tests to authenticated ingress"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "services/agent/crates/layerx-agentd/src/receipt.rs:953 rejects raw receipted and committed evidence with UnauthenticatedIngress, but services/agent/crates/layerx-agentd/tests/receipts.rs:190 and services/agent/crates/layerx-agentd/tests/receipts.rs:213 still unwrap raw-ingress success and spec/layerx-merge/contracts/agent-formats.md:233 still promises raw-evidence persistence, although commit ef0e8c5d4f356e728d7cf55f88a0751bed419877 already migrated receipt_store_v2.rs to authenticated capabilities at services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs:147 and services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs:426."
+close_comment = "The transaction-hash round-trip and legacy-version tests already use authenticated receipt capabilities, but two receipt integration tests and the format contract still assume raw evidence can be persisted. The remaining fix migrates those tests through the production verifier, preserves explicit raw-evidence refusal and storage guarantees, and corrects the documented ingress boundary."
+
+[task.18.1721.1]
+title = "Issue #1721: Migrate the remaining receipt ingress tests and correct the format contract"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181721.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the raw transaction_receipt fixture at services/agent/crates/layerx-agentd/tests/receipts.rs:112 with a capability obtained through the production authenticated receipt verifier using genuine producer-emitted receipts and pinned receipt keys; migrate first_verified_ingress_is_stored_before_it_is_served at line 181 and repeated_verified_ingress_refuses_conflicts_without_replacing_the_first_receipt at line 208 to store AuthenticatedTransactionReceipt and compare its evidence, without changing the sealed ingress boundary at services/agent/crates/layerx-agentd/src/receipt.rs:953."
+do_2 = "Preserve first-write visibility, exact bytes, idempotence, tenant isolation and conflict refusal without replacing the first receipt; exercise a conflicting durable record with an authenticated capability rather than attempting to construct a forged capability, and add raw_transaction_evidence_is_refused_without_writing to assert UnauthenticatedIngress and unchanged durable receipt and evidence keys for raw Receipted and Committed evidence before and after a valid authenticated write and reopening the store."
+do_3 = "Correct spec/layerx-merge/contracts/agent-formats.md:233 to identify AuthenticatedTransactionReceipt as the transaction-evidence persistence capability and raw TransactionReceiptEvidence as refused ingress, describe pinned-key authentication and committed-proof requirements, and refresh the coverage statements at line 243 to match actual producer-derived fields instead of fixed height 12 and index 1."
+do_4 = "Run both receipt integration targets in one focused package verification, retaining the already-migrated authenticated round-trip, conflict, restart, monotonic-rung and legacy-version assertions at services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs:164, :247, :298, :351 and :392 without changing that file or weakening any assertion."
+symbols = ["transaction_receipt", "first_verified_ingress_is_stored_before_it_is_served", "repeated_verified_ingress_refuses_conflicts_without_replacing_the_first_receipt", "raw_transaction_evidence_is_refused_without_writing"]
+touches = ["services/agent/crates/layerx-agentd/tests/receipts.rs", "spec/layerx-merge/contracts/agent-formats.md"]
+tests = ["services/agent/crates/layerx-agentd/tests/receipts.rs::first_verified_ingress_is_stored_before_it_is_served", "services/agent/crates/layerx-agentd/tests/receipts.rs::repeated_verified_ingress_refuses_conflicts_without_replacing_the_first_receipt", "services/agent/crates/layerx-agentd/tests/receipts.rs::raw_transaction_evidence_is_refused_without_writing", "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs::receipt_evidence_round_trips_by_transaction_hash", "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs::version_one_receipt_evidence_is_refused"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test receipts --test receipt_store_v2"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test receipts --test receipt_store_v2"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181721]
+title = "Receipt integration coverage and the format contract respect authenticated ingress"
+ac_1 = "Given producer-emitted receipt evidence verified with pinned keys, when the first-write and conflict cases at services/agent/crates/layerx-agentd/tests/receipts.rs:181 and :208 persist authenticated capabilities, then exact evidence remains available after reopening, repeated writes are idempotent, conflicts preserve the first receipt, raw receipted and committed evidence returns UnauthenticatedIngress without writes as required by services/agent/crates/layerx-agentd/src/receipt.rs:953, and spec/layerx-merge/contracts/agent-formats.md:233 describes that boundary while the restart, monotonic-rung and legacy-version coverage in services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs:298, :351 and :392 remains intact."
+
+[acceptance.18.1721.1]
+feature = "18"
+req = "181721.1"
+scenario = "Given authentic producer receipts and a tenant receipt store, when authenticated ingress is repeated, a conflicting record is encountered, raw evidence is submitted, and the store is reopened, then authenticated receipts retain exact bytes, conflicts and raw input cannot replace them, stronger rungs remain monotonic, legacy evidence versions remain refused, and the format contract describes the authenticated boundary."
+contract = "contracts/agent-formats.md#receipt-evidence"
+test = "services/agent/crates/layerx-agentd/tests/receipts.rs::raw_transaction_evidence_is_refused_without_writing (planned)"
+qualification = "UNRUN"

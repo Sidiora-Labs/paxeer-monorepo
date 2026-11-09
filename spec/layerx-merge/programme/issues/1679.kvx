@@ -1,0 +1,48 @@
+[issue.1679]
+number = 1679
+title = "[Coherence] The live-transfer socket and the new-items notice still follow the server page, not the page the user is looking at"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "apps/explorer/ui/token/TokenTransfer/useTokenTransferPages.ts:31 advances the display page without advancing the server page and :68 exposes that display page, while apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx:62, :82 and :92 still gate the socket and desktop/mobile notices on the server page; apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx:28 starts existing component tests on server page 2, leaving this regression introduced by commit e6ec195e2e4ea4116ef675442e490c99c2893ab8 uncovered."
+close_comment = "Confirmed: live transfer updates and new-transfer notices remain active on later display pages backed by the first server response. The follow-up fix will restrict the subscription and both notices to the first display page and add coverage for leaving and returning to that page."
+
+[task.18.1679.1]
+title = "Issue #1679: Restrict live transfer updates and notices to the first display page"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181679.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx:62, :82 and :92, use displayPagination.page for the socket disable condition and both desktop/mobile notice conditions; preserve the placeholder and error guards and the existing topic and message handling, using the display pagination already returned at :44."
+do_2 = "Extend apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx:57 with a declared async function tokenTransferLiveUpdatesFollowDisplayPage registered as a Vitest test: render the real TokenTransfer with its production pagination and socket hooks, select 25 rows, and exercise next, previous and row-selection reset; with at least two display pages backed by server page 1, assert that the token channel subscription and both desktop/mobile notices are active only on display page 1, that incoming transfer counts stop on later display pages and resume on return, and that placeholder/error states still disable the channel; assert actual subscription lifecycle and rendered notices without replacing the pagination or socket hooks."
+symbols = ["TokenTransfer", "tokenTransferLiveUpdatesFollowDisplayPage"]
+touches = ["apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx", "apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx"]
+tests = ["apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx::tokenTransferLiveUpdatesFollowDisplayPage"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/explorer exec vitest run ui/token/TokenTransfer/TokenTransfer.spec.tsx -t '^tokenTransferLiveUpdatesFollowDisplayPage$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181679]
+title = "Token transfer live updates follow the displayed page"
+ac_1 = "Given at least two 25-row display pages in server page 1, advancing through apps/explorer/ui/token/TokenTransfer/useTokenTransferPages.ts:31 disables the token channel and hides both new-transfer notices controlled by apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx:62, :82 and :92 on display pages greater than 1; returning or resetting to display page 1 restores live updates and both notices, while placeholder/error states still disable the channel."
+
+[acceptance.18.1679.1]
+feature = "18"
+req = "181679.1"
+scenario = "Given a token transfer list split into 25-row display pages within the first server response, when the user leaves display page 1 and then returns or resets the row selection, then the token channel stops delivering live counts and both notices disappear on later display pages, and live updates and notices resume only on display page 1 when the query is neither placeholder nor errored."
+contract = "contracts/explorer-ws.md#topics"
+test = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx::tokenTransferLiveUpdatesFollowDisplayPage (planned)"
+qualification = "UNRUN"
