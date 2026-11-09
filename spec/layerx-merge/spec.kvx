@@ -347785,7 +347785,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.134]
 title = "Triage issue #1664: Align registration tenant length with generated identity subjects"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347816,7 +347816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.133]
 title = "Triage issue #1663: Funding tests read retired MobileTradingLayout source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347847,7 +347847,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.132]
 title = "Triage issue #1662: Register the nine wallet repair callbacks with Vitest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347878,7 +347878,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.131]
 title = "Triage issue #1661: Load-test deploy-wasm still invokes retired DEX commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347909,7 +347909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.130]
 title = "Triage issue #1660: Receipt-key tests still expect forwarding after node-local authority change"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347940,7 +347940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.129]
 title = "Triage issue #1659: Replay held-job diagnostic bypasses retry handling during database outages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347971,7 +347971,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.128]
 title = "Triage issue #1658: Markets stream drops valid snapshots with nullable feed metrics"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348002,7 +348002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.127]
 title = "Triage issue #1657: Portfolio Assets chart treats sparse active days as calendar-day windows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348033,7 +348033,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.126]
 title = "Triage issue #1656: Align protocol TVL card with six-decimal snapshot amounts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348064,7 +348064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.125]
 title = "Triage issue #1655: Collateral removal modal caps withdrawals by pre-settlement collateral"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348157,7 +348157,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.122]
 title = "Triage issue #1652: Return valid BufferedTask retry entries from multichain export fetchers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348312,7 +348312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.117]
 title = "Triage issue #1647: Preserve cancellable subscription handshakes across 50 ms polls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348436,7 +348436,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.113]
 title = "Triage issue #1640: Reconcile orphaned acceptance replay jobs with price-feed retention"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348591,7 +348591,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.108]
 title = "Triage issue #1635: Remove denied unwrap calls from Programs host repair tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
