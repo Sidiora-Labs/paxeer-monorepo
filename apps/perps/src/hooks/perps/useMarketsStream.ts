@@ -35,9 +35,9 @@ export const MARKETS_WS_URL = `${FEED_ORIGIN.replace(/^http/, "ws")}/ws/markets`
 export interface MarketSnapshot {
   symbol: string;
   symbol_full: string;
-  price: number;
+  price: number | null;
   /** 24h % change as a percentage number (e.g. 1.23 means +1.23%). */
-  change_24h: number;
+  change_24h: number | null;
   volume_24h: number;
   open_interest: number;
   /** 8 × the hourly funding rate at 18 decimals (1e18 = 1.0); null before the first settlement or when malformed. */
@@ -49,7 +49,7 @@ export interface MarketSnapshot {
   volume_7d: number;
   volume_30d: number;
   trades_count: number;
-  last_updated: number;
+  last_updated: number | null;
   price_updated_at: number;
   price_24h: number;
   high_24h: number;
@@ -335,8 +335,8 @@ export function normalizeMarket(raw: unknown): MarketSnapshot | null {
   const snapshot: MarketSnapshot = {
     symbol,
     symbol_full: typeof r.symbol_full === "string" ? r.symbol_full : symbol,
-    price: num(r.price),
-    change_24h: num(r.change_24h),
+    price: r.price === null ? null : num(r.price),
+    change_24h: r.change_24h === null ? null : num(r.change_24h),
     volume_24h: num(r.volume_24h),
     open_interest: num(r.open_interest),
     funding_8h: marketFundingHourly(symbol, "funding_8h", r.funding_8h),
@@ -345,7 +345,7 @@ export function normalizeMarket(raw: unknown): MarketSnapshot | null {
     volume_7d: num(r.volume_7d),
     volume_30d: num(r.volume_30d),
     trades_count: num(r.trades_count),
-    last_updated: num(r.last_updated),
+    last_updated: r.last_updated === null ? null : num(r.last_updated),
     price_updated_at: num(r.price_updated_at),
     price_24h: num(r.price_24h),
     high_24h: num(r.high_24h),
