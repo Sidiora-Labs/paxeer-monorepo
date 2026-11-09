@@ -1,0 +1,522 @@
+# Closure supplement for the 22.31 series; main-line evidence at a26369c7eda603cb28bcdd8cef55c35df7d248ee.
+
+[disposition.22.31.497.1]
+finding = "22.31.497.1"
+status = "resolved"
+evidence = "On main, 9397b65f47 retains the height-specific commit and validator recording at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:210 and passes native membership evidence through the production authority library at :80; changed native evidence and mismatched headers are refused."
+
+[disposition.22.31.497.2]
+finding = "22.31.497.2"
+status = "resolved"
+evidence = "On main, 9397b65f47 reads the reopened approval through ApprovalService::get with TimestampSeconds sampled from the runtime clock at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:1157, then checks the restored actor and canonical digest."
+
+[disposition.22.31.497.3]
+finding = "22.31.497.3"
+status = "resolved"
+evidence = "On main, d739b429df supplies explicit decision times in services/agent/crates/layerx-agentd/tests/approval_semantics.rs:143 and the timed service read at :289; 6c7e27fb0d replaces the duplicated authority implementation with the library consumed at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80."
+
+[disposition.22.31.498.1]
+finding = "22.31.498.1"
+status = "resolved"
+evidence = "On main, 5f04bc27ea makes tests/vectors/codec/generate.py:30 reject undeclared active replay types while tolerating the retired budget pull, and bf159c9480 makes tests/ci/test_agent_codec_corpus.py:75 require root-path JSON-RPC submission of the signed EIP-1559 transaction."
+
+[disposition.22.31.498.2]
+finding = "22.31.498.2"
+status = "resolved"
+evidence = "On main, bf159c9480 excludes replay_corpus.lxb through tests/vectors/codec/.gitignore:1; tests/ci/test_agent_codec_corpus.py:135 requires the archive to omit it and :158 regenerates the corpus before the vector consumers."
+
+[disposition.22.31.498.3]
+finding = "22.31.498.3"
+status = "resolved"
+evidence = "On main, bf159c9480 makes tests/ci/test_agent_codec_corpus.py:197 parse the undeclared-activity diagnostic and require exactly the removed LX_BUDGET_DEFUND value 0x00030008, while retaining the refusal and unchanged-corpus assertions."
+
+[disposition.22.31.503.1]
+finding = "22.31.503.1"
+status = "resolved"
+evidence = "On main, 425f12549b places the token-instance repair under apps/explorer/nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts:1; apps/explorer/nextjs/pages-tests/no-tests-under-pages.spec.ts:19 rejects test files and KVX records beneath pages."
+
+[disposition.22.31.503.2]
+finding = "22.31.503.2"
+status = "resolved"
+evidence = "On main, 425f12549b declares /chains as Root page and /chains/[id] as Regular page at apps/explorer/lib/metadata/getPageOgType.ts:82, matching the generated route union."
+
+[disposition.22.31.503.3]
+finding = "22.31.503.3"
+status = "resolved"
+evidence = "On main, 425f12549b supplies both chain-route entries at apps/explorer/lib/metadata/getPageOgType.ts:82 and keeps the four repair pairs under nextjs/pages-tests; the guard at apps/explorer/nextjs/pages-tests/no-tests-under-pages.spec.ts:27 requires no test routes under pages."
+
+[disposition.22.31.503.4]
+finding = "22.31.503.4"
+status = "resolved"
+evidence = "On main, 425f12549b maps /chains and /chains/[id] to Chains and Chain details at apps/explorer/lib/mixpanel/getPageType.ts:80, alongside their OG and description entries."
+
+[disposition.22.31.508.1]
+finding = "22.31.508.1"
+status = "resolved"
+evidence = "On main, 4ac6acf1d7 aligns apps/wallet/src/surfaces/repair-22-33-205.test.ts:369 with retired payer grants: the returned state is retired, with request-value availability and its fee; :404 also checks the paused response."
+
+[disposition.22.31.509.1]
+finding = "22.31.509.1"
+status = "resolved"
+evidence = "On main, 172281ea86 uses the fork codec Marshaler.MarshalAsJSON at daemon/committed-fixture/vector_v6_test.go:25 and Marshaler.UnmarshalAsJSON at :44, then validates the sponsored-binding genesis while preserving its original parameters."
+
+[disposition.22.31.51.1]
+finding = "22.31.51.1"
+status = "resolved"
+evidence = "On main, 745a005a2f imports image/png at services/launchpad/gateway/internal/storage/testdata/repair_51_metadata.go:12 and encodes the promoted image at :97 before the real metadata and storage paths consume it."
+
+[disposition.22.31.510.1]
+finding = "22.31.510.1"
+status = "resolved"
+evidence = "On main, c6d7594562 reconciles the Python payment recording and tests/ci/test_repair_22_31_510.py:62 authenticates each signed receipt against its raw transaction; the payload and settlement must carry that verifier digest rather than the Merkle-leaf digest."
+
+[disposition.22.31.510.2]
+finding = "22.31.510.2"
+status = "resolved"
+evidence = "On main, 40d7268e74 makes services/agent/sdk/python/tests/test_web_search_sequencer.py:323 answer root-path JSON-RPC account reads from the recorded ledger, and :341 compares the payment signature with the recorded offer-bound payload."
+
+[disposition.22.31.510.3]
+finding = "22.31.510.3"
+status = "resolved"
+evidence = "On main, c6d7594562 pins each currency to its authenticated receipt digest at tests/ci/test_repair_22_31_510.py:44 and checks the request payload, settlement evidence and buyer recording against the same digest at :65."
+
+[disposition.22.31.512.1]
+finding = "22.31.512.1"
+status = "resolved"
+evidence = "On main, 050e1cbc17 removes the external resize-observer import from apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts:16; apps/explorer/repair-22-31-512.spec.ts:37 also confines node-fetch imports to server code."
+
+[disposition.22.31.513.1]
+finding = "22.31.513.1"
+status = "resolved"
+evidence = "On main, 19c8fef5c5 declares dependency build policy in services/wallet/pnpm-workspace.yaml:6, allowing esbuild and sharp and explicitly disabling the four unused dependency scripts; ce20049279 retains the table-copy and collision assertions in services/wallet/ceremony/internal/move/move_test.go:82."
+
+[disposition.22.31.513.2]
+finding = "22.31.513.2"
+status = "resolved"
+evidence = "On main, ce20049279 supplies TCPPeerProbe to the ceremony server at services/wallet/attestor/internal/server/ceremony_node.go:135, so custody readiness observes its peer listeners while retaining store, audit, inventory and identity validation."
+
+[disposition.22.31.514.1]
+finding = "22.31.514.1"
+status = "resolved"
+evidence = "On main, 40d7268e74 makes services/agent/sdk/python/tests/test_web_search_sequencer.py:325 require JSON-RPC at the root; :361 requires a pending exact payment to retry the same signature and bind the resulting transaction to the authenticated receipt."
+
+[disposition.22.31.515.1]
+finding = "22.31.515.1"
+status = "resolved"
+evidence = "On main, ba398e5457 creates the stream store root privately at services/human/crates/layerx-human-service/tests/approvals.rs:106, and the current owner-backed lifecycle case checks durable approval reads, notification deliveries and reservation releases."
+
+[disposition.22.31.515.2]
+finding = "22.31.515.2"
+status = "resolved"
+evidence = "On main, ba398e5457 reads ApprovalNotification::for_delivery at services/human/crates/layerx-human-service/tests/approvals.rs:169 and checks exact base-unit amount and asset; 8dfb4b3f08 binds those values into full-detail notification content at services/human/crates/layerx-human-service/src/notify/content.rs:29."
+
+[disposition.22.31.515.3]
+finding = "22.31.515.3"
+status = "resolved"
+evidence = "On main, bcfa98a405 passes the sampled clock time into approval::hold_at at services/agent/crates/layerx-mcp/src/approval.rs:63; the clock generation is checked at :174 before an MCP approval hold can be created."
+
+[disposition.22.31.516.1]
+finding = "22.31.516.1"
+status = "resolved"
+evidence = "On main, d739b429df adds current_time to the decision requests at services/agent/crates/layerx-agentd/tests/approval_semantics.rs:143 and passes TimestampSeconds to the recovered service read at :289."
+
+[disposition.22.31.516.2]
+finding = "22.31.516.2"
+status = "resolved"
+evidence = "On main, 10ae26b75d emits VerificationLevel::COMMITTED.wire_rank() in services/platform/hosted/authority/src/human/budget_state.rs:301, matching the committed-only budget response decoder in services/agent/crates/layerx-agentd/src/human_runtime.rs:2088."
+
+[disposition.22.31.516.3]
+finding = "22.31.516.3"
+status = "resolved"
+evidence = "On main, 34a0ceee81 supplies receiver_did_key in the host GrantTerms construction at services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs:597; the key is separate from the recipient account and asset."
+
+[disposition.22.31.516.4]
+finding = "22.31.516.4"
+status = "resolved"
+evidence = "On main, 8499852066 makes committed_budget_rank decode the current label and require COMMITTED at services/agent/crates/layerx-agentd/src/human_runtime.rs:11688, so the approval budget guard accepts rank 6 and refuses retired ranks."
+
+[disposition.22.31.516.5]
+finding = "22.31.516.5"
+status = "resolved"
+evidence = "On main, 6203ea8492 removes the duplicated budget-proof source from services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs:1; the integration consumer uses the daemon library, whose budget-proof tests remain inside services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:503."
+
+[disposition.22.31.516.6]
+finding = "22.31.516.6"
+status = "resolved"
+evidence = "On main, 6c7e27fb0d constructs the complete refusal frame with LXHAGT01, status 1 and a length-prefixed reason at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:866; the projection checks likewise compare the full operation.refused frame at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:229."
+
+[disposition.22.31.516.7]
+finding = "22.31.516.7"
+status = "resolved"
+evidence = "On main, 6c7e27fb0d creates the retained legacy-named reservation through hold_reserved_at at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:1666 and passes the same runtime clock as the second timed hold."
+
+[disposition.22.31.516.8]
+finding = "22.31.516.8"
+status = "resolved"
+evidence = "On main, 6c7e27fb0d checks successful operation-47 facts for the timed hold at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:232, including its approval id and the presentation fields extending the operation-10 payload."
+
+[disposition.22.31.516.9]
+finding = "22.31.516.9"
+status = "resolved"
+evidence = "On main, 6c7e27fb0d keeps timed holds in the served projection case and separately proves that a bare LXAPHLD4 record refuses owner construction after reopening at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:428."
+
+[disposition.22.31.517.1]
+finding = "22.31.517.1"
+status = "resolved"
+evidence = "On main, 19c8fef5c5 gives services/wallet/pnpm-workspace.yaml:6 explicit build policy for all six dependency scripts; fc308aa6ac retains ten single-connection route regressions at services/wallet/gateway/test/repair-22-31-517.test.ts:487."
+
+[disposition.22.31.517.2]
+finding = "22.31.517.2"
+status = "resolved"
+evidence = "On main, 19c8fef5c5 explicitly allows esbuild and sharp and disables the unused optional scripts at services/wallet/pnpm-workspace.yaml:6; services/wallet/gateway/test/repair-22-31-517.test.ts:100 exercises the real send route with one database connection after fc308aa6ac."
+
+[disposition.22.31.517.3]
+finding = "22.31.517.3"
+status = "resolved"
+evidence = "On main, fc308aa6ac binds approvalId immediately after successful schema parsing at services/wallet/gateway/src/routes/evmApprovals.ts:475, and the nested ready function uses that narrowed identifier at :480."
+
+[disposition.22.31.519.1]
+finding = "22.31.519.1"
+status = "resolved"
+evidence = "On main, bcfa98a405 supplies TimestampSeconds from the approval clock to ApprovalService::list at services/agent/crates/layerx-mcp/tests/support/session_transport.rs:739, and its MCP approval decisions carry the same explicit-time contract."
+
+[disposition.22.31.519.2]
+finding = "22.31.519.2"
+status = "resolved"
+evidence = "On main, d739b429df lets ApprovalExpiry create the root at services/agent/crates/layerx-agentd/tests/approval_semantics.rs:110 and creates holds through hold_at at :115; the outliving-expiry case at :312 still requires InvalidWindow."
+
+[disposition.22.31.521.1]
+finding = "22.31.521.1"
+status = "environment"
+evidence = "On main, 185d6896fc samples the boundary clock, refuses a zero generation and converts Unix seconds to TimestampSeconds at services/human/crates/layerx-human-service/tests/decide_nonces.rs:143; nonce and decision time remain distinct values."
+
+[disposition.22.31.521.2]
+finding = "22.31.521.2"
+status = "resolved"
+evidence = "On main, 185d6896fc constructs a signed send intent in ledger_payload at services/human/crates/layerx-human-service/tests/decide_nonces.rs:51, so preparation binds a real ledger-send envelope rather than an arbitrary byte vector."
+
+[disposition.22.31.521.3]
+finding = "22.31.521.3"
+status = "resolved"
+evidence = "On main, 185d6896fc makes the nonce boundary read the timed hold and return committed VerifiedBudgetAfter at services/human/crates/layerx-human-service/tests/decide_nonces.rs:208, retaining the pending-nonce release and stale-nonce refusal assertions."
+
+[disposition.22.31.521.4]
+finding = "22.31.521.4"
+status = "resolved"
+evidence = "On main, 185d6896fc creates the notification stream directory recursively with mode 0700 at services/human/crates/layerx-human-service/tests/repair_22_31_159.rs:284, satisfying the protected store root contract without changing it."
+
+[disposition.22.31.521.5]
+finding = "22.31.521.5"
+status = "resolved"
+evidence = "On main, 185d6896fc checks exact base-unit Amount and stable Asset lines at services/human/crates/layerx-human-service/tests/repair_22_31_159.rs:265 while still refusing rendered money; these lines come from the binding producer added by 8dfb4b3f08 at services/human/crates/layerx-human-service/src/notify/content.rs:29."
+
+[disposition.22.31.522.1]
+finding = "22.31.522.1"
+status = "resolved"
+evidence = "On main, 425f12549b supplies both chain routes at apps/explorer/lib/metadata/getPageOgType.ts:82 and moves repair specifications out of pages; apps/explorer/nextjs/pages-tests/no-tests-under-pages.spec.ts:19 rejects specifications and KVX records as page routes."
+
+[disposition.22.31.522.2]
+finding = "22.31.522.2"
+status = "resolved"
+evidence = "On main, 050e1cbc17 makes apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts:16 define its ResizeObserver interface locally, eliminating the unresolved @juggle/resize-observer import without changing the form assertions."
+
+[disposition.22.31.523.1]
+finding = "22.31.523.1"
+status = "resolved"
+evidence = "On main, 8dfb4b3f08 creates the stream directory recursively with mode 0700 at services/human/crates/layerx-human-service/tests/repair_22_31_523.rs:256; full-detail notification assertions at :219 bind the exact amount and asset, and lower-detail channels omit both."
+
+[disposition.22.31.524.1]
+finding = "22.31.524.1"
+status = "resolved"
+evidence = "On main, b2f3b1adf9 decodes absent commit signatures as empty bytes at services/platform/middleware/seller/test/committed-fixture.mjs:25; 12909a1d24 retains distinct signed power 7000000000 and total power 7000000001 at services/platform/middleware/seller/test/repair-22-31-457.test.mjs:26 and the receipt-proof payload at services/platform/middleware/seller/test/repair-22-31-434.test.mjs:53."
+
+[disposition.22.31.524.2]
+finding = "22.31.524.2"
+status = "resolved"
+evidence = "On main, 12909a1d24 uses the verifier receiptDigest in services/platform/middleware/seller/test/repair-22-31-434.test.mjs:55; 797a092bfa derives daemon payment evidence from verifySequencerReceipt at services/platform/middleware/agent/src/daemon.ts:235 instead of a private receipt hash."
+
+[disposition.22.31.524.3]
+finding = "22.31.524.3"
+status = "resolved"
+evidence = "On main, 797a092bfa compares reservation and grant evidence with the verifier receiptDigest at services/platform/middleware/agent/src/index.ts:917 and :1044; services/platform/middleware/agent/src/daemon.ts:242 publishes that same digest in its receipt proof."
+
+[disposition.22.31.526.1]
+finding = "22.31.526.1"
+status = "resolved"
+evidence = "On main, 4332ee977f makes services/interop/crates/x-websearch/tests/payment.rs:851 require one exact offer for each supported currency with no metered payer or purpose fields; :1322 retains explicit refusal coverage for retired metered offers."
+
+[disposition.22.31.526.2]
+finding = "22.31.526.2"
+status = "resolved"
+evidence = "On main, 2c4a62dd00 binds the MCP fetch result to the recorded exact receipt at services/agent/crates/layerx-mcp/tests/web.rs:1121; cf56b42dce supplies approval resources and checks that a held search has zero signatures until approved at :1346."
+
+[disposition.22.31.527.1]
+finding = "22.31.527.1"
+status = "resolved"
+evidence = "On main, bcfa98a405 passes the explicit decision time into the MCP session list at services/agent/crates/layerx-mcp/tests/support/session_transport.rs:739 and uses the timed approval service through the served binding at services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs:174."
+
+[disposition.22.31.527.2]
+finding = "22.31.527.2"
+status = "resolved"
+evidence = "On main, ba398e5457 ports the Human approval consumers to the sampled-clock contract; services/human/crates/layerx-human-service/tests/decide_nonces.rs:218 passes that time to get, and 1e78e56f69 uses the clock-aware payer boundary at services/agent/crates/layerx-agentd-host/tests/payer_evm.rs:486."
+
+[disposition.22.31.527.3]
+finding = "22.31.527.3"
+status = "resolved"
+evidence = "On main, bcfa98a405 rejects a zero-generation clock before creating a hold through services/agent/crates/layerx-mcp/src/approval.rs:169; services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs:375 requires Unavailable, no preparation, no reservation and no signatures."
+
+[disposition.22.31.529.1]
+finding = "22.31.529.1"
+status = "resolved"
+evidence = "On main, e986a76986 handles an existing-grant metered draw by committing its call and disclosure without preparing a payer transaction at services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs:244; the resulting hold remains pending until a decision."
+
+[disposition.22.31.529.2]
+finding = "22.31.529.2"
+status = "resolved"
+evidence = "On main, 34a0ceee81 fills receiver_did_key in services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs:597, matching the GrantTerms field consumed by nextSequence rather than deriving its key from the recipient account."
+
+[disposition.22.31.529.3]
+finding = "22.31.529.3"
+status = "resolved"
+evidence = "On main, cf56b42dce records one standing-grant lookup before the hold at services/agent/crates/layerx-mcp/tests/web.rs:1360 and retains zero signatures until approval; fddd4d85d7 preserves the sender-address actor convention checked by the served ticket at :2311."
+
+[disposition.22.31.53.1]
+finding = "22.31.53.1"
+status = "resolved"
+evidence = "On main, 39967d3c30 supplies the native and tenant transcript read at services/launchpad/indexer/internal/receipt/repair_53_test.go:57 and checks historical emitter authority independently at :1029; the transcript is retained in testdata/repair53-producer.json."
+
+[disposition.22.31.53.2]
+finding = "22.31.53.2"
+status = "resolved"
+evidence = "On main, 39967d3c30 retains the captured native/tenant producer packet loaded at services/launchpad/indexer/internal/receipt/repair_53_test.go:57 and proves archive reopen at :831, with the historical emitter epoch checked at :1029."
+
+[disposition.22.31.53.3]
+finding = "22.31.53.3"
+status = "resolved"
+evidence = "On main, 39967d3c30 distinguishes the historical beacon-proxy epoch from the current native surface in services/launchpad/indexer/internal/receipt/repair_53_test.go:705 and preserves both activation bounds; services/launchpad/indexer/internal/receipt/rpc.go:1314 binds native pool events to the approved precompile."
+
+[disposition.22.31.53.4]
+finding = "22.31.53.4"
+status = "resolved"
+evidence = "On main, 39967d3c30 canonicalizes only an explicit zero from address out of eth_call replay keys at services/launchpad/indexer/internal/receipt/repair_53_test.go:133, retaining exact target, calldata, block and nonzero-sender matching."
+
+[disposition.22.31.53.5]
+finding = "22.31.53.5"
+status = "resolved"
+evidence = "On main, 39967d3c30 selects the approved launchpad precompile as the native surface emitter at services/launchpad/indexer/internal/receipt/rpc.go:1314 and checks its exact epoch identity at :1338, while preserving the configured historical EventEmitter binding."
+
+[disposition.22.31.530.1]
+finding = "22.31.530.1"
+status = "resolved"
+evidence = "On main, 12909a1d24 derives seller payment proofs from verified receiptDigest at services/platform/middleware/seller/test/repair-22-31-434.test.mjs:55 and verifies a differing request before receipt reuse in services/platform/middleware/seller/test/repair-22-31-530.test.mjs:111."
+
+[disposition.22.31.530.2]
+finding = "22.31.530.2"
+status = "resolved"
+evidence = "On main, 451e8ff9ed compares Next settlement evidence with decision.verification.receiptDigest at sdk/integrations/next/src/index.ts:479, retaining constant-time comparison and the transaction, asset and amount binding checks."
+
+[disposition.22.31.531.1]
+finding = "22.31.531.1"
+status = "resolved"
+evidence = "On main, e986a76986 makes the standing-grant payer answer the account view selector 0x3f050cbc at services/agent/crates/layerx-mcp/src/tools/web.rs:2343 and check its owner and asset words before serving the grant and receiver-sequence views."
+
+[disposition.22.31.531.2]
+finding = "22.31.531.2"
+status = "resolved"
+evidence = "On main, e986a76986 keys nextSequence by receiver_did_key and asset at services/agent/crates/layerx-mcp/src/tools/web.rs:757; services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs:137 supplies that DID key from the ledger recording."
+
+[disposition.22.31.532.1]
+finding = "22.31.532.1"
+status = "resolved"
+evidence = "On main, 1e78e56f69 resolves exact terms through the payer boundary at services/agent/crates/layerx-agentd-host/tests/payer_evm.rs:486 and installs the native replay clock for signing at :101, preserving the signed-call assertions."
+
+[disposition.22.31.532.2]
+finding = "22.31.532.2"
+status = "resolved"
+evidence = "On main, 1e78e56f69 implements WebPayerBoundary::view at services/agent/crates/layerx-agentd-host/src/payer.rs:429: it checks the owner, encodes the requested precompile call and returns the node pending-state bytes rather than the unavailable trait default."
+
+[disposition.22.31.533.1]
+finding = "22.31.533.1"
+status = "resolved"
+evidence = "On main, 12909a1d24 makes services/platform/middleware/seller/test/receipt-replay.test.mjs:124 bind receipt identity to one principal and checks verified reuse before fulfillment; the committed helper at services/platform/middleware/seller/test/committed-fixture.mjs:43 obtains receiptDigest from verifySequencerReceipt after b2f3b1adf9."
+
+[disposition.22.31.534.1]
+finding = "22.31.534.1"
+status = "resolved"
+evidence = "On main, d739b429df supplies current_time in services/agent/crates/layerx-agentd/tests/approval_semantics.rs:143 and the timestamp argument to get at :289, while retaining concurrent-decision and recovered-expiry coverage."
+
+[disposition.22.31.534.2]
+finding = "22.31.534.2"
+status = "resolved"
+evidence = "On main, b6d38a9897 locates prepare_digest on NativeSendPrepareRequestV2 itself at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:850, so the RPC wire consumer hashes its own canonical request type."
+
+[disposition.22.31.534.3]
+finding = "22.31.534.3"
+status = "resolved"
+evidence = "On main, d6543a4874 compares NativeSendPurposeV2.consent_public_key with the session key at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681, replacing the obsolete purpose.owner_public_key access while retaining signed-purpose checks."
+
+[disposition.22.31.534.4]
+finding = "22.31.534.4"
+status = "environment"
+evidence = "On main, 4e8983196e makes services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs:7 require rank 6 and :23 refuse every retired or unknown budget label; the consumer uses the shared daemon library budget decoder."
+
+[disposition.22.31.537.1]
+finding = "22.31.537.1"
+status = "resolved"
+evidence = "On main, fddd4d85d7 retains the sender-address actor and validates the registry at services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs:158; the stored spend has a sender and no independent actor field at :172, preserving that disclosure through reopen."
+
+[disposition.22.31.538.1]
+finding = "22.31.538.1"
+status = "resolved"
+evidence = "On main, 8499852066 requires committed budget rank at services/agent/crates/layerx-agentd/src/human_runtime.rs:11688; 3831896949 separately normalizes persisted MCP receipt ranks 4 and 5 to COMMITTED at services/agent/crates/layerx-agentd/src/session_control/mcp_record.rs:51 before validating and retaining the record."
+
+[disposition.22.31.539.10]
+finding = "22.31.539.10"
+status = "resolved"
+evidence = "On main, 3831896949 produces the portable account proof from the recorded ICS23 storage witness at services/agent/crates/layerx-agentd/tests/repair_22_33_1525.rs:571 and encodes it with encode_storage_witnesses at :578, matching the export decoder instead of supplying an RLP account proof."
+
+[disposition.22.31.539.1]
+finding = "22.31.539.1"
+status = "resolved"
+evidence = "On main, 6c7e27fb0d consumes the hosted authority through its library at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80 and removes the divergent authority stand-ins; 6203ea8492 likewise makes the 535 integration consumer use the daemon library."
+
+[disposition.22.31.539.2]
+finding = "22.31.539.2"
+status = "resolved"
+evidence = "On main, d5970a4ecd moves policy cases to timed holds at services/agent/crates/layerx-agentd/src/policy/approval.rs:2440 and 35c18f97e0 gives their stores private roots at :2415; 390ed89c8a also supplies the current ownership reads used by the budget-proof cases at services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:744."
+
+[disposition.22.31.539.3]
+finding = "22.31.539.3"
+status = "resolved"
+evidence = "On main, d6543a4874 reads consent_public_key from the V2 native send purpose at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681 and still checks equality with the current session consent key."
+
+[disposition.22.31.539.4]
+finding = "22.31.539.4"
+status = "environment"
+evidence = "On main, 3831896949 requires the node head and committed identity sequence to agree at services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:610 before owner preparation; the unsigned native preview binds the ledger target and call bytes at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:1054."
+
+[disposition.22.31.539.5]
+finding = "22.31.539.5"
+status = "resolved"
+evidence = "On main, 3831896949 brings the bootstrap node to the declared identity height before owner preparation at services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:599 and checks the actual node head against HEAD at :610, satisfying the nonzero core-sequence guard."
+
+[disposition.22.31.539.6]
+finding = "22.31.539.6"
+status = "resolved"
+evidence = "On main, 3831896949 makes the bootstrap fixture mine its real node to HEAD and assert identity/head agreement at services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:599, before ProductionHumanOperations is constructed at :614."
+
+[disposition.22.31.539.7]
+finding = "22.31.539.7"
+status = "resolved"
+evidence = "On main, b4579563fb decodes bindLayerX at the addr precompile in services/agent/crates/layerx-crypto/src/disclosure/call.rs:899, requiring the selector, exact ABI offsets and 64-byte signature before exposing the public key and signature."
+
+[disposition.22.31.539.8]
+finding = "22.31.539.8"
+status = "resolved"
+evidence = "On main, 3831896949 creates a canonical private root at services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs:75 and answers unified history with account, chainHeight and freshness at :413, preserving the omission, end-of-window and stale-history refusals."
+
+[disposition.22.31.539.9]
+finding = "22.31.539.9"
+status = "resolved"
+evidence = "On main, 3831896949 normalizes legacy key-policy observation ranks at services/agent/crates/layerx-agentd/src/managed_agent.rs:1474; services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs:922 retains committed protocol receipt evidence and the lifecycle cases now include their exact signed outbox transactions."
+
+[disposition.22.31.54.1]
+finding = "22.31.54.1"
+status = "resolved"
+evidence = "On main, d7044e890e proves native projection against the transactional peer store at services/launchpad/indexer/internal/processor/repair_54_test.go:1098 and ambiguous-commit recovery against the recorded chain at :1274, including rollback and single-projection checks."
+
+[disposition.22.31.54.2]
+finding = "22.31.54.2"
+status = "environment"
+evidence = "On main, d7044e890e retains the native read-model projection and its rollback assertions at services/launchpad/indexer/internal/processor/repair_54_test.go:1098; canonical commit projection uses the real processor over the transactional peer store."
+
+[disposition.22.31.54.3]
+finding = "22.31.54.3"
+status = "environment"
+evidence = "On main, d7044e890e exercises ambiguous-commit reconciliation at services/launchpad/indexer/internal/processor/repair_54_test.go:1274 and requires the committed batch to leave the pending state at :1401; the native projection case at :1098 checks atomic rollback."
+
+[disposition.22.31.540.1]
+finding = "22.31.540.1"
+status = "resolved"
+evidence = "On main, ba761d6c5d imports BudgetProofError from layerx_agentd::budget::budget_proof at services/human/crates/layerx-human-service/tests/repair_22_31_540.rs:10 and retains explicit ingress refusal of a state-proven proof at :230."
+
+[disposition.22.31.540.2]
+finding = "22.31.540.2"
+status = "resolved"
+evidence = "On main, 2c51893714 refreshes services/interop/specs/conformance/committed/vector-v4-committed.json:1 from the current recorder output; services/human/crates/layerx-human-service/tests/support/committed_receipt.rs:94 checks its source digest and exact positive signed receipt before use."
+
+[disposition.22.31.540.3]
+finding = "22.31.540.3"
+status = "resolved"
+evidence = "On main, ba761d6c5d supplies the committed-height addr derivation read at tests/vectors/budget-proof-v2/node-answers.json:223 along with unified-account and account-owner reads; services/human/crates/layerx-human-service/tests/repair_22_31_540.rs:210 still calls the production proof verifier."
+
+[disposition.22.31.541.1]
+finding = "22.31.541.1"
+status = "environment"
+evidence = "On main, 10ae26b75d emits the committed verification rank with budget evidence at services/platform/hosted/authority/src/human/budget_state.rs:301; the library consumer retained by 6203ea8492 checks current and incompatible response labels at services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs:95."
+
+[disposition.22.31.542.1]
+finding = "22.31.542.1"
+status = "resolved"
+evidence = "On main, bace946642 supplies the canary and rooms producer modules referenced at services/platform/hosted/gateway/tests/repair_22_33_1439.rs:110 and :165; programs/crates/layerx-programs-ai-market/src/lib.rs:10 and :38 export both modules."
+
+[disposition.22.31.542.2]
+finding = "22.31.542.2"
+status = "resolved"
+evidence = "On main, 390ed89c8a carries the current authenticated ownership reads in services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:744, while d5970a4ecd and 35c18f97e0 retain timed policy holds and private store roots at services/agent/crates/layerx-agentd/src/policy/approval.rs:2415."
+
+[disposition.22.31.542.3]
+finding = "22.31.542.3"
+status = "environment"
+evidence = "On main, 10ae26b75d makes the authority emit COMMITTED at services/platform/hosted/authority/src/human/budget_state.rs:301 and its daemon consumer requires that rank at services/agent/crates/layerx-agentd/src/human_runtime.rs:2088; d16f69787a covers the library dispatch contract at services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs:55."
+
+[disposition.22.31.542.4]
+finding = "22.31.542.4"
+status = "resolved"
+evidence = "On main, d16f69787a reconciles active and explicitly retired schema operations at services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs:64; its separate case at :186 requires faucet.claim to return unavailable_capability.faucet.claim."
+
+[disposition.22.31.543.1]
+finding = "22.31.543.1"
+status = "environment"
+evidence = "On main, 949863f4e7 retains the reason-bearing unattainable-rung refusal at services/agent/crates/layerx-agentd/tests/human_peer_retired.rs:22; the native preview at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:1054 binds the unsigned ledger call, canonical bytes and signing preimage."
+
+[disposition.22.31.543.2]
+finding = "22.31.543.2"
+status = "resolved"
+evidence = "On main, bf55875f50 produces NativeSendPurposeV2 with the current consent_public_key at services/agent/crates/layerx-agentd/src/human_runtime.rs:6430; services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:1027 decodes that V2 purpose before checking its unsigned call."
+
+[disposition.22.31.543.3]
+finding = "22.31.543.3"
+status = "resolved"
+evidence = "On main, bf55875f50 binds NativeSendPurposeV2 to the consent key, EVM sender and chain at services/agent/crates/layerx-agentd/src/human_runtime.rs:6430; the unsigned-preview case at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:1027 consumes the same V2 canonical purpose."
+
+[disposition.22.31.544.1]
+finding = "22.31.544.1"
+status = "resolved"
+evidence = "On main, ffae43abc6 sets store-root mode 0700 before opening at services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs:36 and retains the timed approval replay bounds, including the 64-item acceptance and 65-item refusal cases."
+
+[disposition.22.31.545.1]
+finding = "22.31.545.1"
+status = "resolved"
+evidence = "On main, bf55875f50 and 949863f4e7 retain the complete reason-bearing refusal assertion at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:1150, including the length-prefixed operation.refused field; services/agent/crates/layerx-agentd/tests/human_peer_retired.rs:25 checks the typed export refusal the same way."
+
+[disposition.22.31.546.1]
+finding = "22.31.546.1"
+status = "resolved"
+evidence = "On main, 6c7e27fb0d replaces the by-path authority implementation with the real library consumed at services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs:80; fcf0c791af pins both V2 purpose records and their canonical consent contract at services/agent/crates/layerx-agent-api/tests/schema.rs:110."
+
+[disposition.22.31.547.1]
+finding = "22.31.547.1"
+status = "resolved"
+evidence = "On main, b6d38a9897 places prepare_digest beside NativeSendPrepareRequestV2 at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:850, removing the duplicate wire-type crossing while preserving the domain-separated canonical request digest."
+
+[disposition.22.31.547.2]
+finding = "22.31.547.2"
+status = "resolved"
+evidence = "On main, c59eebe59b carries the signed V2 consent purpose through the daemon route at services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:218 and decodes the accepted preparation at :331, checking canonical digest, sender, activity and signed payload bindings."
+
+[disposition.22.31.547.3]
+finding = "22.31.547.3"
+status = "resolved"
+evidence = "On main, c59eebe59b prepares the real fee-bound call before owner preview at services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs:80 and checks ledger-send payload expiry separately from its absent activity window at :380; the crossing uses with_fixture_lock at :77."
+
