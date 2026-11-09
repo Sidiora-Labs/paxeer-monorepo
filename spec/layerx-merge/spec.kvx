@@ -195656,7 +195656,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.7]
 title = "Lock, slash and refund peer bonds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.5", "22.38.6", "22.31.615", "22.31.620", "22.39.142", "22.39.167", "22.99.77", "22.39.169", "22.39.177"]
