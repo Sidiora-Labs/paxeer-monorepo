@@ -38,6 +38,7 @@ subtle.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+layerx-platform-identity = { path = "../identity" }
 rcgen = "=0.14.10"
 serde_yaml = "=0.9.34"
 serde_json = { workspace = true, features = ["raw_value"] }
