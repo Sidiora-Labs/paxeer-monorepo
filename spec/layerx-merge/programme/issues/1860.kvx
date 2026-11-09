@@ -1,0 +1,48 @@
+[issue.1860]
+number = 1860
+title = "[Coherence] The four regression tests that task 22.39.113 requires were never added, so none of the raised floors is guarded"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit 6c8d638041f76e9383f70fb57e0736fa7f10b494 changed thirteen runtime manifests without adding tests, and at this revision spec/layerx-merge/spec.kvx:352132 still requires four runtime regression tests while its gate at spec/layerx-merge/spec.kvx:352138 selects tests/ci/test_runtime_targets_supported.py, whose only test functions remain the .NET checks at tests/ci/test_runtime_targets_supported.py:36 and tests/ci/test_runtime_targets_supported.py:50."
+close_comment = "The Node, Python and Go floors have been raised, but their four required regression tests are still missing. A focused follow-up adds checks for those floors and for the wallet Node version matching its image."
+
+[task.18.1860.1]
+title = "Issue #1860: Guard the Node, Python and Go runtime floors with regression tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181860.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend tests/ci/test_runtime_targets_supported.py after its existing .NET tests at tests/ci/test_runtime_targets_supported.py:95 with test_node_engine_floors_supported, test_requires_python_supported, test_go_directives_supported and test_nvmrc_matches_image_node as required at spec/layerx-merge/spec.kvx:352132; read the real configuration files and assert Node engine lower bounds >=22 for services/explorer/backend/apps/explorer/package.json:11, services/explorer/backend/apps/block_scout_web/assets/package.json:11, sdk/names/package.json:8 and services/wallet/package.json:8, Node >=22 in services/explorer/backend/.tool-versions:3, Python >=3.11 in sdk/chainflow/python/pyproject.toml:10 and Python >=3.12 in .github/workflows/paxeer-integration-test.yml:556, Go >=1.25 in sdk/platform/go/go.mod:3, services/platform/examples/samples/first-payment-go/go.mod:3, sdk/chainflow/go/go.mod:3, sdk/chainflow/go/go.work:1 and tools/hpx/registry/go.mod:3, and exact equality between apps/wallet/.nvmrc:1 and the Node versions of docker/wallet-pwa/Dockerfile:3, docker/wallet-pwa/Dockerfile:16 and docker/wallet-pwa/Dockerfile:93."
+do_2 = "Run all four named tests explicitly against the repository configuration, requiring missing or malformed declarations, a floor below its required minimum or a wallet image version mismatch to fail; retain the existing .NET tests and every assertion unchanged."
+symbols = ["test_node_engine_floors_supported", "test_requires_python_supported", "test_go_directives_supported", "test_nvmrc_matches_image_node"]
+touches = ["tests/ci/test_runtime_targets_supported.py"]
+tests = ["tests/ci/test_runtime_targets_supported.py::test_node_engine_floors_supported", "tests/ci/test_runtime_targets_supported.py::test_requires_python_supported", "tests/ci/test_runtime_targets_supported.py::test_go_directives_supported", "tests/ci/test_runtime_targets_supported.py::test_nvmrc_matches_image_node"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_runtime_targets_supported.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_runtime_targets_supported.py::test_node_engine_floors_supported tests/ci/test_runtime_targets_supported.py::test_requires_python_supported tests/ci/test_runtime_targets_supported.py::test_go_directives_supported tests/ci/test_runtime_targets_supported.py::test_nvmrc_matches_image_node"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181860]
+title = "Runtime floor changes are guarded by four discoverable regression tests"
+ac_1 = "The four tests required at spec/layerx-merge/spec.kvx:352132 read the actual runtime configuration and reject Node engine or tool-version floors below 22, requires-python below 3.11, the integration interpreter below 3.12, any of the five Go directives below 1.25, and a wallet .nvmrc differing from the image Node version; the existing .NET tests at tests/ci/test_runtime_targets_supported.py:36 and tests/ci/test_runtime_targets_supported.py:50 retain their assertions."
+
+[acceptance.18.1860.1]
+feature = "18"
+req = "181860.1"
+scenario = "Given the raised runtime manifests and the four named regression tests, when those tests read the repository configuration, then all four execute and pass for the supported versions and reject a lower floor, malformed or missing declaration, or wallet image Node version mismatch."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tests/ci/test_runtime_targets_supported.py::test_node_engine_floors_supported; tests/ci/test_runtime_targets_supported.py::test_requires_python_supported; tests/ci/test_runtime_targets_supported.py::test_go_directives_supported; tests/ci/test_runtime_targets_supported.py::test_nvmrc_matches_image_node (planned)"
+qualification = "UNRUN"
