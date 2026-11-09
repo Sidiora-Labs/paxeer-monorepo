@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -182,6 +184,7 @@ func TestRepairM_1180_OwnedInventory(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &ledger))
 	require.Len(t, ledger.Repairs, len(skip.Tests)+len(skip.Categories))
 	seen := make(map[string]bool)
+	replayCommands := make(map[string]string)
 	for _, repair := range ledger.Repairs {
 		require.False(t, seen[repair.Case], repair.Case)
 		seen[repair.Case] = true
@@ -195,9 +198,85 @@ func TestRepairM_1180_OwnedInventory(t *testing.T) {
 			require.Equal(t, reason, repair.Reason)
 			require.NotNil(t, repair.ReplayCommand)
 			require.Contains(t, *repair.ReplayCommand, "IGNORE_SKIP_LIST=true VERIFY_ETHEREUM_SPEC=true")
+			replayCommands[repair.Case] = *repair.ReplayCommand
 		} else {
 			category := strings.TrimSuffix(repair.Case, "/*")
 			require.True(t, skip.IsCategorySkipped(category), repair.Case)
+		}
+	}
+	root, err := harness.GetStateTestsPath()
+	require.NoError(t, err)
+	assignments := regexp.MustCompile(`(?:^|\s)(STATE_TEST_(?:DIR|NAME|FORK|COUNT))=(?:'([^']*)'|"([^"]*)"|([^\s]+))`)
+	for _, fixture := range []struct {
+		directory   string
+		name        string
+		postCount   int
+		indexes     []int
+		dataIndexes []int
+	}{
+		{
+			directory:   "stTransactionTest",
+			name:        "Opcodes_TransactionInit.json/GeneralStateTests/stTransactionTest/Opcodes_TransactionInit.json::Opcodes_TransactionInit-fork_[Cancun-Prague]-d[0-131]g0v0",
+			postCount:   132,
+			indexes:     []int{4, 6},
+			dataIndexes: []int{124, 126},
+		},
+		{
+			directory:   "stEIP2930",
+			name:        "variedContext.json/GeneralStateTests/stEIP2930/variedContext.json::variedContext-fork_[Cancun-Prague]-d[0-35]g0v0",
+			postCount:   36,
+			indexes:     []int{2, 3},
+			dataIndexes: []int{2, 3},
+		},
+	} {
+		for position, index := range fixture.indexes {
+			caseName := fixture.name + "/" + strconv.Itoa(index)
+			recordedCase := fixture.directory + "/" + caseName
+			t.Run(recordedCase, func(t *testing.T) {
+				require.Contains(t, replayCommands, recordedCase)
+				settings := make(map[string]string)
+				matches := assignments.FindAllStringSubmatch(replayCommands[recordedCase], -1)
+				require.Len(t, matches, 4)
+				for _, match := range matches {
+					require.NotContains(t, settings, match[1], "duplicate replay assignment")
+					settings[match[1]] = match[2] + match[3] + match[4]
+				}
+				count, err := strconv.Atoi(settings["STATE_TEST_COUNT"])
+				require.NoError(t, err)
+				selection := requiredStateSelection{
+					Directory: settings["STATE_TEST_DIR"],
+					Name:      settings["STATE_TEST_NAME"],
+					Fork:      settings["STATE_TEST_FORK"],
+					Count:     count,
+				}
+				require.Equal(t, fixture.directory, selection.Directory)
+				require.Equal(t, caseName, selection.Name)
+				require.Equal(t, "Cancun", selection.Fork)
+				require.Equal(t, 1, selection.Count)
+				inventory, err := harness.LoadStateTestsFromDir(filepath.Join(root, selection.Directory))
+				require.NoError(t, err)
+				require.Contains(t, inventory, fixture.name)
+				posts := inventory[fixture.name].Post[selection.Fork]
+				require.Len(t, posts, fixture.postCount)
+				selected, err := selectRequiredStateCases(inventory, selection)
+				require.NoError(t, err)
+				require.Len(t, selected, 1)
+				require.Equal(t, recordedCase, selection.Directory+"/"+selected[0].Name)
+				require.Same(t, inventory[fixture.name], selected[0].Test)
+				require.Equal(t, posts[index], selected[0].Post)
+				require.Equal(t, fixture.dataIndexes[position], selected[0].Post.Indexes.Data)
+				require.Zero(t, selected[0].Post.Indexes.Gas)
+				require.Zero(t, selected[0].Post.Indexes.Value)
+
+				wrongCount := selection
+				wrongCount.Count = 2
+				_, err = selectRequiredStateCases(inventory, wrongCount)
+				require.EqualError(t, err, "selected=1 required=2")
+				unmatched := selection
+				unmatched.Name = fixture.name + "/" + strconv.Itoa(fixture.postCount)
+				_, err = selectRequiredStateCases(inventory, unmatched)
+				require.EqualError(t, err, "selected=0 required=1")
+			})
 		}
 	}
 	// The production loader and selector expose an exact active inventory. No
