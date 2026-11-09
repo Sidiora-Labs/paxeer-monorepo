@@ -1,0 +1,7 @@
+[issue.1648]
+number = 1648
+title = "[P2] Migrate the dApp integration before upgrading to Hardhat 3 in #1646"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "The Hardhat 3 bump in commit bb386691c644de3fe8082734cea40643529631f7 is absent at this revision: tests/integration/dapp_tests/package.json:21 retains Hardhat ^2.22.6 and tests/integration/dapp_tests/package-lock.json:9593 resolves 2.29.1, satisfying the retained plugins' Hardhat ^2.0.0 peers at package-lock.json:4288 and package-lock.json:4301 and preserving compatibility with the CommonJS registration and export at hardhat.config.js:1 and hardhat.config.js:14, the ethers-v5 consumers at uniswap/uniswapTest.js:31 and utils.js:70, and the npm ci, compile and test entry points at dapp_tests.sh:21, dapp_tests.sh:23, dapp_tests.sh:51, dapp_nft_steak_tests.sh:9 and dapp_uniswap_tests.sh:9 under the same directory."
+close_comment = "The dApp integration retains Hardhat 2.29.1 with plugins that require Hardhat 2, satisfying the requested option to keep a compatible version until migration is ready. A future Hardhat 3 upgrade must migrate this package's plugins, configuration, runtime consumers and launchers together."
