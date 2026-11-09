@@ -36722,3 +36722,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 1 at f0619bc8c681: build exit 0; verification exit 125, status source-identity-refusal, phase before, from scripts/gates/run_gate.py because the task tree carried the workflow bookkeeping edits; log /out/logs/verify-1.log."
 assumption = "The gate must measure the committed revision; the worktree gives it one."
 severity = "high"
+
+[finding.22.39.162.3]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 3 at 316a8a12884b: build exit 0; verification failed with go test exit 1: 42 wiring tests passed and three indexer cases failed, TestRepairM_1000_InventoryDurableFrames (receipt qualification rejected at the first recorded batch), TestRepairM_1000_MeasurementRefusals (source pool: identity) and TestPaxeerRehydratedAuthorityQualifiesTradesOfEarlierMarket (unrecorded eth_getCode bound to a block hash); log /out/logs/verify-2.log."
+assumption = "The 33 retirements are complete; the three residual cases are a digest encoding that is not yet proven, one fixture reply that was never recorded, and one composed refusal whose producer the attempt did not locate."
+severity = "high"
