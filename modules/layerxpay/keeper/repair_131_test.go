@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -79,9 +80,15 @@ func TestRepair_131_SnapshotGrowth(t *testing.T) {
 	require.Greater(t, exported.KernelRecordCount, uint64(types.MaxKernelRecords))
 	require.Equal(t, uint64(types.MaxKernelRecords), exported.MetadataRecordCount)
 	require.NoError(t, exported.Validate())
+	metadataAcrossChunks := false
 	for _, chunk := range exported.Chunks {
-		require.LessOrEqual(t, len(chunk.KernelRecords)+len(chunk.AgentStreamMetadata), types.MaxKernelRecords)
+		require.LessOrEqual(t, len(chunk.KernelRecords)+len(chunk.AgentStreamMetadata)+len(chunk.EscrowReceipts), types.MaxKernelRecords)
+		if len(chunk.AgentStreamMetadata) > 0 && len(chunk.KernelRecords) == 0 {
+			metadataAcrossChunks = true
+		}
 	}
+	require.True(t, metadataAcrossChunks, "real recovery export separates metadata from its stream records")
+	require.NoError(t, ValidateOwnedGenesis(*h.keeper.ExportGenesis(h.ctx)))
 	wire, err := json.Marshal(exported)
 	require.NoError(t, err)
 	var imported RecoveryGenesis
@@ -128,6 +135,21 @@ func TestRepair_131_SnapshotGrowth(t *testing.T) {
 		g.MetadataRecordCount++
 		g.Checksum = g.checksum()
 	})
+	t.Run("metadata_without_stream", func(t *testing.T) {
+		corrupt(func(g *RecoveryGenesis) {
+			for i := len(g.Chunks) - 1; i >= 0; i-- {
+				if len(g.Chunks[i].AgentStreamMetadata) == 0 {
+					continue
+				}
+				row := &g.Chunks[i].AgentStreamMetadata[len(g.Chunks[i].AgentStreamMetadata)-1]
+				row.Key = append([]byte(agentStreamMetadataPrefix), bytes.Repeat([]byte{0xff}, 32)...)
+				g.Checksum = g.checksum()
+				require.ErrorContains(t, g.Validate(), "has no matching agent stream")
+				return
+			}
+			t.Fatal("real recovery export has no metadata")
+		})
+	})
 	require.NoError(t, destination.keeper.InitRecoveryGenesis(destination.ctx, imported))
 	require.Equal(t, exported, destination.keeper.ExportRecoveryGenesis(destination.ctx))
 	destination.cms.Commit(true)
@@ -168,8 +190,6 @@ func TestRepair_131_SnapshotGrowth(t *testing.T) {
 	require.Equal(t, beforeOffer, afterOffer)
 
 	t.Run("declared_genesis_contract", func(t *testing.T) {
-		// Keep the declared JSON import criterion executable until the out-of-scope
-		// types and application boundary adopt the complete recovery envelope.
 		legacyWire, err := json.Marshal(h.keeper.ExportGenesis(h.ctx))
 		require.NoError(t, err)
 		var legacy types.GenesisState
