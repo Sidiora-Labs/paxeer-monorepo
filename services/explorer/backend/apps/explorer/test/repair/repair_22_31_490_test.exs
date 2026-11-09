@@ -178,6 +178,223 @@ defmodule Explorer.Repair.Repair2231490Test do
   end
 
   @tag :queue
+  test "replay_database_outage_recovers", context do
+    replay_database_outage_recovers(context)
+  end
+
+  def replay_database_outage_recovers(context) do
+    {options, error} = prepare_held_replay(context)
+    handler = observe_replay_queries()
+    before_outage = durable_replay_state()
+
+    log =
+      capture_log([level: :warning], fn ->
+        {runner, state, monitors} =
+          with_queue_unavailable(fn ->
+            runner = start_supervised!({PriceAcceptanceReplay, options})
+            state = :sys.get_state(runner)
+            assert state.last_held_warning_at == nil
+            monitors = monitor_replay(runner, state.worker)
+            assert_outage_retries(handler, runner, state, monitors, before_outage)
+            {runner, state, monitors}
+          end)
+
+        finish_recovered_replay(handler, runner, state, monitors, error, 6)
+      end)
+
+    assert_outage_log(log, error, 1)
+  end
+
+  @tag :queue
+  test "replay_held_warnings_survive_database_outage", context do
+    replay_held_warnings_survive_database_outage(context)
+  end
+
+  def replay_held_warnings_survive_database_outage(context) do
+    {options, error} = prepare_held_replay(context)
+    handler = observe_replay_queries()
+
+    log =
+      capture_log([level: :warning], fn ->
+        runner = start_supervised!({PriceAcceptanceReplay, options})
+        state = await_held_warning(handler, runner, error)
+        monitors = monitor_replay(runner, state.worker)
+        assert accepted_observations() == 6
+        assert [[@first, true, nil], [@held, false, ^error], [@height, false, nil]] = queue()
+        before_outage = durable_replay_state()
+
+        due_state =
+          :sys.replace_state(runner, fn current ->
+            %{current | last_held_warning_at: current.last_held_warning_at - 60_000}
+          end)
+
+        with_queue_unavailable(fn ->
+          assert_outage_retries(handler, runner, due_state, monitors, before_outage)
+        end)
+
+        finish_recovered_replay(handler, runner, due_state, monitors, error, 12)
+      end)
+
+    assert_outage_log(log, error, 2)
+  end
+
+  defp prepare_held_replay(context) do
+    first = serve(context, :error)
+    second = serve(context, :available)
+
+    options = [
+      cosmos_rest_urls: [first, second],
+      cometbft_rpc_urls: [first, second],
+      acceptance_backfill_batch_size: 6,
+      acceptance_backfill_interval: 250,
+      acceptance_backfill_retry_interval: 400
+    ]
+
+    worker = start_supervised!({PriceAcceptanceBackfill, options})
+    assert {:ok, 0} = PriceAcceptanceBackfill.step(worker, 18)
+    assert {:error, {:node_error, endpoint, message}} = PriceAcceptanceBackfill.step(worker, 18)
+    assert endpoint in [first, second]
+    assert message == "height #{@held} is not available"
+    assert [[@first, true, nil], [@held, false, error], [@height, false, nil]] = queue()
+    assert PriceAcceptanceBackfill.held_jobs() == {1, @held, error}
+    assert accepted_observations() == 0
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
+    {options, error}
+  end
+
+  defp with_queue_unavailable(fun) do
+    Repo.query!("ALTER TABLE paxeer_x_price_acceptance_backfill RENAME TO price_acceptance_outage")
+
+    try do
+      fun.()
+    after
+      Repo.query!("ALTER TABLE price_acceptance_outage RENAME TO paxeer_x_price_acceptance_backfill")
+    end
+  end
+
+  defp observe_replay_queries do
+    handler = {__MODULE__, make_ref()}
+    prefix = Repo.config()[:telemetry_prefix] || [:explorer, :repo]
+    :ok = :telemetry.attach(handler, prefix ++ [:query], &__MODULE__.observe_replay_query/4, {self(), handler})
+    on_exit(fn -> :telemetry.detach(handler) end)
+    handler
+  end
+
+  def observe_replay_query(_event, _measurements, metadata, {owner, handler}) do
+    kind =
+      cond do
+        String.contains?(metadata.query, "SELECT j.block_hash, j.block_number, j.transactions, j.results") -> :step
+        String.contains?(metadata.query, "SELECT count(*) OVER (), j.block_number, j.error") -> :diagnostic
+        true -> nil
+      end
+
+    if kind do
+      send(owner, {handler, kind, self(), System.monotonic_time(:millisecond), metadata.result})
+    end
+  end
+
+  defp monitor_replay(runner, worker), do: {Process.monitor(runner), Process.monitor(worker)}
+
+  defp assert_same_replay(runner, state, {runner_monitor, worker_monitor}) do
+    worker = state.worker
+    assert Process.alive?(runner)
+    assert Process.alive?(worker)
+    assert :sys.get_state(runner) == state
+    refute_receive {:DOWN, ^runner_monitor, :process, ^runner, _}, 0
+    refute_receive {:DOWN, ^worker_monitor, :process, ^worker, _}, 0
+  end
+
+  defp assert_outage_retries(handler, runner, state, monitors, before_outage) do
+    worker = state.worker
+
+    attempts =
+      for _ <- 1..3 do
+        assert_receive {^handler, :step, ^worker, at, {:error, %Postgrex.Error{postgres: %{code: :undefined_table}}}},
+                       3_000
+
+        assert_receive {^handler, :diagnostic, ^runner, _,
+                        {:error, %Postgrex.Error{postgres: %{code: :undefined_table}}}},
+                       3_000
+
+        assert_same_replay(runner, state, monitors)
+        assert durable_replay_state("price_acceptance_outage") == before_outage
+        at
+      end
+
+    for [previous, current] <- Enum.chunk_every(attempts, 2, 1, :discard) do
+      assert current - previous >= state.retry_interval
+    end
+
+    refute_receive {^handler, :step, ^worker, _,
+                    {:error,
+                     %Postgrex.Error{
+                       query:
+                         "SELECT j.block_hash, j.block_number, j.transactions, j.results\nFROM paxeer_x_price_acceptance_backfill " <>
+                           _
+                     }}},
+                   div(state.retry_interval, 2)
+
+    assert_same_replay(runner, state, monitors)
+    assert durable_replay_state("price_acceptance_outage") == before_outage
+  end
+
+  defp await_held_warning(handler, runner, error) do
+    assert_receive {^handler, :diagnostic, ^runner, _, {:ok, %{rows: [[1, @held, ^error]]}}}, 3_000
+    state = :sys.get_state(runner)
+    assert is_integer(state.last_held_warning_at)
+    state
+  end
+
+  defp finish_recovered_replay(handler, runner, previous_state, monitors, error, recovered_count) do
+    state = await_held_warning(handler, runner, error)
+    assert state.last_held_warning_at != previous_state.last_held_warning_at
+    assert_same_replay(runner, state, monitors)
+    assert accepted_observations() == recovered_count
+    assert [[@first, true, nil], [@held, false, ^error], [@height, false, nil]] = queue()
+    assert PriceAcceptanceBackfill.held_jobs() == {1, @held, error}
+    worker = state.worker
+
+    for _ <- 1..2 do
+      assert_receive {^handler, :step, ^worker, _, {:ok, %{rows: [[_, @held, nil, nil]]}}}, 3_000
+      assert_same_replay(runner, state, monitors)
+      assert PriceAcceptanceBackfill.held_jobs() == {1, @held, error}
+    end
+
+    assert queue() == [[@first, true, nil], [@held, false, error], [@height, true, nil]]
+    assert accepted_observations() == 18
+
+    assert Repo.aggregate(from(o in PriceObservation, where: o.block_number == @height and is_nil(o.accepted)), :count) ==
+             0
+
+    assert :ok = PriceAcceptanceBackfill.retain(worker, @held, %{"txs" => [], "raw" => []}, [])
+    {runner_monitor, worker_monitor} = monitors
+    assert_receive {:DOWN, ^runner_monitor, :process, ^runner, :normal}, 3_000
+    assert_receive {:DOWN, ^worker_monitor, :process, ^worker, :normal}, 3_000
+    assert PriceAcceptanceBackfill.held_jobs() == nil
+    assert queue() == [[@first, true, nil], [@held, true, nil], [@height, true, nil]]
+    assert accepted_observations() == 18
+  end
+
+  defp assert_outage_log(log, error, warnings) do
+    assert length(Regex.scan(~r/price acceptance replay held-job diagnostic unavailable:/, log)) == 3
+    assert log =~ "price_acceptance_backfill"
+    assert length(Regex.scan(~r/price acceptance replay held:/, log)) == warnings
+    assert log =~ "1 rows; lowest block #{@held}: #{error}"
+    assert log =~ "[warning]"
+  end
+
+  defp durable_replay_state(table \\ "paxeer_x_price_acceptance_backfill") do
+    {
+      Repo.query!("SELECT * FROM #{table} ORDER BY block_number, block_hash").rows,
+      Repo.query!("SELECT * FROM paxeer_x_price_observations ORDER BY update_hash, market_id").rows
+    }
+  end
+
+  defp accepted_observations do
+    Repo.aggregate(from(o in PriceObservation, where: o.block_number == @height and o.accepted == true), :count)
+  end
+
+  @tag :queue
   test "a replay mismatch holds its row while the next error-free row completes", context do
     worker = start_supervised!({PriceAcceptanceBackfill, []})
     transactions = %{"txs" => context.body["txs"], "raw" => context.body["block"]["data"]["txs"]}

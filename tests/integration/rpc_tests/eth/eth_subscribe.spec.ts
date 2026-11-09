@@ -15,6 +15,7 @@ import {
 } from '../utils/logsUtils';
 import {
     WsClient,
+    assertNoAdditionalNotifications,
     SUBSCRIPTION_ID,
     assertNewHeadSchema,
     assertNewHeadInapplicableZeros,
@@ -252,22 +253,19 @@ describe('eth_subscribe (WebSocket)', function () {
             scene = await emitLogScene(emitter, alice, bob);
         });
 
-        const assertSubLogsMatchGetLogs = async (criteria: object, ctx: string): Promise<any[]> => {
+        async function assertSubLogsMatchGetLogs(criteria: object, ctx: string): Promise<any[]> {
             const oracle = await pax.send('eth_getLogs', [criteria]);
             expect(oracle.length, `${ctx}: scene produced matching logs`).to.be.greaterThan(0);
 
             const subId = await ws.subscribe(['logs', criteria]);
             try {
                 const got = await ws.waitFor(subId, oracle.length);
-                // A bounded, address-scoped subscription must not over-deliver: poll for one extra
-                // log and require the wait to time out (no straggler beyond the eth_getLogs set).
-                let overDelivered = true;
-                try {
-                    await ws.waitFor(subId, oracle.length + 1, 2_000);
-                } catch {
-                    overDelivered = false;
-                }
-                expect(overDelivered, `${ctx}: no logs beyond the eth_getLogs set`).to.equal(false);
+                await assertNoAdditionalNotifications(
+                    ws,
+                    subId,
+                    2_000,
+                    `${ctx}: no logs beyond the eth_getLogs set`,
+                );
 
                 const key = (l: any) => `${l.blockHash}:${l.logIndex}`;
                 const gotByKey = new Map(got.map(l => [key(l), l]));
@@ -284,7 +282,7 @@ describe('eth_subscribe (WebSocket)', function () {
             } finally {
                 await ws.unsubscribe(subId);
             }
-        };
+        }
 
         for (const c of LOG_FILTER_MATRIX) {
             it(c.title, async () => {

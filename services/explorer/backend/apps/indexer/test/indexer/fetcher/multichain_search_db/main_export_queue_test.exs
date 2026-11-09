@@ -78,6 +78,14 @@ defmodule Indexer.Fetcher.MultichainSearchDb.MainExportQueueTest do
       {:ok, bypass: bypass}
     end
 
+    test "running main export retries HTTP 503 without a queue process restart", %{bypass: bypass} do
+      assert_running_recovery(bypass, 503, ~s({"code":0,"message":"Unavailable"}))
+    end
+
+    test "running main export retries malformed HTTP 200 without a queue process restart", %{bypass: bypass} do
+      assert_running_recovery(bypass, 200, "<html>invalid successful response</html>")
+    end
+
     test "successfully processes multichain search db export retry queue data", %{bypass: bypass} do
       address_hash_bytes = "66A9B160F6a06f53f23785F069882Ee7337180E8" |> Base.decode16!(case: :mixed)
 
@@ -175,31 +183,47 @@ defmodule Indexer.Fetcher.MultichainSearchDb.MainExportQueueTest do
 
       log =
         capture_log(fn ->
-          assert {:retry,
-                  %{
-                    addresses: [
-                      %{
-                        hash: ^address_2_hash_string,
-                        is_contract: false,
-                        contract_name: nil,
-                        is_verified_contract: false
-                      },
-                      %{
-                        hash: ^address_1_hash_string,
-                        is_contract: false,
-                        contract_name: nil,
-                        is_verified_contract: false
-                      }
-                    ],
-                    block_ranges: [%{max_block_number: ^block_number_string, min_block_number: ^block_number_string}],
-                    hashes: [
-                      %{hash: ^block_hash_string, hash_type: "BLOCK"},
-                      %{
-                        hash: ^transaction_hash_string,
-                        hash_type: "TRANSACTION"
-                      }
-                    ]
-                  }} = MultichainSearchDbMainExportQueue.run(export_data, nil)
+          assert {:retry, retry_entries} = MultichainSearchDbMainExportQueue.run(export_data, nil)
+          assert retry_entries == Enum.reject(export_data, &(&1.hash == address_3.hash.bytes))
+
+          retry_chunks =
+            retry_entries
+            |> MultichainSearchDbMainExportQueue.prepare_export_data()
+            |> MultichainSearch.extract_batch_import_params_into_chunks()
+
+          retry_payload =
+            Map.new([:addresses, :block_ranges, :hashes], fn key ->
+              {key, Enum.flat_map(retry_chunks, & &1[key])}
+            end)
+
+          expected_retry_payload = %{
+            addresses: [
+              %{
+                hash: address_2_hash_string,
+                is_contract: false,
+                contract_name: nil,
+                is_verified_contract: false
+              },
+              %{
+                hash: address_1_hash_string,
+                is_contract: false,
+                contract_name: nil,
+                is_verified_contract: false
+              }
+            ],
+            block_ranges: [%{max_block_number: block_number_string, min_block_number: block_number_string}],
+            hashes: [
+              %{hash: block_hash_string, hash_type: "BLOCK"},
+              %{
+                hash: transaction_hash_string,
+                hash_type: "TRANSACTION"
+              }
+            ]
+          }
+
+          for {key, expected} <- expected_retry_payload do
+            assert Enum.sort(retry_payload[key]) == Enum.sort(expected)
+          end
         end)
 
       assert Repo.aggregate(MainExportQueue, :count, :hash) == 4
@@ -241,6 +265,131 @@ defmodule Indexer.Fetcher.MultichainSearchDb.MainExportQueueTest do
       results = Repo.all(MainExportQueue)
       assert Enum.all?(results, &(&1.retries_number == 2))
     end
+  end
+
+  defp assert_running_recovery(bypass, failure_status, failure_body) do
+    alias Explorer.Chain.Cache.ChainId
+    previous_chain_id = ConCache.get(ChainId.cache_name(), :id)
+
+    on_exit(fn ->
+      ChainId.set_id(previous_chain_id)
+      assert ConCache.get(ChainId.cache_name(), :id) == previous_chain_id
+    end)
+
+    ChainId.set_id(125)
+    Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
+
+    address = insert(:address, fetched_coin_balance: nil)
+    block = insert(:block, number: 150)
+    transaction = insert(:transaction) |> with_block(block)
+
+    entries = [
+      %{hash: address.hash.bytes, hash_type: :address, block_range: %Range{from: 100, to: 110}},
+      %{hash: block.hash.bytes, hash_type: :block, block_range: %Range{from: 120, to: 130}},
+      %{hash: transaction.hash.bytes, hash_type: :transaction, block_range: %Range{from: 140, to: 150}}
+    ]
+
+    rows = Enum.map(entries, &insert(:multichain_search_db_main_export_queue, &1))
+
+    expected =
+      Map.merge(ExportQueueContract.empty_batch("125", "12345"), %{
+        "addresses" => [
+          %{
+            "hash" => to_string(address.hash),
+            "is_contract" => false,
+            "is_verified_contract" => false,
+            "contract_name" => nil
+          }
+        ],
+        "hashes" => [
+          %{"hash" => to_string(block.hash), "hash_type" => "BLOCK"},
+          %{"hash" => to_string(transaction.hash), "hash_type" => "TRANSACTION"}
+        ],
+        "block_ranges" => [%{"min_block_number" => "100", "max_block_number" => "150"}]
+      })
+
+    owner = self()
+
+    Bypass.expect(bypass, "POST", "/api/v1/import:batch", fn conn ->
+      assert Plug.Conn.get_req_header(conn, "content-type") == ["application/json"]
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      payload = Jason.decode!(body)
+      send(owner, {:export_waiting, self(), payload})
+
+      receive do
+        {:respond, status, response} -> Plug.Conn.resp(conn, status, response)
+      after
+        5_000 -> flunk("Timed out waiting for upstream recovery response")
+      end
+    end)
+
+    supervisor = MultichainSearchDbMainExportQueue.Supervisor
+
+    supervisor_pid =
+      start_supervised!({supervisor, [[poll: false, flush_interval: 1_000, max_concurrency: 1, max_batch_size: 100]]})
+
+    queue = Process.whereis(MultichainSearchDbMainExportQueue)
+    assert is_pid(queue)
+    monitor = Process.monitor(queue)
+    assert_receive {:export_waiting, first_request, first_payload}, 5_000
+    assert canonical_batch(first_payload) == canonical_batch(expected)
+    first_state = GenServer.call(queue, :state)
+    assert first_state.max_concurrency == 1
+    [first_ref] = Map.keys(first_state.task_ref_to_batch)
+    assert Enum.sort(first_state.task_ref_to_batch[first_ref]) == Enum.sort(entries)
+    send(first_request, {:respond, failure_status, failure_body})
+
+    ExportQueueContract.eventually(fn ->
+      state = GenServer.call(queue, :state)
+      map_size(state.task_ref_to_batch) == 0 and state.bound_queue.size == length(entries)
+    end)
+
+    state = GenServer.call(queue, :state)
+    assert Enum.sort(Enum.to_list(state.bound_queue)) == Enum.sort(entries)
+    persisted = Repo.all(MainExportQueue)
+    fields = Map.keys(hd(entries))
+    assert Enum.sort(Enum.map(persisted, &Map.take(&1, fields))) == Enum.sort(entries)
+    assert Enum.all?(persisted, &(&1.retries_number == 1))
+
+    assert Enum.sort(Enum.map(persisted, &Map.drop(Map.from_struct(&1), [:updated_at, :retries_number]))) ==
+             Enum.sort(Enum.map(rows, &Map.drop(Map.from_struct(&1), [:updated_at, :retries_number])))
+
+    assert Process.whereis(MultichainSearchDbMainExportQueue) == queue
+    refute_receive {:DOWN, ^monitor, :process, ^queue, _}, 0
+
+    assert_receive {:export_waiting, retry_request, retry_payload}, 5_000
+    assert canonical_batch(retry_payload) == canonical_batch(expected)
+    retry_state = GenServer.call(queue, :state)
+    refute Map.has_key?(retry_state.task_ref_to_batch, first_ref)
+    [retry_entries] = Map.values(retry_state.task_ref_to_batch)
+    assert Enum.sort(retry_entries) == Enum.sort(entries)
+    assert Repo.all(MainExportQueue) == persisted
+    assert Process.whereis(MultichainSearchDbMainExportQueue) == queue
+    send(retry_request, {:respond, 200, ~s({"status":"ok"})})
+
+    ExportQueueContract.eventually(fn ->
+      Repo.aggregate(MainExportQueue, :count) == 0 and
+        map_size(GenServer.call(queue, :state).task_ref_to_batch) == 0
+    end)
+
+    assert Process.alive?(queue)
+    assert Process.whereis(MultichainSearchDbMainExportQueue) == queue
+
+    assert {MultichainSearchDbMainExportQueue, ^queue, :worker, _} =
+             Enum.find(Supervisor.which_children(supervisor_pid), fn {id, _, _, _} ->
+               id == MultichainSearchDbMainExportQueue
+             end)
+
+    refute_receive {:DOWN, ^monitor, :process, ^queue, _}, 0
+    assert :ok = stop_supervised(supervisor)
+    Process.demonitor(monitor, [:flush])
+  end
+
+  defp canonical_batch(batch) do
+    Map.new(batch, fn
+      {key, records} when is_list(records) -> {key, Enum.sort(records)}
+      entry -> entry
+    end)
   end
 
   defp tesla_expectations() do

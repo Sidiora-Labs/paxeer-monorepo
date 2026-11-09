@@ -81,48 +81,7 @@ fn payment_tests_old_signing_path_recovers_sender_and_refuses_changed_calls(
     assert_eq!(recover_sender(&decoded, &decoded_signature)?, options.from);
     assert_eq!(assemble(&decoded, &decoded_signature), raw);
 
-    for field in 0..7 {
-        let mut changed = consumed.call.clone();
-        match field {
-            0 => changed.chain_id += 1,
-            1 => changed.nonce += 1,
-            2 => changed.max_priority_fee_per_gas += 1,
-            3 => changed.max_fee_per_gas += 1,
-            4 => changed.gas_limit += 1,
-            5 => changed.to[19] ^= 1,
-            6 => {
-                let mut different = debit.clone();
-                different.amount += 1;
-                different.context_hash = send_context_hash(
-                    &different.from,
-                    &different.to,
-                    &different.asset,
-                    different.amount,
-                    &different.idempotency_key,
-                );
-                let different_payload = payments::complete(different.sign(&signer))?;
-                changed = ledger_payment_call(&different_payload, &options)?.call;
-                assert!(bind_call(&changed, options.from).is_ok());
-            }
-            _ => unreachable!(),
-        }
-        assert_ne!(changed.signing_hash(), consumed.call.signing_hash());
-        let expected = if field == 5 {
-            SignError::InvalidDisclosure
-        } else {
-            SignError::DisclosureMismatch("call")
-        };
-        assert_eq!(
-            payments::complete(sign_disclosed_call(
-                &signer,
-                &changed,
-                &reviewed,
-                options.from
-            )),
-            Err(expected),
-            "changed field {field}"
-        );
-    }
+    assert_changed_payment_fields(&signer, &consumed, &reviewed, &options, &debit)?;
     let mut other_sender = options.from;
     other_sender[0] ^= 1;
     assert_eq!(
@@ -185,5 +144,58 @@ fn payment_tests_old_signing_path_refuses_every_malformed_send_fixture(
     let mut raw = assemble(&prepared.call, &signature);
     raw.push(0);
     assert!(decode_signed(&raw).is_err());
+    Ok(())
+}
+
+fn assert_changed_payment_fields(
+    signer: &layerx_crypto::signer::LocalSigner,
+    consumed: &DisclosedCall,
+    reviewed: &layerx_crypto::disclosure::Disclosure,
+    options: &layerx_crypto::send::CallOptions,
+    debit: &SendDebit,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for field in 0..7 {
+        let mut changed = consumed.call.clone();
+        match field {
+            0 => changed.chain_id += 1,
+            1 => changed.nonce += 1,
+            2 => changed.max_priority_fee_per_gas += 1,
+            3 => changed.max_fee_per_gas += 1,
+            4 => changed.gas_limit += 1,
+            5 => changed.to[19] ^= 1,
+            6 => {
+                let mut different = (*debit).clone();
+                different.amount += 1;
+                different.context_hash = send_context_hash(
+                    &different.from,
+                    &different.to,
+                    &different.asset,
+                    different.amount,
+                    &different.idempotency_key,
+                );
+                let different_payload = payments::complete(different.sign(signer))?;
+                changed = ledger_payment_call(&different_payload, options)?.call;
+                assert!(bind_call(&changed, options.from).is_ok());
+            }
+            _ => unreachable!(),
+        }
+        assert_ne!(changed.signing_hash(), consumed.call.signing_hash());
+        let expected = if field == 5 {
+            SignError::InvalidDisclosure
+        } else {
+            SignError::DisclosureMismatch("call")
+        };
+        assert_eq!(
+            payments::complete(sign_disclosed_call(
+                signer,
+                &changed,
+                reviewed,
+                options.from
+            )),
+            Err(expected),
+            "changed field {field}"
+        );
+    }
+
     Ok(())
 }

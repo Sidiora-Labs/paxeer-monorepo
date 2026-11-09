@@ -1,0 +1,7 @@
+[issue.1927]
+number = 1927
+title = "[P2] Replace unsupported git grep pathspec flags in retired-scan repair plan"
+revision = "86ae60188357c8c436f0f6e5deac9888cdfd2160"
+verdict = "not-relevant"
+evidence = "Decision 3065 at spec/layerx-merge/spec.kvx:11502 explicitly supersedes decision 3062's unsupported options, task 22.39.214 do_5 at spec/layerx-merge/spec.kvx:360322 replaces do_4 with command-line exclusion pathspecs, and commit 085677a72dedf18fba90c7d02d28274a3c55e952 implements that design in tools/paxeer-x/tests/retired_callers_test.py:321 with a separate pattern file at :346, supported grep arguments at :352, unconditional selected-file filtering at :382 and real Git regression assertions at :682 and :723."
+close_comment = "Decision 3065 supersedes the unsupported stdin pathspec plan, and the later repair step for task 22.39.214 requires supported command-line exclusions. The scanner implements that design with a separate pattern file, literal path filters and real Git regression coverage for excluded files, selected paths and unusual filenames."

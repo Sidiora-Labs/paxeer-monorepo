@@ -124,7 +124,7 @@ except APIStatusError as err:
 
 ## Requirements
 
-- Python 3.9 or newer
+- Python 3.11 or newer
 - The `websockets` extra for stream connections
 
 ## Reference files

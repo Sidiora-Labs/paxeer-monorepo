@@ -34,8 +34,8 @@ recovery = "The existing atomic receipt transaction persists metadata together w
 tests = ["finding12_recorded_paxd_receipt_transport_recovers_before_replay", "finding12_control_transport_preserves_checkpoint_verification"]
 
 [wiring.control_finalization]
-status = "Historical request superseded by the landed committed-rung contract: managed_agent::valid_finalization_shape requires rung rank 2; the immutable test still expects verification rank 4."
-request = "Agent domain: services/agent/crates/layerx-agentd/src/managed_agent.rs must reconcile HumanFinalizationEvidence.rung rank 2 with FinalizationEvidence.verification rank 4 required by the checkpoint-finalization consumer; retain verification of the supporting evidence."
+status = "Historical request superseded by the landed committed-rung contract: FinalizationEvidence.verification carries committed rung rank 2, as required by managed_agent::valid_finalization_shape and the final test assertion."
+request = "Retired: no rung-to-VerificationLevel translation is required."
 
 [wiring.control_recordings]
 request = "Node/consensus domain: daemon/committed-fixture must retain genuine pause, resume, limit and archive transactions, signed receipts, pinned keys, committed headers, validator votes and inclusion proofs; committed-payExact must remain labeled as payment evidence."

@@ -19,9 +19,16 @@ Use the [public node endpoints](../reference/public-rpc.md) at their HTTPS root:
 `https://api-mainnet-beta.paxeer.network` or
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. Check `eth_chainId` before signing;
-use `eth_getBalance` for an EVM address's native balance. Hosted gateway `px_`
-methods belong to an operator-configured service and are not public node
-methods. On a configured gateway, `px_getBalances` reads chain bank balances
+use `eth_getBalance` for an EVM address's native balance.
+
+The node serves the `px` namespace at its root and answers from node state.
+`px_getBalances` and `px_getCapabilities` are node reads and do not require a
+hosted gateway.
+Only `px_register` and `px_requestFunds` are hosted operations.
+After parameter validation, node calls to either operation return JSON-RPC
+`-32004` with `error.data.code: "hosted_gateway_service_required"`.
+
+On a configured gateway, `px_getBalances` reads chain bank balances
 and returns `account`, `height`, and `balances` entries with `denom` and exact
 decimal-string `amount`; an unbound DID is refused rather than assigned a
 balance (`services/platform/hosted/gateway/src/paxeer.rs`).

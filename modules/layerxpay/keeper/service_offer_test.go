@@ -71,7 +71,7 @@ func TestServiceOfferPublishWithdraw(t *testing.T) {
 		require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
 	})
 
-	moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
+	expectedModuleState := payStoreSnapshot(h.ctx, h.storeKey)
 	hostBefore := payStoreSnapshot(h.ctx, h.hostKey)
 	_, err = publish(common.Address{}, offerID, price)
 	require.ErrorIs(t, err, types.ErrUnboundCaller)
@@ -98,13 +98,17 @@ func TestServiceOfferPublishWithdraw(t *testing.T) {
 	require.True(t, found)
 	require.NotEqual(t, [32]byte{}, offer.ActivityID)
 	require.Equal(t, types.ServiceOffer{
-		OfferID: offerID, ActivityID: offer.ActivityID, OfferingAgent: principal,
+		OfferID: offerID, ActivityID: decoded.ActivityID, OfferingAgent: principal,
 		AssetID: assetID, Price: price, TermsHash: termsHash, DeliverableSpecHash: specHash,
 		DeliveryDeadlineMs: deadline, AcceptanceWindowMs: acceptanceWindow,
 		DisputeWindowMs: disputeWindow, DefaultOutcome: defaultOutcome,
 		OfferExpiryMs: expiry, GlobalSequence: published.GlobalSequence,
-	}, offer)
-	require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
+		Withdrawn: false, Accepted: false,
+	}, offer, "lx_service_offer_publish_execute stores the published fields and receipt activity ID")
+	require.NotContains(t, expectedModuleState, serviceIndexVersionKey)
+	expectedModuleState[serviceIndexVersionKey] = []byte{1}
+	require.Equal(t, expectedModuleState, payStoreSnapshot(h.ctx, h.storeKey),
+		"Keeper.Submit calls RebuildServiceIndexes to initialize the service index version")
 
 	hostBefore = payStoreSnapshot(h.ctx, h.hostKey)
 	unauthorized, err := h.keeper.ServiceOfferWithdraw(h.ctx, h.actors[1].address, offerID)
@@ -114,7 +118,7 @@ func TestServiceOfferPublishWithdraw(t *testing.T) {
 
 	params.Paused = true
 	h.keeper.SetParams(h.ctx, params)
-	moduleBefore = payStoreSnapshot(h.ctx, h.storeKey)
+	expectedModuleState = payStoreSnapshot(h.ctx, h.storeKey)
 	_, err = publish(actor.address, [32]byte{0x55}, price)
 	require.ErrorIs(t, err, govtypes.ErrPausedScope)
 	require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
@@ -135,7 +139,7 @@ func TestServiceOfferPublishWithdraw(t *testing.T) {
 	require.True(t, found)
 	offer.Withdrawn = true
 	require.Equal(t, offer, afterWithdraw)
-	require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
+	require.Equal(t, expectedModuleState, payStoreSnapshot(h.ctx, h.storeKey))
 
 	hostBefore = payStoreSnapshot(h.ctx, h.hostKey)
 	refused, err := h.keeper.ServiceOfferWithdraw(h.ctx, actor.address, offerID)
@@ -143,7 +147,7 @@ func TestServiceOfferPublishWithdraw(t *testing.T) {
 	require.ErrorContains(t, err, "LXP_OFFER_UNAVAILABLE")
 	require.Equal(t, lxphost.Code(-723), refused.ResultCode)
 	require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
-	require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
+	require.Equal(t, expectedModuleState, payStoreSnapshot(h.ctx, h.storeKey))
 	finalOffer, found := h.keeper.GetOffer(h.ctx, offerID)
 	require.True(t, found)
 	require.Equal(t, afterWithdraw, finalOffer)

@@ -11685,15 +11685,6 @@ impl OwnerInput<'_> {
         &self.bytes[self.at..]
     }
 }
-fn committed_budget_rank(rank: u8) -> Result<(), HumanOperationError> {
-    let level =
-        VerificationLevel::from_wire_rank(rank).map_err(|_| HumanOperationError::Refused)?;
-    if level != VerificationLevel::COMMITTED {
-        return Err(HumanOperationError::Refused);
-    }
-    Ok(())
-}
-
 fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     match value {
         1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
@@ -12133,7 +12124,7 @@ fn install_capability<A: HumanAuthorityBoundary>(
     out.fixed(&request.capability_id);
     out.u64(observed.observed_sequence);
     out.u8(rung);
-    out.fixed(&agent_evidence_digest(
+    out.fixed(&capability_install_evidence_digest(
         request.action_key,
         request.capability_id,
         observed.observed_sequence,
@@ -12239,7 +12230,24 @@ fn decode_capability_action(
 }
 
 fn persisted_terminal_receipt_matches(canonical: &[u8], expected: [u8; 32]) -> bool {
-    Sha256::digest(canonical)[..] == expected
+    crate::protocol_evidence::canonical_receipt_reference(canonical)
+        .is_ok_and(|reference| reference == expected)
+}
+
+fn capability_install_evidence_digest(
+    action_key: [u8; 32],
+    capability_id: [u8; 32],
+    observed_sequence: u64,
+    rung: u8,
+) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-human/agent-create/agent-evidence/v1");
+    digest.update([5_u8]);
+    digest.update(action_key);
+    digest.update(capability_id);
+    digest.update(observed_sequence.to_be_bytes());
+    digest.update([rung]);
+    digest.finalize().into()
 }
 
 fn agent_evidence_digest(
@@ -21018,8 +21026,24 @@ mod terminal_recovery_tests {
             .unwrap_or_else(|error| panic!("unsigned receipt: {error:?}"));
         let protocol_digest = layerx_wire::hash::receipt_digest(&unsigned)
             .unwrap_or_else(|error| panic!("protocol digest: {error:?}"));
-        assert!(!persisted_terminal_receipt_matches(
+        assert_eq!(protocol_digest, terminal.receipt_ref());
+        assert!(persisted_terminal_receipt_matches(
             &canonical,
+            protocol_digest
+        ));
+        use sha2::{Digest, Sha256};
+        let signed_hash: [u8; 32] = Sha256::digest(&canonical).into();
+        let tagged_signed = layerx_wire::hash::receipt_digest(&canonical)
+            .unwrap_or_else(|error| panic!("signed-byte domain digest: {error:?}"));
+        for wrong_reference in [signed_hash, tagged_signed] {
+            assert_ne!(wrong_reference, protocol_digest);
+            assert!(!persisted_terminal_receipt_matches(
+                &canonical,
+                wrong_reference
+            ));
+        }
+        assert!(!persisted_terminal_receipt_matches(
+            &canonical[..10],
             protocol_digest
         ));
         let mut altered = canonical;
@@ -21717,7 +21741,7 @@ pub fn write_submission(
             },
             Rung::Receipted,
             Some(
-                layerx_wire::hash::receipt_digest(receipt.canonical_bytes())
+                crate::protocol_evidence::canonical_receipt_reference(receipt.canonical_bytes())
                     .map_err(|_| HumanOperationError::Refused)?,
             ),
         )
@@ -22568,17 +22592,24 @@ mod tests {
     #[test]
     fn repair_22_31_538_approval_budget_accepts_committed_rank() {
         assert_eq!(
-            committed_budget_rank(VerificationLevel::COMMITTED.wire_rank()),
+            crate::budget::budget_state_is_committed(VerificationLevel::COMMITTED.wire_rank()),
             Ok(())
         );
     }
 
     #[test]
     fn repair_22_31_538_approval_budget_refuses_other_ranks() {
-        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+        for rank in 0..=3 {
             assert_eq!(
-                committed_budget_rank(rank),
-                Err(HumanOperationError::Refused),
+                crate::budget::budget_state_is_committed(rank),
+                Err(crate::budget::BudgetVerificationError::NotCommitted),
+                "rank {rank}"
+            );
+        }
+        for rank in [4, 5].into_iter().chain(7..=u8::MAX) {
+            assert_eq!(
+                crate::budget::budget_state_is_committed(rank),
+                Err(crate::budget::BudgetVerificationError::RetiredOrUnknown),
                 "rank {rank}"
             );
         }

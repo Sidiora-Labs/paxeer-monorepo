@@ -175,7 +175,7 @@ fn shared_fixtures_refuse_substituted_call_and_disclosure() -> Outcome {
 }
 
 #[test]
-fn shared_fixtures_refuse_invalid_kernel_signatures_and_abi() -> Outcome {
+fn shared_fixtures_refuse_invalid_kernel_signatures_and_abi() {
     let options = support::call_options(19);
     let (payload, _) = support::kernel_payloads::send(25);
     for length in 0..payload.len() {
@@ -204,7 +204,6 @@ fn shared_fixtures_refuse_invalid_kernel_signatures_and_abi() -> Outcome {
             "ABI byte {offset}"
         );
     }
-    Ok(())
 }
 
 #[test]

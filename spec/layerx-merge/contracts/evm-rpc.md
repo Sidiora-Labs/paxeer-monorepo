@@ -23,9 +23,9 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.7.rpc-eth-getrawtransactionbyblockhashandindex-j38</code> | notes | HTTP and WS; null for an unknown block; task 7.5.2 |
-| <code>interface.7.rpc-eth-getrawtransactionbyblocknumberandindex-j38</code> | notes | HTTP and WS; null past the end; task 7.5.2 |
-| <code>interface.7.rpc-eth-getrawtransactionbyhash-j38</code> | notes | HTTP and WS; binary envelope, null for an unknown hash, pending sequencer transactions included; tasks 7.5.1 and 7.9.2 |
+| <code>interface.7.rpc-eth-getrawtransactionbyblockhashandindex-j38</code> | notes | HTTP and WS; JSON string '0x' for an unknown block or an out-of-range index; task 7.5.2 |
+| <code>interface.7.rpc-eth-getrawtransactionbyblocknumberandindex-j38</code> | notes | HTTP and WS; JSON string '0x' for an unknown block or an out-of-range index; task 7.5.2 |
+| <code>interface.7.rpc-eth-getrawtransactionbyhash-j38</code> | notes | HTTP and WS; binary envelope, JSON string '0x' for an unknown hash, pending sequencer transactions included; tasks 7.5.1 and 7.9.2 |
 | <code>interface.7.rpc-eth-getunclebyblockhashandindex-j38</code> | notes | HTTP and WS; always null; task 7.6.1 |
 | <code>interface.7.rpc-eth-getunclebyblocknumberandindex-j38</code> | notes | HTTP and WS; always null; task 7.6.1 |
 | <code>interface.7.rpc-eth-getunclecountbyblockhash-j38</code> | notes | HTTP and WS; 0x0 for a known block, null for an unknown block; task 7.6.2 |
@@ -2720,7 +2720,7 @@ Contract context <code>contract_context.7.served-methods</code>:
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.7.rpc-pax-sequencerreceipt</code> | notes | pax_sequencerReceipt; HTTP only; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 "served by sequencer" (rpc/sequencer_receipt.go:49, :99) |
+| <code>interface.7.rpc-pax-sequencerreceipt</code> | notes | pax_sequencerReceipt; HTTP and WebSocket; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 "served by sequencer" (rpc/sequencer_receipt.go:49, :99) |
 
 | Decision | Title | Value | Basis | Affects |
 |---|---|---|---|---|

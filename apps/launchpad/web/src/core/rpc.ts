@@ -50,5 +50,9 @@ export function getPaxeerRpcUrls(): string[] {
   return out.length ? out : [DEFAULT_PAXEER_RPC_URL];
 }
 
+const PAXEER_RPC_URL = () => getPaxeerRpcUrls()[0];
+
 /** The primary read RPC for this deployment. */
-export const PAXEER_RPC_URL = getPaxeerRpcUrls()[0];
+export function getPaxeerRpcUrl(): string {
+  return PAXEER_RPC_URL();
+}

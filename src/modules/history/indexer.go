@@ -103,6 +103,16 @@ type Account struct {
 	Side    string `json:"side"`
 	Account string `json:"account"`
 }
+type Stability struct {
+	Level             string  `json:"level"`
+	Source            string  `json:"source"`
+	FinalizedBoundary *string `json:"finalized_boundary"`
+}
+type Settlement struct {
+	Level  string  `json:"level"`
+	Source *string `json:"source"`
+	Reason string  `json:"reason"`
+}
 type Row struct {
 	ID            string      `json:"id"`
 	Height        string      `json:"height_or_seq"`
@@ -114,8 +124,12 @@ type Row struct {
 	Asset         string      `json:"asset"`
 	Amount        string      `json:"amount"`
 	TxID          string      `json:"tx_id"`
+	TxHash        string      `json:"tx_hash"`
 	Ordinal       string      `json:"ordinal"`
 	Final         bool        `json:"final"`
+	FinalBasis    string      `json:"final_basis"`
+	Stability     Stability   `json:"stability"`
+	Settlement    Settlement  `json:"settlement"`
 	Decoded       interface{} `json:"decoded"`
 	AssetMetadata interface{} `json:"asset_metadata"`
 	Side          string      `json:"side,omitempty"`
@@ -161,10 +175,17 @@ func rowFrom(document map[string]interface{}, account Account, q Query) (Row, er
 		}
 	}
 	encoded, _ := json.Marshal(document)
-	var row Row
+	row := Row{
+		FinalBasis: "block_commit",
+		Settlement: Settlement{Level: "unverified", Reason: "no_verified_checkpoint_evidence"},
+	}
 	decoder := json.NewDecoder(strings.NewReader(string(encoded)))
 	decoder.UseNumber()
 	if decoder.Decode(&row) != nil {
+		return Row{}, Invalid()
+	}
+	row.TxHash = row.TxID
+	if row.FinalBasis != "block_commit" && row.FinalBasis != "explorer_api" {
 		return Row{}, Invalid()
 	}
 	// Decode opaque payloads with UseNumber instead of passing through float64.
@@ -184,6 +205,28 @@ func rowFrom(document map[string]interface{}, account Account, q Query) (Row, er
 		expectedLog = ordinal - 1
 	}
 	if !hOK || !tOK || !lOK || !oOK || !idOK || row.ID == "0" || !finalOK || !counterpartyOK || expectedLog != log || !decimalPattern.MatchString(row.Amount) || !ValidKind(row.Kind) || (row.Chain != "paxeer" && row.Chain != "layerx") || (row.Direction != "in" && row.Direction != "out") || row.Account != account.Account || row.Asset == "" || row.TxID == "" || (q.Kind != nil && row.Kind != *q.Kind) {
+		return Row{}, Invalid()
+	}
+	row.Stability.Source = row.FinalBasis
+	if row.FinalBasis == "explorer_api" {
+		row.Stability.Level = "explorer_recorded"
+		row.Stability.FinalizedBoundary = nil
+	} else {
+		row.Stability.Level = "reversible"
+		if row.Final {
+			row.Stability.Level = "depth_stable"
+		}
+		if boundary := row.Stability.FinalizedBoundary; boundary != nil {
+			if !decimalPattern.MatchString(*boundary) {
+				return Row{}, Invalid()
+			}
+			value, err := strconv.ParseUint(*boundary, 10, 63)
+			if err != nil || row.Final != (height <= value) {
+				return Row{}, Invalid()
+			}
+		}
+	}
+	if row.Settlement.Level != "unverified" || row.Settlement.Source != nil || row.Settlement.Reason != "no_verified_checkpoint_evidence" {
 		return Row{}, Invalid()
 	}
 	row.BlockHeight = height

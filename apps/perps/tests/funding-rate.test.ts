@@ -1,6 +1,8 @@
 // Venue funding rate: exact parse of last_funding_rate_hourly, the ×24 projection, labels, and the removed est_funding_rate name.
 // Run via `node --test --import tsx tests/funding-rate.test.ts`.
 
+import "./fixtures/repair-env";
+
 import { describe, it, mock } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
@@ -57,7 +59,7 @@ describe("projectFunding24h", () => {
 });
 
 describe("quoter funding source", () => {
-  const files = ["src/hooks/perps/useQuoter.ts", "src/core/perps/fundingRate.ts"];
+  const files = ["src/hooks/perps/useQuoter.ts", "src/core/perps/fundingRate.ts", "src/core/perps/quoteFallback.ts"];
 
   it("no est_funding_rate reference remains in the quoter or its venue type", () => {
     for (const file of files) assert.doesNotMatch(readFileSync(ROOT + file, "utf8"), /est_funding_rate/, file);
@@ -65,9 +67,12 @@ describe("quoter funding source", () => {
 
   it("the quoter reads last_funding_rate_hourly through the exact parser, with no Number()", () => {
     const src = readFileSync(ROOT + files[0], "utf8");
-    assert.match(src, /parseFundingRateHourly\(t\.last_funding_rate_hourly\)/);
-    assert.match(src, /fundingRate24h: projectFunding24h\(/);
+    assert.match(src, /parseFundingRateHourly\(\s*t\.last_funding_rate_hourly,\s*\)/);
+    assert.match(src, /\.\.\.tickerQuoteWithConfig\(\s*t,/);
+    const fallback = readFileSync(ROOT + files[2], "utf8");
+    assert.match(fallback, /fundingRate24h: projectFunding24h\(parseFundingRateHourly\(ticker\.last_funding_rate_hourly\)\),/);
     for (const line of src.split("\n").filter((l) => /funding/i.test(l))) assert.doesNotMatch(line, /Number\(|toBigInt18/, line);
+    for (const line of fallback.split("\n").filter((l) => /funding/i.test(l))) assert.doesNotMatch(line, /Number\(|toBigInt18/, line);
   });
 });
 
@@ -168,20 +173,28 @@ describe("venue funding consumers", () => {
     assert.doesNotMatch(read("src/hooks/perps/useSidPaxMarketStream.ts"), /est_funding|estFunding/);
   });
 
-  it("the trading header, mobile row and funding tab render the venue rate under the fundingRate.ts labels, with no Number()", () => {
+  function funding_consumers_keep_exact_rates() {
     const header = read("src/widgets/trading/PairHeader.tsx");
-    assert.match(header, /fundingFigures\(venueHourly\)/);
+    assert.match(header, /const venueHourly\s*= ticker\?\.last_funding_rate_hourly\s*\?\? marketFundingHourly\(market\.symbol, "last_funding_rate_hourly", et\?\.last_funding_rate_hourly \?\? enriched\?\.fundingRate\?\.last_funding_rate_hourly\);/);
+    assert.match(header, /const venueFunding = fundingFigures\(venueHourly\);/);
+    assert.match(header, /venueFunding\.map\(\(f\) => \(\s*<StatChip\s*key=\{f\.label\}\s*label=\{f\.label\}\s*value=\{f\.text\}/);
     assert.match(header, /valueClass=\{f\.sign === 1 \? "text-emerald-500" : f\.sign === -1 \? "text-red-500" : ""\}/);
     assert.match(read("src/core/perps/fundingRate.ts"), /const rate = socketRate \?\? fundingWadDecimal\(venueHourly\);\n  return \{\n    label: socketRate != null \? FUNDING_LABEL_PREDICTED : FUNDING_LABEL_1H,\n    text: formatSignedFundingDecimalPct\(rate\),\n    sign: fundingDecimalSign\(rate\) \?\? 0,/);
+    const table = read("src/widgets/markets/MarketsTable.tsx");
+    assert.match(table, /const funding8h = fundingWadFigure\(row\.funding8h\);/);
+    assert.match(table, /\{funding8h\.text\}/);
     const tab = read("src/page-modules/markets/index.tsx");
     assert.match(tab, /\{FUNDING_LABEL_1H\}/);
-    assert.match(tab, /fundingWadFigure\(row\.fundingHourly\)/);
-    for (const file of ["src/widgets/trading/PairHeader.tsx", "src/widgets/trading/MobileTradingLayout.tsx", "src/widgets/markets/useMarketsRows.ts", "src/hooks/perps/useMarketsStream.ts", "src/hooks/perps/useRealtimePrices.ts"]) {
+    assert.match(tab, /const fundingHourly = fundingWadFigure\(row\.fundingHourly\);/);
+    assert.match(tab, /\{fundingHourly\.text\}/);
+    for (const file of ["src/widgets/trading/PairHeader.tsx", "src/widgets/markets/MarketsTable.tsx", "src/page-modules/markets/index.tsx", "src/widgets/markets/useMarketsRows.ts", "src/hooks/perps/useMarketsStream.ts", "src/hooks/perps/useRealtimePrices.ts"]) {
       for (const line of read(file).split("\n").filter((l) => /funding_rate_hourly|venueHourly|fundingHourly/.test(l))) {
         assert.doesNotMatch(line, /Number\(|parseFloat|toBigInt18/, `${file}: ${line}`);
       }
     }
-  });
+  }
+
+  it(funding_consumers_keep_exact_rates);
 
   it("the two 24h views label the subgraph figure as on-chain funding paid, never as the venue rate", () => {
     const table = read("src/widgets/analytics/MarketSnapshotTable.tsx");
@@ -255,9 +268,9 @@ describe("exact funding_8h, perp_funding_rate and symbol socket rates", () => {
     assert.equal(formatFundingRatePct(parseFundingRateHourly("0.0008")), formatFundingDecimalPct("0.0008"));
   });
 
-  it("the markets table and funding tab render a missing 8h rate as a dash and the present one signed through fundingWadFigure", () => {
+  function funding_consumers_keep_signed_and_missing_rates() {
     const read = (file: string) => readFileSync(ROOT + file, "utf8");
-    assert.match(read("src/widgets/markets/useMarketsRows.ts"), /funding8h: snap\?\.funding_8h \?\? null,/);
+    assert.match(read("src/widgets/markets/useMarketsRows.ts"), /funding8h: snapshot\?\.funding_8h \?\? null,/);
     const table = read("src/widgets/markets/MarketsTable.tsx");
     assert.match(table, /const funding8h = fundingWadFigure\(row\.funding8h\);/);
     assert.match(table, /\{funding8h\.text\}/);
@@ -265,16 +278,22 @@ describe("exact funding_8h, perp_funding_rate and symbol socket rates", () => {
     assert.match(tab, /const funding8h = fundingWadFigure\(row\.funding8h\);/);
     assert.match(tab, /\{funding8h\.text\}/);
     assert.match(tab, /\{fundingHourly\.text\}/);
-    assert.match(read("src/widgets/trading/PairHeader.tsx"), /formatSignedFundingDecimalPct\(estFunding\)/);
-    assert.match(read("src/widgets/trading/MobileTradingLayout.tsx"), /fundingRowFigure\(wsStats\?\.funding_rate, ticker\?\.last_funding_rate_hourly \?\? null\)/);
+    const header = read("src/widgets/trading/PairHeader.tsx");
+    assert.match(header, /const estFunding\s*= wsStats\?\.funding_rate \?\? null;/);
+    assert.match(header, /const estSign\s*= fundingDecimalSign\(estFunding\);/);
+    assert.match(header, /estFunding !== null && \(\s*<StatChip\s*label="Est\. Funding"\s*value=\{formatSignedFundingDecimalPct\(estFunding\)\}/);
+    assert.match(header, /valueClass=\{estSign === -1 \? "text-red-500" : estSign === 1 \? "text-emerald-500" : ""\}/);
+    assert.match(header, /const venueFunding = fundingFigures\(venueHourly\);/);
     assert.match(read("src/core/perps/fundingRate.ts"), /text: formatSignedFundingDecimalPct\(rate\)/);
     const stream = read("src/hooks/perps/useSidPaxMarketStream.ts");
     assert.match(stream, /funding_rate: {9}fundingRateFromJsonNumber\(d\.funding_rate\),/);
     assert.match(stream, /last_funding_rate: {4}fundingRateFromJsonNumber\(d\.last_funding_rate\),/);
-  });
+  }
+
+  it(funding_consumers_keep_signed_and_missing_rates);
 });
 
-describe("mobile funding row and signed tiny rates", () => {
+describe("funding row helper and signed tiny rates", () => {
   it("a stats body without funding_rate keeps the ticker's settled hourly rate; one with it prefers the socket", async () => {
     const { fundingRowFigure, FUNDING_LABEL_PREDICTED } = await import("../src/core/perps/fundingRate");
     const hourly = parseFundingRateHourly("0.0000125");

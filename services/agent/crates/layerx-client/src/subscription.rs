@@ -119,21 +119,28 @@ impl DeadlineTcp {
         self.stream.set_read_timeout(Some(left))?;
         self.stream.set_write_timeout(Some(left))
     }
+
+    fn poll_result<T>(result: io::Result<T>) -> io::Result<T> {
+        result.map_err(|error| match error.kind() {
+            io::ErrorKind::TimedOut => io::Error::from(io::ErrorKind::WouldBlock),
+            _ => error,
+        })
+    }
 }
 impl Read for DeadlineTcp {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
         self.prepare()?;
-        self.stream.read(bytes)
+        Self::poll_result(self.stream.read(bytes))
     }
 }
 impl Write for DeadlineTcp {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         self.prepare()?;
-        self.stream.write(bytes)
+        Self::poll_result(self.stream.write(bytes))
     }
     fn flush(&mut self) -> io::Result<()> {
         self.prepare()?;
-        self.stream.flush()
+        Self::poll_result(self.stream.flush())
     }
 }
 
@@ -222,12 +229,18 @@ pub fn subscribe_with_options(
     let config = WebSocketConfig::default()
         .max_message_size(Some(MAX_MESSAGE_BYTES))
         .max_frame_size(Some(MAX_MESSAGE_BYTES));
-    let (mut socket, _) =
-        tungstenite::client_tls_with_config(request, stream, Some(config), Some(connector))
-            .map_err(|error| match error {
-                HandshakeError::Failure(error) => socket_error(error),
-                HandshakeError::Interrupted(_) => SequencerError::Unavailable,
-            })?;
+    let mut handshake =
+        tungstenite::client_tls_with_config(request, stream, Some(config), Some(connector));
+    let (mut socket, _) = loop {
+        deadline.remaining()?;
+        match handshake {
+            Ok(established) => break established,
+            Err(HandshakeError::Interrupted(interrupted)) => {
+                handshake = interrupted.handshake();
+            }
+            Err(HandshakeError::Failure(error)) => return Err(socket_error(error)),
+        }
+    };
     deadline.socket(&mut socket)?;
     socket
         .send(Message::Text(

@@ -6,5 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 build = "build.rs"
 
+[dev-dependencies]
+layerx-agent-api = { path = "../layerx-agent-api" }
+layerx-client = { path = "../layerx-client" }
+
 [lints]
 workspace = true
