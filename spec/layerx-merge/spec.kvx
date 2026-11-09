@@ -11200,6 +11200,48 @@ value = "The fuel case of the ai-market tests measures a row whose attempted fue
 basis = "Gotcha 3712, decisions 3005 and 3009"
 affects = ["22.33.223"]
 
+[decision.3015]
+title = "A verification that names a test target holding a producer-qualified case excludes that case by exact name and the task requalifies at the same tree"
+value = "Decision 2496 classes a test that refuses to run without an input a producer sets (a native replay corpus, a signed admission corpus, a database, a model runner) as qualified by that producer. A task whose verification names a test target containing such a case appends the exact-name exclusion of the Rust skip filter for every producer-qualified case of that target, as the inventory sweep repair of the same crate records them; the case is never deleted, weakened or made conditional in the tree. When a verification was written without the exclusion, the correction is a change of the verification text, the attempt tree stands, and the next attempt requalifies at the same tree."
+basis = "Gotcha 3713, decisions 2325 and 2496, the inventory record spec/layerx-merge/programme/sweeps/repairs/rust-test-programs.11.kvx"
+affects = ["22.39.177"]
+
+[decision.3016]
+title = "A wallet SDK manifest change refreshes every lockfile whose importer resolves the SDK, and the SDK test job installs the services/wallet workspace before it runs"
+value = "A change to sdk/wallet/package.json lands with every pnpm lockfile whose importer or linked dependency resolves sdk/wallet refreshed in the same commit (sdk/wallet/pnpm-lock.yaml and services/wallet/pnpm-lock.yaml today), and a lockfile currency test under tests/ci installs each wallet workspace frozen so the drift is caught before the public job. Because sdk/wallet/test/agent.test.ts and test/evm-review.test.ts import the gateway sources and test support, the Vitest job of the Wallet tests workflow for the sdk/wallet row installs the services/wallet workspace frozen after the SDK install with --ignore-workspace, as the Gateway Vitest job does, and the task gate installs the same way without a root npm install; the SDK keeps its own workspace root as decision of 22.39.94 requires. tests/ci/test_wallet_test_workflow.py asserts the Run Vitest suite step as the matrix command the workflow runs."
+basis = "Gotcha 3714, task 22.39.94, task 22.39.145, gotcha 3046"
+affects = ["22.39.178"]
+
+[decision.3017]
+title = "A wallet surface request sequence assertion follows the SDK read path and names the producer commit in its record"
+value = "The wallet app replays node send and read paths against the SDK sources through the Vitest alias, so an assertion on the sequence of JSON-RPC methods follows the SDK read path as it stands: one px_getReceiptKeys and one eth_getRawTransactionByHash fetch per authenticated read. The consumer that corrects such an assertion confirms the producer by running the failing case at the parent of the suspected commit and at the commit, names the commit in its record, and changes nothing in the SDK; the authentication assertions of the case keep their expectations."
+basis = "Gotcha 3715, decision 3010, gotcha 3046"
+affects = ["22.39.179"]
+
+[decision.3018]
+title = "The 7.0.0 consensus-commit ledger lists every consensus-changing commit from the latest historical ledger commit and its rows are produced from history by a tool"
+value = "The base of the 7.0.0 ledger is the latest commit of the historical v6.12.0 table, 68c8887a9520542d2878da3d6a44920ddd71b4b1, the last consensus change the v6.12.0 release carried. A tool under tools/ci prints, for every unlisted commit the gate names between a base and a head, one ledger row in the existing four-column form: the full hash, the commit subject as the state-machine change, the non-test consensus paths the gate reports, and the coordinated upgrade v7.0 (MergeUpgrade); the rows are appended to the v7.0.0 table in history order and the gate run from the base to the head exits 0. Every later consensus-changing commit adds its row, and the candidate evidence task re-runs the gate at the candidate revision before the readiness checklist line is ticked. Each tick of a readiness checklist item records revision, command, exit status and log location."
+basis = "Gotcha 3716, docs/release/consensus-commits.md, tools/ci/consensus_commit_gate.py"
+affects = ["22.39.181", "22.39.182"]
+
+[decision.3019]
+title = "The candidate release report records every release check at one revision with its command, exit status and evidence location"
+value = "docs/release/7.0.0-candidate-report.md records, at one revision of main, the nine named Go tests of the readiness checklist (the four ordered rehearsal tests, the two bond and custody tests, the three refusal tests), the retired-caller scan, the programme rehearsal test of the fork runbook, the consensus-commit gate from the ledger base, and the golden and parity checks the upgrade plan names where the tree holds a command for them; for each it states the command, the exit status and the log location, and where the tree names no command it says so and cites the test that proves the property. The checklist items the report covers are ticked with the same revision, the upgrade plan moves D5 to the implemented support table with the report as its source, and the gap-marker test follows; the report is regenerated at the final candidate when later commits land."
+basis = "Gotcha 3717, docs/release/7.0.0-readiness-checklist.md, docs/release/7.0.0-upgrade-plan.md section 5"
+affects = ["22.39.182"]
+
+[decision.3020]
+title = "The release documents state the rehearsal script gap as closed, record the exported-state rehearsal waiver, and keep only owner inputs and after-cutover evidence as open items"
+value = "The upgrade plan moves D6 to the implemented support table: tools/release/rehearse-v6120.sh reads the plan from tools/release/version.json, requires --plan-info for the v7.0 plan and forwards it to the node files (tests/ci/test_release_merge_rehearsal.py). The release owner waived the exported-state rehearsal for 7.0.0; the plan, the timeline row and the checklist lines that required it state the waiver with this decision number and name the four ordered rehearsal tests, the programme rehearsal test and the candidate report as the halt and swap evidence. The service runbook lists the agent daemon release qualification among the acceptance steps after S with the evidence to retain (readiness after the receipt keys, a settled scheduled job, node logs free of agent end block failures for the deployed revision) and not as a repository gap; the bridge manifest gap stays until bridge governance supplies the signer set. tests/ci/test_release_docs_gap_markers.py follows every table it pins."
+basis = "Gotcha 3717, decision 3019, tests/ci/test_release_docs_gap_markers.py"
+affects = ["22.39.180"]
+
+[decision.3021]
+title = "A quarantine record read-back of the launchpad delivery store compares affected pools as lists of equal length and elements, and a poison envelope without affected pools is quarantined and committed"
+value = "QuarantineAfterRollback of sdk/launchpad/shared/delivery/store.go verifies the row it inserted by reading it back; the affected pools comparison treats an absent list and an empty list as equal and compares the elements in order, so a poison envelope that names no pool (a decode refusal, an unknown schema version, a payload hash conflict without a bound pool) leaves its committed quarantine row keyed by consumer, generation, envelope hash and failure class, and the caller returns the refusal with no integrity error joined. The delivery package carries a test of the empty-pool quarantine against the configured database so the driver test is not the only consumer of the path, and the gate owner whose declared targets run the driver test repairs the store in the same attempt under decision 2908 with the store file in its touches."
+basis = "Gotcha 3718, decision 2908, gotcha 3046"
+affects = ["22.39.117"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -40090,6 +40132,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.182]
+title = "Write the 7.0.0 candidate release report at one revision and tick the release check items it proves"
+reqs = ["22998.1"]
+touches = ["docs/release/7.0.0-readiness-checklist.md", "docs/release/7.0.0-upgrade-plan.md", "docs/release/consensus-commits.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tests/ci/test_release_docs_gap_markers.py", "node/merge_rehearsal_test.go", "precompiles/layerxanchor/retired_surface_test.go", "modules/layerxcustody/keeper/release_test.go"]
+verification_contract = "test -s docs/release/7.0.0-candidate-report.md && test -s docs/release/repair_22_39_182.kvx && go test -count=1 -timeout 30m -run 'TestMergeRehearsalFirstSequencedBlock|TestExportAfterMergeKeepsSequencerState|TestMergePlanActivatesGatedPrecompiles|TestAnchorStoreDeletedAtStep|TestMergePlanReturnsGuarantorBonds|TestMergePlanRefusesMissingMergeConstructors' ./node && go test -count=1 -run 'TestRetiredWritesRevertAfterMerge|TestEveryAnchorSelectorRetired' ./precompiles/layerxanchor && go test -count=1 -run TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority ./modules/layerxcustody/keeper && python3 tools/paxeer-x/tests/retired_callers_test.py && python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD && python3 -m pytest -q tests/ci/test_release_docs_gap_markers.py"
+do_1 = "do_1 Decision 3019. At the head of the task branch run the nine Go tests the readiness checklist names (TestMergeRehearsalFirstSequencedBlock, TestExportAfterMergeKeepsSequencerState, TestMergePlanActivatesGatedPrecompiles, TestAnchorStoreDeletedAtStep, TestMergePlanReturnsGuarantorBonds and TestMergePlanRefusesMissingMergeConstructors in node; TestRetiredWritesRevertAfterMerge and TestEveryAnchorSelectorRetired in precompiles/layerxanchor; TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority in modules/layerxcustody/keeper), the retired-caller scan python3 tools/paxeer-x/tests/retired_callers_test.py, the programme rehearsal test the fork runbook names, and the consensus-commit gate from 68c8887a9520542d2878da3d6a44920ddd71b4b1; for the golden and parity checks of the upgrade plan run the command the tree holds for each or state that none exists and cite the test that proves the property."
+symbols = []
+
+[capability.22.39.181]
+title = "Complete the 7.0.0 consensus-commit ledger from the last v6.12.0 ledger commit with rows produced from history"
+reqs = ["22998.1"]
+touches = ["docs/release/consensus-commits.md", "docs/release/7.0.0-readiness-checklist.md", "tools/ci/tests/test_consensus_commit_gate.py"]
+tests = ["tools/ci/tests/test_consensus_commit_gate.py"]
+verification_contract = "test -s tools/ci/tests/repair_22_39_181.kvx && python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD && python3 -m pytest -q tools/ci/tests/test_consensus_commit_gate.py tools/ci/tests/test_consensus_ledger_rows.py tests/ci/test_release_docs_gap_markers.py"
+do_1 = "do_1 Decision 3018, gotcha 3716. Add tools/ci/consensus_ledger_rows.py: given a base and a head it runs the unlisted-commit discovery of tools/ci/consensus_commit_gate.py (importing its functions, not copying them) and prints one four-column ledger row per unlisted commit in history order: the full hash, the commit subject as the state-machine change, the non-test consensus paths the gate reports joined as the gate prints them, and the coordinated upgrade v7.0 (MergeUpgrade); pipes and newlines in subjects are escaped so the table stays valid. Add tools/ci/tests/test_consensus_ledger_rows.py covering a synthetic repository with one listed, one unlisted and one test-only commit."
+symbols = []
+
+[capability.22.39.180]
+title = "State the rehearsal script gap as closed, record the exported-state rehearsal waiver and move the agent daemon qualification to the acceptance steps"
+reqs = ["22998.1"]
+touches = ["docs/release/7.0.0-upgrade-plan.md", "docs/release/7.0.0-readiness-checklist.md", "docs/release/7.0.0-service-operator-runbook.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tests/ci/test_release_docs_gap_markers.py", "tests/ci/test_release_merge_rehearsal.py"]
+verification_contract = "test -s tests/ci/repair_22_39_180.kvx && python3 -m pytest -q tests/ci/test_release_docs_gap_markers.py tests/ci/test_release_merge_rehearsal.py tests/ci/test_docs_release_version_examples.py tests/ci/test_release_rollout_identity.py"
+do_1 = "do_1 Decision 3020, gotcha 3717. In docs/release/7.0.0-upgrade-plan.md move D6 from the known gaps table to the implemented release support table with the fact that tools/release/rehearse-v6120.sh reads the plan from tools/release/version.json and requires --plan-info for the v7.0 plan, sourced to the script and tests/ci/test_release_merge_rehearsal.py; rewrite the timeline row T minus 16 days and the go or no-go wording so the exported-state rehearsal is stated as waived by the release owner under decision 3020, with the four ordered rehearsal tests, the programme rehearsal test and the candidate report named as the halt and swap evidence; the known gaps table then lists D5 only."
+symbols = []
+
+[capability.22.39.179]
+title = "Make the wallet surface replay follow the SDK read path request sequence"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src/surfaces/test/repair-22-33-206.test.ts", "apps/wallet/src/surfaces/test/repair-22-33-206.kvx"]
+tests = ["apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"]
+verification_contract = "test -s apps/wallet/src/surfaces/test/repair-22-39-179.kvx && cd apps/wallet && corepack enable && pnpm exec vitest run src/surfaces/test"
+do_1 = "do_1 Decision 3017, gotcha 3715. Run the case repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read of apps/wallet/src/surfaces/test/repair-22-33-206.test.ts at the parent of 5577807085 and at 5577807085 to confirm the producer of the eight-request sequence; if the producer is another commit, name that one instead."
+symbols = []
+
+[capability.22.39.178]
+title = "Refresh the wallet workspace lockfiles for the SDK manifest and install the services/wallet workspace in the SDK test job"
+reqs = ["22998.1"]
+touches = ["services/wallet/pnpm-lock.yaml", "sdk/wallet/pnpm-lock.yaml", "sdk/wallet/package.json", ".github/workflows/wallet-test.yml", "tests/ci/test_wallet_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py"]
+tests = ["tests/ci/test_wallet_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py"]
+verification_contract = "test -s tests/ci/repair_22_39_178.kvx && python3 -m pytest -q tests/ci/test_wallet_lockfiles_current.py tests/ci/test_wallet_test_workflow.py tests/ci/test_pnpm_workspace_roots.py && npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && corepack enable && pnpm --dir sdk/wallet --ignore-workspace install --frozen-lockfile && pnpm --dir services/wallet install --frozen-lockfile && python3 tools/ci/run_wallet_vitest.py"
+do_1 = "do_1 Decision 3016, gotcha 3714. Refresh services/wallet/pnpm-lock.yaml so its importer ../../sdk/wallet carries react-dom and jsdom as sdk/wallet/package.json declares them (a lockfile-only install from services/wallet with the pinned pnpm release), and check every other pnpm lockfile whose importer or linked dependency resolves sdk/wallet; a frozen install of each wallet workspace (sdk/wallet with --ignore-workspace, services/wallet, apps/wallet) then succeeds."
+symbols = []
 
 [capability.22.39.177]
 title = "Move the arbiter crate to the historical activity codec paths of layerx-wire so the programs workspace builds"
@@ -153392,6 +153479,67 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.179]
+title = "Make the wallet surface replay follow the SDK read path request sequence"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.55", "22.39.145"]
+reqs = ["22998.1"]
+capabilities = ["22.39.179"]
+interfaces = []
+do_1 = "do_1 Decision 3017, gotcha 3715. Run the case repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read of apps/wallet/src/surfaces/test/repair-22-33-206.test.ts at the parent of 5577807085 and at 5577807085 to confirm the producer of the eight-request sequence; if the producer is another commit, name that one instead."
+do_2 = "do_2 Correct the expected method lists at line 131 of the test to the sequence the SDK read path produces (one px_getReceiptKeys and one eth_getRawTransactionByHash fetch per authenticated read) on both the fallback and the direct path, keeping every other assertion of the case (the read equals the sent receipt, requireAuthenticatedReceipt accepts it, surfaceReceipt matches) and changing nothing under sdk/wallet."
+do_3 = "do_3 Record the producer commit, the sequence before and after and the reason the receipt stays authenticated in apps/wallet/src/surfaces/test/repair-22-39-179.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["apps/wallet/src/surfaces/test/repair-22-33-206.test.ts", "apps/wallet/src/surfaces/test/repair-22-33-206.kvx"]
+tests = ["apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"]
+planned_paths = ["apps/wallet/src/surfaces/test/repair-22-39-179.kvx"]
+build_cmd = "cd apps/wallet && corepack enable && pnpm install --frozen-lockfile && pnpm exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s apps/wallet/src/surfaces/test/repair-22-39-179.kvx && cd apps/wallet && corepack enable && pnpm exec vitest run src/surfaces/test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.178]
+title = "Refresh the wallet workspace lockfiles for the SDK manifest and install the services/wallet workspace in the SDK test job"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.145", "22.39.94"]
+reqs = ["22998.1"]
+capabilities = ["22.39.178"]
+interfaces = []
+do_1 = "do_1 Decision 3016, gotcha 3714. Refresh services/wallet/pnpm-lock.yaml so its importer ../../sdk/wallet carries react-dom and jsdom as sdk/wallet/package.json declares them (a lockfile-only install from services/wallet with the pinned pnpm release), and check every other pnpm lockfile whose importer or linked dependency resolves sdk/wallet; a frozen install of each wallet workspace (sdk/wallet with --ignore-workspace, services/wallet, apps/wallet) then succeeds."
+do_2 = "do_2 In .github/workflows/wallet-test.yml add to the vitest job, for the sdk/wallet matrix row only, the step that installs the services/wallet workspace frozen after the SDK install, mirroring the Gateway Vitest job step and keeping the SDK install step and the Run Vitest suite step unchanged; the Wallet Go tests workflow needs no change beyond the lockfile."
+do_3 = "do_3 Add tests/ci/test_wallet_lockfiles_current.py: one case per wallet workspace that runs the frozen install with --ignore-scripts and asserts exit 0, modelled on the sibling lockfile currency tests. Make tests/ci/test_wallet_test_workflow.py assert the Run Vitest suite step as the matrix command the workflow runs and keep every other assertion; tests/ci/test_pnpm_workspace_roots.py keeps passing."
+do_4 = "do_4 Record the producer the lockfile follows (commit 5577807085 of 22.39.145) and the two jobs the change repairs in tests/ci/repair_22_39_178.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case of the SDK suite needs an input the public job does not install, repair the job within the one allowed cycle so the public job and the gate agree, and rerun once."
+symbols = []
+touches = ["services/wallet/pnpm-lock.yaml", "sdk/wallet/pnpm-lock.yaml", "sdk/wallet/package.json", ".github/workflows/wallet-test.yml", "tests/ci/test_wallet_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py"]
+tests = ["tests/ci/test_wallet_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py"]
+planned_paths = ["tests/ci/test_wallet_lockfiles_current.py", "tests/ci/repair_22_39_178.kvx"]
+build_cmd = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir sdk/wallet --ignore-workspace install --frozen-lockfile --ignore-scripts && cd apps/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && python3 -m py_compile tests/ci/test_wallet_lockfiles_current.py tests/ci/test_wallet_test_workflow.py"
+verify_cmd = "test -s tests/ci/repair_22_39_178.kvx && python3 -m pytest -q tests/ci/test_wallet_lockfiles_current.py tests/ci/test_wallet_test_workflow.py tests/ci/test_pnpm_workspace_roots.py && npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && corepack enable && pnpm --dir sdk/wallet --ignore-workspace install --frozen-lockfile && pnpm --dir services/wallet install --frozen-lockfile && python3 tools/ci/run_wallet_vitest.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.37.31]
 title = "Run the object-store cases of the source-control live campaign and inventory the inputs of every remaining registry case"
 status = "done"
@@ -183197,7 +183345,7 @@ touches = ["programs/crates/layerx-programs-arbiter/src/admission.rs", "programs
 tests = ["programs/crates/layerx-programs-arbiter/tests/activity_codec.rs", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs", "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs", "programs/crates/layerx-programs-arbiter/tests/repair_22_33_215.rs"]
 planned_paths = ["programs/crates/layerx-programs-arbiter/src/repair_22_39_177.kvx"]
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --tests && mkdir -p build && (make -s paxai-host-boundary-build > build/paxai-host-boundary.log 2>&1 || true) && test -s build/paxai-host-boundary/ai_market.wasm"
-verify_cmd = "test -s programs/crates/layerx-programs-arbiter/src/repair_22_39_177.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test activity_codec --test authority_from_prestate --test proof_arbiter_crate --test repair_22_33_215 && test 0 -eq $(grep -rlE 'layerx_wire::(activity|sign)([^_a-zA-Z0-9]|$)|layerx_wire::hash::(payload_hash|activity_id|canonical_activity|canonical_payload)([^_a-zA-Z0-9]|$)|layerx_wire::[{]([^}]*[^_a-zA-Z0-9])?(activity|sign)[^_a-zA-Z0-9]' programs tools sdk tests apps daemon services --include=*.rs | grep -vE 'crates/layerx-wire/|boundary-check|api-gen|no_kernel_codec' | wc -l)"
+verify_cmd = "test -s programs/crates/layerx-programs-arbiter/src/repair_22_39_177.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --test activity_codec --test authority_from_prestate --test proof_arbiter_crate --test repair_22_33_215 -- --skip canonical_native_authority_matches_authenticated_historical_facts && test 0 -eq $(grep -rlE 'layerx_wire::(activity|sign)([^_a-zA-Z0-9]|$)|layerx_wire::hash::(payload_hash|activity_id|canonical_activity|canonical_payload)([^_a-zA-Z0-9]|$)|layerx_wire::[{]([^}]*[^_a-zA-Z0-9])?(activity|sign)[^_a-zA-Z0-9]' programs tools sdk tests apps daemon services --include=*.rs | grep -vE 'crates/layerx-wire/|boundary-check|api-gen|no_kernel_codec' | wc -l)"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-programs"
@@ -183209,6 +183357,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 3713, decisions 2496 and 3015): the attempt-1 tree 4977cff751ba stands unchanged (the six arbiter files on the historical activity codec paths of layerx-wire, the record). The verification now excludes canonical_native_authority_matches_authenticated_historical_facts by exact name as the inventory record of the crate does, because that case is qualified only by the native replay and signed admission corpora its producer supplies; no test is changed. Run the build once and the corrected verification once at the same revision and record both by reference; if the retirement grep or a remaining case fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.175]
 title = "Move the fuzz test of the agent envelope codec to the historical module of layerx-wire and widen the retired-path grep to the grouped use form"
@@ -211385,6 +211534,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.182]
+title = "Write the 7.0.0 candidate release report at one revision and tick the release check items it proves"
+status = "pending"
+mode = "BUILD"
+wave = 10
+requires = ["22.38.39", "22.39.181", "22.39.177"]
+reqs = ["22998.1"]
+capabilities = ["22.39.182"]
+interfaces = []
+do_1 = "do_1 Decision 3019. At the head of the task branch run the nine Go tests the readiness checklist names (TestMergeRehearsalFirstSequencedBlock, TestExportAfterMergeKeepsSequencerState, TestMergePlanActivatesGatedPrecompiles, TestAnchorStoreDeletedAtStep, TestMergePlanReturnsGuarantorBonds and TestMergePlanRefusesMissingMergeConstructors in node; TestRetiredWritesRevertAfterMerge and TestEveryAnchorSelectorRetired in precompiles/layerxanchor; TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority in modules/layerxcustody/keeper), the retired-caller scan python3 tools/paxeer-x/tests/retired_callers_test.py, the programme rehearsal test the fork runbook names, and the consensus-commit gate from 68c8887a9520542d2878da3d6a44920ddd71b4b1; for the golden and parity checks of the upgrade plan run the command the tree holds for each or state that none exists and cite the test that proves the property."
+do_2 = "do_2 Write docs/release/7.0.0-candidate-report.md: the revision, then one table row per check with the command, the exit status and the log location, and a closing statement of what remains open (owner inputs and after-cutover evidence). Append ledger rows for any consensus-changing commit since 22.39.181 with tools/ci/consensus_ledger_rows.py so the gate exits 0 at the report revision."
+do_3 = "do_3 Tick the readiness checklist items the report proves (the candidate evidence items, the golden and parity items where a command exists, the retired-caller scan, the four ordered rehearsal tests, the bond and custody tests, the refusal tests) with the revision, command, exit status and log location; move D5 in docs/release/7.0.0-upgrade-plan.md to the implemented release support table with the report as its source so the known gaps table is empty; make tests/ci/test_release_docs_gap_markers.py follow (CLOSED_IDS gains D5, the known gaps table has no rows, the checklist gap items read the attestor item only). Record the report revision and the ticked lines in docs/release/repair_22_39_182.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["docs/release/7.0.0-readiness-checklist.md", "docs/release/7.0.0-upgrade-plan.md", "docs/release/consensus-commits.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tests/ci/test_release_docs_gap_markers.py", "node/merge_rehearsal_test.go", "precompiles/layerxanchor/retired_surface_test.go", "modules/layerxcustody/keeper/release_test.go"]
+planned_paths = ["docs/release/7.0.0-candidate-report.md", "docs/release/repair_22_39_182.kvx"]
+build_cmd = "go build ./node/... ./precompiles/layerxanchor/... ./modules/layerxcustody/... && go vet ./precompiles/layerxanchor/ ./modules/layerxcustody/keeper/"
+verify_cmd = "test -s docs/release/7.0.0-candidate-report.md && test -s docs/release/repair_22_39_182.kvx && go test -count=1 -timeout 30m -run 'TestMergeRehearsalFirstSequencedBlock|TestExportAfterMergeKeepsSequencerState|TestMergePlanActivatesGatedPrecompiles|TestAnchorStoreDeletedAtStep|TestMergePlanReturnsGuarantorBonds|TestMergePlanRefusesMissingMergeConstructors' ./node && go test -count=1 -run 'TestRetiredWritesRevertAfterMerge|TestEveryAnchorSelectorRetired' ./precompiles/layerxanchor && go test -count=1 -run TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority ./modules/layerxcustody/keeper && python3 tools/paxeer-x/tests/retired_callers_test.py && python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD && python3 -m pytest -q tests/ci/test_release_docs_gap_markers.py"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.176]
 title = "Make the Go conformance command accept the two cases of the receipted revert vector"
 status = "done"
@@ -211791,6 +211970,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (requalify, gotcha 3711, decision 3013): the attempt-1 tree 655ec01cf294 stands unchanged (the natsdriver and delivery skips naming their variables, the five packages removed from the baseline file, the Makefile recipe reading the baseline by its path, the broker duplicate window). The qualification environment now supplies every launchpad database variable as .github/workflows/launchpad-test.yml declares it (database kindle_fixture on loopback port 25432 for DELIVERY_TEST_DSN and BROKER_EPOCH_TEST_DSN), so the five guards admit it; the guards do not change. Re-run the build once and the verification once on the attempt-1 tree and record both by reference; if a case still fails, repair it inside the touches within the one allowed cycle and rerun once."
+do_4 = "Attempt 3 (continue, gotcha 3718, decisions 2908, 3013 and 3021): the attempt-2 tree 194dca6166ee stands unchanged (the natsdriver and delivery guards naming their variables, the five packages removed from the baseline file, the Makefile recipe reading the baseline by its path, the broker duplicates window). Reproduce TestPhase3ActualOrderedPoisonAndHundredDuplicates against the configured database and broker and confirm where the quarantine row of the first poison variant is lost; the expected site is the read-back comparison of QuarantineAfterRollback in sdk/launchpad/shared/delivery/store.go (line 663), where reflect.DeepEqual compares a nil normalised pool list with the empty slice the text array scans into, so the integrity error rolls the inserted row back while the refusal is still returned. Make the comparison treat an absent and an empty list as equal and compare elements in order, add a case to the delivery package tests that quarantines a poison envelope without affected pools against the configured database and reads the committed row back by consumer, generation, envelope hash and failure class, and change no assertion of the driver test. If the site is another, name it in the record with the evidence of the reproduction and repair it in the store, not in the test. Record the site, the repair and the producer it follows in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
@@ -335229,6 +335409,66 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.181]
+title = "Complete the 7.0.0 consensus-commit ledger from the last v6.12.0 ledger commit with rows produced from history"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.39.180"]
+reqs = ["22998.1"]
+capabilities = ["22.39.181"]
+interfaces = []
+do_1 = "do_1 Decision 3018, gotcha 3716. Add tools/ci/consensus_ledger_rows.py: given a base and a head it runs the unlisted-commit discovery of tools/ci/consensus_commit_gate.py (importing its functions, not copying them) and prints one four-column ledger row per unlisted commit in history order: the full hash, the commit subject as the state-machine change, the non-test consensus paths the gate reports joined as the gate prints them, and the coordinated upgrade v7.0 (MergeUpgrade); pipes and newlines in subjects are escaped so the table stays valid. Add tools/ci/tests/test_consensus_ledger_rows.py covering a synthetic repository with one listed, one unlisted and one test-only commit."
+do_2 = "do_2 Append the rows for every unlisted commit from 68c8887a9520542d2878da3d6a44920ddd71b4b1 to the head of the task branch to the v7.0.0 table of docs/release/consensus-commits.md, keeping the existing row and the historical table, and state the base and the tool in the paragraph above the table; the gate from the base to the head then exits 0. If the checkout lacks the history the gate needs, fetch the full history of main first."
+do_3 = "do_3 Tick the readiness checklist line for the ledger with the revision, the exact gate command, its exit status and the log location. Record the base, the row count and the tool in tools/ci/tests/repair_22_39_181.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["docs/release/consensus-commits.md", "docs/release/7.0.0-readiness-checklist.md", "tools/ci/tests/test_consensus_commit_gate.py"]
+tests = ["tools/ci/tests/test_consensus_commit_gate.py"]
+planned_paths = ["tools/ci/consensus_ledger_rows.py", "tools/ci/tests/test_consensus_ledger_rows.py", "tools/ci/tests/repair_22_39_181.kvx"]
+build_cmd = "python3 -m py_compile tools/ci/consensus_ledger_rows.py tools/ci/consensus_commit_gate.py tools/ci/tests/test_consensus_ledger_rows.py"
+verify_cmd = "test -s tools/ci/tests/repair_22_39_181.kvx && python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD && python3 -m pytest -q tools/ci/tests/test_consensus_commit_gate.py tools/ci/tests/test_consensus_ledger_rows.py tests/ci/test_release_docs_gap_markers.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.180]
+title = "State the rehearsal script gap as closed, record the exported-state rehearsal waiver and move the agent daemon qualification to the acceptance steps"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.33.215"]
+reqs = ["22998.1"]
+capabilities = ["22.39.180"]
+interfaces = []
+do_1 = "do_1 Decision 3020, gotcha 3717. In docs/release/7.0.0-upgrade-plan.md move D6 from the known gaps table to the implemented release support table with the fact that tools/release/rehearse-v6120.sh reads the plan from tools/release/version.json and requires --plan-info for the v7.0 plan, sourced to the script and tests/ci/test_release_merge_rehearsal.py; rewrite the timeline row T minus 16 days and the go or no-go wording so the exported-state rehearsal is stated as waived by the release owner under decision 3020, with the four ordered rehearsal tests, the programme rehearsal test and the candidate report named as the halt and swap evidence; the known gaps table then lists D5 only."
+do_2 = "do_2 In docs/release/7.0.0-readiness-checklist.md rewrite the two items that require the exported-state rehearsal and the running-binary halt log (lines 35 and 36) as waived under decision 3020 with the evidence that replaces them, dropping their gap marker; D5 items and the attestor manifest item keep their markers. In docs/release/7.0.0-service-operator-runbook.md state the agent daemon release qualification as an acceptance step after S with the evidence to retain (readiness after the receipt keys, a settled scheduled job, node logs free of agent end block failures, for the deployed revision) and remove its row from the gaps table, which then lists the bridge manifest only."
+do_3 = "do_3 Make tests/ci/test_release_docs_gap_markers.py follow: CLOSED_IDS gains D6 with its source, the known gaps rows read D5 only, the checklist gap items read the D5 pair and the attestor item, and the runbook gap table reads one row; every other assertion stays. Record the three documents, the lines changed and the decision in tests/ci/repair_22_39_180.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["docs/release/7.0.0-upgrade-plan.md", "docs/release/7.0.0-readiness-checklist.md", "docs/release/7.0.0-service-operator-runbook.md", "tests/ci/test_release_docs_gap_markers.py"]
+tests = ["tests/ci/test_release_docs_gap_markers.py", "tests/ci/test_release_merge_rehearsal.py"]
+planned_paths = ["tests/ci/repair_22_39_180.kvx"]
+build_cmd = "python3 -m py_compile tests/ci/test_release_docs_gap_markers.py tests/ci/test_release_merge_rehearsal.py"
+verify_cmd = "test -s tests/ci/repair_22_39_180.kvx && python3 -m pytest -q tests/ci/test_release_docs_gap_markers.py tests/ci/test_release_merge_rehearsal.py tests/ci/test_docs_release_version_examples.py tests/ci/test_release_rollout_identity.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.173]
 title = "Restore the six editor integration scripts of the vendored tree that the relocation left uncommitted"
