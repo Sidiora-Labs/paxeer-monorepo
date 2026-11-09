@@ -1193,6 +1193,21 @@
         "\t\treturn \"LXP_DA_MISSING\""
       ],
       "citation": "The exchange-intents (11005) and DA (11011) removals retain this historical error-code translation inside the disabled precompile so replay preserves its public error text."
+    },
+    {
+      "path": "modules/layerxanchor/keeper/custody_reader.go",
+      "lines": [
+        "custodytypes \"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types\"",
+        "// CustodyAnchor implements modules/layerxcustody/types.AnchorReader for the"
+      ],
+      "citation": "Decisions 3104 and 3122 permit this retained AnchorReader adapter and its custody types for the merge-disabled anchor (11002) and custody-deposit (11004) surfaces that still ship."
+    },
+    {
+      "path": "modules/layerxexchange/types/state.go",
+      "lines": [
+        "\t\t\t11: \"system:paxeer-reserve\","
+      ],
+      "citation": "The custody-disclosure removal (11020) retains this legacy genesis account name in the merge-disabled exchange-intents tree (11005), matching fresh_system_name and validate_legacy_accounts in src/protocol/lxp_genesis.c as required by decision 3104."
     }
   ]
 }

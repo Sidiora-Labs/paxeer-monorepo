@@ -1,0 +1,50 @@
+[repair.22.39.294]
+acceptance = "22998.1"
+decision = "3133"
+gotcha = "4012"
+base_revision = "2910889b640274b1b6f2bd14a2fba25019093bb2"
+manifest = "sdk/platform/pipeline.kvx"
+section = "handwritten.agent-compatibility"
+root = "services/agent/sdk"
+file = "typescript/src/inference_market.ts"
+classification = "handwritten"
+row = "\"typescript/src/inference_market.ts\" = \"handwritten\""
+introduced_by_task = "22.38.31"
+introduced_by_revision = "dbb814a6ff"
+parser = "sdk/platform/generators/src/main.rs: declared_handwritten"
+reason = "Declare the existing inference market module beside the handwritten TypeScript sources so the pipeline drift check classifies the shipped file."
+
+[repair.companion_test]
+manifest = "sdk/platform/pipeline.kvx"
+section = "handwritten.agent-compatibility"
+file = "typescript/test/inference-market.test.ts"
+classification = "handwritten"
+row = "\"typescript/test/inference-market.test.ts\" = \"handwritten\""
+reason = "The inference market module's existing companion test has the same missing handwritten declaration; classify it beside the existing TypeScript tests without changing the test."
+
+[qualification.initial_verify]
+revision = "480c2e44c175c0ebc6815315b148b30a19d4985a"
+command = "cg spec done 22.39.294 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The portable and JVM checks passed; layerx-platform-sdkgen --check refused the unclassified companion test services/agent/sdk/typescript/test/inference-market.test.ts."
+
+[repair.jvm_record]
+decision = "3138"
+gotcha = "4022"
+base_revision = "7c65ca246479ea68169faf54cef98cfeb9e66537"
+manifest = "sdk/platform/pipeline.kvx"
+section = "handwritten.platform-jvm"
+root = "sdk/platform/jvm"
+file = "repair_22_39_287.kvx"
+classification = "handwritten"
+row = "\"repair_22_39_287.kvx\" = \"handwritten\""
+reason = "Declare the existing JVM repair record after repair-22.33.1394.kvx so the pipeline drift check classifies the shipped record while preserving the inference market declarations."
+
+[qualification]
+build_command = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen"
+verify_command = "test -s sdk/platform/repair_22_39_294.kvx && python3 sdk/platform/generators/generate_portable.py --check $PWD && python3 sdk/platform/generators/generate_jvm.py --check $PWD && cargo run --manifest-path sdk/platform/generators/Cargo.toml --locked -p layerx-platform-sdkgen -- --check"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "/out/run/gates.jsonl: final kind=verify row records the exact candidate revision, command, exit and private log; qualification requires exit 0 and a successful build at the same revision."
+build_evidence = "/out/run/gates.jsonl: final kind=build row matching the verification revision."
+verify_evidence = "/out/run/gates.jsonl: final kind=verify row from hf-done, including all three platform SDK checks and graph checks."
