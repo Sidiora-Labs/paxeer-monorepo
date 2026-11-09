@@ -31,8 +31,8 @@ follow_up = "22.7.3"
 [disposition.22.11.8.1]
 finding = "22.11.8.1"
 status = "open"
-evidence = "modules/evm/keeper/msg_server.go:214 still copies the raw execution error into the response while modules/evm/keeper/receipt.go:287 appends the coded suffix only to the receipt, leaving new programme task 22.11.9 to decide and implement the response and EvmTxInfo error contract."
-follow_up = "22.11.9"
+evidence = "modules/evm/keeper/msg_server.go:214 on main still copies res.Err.Error() into the response VmError, while modules/evm/keeper/receipt.go:301 appends the precompile error after a bar only to the receipt VmError. Task 22.39.210 owns aligning the response with the receipt error text."
+follow_up = "22.39.210"
 
 [disposition.22.12.5.1]
 finding = "22.12.5.1"
