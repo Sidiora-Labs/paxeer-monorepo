@@ -191376,7 +191376,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.244]
 title = "Report the room market family availability from the captured policy and placement book"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191465,7 +191465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.240]
 title = "Point the chain endpoints of the one-source read test of the platform gateway at the node root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
