@@ -216,7 +216,7 @@ def test_f011_untouched_producer_manifest_admitted(tmp_path):
     consumer, path, scoped = recovery_publication(tmp_path)
     before = path.read_bytes()
     value = consumer.admit_manifest(path, SOURCE, scoped)
-    names = ('lxp_test_recovery', 'lxp_test_log_durability', 'lxp_test_batch_wal_recovery')
+    names = ('lxp_test_recovery', 'lxp_test_log_durability', 'lxp_test_rebuild')
     assert value['command'] == ['make', '-j3',
                                'PROGRAMS_TARGET_DIR=' + SETTINGS['PROGRAMS_TARGET_DIR'],
                                'PROGRAMS_RUNTIME_LIB=' + SETTINGS['PROGRAMS_RUNTIME_LIB']] + [
@@ -261,7 +261,7 @@ def test_f011_refuses_command_provenance_and_inventory_changes(tmp_path, change)
 def test_f011_retained_artifact_mutation_refused(tmp_path):
     consumer, path, scoped = recovery_publication(tmp_path)
     consumer.admit_manifest(path, SOURCE, scoped)
-    (tmp_path / 'bin' / 'lxp_test_batch_wal_recovery').write_bytes(b'changed')
+    (tmp_path / 'bin' / 'lxp_test_rebuild').write_bytes(b'changed')
     with pytest.raises(ValueError, match='differs from producer'):
         consumer.admit_manifest(path, SOURCE, scoped)
 

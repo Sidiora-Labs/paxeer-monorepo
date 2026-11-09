@@ -14,13 +14,10 @@ use layerx_crypto::disclosure::call::{
 use layerx_crypto::disclosure::AmountRole;
 use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender, Eip1559Call};
 use layerx_crypto::keystore::{Keystore, KeystoreEntropy};
-use layerx_crypto::send::{
-    encode_send_envelope, ledger_payment_call, send_context_hash, CallOptions, EnvelopeOptions,
-    SendDebit,
-};
+use layerx_crypto::send::{ledger_payment_call, send_context_hash, CallOptions, SendDebit};
 use layerx_crypto::signer::{
-    sign_disclosed, sign_disclosed_call, BindMessage, BindSigner, KeystoreSigner, LocalSigner,
-    SignError, Signer, SigningRequest,
+    sign_disclosed_call, BindMessage, BindSigner, KeystoreSigner, LocalSigner, SignError, Signer,
+    SigningRequest,
 };
 use layerx_types::intent::ProgramId;
 use layerx_types::program_call::{NativeProgramCall, Resources};
@@ -81,26 +78,6 @@ fn options(from: [u8; 20]) -> CallOptions {
     }
 }
 
-fn old_envelope(public_key: [u8; 32]) -> layerx_crypto::send::DisclosedEnvelope {
-    let payer = LocalSigner::new([5; 32]);
-    let payload = ready(debit(123).sign(&payer)).expect("real payer authorization");
-    encode_send_envelope(
-        &payload,
-        &EnvelopeOptions {
-            actor: "did:layerx:crypto-repair",
-            public_key,
-            protocol_version: 3,
-            network_id: 17,
-            identity_sequence: 7,
-            idempotency_key: [4; 32],
-            fee_limit: 20,
-            not_before: 10,
-            not_after: 100,
-        },
-    )
-    .expect("production legacy producer for refusal coverage")
-}
-
 #[test]
 fn disclosure_activity_success_tests_use_sender_bound_evm_calls() {
     let account = derive_from_seed(&[7; 64], 0).expect("derived account");
@@ -157,22 +134,18 @@ fn disclosure_activity_success_tests_use_sender_bound_evm_calls() {
 #[test]
 fn disclosure_activity_success_tests_refuse_retired_activity_signing() {
     let signer = LocalSigner::new([5; 32]);
-    let old = old_envelope(signer.public_key());
+    let produced = support::send_call(123, 7);
+    let canonical = produced.call.encode_unsigned();
+    let request = support::signing::activity_request(&canonical, &produced.disclosure);
     let message =
-        layerx_crypto::SignatureMessage::new(Domain::SignaturePreimage, 3, 17, &old.canonical)
+        layerx_crypto::SignatureMessage::new(Domain::SignaturePreimage, 3, 17, &canonical)
             .expect("legacy scope");
+    let validated = SigningRequest::new(message, &produced.disclosure)
+        .expect("request carrying a validated call disclosure");
+    assert_eq!(validated.signing_bytes(), Err(SignError::InvalidDisclosure));
+    assert!(BindMessage::decode(&canonical).is_err());
     assert_eq!(
-        SigningRequest::new(message, &old.disclosure).err(),
-        Some(SignError::InvalidDisclosure)
-    );
-    assert!(BindMessage::decode(&old.canonical).is_err());
-    assert_eq!(
-        ready(sign_disclosed(
-            &signer,
-            &old.canonical,
-            &old.disclosure,
-            &old.registry
-        )),
+        ready(signer.sign(request)),
         Err(SignError::InvalidDisclosure),
         "req.9341: the real local signer must refuse the retired activity preimage"
     );
@@ -351,18 +324,15 @@ fn ssh_agent_test_expects_old_signature_refuses_before_contact() {
     // No peer is listening: only a refusal before transport contact is valid.
     let signer = KeystoreSigner::new("/nonexistent/layerx-repair-22-33-1560.sock", key)
         .expect("external public key");
-    let old = old_envelope(key);
+    let produced = support::send_call(123, 7);
+    let canonical = produced.call.encode_unsigned();
+    let request = support::signing::activity_request(&canonical, &produced.disclosure);
     assert_eq!(
-        ready(signer.sign_bind_bytes(&old.canonical)),
+        ready(signer.sign_bind_bytes(&canonical)),
         Err(SignError::InvalidDisclosure)
     );
     assert_eq!(
-        ready(sign_disclosed(
-            &signer,
-            &old.canonical,
-            &old.disclosure,
-            &old.registry
-        )),
+        ready(signer.sign(request)),
         Err(SignError::InvalidDisclosure),
         "activity refusal must precede SSH-agent connection or signing"
     );
@@ -391,13 +361,10 @@ fn reopened_agent_signs_old_activity_refuses_before_and_after_key_recovery() {
         Ok(())
     );
     let public_key = first.public_key();
-    let old = old_envelope(public_key);
-    let before = ready(sign_disclosed(
-        &first,
-        &old.canonical,
-        &old.disclosure,
-        &old.registry,
-    ));
+    let produced = support::send_call(123, 7);
+    let canonical = produced.call.encode_unsigned();
+    let request = support::signing::activity_request(&canonical, &produced.disclosure);
+    let before = ready(first.sign(request));
     drop(first);
     drop(store);
     let reopened = Keystore::from_bytes(&persisted).expect("reopen production state");
@@ -415,12 +382,7 @@ fn reopened_agent_signs_old_activity_refuses_before_and_after_key_recovery() {
         binding.verify(&recovered.public_key(), recovered_signature.as_bytes()),
         Ok(())
     );
-    let after = ready(sign_disclosed(
-        &recovered,
-        &old.canonical,
-        &old.disclosure,
-        &old.registry,
-    ));
+    let after = ready(recovered.sign(request));
     assert_eq!(
         (before, after),
         (
@@ -505,13 +467,10 @@ fn remote_success_fixture_is_activity_refuses_before_remote_transport() {
         Duration::from_secs(2),
     )
     .expect("remote signer");
-    let old = old_envelope(key);
-    let result = ready(sign_disclosed(
-        &signer,
-        &old.canonical,
-        &old.disclosure,
-        &old.registry,
-    ));
+    let produced = support::send_call(123, 7);
+    let canonical = produced.call.encode_unsigned();
+    let request = support::signing::activity_request(&canonical, &produced.disclosure);
+    let result = ready(signer.sign(request));
     assert_eq!(
         (result, requests.load(Ordering::SeqCst)),
         (Err(SignError::InvalidDisclosure), 0),
@@ -603,18 +562,15 @@ fn retained_bind_external_key_recovers_across_agent_restart() {
         let peer = support::signing::AgentPeer::open(&persisted);
         let signer = KeystoreSigner::new(peer.socket_path(), peer.public_key)
             .expect("recovered external identity");
-        let old = old_envelope(peer.public_key);
+        let produced = support::send_call(123, 7);
+        let canonical = produced.call.encode_unsigned();
+        let request = support::signing::activity_request(&canonical, &produced.disclosure);
         assert_eq!(
-            ready(sign_disclosed(
-                &signer,
-                &old.canonical,
-                &old.disclosure,
-                &old.registry
-            )),
+            ready(signer.sign(request)),
             Err(SignError::InvalidDisclosure)
         );
         assert_eq!(
-            ready(signer.sign_bind_bytes(&old.canonical)),
+            ready(signer.sign_bind_bytes(&canonical)),
             Err(SignError::InvalidDisclosure)
         );
         assert_eq!(peer.attempts.load(Ordering::SeqCst), 0);
@@ -637,12 +593,7 @@ fn retained_bind_external_key_recovers_across_agent_restart() {
         assert_eq!(peer.attempts.load(Ordering::SeqCst), 2);
         drop(peer);
         assert_eq!(
-            ready(sign_disclosed(
-                &signer,
-                &old.canonical,
-                &old.disclosure,
-                &old.registry
-            )),
+            ready(signer.sign(request)),
             Err(SignError::InvalidDisclosure)
         );
         assert_eq!(

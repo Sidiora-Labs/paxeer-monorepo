@@ -703,6 +703,7 @@ fn worker_for(
     Ok(worker)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_record_deal(
     book: &RoomBook<'_>,
     request: &RecordDealRequest,
@@ -776,6 +777,7 @@ pub fn apply_record_deal(
     book.write(3, record.deal_id, &bytes, false, out)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

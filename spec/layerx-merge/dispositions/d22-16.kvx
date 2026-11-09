@@ -82,3 +82,8 @@ evidence = "On main, programs/vendor/wasm-instrument/src/gas_metering/mod.rs:164
 finding = "22.99.62.2"
 status = "resolved"
 evidence = "On main, services/interop/crates/layerx-committed-proof/tests/receipted.rs:106 derives expected_v1_cases from the recorded V1 entries, and the acceptance and operation totals at lines 323 and 388 must equal that count. Commit 8f1531ad056fce5788c246e601df553c09e7c916 landed the fixture-derived counts while retaining the nonempty-fixture assertion and all six recorded V3 refusal checks."
+
+# Task 22.39.198 continues the 22.33 finding dispositions in d22-30.kvx.
+# Its 104 finding ids, in disposition order, are listed in
+# spec/layerx-merge/programme/closure/22.39.198.ids.
+# Product citations use origin/main at a26369c7eda603cb28bcdd8cef55c35df7d248ee.

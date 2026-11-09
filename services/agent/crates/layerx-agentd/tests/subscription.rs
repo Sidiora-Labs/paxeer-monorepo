@@ -357,8 +357,12 @@ fn legacy_subscription_without_a_session_generation_requires_cursor_reset() {
         let error =
             SubscriptionStore::open(text(Store::open(&root), "store restart"), tenant_id.clone())
                 .expect_err("legacy cursor must require an explicit reset");
-        assert!(matches!(error, SubscriptionError::CursorResetRequired));
-        assert_eq!(error.to_string(), "subscription.cursor_reset_required");
+        // 2986: open reports the upgrade interface with the affected tenant and subscription.
+        assert!(
+            matches!(&error, SubscriptionError::UpgradeRequired { tenant, subscription_id }
+            if tenant == tenant_id.as_str() && subscription_id == id.as_str())
+        );
+        assert_eq!(error.to_string(), format!("subscription.cursor_reset_required: tenant={} subscription={}; use Store::recover_legacy with an explicit replay boundary and retained backup", tenant_id.as_str(), id.as_str()));
         let durable = text(Store::open(&root), "inspect legacy record");
         assert!(durable
             .get(&subscription_key(&tenant_id, &id))
@@ -1207,4 +1211,60 @@ fn poisoned_shared_backing_reports_unavailable() {
     ));
     drop(subscriptions);
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn anchored_local_cursors_keep_strict_delivery_and_exact_acknowledgements() {
+    let root = test_directory("anchored-local-refusals");
+    let tenant = durable_tenant("tenant-a");
+    let scope = scope("tenant-a", "agent-a", "capability-a");
+    let id = subscription_id("subscription-a");
+    let target = subscription_target(&scope, &id);
+    let mut store = SubscriptionStore::open(Store::open(&root).unwrap(), tenant.clone()).unwrap();
+    store
+        .create(
+            id.clone(),
+            request(scope.clone(), filter("tenant-a", "agent-a"), 0),
+        )
+        .unwrap();
+    let first = Cursor {
+        block_height: 0,
+        // 2985: attempt-1 (0, 0, 1) -> (0, MAX, 0).
+        tx_index: u32::MAX,
+        log_index: 0,
+    };
+    let second = Cursor {
+        block_height: 0,
+        // 2985: attempt-1 (0, 0, 2) -> (0, MAX, 1).
+        tx_index: u32::MAX,
+        log_index: 1,
+    };
+    store.mark_delivered(&target, first).unwrap();
+    assert!(
+        matches!(store.mark_delivered(&target, first), Err(SubscriptionError::CursorOutOfOrder { expected, received }) if expected == second && received == first)
+    );
+    assert!(
+        matches!(store.acknowledge(&CursorAcknowledgement { scope: scope.clone(), subscription_id: id.clone(), cursor: second.into() }), Err(SubscriptionError::CursorNeverDelivered { cursor }) if cursor == second)
+    );
+    store.mark_delivered(&target, second).unwrap();
+    store
+        .acknowledge(&CursorAcknowledgement {
+            scope: scope.clone(),
+            subscription_id: id.clone(),
+            cursor: first.into(),
+        })
+        .unwrap();
+    drop(store);
+    let mut store = SubscriptionStore::open(Store::open(&root).unwrap(), tenant).unwrap();
+    assert_eq!(store.resume_cursor(&target).unwrap(), first);
+    store
+        .acknowledge(&CursorAcknowledgement {
+            scope,
+            subscription_id: id,
+            cursor: second.into(),
+        })
+        .unwrap();
+    assert_eq!(store.resume_cursor(&target).unwrap(), second);
+    drop(store);
+    fs::remove_dir_all(root).unwrap();
 }

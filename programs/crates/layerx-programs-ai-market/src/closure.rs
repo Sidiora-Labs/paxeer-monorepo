@@ -438,11 +438,11 @@ fn epoch_terminal(state: &SharedState<'_>, rewards: Option<&RewardState<'_>>) ->
     let Some(rewards) = rewards else {
         return Ok(true);
     };
-    let admission = AdmissionTable::decode(
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?;
+    )?)?;
     let Some(epoch) = admission.current_epoch() else {
         return Ok(true);
     };
@@ -459,11 +459,11 @@ fn task_set_identity(
     state: &SharedState<'_>,
     section: &PolicySection<'_>,
 ) -> CodecResult<Option<[u8; 32]>> {
-    let admission = AdmissionTable::decode(
+    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
-    )?;
+    )?)?;
     match admission.current_epoch() {
         Some(epoch) => match terminal_task_set(state, epoch) {
             Ok(digest) => Ok(Some(digest.bytes())),
@@ -692,6 +692,7 @@ fn advance_close(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> 
 /// `F01_OBLIGATIONS_OUTSTANDING` while a phase waits; F06 ledger refusals;
 /// `F01_CAPACITY_UNAVAILABLE`, `CAPACITY` and `ARITHMETIC`. On any error `current` is
 /// unchanged and the outputs must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

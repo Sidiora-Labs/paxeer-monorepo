@@ -15,10 +15,7 @@ use ed25519_dalek::{Signature, Signer as _, SigningKey};
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
-use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError, EvmPrepared,
-    PreparationDefaults, PrepareRequest, Prepared,
-};
+use layerx_agentd::prepare::EvmPrepared;
 use layerx_agentd::session::{
     close, invalidate_on_revocation, open, InvalidationReason, OpenRequest, RevocationEvent,
     SessionId, SessionRegistry, Token,
@@ -41,7 +38,6 @@ use layerx_human_service::custody::{
 use layerx_human_service::store::PrincipalId;
 use layerx_intents::{compile, DisclosureCheck, Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
@@ -125,14 +121,6 @@ struct IdentityBoundary(CoreIdentity);
 impl IdentityResolver for IdentityBoundary {
     fn resolve(&mut self, _did: &Did) -> Result<Option<CoreIdentity>, IdentityError> {
         Ok(Some(self.0.clone()))
-    }
-}
-
-struct PreparationBoundary(CorePreparationState);
-
-impl CorePreparationBoundary for PreparationBoundary {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
     }
 }
 
@@ -244,15 +232,11 @@ impl AgentLayer {
             .installed
             .get(&grant_id)
             .unwrap_or_else(|| panic!("installed signer missing"));
-        let prepared = prepared_send(
-            &self.did,
-            installed.issued.authority.clone(),
-            &installed.debit_signer,
-            self.now,
-        );
+        let prepared = compile(&send_intent(&installed.debit_signer, self.now), &registry())
+            .unwrap_or_else(|error| panic!("send compile: {error:?}"));
         let from = installed.actor_address;
         let call = ledger_payment_call(
-            prepared.envelope.payload().as_bytes(),
+            prepared.payload().as_bytes(),
             &CallOptions {
                 from,
                 chain_id: u64::from(NETWORK_ID),
@@ -671,41 +655,6 @@ fn send_intent(signer: &LocalSigner, now: u64) -> Intent {
     )
     .unwrap_or_else(|error| panic!("send intent: {error:?}"));
     Intent::v1(IntentKind::LxpSend(send))
-}
-
-fn prepared_send(did: &Did, authority: Authority, signer: &LocalSigner, now: u64) -> Prepared {
-    let compiled = compile(&send_intent(signer, now), &registry())
-        .unwrap_or_else(|error| panic!("send compile: {error:?}"));
-    let mut boundary = PreparationBoundary(CorePreparationState {
-        network_id: NETWORK_ID,
-        account_sequence: 7,
-        protocol_timestamp: now,
-        observed_head_sequence: 90,
-        module_registry: registry(),
-    });
-    prepare_activity(
-        &mut boundary,
-        PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(10),
-            maximum_payload_bytes: 1_024,
-        },
-        PrepareRequest {
-            actor: did.clone(),
-            authority,
-            activity_type: compiled.activity_type(),
-            expected_account_sequence: Some(7),
-            timestamp_bound: Some(
-                TimestampBound::new(now, now.saturating_add(20))
-                    .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-            ),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new([0x44; 32]),
-            payload: compiled.payload().as_bytes().to_vec(),
-            declared_payload_limit: 1_024,
-        },
-    )
-    .unwrap_or_else(|error| panic!("prepare: {error:?}"))
 }
 
 fn keystore(

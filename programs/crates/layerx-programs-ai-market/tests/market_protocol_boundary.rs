@@ -280,6 +280,7 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation: Vec<u8>,
     replay: ReplayTable,
     features: Vec<u8>,
 }
@@ -287,6 +288,8 @@ impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let (_, table) = layerx_programs_ai_market::reputation_transition::split_joint(admission)?;
+        let reputation = admission[..admission.len() - table.len()].to_vec();
         let (workers, region) = split_identity_section(identity)?;
         Ok(Self {
             revision: state.revision,
@@ -295,7 +298,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation,
             replay: state.control.replay,
             features: state.control.feature_bytes.to_vec(),
         })
@@ -315,15 +319,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let admission = [self.reputation.as_slice(), admission.as_slice()].concat();
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &admission],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &self.features,

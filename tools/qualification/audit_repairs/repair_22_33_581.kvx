@@ -4,7 +4,7 @@ acceptance = "22998.1"
 base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
 starting_revision = "91fff5c678a7e351a1668adf133236bbabc6d065"
 readme_owner_revision = "38801bb42"
-readme_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+readme_sha256 = "188d8c138efd7e35992f0a390886bd129a05322d55cd00f9a3f1c43cc6e28d1b"
 implementation = "Decision 2525: consume README.md exactly as task 22.31.470 left it; add focused offline source assertions and this finding-to-test record without editing the root README or any production source."
 source_proof = "Tests read the real README, parse its chain-ID curl payload and root HTTPS URLs, check its topology and ordered receipt sequence, and bind the documented producer/transport/consumer to node host wiring, transaction acceptance/forwarding, durable receipt release, committed coverage and retirement guards. Makefile prerequisite targets and chain.mk output are checked directly. Current native perps is distinguished from earlier versioned exchange interfaces; the missing explicit historical exchange replay label is routed below."
 review_only = "Native Go/C/Rust builds, node startup, transaction execution, durable WAL restart/recovery, cryptographic proof verification, live endpoint reachability and deployment activation are not executed by this source gate. No stateful component or production interface changes; restart and interface-driving tests are inapplicable to this documentation finding. This gate checks README examples and source wiring, not runtime behavior. No shell script, unit file or manifest is repaired."
@@ -42,3 +42,7 @@ resolution = "Preserve all pre-existing changes and record this note and the REA
 [gotcha.context]
 observed = "Broad context reads exceeded output limits and cg brief/survey reflected a stale graph with unrelated tasks and apparent changes."
 resolution = "Use bounded task and finding sections, actual git status/diff, and the private gate ledger for this task."
+
+[qualification_pin_22_31_623]
+source_revision = "89c8395f4e8340dfd9447c6d20f7065cede8e6b5"
+policy = "Refresh the retained full-content fingerprint from the live producer after authorized task repairs; original audit metadata remains historical. This is a source pin, not a claim that qualification passed."

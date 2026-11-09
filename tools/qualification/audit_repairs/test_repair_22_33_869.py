@@ -201,7 +201,7 @@ def test_root_network_guide_retired_executors_and_merged_build():
     ):
         assert fact in build, fact
     assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in source("Makefile")
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in source("Makefile")
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     upgrades = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in upgrades

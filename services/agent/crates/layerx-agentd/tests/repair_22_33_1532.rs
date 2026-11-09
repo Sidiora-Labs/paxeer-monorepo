@@ -18,11 +18,11 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use layerx_agentd::human::HumanPeer;
+use layerx_agentd::human_node::HumanStateError;
 use layerx_agentd::human_runtime::{HumanAuthorityBoundary, RemoteHumanAuthority};
 use layerx_agentd::node_rpc::{
     NodeRpc, NodeRpcConfig, NodeRpcError, LAYERX_AGENT_NODE_CHAIN_ID, LAYERX_AGENT_NODE_RPC_URL,
 };
-use layerx_agentd::prepare::legacy::CoreStateError;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use native_tls::{Identity, TlsAcceptor};
 use openssl::asn1::Asn1Time;
@@ -271,11 +271,11 @@ fn readme_startup_authority_reads_each_peer_and_refuses_invalid_registry() {
     assert_eq!(must(authority.registry(&peer("b"))), registry);
     assert_eq!(
         authority.registry(&peer("a")),
-        Err(CoreStateError::Unverified)
+        Err(HumanStateError::Unverified)
     );
     assert_eq!(
         authority.registry(&peer("a")),
-        Err(CoreStateError::Unverified)
+        Err(HumanStateError::Unverified)
     );
     assert_eq!(must(authority.registry(&peer("a"))), registry);
     must(server.join());

@@ -184,7 +184,7 @@ def test_051_build_and_start_use_the_merged_node():
     assert ["./build/paxd", "start", "--home", "$PAXD_HOME"] in commands
     makefile = source("Makefile")
     assert re.search(r"^paxd-build: paxd-native-libs$", makefile, re.M)
-    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build$", makefile, re.M)
+    assert re.search(r"^paxd-native-libs: \$\(LIBRARY\) programs-release-build evmone-lib$", makefile, re.M)
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
 

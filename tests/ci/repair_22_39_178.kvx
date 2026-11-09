@@ -1,0 +1,51 @@
+[repair.22.39.178]
+decision = "3016"
+gotcha = "3714"
+requirement = "22998.1"
+base_revision = "246829c4964ad6d5400b13084f9b4b74711f35e6"
+producer_task = "22.39.145"
+producer_revision = "5577807085"
+producer = "sdk/wallet/package.json added react-dom ^19.0.0 and jsdom ^26.1.0; every workspace importer of the SDK follows that manifest."
+sdk_lock_refresh = "The targeted pnpm lockfile refresh retains react-dom 19.3.1 and sets the manifest and lockfile lower bound to ^19.3.1; jsdom remains ^26.1.0 at 26.1.0."
+verified_revision = "The candidate revision is recorded with the exact command, exit code and private log in /out/run/gates.jsonl by hf-build and hf-done, and copied into the final handoff; this record belongs to that candidate."
+build_evidence = "/out/run/gates.jsonl: kind=build; private logs /out/logs/build-*.log"
+verify_evidence = "/out/run/gates.jsonl: kind=verify; private logs /out/logs/verify-*.log"
+publication = "The runner publishes the qualified candidate; the worker does not commit or push."
+
+[job.wallet_tests]
+workflow = ".github/workflows/wallet-test.yml"
+job = "Vitest (sdk/wallet)"
+repair = "Install services/wallet frozen after the isolated SDK install so imports of gateway support resolve jose and other declared gateway packages; install Go, PostgreSQL and OpenSSL for the real attestor and database fixtures. Keep the SDK install and matrix suite command unchanged."
+sdk_agent_build = "Keep the linked agent SDK install and build outside the repository npm workspace using --workspaces=false, matching the public job and verification gate."
+tests = ["tests/ci/test_wallet_test_workflow.py", "tests/ci/test_pnpm_workspace_roots.py"]
+
+[job.wallet_go_tests]
+workflow = ".github/workflows/wallet-go-test.yml"
+repair = "Refresh services/wallet/pnpm-lock.yaml with the pinned pnpm release so its ../../sdk/wallet importer includes react-dom and jsdom; the workflow needs no edit."
+tests = ["tests/ci/test_wallet_lockfiles_current.py"]
+
+[lockfile_inventory]
+wallet_workspaces = ["sdk/wallet (isolated with --ignore-workspace)", "services/wallet", "apps/wallet"]
+other_sdk_importer = "apps/perps/pnpm-lock.yaml also imports ../../sdk/wallet and was refreshed as a generated side effect with pnpm 10.34.9."
+linked_sdk_consumers = "services/wallet and apps/perps link the SDK from their members; apps/wallet links it directly. apps/web has a file dependency whose snapshot follows runtime and peer dependencies, which producer 5577807085 did not change."
+criterion = "Each wallet workspace test executes its real pnpm frozen install with --ignore-scripts and asserts exit zero; no test or baseline is weakened."
+
+[implementation_note.package_manager_root]
+observed = "Running pnpm --version at the repository root refuses with ERR_PNPM_OTHER_PM_EXPECTED because that manifest pins npm."
+resolution = "Run pnpm from the wallet workspace directory; root --dir invocations need the directly installed pnpm CLI so it processes --dir before package-manager validation."
+
+[consumer.web_locks_setup]
+producer_task = "22.39.55"
+producer_revision = "cda4e5f2e2"
+consumer = "tests/ci/test_wallet_test_workflow.py::test_wallet_setup_provides_web_locks"
+producer_paths = ["apps/wallet/src/widgets/pns/repair-22-33-138.test.ts", "apps/wallet/src/widgets/swap/repair-22-31-239.test.ts"]
+repair = "Assert the producer's namespace import of node:worker_threads and const locks: unknown = Reflect.get(workerThreads, 'locks'); retain the beforeAll navigator.locks defineProperty and identity and request assertions. Both widget test files stay unchanged."
+evidence = "The final candidate's build and verification are recorded by reference in build_evidence and verify_evidence above, with the verified revision copied into the final handoff."
+
+[qualification.corepack_dispatch]
+revision = "c0551b69ec9272b81eee5adbf6ed0d770db49463"
+command = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir sdk/wallet --ignore-workspace install --frozen-lockfile --ignore-scripts && cd apps/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && python3 -m py_compile tests/ci/test_wallet_lockfiles_current.py tests/ci/test_wallet_test_workflow.py"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The services frozen install passes, then Corepack dispatch rejects the root npm packageManager before pnpm receives --dir sdk/wallet."
+resolution = "Install pnpm@10.34.9 directly in a private temporary prefix and prepend its bin directory to the gate PATH, matching the public workflow's direct pnpm installation without changing the declared commands or disabling package-manager validation."

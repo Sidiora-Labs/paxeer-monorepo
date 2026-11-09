@@ -316,7 +316,6 @@ class ReleaseRunnerTests(unittest.TestCase):
             "node": "https://node.example.test",
             "agentd": "https://agent.example.test",
             "human_service": "https://human.example.test",
-            "paxeer_testnet": "https://paxeer.example.test",
         }
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

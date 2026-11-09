@@ -66,8 +66,8 @@ pub fn mul_div_rem(b: u128, s: u64, t: u64) -> CodecResult<(u128, u64)> {
         .zip([top, low_limb(mid)?, low_limb(lo)?])
     {
         let current = (rem << 64) | u128::from(limb);
-        *q = u64::try_from(current / t).map_err(|_| ARITHMETIC)?;
-        rem = current % t;
+        *q = u64::try_from(current.checked_div(t).ok_or(ARITHMETIC)?).map_err(|_| ARITHMETIC)?;
+        rem = current.checked_rem(t).ok_or(ARITHMETIC)?;
     }
     if *quotient.guest_index(0) != 0 {
         return Err(ARITHMETIC);
@@ -328,8 +328,10 @@ pub fn split_settled_amount(
         faults
     };
     let laps = faults.len() as u128;
+    let lap_floor = pool.checked_div(laps).ok_or(CAPACITY)?;
+    let lap_remainder = pool.checked_rem(laps).ok_or(CAPACITY)?;
     for (lap, &mask) in faults.iter().enumerate() {
-        let budget = pool / laps + u128::from((lap as u128) < pool % laps);
+        let budget = lap_floor + u128::from((lap as u128) < lap_remainder);
         let mut total = 0u64;
         for (i, &(_, weight)) in peers.iter().enumerate() {
             if mask & (1u32 << i) == 0 {

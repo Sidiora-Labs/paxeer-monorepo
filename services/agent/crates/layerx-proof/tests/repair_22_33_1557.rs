@@ -4,19 +4,16 @@
 
 // Preserve the existing real inclusion producer/consumer assertions for all
 // three retained constructors, including state evidence, in this focused gate.
+#[path = "support/historical_checkpoint.rs"]
+mod historical;
 #[path = "repair_22_31_226.rs"]
 mod retained_certificate_retirement;
-#[path = "checkpoint.rs"]
-mod retained_checkpoint_consumers;
 #[path = "export_complete.rs"]
 mod retained_complete_export;
 #[path = "inclusion.rs"]
 mod retained_inclusion;
 #[path = "offline_export.rs"]
 mod retained_offline_export;
-
-#[path = "support/historical_checkpoint.rs"]
-mod historical;
 
 use layerx_proof::evidence::Evidence;
 use layerx_proof::export::{
@@ -317,20 +314,13 @@ fn registry_removed_codec_symbols_certificate_bucket_is_always_refused() {
 }
 
 #[test]
-fn retired_settlement_items_are_deprecated_and_checkpoint_api_is_retained() {
+fn retired_settlement_items_and_checkpoint_api_are_deleted() {
     let lib = include_str!("../src/lib.rs");
-    assert!(lib.contains("pub mod checkpoint;"));
-    historical::assert_deprecated(lib, "pub mod settlement;");
-    let settlement = include_str!("../src/settlement.rs");
-    for declaration in [
-        "pub const DECLARED_CHECKPOINT_SETTLEMENT:",
-        "pub struct DeclaredDomain {",
-        "pub fn declared()",
-        "pub fn maximum_attestation_delay_ms()",
-        "pub fn declared_domain(",
-    ] {
-        historical::assert_deprecated(settlement, declaration);
-    }
+    assert!(!lib.contains("pub mod checkpoint;"));
+    assert!(!lib.contains("pub mod settlement;"));
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    assert!(!manifest.join("src/checkpoint.rs").exists());
+    assert!(!manifest.join("src/settlement.rs").exists());
     let evidence = include_str!("../src/evidence.rs");
     for retired in ["checkpoint_id", "settlement_reference", "fn checkpoint("] {
         assert!(!evidence.contains(retired));
@@ -352,90 +342,72 @@ fn retired_settlement_items_are_deprecated_and_checkpoint_api_is_retained() {
 }
 
 #[test]
-fn retained_checkpoint_api_refuses_historical_certificates() {
-    use layerx_proof::checkpoint::{
-        checkpoint_id, verify_certificate, verify_declared_certificate, Attestation, Certificate,
-        Checkpoint, CheckpointError, GuarantorKey, SettlementDomain, ThresholdReport,
-    };
-    use layerx_types::vectors::checkpoint::load_checkpoint_vectors;
+fn historical_checkpoint_vectors_preserve_bytes_without_a_certificate_verifier() {
+    use layerx_types::vectors::checkpoint::{load_checkpoint_vectors, CHECKPOINT_VECTOR_CASES};
+    use layerx_wire::hash::{checkpoint_attestation_digest, checkpoint_id};
 
-    // Keep the exact result type consumed by layerx-agentd::cache available.
-    let verify: fn(
-        &Certificate,
-        &str,
-        &[u8; 32],
-        Option<&[u8]>,
-    ) -> Result<ThresholdReport, CheckpointError> = verify_declared_certificate;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
-    let configuration = must(
-        layerx_types::settlement::DeclaredCheckpointSettlement::parse(include_str!(
-            "../../../../../contracts/config/checkpoint-settlement.json"
-        )),
-    );
-    for vector in must(load_checkpoint_vectors(&root)) {
-        let domain = must(configuration.domain(&vector.settlement_domain));
-        let checkpoint =
-            Checkpoint::new(vector.header.bytes.clone(), vector.validity_proof.clone());
-        assert_eq!(must(checkpoint_id(&checkpoint)), vector.expected_digest);
-        let keys: Vec<_> = domain
-            .guarantor_set()
-            .iter()
-            .map(|key| GuarantorKey::new(key.guarantor_id(), key.public_key(), true))
-            .collect();
-        let attestations: Vec<_> = vector
-            .attestations
-            .iter()
-            .map(|signed| {
-                let attestation = Attestation::new(
-                    vector.header.protocol_version,
-                    vector.header.network_id,
-                    domain.paxeer_chain_id(),
-                    domain.settlement_contract(),
-                    vector.header.epoch,
-                    vector.expected_digest,
-                    vector.expected_digest,
-                    signed.guarantor_id,
-                    vector.header.batch_number,
-                    vector.header.data_availability_root,
-                    signed.replayed,
-                    signed.data_possessed,
-                    signed.availability_class_mask,
-                    signed.attested_at_ms,
-                    signed.signer,
-                    signed.signature,
-                    signed.signature_v,
-                );
-                assert_eq!(attestation.canonical_statement(), signed.message);
-                attestation
-            })
-            .collect();
-        for reference in [None, Some(b"registered-checkpoint".to_vec())] {
-            let certificate = Certificate::new(
-                checkpoint.clone(),
-                attestations.clone(),
-                vector.threshold,
-                reference,
-            );
+    let configuration = historical::configuration();
+    let vectors = must(load_checkpoint_vectors(&root));
+    assert_eq!(vectors.len(), CHECKPOINT_VECTOR_CASES.len());
+    for vector in vectors {
+        let domain = configuration.domain(&vector.settlement_domain);
+        assert_eq!(
+            must(checkpoint_id(&vector.header.bytes, &vector.validity_proof)),
+            vector.expected_digest
+        );
+        for signed in &vector.attestations {
+            let mut statement = Vec::new();
+            statement.extend_from_slice(&vector.header.protocol_version.to_be_bytes());
+            statement.extend_from_slice(&vector.header.network_id.to_be_bytes());
+            statement.extend_from_slice(&domain.paxeer_chain_id.to_be_bytes());
+            statement.extend_from_slice(&domain.settlement_contract);
+            statement.extend_from_slice(&vector.header.epoch.to_be_bytes());
+            statement.extend_from_slice(&vector.expected_digest);
+            statement.extend_from_slice(&vector.expected_digest);
+            statement.extend_from_slice(&signed.guarantor_id);
+            statement.extend_from_slice(&vector.header.batch_number.to_be_bytes());
+            statement.extend_from_slice(&vector.header.data_availability_root);
+            statement.extend_from_slice(&[
+                u8::from(signed.replayed),
+                u8::from(signed.data_possessed),
+                signed.availability_class_mask,
+            ]);
+            statement.extend_from_slice(&signed.attested_at_ms.to_be_bytes());
+            assert_eq!(statement, signed.message);
             assert_eq!(
-                verify_certificate(
-                    &certificate,
-                    &keys,
-                    &vector.expected_digest,
-                    SettlementDomain::new(domain.paxeer_chain_id(), domain.settlement_contract()),
-                    certificate.settlement_reference(),
-                ),
-                Err(CheckpointError::RetiredCertificateVerifier)
+                must(checkpoint_attestation_digest(&statement)),
+                signed.digest
             );
-            for name in [vector.settlement_domain.as_str(), "undeclared"] {
-                assert_eq!(
-                    verify(
-                        &certificate,
-                        name,
-                        &vector.expected_digest,
-                        certificate.settlement_reference(),
-                    ),
-                    Err(CheckpointError::RetiredCertificateVerifier)
-                );
+        }
+    }
+    let lib = include_str!("../src/lib.rs");
+    for retired in [
+        "checkpoint",
+        "settlement",
+        "verify_certificate",
+        "verify_declared_certificate",
+    ] {
+        assert!(
+            !lib.contains(retired),
+            "proof API must not expose {retired}"
+        );
+    }
+    let mut directories = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];
+    while let Some(directory) = directories.pop() {
+        for entry in must(std::fs::read_dir(directory)) {
+            let path = must(entry).path();
+            if path.is_dir() {
+                directories.push(path);
+            } else if path.extension().is_some_and(|extension| extension == "rs") {
+                let source = must(std::fs::read_to_string(&path));
+                for retired in ["verify_certificate", "verify_declared_certificate"] {
+                    assert!(
+                        !source.contains(retired),
+                        "{} retains {retired}",
+                        path.display()
+                    );
+                }
             }
         }
     }

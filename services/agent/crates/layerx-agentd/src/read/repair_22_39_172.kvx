@@ -1,0 +1,176 @@
+[meta]
+task = "22.39.172"
+decision = "2987, 2988, 2995; qualification follows decisions 2900 and 2908"
+gotcha = "3687, 3688, 3695"
+base_revision = "dd4addbf677b3c65e139efa6b4f44c2858fdedbd"
+previous_attempt_base = "6eeea3b0755ea285d12cdb7556cbd536e3a912d9"
+status = "qualification_pending"
+baseline = "Inventory-reported failures from GOTCHA.kvx [gotcha.3687], not newly reproduced: the ordered instructions prohibit testing before complete implementation and authorize only hf-build followed by hf-done."
+verified_revision = "Resolve the revision field of the final verify row in the private /out/run/gates.jsonl ledger; a successful result requires exit 0 and the same revision in the final build row."
+
+[history_served_contract]
+target = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+before_source = "GOTCHA.kvx [gotcha.3687]: eight read_account cases expect null instead of the exclusive initial cursor."
+before_failures = ["read_account_decodes_a_served_gateway_page", "read_account_accepts_a_self_transfer_pair_that_closes_the_page", "read_account_accepts_equal_positions_within_the_limit", "read_account_continues_after_a_shared_position_group", "read_account_refuses_a_descending_row", "read_account_refuses_overflow_at_a_later_position", "read_account_preserves_response_and_cursor_bounds", "read_account_propagates_a_served_refusal"]
+producer = "22.33.1521 HistoryPage::read_account in src/read/history.rs; 22.31.218 src/read/repair_22_31_218.kvx [gotcha.reverse_history] records that the hosted producer supports ascending exclusive cursors."
+update = "Derive each first-page expected cursor with Cursor::to_hex at (from_height - 1, u32::MAX, u32::MAX), sharing from_height with the read_account call; preserve explicit continuation cursors and the direct endpoint.history null cursor."
+assertions = "Keep every page, height, cursor-bound and refusal assertion; decision 2995 aligns only the expected exact response-size value with the producer's four-field measure."
+after_failures = ["read_account_accepts_a_self_transfer_pair_that_closes_the_page", "read_account_accepts_equal_positions_within_the_limit", "read_account_continues_after_a_shared_position_group", "read_account_decodes_a_served_gateway_page", "read_account_preserves_response_and_cursor_bounds", "read_account_refuses_a_descending_row", "read_account_refuses_overflow_at_a_later_position"]
+after_source = "Private /out/logs/verify-1.log at 4a9a0751ef1b1fceb9edee7e430371a2ca561cae: 1 passed, 7 failed; remaining failures report Sequencer(Malformed), not a cursor parameter mismatch."
+
+[repair_22_33_1506]
+target = "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"
+before_source = "GOTCHA.kvx [gotcha.3687]: the cross-UID case makes the protected store root world-writable."
+before_failures = ["outbound_peer_authenticates_cross_uid_and_refuses_wrong_uid_processes"]
+producer = "22.30.91 protected store root check; src/store/protected.rs requires root mode 0700 on subsequent operations."
+update = "Retain and assert the store root mode 0700; create a separate Directory sibling under std::env::temp_dir with mode 0777 for receiver sockets. Both Directory values remove their trees on drop."
+assertions = "Preserve the receiver process, peer identities, authenticated frame exchange and engine assertions; other cases keep their setup."
+after_failures = []
+after_source = "Private /out/logs/verify-1.log at 4a9a0751ef1b1fceb9edee7e430371a2ca561cae: all 8 tests passed, including the cross-UID case."
+
+[qualification.build]
+runner = "hf-build"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+evidence = "Private /out/run/gates.jsonl final kind=build row supplies exact revision, command, exit and log; /out/logs/build-1.log is the initial run."
+
+[qualification.verify]
+runner = "hf-done"
+command = "cg spec done 22.39.172 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/read/repair_22_39_172.kvx && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast --test history_served_contract --test repair_22_33_1506 --test repair_22_33_1521 --test repair_22_31_218"
+evidence = "Private /out/run/gates.jsonl final kind=verify row supplies exact revision, command, exit and log; /out/logs/verify-1.log is the initial run."
+
+[gotcha.gate_order]
+observed = "The task step requests baseline reproduction, while its ordered gate instructions forbid tests before implementation and manual verify_cmd execution."
+resolution = "Preserve the inventory baseline attribution and use the authorized final gates for executed evidence without claiming an unrun baseline."
+
+[qualification.executed_build]
+revision = "4a9a0751ef1b1fceb9edee7e430371a2ca561cae"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.executed_verify]
+revision = "4a9a0751ef1b1fceb9edee7e430371a2ca561cae"
+command = "cg spec done 22.39.172 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+verify_exit = 101
+result = "history_served_contract: 1 passed, 7 failed; repair_22_33_1506: 8 passed; repair_22_33_1521: 3 passed; repair_22_31_218: 6 passed, 1 failed; no tests ignored or filtered."
+record_update = "Only this repair record was updated after qualification to retain observed failures; no further gate or completion is claimed."
+
+[finding.history_envelope]
+task = "22.39.172"
+file = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+symbol = "page"
+observed = "At revision 4a9a0751ef1b1fceb9edee7e430371a2ca561cae, cg spec done 22.39.172 -f layerx-merge --root /work/paxeer-monorepo exited 1 (verify_cmd 101), private log /out/logs/verify-1.log: seven unchanged response assertions encounter Sequencer(Malformed) because the existing three-field envelope lacks the current client's account, chainHeight and freshness fields."
+assumption = "Historical attempt-1 finding; decision 2988 now authorizes the full hosted envelope in both fixture paths while preserving all existing assertions."
+severity = "blocker"
+
+[finding.reverse_history]
+task = "22.39.172"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs"
+symbol = "native_history_keeps_position_groups_and_authenticates_reverse_windows"
+observed = "At revision 4a9a0751ef1b1fceb9edee7e430371a2ca561cae, cg spec done 22.39.172 -f layerx-merge --root /work/paxeer-monorepo exited 1 (verify_cmd 101), private log /out/logs/verify-1.log: the unchanged out-of-scope test fails at line 976 with Connection(Malformed)."
+assumption = "Historical attempt-1 finding; decision 2988 adds this fixture to task scope and authorizes its envelope repair and qualification."
+severity = "blocker"
+
+[attempt_2]
+decision = "2988"
+status = "Implementation complete; outcome is the final hf-done row in the private gate ledger, not a predeclared pass."
+carried = "Keep the attempt-1 exclusive first-page cursors and protected root with sibling receiver sockets unchanged."
+producer = "layerx-client src/sequencer.rs decode_history_page from 22.31.221 requires account, items, next_cursor, indexedHeight, chainHeight and freshness; HistoryPage::read_account from 22.33.1521 checks the requested account."
+update = "Both fixture envelopes carry the requested account and chainHeight at or above indexedHeight; freshness is read from result.freshness of apps/web/e2e/fixtures/px-get-unified-history.json exactly as repair_22_33_1521 does. The direct client case retains indexedHeight null."
+assertions = "All page, cursor, height, response-size, grouping, identity, frame exchange, engine and refusal assertions are preserved. No production code is changed."
+build_evidence = "Resolve the final kind=build row of private /out/run/gates.jsonl for exact revision, command, exit and log."
+verify_evidence = "Resolve the final kind=verify row of private /out/run/gates.jsonl for exact revision, command, exit and log; the build revision must match."
+
+[attempt_2.history_served_contract]
+before_failures = ["read_account_accepts_a_self_transfer_pair_that_closes_the_page", "read_account_accepts_equal_positions_within_the_limit", "read_account_continues_after_a_shared_position_group", "read_account_decodes_a_served_gateway_page", "read_account_preserves_response_and_cursor_bounds", "read_account_refuses_a_descending_row", "read_account_refuses_overflow_at_a_later_position"]
+before_source = "Attempt-1 executed verification above, revision 4a9a0751ef1b1fceb9edee7e430371a2ca561cae; GOTCHA.kvx gotcha.3688."
+after_failures = "Read the failures list under target history_served_contract in the log referenced by the final kind=verify row; an absent failures list with exit 0 records no failures."
+
+[attempt_2.repair_22_33_1506]
+before_failures = []
+before_source = "Attempt-1 executed verification above; all eight tests passed with the carried socket layout."
+after_failures = "Read the failures list under target repair_22_33_1506 in the final verification log; an absent failures list with exit 0 records no failures."
+
+[attempt_2.repair_22_31_218]
+target = "services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs"
+before_failures = ["native_history_keeps_position_groups_and_authenticates_reverse_windows"]
+before_source = "Attempt-1 executed verification above, revision 4a9a0751ef1b1fceb9edee7e430371a2ca561cae; GOTCHA.kvx gotcha.3688."
+after_failures = "Read the failures list under target repair_22_31_218 in the final verification log; an absent failures list with exit 0 records no failures."
+
+[attempt_2.repair_22_33_1521]
+before_failures = []
+before_source = "Attempt-1 executed verification above; all three tests passed."
+after_failures = "Read the failures list under target repair_22_33_1521 in the final verification log; an absent failures list with exit 0 records no failures."
+
+[attempt_2.qualification_first_build]
+revision = "a1c14ff218ff8b32192a2968b4b4b0fa8cfe6f7f"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt_2.qualification_first_verify]
+revision = "a1c14ff218ff8b32192a2968b4b4b0fa8cfe6f7f"
+command = "cg spec done 22.39.172 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+verify_exit = 101
+
+[attempt_2.qualification_first_result]
+history_served_contract = ["read_account_accepts_a_self_transfer_pair_that_closes_the_page", "read_account_accepts_equal_positions_within_the_limit", "read_account_continues_after_a_shared_position_group", "read_account_decodes_a_served_gateway_page", "read_account_preserves_response_and_cursor_bounds", "read_account_refuses_a_descending_row", "read_account_refuses_overflow_at_a_later_position"]
+repair_22_31_218 = []
+repair_22_33_1506 = []
+repair_22_33_1521 = []
+counts = "history_served_contract: 1 passed, 7 failed; repair_22_31_218: 7 passed; repair_22_33_1506: 8 passed; repair_22_33_1521: 3 passed; no ignored or filtered tests."
+
+[attempt_2.repair]
+producer = "22.33.1521 HistoryPage::read_account reads chainHeight from the envelope without an eth_blockNumber request; HistoryPage::from_hosted computes response_bytes from items, next_cursor, indexedHeight and chainHeight."
+update = "Remove obsolete head exchanges from fixture inputs while retaining all server and consumer assertions. Carry the negative case head in chainHeight and keep its indexed height within that head. Tighten the oversized case byte limit to one byte below the producer's four-field projection, preserving the Oversized assertion."
+remaining_conflict = "The first-page exact byte-count assertion still compares response_bytes to the full six-field served envelope; it stays unchanged as required."
+final_build = "Private /out/run/gates.jsonl final kind=build row supplies revision, command, exit and log; expected private location /out/logs/build-2.log."
+final_verify = "Private /out/run/gates.jsonl final kind=verify row supplies revision, command, exit and log; expected private location /out/logs/verify-2.log."
+
+[producer.response_byte_contract]
+file = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+symbol = "read_account_decodes_a_served_gateway_page"
+producer = "22.33.1521 HistoryPage::from_hosted in src/read/history.rs measures the serialized object containing items, next_cursor, indexedHeight and chainHeight and enforces maximum_response_bytes against that measure."
+update = "Decision 2995: retain the exact assert_eq! on first_page.response_bytes and serialize those four fields from the served first page for its expected value; account and freshness remain present in the hosted envelope."
+prior_failure = "GOTCHA.kvx gotcha.3695 records attempt-2 revision dd47d3970a5778eee72f16f5a9a913b37808f691: the exact assertion compared the producer's 495 bytes to the full envelope's 643 bytes; this producer-aligned expectation resolves that blocker."
+assertions = "Every other assertion of all four verification targets remains unchanged; src/read/history.rs and layerx-client remain unchanged."
+
+[gotcha.hosted_head_contract]
+observed = "The same first verification found obsolete eth_blockNumber exchanges after valid history responses, and the full-envelope-derived byte limit failed to exercise the producer's smaller four-field response bound."
+resolution = "Repair fixture request sequences and tighten the byte-limit input; preserve every assertion, with the exact-count expectation following the producer measure under decision 2995."
+
+[attempt_3]
+decision = "2900, 2908, 2988, 2995"
+base_revision = "acb1af87d30778400d6106a079608747817adbdb"
+carried_revision = "dd47d3970a5778eee72f16f5a9a913b37808f691"
+carried = "Retain the exclusive first-page cursors, both hosted envelopes, protected store root, sibling receiver sockets and four-field oversized limit from attempt 2."
+update = "Change only the expected value of read_account_decodes_a_served_gateway_page's exact response-size assertion to the serialized four-field object documented in producer.response_byte_contract."
+status = "Resolve the final kind=verify row of private /out/run/gates.jsonl; qualification requires exit 0 and a matching successful final kind=build revision. No pass is declared before those gates execute."
+verified_revision = "The revision of the final kind=verify row in private /out/run/gates.jsonl names the verified candidate; it must equal the revision of the final kind=build row."
+build_evidence = "Private /out/run/gates.jsonl final kind=build row supplies exact revision, command, exit and log; initial private log /out/logs/build-1.log."
+verify_evidence = "Private /out/run/gates.jsonl final kind=verify row supplies exact revision, command, exit and log; initial private log /out/logs/verify-1.log."
+
+[attempt_3.history_served_contract]
+before_failures = ["read_account_decodes_a_served_gateway_page"]
+before_source = "Attempt-2 final revision dd47d3970a5778eee72f16f5a9a913b37808f691, GOTCHA.kvx gotcha.3695: 7 passed and 1 failed."
+after_failures = "Read the failures list for target history_served_contract in the final kind=verify log of private /out/run/gates.jsonl; exit 0 with no failures list records no failing names."
+
+[attempt_3.repair_22_31_218]
+before_failures = []
+before_source = "Attempt-2 final revision dd47d3970a5778eee72f16f5a9a913b37808f691, GOTCHA.kvx gotcha.3695: all 7 passed."
+after_failures = "Read the failures list for target repair_22_31_218 in the final kind=verify log of private /out/run/gates.jsonl; exit 0 with no failures list records no failing names."
+
+[attempt_3.repair_22_33_1506]
+before_failures = []
+before_source = "Attempt-2 final revision dd47d3970a5778eee72f16f5a9a913b37808f691, GOTCHA.kvx gotcha.3695: all 8 passed."
+after_failures = "Read the failures list for target repair_22_33_1506 in the final kind=verify log of private /out/run/gates.jsonl; exit 0 with no failures list records no failing names."
+
+[attempt_3.repair_22_33_1521]
+before_failures = []
+before_source = "Attempt-2 final revision dd47d3970a5778eee72f16f5a9a913b37808f691, GOTCHA.kvx gotcha.3695: all 3 passed."
+after_failures = "Read the failures list for target repair_22_33_1521 in the final kind=verify log of private /out/run/gates.jsonl; exit 0 with no failures list records no failing names."

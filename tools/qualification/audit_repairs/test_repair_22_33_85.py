@@ -194,7 +194,7 @@ def test_readme_merged_build_runtime_and_operator_links():
     ):
         assert fact in build, fact
     makefile = source("Makefile")
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in makefile
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in makefile
     assert "\npaxd-build: paxd-native-libs\n" in makefile
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     documentation = section("Documentation", 2)

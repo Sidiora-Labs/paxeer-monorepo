@@ -3,6 +3,9 @@
 //! bounded aggregation and reward codec cases also exercise their landed transitions.
 #[path = "repair_22_33_260.rs"]
 mod repair;
+
+#[path = "support/native_replay.rs"]
+mod native_replay;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
     admission::{
@@ -26,7 +29,7 @@ use layerx_programs_ai_market::{
         ApplicationError, CodecResult, ARITHMETIC, CAPACITY, F03_EVALUATOR_CAPACITY,
         F03_NONCANONICAL_VECTOR, F03_NO_SCORES, F03_REPORT_ALREADY_FINAL, F03_SCORE_RANGE,
         F08_BAD_CONSENT, F08_OWNER_REQUIRED, KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REVOKED,
-        ROLE_CONFLICT, UNAUTHORIZED, WRONG_DOMAIN, WRONG_EPOCH, WRONG_PHASE,
+        ROLE_CONFLICT, UNAUTHORIZED, WRONG_DOMAIN, WRONG_EPOCH, WRONG_PHASE, WRONG_ROSTER,
     },
     evaluators::{
         admission::{self as f03, AdmissionReceipt},
@@ -310,6 +313,7 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation: Vec<u8>,
     replay: ReplayTable,
     features: Vec<u8>,
 }
@@ -317,6 +321,8 @@ impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let (_, table) = layerx_programs_ai_market::reputation_transition::split_joint(admission)?;
+        let reputation = admission[..admission.len() - table.len()].to_vec();
         let (workers, region) = split_identity_section(identity)?;
         Ok(Self {
             revision: state.revision,
@@ -325,7 +331,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation,
             replay: state.control.replay,
             features: state.control.feature_bytes.to_vec(),
         })
@@ -345,15 +352,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let admission = [self.reputation.as_slice(), admission.as_slice()].concat();
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &admission],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &self.features,
@@ -744,9 +747,11 @@ impl World {
     }
     /// The routed permissionless `OPEN_EPOCH` of the clock epoch of `at`.
     fn open(&mut self, at: u64) -> CodecResult<Frozen> {
-        repair::refresh_workers(&mut self.bytes, at)?;
-        let frozen = self.preview(at)?;
-        self.apply(&open_call(&frozen)?, at)?;
+        let mut candidate = self.clone();
+        repair::refresh_workers(&mut candidate.bytes, at)?;
+        let frozen = candidate.preview(at)?;
+        candidate.apply(&open_call(&frozen)?, at)?;
+        *self = candidate;
         Ok(frozen)
     }
     /// The routed permissionless `ADVANCE_ACTIVATION`; the lifecycle becomes ACTIVE.
@@ -1603,7 +1608,7 @@ fn f03_a03_unsorted_and_duplicate_vectors_consume_no_slot() -> TestResult {
         codes.push(m.malformed_reveal(2, &report, &scores, start + 80)?);
     }
     let receipt = m.reveal(2, &report, start + 81)?;
-    assert_eq!(receipt.activity, 3);
+    assert_eq!(receipt.activity, m.evaluator_base[0] + 3);
     assert_eq!(codes, [F03_NONCANONICAL_VECTOR, F03_NONCANONICAL_VECTOR]);
     Ok(())
 }
@@ -1708,7 +1713,13 @@ fn f03_a05_program_and_market_changes_refuse_wrong_domain() -> TestResult {
         codes.push(m.world.refused(&call, start + 80)?);
     }
     m.reveal(2, &report, start + 81)?;
-    assert_eq!(codes, [WRONG_DOMAIN, WRONG_DOMAIN]);
+    assert_eq!(
+        codes,
+        [
+            layerx_programs_ai_market::errors::WRONG_PROGRAM,
+            layerx_programs_ai_market::errors::WRONG_MARKET
+        ]
+    );
     Ok(())
 }
 
@@ -1865,6 +1876,7 @@ fn f03_a09_a10_role_conflicts_refuse_scheduling_and_opening() -> TestResult {
         assert_eq!(m.world.refused(&call, start + 10)?, ROLE_CONFLICT);
     }
     m.settle(SETTLE_AT)?;
+    repair::refresh_workers(&mut m.world.bytes, NEXT_OPEN)?;
     let clean = m.world.preview(NEXT_OPEN)?;
     assert_eq!(clean.epoch, 8);
     for (who, nonce) in conflicts {
@@ -1882,8 +1894,7 @@ fn f03_a09_a10_role_conflicts_refuse_scheduling_and_opening() -> TestResult {
     Ok(())
 }
 
-/// AI.F03-A09: a corrupted live roster in which a frozen worker is owned by the evaluator
-/// principal fails report admission on the routed reveal.
+/// AI.F03-A09: a conflicting live worker owner refuses report admission.
 #[test]
 fn f03_a09_corrupted_conflicting_roster_fails_report_admission() -> TestResult {
     let mut m = market()?;
@@ -1902,6 +1913,21 @@ fn f03_a09_corrupted_conflicting_roster_fails_report_admission() -> TestResult {
     assert_eq!(m.world.refused(&call, start + 80)?, ROLE_CONFLICT);
     let slot = m.slot(2, start + 80)?;
     assert_eq!((slot.status, slot.reveal), (Status::Committed, None));
+    let state = decode_shared_state(&m.world.bytes)?;
+    let captured = epoch::captured_roster(&state)?.ok_or(WRONG_ROSTER)?;
+    assert_eq!(
+        captured
+            .workers()
+            .iter()
+            .find(|w| w.worker == worker)
+            .ok_or(NOT_FOUND)?
+            .owner,
+        principal(LOW)?
+    );
+    assert_eq!(
+        m.world.parts()?.workers.get(worker).ok_or(NOT_FOUND)?.owner,
+        evaluator_owner
+    );
     Ok(())
 }
 
@@ -2288,9 +2314,30 @@ fn manifest() -> Checked<Manifest> {
     let [wasm, binary, chain] = lines[..] else {
         return Err(harness(format!("manifest has {} lines", lines.len())));
     };
+    let resolve = |value: &str| -> Checked<String> {
+        let artifact = PathBuf::from(value);
+        let artifact = if artifact.is_absolute() {
+            artifact
+        } else {
+            path.parent()
+                .ok_or_else(|| harness("manifest directory"))?
+                .join(artifact)
+        };
+        let resolved = artifact.canonicalize().map_err(|error| {
+            harness(format!(
+                "{}: {error}; manifest {}",
+                artifact.display(),
+                path.display()
+            ))
+        })?;
+        if !resolved.is_file() {
+            return Err(harness(format!("{} is not a file", resolved.display())));
+        }
+        Ok(resolved.to_string_lossy().into_owned())
+    };
     Ok(Manifest {
-        wasm: wasm.to_owned(),
-        harness: binary.to_owned(),
+        wasm: resolve(wasm)?,
+        harness: resolve(binary)?,
         chain: fixed(&unhex(chain)?)?,
     })
 }
@@ -2374,12 +2421,13 @@ struct Line {
     balance_before: u64,
     balance_after: u64,
     fee: u64,
+    occupancy_fee: u64,
     rewards_balance: u64,
     events: Vec<NativeEvent>,
 }
 fn parse_line(text: &str) -> Checked<Line> {
     let t: Vec<&str> = text.split_whitespace().collect();
-    if t.len() != 18 || t[0] != "call" {
+    if t.len() != 19 || t[0] != "call" {
         return Err(harness(format!("unexpected line {text}")));
     }
     Ok(Line {
@@ -2397,6 +2445,7 @@ fn parse_line(text: &str) -> Checked<Line> {
         balance_before: number(t[13])?,
         balance_after: number(t[14])?,
         fee: number(t[15])?,
+        occupancy_fee: number(t[18])?,
         rewards_balance: number(t[16])?,
         events: native_events(&unhex(t[17])?)?,
     })
@@ -2407,15 +2456,37 @@ enum Terminal {
     Rejected(Vec<u8>),
 }
 fn terminal(line: &Line, program: ProgramId) -> Checked<Terminal> {
-    let decoded = decode_terminal_payload(line.kind, line.abi, &line.terminal)
+    let detail = if line
+        .terminal
+        .starts_with(layerx_programs_runtime::terminal::PRE_RUNTIME_FAILURE)
+    {
+        line.terminal.as_slice()
+    } else {
+        layerx_wire::receipt::decode_applied_terminal(&line.terminal)
+            .map_err(|error| harness(format!("applied terminal {error:?}")))?
+            .0
+    };
+    let decoded = decode_terminal_payload(line.kind, line.abi, detail)
         .map_err(|e| harness(format!("terminal {e:?}")))?;
+    if let TerminalDetail::Failure(layerx_programs_runtime::terminal::FailureTerminal::Program(
+        failure,
+    )) = &decoded.detail
+    {
+        assert_eq!(failure.program().bytes(), program.bytes());
+        assert_eq!(failure.class(), RefusalClass::Rejected);
+        assert_eq!(line.result_code, PROGRAM_REFUSED);
+        return Ok(Terminal::Rejected(failure.reason().bytes().to_vec()));
+    }
     let TerminalDetail::Execution(ExecutionTerminal::CandidateV4 {
         program: producer,
         outcome,
         ..
     }) = decoded.detail
     else {
-        return Err(harness("terminal is not a CandidateV4 execution"));
+        return Err(harness(format!(
+            "terminal is not a CandidateV4 execution: {:?}",
+            decoded.detail
+        )));
     };
     assert_eq!(producer, program.bytes());
     match outcome {
@@ -2467,7 +2538,9 @@ impl Native {
             .arg(&m.wasm)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .spawn()?;
+            .stderr(Stdio::inherit())
+            .spawn()
+            .map_err(|error| harness(format!("{}: {error}", m.harness)))?;
         let input = child.stdin.take().ok_or_else(|| harness("stdin"))?;
         let stdout = child.stdout.take().ok_or_else(|| harness("stdout"))?;
         let mut output = BufReader::new(stdout);
@@ -2475,7 +2548,16 @@ impl Native {
         output.read_line(&mut ready)?;
         let t: Vec<&str> = ready.split_whitespace().collect();
         if t.len() != 9 || t[0] != "ready" {
-            return Err(harness(format!("bring-up line {ready}")));
+            drop(input);
+            let failure = child.wait_with_output()?;
+            return Err(harness(format!(
+                "bring-up {} with bundle {} ({} bytes): {}; stdout {ready:?}; stderr {}",
+                m.harness,
+                m.wasm,
+                std::fs::metadata(&m.wasm)?.len(),
+                failure.status,
+                String::from_utf8_lossy(&failure.stderr),
+            )));
         }
         let principal =
             |i: usize| -> Checked<PrincipalId> { Ok(PrincipalId::new(fixed(&unhex(t[i])?)?)?) };
@@ -2586,29 +2668,68 @@ impl Native {
     }
     fn submit(&mut self, actor: usize, height: u64, envelope: &[u8]) -> Checked<Vec<u8>> {
         let expected = self.expected(actor, height, envelope)?;
+        if self.state.is_none() {
+            native_replay::assert_native_call(
+                &CallContext {
+                    chain: self.chain,
+                    program: self.program,
+                    principal: self.principals[actor],
+                    height,
+                },
+                None,
+                envelope,
+            );
+        }
         let input = self.input.as_mut().ok_or_else(|| harness("closed"))?;
+        native_replay::prepare_native_call(input, &mut self.output, height)?;
         writeln!(input, "{actor} {height} {}", hex(envelope))?;
         input.flush()?;
         let mut text = String::new();
         if self.output.read_line(&mut text)? == 0 {
             return Err(harness("native harness stopped"));
         }
-        let line = parse_line(&text)?;
+        let mut line = parse_line(&text)?;
+        line.occupancy_fee = native_replay::occupancy_fee(
+            line.kind,
+            line.abi,
+            &line.terminal,
+            self.principals[actor].bytes(),
+            line.occupancy_fee,
+        )?;
+        assert_eq!(
+            line.status, 0,
+            "native execution of {:#06x} at height {height}, actor {actor}, refused {}, application result {}, kernel status {}, receipt.result_code {}, terminal kind {}, ABI {}, terminal {}",
+            decode_envelope(envelope)?.envelope.operation.selector(),
+            expected.refused,
+            hex(&expected.result), line.status, line.result_code, line.kind, line.abi, hex(&line.terminal),
+        );
         self.check_common(&line);
         let terminal = terminal(&line, self.program)?;
         match (&expected.applied, expected.refused, terminal) {
             (Some((operation, state, event)), false, Terminal::Success(response)) => {
-                assert_eq!(line.result_code, 0);
+                assert_eq!(
+                    line.result_code,
+                    0,
+                    "operation {:#06x} at height {height}, actor {actor}, result {}",
+                    decode_envelope(envelope)?.envelope.operation.selector(),
+                    hex(&expected.result),
+                );
                 assert_eq!(response, expected.result);
                 assert_eq!(&line.state, state);
                 assert!(line.state.len() <= MAX_STATE_BYTES);
                 assert_eq!(line.application_blobs, 2);
-                assert!(line.witness > 0);
+                assert_eq!(line.witness, 0);
                 self.check_event(&line, actor, *operation, event)?;
                 self.state = Some(line.state);
             }
             (None, false, Terminal::Success(response)) => {
-                assert_eq!(line.result_code, 0);
+                assert_eq!(
+                    line.result_code,
+                    0,
+                    "operation {:#06x} at height {height}, actor {actor}, result {}",
+                    decode_envelope(envelope)?.envelope.operation.selector(),
+                    hex(&expected.result),
+                );
                 assert_eq!(response, expected.result);
                 self.check_unchanged(&line);
             }
@@ -2627,7 +2748,10 @@ impl Native {
         assert!(line.blobs_after - line.blobs_before <= self.staged_cap);
         assert!(line.blobs_after <= self.blob_cap);
         assert!(line.kv_after <= self.kv_cap);
-        assert_eq!(line.balance_after, line.balance_before - line.fee);
+        assert_eq!(
+            line.balance_after,
+            line.balance_before - line.fee - line.occupancy_fee
+        );
         let rewards = *self.rewards_balance.get_or_insert(line.rewards_balance);
         assert_eq!(line.rewards_balance, rewards);
     }

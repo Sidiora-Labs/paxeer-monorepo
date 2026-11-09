@@ -1,8 +1,8 @@
 use super::HumanOperationError;
 use layerx_client::rpc::receipt::ReceiptError;
 use layerx_types::payload::ModuleRegistry;
-use layerx_wire::activity::{decode_signed, encode_signed, Activity};
-use layerx_wire::hash::activity_id;
+use layerx_wire::historical::activity::{decode_signed, encode_signed, Activity};
+use layerx_wire::historical::hash::activity_id;
 
 pub(super) struct RetainedNativeOwner {
     canonical: Vec<u8>,

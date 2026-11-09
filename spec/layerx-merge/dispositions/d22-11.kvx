@@ -1,3 +1,5 @@
+# Domain 22 continuation: d22-25.kvx contains dispositions for the 105 findings in ../programme/closure/22.39.193.ids.
+
 [disposition.22.6.7.4]
 finding = "22.6.7.4"
 status = "resolved"

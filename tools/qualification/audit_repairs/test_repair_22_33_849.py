@@ -242,7 +242,11 @@ def test_f065_connected_path_uses_real_evm_producer_reads_commitment_and_refusal
         assert guard in commit
     producer = (ROOT / "tools/platform/cli/src/programs.rs").read_text()
     assert 'pub fn call(' in producer and 'prepare_program_transaction(client, data, key_file)?' in producer
-    assert '"eth_sendRawTransaction"' in producer
+    assert "layerx_platform_cli::rpc::prepare_submission(raw, None)?" in producer
+    assert 'client.post("/", prepared.request(), None)' in producer
+    assert "prepared.resolve(response)" in producer
+    shared_rpc = (ROOT / "tools/platform/cli/src/rpc.rs").read_text()
+    assert '"eth_sendRawTransaction"' in shared_rpc
     assert 'const PROGRAMS_ADDRESS: &str = "0x000000000000000000000000000000000000101d"' in producer
     assert "pub fn registry_get" in producer and "decode_program_view(program_id, &result)" in producer
     assert "pub fn interface_get" in producer and "decode_interface_view(program_id, &result)" in producer
@@ -502,7 +506,7 @@ def test_f066_retained_refusal_producer_drives_drift_check_and_all_seven_suites(
     assert "require(count > 0" in text
 
 
-@pytest.mark.parametrize("change", ["receipt", "missing", "producer"])
+@pytest.mark.parametrize("change", ["receipt", "missing", "producer", "provenance", "source_hash"])
 def test_f066_real_fixture_drift_is_refused_without_rewriting(change, tmp_path):
     owner = module("receipt_refusals")
     for name in (owner.SOURCE, owner.OUTPUT):
@@ -515,6 +519,10 @@ def test_f066_real_fixture_drift_is_refused_without_rewriting(change, tmp_path):
         value["cases"][0]["signedReceipt"] = value["cases"][0]["signedReceipt"][:-2]
     elif change == "missing":
         value["cases"].pop()
+    elif change == "provenance":
+        value["provenance"]["source"] = "retired"
+    elif change == "source_hash":
+        value["provenance"]["sourceSha256"] = "0" * 64
     else:
         value["provenance"]["generator"] = "retired"
     path.write_text(json.dumps(value))
@@ -574,7 +582,7 @@ def test_f021_funding_refuses_unserved_faucet_and_retired_producers(addition):
 def test_f021_keeps_unserved_host_refusal_and_private_page_corpus():
     text = source("108.0.7")
     corpus = text.split("private_network_only() {", 1)[1].split("check docs-names-clean", 1)[0]
-    assert hashlib.sha256(corpus.encode()).hexdigest() == "795b4896435ae93c81738d19542161b89b386f179c1009f6db716cfa8da35656"
+    assert hashlib.sha256(corpus.encode()).hexdigest() == "6edf5838237f403a6f2a16d37bd973c943ec14a821d9c038b268d93ab17cef7c"
     assert "docs-names: docs/offending.md: faucet.paxeer.network is not a public name" in text
     assert '[[ $(wc -l <<<"$out") -eq 2 ]]' in text
     assert "docs/platform/beta-resets.ics" in text

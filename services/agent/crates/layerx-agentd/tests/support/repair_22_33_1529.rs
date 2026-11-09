@@ -325,9 +325,12 @@ pub fn cumulative_window(
         payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload},
     };
     use layerx_wire::{
-        activity::{encode_signed_envelope, encode_unsigned_envelope},
         encode::Encoder,
-        hash::{activity_id, batch_header_digest, payload_hash_for, Domain},
+        hash::{batch_header_digest, payload_hash_for, Domain},
+        historical::{
+            activity::{encode_signed_envelope, encode_unsigned_envelope},
+            hash::activity_id,
+        },
         limits::PROTOCOL_VERSION,
     };
     let owner = SigningKey::from_bytes(&[0x45; 32]);
@@ -393,7 +396,9 @@ pub fn cumulative_window(
         let signed =
             envelope.attach_signature(must(Signature::new(&owner.sign(&digest).to_bytes())));
         let canonical = must(encode_signed_envelope(&signed));
-        let decoded = must(layerx_wire::activity::decode_signed(&canonical, &registry));
+        let decoded = must(layerx_wire::historical::activity::decode_signed(
+            &canonical, &registry,
+        ));
         let id = must(activity_id(&decoded));
         activities.push(canonical);
         receipts.push(

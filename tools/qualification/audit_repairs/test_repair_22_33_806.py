@@ -311,7 +311,7 @@ def test_f33_dry_run_only_public_queries_and_association_uses_keyring():
 
 def test_f34_configuration_loaded_before_defaults_and_shell_wins(tmp_path):
     config = tmp_path / "fleet.env"
-    config.write_text('HPX_RPC=tcp://file.invalid:26657\nHPX_CHAIN_ID=file-chain\nHPX_GAS_PRICES=0.2uhpx\n')
+    config.write_text('HPX_RPC=tcp://file.invalid:26657\nHPX_EVM_RPC=http://127.0.0.1:8545\nHPX_CHAIN_ID=file-chain\nHPX_GAS_PRICES=0.2uhpx\n')
     env = {"PATH": os.defpath, "HPX_ENV_FILE": str(config)}
     file_result = subprocess.run(["bash", str(HPX / "stake-fleet.sh"), "help"], env=env, text=True, capture_output=True)
     assert file_result.returncode == 0, file_result.stderr
@@ -344,7 +344,8 @@ def identity_inputs():
 def test_f35_validated_identity_agrees_with_manifest_and_build_record():
     values = identity_inputs()
     assert release.validate_release(*values) == values[0]["version"]
-    assert values[0]["hpx_release_identity"] == {"schema": 1, "provenance_required": True}
+    assert values[0] == {"upgrade": "v7.0", "version": "v7.0.0"}
+    assert release.RELEASE_IDENTITY_POLICY == {"schema": 1, "provenance_required": True}
     source = (HPX / "publish.sh").read_text()
     assert 'tools/release/version.json' in source
     assert '${HPX_PAXD_VERSION:-$(jq -er' in source
