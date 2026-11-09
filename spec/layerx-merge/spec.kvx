@@ -158664,7 +158664,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1719.1]
 title = "Issue #1719: Synchronize token category filters with browser history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
