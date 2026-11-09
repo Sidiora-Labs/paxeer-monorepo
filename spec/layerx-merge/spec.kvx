@@ -212006,7 +212006,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.210]
 title = "Carry the receipt VmError text, precompile suffix included, in the EVM transaction response"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = []
@@ -251877,7 +251877,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.0.9]
 title = "Gate domain 6 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 42
 requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5", "21.11.1", "21.13.1", "21.21.1", "21.23.1", "21.49.1", "21.50.1", "21.75.1", "21.76.1", "21.77.1", "21.88.1", "21.89.1", "21.90.1", "21.91.1", "21.123.1", "21.124.1", "21.172.1", "22.25.4"]
@@ -335918,7 +335918,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.208]
 title = "Write the closure dispositions of domains 14, 16, 17, 18 and 21 for 124 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -335949,7 +335949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.207]
 title = "Write the closure dispositions of domains 10, 11, 12 and 13 for 108 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -335980,7 +335980,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.206]
 title = "Write the closure dispositions of domains 4, 5, 6, 7 and 8 for 117 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336011,7 +336011,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.205]
 title = "Write the closure dispositions of domains 1, 2 and 3 for 109 findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336042,7 +336042,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.204]
 title = "Write the closure dispositions 9-14 for 100 findings of domain 9"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336073,7 +336073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.203]
 title = "Write the closure dispositions 22-35 for 72 findings of the remaining 22 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336104,7 +336104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.202]
 title = "Write the closure dispositions 22-34 for 73 findings of the remaining 22 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336135,7 +336135,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.201]
 title = "Write the closure dispositions 22-33 for 101 findings of the 22.99 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336197,7 +336197,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.199]
 title = "Write the closure dispositions 22-31 for 102 findings of the 22.39 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336228,7 +336228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.198]
 title = "Write the closure dispositions 22-30 for 104 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336259,7 +336259,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.197]
 title = "Write the closure dispositions 22-29 for 104 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336290,7 +336290,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.196]
 title = "Write the closure dispositions 22-28 for 104 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336321,7 +336321,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.195]
 title = "Write the closure dispositions 22-27 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336352,7 +336352,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.194]
 title = "Write the closure dispositions 22-26 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336383,7 +336383,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.193]
 title = "Write the closure dispositions 22-25 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336414,7 +336414,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.192]
 title = "Write the closure dispositions 22-24 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336445,7 +336445,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.191]
 title = "Write the closure dispositions 22-23 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336476,7 +336476,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.190]
 title = "Write the closure dispositions 22-22 for 105 findings of the 22.33 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336507,7 +336507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.189]
 title = "Write the closure dispositions 22-21 for 104 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
@@ -336569,7 +336569,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.187]
 title = "Write the closure dispositions 22-19 for 105 findings of the 22.31 series"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 48
 requires = []
