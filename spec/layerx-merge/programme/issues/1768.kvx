@@ -1,0 +1,49 @@
+[issue.1768]
+number = 1768
+title = "AI-market partial-reveal test still reads epoch 6 after crowded fixture moves to epoch 10"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 101f526f032f95aa585c3458967dae66f1bb053c fixed the late envelope and frozen-epoch two-report assertion at programs/crates/layerx-programs-ai-market/tests/f04_windows.rs:2048 and :2051 while retaining wrong-phase and expiry checks at :2049 and :2052, but the crowded fixture comment at :878 still claims epoch 6 and heights 896/960 despite the admission-derived opening at :886 and the epoch-10/height-1408 proof at programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs:1120."
+close_comment = "The crowded fixture documentation follows its admission-derived opening height and evidence seals at opening plus 64. The partial-reveal test uses the crowded fixture for both the late request and report lookup, retaining two admitted reports and the wrong-phase and expired-slot assertions."
+
+[task.18.1768.1]
+title = "Issue #1768: Correct the crowded AI-market fixture timing comment"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181768.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace only the stale crowded fixture comment at programs/crates/layerx-programs-ai-market/tests/f04_windows.rs:878 with a description of the admission-derived opening height and epoch, the 32-worker/eight-evaluator frozen roster, and task-set/evidence seals at opening plus 64 as implemented at :886, :887, :890 and :905; avoid fixed epoch-6 and height-896/960 claims."
+do_2 = "Confirm the comment agrees with crowded and its epoch-10/height-1408 admission proof at programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs:1120, then run a06_missing_commit_and_partial_reveals at programs/crates/layerx-programs-ai-market/tests/f04_windows.rs:2030 with the existing c.reveal_call, rows(c.frozen.epoch), count of two, WRONG_PHASE and expired-slot assertions at :2048, :2049, :2051 and :2052 intact."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market/tests/f04_windows.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f04_windows.rs::a06_missing_commit_and_partial_reveals"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f04_windows"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f04_windows a06_missing_commit_and_partial_reveals -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181768]
+title = "Crowded AI-market fixture documentation matches budgeted admission timing"
+ac_1 = "The comment at programs/crates/layerx-programs-ai-market/tests/f04_windows.rs:878 describes the admission-derived opening and seals at opening plus 64 implemented at :886 and :905, without claiming epoch 6 or heights 896/960."
+ac_2 = "The partial-reveal regression at programs/crates/layerx-programs-ai-market/tests/f04_windows.rs:2030 still constructs the late envelope from c, counts exactly two reports for c.frozen.epoch, refuses the late reveal with WRONG_PHASE, and verifies the other committed slots are expired with no admitted report."
+
+[acceptance.18.1768.1]
+feature = "18"
+req = "181768.1"
+scenario = "Given a crowded market formed through budgeted admission, when its fixture documentation and partial-reveal regression are checked, then the documented timing follows the actual opening and evidence seals, exactly two reports are admitted for the frozen epoch, and the remaining late reveals are refused with expired slots."
+contract = "contracts/programs.md#ai-market-guest"
+test = "programs/crates/layerx-programs-ai-market/tests/f04_windows.rs::a06_missing_commit_and_partial_reveals (planned)"
+qualification = "UNRUN"
