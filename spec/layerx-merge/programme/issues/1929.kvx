@@ -1,0 +1,49 @@
+[issue.1929]
+number = 1929
+title = "[P2] Reconcile contradictory empty-config requirements in perps repair plans"
+revision = "86ae60188357c8c436f0f6e5deac9888cdfd2160"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/issues/1802.kvx:18 and :40 require null for an absent key and endpoint while spec/layerx-merge/programme/issues/1803.kvx:19 and :41 require rejection for the same environment cleared by apps/perps/tests/embedded-wallet.test.ts:30, and the conflict persists in spec/layerx-merge/spec.kvx:160015 and :159985 despite both tasks now being pending in wave 2 with the type-resolution dependency at :160011 and :159980; apps/perps/tests/repair-22-31-603.test.ts:24 supplies a nonempty key for its endpoint-refusal assertions at :43, so the plans can preserve that refusal and the disabled-wallet contract documented at apps/perps/src/core/wallet/embedded/client.ts:49 without restoring the default endpoint prohibited by decision 2755 at spec/layerx-merge/spec.kvx:9645."
+close_comment = "The repair plans still prescribe different results for an entirely unconfigured embedded wallet. Task 18.1929.1 reconciles their configuration matrix and final regression coverage: disabled and server wallets return null, injected wallets remain available, and enabled wallets require an explicit endpoint."
+
+[task.18.1929.1]
+title = "Issue #1929: Reconcile the embedded-wallet repair contracts and combined regression gate"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181929.1"]
+capabilities = []
+interfaces = []
+do_1 = "Reconcile the task, requirement and acceptance blocks in spec/layerx-merge/programme/issues/1802.kvx:18, :40 and :45 and spec/layerx-merge/programme/issues/1803.kvx:19, :41 and :46, together with their integrated counterparts in spec/layerx-merge/spec.kvx:160015, :159985, :25392, :25388, :335727 and :335719: include the exact statement Absent or empty publishable keys return null before endpoint or RPC validation. and require that result for absent, empty, whitespace-only and configured endpoints; server rendering returns null regardless of key or endpoint; a nonempty key with an absent, empty or whitespace-only endpoint throws an error naming NEXT_PUBLIC_PAXEER_WALLET_API, and a configured endpoint is trimmed and used with the existing chain and RPC precedence. Remove the prescribed empty-browser assert.rejects and rejection acceptance from the 1803 plan, while preserving explicit endpoint configuration with no default under decision 2755 at spec/layerx-merge/spec.kvx:9645 and the injected-connector coverage in the 1802 plan."
+do_2 = "Update dependency and gate declarations at spec/layerx-merge/programme/issues/1803.kvx:13 and :23 and spec/layerx-merge/spec.kvx:159979 and :159989 so task 18.1803.1 requires 18.1802.1 in addition to the existing 22.39.234 type-resolution prerequisite and occupies the next wave; reflect that prerequisite in the report as well, and retain task 18.1802.1's focused repair-file verification until the old regression is updated. The final 1803 verify_cmd must be pnpm --dir apps/perps exec node --test --test-concurrency=1 --import tsx --test-name-pattern '^(chainIdFromChainObject|disabled_embedded_wallet_keeps_injected_connector|missing_endpoint_refuses_with_the_setting_name|configured_endpoint_is_used_by_the_embedded_client)$' tests/embedded-wallet.test.ts tests/repair-22-31-603.test.ts, with all four cases listed in tests. Preserve the existing enabled-wallet refusal and configured-client assertions at apps/perps/tests/repair-22-31-603.test.ts:37 and :49 and require the named chainIdFromChainObject function planned at spec/layerx-merge/programme/issues/1803.kvx:18."
+do_3 = "Keep the runtime fixes owned by tasks 18.1802.1 and 18.1803.1, update their continuation instructions at spec/layerx-merge/spec.kvx:160034 and :160004 to apply the reconciled contract rather than retain contradictory assertions, and retain qualification UNRUN until their declared gates actually pass with revision, command, exit and private log evidence; no runtime gate result is inferred from this documentation repair. Verify both reports with their existing checker and check the shared matrix, removal of the contradictory rejection and inclusion of the disabled-wallet case in the final combined selector."
+symbols = []
+touches = ["spec/layerx-merge/programme/issues/1802.kvx", "spec/layerx-merge/programme/issues/1803.kvx", "spec/layerx-merge/spec.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "python3 spec/layerx-merge/programme/issues/check.py 1802 && python3 spec/layerx-merge/programme/issues/check.py 1803 && grep -Fq 'Absent or empty publishable keys return null before endpoint or RPC validation.' spec/layerx-merge/programme/issues/1802.kvx && grep -Fq 'Absent or empty publishable keys return null before endpoint or RPC validation.' spec/layerx-merge/programme/issues/1803.kvx && grep -Fq 'Absent or empty publishable keys return null before endpoint or RPC validation.' spec/layerx-merge/spec.kvx && grep -Fq 'chainIdFromChainObject|disabled_embedded_wallet_keeps_injected_connector|missing_endpoint_refuses_with_the_setting_name|configured_endpoint_is_used_by_the_embedded_client' spec/layerx-merge/programme/issues/1803.kvx && grep -Fq 'chainIdFromChainObject|disabled_embedded_wallet_keeps_injected_connector|missing_endpoint_refuses_with_the_setting_name|configured_endpoint_is_used_by_the_embedded_client' spec/layerx-merge/spec.kvx && ! grep -Fq 'assert.rejects over withBrowserEnv({},' spec/layerx-merge/programme/issues/1803.kvx && ! grep -Fq 'rejects both empty browser configuration' spec/layerx-merge/programme/issues/1803.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181929]
+title = "Embedded-wallet repair plans prescribe one configuration matrix and a final combined regression gate"
+ac_1 = "The contradictory plans at spec/layerx-merge/programme/issues/1802.kvx:18 and spec/layerx-merge/programme/issues/1803.kvx:19 and their integrated task, requirement and acceptance blocks agree that absent or empty keys disable the embedded wallet before endpoint or RPC validation for every endpoint state, server resolution returns null, enabled wallets refuse absent, empty or whitespace-only endpoints with the setting name and use configured endpoints without a default, and injected connectors remain available when disabled; task 18.1803.1 follows 18.1802.1 and its final bounded verification includes chainIdFromChainObject and all three named repair cases across apps/perps/tests/embedded-wallet.test.ts:71 and apps/perps/tests/repair-22-31-603.test.ts:37, retaining UNRUN until actual gate evidence exists."
+
+[acceptance.18.1929.1]
+feature = "18"
+req = "181929.1"
+scenario = "Given two pending repair plans that disagree about empty browser configuration, when their task, requirement, acceptance, dependency and verification declarations are reconciled, then both preserve disabled-wallet null results and injected connectors, enabled-wallet endpoint refusal and explicit configured endpoints, and the final dependent repair verifies both regression files together without claiming unrun results."
+contract = "contracts/perps-client.md#core"
+test = "grep -Fq 'Absent or empty publishable keys return null before endpoint or RPC validation.' spec/layerx-merge/programme/issues/1803.kvx (planned)"
+qualification = "UNRUN"

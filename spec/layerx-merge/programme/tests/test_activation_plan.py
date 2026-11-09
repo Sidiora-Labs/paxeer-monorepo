@@ -57,9 +57,10 @@ def test_merge_plans_match_store_changes() -> None:
         "layerxledger",
         "layerxauth",
         "layerxpay",
+        "layerxchains",
         "layerxprograms",
         "layerxagent",
-        "layerxhost",
+        "lxphost",
     ]
     assert by_name["v7.0-anchor-store-delete"]["store_added"] == []
     assert [plan["store_deleted"] for plan in plans] == [
