@@ -191737,7 +191737,7 @@ do_5 = "Attempt 3 (continue, gotcha 3880, decision 3089): the attempt-2 tree 5e1
 
 [task.18.1758.1]
 title = "Issue #1758: Preserve capability-install replay compatibility across reply encoding changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
