@@ -1,0 +1,7 @@
+[issue.1829]
+number = 1829
+title = "[Coherence] restore_native_preparation now returns a wire-envelope carrier, but the execution-state test in repair_22_33_1520 still sends its output into native settlement, which can only accept the call-bound carrier"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 1a58241e717b6e6a34e4b8bf546eaf8cd2f98434 changed restore_native_preparation to return a call-bound EvmPrepared through restore_call (services/agent/crates/layerx-agentd/src/budget/native_binding.rs:70), whose disclosure actor is the 20-byte sender (services/agent/crates/layerx-crypto/src/disclosure/call.rs:974), matching the retained settlement sender check (services/agent/crates/layerx-agentd/src/budget/native_settlement.rs:88) and the restored preparation passed into the execution-state consumer (services/agent/crates/layerx-agentd/tests/repair_22_33_1520.rs:631 and services/agent/crates/layerx-agentd/tests/repair_22_33_1520.rs:647)."
+close_comment = "Native preparation restoration now preserves the call-bound disclosure and its 20-byte sender, so native settlement receives the carrier it expects. The execution-state consumer uses this restored native preparation."
