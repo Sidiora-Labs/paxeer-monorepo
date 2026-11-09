@@ -220,8 +220,40 @@ fn program_http_decodes_signed_program_calls_as_eip1559() -> Result<(), Box<dyn 
         Err(ProgramOperationError::Decode)
     );
 
-    let transport = HttpProgramTransport::connect("http://127.0.0.1:0", None, [0x31; 32], || Ok(0))
-        .map_err(|error| format!("HTTP transport: {error:?}"))?;
+    let receipt_key = layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: [0x32; 32],
+        public_key: [0x31; 32],
+        first_height: 1,
+        last_height: 100,
+    };
+    let connect_node = || {
+        HttpProgramTransport::connect_node("http://127.0.0.1:0", &[], &[receipt_key], || Ok(0))
+            .map_err(|error| format!("HTTP transport: {error:?}"))
+    };
+    assert!(matches!(
+        connect_node()?.submit_native(&request, request.bound_idempotency_key()),
+        Err(ProgramOperationError::MissingNodeReadAuthority)
+    ));
+    let policy = |protocol_version, network_id| layerx_sdk::rpc_verification::ReceiptPolicy {
+        protocol_version,
+        network_id,
+        sequencer: layerx_proof::inclusion::SequencerAuthorization::new(
+            receipt_key.key_id,
+            receipt_key.public_key,
+            receipt_key.first_height,
+            receipt_key.last_height,
+        ),
+        trusted_checkpoint_context_digest: None,
+    };
+    for invalid in [policy(3, 125), policy(2, 0)] {
+        assert!(matches!(
+            connect_node()?.with_node_receipt_policy(invalid),
+            Err(ProgramOperationError::Verification)
+        ));
+    }
+    let transport = connect_node()?
+        .with_node_receipt_policy(policy(2, u32::try_from(call.chain_id)?))
+        .map_err(|error| format!("node receipt authority: {error:?}"))?;
     let submission = transport
         .submit_native(&request, request.bound_idempotency_key())
         .map_err(|error| format!("HTTP submission: {error:?}"))?;

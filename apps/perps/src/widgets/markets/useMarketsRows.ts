@@ -40,8 +40,9 @@ export function buildMarketsRows(
   for (const snapshot of snapshots) {
     if (
       typeof snapshot.symbol !== "string" || !snapshot.symbol.trim() ||
-      ![snapshot.price, snapshot.change_24h, snapshot.volume_24h, snapshot.open_interest].every(Number.isFinite) ||
-      snapshot.price < 0 || snapshot.volume_24h < 0 || snapshot.open_interest < 0 ||
+      ![snapshot.price, snapshot.change_24h].every((value) => value === null || Number.isFinite(value)) ||
+      ![snapshot.volume_24h, snapshot.open_interest].every(Number.isFinite) ||
+      (snapshot.price !== null && snapshot.price < 0) || snapshot.volume_24h < 0 || snapshot.open_interest < 0 ||
       (snapshot.funding_8h !== null && typeof snapshot.funding_8h !== "bigint") ||
       (snapshot.last_funding_rate_hourly !== null && typeof snapshot.last_funding_rate_hourly !== "bigint")
     ) throw new Error("Invalid market snapshot");
@@ -52,8 +53,8 @@ export function buildMarketsRows(
     const snapshot = snapBySymbol.get(market.symbol.toUpperCase());
     return {
       ...market,
-      price: snapshot?.price ?? 0,
-      change24h: snapshot?.change_24h ?? 0,
+      price: snapshot?.price ?? null,
+      change24h: snapshot?.change_24h ?? null,
       volume24h: snapshot?.volume_24h ?? 0,
       openInterest: snapshot?.open_interest ?? 0,
       funding8h: snapshot?.funding_8h ?? null,
@@ -115,16 +116,18 @@ export function filterAndSort(
   });
 
   list = [...list].sort((a, b) => {
+    if (sortKey === "price" || sortKey === "change24h") {
+      const av = a[sortKey], bv = b[sortKey];
+      if (av === null || bv === null) {
+        return av === bv ? a.symbol.localeCompare(b.symbol) : av === null ? 1 : -1;
+      }
+      const cmp = av - bv;
+      return (sortDir === "asc" ? cmp : -cmp) || a.symbol.localeCompare(b.symbol);
+    }
     let cmp = 0;
     switch (sortKey) {
       case "symbol":
         cmp = a.symbol.localeCompare(b.symbol);
-        break;
-      case "price":
-        cmp = a.price - b.price;
-        break;
-      case "change24h":
-        cmp = a.change24h - b.change24h;
         break;
       case "volume24h":
         cmp = a.volume24h - b.volume24h;

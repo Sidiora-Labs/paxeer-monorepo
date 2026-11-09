@@ -1,7 +1,7 @@
+use crate::support;
 use ed25519_dalek::SigningKey;
 use layerx_crypto::authority_grant::{authority_grant_call, AuthorityGrant, GrantKind};
 use layerx_crypto::disclosure::call::{bind_call, reencode, validate_call};
-mod support;
 use layerx_crypto::disclosure::DisclosureError;
 use layerx_types::ids::Did;
 use layerx_wire::hash;
@@ -111,12 +111,17 @@ fn unbounded_or_inconsistent_grants_cannot_be_encoded() {
 }
 
 #[test]
-fn signing_disclosure_binds_every_immutable_grant_field() {
+fn signing_disclosure_binds_every_immutable_grant_field() -> Result<(), Box<dyn std::error::Error>>
+{
     let grant = native_grant(BUDGET);
-    let payload = grant.payload().expect("native grant payload");
+    let payload = grant
+        .payload()
+        .map_err(|error| format!("native grant payload: {error:?}"))?;
     let options = support::call_options(10);
-    let produced = authority_grant_call(&grant, &options).expect("merged grant constructor");
-    let disclosure = bind_call(&produced.call, options.from).expect("grant call binding");
+    let produced = authority_grant_call(&grant, &options)
+        .map_err(|error| format!("merged grant constructor: {error:?}"))?;
+    let disclosure = bind_call(&produced.call, options.from)
+        .map_err(|error| format!("grant call binding: {error:?}"))?;
     assert_eq!(disclosure.authority_grant, Some(grant));
     assert_eq!(disclosure.asset, grant.scope.asset);
     assert_eq!(disclosure.authority, options.from);
@@ -150,7 +155,8 @@ fn signing_disclosure_binds_every_immutable_grant_field() {
         if let Ok(changed_payload) = semantics.payload() {
             assert_ne!(changed_payload, payload);
             assert_eq!(
-                AuthorityGrant::from_payload(&changed_payload).expect("changed codec"),
+                AuthorityGrant::from_payload(&changed_payload)
+                    .map_err(|error| format!("changed codec: {error:?}"))?,
                 semantics
             );
         }
@@ -167,4 +173,6 @@ fn signing_disclosure_binds_every_immutable_grant_field() {
     let mut substituted = produced.call;
     substituted.data[0] ^= 1;
     assert!(bind_call(&substituted, options.from).is_err());
+
+    Ok(())
 }
