@@ -10,11 +10,16 @@ import (
 	"math"
 	"math/big"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -412,6 +417,279 @@ func TestPxNodeRoot_Account_ConfigAndIndexerUnavailable(t *testing.T) {
 		require.Error(t, err)
 		_, err = evmrpc.NewEVMWebSocketServer(config, h.tm, &h.app.EvmKeeper, h.app.BeginBlockKeepers, h.app.BaseApp, h.app.TracerAnteHandler, h.provider, txProvider, "", nil, evmrpc.NewBlockHeaderNotifier(1), evmrpc.WithPxIndexerURL(endpoint))
 		require.Error(t, err)
+	}
+}
+
+// This recorder calls the production Store::register_assets and api::route
+// (the current entry point for api::handle), without copying either producer.
+// The output contains verbatim Response.body strings, including all producer
+// metadata/provenance fields. Only those bytes are replayed by the HTTP peer.
+const pxAssetsProducerRecorder = `
+use layerx_indexer::{api, store::{AssetRow, Store}};
+use serde_json::json;
+fn main() {
+    let store = Store::open_in_memory().expect("production indexer store");
+    let assets: Vec<_> = (0..35).map(|i| AssetRow {
+        asset: format!("{:064x}", 35-i),
+        chain: "paxeer".into(),
+        kind: if i % 3 == 1 { "layerx" } else { "native" }.into(),
+        address: None,
+        denom: if i % 3 == 0 { Some("uxroot".into()) } else { None },
+        metadata: json!({}),
+    }).collect();
+    store.register_assets(&assets).expect("register 35 assets in descending order");
+    let mut pages = Vec::new();
+    for query in ["limit=16", "cursor=16&limit=16", "cursor=32&limit=16",
+                  "cursor=35&limit=16", "cursor=9223372036854775807&limit=16"] {
+        let response = api::route(&store, "GET", &format!("/v1/assets?{query}"));
+        assert_eq!(response.status, 200);
+        pages.push(json!({"query": query, "body": response.body}));
+    }
+    println!("{}", json!({"assets": assets.iter().map(|a| &a.asset).collect::<Vec<_>>(), "pages": pages}));
+}
+`
+
+func pxAssetsProducerPages(t *testing.T) ([]string, map[string]string) {
+	t.Helper()
+	root, err := filepath.Abs("..")
+	require.NoError(t, err)
+	directory := t.TempDir()
+	manifest := fmt.Sprintf(`[package]
+name = "px-assets-producer-recording"
+version = "0.0.0"
+edition = "2021"
+[dependencies]
+layerx-indexer = { path = %q }
+serde_json = "=1.0.151"
+`, filepath.Join(root, "services/platform/hosted/indexer"))
+	require.NoError(t, os.WriteFile(filepath.Join(directory, "Cargo.toml"), []byte(manifest), 0600))
+	require.NoError(t, os.Mkdir(filepath.Join(directory, "src"), 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(directory, "src/main.rs"), []byte(pxAssetsProducerRecorder), 0600))
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+	command := exec.CommandContext(ctx, "cargo", "run", "--quiet", "--manifest-path", filepath.Join(directory, "Cargo.toml"))
+	command.Env = append(os.Environ(), "CARGO_TARGET_DIR="+filepath.Join(directory, "target"))
+	var diagnostics strings.Builder
+	command.Stderr = &diagnostics
+	encoded, err := command.Output()
+	require.NoError(t, err, "production recorder: %s", diagnostics.String())
+	var recording struct {
+		Assets []string `json:"assets"`
+		Pages  []struct {
+			Query string `json:"query"`
+			Body  string `json:"body"`
+		} `json:"pages"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &recording))
+	require.Len(t, recording.Assets, 35)
+	require.Len(t, recording.Pages, 5)
+	pages := make(map[string]string)
+	for _, page := range recording.Pages {
+		pages[page.Query] = page.Body
+	}
+	t.Log("producer: services/platform/hosted/indexer/src/store.rs Store::register_assets/Store::assets -> src/api.rs api::route; 35 registrations, limit=16; replayed bodies are unmodified")
+	return recording.Assets, pages
+}
+
+func TestPxNodeRoot_Assets_CursorSchema(t *testing.T) {
+	expected, pages := pxAssetsProducerPages(t)
+	h := newPxRootAccountHarness(t)
+	for _, c := range h.clients {
+		pxRootError(t, c, -32602, "", "px_listAssets", nil)
+		pxRootError(t, c, -32001, "indexer_not_configured", "px_listAssets")
+		pxRootError(t, c, -32001, "indexer_not_configured", "px_listAssets", []interface{}{}...)
+	}
+	var mu sync.Mutex
+	var exchanges []string
+	var corruptBody *string
+	status, mediaType := http.StatusOK, "application/json"
+	replay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		exchanges = append(exchanges, r.URL.RequestURI())
+		body, found := pages[r.URL.RawQuery]
+		if corruptBody != nil {
+			body, found = *corruptBody, true
+		}
+		currentStatus, currentType := status, mediaType
+		mu.Unlock()
+		if r.Method != http.MethodGet || r.URL.Path != "/v1/assets" || r.URL.Query().Get("limit") != "16" || r.Header.Get("Accept") != "application/json" || !found {
+			t.Errorf("unexpected producer exchange: %s %s", r.Method, r.URL)
+			http.Error(w, "unrecorded producer request", 500)
+			return
+		}
+		w.Header().Set("Content-Type", currentType)
+		w.WriteHeader(currentStatus)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(replay.Close)
+	restart := func(endpoint string) {
+		for _, c := range h.clients {
+			c.Close()
+		}
+		h.http.Stop()
+		h.ws.Stop()
+		h.start(t, evmrpc.WithPxIndexerURL(endpoint))
+	}
+	restart(replay.URL)
+	count := func() int { mu.Lock(); defer mu.Unlock(); return len(exchanges) }
+	call := func(c *rpc.Client, args ...interface{}) map[string]interface{} {
+		before := count()
+		result := pxRootCall(t, c, "px_listAssets", args...)
+		require.Equal(t, before+1, count(), "exactly one producer exchange per valid call")
+		query := "limit=16"
+		if len(args) == 1 {
+			query = "cursor=" + args[0].(string) + "&limit=16"
+		}
+		mu.Lock()
+		last := exchanges[len(exchanges)-1]
+		mu.Unlock()
+		require.Equal(t, "/v1/assets?"+query, last)
+		require.Equal(t, float64(h.height), result["height"])
+		require.Equal(t, float64(16), result["joined_limit"])
+		require.Equal(t, "registration", result["order"])
+		return result
+	}
+	// Both transports traverse every producer page, with a consumer restart
+	// between the first page and the continuation on the first traversal.
+	snapshots := make(map[string]map[string]interface{})
+	for transport := 0; transport < 2; transport++ {
+		c := h.clients[transport]
+		var ids []string
+		for page, cursor := range []string{"", "16", "32", "35", "9223372036854775807"} {
+			var args []interface{}
+			if cursor != "" {
+				args = []interface{}{cursor}
+			}
+			result := call(c, args...)
+			require.Equal(t, result, call(c, args...), "repeat reads must be stable")
+			if cursor == "" {
+				require.Equal(t, result, call(c, []interface{}{}...), "empty params and omitted params start at the same page")
+			}
+			if transport == 0 {
+				snapshots[cursor] = result
+			} else {
+				require.Equal(t, snapshots[cursor], result, "HTTP/WS parity")
+			}
+			rows := result["assets"].([]interface{})
+			sizes := []int{16, 16, 3, 0, 0}
+			require.Len(t, rows, sizes[page])
+			var next interface{}
+			if page == 0 {
+				next = "16"
+			}
+			if page == 1 {
+				next = "32"
+			}
+			require.Equal(t, next, result["next_cursor"])
+			for _, row := range rows {
+				asset := row.(map[string]interface{})
+				i := len(ids)
+				require.Equal(t, expected[i], asset["asset_id"])
+				require.NotContains(t, ids, asset["asset_id"])
+				ids = append(ids, asset["asset_id"].(string))
+				if i%3 == 0 {
+					require.Equal(t, "uxroot", asset["denom"])
+					require.Equal(t, "Root Asset", asset["name"])
+					require.Equal(t, "XROOT", asset["symbol"])
+					require.Equal(t, float64(8), asset["decimals"])
+					require.Equal(t, h.huge, asset["supply"])
+				} else {
+					for _, key := range []string{"name", "symbol", "decimals", "supply", "denom"} {
+						require.Nil(t, asset[key])
+					}
+				}
+				require.NotContains(t, asset, "paused")
+				require.NotContains(t, asset, "verification")
+			}
+			if transport == 0 && page == 0 {
+				savedCursor := result["next_cursor"]
+				restart(replay.URL)
+				c = h.clients[transport]
+				require.Equal(t, "16", savedCursor)
+				require.Equal(t, result, call(c), "restart preserves the first page and committed metadata")
+			}
+		}
+		require.Equal(t, expected, ids, "traversal has no omissions or duplicates")
+	}
+	for _, c := range h.clients {
+		for _, args := range [][]interface{}{{""}, {"0"}, {"-1"}, {"01"}, {"+1"}, {" 1"}, {"1 "}, {"1.0"}, {"1e1"}, {"１"}, {"9223372036854775808"}, {"18446744073709551616"}, {16}, {true}, {[]string{"16"}}, {map[string]string{"cursor": "16"}}, {"16", "32"}} {
+			before := count()
+			pxRootError(t, c, -32602, "", "px_listAssets", args...)
+			require.Equal(t, before, count(), "invalid cursor must not access the indexer")
+		}
+	}
+	// Corrupt the producer bytes only for explicit negative cases. Successful
+	// exchanges above always use the original production response body.
+	var original map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal([]byte(pages["limit=16"]), &original))
+	malformed := []string{"{", "null", `{"version":1,"items":[],"next_cursor":"17"}`}
+	for key, values := range map[string][]string{
+		"version":     {`2`, `null`, `"1"`},
+		"items":       {`null`, `{}`, `[{}]`},
+		"next_cursor": {`"16"`, `"0"`, `"016"`, `"-1"`, `"9223372036854775808"`, `16`, `{}`},
+	} {
+		for _, value := range values {
+			changed := make(map[string]json.RawMessage)
+			for k, v := range original {
+				changed[k] = v
+			}
+			changed[key] = json.RawMessage(value)
+			body, err := json.Marshal(changed)
+			require.NoError(t, err)
+			malformed = append(malformed, string(body))
+		}
+		missing := make(map[string]json.RawMessage)
+		for k, v := range original {
+			if k != key {
+				missing[k] = v
+			}
+		}
+		body, err := json.Marshal(missing)
+		require.NoError(t, err)
+		malformed = append(malformed, string(body))
+	}
+	for _, body := range malformed {
+		mu.Lock()
+		corruptBody = &body
+		mu.Unlock()
+		for _, c := range h.clients {
+			before := count()
+			pxRootError(t, c, -32001, "invalid_indexer_response", "px_listAssets", "16")
+			require.Equal(t, before+1, count())
+		}
+	}
+	mu.Lock()
+	corruptBody = nil
+	status = http.StatusServiceUnavailable
+	mu.Unlock()
+	for _, c := range h.clients {
+		pxRootError(t, c, -32001, "indexer_assets_unavailable", "px_listAssets")
+	}
+	mu.Lock()
+	status = http.StatusOK
+	mediaType = "text/plain"
+	mu.Unlock()
+	for _, c := range h.clients {
+		pxRootError(t, c, -32001, "indexer_assets_unavailable", "px_listAssets")
+	}
+	mu.Lock()
+	mediaType = "application/json"
+	mu.Unlock()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	unreachable := "http://" + listener.Addr().String()
+	require.NoError(t, listener.Close())
+	restart(unreachable)
+	for _, c := range h.clients {
+		pxRootError(t, c, -32001, "indexer_unreachable", "px_listAssets", "16")
+	}
+	restart(replay.URL)
+	// Explicit null is a non-string cursor, distinct from omitted parameters in
+	// OpenRPC. Keep this assertion even if the transport loses that distinction.
+	for _, c := range h.clients {
+		before := count()
+		pxRootError(t, c, -32602, "", "px_listAssets", nil)
+		require.Equal(t, before, count())
 	}
 }
 
