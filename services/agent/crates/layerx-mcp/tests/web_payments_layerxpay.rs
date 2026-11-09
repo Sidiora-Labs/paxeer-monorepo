@@ -377,7 +377,7 @@ fn web_fetch_pays_with_pay_exact() {
     assert_eq!(sequence_call.target, PrecompileTarget::Ledger);
     let sequence_data = sequence_call.encode().expect("nextSequence calldata");
     assert_eq!(&sequence_data[..4], &[0xce, 0x2f, 0x92, 0x1f]);
-    assert_eq!(&sequence_data[4..36], &grant.receiver_did_key);
+    assert_eq!(&sequence_data[4..36], &grant.recipient);
     assert_ne!(grant.receiver_did_key, grant.recipient);
     assert_eq!(&sequence_data[36..68], &grant.asset);
     let draw = grant.prepare_draw([8; 32], 19);

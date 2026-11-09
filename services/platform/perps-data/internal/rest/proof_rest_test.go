@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"net"
 	"net/http"
@@ -27,12 +28,15 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -44,19 +48,345 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/gorilla/websocket"
+	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/artifacts/wpax"
+	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/gateway"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/graphql"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/portal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ws"
 )
+
+// TestVenueLatestIndexCoherence drives ABI logs and finalize-block events
+// through the production decoder, writer, SQL readers and registered routes.
+func TestVenueLatestIndexCoherence(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	db, err := store.Open(proofRESTPostgres(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := store.Migrate(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	metrics, err := telemetry.New(config.Indexer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry, err := decode.NewRegistry(metrics, decode.Options{
+		PerpsModule: decode.ModuleAddress("perps"), SpotModule: decode.ModuleAddress("spot"), PricefeedModule: decode.ModuleAddress("pricefeed"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := perpsabi.ABI()
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+	units := func(value string) *big.Int {
+		t.Helper()
+		n, ok := new(big.Rat).SetString(value)
+		if !ok {
+			t.Fatalf("invalid price %q", value)
+		}
+		n.Mul(n, new(big.Rat).SetInt(big.NewInt(1_000_000_000_000_000_000)))
+		if !n.IsInt() {
+			t.Fatalf("inexact producer value %q", value)
+		}
+		return n.Num()
+	}
+	logEvent := func(name string, txIndex, logIndex uint, values ...any) decode.Log {
+		t.Helper()
+		event := leaf.Events[name]
+		if len(values) != len(event.Inputs) {
+			t.Fatalf("%s: %d values for %d inputs", name, len(values), len(event.Inputs))
+		}
+		topics := []common.Hash{event.ID}
+		var data []any
+		for i, field := range event.Inputs {
+			if field.Indexed {
+				encoded, err := abi.MakeTopics([]any{values[i]})
+				if err != nil {
+					t.Fatal(err)
+				}
+				topics = append(topics, encoded[0][0])
+			} else {
+				data = append(data, values[i])
+			}
+		}
+		packed, err := event.Inputs.NonIndexed().Pack(data...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return decode.Log{Log: types.Log{Address: decode.PerpsAddress, Topics: topics, Data: packed, TxIndex: txIndex, Index: logIndex}, ReceiptKind: decode.ReceiptPerpsEndBlock}
+	}
+	mark := func(market int64, txIndex, logIndex uint, price, index string) decode.Log {
+		return logEvent("MarkPriceUpdated", txIndex, logIndex, big.NewInt(market), units(price), units(index), units(price))
+	}
+	feed := func(market int64, index string) abci.Event {
+		typ := decode.EventAggregate
+		attrs := []string{"market_id", strconv.FormatInt(market, 10), "sources", "3", "required", "2"}
+		if index == "" {
+			typ = decode.EventAggregateSkipped
+			attrs[3] = "1"
+		} else {
+			// This mark is deliberately different: aggregate marks must never
+			// replace the independently selected MarkPriceUpdated value.
+			attrs = append(attrs, "index_price", units(index).String(), "mark_price", units("999").String(),
+				"basis", "0", "timestamp_ms", strconv.FormatInt(at.UnixMilli(), 10), "height", "1")
+		}
+		event := abci.Event{Type: typ}
+		for i := 0; i < len(attrs); i += 2 {
+			event.Attributes = append(event.Attributes, abci.EventAttribute{Key: []byte(attrs[i]), Value: []byte(attrs[i+1])})
+		}
+		return event
+	}
+	write := func(height uint64, events []abci.Event, logs ...decode.Log) {
+		t.Helper()
+		hash := common.BigToHash(new(big.Int).SetUint64(height))
+		when := at.Add(time.Duration(height) * time.Second)
+		for i := range logs {
+			logs[i].BlockNumber, logs[i].BlockHash, logs[i].BlockTime = height, hash, when
+			logs[i].TxHash = common.BigToHash(new(big.Int).SetUint64(height*1000 + uint64(logs[i].TxIndex)))
+		}
+		result, err := registry.DecodeBlock(ctx, db, decode.BlockInput{Number: height, Hash: hash, Time: when, Events: events, Logs: logs})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Raw) != 0 || len(result.Decoded) != len(events)+len(logs) {
+			t.Fatalf("producer decode: %+v", result)
+		}
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback()
+		if err := store.WriteBlock(ctx, tx, store.Block{Number: height, Hash: hash, Time: when}, result); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	venue, err := rest.NewVenue(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	markets, err := rest.NewMarkets(db, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema, err := graphql.NewSchema(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	venue.Register(mux)
+	markets.Register(mux)
+	mux.Handle("/graphql", &relay.Handler{Schema: schema})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	client := ts.Client()
+	client.Timeout = 10 * time.Second
+	request := func(method, path, payload string) map[string]json.RawMessage {
+		t.Helper()
+		req, err := http.NewRequestWithContext(ctx, method, ts.URL+path, strings.NewReader(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var body map[string]json.RawMessage
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s: status %d: %s", path, resp.StatusCode, body)
+		}
+		return body
+	}
+	fields := func(body map[string]json.RawMessage, names ...string) {
+		t.Helper()
+		got := make([]string, 0, len(body))
+		for name := range body {
+			got = append(got, name)
+		}
+		slices.Sort(got)
+		slices.Sort(names)
+		if !slices.Equal(got, names) {
+			t.Fatalf("response fields %v, want %v", got, names)
+		}
+	}
+	number := func(body map[string]json.RawMessage, name string, want *float64) {
+		t.Helper()
+		raw, exists := body[name]
+		var got *float64
+		if !exists {
+			t.Fatalf("missing %s", name)
+		}
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s = %s, want %v", name, raw, want)
+		}
+	}
+	ptr := func(v float64) *float64 { return &v }
+	type prices struct{ mark, index *float64 }
+	want := map[string]prices{}
+	observe := func(stage string) {
+		t.Helper()
+		t.Log(stage)
+		body := request(http.MethodPost, "/graphql", `{"query":"{ orderlyTickers { paxeerSymbol mark_price index_price } }"}`)
+		if raw, ok := body["errors"]; ok {
+			t.Fatalf("GraphQL errors: %s", raw)
+		}
+		var graph struct{ OrderlyTickers []map[string]json.RawMessage }
+		if err := json.Unmarshal(body["data"], &graph); err != nil {
+			t.Fatal(err)
+		}
+		var records struct{ Markets []rest.MarketRecord }
+		if err := json.Unmarshal(request(http.MethodGet, "/api/markets", "")["markets"], &records.Markets); err != nil {
+			t.Fatal(err)
+		}
+		if len(records.Markets) != 18 || len(graph.OrderlyTickers) != len(records.Markets) {
+			t.Fatalf("inventory: %d records, %d GraphQL tickers", len(records.Markets), len(graph.OrderlyTickers))
+		}
+		for _, prefix := range []string{"/api", "/api/markets"} {
+			listBody := request(http.MethodGet, prefix+"/tickers", "")
+			fields(listBody, "success", "data")
+			if string(listBody["success"]) != "true" {
+				t.Fatalf("unsuccessful ticker list: %s", listBody)
+			}
+			var entries []map[string]json.RawMessage
+			if err := json.Unmarshal(listBody["data"], &entries); err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != len(records.Markets) {
+				t.Fatalf("%s: %d entries", prefix, len(entries))
+			}
+			for i, rec := range records.Markets {
+				expected := want[rec.Symbol]
+				entry := entries[i]
+				fields(entry, "symbol", "paxeerSymbol", "mark_price", "index_price", "open_interest", "last_funding_rate_hourly", "last_funding_rate",
+					"24h_open", "24h_close", "24h_high", "24h_low", "24h_amount", "24h_volume")
+				if string(entry["paxeerSymbol"]) != strconv.Quote(rec.Symbol) || string(entry["symbol"]) != strconv.Quote("PERP_"+rec.Symbol+"_USDC") ||
+					string(graph.OrderlyTickers[i]["paxeerSymbol"]) != strconv.Quote(rec.Symbol) {
+					t.Fatalf("ticker identity/order: %s / %s / %s", entry, graph.OrderlyTickers[i], rec.Symbol)
+				}
+				number(entry, "mark_price", expected.mark)
+				number(entry, "index_price", expected.index)
+				number(graph.OrderlyTickers[i], "mark_price", expected.mark)
+				number(graph.OrderlyTickers[i], "index_price", expected.index)
+				if !reflect.DeepEqual(rec.PerpMarkPrice, expected.mark) || !reflect.DeepEqual(rec.PerpIndexPrice, expected.index) {
+					t.Fatalf("%s market-record prices: %+v", rec.Symbol, rec)
+				}
+				var basis *float64
+				if expected.mark != nil && expected.index != nil && *expected.index != 0 {
+					basis = ptr(math.Round((*expected.mark-*expected.index)*10000 / *expected.index * 1000) / 1000)
+				}
+				if !reflect.DeepEqual(rec.PerpBasisBps, basis) {
+					t.Fatalf("%s market-record basis: %v, want %v", rec.Symbol, rec.PerpBasisBps, basis)
+				}
+				oneBody := request(http.MethodGet, prefix+"/ticker/"+strings.ToLower(rec.Symbol), "")
+				fields(oneBody, "success", "data")
+				if string(oneBody["success"]) != "true" {
+					t.Fatalf("unsuccessful ticker: %s", oneBody)
+				}
+				var one map[string]json.RawMessage
+				if err := json.Unmarshal(oneBody["data"], &one); err != nil {
+					t.Fatal(err)
+				}
+				fields(one, "symbol", "index_price", "mark_price", "last_funding_rate_hourly", "last_funding_rate", "open_interest", "volume_24h")
+				if string(one["symbol"]) != strconv.Quote(rec.Symbol) {
+					t.Fatalf("single ticker symbol: %s", one)
+				}
+				for _, key := range []string{"index_price", "mark_price", "last_funding_rate_hourly", "last_funding_rate", "open_interest"} {
+					if !bytes.Equal(one[key], entry[key]) {
+						t.Fatalf("%s %s single/list mismatch: %s / %s", prefix, key, one[key], entry[key])
+					}
+				}
+				for _, key := range []string{"24h_open", "24h_close", "24h_high", "24h_low"} {
+					number(entry, key, nil)
+				}
+				for _, key := range []string{"24h_amount", "24h_volume"} {
+					number(entry, key, ptr(0))
+				}
+				number(one, "volume_24h", ptr(0))
+				if rec.Symbol == "BTC" {
+					number(one, "open_interest", ptr(2000.75))
+					number(one, "last_funding_rate", ptr(-0.00005))
+					if string(one["last_funding_rate_hourly"]) != `"-0.00005"` {
+						t.Fatalf("exact hourly funding: %s", one)
+					}
+				} else {
+					for _, key := range []string{"open_interest", "last_funding_rate", "last_funding_rate_hourly"} {
+						if string(one[key]) != "null" {
+							t.Fatalf("%s %s: %s", rec.Symbol, key, one[key])
+						}
+					}
+				}
+			}
+		}
+	}
+
+	write(10, nil, mark(0, 0, 90, "101.25", "100.5"), mark(2, 0, 91, "51.25", "50.5"),
+		logEvent("FundingSettled", 0, 92, big.NewInt(0), units("-0.00005"), units("-1"), units("1")),
+		logEvent("OpenInterestChanged", 0, 93, big.NewInt(0), units("1250.5"), units("750.25"), units("2000.75"), true))
+	want["BTC"], want["SOL"] = prices{ptr(101.25), ptr(100.5)}, prices{ptr(51.25), ptr(50.5)}
+	observe("mark_only_and_empty")
+	write(11, []abci.Event{feed(0, "102.5"), feed(1, "200.25"), feed(3, "")})
+	want["BTC"], want["ETH"] = prices{ptr(101.25), ptr(102.5)}, prices{nil, ptr(200.25)}
+	observe("newer_aggregate_and_aggregate_only")
+	write(12, []abci.Event{feed(0, ""), feed(1, ""), feed(3, "")})
+	observe("skipped_aggregates_preserve_index")
+	write(13, []abci.Event{feed(0, "103.5"), feed(0, "104.5")})
+	want["BTC"] = prices{ptr(101.25), ptr(104.5)}
+	observe("aggregate_log_order")
+	// A higher transaction wins despite the older transaction's higher log
+	// index; the mark also beats finalize-block events (tx_index = -1).
+	write(14, []abci.Event{feed(0, "105.5")}, mark(0, 0, 99, "106.25", "106.5"), mark(0, 1, 0, "108.25", "107.5"))
+	want["BTC"] = prices{ptr(108.25), ptr(107.5)}
+	observe("transaction_order_and_mark_after_aggregate")
+	write(15, nil, mark(0, 1, 1, "110.25", "109.5"), mark(0, 1, 0, "109.25", "108.5"))
+	want["BTC"] = prices{ptr(110.25), ptr(109.5)}
+	observe("mark_log_order")
+	// Lower transaction/log components in a later block still win. An
+	// aggregate's timestamp_ms is deliberately unchanged throughout.
+	write(16, []abci.Event{feed(0, "112.5")})
+	want["BTC"] = prices{ptr(110.25), ptr(112.5)}
+	observe("block_order_and_independent_mark")
+	write(17, []abci.Event{feed(0, "0")})
+	want["BTC"] = prices{ptr(110.25), ptr(0)}
+	observe("zero_index_and_null_basis")
+	// Current price decoders emit sub=0. Vary only persisted source metadata
+	// of genuine decoded/written events to exercise the reader's sub ordering;
+	// the price payloads still come exclusively from those producer events.
+	write(18, []abci.Event{feed(0, "115.5"), feed(0, "114.5")})
+	proofRESTExec(t, db, `UPDATE perps.index_prices SET log_index=0, sub=1 WHERE block=18 AND log_index=1`)
+	want["BTC"] = prices{ptr(110.25), ptr(114.5)}
+	observe("aggregate_sub_order")
+	write(19, nil, mark(0, 0, 0, "117.25", "116.5"), mark(0, 0, 1, "116.25", "115.5"))
+	proofRESTExec(t, db, `UPDATE perps.mark_prices SET log_index=0, sub=1 WHERE block=19 AND log_index=1`)
+	want["BTC"] = prices{ptr(116.25), ptr(115.5)}
+	observe("mark_sub_order")
+}
 
 func TestProofRestProducerTransportConsumer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

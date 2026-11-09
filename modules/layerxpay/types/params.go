@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/kv"
 )
@@ -18,9 +20,12 @@ func (Params) Validate() error {
 	return nil
 }
 
+const EscrowReceiptPrefix = "layerxpay/escrow-receipt/v1/"
+
 type GenesisState struct {
 	Params              Params    `json:"params"`
 	KernelRecords       []kv.Pair `json:"kernel_records"`
+	EscrowReceipts      []kv.Pair `json:"escrow_receipts"`
 	AgentStreamMetadata []kv.Pair `json:"agent_stream_metadata"`
 }
 
@@ -31,6 +36,35 @@ func DefaultGenesis() *GenesisState {
 func (g GenesisState) Validate() error {
 	if err := g.Params.Validate(); err != nil {
 		return err
+	}
+	receiptKeys := make(map[string]struct{}, len(g.EscrowReceipts))
+	for i, record := range g.EscrowReceipts {
+		if len(record.Key) != len(EscrowReceiptPrefix)+8 || !bytes.HasPrefix(record.Key, []byte(EscrowReceiptPrefix)) {
+			return ErrInvalidGenesis.Wrapf("escrow receipt %d has an invalid key", i)
+		}
+		if _, duplicate := receiptKeys[string(record.Key)]; duplicate {
+			return ErrInvalidGenesis.Wrapf("duplicate escrow receipt %d", i)
+		}
+		receiptKeys[string(record.Key)] = struct{}{}
+		receipt, err := codec.DecodeReceipt(record.Value)
+		if err != nil {
+			return ErrInvalidGenesis.Wrapf("escrow receipt %d has an invalid body: %v", i, err)
+		}
+		if receipt.GlobalSequence != binary.BigEndian.Uint64(record.Key[len(EscrowReceiptPrefix):]) ||
+			receipt.ModuleID != EscrowModuleID || receipt.ModuleVersion != 1 ||
+			receipt.ResultCode != 0 || receipt.SequencerSignature != nil || len(receipt.Effects) != 1 {
+			return ErrInvalidGenesis.Wrapf("escrow receipt %d is not a matching successful unsigned escrow receipt", i)
+		}
+		event := receipt.Effects[0]
+		if event.ModuleID != EscrowModuleID || event.Kind != 3 || event.Monetary ||
+			event.EventType < 1 || event.EventType > 7 || len(event.Body) != 67 ||
+			bytes.Equal(event.Body[:32], make([]byte, 32)) ||
+			binary.BigEndian.Uint16(event.Body[32:34]) != event.EventType ||
+			event.Body[34] < 1 || event.Body[34] > 7 ||
+			(event.EventType == 6) != (event.TransferSetRoot == ([32]byte{})) ||
+			receipt.TransferSetRoot != event.TransferSetRoot {
+			return ErrInvalidGenesis.Wrapf("escrow receipt %d has an invalid economic event", i)
+		}
 	}
 	if len(g.AgentStreamMetadata) > MaxKernelRecords {
 		return ErrInvalidGenesis.Wrapf("agent stream metadata count %d exceeds %d", len(g.AgentStreamMetadata), MaxKernelRecords)

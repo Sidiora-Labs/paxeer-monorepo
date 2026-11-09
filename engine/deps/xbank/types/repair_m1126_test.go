@@ -18,6 +18,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 	"github.com/stretchr/testify/require"
@@ -25,10 +26,12 @@ import (
 )
 
 type repairM1126Fixture struct {
-	bank keeper.BaseKeeper
-	ctx  sdk.Context
-	cdc  *codec.ProtoCodec
-	keys []sdk.StoreKey
+	bank      keeper.BaseKeeper
+	canonical bankkeeper.BaseKeeper
+	cache     cachemulti.Store
+	ctx       sdk.Context
+	cdc       *codec.ProtoCodec
+	keys      []sdk.StoreKey
 }
 
 func repairM1126Keeper(t *testing.T) repairM1126Fixture {
@@ -60,9 +63,11 @@ func repairM1126Keeper(t *testing.T) repairM1126Fixture {
 	ak := authkeeper.NewAccountKeeper(cdc, authKey,
 		paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, authtypes.ModuleName),
 		authtypes.ProtoBaseAccount, map[string][]string{})
-	bk := keeper.NewBaseKeeper(cdc, bankKey, ak,
-		paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, types.ModuleName).WithKeyTable(banktypes.ParamKeyTable()), nil)
-	return repairM1126Fixture{bank: bk, ctx: sdk.NewContext(ms, tmproto.Header{Height: 1}, false), cdc: cdc, keys: keys}
+	bankParams := paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, banktypes.ModuleName).WithKeyTable(banktypes.ParamKeyTable())
+	bk := keeper.NewBaseKeeper(cdc, bankKey, ak, bankParams, nil)
+	canonical := bankkeeper.NewBaseKeeper(cdc, bankKey, ak, bankParams, nil)
+	return repairM1126Fixture{bank: bk, canonical: canonical, cache: ms,
+		ctx: sdk.NewContext(ms, tmproto.Header{Height: 1}, false), cdc: cdc, keys: keys}
 }
 
 func (f repairM1126Fixture) transport(gs *types.GenesisState) *types.GenesisState {
@@ -75,7 +80,17 @@ func (f repairM1126Fixture) initialize(gs *types.GenesisState) error {
 	if err := gs.Validate(); err != nil {
 		return err
 	}
-	f.bank.InitGenesis(f.ctx, gs)
+	transport, err := f.cdc.MarshalAsJSON(gs)
+	if err != nil {
+		return err
+	}
+	var canonical banktypes.GenesisState
+	if err := f.cdc.UnmarshalAsJSON(transport, &canonical); err != nil {
+		return err
+	}
+	f.canonical.InitGenesis(f.ctx, &canonical)
+	// Publish canonical cache writes to the shared parent before Giga reads it.
+	f.cache.Write()
 	return nil
 }
 
@@ -158,7 +173,7 @@ func TestRepairM_1126_AcceptedTotalsPreserveSupply(t *testing.T) {
 			}
 			gs = f.transport(gs)
 			require.False(t, f.bank.UseRegularStore)
-			require.NoError(t, f.initialize(gs))
+			require.NotPanics(t, func() { require.NoError(t, f.initialize(gs)) })
 			require.Equal(t, sdk.NewInt64Coin(denom, 7), f.bank.GetBalance(f.ctx, a, denom))
 			require.Equal(t, sdk.NewInt64Coin(denom, 4), f.bank.GetBalance(f.ctx, b, denom))
 			require.Equal(t, sdk.NewInt64Coin("other", 7), f.bank.GetBalance(f.ctx, a, "other"))

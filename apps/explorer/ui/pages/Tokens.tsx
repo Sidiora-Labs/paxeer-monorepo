@@ -1,4 +1,5 @@
 import { Box } from '@chakra-ui/react';
+import { omit } from 'es-toolkit';
 import { useRouter } from 'next/router';
 import React from 'react';
 
@@ -41,8 +42,8 @@ const TokensContent = () => {
 
   const [ searchTerm, setSearchTerm ] = React.useState<string>(q ?? '');
   const [ sort, setSort ] = React.useState<TokensSortingValue>(getSortValueFromQuery<TokensSortingValue>(router.query, SORT_OPTIONS) ?? 'default');
-  const [ tokenTypes, setTokenTypes ] = React.useState<Array<TokenType> | undefined>(getTokenFilterValue(router.query.type));
-  const [ bridgeChains, setBridgeChains ] = React.useState<Array<string> | undefined>(getBridgedChainsFilterValue(router.query.chain_ids));
+  const tokenTypes = React.useMemo(() => getTokenFilterValue(router.query.type), [ router.query.type ]);
+  const bridgeChains = React.useMemo(() => getBridgedChainsFilterValue(router.query.chain_ids), [ router.query.chain_ids ]);
   const [ rowsCount, setRowsCount ] = React.useState<number>(API_PAGE_SIZE);
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -76,12 +77,10 @@ const TokensContent = () => {
 
   const handleTokenTypesChange = React.useCallback((value: Array<TokenType>) => {
     tokensQuery.onFilterChange({ q: debouncedSearchTerm, type: value });
-    setTokenTypes(value.length ? value : undefined);
   }, [ debouncedSearchTerm, tokensQuery ]);
 
   const handleBridgeChainsChange = React.useCallback((value: Array<string>) => {
     tokensQuery.onFilterChange({ q: debouncedSearchTerm, chain_ids: value });
-    setBridgeChains(value);
   }, [ debouncedSearchTerm, tokensQuery ]);
 
   const handleSortChange = React.useCallback((value: TokensSortingValue) => {
@@ -115,9 +114,10 @@ const TokensContent = () => {
     }
     if (value === 'bridged' || tab === 'bridged') {
       router.push({ pathname: '/tokens', query: {
+        ...omit(router.query, [ 'type', 'chain_ids', 'page', 'next_page_params' ]),
         tab: value === 'bridged' ? 'bridged' : 'all',
         ...(types.length ? { type: types.join(',') } : {}),
-        ...(searchTerm ? { q: searchTerm } : {}),
+        q: searchTerm || undefined,
       } }, undefined, { shallow: true });
       return;
     }

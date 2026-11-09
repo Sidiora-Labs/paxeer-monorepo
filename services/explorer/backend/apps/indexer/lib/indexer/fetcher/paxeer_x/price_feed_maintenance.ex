@@ -6,8 +6,10 @@ defmodule Indexer.Fetcher.PaxeerX.PriceFeedMaintenance do
   it, a bounded batch at a time, so catch-up reads only the heights above the
   watermark. When a retention period is configured it also deletes the submissions older
   than that period, with their observations, oldest first in bounded batches. Without a
-  retention period every submission is kept. Retention waits while any acceptance
-  replay job is incomplete so the replay cannot lose its source observations.
+  retention period every submission is kept. Retention waits while canonical acceptance
+  replay work remains. Non-consensus jobs defer until their blocks regain consensus;
+  retention protects every incomplete job's source submissions, including deferred jobs,
+  while expiring unrelated eligible history.
   """
 
   use GenServer
