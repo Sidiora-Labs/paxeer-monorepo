@@ -117,6 +117,9 @@ fn eligible_configuration(
     Ok(())
 }
 
+/// # Errors
+///
+/// Returns configuration errors for an unsupported selector or call, RPC errors, missing-asset errors or invalid custody terms.
 pub fn registry(
     endpoint: &SequencerEndpoint,
     call: &CallRequest,

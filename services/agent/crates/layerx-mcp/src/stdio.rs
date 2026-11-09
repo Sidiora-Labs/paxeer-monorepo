@@ -127,7 +127,7 @@ impl<B: ToolBoundary> Session<B> {
         let Ok(request) = serde_json::from_str::<Value>(message) else {
             return Some(failure(
                 Value::Null,
-                -32700,
+                -32_700,
                 "the message is not valid JSON",
             ));
         };
@@ -135,7 +135,7 @@ impl<B: ToolBoundary> Session<B> {
         let Some(method) = request.get("method").and_then(Value::as_str) else {
             return Some(failure(
                 identifier,
-                -32600,
+                -32_600,
                 "the message did not name a method",
             ));
         };
@@ -150,7 +150,7 @@ impl<B: ToolBoundary> Session<B> {
             "tools/call" => self.call(identifier, &parameters),
             _ => failure(
                 identifier,
-                -32601,
+                -32_601,
                 &format!("method {method} is not implemented"),
             ),
         })
@@ -192,12 +192,12 @@ impl<B: ToolBoundary> Session<B> {
 
     fn call(&mut self, identifier: Value, parameters: &Value) -> Value {
         let Some(name) = parameters.get("name").and_then(Value::as_str) else {
-            return failure(identifier, -32602, "the call did not name a tool");
+            return failure(identifier, -32_602, "the call did not name a tool");
         };
         let Some(tool) = self.bound.tool(name) else {
             return failure(
                 identifier,
-                -32602,
+                -32_602,
                 &format!("tool {name} is not served by this deployment"),
             );
         };
@@ -343,6 +343,8 @@ pub struct DaemonClientSession {
 }
 
 impl DaemonClientSession {
+    /// # Errors
+    /// Returns the daemon refusal if its authenticated tool description cannot be loaded or validated.
     pub fn connect(
         transport: AgentEnvelopeTransport,
         credential: EnvelopeCredential,
@@ -430,9 +432,9 @@ impl DaemonClientSession {
         if tools.is_empty() {
             return Err(description_refusal());
         }
-        self.loaded_binding = binding.to_owned();
+        binding.clone_into(&mut self.loaded_binding);
         self.tools = tools;
-        self.listings = listings.clone();
+        self.listings.clone_from(listings);
         Ok(())
     }
 
@@ -440,7 +442,7 @@ impl DaemonClientSession {
         let Ok(request) = serde_json::from_str::<Value>(message) else {
             return Some(failure(
                 Value::Null,
-                -32700,
+                -32_700,
                 "the message is not valid JSON",
             ));
         };
@@ -448,7 +450,7 @@ impl DaemonClientSession {
         let Some(method) = request.get("method").and_then(Value::as_str) else {
             return Some(failure(
                 identifier,
-                -32600,
+                -32_600,
                 "the message did not name a method",
             ));
         };
@@ -490,18 +492,18 @@ impl DaemonClientSession {
                 }
             },
             "tools/call" => self.call(identifier, &parameters),
-            _ => failure(identifier, -32601, "the method is not implemented"),
+            _ => failure(identifier, -32_601, "the method is not implemented"),
         })
     }
 
     fn call(&mut self, identifier: Value, parameters: &Value) -> Value {
         let Some(name) = parameters.get("name").and_then(Value::as_str) else {
-            return failure(identifier, -32602, "the call did not name a tool");
+            return failure(identifier, -32_602, "the call did not name a tool");
         };
         let Some(tool) = self.tools.iter().find(|tool| tool.name == name).copied() else {
             return failure(
                 identifier,
-                -32602,
+                -32_602,
                 "the tool is not served by this deployment",
             );
         };
@@ -551,6 +553,8 @@ impl DaemonClientSession {
         }
     }
 
+    /// # Errors
+    /// Returns an error if protocol input exceeds the message limit, cannot be read, or a response cannot be encoded, written or flushed.
     pub fn serve<R: BufRead, W: Write>(
         &mut self,
         reader: &mut R,
@@ -600,10 +604,18 @@ fn request_key() -> Result<Key, Value> {
 }
 
 fn invocation_key(parameters: &Value, arguments: &Value) -> Result<Key, Value> {
-    let argument_key = arguments.get("idempotency_key").or_else(|| {
-        (arguments.get("variant").and_then(Value::as_str) == Some("native_write_v1"))
-            .then(|| arguments.get("intent").and_then(|intent| intent.get("idempotency_key"))).flatten()
-    }).and_then(Value::as_str);
+    let argument_key = arguments
+        .get("idempotency_key")
+        .or_else(|| {
+            (arguments.get("variant").and_then(Value::as_str) == Some("native_write_v1"))
+                .then(|| {
+                    arguments
+                        .get("intent")
+                        .and_then(|intent| intent.get("idempotency_key"))
+                })
+                .flatten()
+        })
+        .and_then(Value::as_str);
     let metadata_key = parameters
         .get("_meta")
         .and_then(|meta| meta.get("layerx/idempotency_key"))
@@ -636,7 +648,7 @@ fn daemon_client_refusal(error: EnvelopeError) -> Value {
     match error {
         EnvelopeError::Refused(error) => json!({
             "class": format!("{:?}", error.class),
-            "protocol_result_code": error.protocol_result_code.map(|code| code.raw()),
+            "protocol_result_code": error.protocol_result_code.map(layerx_types::result::ResultCode::raw),
             "retriability": format!("{:?}", error.retriability),
             "request_id": error.request_id.0.to_string(),
             "reason": error.reason.as_str(),
@@ -658,7 +670,7 @@ fn daemon_client_refusal(error: EnvelopeError) -> Value {
 fn daemon_protocol_failure(identifier: Value, refusal: Value) -> Value {
     let mut response = failure(
         identifier,
-        -32001,
+        -32_001,
         "the live daemon refused the MCP authority",
     );
     if let Some(error) = response.get_mut("error").and_then(Value::as_object_mut) {
