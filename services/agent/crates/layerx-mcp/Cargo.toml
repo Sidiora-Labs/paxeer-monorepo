@@ -27,6 +27,7 @@ sha3 = "=0.10.8"
 zeroize = "=1.9.0"
 
 [dev-dependencies]
+layerx-mcp-test-support = { path = "tests/support" }
 ed25519-dalek = "=2.2.0"
 k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa", "std"] }
 layerx-client = { path = "../layerx-client" }
@@ -39,3 +40,7 @@ workspace = true
 [[test]]
 name = "injection"
 path = "../../tests/mcp/injection.rs"
+
+[[test]]
+name = "support_lints"
+path = "tests/support/lib.rs"

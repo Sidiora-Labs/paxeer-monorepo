@@ -606,3 +606,398 @@ fn capability_install_reports_submitted_and_receipted_rungs() {
         fixture.finish();
     }
 }
+
+mod capability_install_boundary {
+    use super::*;
+    use std::collections::BTreeMap;
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::path::Path;
+    use std::time::Instant;
+
+    use layerx_agentd::human::{serve_one, AcceptedTransport, HumanPeer};
+    use layerx_agentd::human_runtime::{ProductionHumanOperations, RemoteHumanAuthority};
+    use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
+    use layerx_agentd::store::Store;
+    use layerx_client::sequencer::SequencerEndpoint;
+    use layerx_types::verify::VerificationLevel;
+    use serde_json::{json, Value};
+
+    const DEADLINE: Duration = Duration::from_secs(5);
+
+    fn accept(listener: &TcpListener) -> TcpStream {
+        let deadline = Instant::now() + DEADLINE;
+        loop {
+            match listener.accept() {
+                Ok((stream, _)) => {
+                    checked(stream.set_read_timeout(Some(DEADLINE)));
+                    checked(stream.set_write_timeout(Some(DEADLINE)));
+                    return stream;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(Instant::now() < deadline, "capability authority deadline");
+                    thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) => panic!("capability authority accept: {error}"),
+            }
+        }
+    }
+
+    fn http_request(stream: &mut (impl Read + Write)) -> (String, Vec<u8>) {
+        let mut headers = Vec::new();
+        while !headers.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            checked(stream.read_exact(&mut byte));
+            headers.push(byte[0]);
+            assert!(headers.len() <= MAX_FRAME);
+        }
+        let headers = checked(String::from_utf8(headers));
+        let length = headers
+            .lines()
+            .filter_map(|line| line.split_once(':'))
+            .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+            .map_or(0, |(_, value)| checked(value.trim().parse::<usize>()));
+        assert!(length <= MAX_FRAME);
+        let mut body = vec![0; length];
+        checked(stream.read_exact(&mut body));
+        (headers, body)
+    }
+
+    fn http_response(stream: &mut impl Write, document: &Value) {
+        let body = checked(serde_json::to_vec(document));
+        checked(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()));
+        checked(stream.write_all(&body));
+        checked(stream.flush());
+    }
+
+    pub(super) fn authority() -> (String, JoinHandle<()>) {
+        let request = capability();
+        let listener = checked(TcpListener::bind("127.0.0.1:0"));
+        checked(listener.set_nonblocking(true));
+        let endpoint = format!(
+            "https://localhost:{}",
+            checked(listener.local_addr()).port()
+        );
+        let identity = checked(native_tls::Identity::from_pkcs8(
+            include_bytes!("support/approval_fixture/loopback.pem"),
+            include_bytes!("support/approval_fixture/loopback-key.pem"),
+        ));
+        let acceptor = checked(native_tls::TlsAcceptor::new(identity));
+        let worker = thread::spawn(move || {
+            let committed = VerificationLevel::COMMITTED.wire_rank();
+            let mut digest = Sha256::new();
+            for part in [
+                b"layerx-human/agent-create/agent-evidence/v1".as_slice(),
+                &[5],
+                &request.action_key,
+                &request.capability_id,
+                &HEIGHT.to_be_bytes(),
+                &[committed],
+            ] {
+                digest.update(checked(u32::try_from(part.len())).to_be_bytes());
+                digest.update(part);
+            }
+            let digest: [u8; 32] = digest.finalize().into();
+            let mut summary = b"LXGS2".to_vec();
+            summary.extend_from_slice(&request.capability_id);
+            summary.extend_from_slice(&[0x70; 32]);
+            summary.extend_from_slice(&request.primary_authority);
+            summary.extend_from_slice(&request.action_key);
+            summary.extend_from_slice(&[0x75; 32]);
+            summary.extend_from_slice(&request.expiry_sequence.to_be_bytes());
+            summary.extend_from_slice(&(1_u64 << (ModuleId::Budget as u16)).to_be_bytes());
+            let activity = *request.activity_types.first().expect("activity type");
+            summary.extend_from_slice(&activity.to_be_bytes());
+            summary.extend_from_slice(&activity.to_be_bytes());
+            summary.extend_from_slice(&1_000_000_u64.to_be_bytes());
+            summary.extend_from_slice(&2_000_000_u64.to_be_bytes());
+            summary.extend_from_slice(&0_u64.to_be_bytes());
+            assert_eq!(summary.len(), 209);
+            let identity = json!({
+                "canonical_core_bytes": hex(&request.primary_authority),
+                "head_sequence": HEIGHT, "revocation_sequence": 0,
+                "verification_level": "committed", "frozen": false,
+                "authorities": [{"kind": "primary_key", "id": hex(&request.primary_authority)}]
+            });
+            let scope = json!({
+                "activity_types": request.activity_types,
+                "counterparties": request.counterparties.iter().map(|v| hex(v)).collect::<Vec<_>>(),
+                "assets": request.assets.iter().map(|v| hex(v)).collect::<Vec<_>>(),
+                "amount_ceiling": request.amount_ceiling.to_string(),
+                "expiry_sequence": request.expiry_sequence,
+                "enforceable_dimensions": ["activity_type", "counterparty", "asset", "amount", "expiry"],
+                "observed_sequence": HEIGHT, "verification": committed,
+                "evidence_digest": hex(&digest), "canonical_core_bytes": hex(&summary)
+            });
+            for failure in 0..3 {
+                for (route, mut document) in [
+                    ("identity", identity.clone()),
+                    ("capability-scope", scope.clone()),
+                ] {
+                    if route == "capability-scope" {
+                        if failure == 1 {
+                            let mut corrupt = digest;
+                            corrupt[0] ^= 1;
+                            document["evidence_digest"] = json!(hex(&corrupt));
+                        } else if failure == 2 {
+                            document["verification"] =
+                                json!(VerificationLevel::SEQUENCER_SIGNED.wire_rank());
+                        }
+                    }
+                    let mut stream = checked(acceptor.accept(accept(&listener)));
+                    let (headers, body) = http_request(&mut stream);
+                    assert!(body.is_empty());
+                    assert!(headers.starts_with(&format!(
+                        "GET /v1/agent/{route}?tenant=tenant-alice&principal=alice&"
+                    )));
+                    assert!(headers
+                        .to_ascii_lowercase()
+                        .contains("authorization: bearer capability-install-authority-token"));
+                    if route == "capability-scope" {
+                        for (name, value) in [
+                            ("authority", request.primary_authority),
+                            ("action_key", request.action_key),
+                            ("capability_id", request.capability_id),
+                        ] {
+                            assert!(headers.contains(&format!("{name}={}", hex(&value))));
+                        }
+                    }
+                    http_response(&mut stream, &document);
+                }
+            }
+        });
+        (endpoint, worker)
+    }
+
+    pub(super) fn node() -> (String, JoinHandle<()>) {
+        let listener = checked(TcpListener::bind("127.0.0.1:0"));
+        checked(listener.set_nonblocking(true));
+        let endpoint = format!("http://{}", checked(listener.local_addr()));
+        let worker = thread::spawn(move || {
+            for _ in 0..4 {
+                let mut stream = accept(&listener);
+                let (_, body) = http_request(&mut stream);
+                let request: Value = checked(serde_json::from_slice(&body));
+                assert_eq!(request["method"], "eth_chainId");
+                assert_eq!(request["params"], json!([]));
+                http_response(
+                    &mut stream,
+                    &json!({"jsonrpc":"2.0", "id":request["id"], "result":"0x4d"}),
+                );
+            }
+        });
+        (endpoint, worker)
+    }
+
+    pub(super) fn run(
+        socket: &Path,
+        store: Arc<Mutex<Store>>,
+        authority_endpoint: &str,
+        node_endpoint: &str,
+        custody: &CustodySigner,
+        requests: Vec<CapabilityProvision>,
+    ) -> Vec<Result<AgentEvidence, AgentFailure>> {
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(1_000_000_000));
+        let peer = HumanPeer {
+            uid: 1000,
+            tenant: "tenant-alice".to_owned(),
+            principal: "alice".to_owned(),
+            subject: None,
+        };
+        let peers = BTreeMap::from([(peer.uid, (peer.principal.clone(), peer.tenant.clone()))]);
+        let authority = checked(RemoteHumanAuthority::connect(
+            authority_endpoint,
+            "capability-install-authority-token".to_owned(),
+            DEADLINE,
+            MAX_FRAME,
+            include_bytes!("support/approval_fixture/loopback-ca.der"),
+        ));
+        let mut operations = checked(ProductionHumanOperations::new(
+            authority,
+            checked(SequencerEndpoint::new(node_endpoint, &[])),
+            Box::new(checked(NodeRpc::connect(&NodeRpcConfig {
+                url: node_endpoint.to_owned(),
+                chain_id: 77,
+                deadline: DEADLINE,
+            }))),
+            store,
+            &peers,
+            MAX_FRAME,
+            30,
+            Arc::clone(&clock),
+        ));
+        let listener = checked(UnixListener::bind(socket));
+        checked(listener.set_nonblocking(true));
+        let count = requests.len();
+        let server = thread::spawn(move || {
+            for _ in 0..count {
+                let deadline = Instant::now() + DEADLINE;
+                let stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(Instant::now() < deadline, "capability install deadline");
+                            thread::sleep(Duration::from_millis(1));
+                        }
+                        Err(error) => panic!("capability install accept: {error}"),
+                    }
+                };
+                let mut transport = checked(AcceptedTransport::new(stream, MAX_FRAME, DEADLINE));
+                checked(serve_one(&mut transport, &peer, &mut operations));
+            }
+        });
+        let mut runtime = checked(AgentRuntime::new_with_clock(
+            socket,
+            Limits {
+                maximum_frame_bytes: MAX_FRAME,
+                maximum_connections: 1,
+                maximum_streams: 1,
+                maximum_queued_bytes: MAX_FRAME,
+                deadline: DEADLINE,
+            },
+            registry(),
+            clock,
+        ));
+        let client = checked(Client::daemon(
+            "/run/layerx-agentd.sock",
+            layerx_agent_api::agent_api_schema_v1().version,
+        ));
+        let trace = TraceId::mint([0x31; 16]);
+        let mut creation = checked(ProductionAgentCreation::new(
+            &mut runtime,
+            &client,
+            custody,
+            &trace,
+            checked(AgentDid::new(canonical_owner::OWNER_DID)),
+            checked(AuthorityRef::new(hex(&capability().primary_authority))),
+            CreationBounds {
+                timestamp_span: 30,
+                fee_limit: 10,
+            },
+        ));
+        let results = requests
+            .into_iter()
+            .map(|request| creation.narrow_capability(request))
+            .collect();
+        checked(server.join());
+        results
+    }
+}
+
+#[test]
+fn capability_install_evidence_matches_human() {
+    use layerx_agentd::capability::{Capability, CapabilityId};
+    use layerx_agentd::store::{ObjectKind, Store, TenantId};
+
+    let root = support::directory("capability-install-evidence");
+    checked(std::fs::create_dir_all(&root));
+    let (principals, _) = support::install_and_open(
+        &root.join("principals"),
+        &support::tenancy(&[("alice", "tenant-alice")]),
+        support::retention_uniform(100),
+    );
+    let secret = root.join("kms-root");
+    checked(std::fs::write(&secret, [0x51; 64]));
+    let custody = CustodySigner::new_shared(
+        checked(Keystore::open_development(
+            root.join("custody"),
+            77,
+            checked(EnvelopeKms::new("kms://creation-primary", secret)),
+        )),
+        Arc::new(Mutex::new(principals)),
+        registry(),
+        checked(SigningLimits::new(10, 60)),
+    );
+    let (authority, authority_server) = capability_install_boundary::authority();
+    let (node, node_server) = capability_install_boundary::node();
+    let store_path = root.join("daemon");
+    let shared = Arc::new(Mutex::new(checked(Store::open(&store_path))));
+    let request = capability();
+    let first = checked(
+        capability_install_boundary::run(
+            &root.join("first.sock"),
+            Arc::clone(&shared),
+            &authority,
+            &node,
+            &custody,
+            vec![request.clone()],
+        )
+        .remove(0),
+    );
+    assert_eq!(first.rung, Rung::Committed);
+    assert!(first.creation_complete());
+    assert_eq!(first.action_key, request.action_key);
+    assert_eq!(first.object_id, request.capability_id);
+    assert_eq!(first.observed_sequence, HEIGHT);
+    assert_eq!(
+        first.receipt_digest,
+        first.expected_digest(CreationStage::CapabilityNarrowing)
+    );
+    let tenant = checked(TenantId::new("tenant-alice"));
+    let installed = checked(Capability::restore(
+        &*checked(shared.lock()),
+        tenant.clone(),
+        CapabilityId(request.capability_id),
+    ))
+    .expect("installed capability");
+    assert_eq!(installed.dimensions.amount_ceiling, request.amount_ceiling);
+    assert_eq!(installed.dimensions.activity_types, request.activity_types);
+    assert_eq!(
+        checked(shared.lock()).list_object_ids(&tenant, ObjectKind::Capability),
+        vec![request.capability_id.to_vec()]
+    );
+    assert_eq!(Arc::strong_count(&shared), 1);
+    drop(shared);
+
+    let shared = Arc::new(Mutex::new(checked(Store::open(&store_path))));
+    let mut changed = request.clone();
+    changed.amount_ceiling -= 1;
+    let mut retried = capability_install_boundary::run(
+        &root.join("reopened.sock"),
+        Arc::clone(&shared),
+        &authority,
+        &node,
+        &custody,
+        vec![request.clone(), changed],
+    )
+    .into_iter();
+    assert_eq!(checked(retried.next().expect("retry result")), first);
+    let refused = Err(AgentFailure::Refused(
+        "agent refused or corrupted creation operation",
+    ));
+    assert_eq!(retried.next().expect("changed request result"), refused);
+    assert_eq!(
+        checked(Capability::restore(
+            &*checked(shared.lock()),
+            tenant.clone(),
+            CapabilityId(request.capability_id)
+        )),
+        Some(installed)
+    );
+    assert_eq!(
+        checked(shared.lock()).list_object_ids(&tenant, ObjectKind::Capability),
+        vec![request.capability_id.to_vec()]
+    );
+    drop(shared);
+
+    for failure in ["digest", "verification"] {
+        let shared = Arc::new(Mutex::new(checked(Store::open(root.join(failure)))));
+        let result = capability_install_boundary::run(
+            &root.join(format!("{failure}.sock")),
+            Arc::clone(&shared),
+            &authority,
+            &node,
+            &custody,
+            vec![request.clone()],
+        )
+        .remove(0);
+        assert_eq!(result, refused, "invalid authority {failure}");
+        assert!(checked(shared.lock())
+            .list_object_ids(&tenant, ObjectKind::Capability)
+            .is_empty());
+    }
+    checked(authority_server.join());
+    checked(node_server.join());
+    drop(custody);
+    checked(std::fs::remove_dir_all(root));
+}

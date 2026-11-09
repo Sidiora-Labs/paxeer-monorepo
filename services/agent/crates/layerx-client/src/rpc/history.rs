@@ -1,6 +1,7 @@
 //! History reads over JSON-RPC.
 
 use serde_json::{json, Value};
+use std::fmt::Write as _;
 
 use crate::sequencer::{SequencerEndpoint, SequencerError};
 
@@ -10,6 +11,9 @@ use crate::sequencer::{SequencerEndpoint, SequencerError};
 pub type HistoryPage = crate::sequencer::HistoryPage;
 pub type PxEndpoint = crate::px::PxEndpoint;
 
+/// # Errors
+///
+/// Returns RPC errors or malformed-response errors when the history or account response violates the registered layout.
 pub fn history(
     endpoint: &SequencerEndpoint,
     account: &str,
@@ -19,6 +23,9 @@ pub fn history(
     endpoint.history(account, cursor, u64::from(limit.unwrap_or(50)))
 }
 
+/// # Errors
+///
+/// Returns RPC errors or malformed-response errors when the history or account response violates the registered layout.
 pub fn did_evm_address(
     endpoint: &PxEndpoint,
     did: &str,
@@ -31,6 +38,9 @@ pub fn did_evm_address(
     }
 }
 
+/// # Errors
+///
+/// Returns RPC errors or malformed-response errors when the history or account response violates the registered layout.
 pub fn did_accounts(endpoint: &PxEndpoint, did: &str) -> Result<Vec<Value>, SequencerError> {
     let account = endpoint.account(did)?.account;
     let Some(address) = account.evm_address else {
@@ -40,10 +50,11 @@ pub fn did_accounts(endpoint: &PxEndpoint, did: &str) -> Result<Vec<Value>, Sequ
         return Ok(vec![]);
     }
     let hex = |bytes: &[u8]| {
-        bytes
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
+        let mut text = String::with_capacity(bytes.len() * 2);
+        for byte in bytes {
+            let _ = write!(text, "{byte:02x}");
+        }
+        text
     };
     Ok(vec![json!({
         "evm_address": format!("0x{}", hex(&address)),

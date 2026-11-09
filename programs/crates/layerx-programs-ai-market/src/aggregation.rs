@@ -37,14 +37,13 @@ use crate::{
         WRONG_PHASE, WRONG_ROSTER,
     },
     evaluators::{authority::evaluator_region, model::GrantStatus},
-    registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     reward_math::allocate_aggregation,
     rewards::{
         decode_reward_state, EpochStatus, RewardEffect, RewardEpoch, RewardState,
         REWARD_STATE_BYTES,
     },
-    state::{decode_shared_state, encode_shared_state, Section, SharedState},
+    state::{decode_shared_state, Section, SharedState},
     types::{
         Digest32, EpochWindows, EvaluatorId, EvaluatorRosterEntry, FrozenBinding, Presence,
         ResultDigest, Score, Version, WorkerRosterEntry,
@@ -931,22 +930,22 @@ impl Call<'_> {
             event,
         } = out;
         let view = self.view;
-        let revision = view.state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-        let mut section = view.section;
-        section.header.state_revision = revision;
-        let policy_len = section.encode(policy_out)?;
-        let mut feature_sections: [&[u8]; 5] = view.state.feature_sections;
-        *feature_sections.guest_index_mut(Section::PolicyLifecycle.index()) =
-            policy_out.get(..policy_len).ok_or(CAPACITY)?;
-        *feature_sections.guest_index_mut(Section::SettlementClaims.index()) = settlement;
-        let candidate = SharedState {
-            revision,
-            feature_sections,
-            control: view.state.control.clone(),
-        };
-        check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-        let state_len = encode_shared_state(&candidate, next, control_out)?;
+        let mut candidate = view.state.clone();
+        *candidate
+            .feature_sections
+            .guest_index_mut(Section::SettlementClaims.index()) = settlement;
         let result = response.result()?;
+        let (revision, state_len) = crate::rewards::finish_feature_transition(
+            candidate,
+            view.section,
+            None,
+            self.ctx.height,
+            result,
+            NON_CANONICAL,
+            policy_out,
+            control_out,
+            next,
+        )?;
         let frozen = &view.frozen;
         let event_len = codec::encode_event_frame(
             self.envelope.envelope.operation,

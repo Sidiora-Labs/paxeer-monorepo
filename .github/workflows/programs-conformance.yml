@@ -88,9 +88,18 @@ jobs:
         run: make programs-js-install
       - name: Run the aggregate Programs acceptance suite
         shell: bash
+        env:
+          LAYERX_RELEASE_GATE_SPEC: ${{ vars.LAYERX_RELEASE_GATE_SPEC }}
+          LAYERX_RELEASE_GATE_TASK: ${{ vars.LAYERX_RELEASE_PROGRAMS_ACCEPTANCE_TASK }}
         run: |
           set -euo pipefail
-          make programs-test 2>&1 | tee "$RUNNER_TEMP/programs-acceptance.log"
+          umask 077
+          evidence_root=$(mktemp -d "$RUNNER_TEMP/programs-acceptance-evidence.XXXXXXXX")
+          scripts/ci/release-gate.sh --job programs-acceptance \
+            --spec "${LAYERX_RELEASE_GATE_SPEC:?Set LAYERX_RELEASE_GATE_SPEC to the gate task spec}" \
+            --task "${LAYERX_RELEASE_GATE_TASK:?Set LAYERX_RELEASE_PROGRAMS_ACCEPTANCE_TASK}" \
+            --ledger "$evidence_root/qualification.kvx" --evidence-root "$evidence_root" \
+            --timeout 1800 -- make programs-test 2>&1 | tee "$RUNNER_TEMP/programs-acceptance.log"
       - name: Retain the acceptance gate log
         if: ${{ always() }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5

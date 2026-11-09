@@ -3530,18 +3530,7 @@ pub fn apply_split_payout(
         &rewards,
         settlement.get_mut(..REWARD_STATE_BYTES).ok_or(CAPACITY)?,
     )?;
-    if !draft.rows().has_payouts() {
-        if draft.rows().used() > PAYOUT_ROW_LIMIT {
-            return Err(CAPACITY);
-        }
-        if !unused(draft.bytes.guest_index(PAYOUT_REGION_AT..LAST_REFUND_AT)) {
-            return Err(NON_CANONICAL);
-        }
-        draft
-            .bytes
-            .guest_index_mut(PAYOUT_REGION_AT..PAYOUT_AT)
-            .guest_copy_from_slice(PAYOUT_TAG);
-    }
+    enable_payouts(&mut draft)?;
     let allocation = Digest32::new(response.result()?.bytes())?;
     for i in 0..count {
         rewards.credit_payout(
@@ -3604,46 +3593,57 @@ pub fn apply_split_payout(
         .checked_add(request.amount)
         .ok_or(ARITHMETIC)?;
     draft.commit(RewardEffect::NoTransfer)?;
-    finish_split(
-        envelope, state, policy, &response, settlement, policy_out, control, next, event,
+    let committed = state.section(Section::SettlementClaims)?;
+    settlement
+        .guest_index_mut(REWARD_STATE_BYTES..committed.len())
+        .guest_copy_from_slice(committed.guest_index(REWARD_STATE_BYTES..));
+    finish_room_transition(
+        ctx.height,
+        envelope,
+        state,
+        policy,
+        settlement.guest_index(..committed.len()),
+        response.as_bytes(),
+        None,
+        policy_out,
+        control,
+        next,
+        event,
     )
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn finish_split<'a>(
+pub(crate) fn finish_room_transition<'a>(
+    height: u64,
     envelope: &ValidatedEnvelope<'_>,
-    mut state: SharedState<'a>,
-    mut policy: PolicySection<'_>,
-    response: &Response,
-    settlement: &'a mut [u8],
+    mut shared: SharedState<'a>,
+    policy: crate::registry_ops::PolicySection<'a>,
+    settlement: &'a [u8],
+    payload: &[u8],
+    replay: Option<&ReplayRequest>,
     policy_out: &'a mut [u8],
     control: &mut [u8],
     next: &mut [u8],
     event: &mut [u8],
 ) -> CodecResult<crate::rooms::Outcome> {
     let e = &envelope.envelope;
-    let committed = *state
+    let result = codec::result_digest(payload)?;
+    *shared
         .feature_sections
-        .guest_index(Section::SettlementClaims.index());
-    settlement
-        .guest_index_mut(REWARD_STATE_BYTES..committed.len())
-        .guest_copy_from_slice(committed.guest_index(REWARD_STATE_BYTES..));
-    let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    policy.header.state_revision = revision;
-    let n = policy.encode(policy_out)?;
-    *state
-        .feature_sections
-        .guest_index_mut(Section::PolicyLifecycle.index()) = policy_out.guest_index(..n);
-    *state
-        .feature_sections
-        .guest_index_mut(Section::SettlementClaims.index()) =
-        settlement.guest_index(..committed.len());
-    state.revision = revision;
-    check_f01_capacity(n, state.encoded_len()?)?;
-    let state_len = encode_shared_state(&state, next, control)?;
-    let result = response.result()?;
+        .guest_index_mut(Section::SettlementClaims.index()) = settlement;
+    let (revision, state_len) = finish_feature_transition(
+        shared,
+        policy,
+        replay,
+        height,
+        result,
+        NON_CANONICAL,
+        policy_out,
+        control,
+        next,
+    )?;
     let event_len = codec::encode_event_frame(
-        dispatch::SplitPayout,
+        e.operation,
         &EventCommon {
             market: e.market,
             epoch: e.epoch,
@@ -3652,7 +3652,7 @@ fn finish_split<'a>(
             request: envelope.request_digest()?,
             result,
         },
-        response.as_bytes(),
+        payload,
         event,
     )?;
     Ok(crate::rooms::Outcome::Applied {
@@ -3660,6 +3660,39 @@ fn finish_split<'a>(
         state_len,
         event_len,
     })
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn finish_feature_transition<'a>(
+    mut shared: SharedState<'a>,
+    mut policy: crate::registry_ops::PolicySection<'a>,
+    replay: Option<&ReplayRequest>,
+    height: u64,
+    result: ResultDigest,
+    replay_error: crate::errors::ApplicationError,
+    policy_out: &'a mut [u8],
+    control: &mut [u8],
+    next: &mut [u8],
+) -> CodecResult<(u64, usize)> {
+    let revision = shared.revision.checked_add(1).ok_or(ARITHMETIC)?;
+    if let Some(request) = replay {
+        if shared.record_success(request, height, result)? != ReplayDecision::Apply {
+            return Err(replay_error);
+        }
+    } else {
+        shared.revision = revision;
+    }
+    if shared.revision != revision {
+        return Err(NON_CANONICAL);
+    }
+    policy.header.state_revision = revision;
+    let p = policy.encode(policy_out)?;
+    *shared
+        .feature_sections
+        .guest_index_mut(Section::PolicyLifecycle.index()) = policy_out.guest_index(..p);
+    crate::registry::check_f01_capacity(p, shared.encoded_len()?)?;
+    let state_len = encode_shared_state(&shared, next, control)?;
+    Ok((revision, state_len))
 }
 
 #[cfg(test)]
@@ -3880,4 +3913,40 @@ mod repair478_tests {
             }
         }
     }
+}
+
+pub mod bonds {
+    include!("bonds.rs");
+}
+
+fn enable_payouts(draft: &mut Draft<'_>) -> CodecResult<()> {
+    if !draft.rows().has_payouts() {
+        if draft.rows().used() > PAYOUT_ROW_LIMIT {
+            return Err(CAPACITY);
+        }
+        if !unused(draft.bytes.guest_index(PAYOUT_REGION_AT..LAST_REFUND_AT)) {
+            return Err(NON_CANONICAL);
+        }
+        draft
+            .bytes
+            .guest_index_mut(PAYOUT_REGION_AT..PAYOUT_AT)
+            .guest_copy_from_slice(PAYOUT_TAG);
+    }
+    Ok(())
+}
+
+fn payout_is_complete(
+    rewards: &RewardState<'_>,
+    settled: &crate::laps::LapSettlement,
+) -> CodecResult<bool> {
+    for i in 0..crate::rooms::DEAL_CAPACITY {
+        if let Some(cursor) = rewards.payout_cursor(i)? {
+            if cursor.deal == settled.batch.deal_id {
+                return Ok(cursor.batch == settled.batch.batch_digest
+                    && cursor.last_lap == settled.batch.last_lap_index
+                    && cursor.settled == settled.settled_amount_owed);
+            }
+        }
+    }
+    Ok(false)
 }

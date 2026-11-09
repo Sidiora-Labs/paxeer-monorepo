@@ -77,7 +77,7 @@ jobs:
 
   launchpad-go-test:
     name: Go test ${{ matrix.module }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -228,6 +228,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Install and verify the container runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes docker.io acl
+          sudo systemctl start docker
+          sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+          docker version --format '{{.Server.Version}}'
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
@@ -330,7 +337,7 @@ jobs:
 
   launchpad-go-wiring:
     name: Check Go test wiring
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     env:
       GOWORK: "off"
       GOTOOLCHAIN: go1.27.3

@@ -12081,14 +12081,28 @@ fn install_capability<A: HumanAuthorityBoundary>(
     let replay_key = capability_action_key(&tenant, request.action_key)?;
     let request_digest = capability_request_digest(request);
     {
-        let store = shared_store
+        let mut store = shared_store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
         if let Some(existing) = store.get(&replay_key) {
             if existing.class() != StorageClass::LocalOnly {
                 return Err(HumanOperationError::Refused);
             }
-            return decode_capability_action(existing.bytes(), request_digest);
+            let response =
+                decode_capability_action(existing.bytes(), request_digest, request.action_key)?;
+            if response.bytes()[..32] != request.capability_id {
+                return Err(HumanOperationError::Refused);
+            }
+            if existing.bytes()[0] == 1 {
+                let mut completed = vec![2];
+                completed.extend_from_slice(&request_digest);
+                completed.push(1);
+                completed.extend_from_slice(response.bytes());
+                store
+                    .put_local(replay_key, completed)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
+            }
+            return Ok(response);
         }
     }
     {
@@ -12124,7 +12138,7 @@ fn install_capability<A: HumanAuthorityBoundary>(
     out.fixed(&request.capability_id);
     out.u64(observed.observed_sequence);
     out.u8(rung);
-    out.fixed(&agent_evidence_digest(
+    out.fixed(&capability_reply_digest(
         request.action_key,
         request.capability_id,
         observed.observed_sequence,
@@ -12132,7 +12146,7 @@ fn install_capability<A: HumanAuthorityBoundary>(
     ));
     let response = out.finish()?;
     let mut completed = Vec::with_capacity(34 + response.bytes().len());
-    completed.push(1);
+    completed.push(2);
     completed.extend_from_slice(&request_digest);
     completed.push(1);
     completed.extend_from_slice(response.bytes());
@@ -12218,20 +12232,70 @@ fn capability_request_digest(request: &HumanCapabilityInstall) -> [u8; 32] {
 fn decode_capability_action(
     bytes: &[u8],
     expected: [u8; 32],
+    action_key: [u8; 32],
 ) -> Result<HumanResponse, HumanOperationError> {
-    if bytes.len() < 34 || bytes[0] != 1 || bytes[1..33] != expected {
+    if bytes.len() < 34 || !matches!(bytes[0], 1 | 2) || bytes[1..33] != expected {
         return Err(HumanOperationError::Refused);
     }
     match bytes[33] {
-        0 => Err(HumanOperationError::Unavailable),
-        1 => HumanResponse::new(bytes[34..].to_vec()).map_err(|_| HumanOperationError::Refused),
-        _ => Err(HumanOperationError::Refused),
+        0 if bytes.len() == 34 => return Err(HumanOperationError::Unavailable),
+        1 if bytes.len() == 107 => {}
+        _ => return Err(HumanOperationError::Refused),
     }
+    let capability_id: [u8; 32] = bytes[34..66]
+        .try_into()
+        .map_err(|_| HumanOperationError::Refused)?;
+    let sequence = u64::from_be_bytes(
+        bytes[66..74]
+            .try_into()
+            .map_err(|_| HumanOperationError::Refused)?,
+    );
+    let rung = bytes[74];
+    if capability_id == [0; 32] || sequence == 0 {
+        return Err(HumanOperationError::Refused);
+    }
+    let canonical = capability_reply_digest(action_key, capability_id, sequence, 2);
+    let valid = match (bytes[0], rung) {
+        // The original producer retained the COMMITTED verification label and
+        // authority-scope digest. The rung repair retained the framed digest at rung 2.
+        (1, 6) => bytes[75..] == agent_evidence_digest(action_key, capability_id, sequence, 6),
+        (1, 2) => {
+            bytes[75..] == agent_evidence_digest(action_key, capability_id, sequence, 2)
+                || bytes[75..] == canonical
+        }
+        (2, 2) => bytes[75..] == canonical,
+        _ => false,
+    };
+    if !valid {
+        return Err(HumanOperationError::Refused);
+    }
+    let mut out = Encoder::new();
+    out.fixed(&capability_id);
+    out.u64(sequence);
+    out.u8(2);
+    out.fixed(&canonical);
+    out.finish()
 }
 
 fn persisted_terminal_receipt_matches(canonical: &[u8], expected: [u8; 32]) -> bool {
     crate::protocol_evidence::canonical_receipt_reference(canonical)
         .is_ok_and(|reference| reference == expected)
+}
+
+fn capability_reply_digest(
+    action_key: [u8; 32],
+    capability_id: [u8; 32],
+    observed_sequence: u64,
+    rung: u8,
+) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-human/agent-create/agent-evidence/v1");
+    digest.update([5_u8]);
+    digest.update(action_key);
+    digest.update(capability_id);
+    digest.update(observed_sequence.to_be_bytes());
+    digest.update([rung]);
+    digest.finalize().into()
 }
 
 fn agent_evidence_digest(
@@ -18785,17 +18849,22 @@ fn completed_capability_action(
             continue;
         };
         let bytes = value.bytes();
-        if value.class() != StorageClass::LocalOnly || bytes.len() < 34 || bytes[0] != 1 {
+        if value.class() != StorageClass::LocalOnly
+            || bytes.len() < 34
+            || !matches!(bytes[0], 1 | 2)
+        {
             return Err(HumanOperationError::Unavailable);
         }
-        match bytes[33] {
-            0 => continue,
-            1 if bytes.len() >= 66 => {
-                if bytes[34..66] == grant_id[..] && found.replace(action_key).is_some() {
-                    return Err(HumanOperationError::Refused);
-                }
-            }
-            _ => return Err(HumanOperationError::Unavailable),
+        if bytes[33] == 0 && bytes.len() == 34 {
+            continue;
+        }
+        let request_digest = bytes[1..33]
+            .try_into()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let response = decode_capability_action(bytes, request_digest, action_key)
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if response.bytes()[..32] == grant_id[..] && found.replace(action_key).is_some() {
+            return Err(HumanOperationError::Refused);
         }
     }
     Ok(found)
@@ -24242,5 +24311,263 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 trust.validator_set(),
             )
             .map_err(|_| HumanOperationError::Refused)
+    }
+}
+
+// Archived producers used only to verify the retained fixtures in debug builds.
+// Keep their install bodies verbatim so a fixture cannot silently drift to the
+// current reply encoder. All authority validation and persistence use real paths.
+#[cfg(debug_assertions)]
+#[doc(hidden)]
+pub mod retained_capability_producers {
+    use super::*;
+
+    /// Reproduces an install with the original producer's complete installation path.
+    pub fn install(
+        operations: &mut ProductionHumanOperations<RemoteHumanAuthority>,
+        peer: &HumanPeer,
+        request: &HumanCapabilityInstall,
+        pre_rung: bool,
+    ) -> Result<HumanResponse, HumanOperationError> {
+        if pre_rung {
+            pre_rung_install(
+                &mut operations.authority,
+                operations.chain.as_ref(),
+                &operations.store,
+                peer,
+                request,
+            )
+        } else {
+            post_rung_install(
+                &mut operations.authority,
+                operations.chain.as_ref(),
+                &operations.store,
+                peer,
+                request,
+            )
+        }
+    }
+
+    // Producer revision: f0d685372a0262a696e085204fc5e048db4d73c7
+    fn pre_rung_install<A: HumanAuthorityBoundary>(
+        authority: &mut A,
+        chain: &dyn HumanNode,
+        shared_store: &Arc<Mutex<Store>>,
+        peer: &HumanPeer,
+        request: &HumanCapabilityInstall,
+    ) -> Result<HumanResponse, HumanOperationError> {
+        if request.action_key == [0; 32]
+            || request.capability_id == [0; 32]
+            || request.authority_id == [0; 32]
+            || request.activity_types.is_empty()
+            || request.counterparties.is_empty()
+            || request.assets.is_empty()
+            || request.purposes.is_empty()
+            || request.amount_ceiling == 0
+            || request.rate_maximum_uses == 0
+            || request.rate_window_sequences == 0
+            || request.expiry_sequence == 0
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        let tenant =
+            TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
+        let did = Did::new(request.agent.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
+        let replay_key = capability_action_key(&tenant, request.action_key)?;
+        let request_digest = capability_request_digest(request);
+        {
+            let store = shared_store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            if let Some(existing) = store.get(&replay_key) {
+                if existing.class() != StorageClass::LocalOnly {
+                    return Err(HumanOperationError::Refused);
+                }
+                return legacy_decode_capability_action(existing.bytes(), request_digest);
+            }
+        }
+        {
+            let mut store = shared_store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let mut pending = Vec::with_capacity(34);
+            pending.push(1);
+            pending.extend_from_slice(&request_digest);
+            pending.push(0);
+            store
+                .put_local(replay_key.clone(), pending)
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        }
+        let bound = bound_subject_for_did(authority, chain, shared_store, peer, &did)?;
+        let (capability, observed) =
+            validate_capability(authority, &bound, &tenant, &did, request)?;
+        let mut store = shared_store
+            .lock()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let existing_capability =
+            Capability::restore(&store, tenant.clone(), CapabilityId(request.capability_id))
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        if let Some(existing) = existing_capability.as_ref() {
+            if *existing != capability {
+                return Err(HumanOperationError::Refused);
+            }
+        }
+        let mut out = Encoder::new();
+        out.fixed(&request.capability_id);
+        out.u64(observed.observed_sequence);
+        out.u8(observed.verification);
+        out.fixed(&observed.evidence_digest);
+        let response = out.finish()?;
+        let mut completed = Vec::with_capacity(34 + response.bytes().len());
+        completed.push(1);
+        completed.extend_from_slice(&request_digest);
+        completed.push(1);
+        completed.extend_from_slice(response.bytes());
+        if existing_capability.is_some() {
+            store
+                .put_local(replay_key, completed)
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        } else {
+            let capability_key = key(
+                tenant,
+                ObjectKind::Capability,
+                request.capability_id.to_vec(),
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            let capability_bytes =
+                crate::capability::encode(&capability).map_err(|_| HumanOperationError::Refused)?;
+            store
+                .update_local_with_companion(
+                    replay_key,
+                    completed,
+                    capability_key,
+                    capability_bytes,
+                )
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        }
+        Ok(response)
+    }
+
+    // Producer revision: 2c7ff104282ab5e1e67afeb2576086a482d8a366
+    fn post_rung_install<A: HumanAuthorityBoundary>(
+        authority: &mut A,
+        chain: &dyn HumanNode,
+        shared_store: &Arc<Mutex<Store>>,
+        peer: &HumanPeer,
+        request: &HumanCapabilityInstall,
+    ) -> Result<HumanResponse, HumanOperationError> {
+        if request.action_key == [0; 32]
+            || request.capability_id == [0; 32]
+            || request.authority_id == [0; 32]
+            || request.activity_types.is_empty()
+            || request.counterparties.is_empty()
+            || request.assets.is_empty()
+            || request.purposes.is_empty()
+            || request.amount_ceiling == 0
+            || request.rate_maximum_uses == 0
+            || request.rate_window_sequences == 0
+            || request.expiry_sequence == 0
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        let tenant =
+            TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
+        let did = Did::new(request.agent.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
+        let replay_key = capability_action_key(&tenant, request.action_key)?;
+        let request_digest = capability_request_digest(request);
+        {
+            let store = shared_store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            if let Some(existing) = store.get(&replay_key) {
+                if existing.class() != StorageClass::LocalOnly {
+                    return Err(HumanOperationError::Refused);
+                }
+                return legacy_decode_capability_action(existing.bytes(), request_digest);
+            }
+        }
+        {
+            let mut store = shared_store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let mut pending = Vec::with_capacity(34);
+            pending.push(1);
+            pending.extend_from_slice(&request_digest);
+            pending.push(0);
+            store
+                .put_local(replay_key.clone(), pending)
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        }
+        let bound = bound_subject_for_did(authority, chain, shared_store, peer, &did)?;
+        let (capability, observed) =
+            validate_capability(authority, &bound, &tenant, &did, request)?;
+        let mut store = shared_store
+            .lock()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let existing_capability =
+            Capability::restore(&store, tenant.clone(), CapabilityId(request.capability_id))
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        if let Some(existing) = existing_capability.as_ref() {
+            if *existing != capability {
+                return Err(HumanOperationError::Refused);
+            }
+        }
+        let rung = receipt_rung_code(
+            VerificationLevel::from_wire_rank(observed.verification)
+                .map_err(|_| HumanOperationError::Refused)?,
+        )?;
+        let mut out = Encoder::new();
+        out.fixed(&request.capability_id);
+        out.u64(observed.observed_sequence);
+        out.u8(rung);
+        out.fixed(&agent_evidence_digest(
+            request.action_key,
+            request.capability_id,
+            observed.observed_sequence,
+            rung,
+        ));
+        let response = out.finish()?;
+        let mut completed = Vec::with_capacity(34 + response.bytes().len());
+        completed.push(1);
+        completed.extend_from_slice(&request_digest);
+        completed.push(1);
+        completed.extend_from_slice(response.bytes());
+        if existing_capability.is_some() {
+            store
+                .put_local(replay_key, completed)
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        } else {
+            let capability_key = key(
+                tenant,
+                ObjectKind::Capability,
+                request.capability_id.to_vec(),
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            let capability_bytes =
+                crate::capability::encode(&capability).map_err(|_| HumanOperationError::Refused)?;
+            store
+                .update_local_with_companion(
+                    replay_key,
+                    completed,
+                    capability_key,
+                    capability_bytes,
+                )
+                .map_err(|_| HumanOperationError::Unavailable)?;
+        }
+        Ok(response)
+    }
+
+    fn legacy_decode_capability_action(
+        bytes: &[u8],
+        expected: [u8; 32],
+    ) -> Result<HumanResponse, HumanOperationError> {
+        if bytes.len() < 34 || bytes[0] != 1 || bytes[1..33] != expected {
+            return Err(HumanOperationError::Refused);
+        }
+        match bytes[33] {
+            0 => Err(HumanOperationError::Unavailable),
+            1 => HumanResponse::new(bytes[34..].to_vec()).map_err(|_| HumanOperationError::Refused),
+            _ => Err(HumanOperationError::Refused),
+        }
     }
 }

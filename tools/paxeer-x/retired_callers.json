@@ -102,8 +102,7 @@
         "cmd/layerx-handover",
         "src/protocol/lxp_handover.c",
         "cmd/layerxd",
-        "cmd/layerx-verify",
-        "tests/daemon"
+        "cmd/layerx-verify"
       ],
       "replacement": "handover becomes the pinned leader list with standby takeover on the sequencer WAL; the sequencer receipt key is a governed parameter read from chain state at the receipt height"
     },
@@ -389,8 +388,7 @@
         "wire-differential"
       ],
       "deleted_trees": [
-        "services/agent/tools/wire-differential",
-        "services/agent/crates/layerx-wire"
+        "services/agent/tools/wire-differential"
       ],
       "replacement": "encode the operation as an EIP-1559 transaction with the existing RLP encoder; the differential runs against go-ethereum types"
     },
@@ -556,11 +554,7 @@
     "router-joins": {
       "req": "11045",
       "title": "Retire the router cross-domain joins",
-      "symbols": [
-        "px_getUnifiedHistory",
-        "px_getNetwork",
-        "px_listAssets"
-      ],
+      "symbols": [],
       "deleted_trees": [],
       "replacement": "keep the method names with one-source answers; response fields stay and kernel.available is derived true"
     },
@@ -633,9 +627,57 @@
     {
       "path": "spec/layerx-merge/docs",
       "reason": "reviewed retirement documentation and decision records name the components they retire"
+    },
+    {
+      "pattern": "spec/layerx-merge/programme/**",
+      "reason": "The merge programme and reconciliation tree records historical inventories and qualification evidence."
+    },
+    {
+      "pattern": "spec/release-v6-12-0/**",
+      "reason": "The release specification records the retired interfaces and the migration that replaces them."
+    },
+    {
+      "pattern": "spec/monorepo-layout/**",
+      "reason": "The layout specification records historical component locations and migration decisions."
+    },
+    {
+      "pattern": "repair_*.kvx",
+      "reason": "Repair record files across the repository describe audited findings and qualification evidence rather than production callers."
+    },
+    {
+      "pattern": "services/platform/hosted/authority/src/repair_22_31_207/**",
+      "reason": "Repair 22.31.207 holds the recorded producer used to qualify the retired authority boundary."
+    },
+    {
+      "pattern": "services/platform/ramps/toolkit/src/repair_22_31_211/**",
+      "reason": "Repair 22.31.211 holds the recorded node and payment evidence used to qualify the retired transport boundary."
+    },
+    {
+      "pattern": "tools/hyperfide/**",
+      "reason": "The vendored Hyperfide project contains third-party source, parsers and recorded qualification vocabulary rather than product callers."
+    },
+    {
+      "pattern": "core/deps/geth/signer/fourbyte/**",
+      "reason": "The vendored four-byte signature database inventories third-party ABI names rather than product callers."
+    },
+    {
+      "pattern": "programs/vendor/**",
+      "reason": "Vendored Rust dependencies contain third-party identifiers unrelated to retired product callers."
+    },
+    {
+      "pattern": "apps/launchpad/web/public/charting_library/**",
+      "reason": "The third-party charting library bundles contain vendor vocabulary rather than retired product callers."
     }
   ],
   "allowed_references": [
+    {
+      "path": "modules/layerxanchor/keeper/custody_reader.go",
+      "lines": [
+        "custodytypes \"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types\"",
+        "// CustodyAnchor implements modules/layerxcustody/types.AnchorReader for the"
+      ],
+      "citation": "Decisions 3104 and 3122 permit this retained AnchorReader adapter and its custody types for the merge-disabled anchor (11002) and custody-deposit (11004) surfaces that still ship."
+    },
     {
       "path": "tools/paxeer-x/retired_callers.json",
       "symbols": [
@@ -884,6 +926,335 @@
         "pub const RF_RESERVED_LNI: u32 = 65536u32;"
       ],
       "citation": "spec/layerx-merge/spec.kvx [req.11021] and [req.11032] retire the LNI transport; RF_RESERVED_LNI is a vendored Windows network diagnostics constant"
+    },
+    {
+      "path": "modules/layerxcustody",
+      "symbols": [
+        "CUSTODY_PRECOMPILE",
+        "LayerXCustody",
+        "LayerXVault",
+        "depositRootAuthority",
+        "depositToken",
+        "deposit_root_authority",
+        "executeForcedExit",
+        "finaliseWithdrawal",
+        "layerxCustody",
+        "layerxcustody",
+        "registerDepositRoot",
+        "register_deposit_root",
+        "requestForcedExit",
+        "requestWithdrawal"
+      ],
+      "citation": "The custody-claims and custody-deposit removals (11003 and 11004) retire this component at merge while its own disabled implementation or contract interface retains these names."
+    },
+    {
+      "path": "precompiles/layerxcustody",
+      "symbols": [
+        "CUSTODY_PRECOMPILE",
+        "LayerXCustody",
+        "LayerXVault",
+        "depositRootAuthority",
+        "depositToken",
+        "deposit_root_authority",
+        "executeForcedExit",
+        "finaliseWithdrawal",
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxcustody",
+        "recordDeposit",
+        "registerDepositRoot",
+        "register_deposit_root",
+        "requestForcedExit",
+        "requestWithdrawal"
+      ],
+      "citation": "The custody-claims and custody-deposit removals (11003 and 11004) retire this tree at merge while its historical ABI retains the anchor reference and its private recordDeposit helper, distinct from the exchange-intents method (11005)."
+    },
+    {
+      "path": "api/layerxcustody",
+      "symbols": [
+        "CUSTODY_PRECOMPILE",
+        "LayerXCustody",
+        "LayerXVault",
+        "depositRootAuthority",
+        "depositToken",
+        "deposit_root_authority",
+        "executeForcedExit",
+        "finaliseWithdrawal",
+        "layerxCustody",
+        "layerxcustody",
+        "registerDepositRoot",
+        "register_deposit_root",
+        "requestForcedExit",
+        "requestWithdrawal"
+      ],
+      "citation": "The custody-claims and custody-deposit removals (11003 and 11004) retire this component at merge while its own disabled implementation or contract interface retains these names."
+    },
+    {
+      "path": "modules/layerxanchor",
+      "symbols": [
+        "ANCHOR_PRECOMPILE",
+        "CheckpointRegistry",
+        "CheckpointSubmitted",
+        "GuarantorBond",
+        "ILayerXAnchor",
+        "PxAnchorHead",
+        "layerxAnchor",
+        "layerxanchor",
+        "statusOf"
+      ],
+      "citation": "The anchor removal (11002) retires this tree at merge while its historical checkpoint ABI retains its own event and status method names, also listed by the mirror inventory (11049)."
+    },
+    {
+      "path": "precompiles/layerxanchor",
+      "symbols": [
+        "ANCHOR_PRECOMPILE",
+        "CheckpointRegistry",
+        "CheckpointSubmitted",
+        "GuarantorBond",
+        "ILayerXAnchor",
+        "PxAnchorHead",
+        "layerxAnchor",
+        "layerxanchor",
+        "statusOf"
+      ],
+      "citation": "The anchor removal (11002) retires this tree at merge while its historical checkpoint ABI retains its own event and status method names, also listed by the mirror inventory (11049)."
+    },
+    {
+      "path": "api/layerxanchor",
+      "symbols": [
+        "ANCHOR_PRECOMPILE",
+        "CheckpointRegistry",
+        "CheckpointSubmitted",
+        "GuarantorBond",
+        "ILayerXAnchor",
+        "PxAnchorHead",
+        "layerxAnchor",
+        "layerxanchor",
+        "statusOf"
+      ],
+      "citation": "The anchor removal (11002) retires this tree at merge while its historical checkpoint ABI retains its own event and status method names, also listed by the mirror inventory (11049)."
+    },
+    {
+      "path": "modules/layerxexchange",
+      "symbols": [
+        "GetIntentCount",
+        "LayerXCustody",
+        "ProveState",
+        "getIntent",
+        "layerxCustody",
+        "layerxcustody",
+        "recordDeposit",
+        "requestSettlement",
+        "request_settlement"
+      ],
+      "citation": "The exchange-intents removal (11005) retires this tree at merge while its historical implementation retains its own symbols and custody module dependency retired by custody-deposit (11004)."
+    },
+    {
+      "path": "precompiles/layerxexchange",
+      "symbols": [
+        "GetIntentCount",
+        "LayerXCustody",
+        "ProveState",
+        "getIntent",
+        "layerxCustody",
+        "layerxcustody",
+        "recordDeposit",
+        "requestSettlement",
+        "request_settlement"
+      ],
+      "citation": "The exchange-intents removal (11005) retires this tree at merge while its historical implementation retains its own symbols and custody module dependency retired by custody-deposit (11004)."
+    },
+    {
+      "path": "api/layerxexchange",
+      "symbols": [
+        "GetIntentCount",
+        "LayerXCustody",
+        "ProveState",
+        "getIntent",
+        "layerxCustody",
+        "layerxcustody",
+        "recordDeposit",
+        "requestSettlement",
+        "request_settlement"
+      ],
+      "citation": "The exchange-intents removal (11005) retires this tree at merge while its historical implementation retains its own symbols and custody module dependency retired by custody-deposit (11004)."
+    },
+    {
+      "path": "precompiles/layerxverify",
+      "symbols": [
+        "ILayerXVerify",
+        "layerxVerify",
+        "layerxverify"
+      ],
+      "citation": "The verify removal (11001) retires this component at merge while its own disabled implementation or contract interface retains these names."
+    },
+    {
+      "path": "contracts/src/precompiles/ILayerXCustody.sol",
+      "symbols": [
+        "CUSTODY_PRECOMPILE",
+        "LayerXCustody",
+        "LayerXVault",
+        "depositRootAuthority",
+        "depositToken",
+        "deposit_root_authority",
+        "executeForcedExit",
+        "finaliseWithdrawal",
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxcustody",
+        "registerDepositRoot",
+        "register_deposit_root",
+        "requestForcedExit",
+        "requestWithdrawal"
+      ],
+      "citation": "The custody-claims and custody-deposit removals (11003 and 11004) retire this interface at merge while its historical custody ABI still names the anchor removed by anchor (11002)."
+    },
+    {
+      "path": "contracts/src/precompiles/ILayerXAnchor.sol",
+      "symbols": [
+        "ANCHOR_PRECOMPILE",
+        "CheckpointRegistry",
+        "CheckpointSubmitted",
+        "GuarantorBond",
+        "ILayerXAnchor",
+        "PxAnchorHead",
+        "layerxAnchor",
+        "layerxanchor",
+        "statusOf"
+      ],
+      "citation": "The anchor removal (11002) retires this tree at merge while its historical checkpoint ABI retains its own event and status method names, also listed by the mirror inventory (11049)."
+    },
+    {
+      "path": "contracts/src/precompiles/ILayerXVerify.sol",
+      "symbols": [
+        "ILayerXVerify",
+        "layerxVerify",
+        "layerxverify"
+      ],
+      "citation": "The verify removal (11001) retires this component at merge while its own disabled implementation or contract interface retains these names."
+    },
+    {
+      "path": "tools/paxeer-x/build/104.30.2.mk",
+      "lines": [
+        "\tcontracts/config/checkpoint-settlement.json"
+      ],
+      "citation": "The checkpoint settlement removal (11024) retains the offline settlement export as an input to program transfer qualification."
+    },
+    {
+      "path": "tools/paxeer-x/build/104.32.4.mk",
+      "lines": [
+        "\tpython3 tools/qualification/paxeer-x/program_fee_governance.py --build --build-dir '$(BUILD_DIR)' --cc '$(CC)'",
+        "\t$(CC) $(CPPFLAGS) $(CFLAGS) tests/programs/test_fee_governance.c -Wl,--start-group $(LIBRARY) '$(PAXEER_FEE_RUNTIME_LIB)' -Wl,--end-group $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o '$(BUILD_DIR)/tests/programs_fee_governance_104_32_4'"
+      ],
+      "citation": "The fee-relay removal (11017) retires the kernel relay activity while these build paths qualify the retained governed fee schedule."
+    },
+    {
+      "path": "tools/paxeer-x/gates/104.29.5.sh",
+      "lines": [
+        "SUITES = ['fee_governance', 'replay']"
+      ],
+      "citation": "The fee-relay removal (11017) retains the fee governance suite that qualifies schedule-priced occupancy."
+    },
+    {
+      "path": "tools/paxeer-x/gates/104.32.4.sh",
+      "lines": [
+        "exec python3 tools/qualification/paxeer-x/program_fee_governance.py"
+      ],
+      "citation": "The fee-relay removal (11017) retains the program fee governance qualification runner."
+    },
+    {
+      "path": "services/agent/crates/layerx-client/src/rpc/withdrawal_get_asset.json",
+      "lines": [
+        "    \"producer\": \"precompiles/layerxcustody/layerxcustody.go::Execute/GetAssetMethod and assetRecord\",",
+        "    \"abi\": \"precompiles/layerxcustody/abi.json::getAsset\","
+      ],
+      "citation": "The custody-deposit removal (11004) is explicitly recorded by these ABI-vector provenance fields, which document the retired producer rather than execute it."
+    },
+    {
+      "path": "services/agent/crates/layerx-client/src/rpc/withdrawal.rs",
+      "lines": [
+        "            if refusal.message.contains(\"LXP_MODULE_DISABLED\") && refusal.message.contains(\"layerxCustody\")) {",
+        "    // booleans and five uint256 counters (precompiles/layerxcustody/abi.json)."
+      ],
+      "citation": "The custody-deposit removal (11004) is enforced by the explicit retired-producer refusal; the ABI citation documents historical decoding and grants no custody authority."
+    },
+    {
+      "path": "services/agent/crates/layerx-client/src/ai_market.rs",
+      "lines": [
+        "use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};",
+        "    SnapshotBinding, StateCapture, FINALIZED_RANK,",
+        "        if !(FINALIZED_RANK..=SETTLEMENT_RANK).contains(&request.required_rank) {",
+        "        let signature = sign_disclosed_call(signer, call, disclosure, *from).await?;"
+      ],
+      "citation": "The envelope-signing (11029) and availability-commit (11028) removals retain EIP-1559 sign_disclosed_call and the AI market committed-block rank from programs/crates/layerx-programs-ai-market/src/queries.rs; these exact lines use the replacements."
+    },
+    {
+      "path": "precompiles/layerxexchange/errors.go",
+      "lines": [
+        "\t\treturn \"LXP_DA_MISSING\""
+      ],
+      "citation": "The exchange-intents (11005) and DA (11011) removals retain this historical error-code translation inside the disabled precompile so replay preserves its public error text."
+    },
+    {
+      "path": "include/layerx",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/ledger",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/protocol",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/state",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/ledger",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "src/protocol",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "src/state",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
     }
   ]
 }

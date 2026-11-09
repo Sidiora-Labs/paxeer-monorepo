@@ -1,0 +1,20 @@
+[repair.22.39.282]
+mode = "BUILD"
+base_revision = "62a87b90a3ba40f6612f11b07a7cbee7a15e6bca"
+decision = "3121"
+gotcha = "3970"
+change = "Admit Asset and Programs module rows under the existing shared key, value and row-count bounds; export Programs immediately after Asset to retain ascending genesis keys."
+proof = "TestStoreGenesisRoundTrip preserves the Programs progfee/active/v1 row through export, JSON encoding, import and re-export alongside real native Asset state; TestStoreGenesisRefusesForeignRows accepts Programs, refuses module 2 and checks Programs and mixed-module bounds."
+build_command = "go build ./modules/lxphost/"
+verify_command = "test -s modules/lxphost/repair_22_39_282.kvx && go test -count=1 ./modules/lxphost/ -run '^(TestStoreGenesisRoundTrip|TestStoreGenesisRefusesForeignRows)$'"
+qualification = "The runner records the exact verified candidate revision, command, exit code and private evidence location in /out/run/gates.jsonl; the final response copies the last hf-done evidence verbatim."
+build_evidence = "/out/logs/build-1.log"
+verify_evidence = "/out/logs/verify-1.log"
+
+[gotcha.programs_fixture]
+observed = "The round-trip test previously seeded module 9 as a foreign row, although module 9 is Programs."
+action = "Seed an explicit Programs fee row, assert its exact exported and restored bytes, and retain foreign-module exclusion with modules 2 and 10."
+
+[gotcha.context_lookup]
+observed = "Initial context searches named absent layerx/include and decision-ledger paths; native headers are under include/layerx."
+action = "Use the actual header paths and the task's recorded decision and gotcha references."

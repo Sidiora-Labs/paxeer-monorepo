@@ -52,6 +52,9 @@ pub struct EventStream {
     stopped: bool,
 }
 
+/// # Errors
+///
+/// Returns subscription configuration, transport, node refusal or malformed-event errors.
 pub fn subscribe(
     url: &str,
     trust_anchors: &[&[u8]],
@@ -73,6 +76,9 @@ impl EventStream {
         self.cursor
     }
 
+    /// # Errors
+    ///
+    /// Returns subscription configuration, transport, node refusal or malformed-event errors.
     pub fn next_item(&mut self) -> Result<StreamItem, SequencerError> {
         if self.stopped {
             return Err(SequencerError::Unavailable);
@@ -100,6 +106,9 @@ impl EventStream {
         Ok(StreamItem::Event(Event { log, cursor }))
     }
 
+    /// # Errors
+    ///
+    /// Returns subscription configuration, transport, node refusal or malformed-event errors.
     pub fn close(&mut self) -> Result<(), SequencerError> {
         self.stopped = true;
         self.subscription.close()
