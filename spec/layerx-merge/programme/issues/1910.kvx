@@ -1,0 +1,7 @@
+[issue.1910]
+number = 1910
+title = "[Coherence] The new single-signer manifest no longer matches any of the nine committed chain configurations, so every chain is refused against it"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit f285b9e530ea3163b04289754c95a1a725cf9673 aligned all eight EVM configurations and the Solana configuration with the governed signer and threshold 1 in services/bridge/deploy/attestors.json:3 and services/bridge/deploy/attestors.json:5 (including contracts/bridge/evm/chains/base/config.json:16 and contracts/bridge/solana/chains/solana/config.json:16, with thresholds at line 18), while services/bridge/deploy/proposals/manifest.go:77 retains strict agreement checks, tools/qualification/audit_repairs/test_repair_22_31_402.py:108 checks exact agreement across all nine configurations, and services/bridge/deploy/proposals/proposals_test.go:351 checks their agreement and governed proposal output."
+close_comment = "All nine committed chain configurations now match the governed single-signer manifest with threshold 1. The alignment is covered by cross-file consistency and proposal-generation tests, and mismatched signer sets or thresholds remain rejected."

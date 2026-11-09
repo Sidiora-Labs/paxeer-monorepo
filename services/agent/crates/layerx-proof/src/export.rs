@@ -628,7 +628,7 @@ pub fn verify_complete(
     for (fact, (selector, outcome)) in artifact.facts.iter().zip(outcomes).enumerate() {
         let achieved = outcome
             .rung()
-            .expect("complete verification cannot produce settlement anchoring");
+            .ok_or(CompleteExportError::ReceiptBinding { fact })?;
         if achieved < requested {
             return Err(CompleteExportError::RungNotAchieved {
                 fact,

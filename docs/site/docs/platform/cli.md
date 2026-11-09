@@ -151,7 +151,7 @@ artifact compatibility rather than accepting an arbitrary interface document.
 | `key list`, `key show <name>` | Read public key metadata. |
 | `key default <name>`, `key delete <name>` | Select the default key or permanently remove its stored secret and metadata. |
 | `auth set`, `auth status`, `auth delete` | Optional `--environment`, otherwise active profile. Set reads a token from stdin; status reports presence without printing it. |
-| `register` | Optional `--key`, otherwise default. Sign the hosted `px_register` tenant binding, fixed to tenant `beta`, and validate the returned subject and signer. It does not create a native main account. |
+| `register` | Required `--gateway-endpoint`; optional `--key`, otherwise default. Sign the hosted `px_register` tenant binding, fixed to tenant `beta`, and validate the returned subject and signer. It does not create a native main account. |
 | `faucet` | Required `--service-endpoint`; optional `--key`, otherwise default; requires a stored bearer identity session. Calls hosted `px_requestFunds`, validates the funded result, and preserves the funding transaction ID. |
 | `account create` | Emulator uses a local key (`--key` or default) and optional `--initial-amount` (default `0`). Hosted creation requires `--email`, `--display-name`, `--idempotency-key`, and zero initial amount. |
 | `account get` | Emulator requires `--did`; hosted mode reads the active account profile. |

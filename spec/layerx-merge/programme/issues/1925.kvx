@@ -1,0 +1,50 @@
+[issue.1925]
+number = 1925
+title = "[Coherence] The bridge relayer and its deployment manifests still require a five-member attestor set at threshold three, so they cannot run against the governed one-of-one signer set this commit wires into every chain"
+revision = "86ae60188357c8c436f0f6e5deac9888cdfd2160"
+verdict = "task"
+evidence = "Decision 3042 at spec/layerx-merge/spec.kvx:11367 and commit f285b9e530ea3163b04289754c95a1a725cf9673 establish the governed one-of-one set in services/bridge/deploy/attestors.json:3 and :5 and all nine chain configurations, but services/interop/crates/layerx-bridge-relayer/src/config.rs:35, :37 and :278-292 still require five members, threshold three and a cosign directory, services/interop/deploy/bridge-relayer/relayer-1.toml:14-15 and relayer-2.toml:14-15 through relayer-5.toml:14-15 and render-signer-keys.py:30-35 enforce that obsolete deployment policy, docker/bridge-relayer/entrypoint.sh:55-72 consequently rejects the governed membership under those manifests, and docs/release/7.0.0-service-operator-runbook.md:274 still lists no implementation gaps."
+close_comment = "The governed bridge membership is one signer at threshold one, but the relayer configuration and deployment policy still require three signatures from five members. A follow-up will align relayer startup, signer inventory rendering and all five replica manifests with the governed membership while preserving signer, key-mount and signature validation."
+
+[task.18.1925.1]
+title = "Issue #1925: Accept the governed one-of-one bridge membership throughout relayer startup"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181925.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/interop/crates/layerx-bridge-relayer/src/config.rs:244-299, explicitly accept a one-member threshold-one AttestorSetConfig alongside the existing three-of-five mode, and require a cosign directory only when the configured threshold exceeds one; retain exact supported cardinality and threshold pairing, distinct non-zero well-formed addresses, secp256k1 key validation and local signer membership, including every existing three-of-five refusal at :916-962, without falling back to an absent attestor_set."
+do_2 = "Align services/interop/deploy/bridge-relayer/relayer-1.toml:10-18 and the equivalent blocks and attestor secret mounts in relayer-2.toml through relayer-5.toml with services/bridge/deploy/attestors.json:2-5: keep the five app identities as replicas, give each the governed member index 1, set size 1 and threshold 1, bind each attestor key mount to index 1, and omit the optional cosign transport configuration for the single-member policy; replica count must never create extra attestor identities or signatures. Update render-signer-keys.py:16-39 to distinguish replica identity from membership index, read and validate the committed public governed manifest, and enforce the manifest cardinality, threshold, member index and key mount while retaining all eleven signer policies, app identity and duplicate mount checks; do not provision or expose keys."
+do_3 = "Add governed_membership_accepts_single_signer_and_preserves_multisig_guards in services/interop/crates/layerx-bridge-relayer/src/config.rs beside :904, exercising RelayerConfig::load with actual temporary configuration files and a real generated secp256k1 public key: explicit one-of-one succeeds without cosign, three-of-five still requires cosign, and empty, repeated, zero, malformed, nonmember, wrong-threshold and unsupported-size memberships remain refused. In tools/qualification/audit_repairs/test_repair_22_33_73.py:60-209, preserve every inventory, mount, app mismatch, invalid-instance and public-files-only check, replace obsolete five-member deployment expectations with manifest-derived single-member expectations for all five replicas, and add test_governed_membership_matches_startup_policy to pass the real renderer outputs and explicit membership files through the existing membership-validation commands from docker/bridge-relayer/entrypoint.sh:46-72, asserting acceptance of the governed membership and refusal of stale three-of-five metadata, invalid indices, missing mounts and threshold mismatches without substituting successful commands."
+do_4 = "Update services/interop/deploy/bridge-relayer/README.md:3-26 to explain replica identity versus governed member index, the one-of-one policy and optional cosigning; update docs/release/7.0.0-service-operator-runbook.md:163-188 and :270-275 to require relayer membership and rendered deployment consistency with the governed manifest as bridge acceptance checks, retaining the separate deployment-readiness prerequisites and stating that manifest acceptance alone does not prove relayer readiness."
+symbols = ["AttestorSetConfig", "render_inventory", "governed_membership_accepts_single_signer_and_preserves_multisig_guards", "test_governed_membership_matches_startup_policy"]
+touches = ["services/interop/crates/layerx-bridge-relayer/src/config.rs", "services/interop/deploy/bridge-relayer/relayer-1.toml", "services/interop/deploy/bridge-relayer/relayer-2.toml", "services/interop/deploy/bridge-relayer/relayer-3.toml", "services/interop/deploy/bridge-relayer/relayer-4.toml", "services/interop/deploy/bridge-relayer/relayer-5.toml", "services/interop/deploy/bridge-relayer/render-signer-keys.py", "services/interop/deploy/bridge-relayer/README.md", "docs/release/7.0.0-service-operator-runbook.md", "tools/qualification/audit_repairs/test_repair_22_33_73.py"]
+tests = ["services/interop/crates/layerx-bridge-relayer/src/config.rs::governed_membership_accepts_single_signer_and_preserves_multisig_guards", "tools/qualification/audit_repairs/test_repair_22_33_73.py::test_governed_membership_matches_startup_policy"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --lib config::tests && python3 -m pytest tools/qualification/audit_repairs/test_repair_22_33_73.py -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181925]
+title = "Bridge relayer startup and signer inventories accept the governed one-of-one membership"
+ac_1 = "Given the governed membership in services/bridge/deploy/attestors.json:2-5, an explicit matching single-member RelayerConfig loads without a cosign directory, every replica manifest and rendered inventory agrees on member index 1, size 1 and threshold 1, and the startup checks at docker/bridge-relayer/entrypoint.sh:46-72 accept matching membership while refusing mismatched thresholds, invalid indices and key mounts; the existing three-of-five mode and its signer and cosign refusals remain enforced."
+
+[acceptance.18.1925.1]
+feature = "18"
+req = "181925.1"
+scenario = "Given the governed one-of-one bridge membership and all five replica manifests, when relayer configuration loading, signer inventory rendering and startup membership validation run, then matching single-signer configuration succeeds without cosigning, every replica uses the same governed member index, malformed or mismatched configuration fails, and three-of-five signature and membership checks remain enforced."
+contract = "contracts/interop-bridge-relayer.md#cfg-relayer-attestor-set-config-members"
+test = "services/interop/crates/layerx-bridge-relayer/src/config.rs::governed_membership_accepts_single_signer_and_preserves_multisig_guards and tools/qualification/audit_repairs/test_repair_22_33_73.py::test_governed_membership_matches_startup_policy (planned)"
+qualification = "UNRUN"

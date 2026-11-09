@@ -20,6 +20,24 @@ make build-docker-node && make run-local-node
 
 **To start 4 node cluster**
 
+The Make callers select `local-<full git HEAD revision>` for both
+`LOCALNODE_IMAGE_TAG` and `X_WEBSEARCH_IMAGE_TAG` by default, including skipbuild,
+monitoring, mixed-mode starts and stop targets (and their stop prerequisites).
+`build-docker-node` builds `ghcr.io/sidiora-labs/localnode:<tag>` alongside the
+`pax-chain/localnode` alias used for binary preparation. Compose builds
+`ghcr.io/sidiora-labs/x-websearch:<tag>` from its declared build context.
+No image-tag environment variables are needed for these local Make targets.
+
+Override either tag through the environment or a Make command-line assignment,
+for example `make docker-cluster-start LOCALNODE_IMAGE_TAG=local-experiment`.
+Use the same overrides when building and starting; skipbuild skips the binary
+build but still builds the node image. Integration CI selects `ci-<workflow run
+id>` for `LOCALNODE_IMAGE_TAG` and retags the exact pulled integration package
+image to that Compose alias; its registry package name stays unchanged.
+`X_WEBSEARCH_IMAGE_TAG` still defaults to the source revision in CI. Direct
+`docker compose` calls require both nonempty tags explicitly; to reuse images
+after changing revisions, supply their original tags as overrides.
+
 This starts a 4 node `paxd` cluster (chain ID `pax`).
 ```sh
 # If this is the first time or you want to rebuild the binary:

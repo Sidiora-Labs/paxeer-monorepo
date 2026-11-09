@@ -13,6 +13,19 @@ import {
   type UnifiedHistoryPage,
 } from "./history.js";
 import { decodeJsonRpcResponse, type RpcParam } from "./rpc.js";
+import {
+  decodeInferenceRooms,
+  decodeInferenceRoom,
+  decodeInferenceDeal,
+  decodeInferencePeer,
+  decodeInferenceReceipts,
+  inferenceId,
+  InferenceMarketError,
+  type InferenceRoom,
+  type InferenceDealView,
+  type InferencePeer,
+  type InferenceReceiptBatch,
+} from "./inference_market.js";
 
 const MAX_RESPONSE_BYTES = 9 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 1024 * 1024;
@@ -37,6 +50,11 @@ export const PX_METHODS = [
   "px_getReceiptKeys",
   "px_getHistory",
   "px_getUnifiedHistory",
+  "px_getInferenceRooms",
+  "px_getInferenceRoom",
+  "px_getInferenceDeal",
+  "px_getInferencePeer",
+  "px_getInferenceReceipts",
 ] as const;
 export type PxMethod = (typeof PX_METHODS)[number];
 
@@ -202,10 +220,71 @@ export class PxClient {
     );
   }
 
+  public async getInferenceRooms(): Promise<readonly InferenceRoom[]> {
+    return this.call("px_getInferenceRooms", [], decodeInferenceRooms);
+  }
+
+  public async getInferenceRoom(roomId: string): Promise<InferenceRoom> {
+    const id = inferenceId(roomId);
+    const room = await this.call(
+      "px_getInferenceRoom",
+      [id],
+      decodeInferenceRoom,
+    );
+    if (room.roomId !== id) throw new InferenceMarketError("room binding");
+    return room;
+  }
+
+  public async getInferenceDeal(dealId: string): Promise<InferenceDealView> {
+    const id = inferenceId(dealId);
+    const deal = await this.call(
+      "px_getInferenceDeal",
+      [id],
+      decodeInferenceDeal,
+    );
+    if (deal.dealId !== id) throw new InferenceMarketError("deal binding");
+    return deal;
+  }
+
+  public async getInferencePeer(peerKey: string): Promise<InferencePeer> {
+    const id = inferenceId(peerKey);
+    const peer = await this.call(
+      "px_getInferencePeer",
+      [id],
+      decodeInferencePeer,
+    );
+    if (peer.peerKey !== id) throw new InferenceMarketError("peer binding");
+    return peer;
+  }
+
+  public async getInferenceReceipts(
+    dealId: string,
+  ): Promise<readonly InferenceReceiptBatch[]> {
+    const id = inferenceId(dealId);
+    const batches = await this.call(
+      "px_getInferenceReceipts",
+      [id],
+      decodeInferenceReceipts,
+    );
+    if (batches.some((batch) => batch.dealId !== id))
+      throw new InferenceMarketError("receipt binding");
+    return batches;
+  }
+
+  private call(
+    method: PxMethod,
+    params: readonly RpcParam[],
+  ): Promise<Record<string, unknown>>;
+  private call<T>(
+    method: PxMethod,
+    params: readonly RpcParam[],
+    decode: (value: unknown) => T,
+  ): Promise<T>;
   private async call(
     method: PxMethod,
     params: readonly RpcParam[],
-  ): Promise<Record<string, unknown>> {
+    decode: (value: unknown) => unknown = object,
+  ): Promise<unknown> {
     if (!PX_METHODS.includes(method)) throw new Error("Invalid gateway method");
     const id = (++this.#id).toString();
     const body = Buffer.from(
@@ -227,7 +306,16 @@ export class PxClient {
     const answer: unknown = JSON.parse(
       new TextDecoder("utf-8", { fatal: true }).decode(bytes),
     );
-    return decodeJsonRpcResponse(answer, id);
+    if (
+      answer !== null &&
+      typeof answer === "object" &&
+      !Array.isArray(answer) &&
+      "result" in answer
+    ) {
+      const envelope = { ...answer, result: { value: answer.result } };
+      return decode(decodeJsonRpcResponse(envelope, id).value);
+    }
+    return decode(decodeJsonRpcResponse(answer, id));
   }
 
   private send(headers: Record<string, string>, body: Buffer): Promise<Buffer> {

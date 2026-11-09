@@ -175,9 +175,7 @@ def test_activation_runbook_lists_every_explicitly_registered_plan_in_node_order
             body = go_function(source, handler.group(1))
             assert "mergeHeight <= 0 || mergeHeight >= ctx.BlockHeight()" in body
             assert "app.mm.RunMigrations(ctx, app.configurator, fromVM)" in body
-            assert row[1] == "inline: app.mm.RunMigrations"
-        else:
-            assert row[1] == handler.group(1)
+        assert row[1] == handler.group(1)
         pending = "done_height == 0"
         if symbol == "ActivationUpgrade":
             pending += " and not activation_modules_present"

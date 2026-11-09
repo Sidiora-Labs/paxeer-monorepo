@@ -1,18 +1,22 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
+mod support;
+
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::receipt::{
-    classify, serve, serve_evidence, store, store_verified_if_absent, ReceiptLookupKey,
-    ReceiptStoreError, TransactionReceiptEvidence, TransactionReceiptMetadata,
+    classify, serve, serve_evidence, store, store_verified_if_absent,
+    AuthenticatedTransactionReceipt, ReceiptLookupKey, ReceiptStoreError,
 };
-use layerx_agentd::store::{Store, TenantId};
+use layerx_agentd::store::{ObjectKind, Store, TenantId, TenantKey};
+use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+use layerx_client::sequencer::decode_receipt_keys;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::result::{KnownResult, ResultCode, Retriability};
 use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
-use sha2::{Digest, Sha256};
+use serde_json::{json, Value};
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -109,35 +113,76 @@ fn tenant() -> TenantId {
     TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}"))
 }
 
-fn transaction_receipt(hash: [u8; 32]) -> TransactionReceiptEvidence {
-    let canonical_receipt = [
-        &[0xf9, 0x01, 0x08, 0x01, 0x82, 0x52, 0x08, 0xb9, 0x01, 0x00][..],
-        &[0; 256],
-        &[0xc0],
-    ]
-    .concat();
-    let signing_key = k256::ecdsa::SigningKey::from_slice(&[7; 32])
-        .unwrap_or_else(|error| panic!("signing key: {error}"));
-    let digest: [u8; 32] = Sha256::digest(&canonical_receipt).into();
-    let (signature, recovery) = signing_key
-        .sign_prehash_recoverable(&digest)
-        .unwrap_or_else(|error| panic!("receipt signature: {error}"));
-    let mut receipt_signature = [0; 65];
-    receipt_signature[..64].copy_from_slice(&signature.to_bytes());
-    receipt_signature[64] = recovery.to_byte() + 27;
-    TransactionReceiptEvidence {
-        metadata: TransactionReceiptMetadata {
-            transaction_hash: hash,
-            block_height: 12,
-            tx_index: 1,
-            status: true,
-            gas_used: 21_000,
-            logs_bloom: [0; 256],
-            receipt_signature,
-            rung: Rung::Receipted,
+fn transaction_receipt() -> AuthenticatedTransactionReceipt {
+    let recording: Value = serde_json::from_str(include_str!(
+        "../../layerx-agentd-host/src/repair_22_31_363_receipts.json"
+    ))
+    .unwrap_or_else(|error| panic!("producer recording: {error}"));
+    let case = &recording["success"];
+    let view = &case["receiptJson"];
+    let hash: [u8; 32] = hex::decode(
+        view["txHash"]
+            .as_str()
+            .unwrap_or_else(|| panic!("producer transaction hash required"))
+            .trim_start_matches("0x"),
+    )
+    .unwrap_or_else(|error| panic!("transaction hash: {error}"))
+    .try_into()
+    .unwrap_or_else(|_| panic!("transaction hash must be 32 bytes"));
+    let keys = decode_receipt_keys(&json!({"keys": [case["pinnedKey"]]}))
+        .unwrap_or_else(|error| panic!("pinned receipt key: {error:?}"));
+    let (endpoint, server) = support::serve(vec![
+        (
+            "pax_sequencerReceipt",
+            json!([view["txHash"]]),
+            Some(view.clone()),
+        ),
+        (
+            "eth_getTransactionReceipt",
+            json!([view["txHash"]]),
+            Some(Value::Null),
+        ),
+    ]);
+    let lookup = lookup_authenticated(
+        &endpoint,
+        hash,
+        LookupContext {
+            receipt_keys: &keys,
         },
-        canonical_receipt,
-    }
+    )
+    .unwrap_or_else(|error| panic!("authenticate producer receipt: {error:?}"));
+    let traffic = server
+        .join()
+        .unwrap_or_else(|error| panic!("receipt transport: {error:?}"));
+    assert_eq!(traffic.lookups, 1);
+    let Lookup::Verified(verified) = lookup else {
+        panic!("authenticated receipt required")
+    };
+    assert_eq!(verified.rung(), Rung::Receipted);
+    let capability = AuthenticatedTransactionReceipt::from_authenticated(&verified)
+        .unwrap_or_else(|error| panic!("receipt capability: {error:?}"));
+    assert_eq!(capability.evidence().metadata.transaction_hash, hash);
+    assert_eq!(
+        capability.evidence().canonical_receipt,
+        verified.canonical_bytes()
+    );
+    capability
+}
+
+fn transaction_keys(owner: TenantId, hash: [u8; 32]) -> [TenantKey; 2] {
+    [
+        (ObjectKind::Receipt, b"receipt:transaction:".as_slice()),
+        (ObjectKind::Configuration, b"receipt-evidence:".as_slice()),
+    ]
+    .map(|(kind, prefix)| {
+        TenantKey::new(owner.clone(), kind, [prefix, &hash].concat())
+            .unwrap_or_else(|error| panic!("transaction key: {error}"))
+    })
+}
+
+fn transaction_bytes(durable: &Store, keys: &[TenantKey; 2]) -> [Option<Vec<u8>>; 2] {
+    keys.each_ref()
+        .map(|key| durable.get(key).map(|value| value.bytes().to_vec()))
 }
 
 #[test]
@@ -180,61 +225,214 @@ fn verified_bytes_survive_all_three_indexes_and_restart_unchanged() {
 #[test]
 fn first_verified_ingress_is_stored_before_it_is_served() {
     let root = directory("first-ingress");
-    let idem = [0x45; 32];
-    let record = transaction_receipt(idem);
+    let capability = transaction_receipt();
+    let record = capability.evidence();
+    let hash = record.metadata.transaction_hash;
+    let keys = transaction_keys(tenant(), hash);
+    let other = TenantId::new("tenant-b").unwrap_or_else(|error| panic!("tenant: {error}"));
+    let other_keys = transaction_keys(other.clone(), hash);
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     assert_eq!(
-        serve_evidence(&durable, tenant(), idem).unwrap_or_else(|error| panic!("{error:?}")),
+        serve_evidence(&durable, tenant(), hash).unwrap_or_else(|error| panic!("{error:?}")),
         None
     );
+    assert_eq!(transaction_bytes(&durable, &keys), [None, None]);
     let served = store_verified_if_absent(
         &mut durable,
         tenant(),
-        idem,
+        hash,
         &record.canonical_receipt,
-        &record,
+        &capability,
     )
     .unwrap_or_else(|error| panic!("first ingress: {error:?}"));
-    assert_eq!(served, record);
+    assert_eq!(served, *record);
     assert_eq!(served.metadata.rung, Rung::Receipted);
     assert_eq!(
-        serve_evidence(&durable, tenant(), idem).unwrap_or_else(|error| panic!("{error:?}")),
-        Some(record)
+        serve_evidence(&durable, tenant(), hash).unwrap_or_else(|error| panic!("{error:?}")),
+        Some(record.clone())
     );
-    let _ = std::fs::remove_dir_all(root);
+    let stored = transaction_bytes(&durable, &keys);
+    assert_eq!(
+        stored[0].as_deref(),
+        Some(record.canonical_receipt.as_slice())
+    );
+    assert!(stored[1].is_some());
+    assert_eq!(transaction_bytes(&durable, &other_keys), [None, None]);
+    drop(durable);
+
+    let reopened = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
+    assert_eq!(transaction_bytes(&reopened, &keys), stored);
+    assert_eq!(
+        serve_evidence(&reopened, tenant(), hash).unwrap_or_else(|error| panic!("{error:?}")),
+        Some(record.clone())
+    );
+    assert_eq!(
+        serve_evidence(&reopened, other, hash).unwrap_or_else(|error| panic!("{error:?}")),
+        None
+    );
+    assert_eq!(transaction_bytes(&reopened, &other_keys), [None, None]);
+    drop(reopened);
+    std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error}"));
 }
 
 #[test]
 fn repeated_verified_ingress_refuses_conflicts_without_replacing_the_first_receipt() {
     let root = directory("ingress-conflict");
-    let idem = [0x46; 32];
-    let original = transaction_receipt(idem);
+    let capability = transaction_receipt();
+    let original = capability.evidence();
+    let hash = original.metadata.transaction_hash;
+    let keys = transaction_keys(tenant(), hash);
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    store_verified_if_absent(
-        &mut durable,
-        tenant(),
-        idem,
-        &original.canonical_receipt,
-        &original,
-    )
-    .unwrap_or_else(|error| panic!("first ingress: {error:?}"));
-
-    let mut conflicting = original.clone();
-    conflicting.metadata.gas_used += 1;
+    for _ in 0..2 {
+        assert_eq!(
+            store_verified_if_absent(
+                &mut durable,
+                tenant(),
+                hash,
+                &original.canonical_receipt,
+                &capability,
+            )
+            .unwrap_or_else(|error| panic!("authenticated ingress: {error:?}")),
+            *original
+        );
+    }
+    let first = transaction_bytes(&durable, &keys);
+    let mut conflicting = first[1]
+        .clone()
+        .unwrap_or_else(|| panic!("missing evidence"));
+    conflicting[59..67].copy_from_slice(&(original.metadata.gas_used + 1).to_be_bytes());
+    durable
+        .put_local(keys[1].clone(), conflicting.clone())
+        .unwrap_or_else(|error| panic!("seed conflicting durable record: {error}"));
+    let mut conflicting_evidence = original.clone();
+    conflicting_evidence.metadata.gas_used += 1;
     assert!(matches!(
         store_verified_if_absent(
             &mut durable,
             tenant(),
-            idem,
-            &conflicting.canonical_receipt,
-            &conflicting,
+            hash,
+            &original.canonical_receipt,
+            &capability,
         ),
         Err(ReceiptStoreError::Store(_))
     ));
-    let served = serve_evidence(&durable, tenant(), idem)
-        .unwrap_or_else(|error| panic!("serve original: {error:?}"));
-    assert_eq!(served, Some(original));
-    let _ = std::fs::remove_dir_all(root);
+    assert_eq!(
+        transaction_bytes(&durable, &keys),
+        [first[0].clone(), Some(conflicting.clone())]
+    );
+    drop(durable);
+
+    let mut reopened = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
+    assert_eq!(
+        serve_evidence(&reopened, tenant(), hash)
+            .unwrap_or_else(|error| panic!("serve conflict: {error:?}")),
+        Some(conflicting_evidence)
+    );
+    assert_eq!(
+        transaction_bytes(&reopened, &keys),
+        [first[0].clone(), Some(conflicting)]
+    );
+    reopened
+        .put_local(
+            keys[1].clone(),
+            first[1]
+                .clone()
+                .unwrap_or_else(|| panic!("missing first evidence")),
+        )
+        .unwrap_or_else(|error| panic!("restore first evidence: {error}"));
+    assert_eq!(
+        store_verified_if_absent(
+            &mut reopened,
+            tenant(),
+            hash,
+            &original.canonical_receipt,
+            &capability
+        )
+        .unwrap_or_else(|error| panic!("repeat after reopen: {error:?}")),
+        *original
+    );
+    assert_eq!(transaction_bytes(&reopened, &keys), first);
+    assert_eq!(
+        serve_evidence(&reopened, tenant(), hash)
+            .unwrap_or_else(|error| panic!("serve original: {error:?}")),
+        Some(original.clone())
+    );
+    drop(reopened);
+    std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error}"));
+}
+
+#[test]
+fn raw_transaction_evidence_is_refused_without_writing() {
+    let root = directory("raw-ingress");
+    let capability = transaction_receipt();
+    let record = capability.evidence();
+    let hash = record.metadata.transaction_hash;
+    let keys = transaction_keys(tenant(), hash);
+    let other = TenantId::new("tenant-b").unwrap_or_else(|error| panic!("tenant: {error}"));
+    let other_keys = transaction_keys(other.clone(), hash);
+    let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
+    let mut authenticated_bytes = None;
+    for stage in 0..3 {
+        let before = transaction_bytes(&durable, &keys);
+        if stage == 0 {
+            assert_eq!(before, [None, None]);
+        } else {
+            assert_eq!(Some(before.clone()), authenticated_bytes);
+        }
+        for rung in [Rung::Receipted, Rung::Committed] {
+            let mut raw = record.clone();
+            raw.metadata.rung = rung;
+            for (owner, owner_keys) in [(tenant(), &keys), (other.clone(), &other_keys)] {
+                let unchanged = transaction_bytes(&durable, owner_keys);
+                let error = store_verified_if_absent(
+                    &mut durable,
+                    owner,
+                    hash,
+                    &raw.canonical_receipt,
+                    &raw,
+                )
+                .unwrap_err();
+                assert!(matches!(error, ReceiptStoreError::UnauthenticatedIngress));
+                assert_eq!(error.reason(), "receipt.unauthenticated_ingress");
+                assert_eq!(transaction_bytes(&durable, owner_keys), unchanged);
+            }
+        }
+        assert_eq!(transaction_bytes(&durable, &keys), before);
+        assert_eq!(transaction_bytes(&durable, &other_keys), [None, None]);
+        assert_eq!(
+            serve_evidence(&durable, tenant(), hash)
+                .unwrap_or_else(|error| panic!("serve: {error:?}")),
+            if stage == 0 {
+                None
+            } else {
+                Some(record.clone())
+            }
+        );
+        assert_eq!(
+            serve_evidence(&durable, other.clone(), hash)
+                .unwrap_or_else(|error| panic!("serve other tenant: {error:?}")),
+            None
+        );
+        if stage == 0 {
+            assert_eq!(
+                store_verified_if_absent(
+                    &mut durable,
+                    tenant(),
+                    hash,
+                    &record.canonical_receipt,
+                    &capability
+                )
+                .unwrap_or_else(|error| panic!("valid ingress: {error:?}")),
+                *record
+            );
+            authenticated_bytes = Some(transaction_bytes(&durable, &keys));
+        } else if stage == 1 {
+            drop(durable);
+            durable = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
+        }
+    }
+    drop(durable);
+    std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error}"));
 }
 
 #[test]

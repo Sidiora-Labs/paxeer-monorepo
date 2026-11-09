@@ -3,7 +3,13 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { decodeFunctionData } from 'viem';
+import {
+  BaseError,
+  InvalidParamsRpcError,
+  UserRejectedRequestError,
+  decodeFunctionData,
+} from 'viem';
+import type { AdvancedAction } from './action-recovery';
 import {
   createAdvancedProvider,
   advancedOrdersAbi,
@@ -223,6 +229,228 @@ test(
   advanced_broadcast_recovery_concurrent_and_exact_evidence.name,
   advanced_broadcast_recovery_concurrent_and_exact_evidence,
 );
+
+async function advanced_signature_failure_recovery() {
+  const actions: Array<{
+    action: AdvancedAction;
+    review: (provider: AdvancedProvider) => Promise<() => Promise<unknown>>;
+  }> = [
+    {
+      action: 'placeOrder',
+      review: async (provider) => {
+        const prepared = await orderReview(provider);
+        return () => provider.placeOrder(prepared);
+      },
+    },
+    {
+      action: 'swapViaAdapter',
+      review: async (provider) => {
+        const quote = await routeReview(provider);
+        const deadline = BigInt(Math.floor(Date.now() / 1000)) + 300n;
+        return () => provider.executeRoute(quote, 700000n, deadline);
+      },
+    },
+    {
+      action: 'swapMultiHop',
+      review: async (provider) => {
+        const prepared = await customReview(provider);
+        return () => provider.executeCustomRoute(prepared);
+      },
+    },
+  ];
+  for (const { action, review } of actions) {
+    for (const outcome of ['reject', 'invalid'] as const) {
+      const { peer, provider, reopen } = await setup();
+      const submit = await review(provider);
+      peer.control.walletOutcome = outcome;
+      const failure: unknown = await submit().catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(BaseError);
+      if (!(failure instanceof BaseError)) throw new Error('Typed wallet failure required');
+      expect(
+        failure.walk(
+          (cause) =>
+            cause instanceof
+            (outcome === 'reject' ? UserRejectedRequestError : InvalidParamsRpcError),
+        ),
+      ).toBeInstanceOf(outcome === 'reject' ? UserRejectedRequestError : InvalidParamsRpcError);
+      expect(failure.message).toContain(
+        outcome === 'reject'
+          ? 'Signature rejected by wallet user'
+          : 'Invalid transaction parameters; transaction not accepted',
+      );
+      expect(peer.control.sendRequests).toBe(1);
+      expect(peer.writes).toHaveLength(0);
+      expect(peer.control.receiptReads).toBe(0);
+      expect(await provider.pendingAction(action)).toBeNull();
+      expect(new PendingAttemptStore(peer.storage, owner).load()).toEqual({
+        records: [],
+        corrupt: false,
+      });
+      await expect(submit()).rejects.toThrow();
+      expect(peer.control.sendRequests).toBe(1);
+      provider.close();
+      const reopened = await reopen();
+      expect(await reopened.pendingAction(action)).toBeNull();
+      peer.control.walletOutcome = 'accept';
+      await (
+        await review(reopened)
+      )();
+      expect(peer.writes).toHaveLength(1);
+      expect(peer.control.sendRequests).toBe(2);
+      expect(await reopened.pendingAction(action)).toBeNull();
+      expect(new PendingAttemptStore(peer.storage, owner).load().records).toHaveLength(0);
+    }
+
+    for (const outcome of ['unknown', 'timeout'] as const) {
+      const { peer, provider, reopen } = await setup();
+      peer.control.walletOutcome = outcome;
+      await expect((await review(provider))()).rejects.toThrow();
+      const pending = await provider.pendingAction(action);
+      expect(pending).toMatchObject({ action, account: owner, chainId: 125 });
+      expect(pending?.hash).toBeUndefined();
+      const snapshot = [...peer.values];
+      provider.close();
+      const reopened = await reopen();
+      expect(await reopened.pendingAction(action)).toEqual(pending);
+      await expect(reopened.recoverAction(action)).rejects.toThrow('Signature outcome unknown');
+      await expect((await review(reopened))()).rejects.toThrow('resume existing hash');
+      expect([...peer.values]).toEqual(snapshot);
+      expect(peer.writes).toHaveLength(0);
+      expect(peer.control.sendRequests).toBe(1);
+      expect(peer.control.receiptReads).toBe(0);
+    }
+
+    {
+      const { peer, provider, reopen } = await setup();
+      peer.control.walletOutcome = 'lost-hash';
+      await expect((await review(provider))()).rejects.toThrow();
+      expect(peer.writes).toHaveLength(1);
+      expect(peer.control.sendRequests).toBe(1);
+      const pending = await provider.pendingAction(action);
+      expect(pending?.hash).toBeUndefined();
+      expect(pending?.calldata).toBe(peer.writes[0].data);
+      expect(peer.control.receiptReads).toBe(0);
+      const snapshot = [...peer.values];
+      const [hash, transaction] = [...peer.transactions][0];
+      provider.close();
+      const reopened = await reopen();
+      expect(await reopened.pendingAction(action)).toEqual(pending);
+      await expect(reopened.recoverAction(action, blockHash(999n))).rejects.toThrow();
+      expect([...peer.values]).toEqual(snapshot);
+      for (const change of [
+        { from: other },
+        { to: other },
+        { data: '0x' as const },
+        { chainId: 1 },
+      ]) {
+        peer.transactions.set(hash, { ...transaction, ...change });
+        await expect(reopened.recoverAction(action, hash)).rejects.toThrow(
+          'Advanced transaction intent mismatch',
+        );
+        expect([...peer.values]).toEqual(snapshot);
+        expect(await reopened.pendingAction(action)).toEqual(pending);
+      }
+      peer.transactions.set(hash, transaction);
+      peer.control.chainId = 1;
+      await expect(reopened.recoverAction(action, hash)).rejects.toThrow('chain125');
+      peer.control.chainId = 125;
+      peer.control.account = other;
+      await expect(reopened.recoverAction(action, hash)).rejects.toThrow('No advanced action');
+      peer.control.account = owner;
+      expect([...peer.values]).toEqual(snapshot);
+      expect(peer.control.receiptReads).toBe(0);
+      await expect((await review(reopened))()).rejects.toThrow('resume existing hash');
+
+      peer.control.dropReceipts = true;
+      await expect(reopened.recoverAction(action, hash)).rejects.toThrow();
+      const adopted = await reopened.pendingAction(action);
+      expect(adopted).toEqual({ ...pending, hash });
+      expect(new PendingAttemptStore(peer.storage, owner).load().records).toMatchObject([
+        { txHash: hash, action: `advanced:${action}`, actionFingerprint: pending!.intentId },
+      ]);
+      expect(peer.receiptStorageSnapshots.length).toBeGreaterThan(0);
+      expect(
+        peer.receiptStorageSnapshots.every(
+          (values) =>
+            values.some((value) => value.includes(`"txHash":"${hash}"`)) &&
+            values.some((value) => value.includes(`"hash":"${hash}"`)),
+        ),
+      ).toBe(true);
+      reopened.close();
+      const resumed = await reopen();
+      expect(await resumed.pendingAction(action)).toEqual(adopted);
+      const adoptedSnapshot = [...peer.values];
+      const receiptReads = peer.control.receiptReads;
+      await expect(resumed.recoverAction(action, blockHash(999n))).rejects.toThrow(
+        'Conflicting advanced transaction hash',
+      );
+      expect([...peer.values]).toEqual(adoptedSnapshot);
+      expect(peer.control.receiptReads).toBe(receiptReads);
+      peer.control.dropReceipts = false;
+      peer.control.corruptSettlement = true;
+      await expect(resumed.recoverAction(action, hash)).rejects.toThrow(
+        action === 'placeOrder' ? 'Exact order placement' : 'Exact reviewed route settlement',
+      );
+      expect(await resumed.pendingAction(action)).toEqual(adopted);
+      peer.control.corruptSettlement = false;
+      peer.control.noncanonical = true;
+      await expect(resumed.recoverAction(action)).rejects.toThrow('Receipt no longer canonical');
+      expect(await resumed.pendingAction(action)).toEqual(adopted);
+      peer.control.noncanonical = false;
+      expect(await resumed.recoverAction(action, hash)).toMatchObject({
+        action,
+        status: 'success',
+        receipt: { transactionHash: hash },
+      });
+      expect(await resumed.pendingAction(action)).toBeNull();
+      expect(new PendingAttemptStore(peer.storage, owner).load().records).toHaveLength(0);
+      expect(peer.writes).toHaveLength(1);
+      expect(peer.control.sendRequests).toBe(1);
+    }
+
+    {
+      const { peer, provider, reopen } = await setup();
+      const submit = await review(provider);
+      const paused = peer.pauseSignature();
+      cleanup.push(paused.release);
+      peer.control.walletOutcome = 'reject';
+      const sending = submit().catch((error: unknown) => error);
+      await paused.entered;
+      try {
+        const pending = await provider.pendingAction(action);
+        expect(pending?.hash).toBeUndefined();
+        expect(pending?.action).toBe(action);
+        const snapshot = [...peer.values];
+        const reopened = await reopen();
+        await expect(reopened.recoverAction(action, blockHash(999n))).rejects.toThrow(
+          'already signing',
+        );
+        await expect(reopened.recoverAction(action)).rejects.toThrow('already signing');
+        await expect((await review(reopened))()).rejects.toThrow('resume existing hash');
+        expect([...peer.values]).toEqual(snapshot);
+        expect(await reopened.pendingAction(action)).toEqual(pending);
+        expect(peer.control.receiptReads).toBe(0);
+        expect(peer.control.sendRequests).toBe(1);
+        expect(peer.writes).toHaveLength(0);
+        provider.close();
+        paused.release();
+        expect(await sending).toBeInstanceOf(BaseError);
+        expect(await reopened.pendingAction(action)).toBeNull();
+        peer.control.walletOutcome = 'accept';
+        await (
+          await review(reopened)
+        )();
+        expect(peer.writes).toHaveLength(1);
+        expect(peer.control.sendRequests).toBe(2);
+        expect(await reopened.pendingAction(action)).toBeNull();
+      } finally {
+        paused.release();
+        await sending;
+      }
+    }
+  }
+}
+test(advanced_signature_failure_recovery.name, advanced_signature_failure_recovery, 30_000);
 
 async function old_orders_unreadable_paginated_exact_history() {
   const { peer, provider } = await setup(true);

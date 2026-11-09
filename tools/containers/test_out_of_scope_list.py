@@ -51,7 +51,6 @@ def assert_reviewed_out_of_scope(script: str) -> None:
         "consensus/spec/ivy-proofs/Dockerfile",
         "consensus/test/e2e/docker/Dockerfile",
         "services/explorer/backend/.devcontainer/Dockerfile",
-        "storage/db_engine/litt/util/testdata/ssh-test.Dockerfile",
         "docker/redis/Dockerfile",
     ]
 
@@ -59,3 +58,16 @@ def assert_reviewed_out_of_scope(script: str) -> None:
 def test_out_of_scope_omits_consensus_test_dockerfile():
     script_path = Path(__file__).resolve().with_name("check.sh")
     assert_reviewed_out_of_scope(script_path.read_text(encoding="utf-8"))
+
+
+def test_orphaned_ssh_image_fixtures_removed():
+    script_path = Path(__file__).resolve().with_name("check.sh")
+    repo_root = script_path.parents[2]
+    fixture_dir = repo_root / "storage/db_engine/litt/util/testdata"
+    for name in ("ssh-test.Dockerfile", "start.sh"):
+        fixture_path = fixture_dir / name
+        assert not fixture_path.exists()
+        assert not fixture_path.is_symlink()
+    assert "storage/db_engine/litt/util/testdata/ssh-test.Dockerfile" not in (
+        parse_out_of_scope(script_path.read_text(encoding="utf-8"))
+    )

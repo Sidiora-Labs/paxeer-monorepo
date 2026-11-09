@@ -1,0 +1,3537 @@
+# Task 22.39.219: source repairs under unchanged workspace lint levels.
+[meta]
+task = "22.39.219"
+base_revision = "d231853743c82e8c3cb9d90f45e9eee7e331f914"
+decision = "3053"
+gotcha = "3749"
+scope = "services/agent/crates/layerx-client"
+
+[inventory]
+command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
+exit = 101
+log = "/out/logs/layerx-client-baseline-clippy.log"
+distinct_locations = 138
+coverage = "Unchanged base sources; the library and library-test failures prevented Cargo from reaching integration targets. Additional test-target issues are tracked below and in the bounded verify evidence."
+
+[lint.1]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 337
+name = "clippy::similar_names"
+repair = "Renamed the event signature topic binding to distinguish it from the topic0 method."
+
+[lint.2]
+file = "services/agent/crates/layerx-client/src/rpc/commit.rs"
+line = 261
+name = "clippy::unreadable_literal"
+repair = "Added digit separators to the calendar arithmetic constants without changing their values."
+
+[lint.3]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 2087
+name = "clippy::needless_continue"
+repair = "Kept the empty already-exists match arm so the surrounding allocation loop retries naturally."
+
+[lint.4]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 75
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.5]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 92
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.6]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 98
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.7]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 134
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.8]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 195
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.9]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 215
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.10]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 243
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.11]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 257
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.12]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 294
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.13]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 303
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.14]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 307
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.15]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 336
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.16]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 381
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.17]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 385
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.18]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 399
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.19]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 403
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.20]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 407
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.21]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 411
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.22]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 415
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.23]
+file = "services/agent/crates/layerx-client/src/chains.rs"
+line = 444
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed private helper inputs; the public request context is Copy and the public review_call consumes its validated transaction into the returned review."
+
+[lint.24]
+file = "services/agent/crates/layerx-client/src/frame/framing.rs"
+line = 167
+name = "clippy::cast_possible_truncation"
+repair = "Used checked timestamp and fixture conversions, bounded decimal digit allowances with expression-local reasons, or extracted the intended low byte."
+
+[lint.25]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 73
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.26]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 77
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.27]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 84
+name = "clippy::cast_possible_truncation"
+repair = "Used checked timestamp and fixture conversions, bounded decimal digit allowances with expression-local reasons, or extracted the intended low byte."
+
+[lint.28]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 87
+name = "clippy::cast_possible_truncation"
+repair = "Used checked timestamp and fixture conversions, bounded decimal digit allowances with expression-local reasons, or extracted the intended low byte."
+
+[lint.29]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 95
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.30]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 108
+name = "clippy::cast_possible_truncation"
+repair = "Used checked timestamp and fixture conversions, bounded decimal digit allowances with expression-local reasons, or extracted the intended low byte."
+
+[lint.31]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 178
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.32]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 184
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.33]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 200
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.34]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 213
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.35]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 218
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.36]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 223
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.37]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 228
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.38]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 239
+name = "clippy::option_option"
+repair = "Private nullable decoding now returns Result<Option<T>, ()>, preserving the distinction between null and malformed fields."
+
+[lint.39]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 401
+name = "clippy::option_option"
+repair = "Private nullable decoding now returns Result<Option<T>, ()>, preserving the distinction between null and malformed fields."
+
+[lint.40]
+file = "services/agent/crates/layerx-client/src/rpc/mod.rs"
+line = 1
+name = "clippy::doc_markdown"
+repair = "Quoted the referenced Rust names in documentation."
+
+[lint.41]
+file = "services/agent/crates/layerx-client/src/rpc/mod.rs"
+line = 15
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.42]
+file = "services/agent/crates/layerx-client/src/rpc/account.rs"
+line = 20
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.43]
+file = "services/agent/crates/layerx-client/src/rpc/account.rs"
+line = 52
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.44]
+file = "services/agent/crates/layerx-client/src/rpc/batch.rs"
+line = 10
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.45]
+file = "services/agent/crates/layerx-client/src/rpc/batch.rs"
+line = 19
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.46]
+file = "services/agent/crates/layerx-client/src/rpc/batch.rs"
+line = 26
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.47]
+file = "services/agent/crates/layerx-client/src/rpc/commit.rs"
+line = 25
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.48]
+file = "services/agent/crates/layerx-client/src/rpc/commit.rs"
+line = 64
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.49]
+file = "services/agent/crates/layerx-client/src/rpc/commit.rs"
+line = 89
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.50]
+file = "services/agent/crates/layerx-client/src/rpc/commit.rs"
+line = 236
+name = "clippy::cast_possible_truncation"
+repair = "Used checked timestamp and fixture conversions, bounded decimal digit allowances with expression-local reasons, or extracted the intended low byte."
+
+[lint.51]
+file = "services/agent/crates/layerx-client/src/rpc/commit.rs"
+line = 236
+name = "clippy::cast_sign_loss"
+repair = "Converted the validated month index with usize::try_from and the existing invalid-timestamp error."
+
+[lint.52]
+file = "services/agent/crates/layerx-client/src/rpc/commit.rs"
+line = 254
+name = "clippy::cast_possible_truncation"
+repair = "Used checked timestamp and fixture conversions, bounded decimal digit allowances with expression-local reasons, or extracted the intended low byte."
+
+[lint.53]
+file = "services/agent/crates/layerx-client/src/rpc/commit.rs"
+line = 264
+name = "clippy::cast_possible_wrap"
+repair = "Converted nanoseconds with i32::try_from and the existing invalid-timestamp error."
+
+[lint.54]
+file = "services/agent/crates/layerx-client/src/rpc/evidence.rs"
+line = 42
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.55]
+file = "services/agent/crates/layerx-client/src/rpc/evidence.rs"
+line = 90
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.56]
+file = "services/agent/crates/layerx-client/src/rpc/evidence.rs"
+line = 99
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.57]
+file = "services/agent/crates/layerx-client/src/rpc/evidence.rs"
+line = 140
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.58]
+file = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 13
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.59]
+file = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 22
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.60]
+file = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 34
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.61]
+file = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 43
+name = "clippy::format_collect"
+repair = "Wrote hexadecimal bytes into one preallocated string."
+
+[lint.62]
+file = "services/agent/crates/layerx-client/src/rpc/module_state.rs"
+line = 12
+name = "clippy::doc_markdown"
+repair = "Quoted the referenced Rust names in documentation."
+
+[lint.63]
+file = "services/agent/crates/layerx-client/src/rpc/module_state.rs"
+line = 45
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.64]
+file = "services/agent/crates/layerx-client/src/rpc/module_state.rs"
+line = 58
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.65]
+file = "services/agent/crates/layerx-client/src/rpc/module_state.rs"
+line = 90
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.66]
+file = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 46
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.67]
+file = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 50
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.68]
+file = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 61
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.69]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 142
+name = "clippy::large_enum_variant"
+repair = "Moved receipt data behind a private Box while preserving the public enum payloads and accessor signatures."
+
+[lint.70]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 180
+name = "clippy::large_enum_variant"
+repair = "Moved receipt data behind a private Box while preserving the public enum payloads and accessor signatures."
+
+[lint.71]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 185
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.72]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 193
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.73]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 201
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.74]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 404
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.75]
+file = "services/agent/crates/layerx-client/src/rpc/receipt_commit.rs"
+line = 12
+name = "clippy::doc_markdown"
+repair = "Quoted the referenced Rust names in documentation."
+
+[lint.76]
+file = "services/agent/crates/layerx-client/src/rpc/receipt_commit.rs"
+line = 33
+name = "clippy::doc_markdown"
+repair = "Quoted the referenced Rust names in documentation."
+
+[lint.77]
+file = "services/agent/crates/layerx-client/src/rpc/receipt_commit.rs"
+line = 47
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.78]
+file = "services/agent/crates/layerx-client/src/rpc/receipt_commit.rs"
+line = 52
+name = "clippy::items_after_statements"
+repair = "Moved the local helper or static before executable statements in its function."
+
+[lint.79]
+file = "services/agent/crates/layerx-client/src/rpc/receipt_commit.rs"
+line = 85
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.80]
+file = "services/agent/crates/layerx-client/src/rpc/receipt_commit.rs"
+line = 99
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.81]
+file = "services/agent/crates/layerx-client/src/rpc/receipt_commit.rs"
+line = 117
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.82]
+file = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+line = 55
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.83]
+file = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+line = 76
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.84]
+file = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+line = 103
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.85]
+file = "services/agent/crates/layerx-client/src/rpc/submit.rs"
+line = 39
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.86]
+file = "services/agent/crates/layerx-client/src/rpc/submit.rs"
+line = 57
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.87]
+file = "services/agent/crates/layerx-client/src/rpc/withdrawal.rs"
+line = 120
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.88]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 262
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.89]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 279
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.90]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 344
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.91]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 361
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.92]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 369
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.93]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 379
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.94]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 442
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.95]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 530
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.96]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 565
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.97]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 582
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.98]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 610
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.99]
+file = "services/agent/crates/layerx-client/src/storage_witness.rs"
+line = 20
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.100]
+file = "services/agent/crates/layerx-client/src/storage_witness.rs"
+line = 63
+name = "clippy::manual_let_else"
+repair = "Used a refutable let-else pattern for the protobuf field and retained the exact malformed-proof error."
+
+[lint.101]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 140
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.102]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 148
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.103]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 249
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.104]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 249
+name = "clippy::should_implement_trait"
+repair = "Unresolved: the original public next signature is flagged even with an Iterator implementation. The ineffective added implementation was removed; no allowance or public signature change was introduced."
+
+[lint.105]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 253
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.106]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 259
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.107]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 263
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.108]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 107
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.109]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 111
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.110]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 115
+name = "clippy::must_use_candidate"
+repair = "Marked the returned value as must_use."
+
+[lint.111]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 115
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed private helper inputs; the public request context is Copy and the public review_call consumes its validated transaction into the returned review."
+
+[lint.112]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 128
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.113]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 150
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.114]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 154
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.115]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 158
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.116]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 162
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.117]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 166
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.118]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 170
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.119]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 174
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.120]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 180
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.121]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 184
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.122]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 188
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.123]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 192
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.124]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 196
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.125]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 200
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.126]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 204
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.127]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 208
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.128]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 212
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.129]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 216
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.130]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 240
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.131]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 462
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.132]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 484
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.133]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1180
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed private helper inputs; the public request context is Copy and the public review_call consumes its validated transaction into the returned review."
+
+[lint.134]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 2056
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.135]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 2074
+name = "clippy::items_after_statements"
+repair = "Moved the local helper or static before executable statements in its function."
+
+[lint.136]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 2226
+name = "clippy::match_same_arms"
+repair = "Collapsed identical sequencer-error branches into the existing general sequencer-error branch."
+
+[lint.137]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 2265
+name = "clippy::missing_errors_doc"
+repair = "Documented the concrete refusal conditions in an Errors section."
+
+[lint.138]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 2284
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed private helper inputs; the public request context is Copy and the public review_call consumes its validated transaction into the returned review."
+
+[test_source_repair.1]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 208
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.2]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 564
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.3]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 564
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.4]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 599
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.5]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 625
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.6]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 725
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.7]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 778
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.8]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 888
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.9]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 997
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.10]
+file = "services/agent/crates/layerx-client/tests/ai_market_rpc.rs"
+line = 85
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.11]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 22
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.12]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 102
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.13]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 141
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.14]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 164
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.15]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 169
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.16]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 179
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.17]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 187
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.18]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 191
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.19]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 199
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.20]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 211
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.21]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 316
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.22]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 316
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.23]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 316
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.24]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 316
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.25]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 316
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.26]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 85
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.27]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 304
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.28]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 324
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.29]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 326
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.30]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 329
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.31]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 345
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.32]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 364
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.33]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 392
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.34]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 483
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.35]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 652
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.36]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 660
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.37]
+file = "services/agent/crates/layerx-client/tests/batch_rpc.rs"
+line = 58
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.38]
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+line = 196
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.39]
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+line = 197
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.40]
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+line = 233
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.41]
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+line = 234
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.42]
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+line = 262
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.43]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 14
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.44]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 20
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.45]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 25
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.46]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 58
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.47]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 66
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.48]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 67
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.49]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 68
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.50]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 75
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.51]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 79
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.52]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 88
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.53]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 125
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.54]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 50
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.55]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 118
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.56]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 199
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.57]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 206
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.58]
+file = "services/agent/crates/layerx-client/tests/payments_rpc.rs"
+line = 124
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.59]
+file = "services/agent/crates/layerx-client/tests/payments_rpc.rs"
+line = 85
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.60]
+file = "services/agent/crates/layerx-client/tests/payments_rpc.rs"
+line = 209
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.61]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 84
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.62]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 85
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.63]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 88
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.64]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 102
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.65]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 103
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.66]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 134
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.67]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 135
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.68]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 146
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.69]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 147
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.70]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 207
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.71]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 49
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.72]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 55
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.73]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 56
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.74]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 57
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.75]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 61
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.76]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 101
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.77]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 128
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.78]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 129
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.79]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 153
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.80]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 181
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.81]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 181
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.82]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 187
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.83]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 193
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.84]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 232
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.85]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 138
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.86]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 267
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.87]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 637
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.88]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 723
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.89]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 756
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.90]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 777
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.91]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 783
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.92]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 802
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.93]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 820
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.94]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 909
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.95]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 283
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.96]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 283
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.97]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 283
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.98]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 283
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.99]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 283
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.100]
+file = "services/agent/crates/layerx-client/tests/withdrawal_rpc.rs"
+line = 230
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.101]
+file = "services/agent/crates/layerx-client/tests/withdrawal_rpc.rs"
+line = 295
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.102]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+line = 224
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.103]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 223
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.104]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 226
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.105]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 480
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.106]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 42
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.107]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 94
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.108]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 123
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.109]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 123
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.110]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 155
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.111]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 158
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.112]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 168
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.113]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 169
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.114]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 183
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.115]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+line = 184
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.116]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 64
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.117]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 109
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.118]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 111
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.119]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 155
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.120]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 155
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.121]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 163
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.122]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 238
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.123]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 273
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.124]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 312
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.125]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 420
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.126]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 436
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.127]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 197
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.128]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 200
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.129]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 278
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.130]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 380
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.131]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 383
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.132]
+file = "services/agent/crates/layerx-client/tests/support/receipt_22_33_1546.rs"
+line = 18
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.133]
+file = "services/agent/crates/layerx-client/tests/support/receipt_22_33_1546.rs"
+line = 72
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.134]
+file = "services/agent/crates/layerx-client/tests/support/receipt_22_33_1546.rs"
+line = 90
+name = "clippy::expect_used"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
+
+[test_source_repair.135]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 302
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.136]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 328
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.137]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 427
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.138]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 480
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.139]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 591
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.140]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 707
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.141]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 312
+name = "clippy::unreadable_literal"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Added digit separators without changing the literal value."
+
+[test_source_repair.142]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 300
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[test_source_repair.143]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 741
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[test_source_repair.144]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 744
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[test_source_repair.145]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 772
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[test_source_repair.146]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 775
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[test_source_repair.147]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+line = 263
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[test_source_repair.148]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+line = 264
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[test_source_repair.149]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 265
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[test_source_repair.150]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 266
+name = "clippy::cast_possible_truncation/cast_possible_wrap"
+origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
+repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
+
+[qualification]
+evidence = "Private gate ledger /out/run/gates.jsonl; read the last build and verify rows for the candidate containing this record."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+verify_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+build_log = "/out/logs/build-1.log; a repair rerun supersedes this with the last build row in the ledger."
+verify_log = "/out/logs/verify-1.log; a repair rerun supersedes this with the last verify row in the ledger."
+verified_revision = "The revision recorded by the final passing hf-done ledger row, which must equal the last passing hf-build revision."
+final_count = "Unqualified: one confirmed library lint remains; integration targets were not reached by Clippy."
+final_count_condition = "No zero-lint claim is made. The last bounded verify row reports the observed failures; the last repair build does not establish a Clippy pass."
+tests = "No new behavior tests are declared. All existing targets and assertions are retained; the declared gates compile and lint every target without executing the test binaries."
+
+[constraints]
+lint_levels = "Workspace and crate lint levels unchanged; no new crate or module allowance."
+public_api = "Public function signatures, public enum variants and accessor return types retained."
+
+[repair_cycle.1]
+revision = "d5a0f3b8b16c83a9cc1e1d8061fa339ed02a4a16"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Mapped the framing fixture conversion to TransportError::Frame(LengthOverflow), removed the now-unused SequencerError import, repaired two nested matching assertions rejected by the formatter, and wrote test hexadecimal output directly into strings."
+
+[gotcha.formatting]
+symptom = "An automated nested matching-assertion rewrite produced invalid syntax in two test files."
+cause = "A text-based normalization captured an inner panic as part of the enclosing match."
+resolution = "Replaced the nested assertion chains with explicit let-else bindings and successfully formatted every touched Rust file before the repair build."
+
+[dependency_observation]
+revision = "d5a0f3b8b16c83a9cc1e1d8061fa339ed02a4a16"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The registry dependency emitted existing unused import and dead-code warnings; the task failure was the client fixture conversion. Dependency files were not changed."
+
+[repair_cycle.2]
+revision = "9b135c721c428359ff602b4df2edfbbb4e97e10e"
+command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+verify_command_exit = 101
+log = "/out/logs/verify-1.log"
+repair = "Extracted receipt authorization construction into a private helper to reduce lookup_with_evidence below the line limit; removed assertion-free unused AI-market helpers and imports; reused the existing storage producer in the URL-refusal test; removed an unused mut binding."
+remaining = "The exported Result-returning NodeSubscription::next conflicts with should_implement_trait and the task's prohibition on public signature changes or general allowances; retain the method and lint intact."
+budget = "The extra build after the failed initial build uses one repair unit. This repair build uses the second; no additional gate run is authorized after the budget is spent."
+
+[verification_lint.1]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 224
+name = "clippy::too_many_lines"
+observed = "lookup_with_evidence measured 102 lines against the unchanged 100-line threshold."
+repair = "Extracted receipt_authorizations without removing any proof checks or changing their order."
+qualification = "Repair compiled by the final build; Clippy rerun unavailable under the remaining budget."
+
+[verification_lint.2]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 258
+name = "clippy::should_implement_trait"
+observed = "The existing exported next method remains flagged even when NodeSubscription implements Iterator."
+repair = "Retained the original public signature and denied lint; recorded the conflicting constraints instead of disabling the check or changing the API."
+qualification = "Unresolved."
+
+[remaining.subscription]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+count = 1
+names = ["clippy::should_implement_trait"]
+status = "Confirmed unresolved lint at the last verify; unchanged method retained."
+
+[remaining.receipt]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+last_verified_count = 1
+names = ["clippy::too_many_lines"]
+status = "Repaired after the last verify; final build cannot establish a lint count."
+
+[remaining.integration_targets]
+files = "services/agent/crates/layerx-client/tests and examples"
+count = "Unknown: library lint failures prevented Clippy from reaching these targets."
+status = "Existing test functions and assertions retained. The earlier build at 9b135c721 passed all targets; the final repaired candidate fails the ai_market_commit target with a missing OperationRecord import."
+
+[qualification_result]
+status = "implemented-not-qualified"
+revision = "9b135c721c428359ff602b4df2edfbbb4e97e10e"
+command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+last_build = "The final build row in /out/run/gates.jsonl names the repaired candidate revision and its exact build result."
+
+[constraint_conflict]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+symbol = "NodeSubscription::next"
+observed = "Revision 9b135c721c428359ff602b4df2edfbbb4e97e10e, cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log: should_implement_trait rejects the existing public next signature."
+assumption = "Changing an exported method's signature or adding a general lint allowance is outside the task's authorized repair rules."
+severity = "blocker"
+
+[gotcha.next_method]
+symptom = "Implementing Iterator does not silence should_implement_trait on an exported inherent Result-returning next method."
+cause = "The lint examines each exported inherent method's name and signature independently of separate trait implementations."
+resolution = "Preserve the existing API and report the task constraint conflict instead of adding a broad allowance or evading the check."
+
+[final_build_result]
+revision = "a3e78b0ba0000c34ba774a7da505a1fc02314218"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+exit = 101
+log = "/out/logs/build-3.log"
+observed = "The second repair removed the OperationRecord import although prepared_operation_signs_as_eip1559_program_call still uses it; E0433 is reported at tests/ai_market_commit.rs:413 and :424."
+status = "Repair budget spent; no further source edit or gate run performed."
+
+[remaining.ai_market_commit]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+count = 2
+names = ["rustc::E0433"]
+status = "Unresolved compiler errors at the final build; restore the still-used OperationRecord import in a subsequent authorized attempt."
+
+[gotcha.import_cleanup]
+symptom = "Removing a dead helper's imports also removed a type used by an existing test."
+cause = "The cleanup incorrectly assumed OperationRecord was used only by the removed helper."
+resolution = "The final build recorded both remaining use sites; the bounded attempt stops without claiming a successful build or verification."
+
+
+[continuation]
+attempt = 2
+base_revision = "93249965659c4b9cb25e6d721c9a37f9bc005106"
+record_tree = "d129e8eb5d0b7b93f50cf26b82b5cb32af406928"
+decisions = ["3053", "3057"]
+history = "The inventory and qualification results above describe attempt 1; the current continuation is qualified only by the private gate references below."
+implementation = "Retained the previous source and test repairs, including receipt_authorizations; restored the OperationRecord import still used by the signing test."
+
+[continuation.lint.1]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 258
+name = "clippy::should_implement_trait"
+item = "NodeSubscription::next"
+repair = "Decision 3057: an item-level allowance with a reason preserves the existing public Result<Value, SequencerError> contract; the Iterator trait requires a different return type."
+
+[continuation.lint.2]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 224
+name = "clippy::too_many_lines"
+repair = "Retained the existing extraction of receipt_authorizations; every evidence and coverage check remains in the same order."
+
+[continuation.compiler_repair]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 11
+name = "rustc::E0433"
+repair = "Restored OperationRecord to the import list for the existing signing and decode assertions."
+
+[continuation.qualification]
+evidence = "Private evidence: /out/run/gates.jsonl; the last build and verify rows for this attempt define the exact candidate revision, command, exit code and log."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+verify_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+verify_target = "test -s services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
+verified_revision = "By reference: revision of the final passing verify row in /out/run/gates.jsonl, matching the final passing build row."
+final_count = 8
+status = "Implemented-not-qualified: final build passed, final verify failed; both repair units spent. The final inventory below records the remaining lints."
+tests = "No new tests declared; all existing tests and assertions retained. The authorized gates compile and lint all targets without executing test binaries."
+
+[continuation.gotcha.gate_order]
+symptom = "The task steps request repeated manual Clippy inventory measurements while the explicit gate order forbids running verify_cmd by hand."
+resolution = "Retained the previous inventory and use only hf-build followed by hf-done under the explicit allowed gates and shared repair budget."
+
+[continuation.inventory]
+revision = "1a8bf4afebdcac440a18c91f7c487d21b8fda581"
+command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+distinct_locations = 47
+coverage = "The library passed; all reported integration-target diagnostics are inventoried below, deduplicated by file, line, column and lint."
+
+[continuation.inventory.lint.1]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 148
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.2]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 206
+column = 13
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.3]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 216
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.4]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 230
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.5]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 284
+column = 13
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.6]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 297
+column = 13
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.7]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 303
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.8]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 324
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.9]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 363
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.10]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 365
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.11]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 405
+column = 13
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.12]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 411
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.13]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 422
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.14]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 481
+column = 13
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.15]
+file = "services/agent/crates/layerx-client/tests/subscription.rs"
+line = 38
+column = 51
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed the private WebSocket send helper value and updated its callers."
+
+[continuation.inventory.lint.16]
+file = "services/agent/crates/layerx-client/tests/stream_rpc.rs"
+line = 35
+column = 51
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed the private WebSocket send helper value and updated its callers."
+
+[continuation.inventory.lint.17]
+file = "services/agent/crates/layerx-client/tests/storage_witness.rs"
+line = 60
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
+
+[continuation.inventory.lint.18]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 86
+column = 5
+name = "clippy::too_many_lines"
+repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
+
+[continuation.inventory.lint.19]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 208
+column = 33
+name = "clippy::semicolon_if_nothing_returned"
+repair = "Terminated the unit-returning statement with a semicolon."
+
+[continuation.inventory.lint.20]
+file = "services/agent/crates/layerx-client/tests/support/receipt_22_33_1546.rs"
+line = 71
+column = 13
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.21]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 335
+column = 17
+name = "clippy::semicolon_if_nothing_returned"
+repair = "Terminated the unit-returning statement with a semicolon."
+
+[continuation.inventory.lint.22]
+file = "services/agent/crates/layerx-client/tests/support/witness_22_33_1546.rs"
+line = 467
+column = 13
+name = "clippy::match_same_arms"
+repair = "Merged identical malformed-evidence match arms while retaining every damage case."
+
+[continuation.inventory.lint.23]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1546.rs"
+line = 3
+column = 1
+name = "clippy::duplicate_mod"
+repair = "Loaded the gateway support once per test target and imported its transport from the parent module."
+
+[continuation.inventory.lint.24]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+line = 99
+column = 5
+name = "clippy::too_many_lines"
+repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
+
+[continuation.inventory.lint.25]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 77
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.26]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 88
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.27]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 122
+column = 13
+name = "clippy::similar_names"
+repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
+
+[continuation.inventory.lint.28]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+line = 334
+column = 17
+name = "clippy::semicolon_if_nothing_returned"
+repair = "Terminated the unit-returning statement with a semicolon."
+
+[continuation.inventory.lint.29]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+line = 453
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
+
+[continuation.inventory.lint.30]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+line = 494
+column = 42
+name = "clippy::redundant_closure_for_method_calls"
+repair = "Passed the existing method directly to map."
+
+[continuation.inventory.lint.31]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 105
+column = 13
+name = "clippy::if_not_else"
+repair = "Put the existing positive panicking condition first and exchanged the unchanged branches."
+
+[continuation.inventory.lint.32]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 135
+column = 30
+name = "clippy::redundant_closure_for_method_calls"
+repair = "Passed the existing method directly to map."
+
+[continuation.inventory.lint.33]
+file = "services/agent/crates/layerx-client/tests/support/gateway_22_33_1546.rs"
+line = 437
+column = 10
+name = "clippy::unnecessary_semicolon"
+repair = "Removed the semicolon after the function item."
+
+[continuation.inventory.lint.34]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 2
+column = 57
+name = "clippy::doc_markdown"
+repair = "Quoted the referenced file path in documentation."
+
+[continuation.inventory.lint.35]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+line = 207
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
+
+[continuation.inventory.lint.36]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1546.rs"
+line = 2
+column = 68
+name = "clippy::doc_markdown"
+repair = "Quoted the referenced file path in documentation."
+
+[continuation.inventory.lint.37]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 423
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
+
+[continuation.inventory.lint.38]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 495
+column = 31
+name = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrowed the existing receipt key through std::slice::from_ref."
+
+[continuation.inventory.lint.39]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 495
+column = 33
+name = "clippy::clone_on_copy"
+repair = "Borrowed the existing receipt key through std::slice::from_ref without cloning."
+
+[continuation.inventory.lint.40]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 522
+column = 27
+name = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrowed the existing receipt key through std::slice::from_ref."
+
+[continuation.inventory.lint.41]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 522
+column = 29
+name = "clippy::clone_on_copy"
+repair = "Borrowed the existing receipt key through std::slice::from_ref without cloning."
+
+[continuation.inventory.lint.42]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 559
+column = 31
+name = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrowed the existing receipt key through std::slice::from_ref."
+
+[continuation.inventory.lint.43]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 559
+column = 33
+name = "clippy::clone_on_copy"
+repair = "Borrowed the existing receipt key through std::slice::from_ref without cloning."
+
+[continuation.inventory.lint.44]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 580
+column = 31
+name = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrowed the existing receipt key through std::slice::from_ref."
+
+[continuation.inventory.lint.45]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 580
+column = 33
+name = "clippy::clone_on_copy"
+repair = "Borrowed the existing receipt key through std::slice::from_ref without cloning."
+
+[continuation.inventory.lint.46]
+file = "services/agent/crates/layerx-client/tests/support/market_22_33_1546.rs"
+line = 771
+column = 41
+name = "clippy::type_complexity"
+repair = "Named the unchanged test-support namespace proof tuple with a type alias."
+
+[continuation.inventory.lint.47]
+file = "services/agent/crates/layerx-client/tests/support/receipt_22_33_1546.rs"
+line = 28
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
+
+[continuation.repair]
+trigger_revision = "1a8bf4afebdcac440a18c91f7c487d21b8fda581"
+trigger_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+trigger_exit = 1
+trigger_log = "/out/logs/verify-1.log"
+implementation = "Repaired all 47 inventoried locations: distinct local names; borrowed WebSocket values; split response builders, receipt journal stages and assertion groups; one gateway module per binary; method references; semicolons; documentation backticks; receipt key slices; a namespace proof tuple alias."
+qualification = "The final build and verification rows in /out/run/gates.jsonl qualify the candidate including this record; neither gate is claimed before it runs."
+
+
+[continuation.gotcha.integration_support]
+symptom = "Once library lints are repaired, Clippy exposes separate diagnostics in test support reused by several integration binaries."
+resolution = "Record each unique file, line, column and lint once, then repair the shared source and retain every test entry point and assertion."
+
+[continuation.final_build]
+revision = "978eb248fd5957e60f2f5a661425618b5599a365"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+exit = 0
+log = "/out/logs/build-2.log"
+
+[continuation.final_verify]
+revision = "978eb248fd5957e60f2f5a661425618b5599a365"
+command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+
+[continuation.final_result]
+status = "implemented-not-qualified"
+remaining_distinct_locations = 8
+remaining_files = 4
+repair_units_spent = 2
+compatibility = "All 29 dependent-crate checks passed at the final gate revision; private evidence /out/logs/dependents-2.log."
+coverage = "The 47 diagnostics from verify-1 are absent from verify-2; verify-2 reached additional targets and reported the eight locations below. No zero-lint claim is made."
+stop = "Repair budget exhausted. No further implementation, build or verification is performed; this record-only update captures the bounded result after the final gate."
+
+[continuation.remaining.lint.1]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 26
+column = 14
+name = "clippy::unnecessary_semicolon"
+status = "Unrepaired: bounded repair budget exhausted."
+
+[continuation.remaining.lint.2]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 80
+column = 14
+name = "clippy::unnecessary_semicolon"
+status = "Unrepaired: bounded repair budget exhausted."
+
+[continuation.remaining.lint.3]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 84
+column = 14
+name = "clippy::unnecessary_semicolon"
+status = "Unrepaired: bounded repair budget exhausted."
+
+[continuation.remaining.lint.4]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 2
+column = 5
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted."
+
+[continuation.remaining.lint.5]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 75
+column = 1
+name = "clippy::too_many_lines"
+status = "Unrepaired: bounded repair budget exhausted."
+
+[continuation.remaining.lint.6]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 98
+column = 59
+name = "clippy::needless_pass_by_value"
+status = "Unrepaired: bounded repair budget exhausted."
+
+[continuation.remaining.lint.7]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 183
+column = 1
+name = "clippy::too_many_lines"
+status = "Unrepaired: bounded repair budget exhausted."
+
+[continuation.remaining.lint.8]
+file = "services/agent/crates/layerx-client/tests/ai_market_rpc.rs"
+line = 111
+column = 51
+name = "clippy::clone_on_copy"
+status = "Unrepaired: bounded repair budget exhausted."
+
+[continuation.remaining.file.1]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+count = 3
+
+[continuation.remaining.file.2]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+count = 3
+
+[continuation.remaining.file.3]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+count = 1
+
+[continuation.remaining.file.4]
+file = "services/agent/crates/layerx-client/tests/ai_market_rpc.rs"
+count = 1
+
+[attempt3]
+seed_revision = "9ef634b1ba1665cfb3167ac93b9d00f23ae6e7ff"
+decision = "3053"
+gotcha = "3786"
+inventory_source = "The eight continuation.remaining.lint entries and continuation.final_verify evidence above, retained from attempt 2; no unchanged manual gate rerun."
+implementation = "Continued the existing repair tree, repaired the eight remaining locations at their source, and retained all test entry points, assertions and public signatures without new allowances."
+
+[attempt3.lint.1]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 26
+name = "clippy::unnecessary_semicolon"
+repair = "Removed the semicolon after the unit-valued directory-creation match."
+
+[attempt3.lint.2]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 80
+name = "clippy::unnecessary_semicolon"
+repair = "Removed the semicolon after the unit-valued executable-removal match."
+
+[attempt3.lint.3]
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+line = 84
+name = "clippy::unnecessary_semicolon"
+repair = "Removed the semicolon after the unit-valued directory-removal match."
+
+[attempt3.lint.4]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 2
+name = "clippy::doc_markdown"
+repair = "Put the referenced repair-record path in backticks."
+
+[attempt3.lint.5]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 75
+name = "clippy::too_many_lines"
+repair = "Extracted cursor validation into assert_invalid_history_cursors, called after the same server-join assertion; all cursor inputs and assertions remain unchanged."
+
+[attempt3.lint.6]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 98
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed the private HTTP answer helper result and updated all four callers."
+
+[attempt3.lint.7]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 183
+name = "clippy::too_many_lines"
+repair = "Extracted await_child_submission with the same deadline, liveness assertions and accept loop; the process termination and journal recovery assertions remain in the test."
+
+[attempt3.lint.8]
+file = "services/agent/crates/layerx-client/tests/ai_market_rpc.rs"
+line = 111
+name = "clippy::clone_on_copy"
+repair = "Returned the Copy receipt-key entry directly, preserving its value."
+
+[attempt3.qualification]
+evidence = "By reference: the last build and verify rows in the private /out/run/gates.jsonl ledger for this attempt supply revision, command, exit code and log path; both must pass at the same revision."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+verify_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+verify_target = "test -s services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
+verified_revision = "By reference: the final passing verify row revision in /out/run/gates.jsonl, equal to the final passing build revision."
+final_count = "By reference: a passing final verify row establishes zero remaining lints under -D warnings; a failed row establishes no zero-lint claim."
+result = "Qualified only when hf-done passes; the private ledger is authoritative, including any failure and bounded repair rerun."
+tests = "No new tests declared; existing tests and assertions retained. Declared gates build and lint all targets without executing test binaries."
+
+[attempt3.gotcha.evidence]
+symptom = "The inherited record contains the previous attempt results, but the current sandbox starts without /out/run/gates.jsonl."
+resolution = "Retained the historical records and added distinct attempt3 evidence references, populated by this sandbox gates; no historical pass is claimed as current evidence."
+
+[attempt3.repair_cycle]
+trigger_revision = "255a6ff88f537475a4e0742e9a018a2818f95979"
+trigger_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+trigger_exit = 1
+trigger_log = "/out/logs/verify-1.log"
+distinct_locations = 11
+coverage = "The eight inherited remaining lint locations are absent; the bounded verify reached further integration targets and reported the eleven source locations below."
+evidence = "The final build and verify rows in /out/run/gates.jsonl qualify this repaired candidate and supersede the trigger result only if both pass at the same revision."
+
+[attempt3.repair_cycle.lint.1]
+file = "services/agent/crates/layerx-client/tests/chains_vectors.rs"
+line = 92
+name = "clippy::too_many_lines"
+repair = "Extracted event, boundary-value and malformed-encoding assertion groups into private helpers called in the original order; retained every vector, check and test entry point."
+
+[attempt3.repair_cycle.lint.2]
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+line = 71
+name = "clippy::too_many_lines"
+repair = "Moved the nested fixed-size hex decoder to a private function without changing its input checks or conversions."
+
+[attempt3.repair_cycle.lint.3]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 98
+name = "clippy::too_many_lines"
+repair = "Extracted typed_reads_node to own the existing server closure and producer records; all request assertions, responses and client assertions are unchanged."
+
+[attempt3.repair_cycle.lint.4]
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+line = 187
+name = "clippy::too_many_lines"
+repair = "Extracted the invalid-cursor input checks into assert_invalid_history_cursors and called it after the original request assertions."
+
+[attempt3.repair_cycle.lint.5]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+line = 628
+name = "clippy::expect_used"
+repair = "Destructured the required worker with let-else, retaining the panic on absence and the same worker join."
+
+[attempt3.repair_cycle.lint.6]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 965
+name = "clippy::too_many_lines"
+repair = "Extracted signature and authenticated-receipt assertions into assert_authenticated_producer_receipt, retaining order, keys, server requests and assertions."
+
+[attempt3.repair_cycle.lint.7]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 1085
+name = "clippy::too_many_lines"
+repair = "Extracted the previous-root verification assertion group into assert_producer_previous_root, retaining inputs and checks."
+
+[attempt3.repair_cycle.lint.8]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 1111
+name = "clippy::unwrap_used"
+repair = "Replaced unwrap_err with must_err, which explicitly matches Err and panics on Ok; the asserted Decode check is unchanged."
+
+[attempt3.repair_cycle.lint.9]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 1113
+name = "clippy::unwrap_used"
+repair = "Replaced unwrap_err with must_err; the asserted SequencerSignature check is unchanged."
+
+[attempt3.repair_cycle.lint.10]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 1146
+name = "clippy::unwrap_used"
+repair = "Replaced unwrap_err with must_err; the exact ReceiptError::Verification assertion is unchanged."
+
+[attempt3.repair_cycle.lint.11]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 1182
+name = "clippy::unwrap_used"
+repair = "Replaced unwrap_err with must_err; the PreviousStateRoot assertion remains in the extracted helper."
+
+[attempt3.gotcha.target_inventory]
+symptom = "The inherited eight-location inventory did not include all integration targets; the next bounded Clippy run exposed six long functions, four unwrap_err calls and one expect call."
+resolution = "Record and repair each newly reported source location before the single paired build and verify repair rerun; preserve every assertion and do not add lint allowances."
+
+[attempt3.final_result]
+status = "implemented-not-qualified"
+remaining_distinct_locations = 21
+remaining_files = 4
+remaining_in_scope_locations = 20
+remaining_out_of_scope_locations = 1
+repair_units_spent = 2
+coverage = "The final verification reports the inventory below; one long test function remains above the bound and further integration targets expose additional diagnostics. No zero-lint claim is made."
+compatibility = "All 29 dependent-crate checks passed at the final gate revision; private evidence /out/logs/dependents-2.log."
+stop = "The bounded repair budget is exhausted. No further source repairs or gate runs occur; this record-only append captures the failed qualification after the final gate and does not claim the appended record was verified."
+
+[attempt3.final_build]
+revision = "d377cbf19d7e2d413a2f55fdb02ca2703856d17b"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+exit = 0
+log = "/out/logs/build-2.log"
+
+[attempt3.final_verify]
+revision = "d377cbf19d7e2d413a2f55fdb02ca2703856d17b"
+command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+
+[attempt3.remaining.lint.1]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 421
+column = 9
+name = "clippy::similar_names"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.2]
+file = "services/platform/hosted/gateway/src/evm.rs"
+line = 603
+column = 41
+name = "clippy::unreadable_literal"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.3]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 168
+column = 1
+name = "clippy::too_many_lines"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.4]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 322
+column = 1
+name = "clippy::too_many_lines"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.5]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 447
+column = 1
+name = "clippy::unnecessary_wraps"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.6]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 13
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.7]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 51
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.8]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 110
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.9]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 128
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.10]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 144
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.11]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 163
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.12]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 181
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.13]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 203
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.14]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 3
+column = 13
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.15]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 5
+column = 17
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.16]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 7
+column = 5
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.17]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 10
+column = 24
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.18]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 11
+column = 30
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.19]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 12
+column = 39
+name = "clippy::doc_markdown"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.20]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 639
+column = 21
+name = "clippy::manual_let_else"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.lint.21]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 722
+column = 1
+name = "clippy::too_many_lines"
+status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
+
+[attempt3.remaining.file.1]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+count = 2
+
+[attempt3.remaining.file.2]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+count = 17
+
+[attempt3.remaining.file.3]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+count = 1
+
+[attempt3.remaining.file.4]
+file = "services/platform/hosted/gateway/src/evm.rs"
+count = 1
+
+[attempt3.finding.included_gateway]
+task = "22.39.219"
+file = "services/platform/hosted/gateway/src/evm.rs"
+symbol = "word_u64(123456789) at line 603"
+observed = "At revision d377cbf19d7e2d413a2f55fdb02ca2703856d17b, cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo exited 1 with an unreadable_literal diagnostic in included gateway source; private evidence /out/logs/verify-2.log."
+assumption = "The included gateway literal requires an owning task because its source is outside the allowed client scope."
+severity = "blocker"
+
+[attempt3.gotcha.bounded_extraction]
+symptom = "Extracting the server closure left typed_reads_decode_committed_producer_results_on_the_node_connection at 102 lines, still above the 100-line lint bound."
+resolution = "Record the exact remaining function and stop after the bounded gates exhaust the repair budget; a later authorized continuation must further split the unchanged assertions."
+
+[attempt3.gotcha.diagnostic_count]
+symptom = "The proof_client target summary counts included gateway source among its eighteen diagnostics, so adding the gateway diagnostic again overcounts the inventory."
+resolution = "Count unique diagnostic file, line, column and lint tuples: seventeen in proof_client, two in ai_market_commit, one in repair_22_34_5 and one in gateway source, twenty-one total."
+
+[attempt4]
+seed_revision = "a3fdf479e848c76f51687b30bd90501faefe9047"
+seed_tree = "d3d759d87dc0"
+gotcha = "3831"
+inventory_source = "Retained attempt3 final inventory and evidence; continued the applied tree without repeating a manual Clippy inventory run."
+implementation = "Retained the six named-helper extractions and five error matches already in the seed; further split the remaining test assertion groups without changing their order, inputs or expectations."
+
+[attempt4.qualification]
+evidence = "By reference: the final build and verify rows in private /out/run/gates.jsonl for this sandbox give the exact revision, command, exit and log; build and verify must pass on the same revision."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+verify_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+verified_revision = "By reference: the final verify row revision in /out/run/gates.jsonl, qualified only if its exit is zero and its revision equals the final passing build revision."
+final_count = "By reference: zero only if the final verify row passes; otherwise retain the remaining diagnostics from its log without a zero-lint claim."
+external_finding = "attempt3.finding.included_gateway is retained unchanged; its out-of-scope source is neither changed nor reinvestigated."
+tests = "No tests declared by this task; existing test entry points and assertions remain. The declared gates compile and lint all targets without executing test binaries."
+
+[attempt4.lint.1]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 421
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed the journal path binding to record_path to distinguish it from prepared."
+
+[attempt4.lint.3]
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+line = 168
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted assert_committed_receipt_reads and called it after the unified-history assertions, retaining the final gateway count assertion and every receipt check."
+
+[attempt4.lint.4]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 322
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted assert_unsigned_program_call at the original call-decoding position; all transaction, approval and signing assertions remain in order."
+
+[attempt4.lint.5]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 447
+column = 1
+name = "clippy::unnecessary_wraps"
+repair = "Removed the private journal test function return wrapper and trailing Ok; its existing assertion helper still executes."
+
+[attempt4.lint.6]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 13
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.7]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 51
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.8]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 110
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.9]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 128
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.10]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 144
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.11]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 163
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.12]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 181
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.13]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 1
+column = 203
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.14]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 3
+column = 13
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.15]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 5
+column = 17
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.16]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 7
+column = 5
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.17]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 10
+column = 24
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.18]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 11
+column = 30
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.19]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 12
+column = 39
+name = "clippy::doc_markdown"
+repair = "Added backticks around the referenced Rust items and source paths in the existing module documentation."
+
+[attempt4.lint.20]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 639
+column = 21
+name = "clippy::manual_let_else"
+repair = "Destructured the armed response fault with let-else, retaining the same panic message on absence."
+
+[attempt4.lint.21]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 722
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted named iteration, asset and network, history and refusal helpers called in the original order with the same values and every original assertion."
+
+[attempt4.source_repair]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+symbol = "RecordedProducer::result"
+name = "clippy::let_and_return"
+origin = "Static inspection of the inherited copied support branch removal."
+repair = "Returned the cloned recorded result directly without a redundant local binding."
+
+[attempt4.gotcha.continuation]
+symptom = "The applied seed contains the do_6 repairs plus a later failed-gate inventory, so repeating the do_6 edits would duplicate helpers."
+resolution = "Retained the applied helper and match repairs and addressed the later in-scope inventory before qualification."
+
+[attempt4.repair_cycle]
+trigger_revision = "911b2811d72d855ddadd3eb66a5a3276f558f51f"
+trigger_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+trigger_exit = 1
+trigger_log = "/out/logs/verify-1.log"
+coverage = "The next integration targets expose additional in-scope source lints; every diagnostic is recorded below. The previously recorded gateway finding remains outside scope."
+evidence = "By reference: the final paired build and verify rows in /out/run/gates.jsonl qualify this repaired tree only if both pass at the same revision."
+distinct_locations = 35
+
+[attempt4.repair_cycle.external.1]
+file = "services/platform/hosted/gateway/src/evm.rs"
+line = 603
+name = "clippy::unreadable_literal"
+status = "Unchanged recorded blocker; see attempt3.finding.included_gateway and the trigger log."
+
+[attempt4.repair_cycle.lint.2]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 204
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed the captured response documents to response_body and the journal approval signer to owner_key, without changing values."
+
+[attempt4.repair_cycle.lint.3]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 339
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed the captured response documents to response_body and the journal approval signer to owner_key, without changing values."
+
+[attempt4.repair_cycle.lint.4]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 424
+column = 9
+name = "clippy::similar_names"
+repair = "Renamed the captured response documents to response_body and the journal approval signer to owner_key, without changing values."
+
+[attempt4.repair_cycle.lint.5]
+file = "services/agent/crates/layerx-client/tests/px_reads.rs"
+line = 105
+column = 18
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed the private fields helper input and retained the cloned result map."
+
+[attempt4.repair_cycle.lint.6]
+file = "services/agent/crates/layerx-client/tests/px_reads.rs"
+line = 116
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted named source and assertion helpers called in the original execution order with all original test entry points, assertions, bounds and data."
+
+[attempt4.repair_cycle.lint.7]
+file = "services/agent/crates/layerx-client/tests/px_reads.rs"
+line = 286
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted named source and assertion helpers called in the original execution order with all original test entry points, assertions, bounds and data."
+
+[attempt4.repair_cycle.lint.8]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 1
+column = 37
+name = "clippy::doc_markdown"
+repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
+
+[attempt4.repair_cycle.lint.9]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 2
+column = 12
+name = "clippy::doc_markdown"
+repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
+
+[attempt4.repair_cycle.lint.10]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 3
+column = 12
+name = "clippy::doc_markdown"
+repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
+
+[attempt4.repair_cycle.lint.11]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 3
+column = 50
+name = "clippy::doc_markdown"
+repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
+
+[attempt4.repair_cycle.lint.12]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 4
+column = 12
+name = "clippy::doc_markdown"
+repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
+
+[attempt4.repair_cycle.lint.13]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 4
+column = 55
+name = "clippy::doc_markdown"
+repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
+
+[attempt4.repair_cycle.lint.14]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 13
+column = 5
+name = "clippy::doc_markdown"
+repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
+
+[attempt4.repair_cycle.lint.15]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 251
+column = 17
+name = "clippy::cast_possible_truncation"
+repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
+
+[attempt4.repair_cycle.lint.16]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 607
+column = 17
+name = "clippy::cast_possible_wrap"
+repair = "Checked the fixture header height with i64::try_from and the existing must helper."
+
+[attempt4.repair_cycle.lint.17]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 728
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted named source and assertion helpers called in the original execution order with all original test entry points, assertions, bounds and data."
+
+[attempt4.repair_cycle.lint.18]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 800
+column = 31
+name = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrowed the original key with std::slice::from_ref, retaining the same single-key context."
+
+[attempt4.repair_cycle.lint.19]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 800
+column = 33
+name = "clippy::clone_on_copy"
+repair = "Borrowed the original key through std::slice::from_ref rather than cloning a Copy key into a temporary array."
+
+[attempt4.repair_cycle.lint.20]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 826
+column = 27
+name = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrowed the original key with std::slice::from_ref, retaining the same single-key context."
+
+[attempt4.repair_cycle.lint.21]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 826
+column = 29
+name = "clippy::clone_on_copy"
+repair = "Borrowed the original key through std::slice::from_ref rather than cloning a Copy key into a temporary array."
+
+[attempt4.repair_cycle.lint.22]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 863
+column = 31
+name = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrowed the original key with std::slice::from_ref, retaining the same single-key context."
+
+[attempt4.repair_cycle.lint.23]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 863
+column = 33
+name = "clippy::clone_on_copy"
+repair = "Borrowed the original key through std::slice::from_ref rather than cloning a Copy key into a temporary array."
+
+[attempt4.repair_cycle.lint.24]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 884
+column = 31
+name = "clippy::cloned_ref_to_slice_refs"
+repair = "Borrowed the original key with std::slice::from_ref, retaining the same single-key context."
+
+[attempt4.repair_cycle.lint.25]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 884
+column = 33
+name = "clippy::clone_on_copy"
+repair = "Borrowed the original key through std::slice::from_ref rather than cloning a Copy key into a temporary array."
+
+[attempt4.repair_cycle.lint.26]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 1041
+column = 19
+name = "clippy::cast_possible_truncation"
+repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
+
+[attempt4.repair_cycle.lint.27]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 1044
+column = 14
+name = "clippy::cast_possible_truncation"
+repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
+
+[attempt4.repair_cycle.lint.28]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 1068
+column = 37
+name = "clippy::type_complexity"
+repair = "Named the private namespace-proof tuple with a type alias without changing its representation."
+
+[attempt4.repair_cycle.lint.29]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 1072
+column = 33
+name = "clippy::cast_possible_truncation"
+repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
+
+[attempt4.repair_cycle.lint.30]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 1075
+column = 33
+name = "clippy::cast_possible_truncation"
+repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
+
+[attempt4.repair_cycle.lint.31]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1547.rs"
+line = 2
+column = 64
+name = "clippy::doc_markdown"
+repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
+
+[attempt4.repair_cycle.lint.32]
+file = "services/agent/crates/layerx-client/tests/receipt_rpc.rs"
+line = 227
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted named source and assertion helpers called in the original execution order with all original test entry points, assertions, bounds and data."
+
+[attempt4.repair_cycle.lint.33]
+file = "services/agent/crates/layerx-client/tests/receipt_rpc.rs"
+line = 248
+column = 42
+name = "clippy::redundant_closure_for_method_calls"
+repair = "Passed ProtocolReceipt::context_hash directly to Option::map."
+
+[attempt4.repair_cycle.lint.34]
+file = "services/agent/crates/layerx-client/tests/receipt_rpc.rs"
+line = 345
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted named source and assertion helpers called in the original execution order with all original test entry points, assertions, bounds and data."
+
+[attempt4.repair_cycle.lint.35]
+file = "services/agent/crates/layerx-client/tests/receipt_rpc.rs"
+line = 657
+column = 1
+name = "clippy::too_many_lines"
+repair = "Extracted named source and assertion helpers called in the original execution order with all original test entry points, assertions, bounds and data."
+
+[attempt4.repair_cycle.source_review]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+symbol = "reward_finality_authorization_requires_verified_snapshot"
+origin = "The merged main test is present in the working tree beyond the historical seed revision."
+repair = "Extracted the producer setup, actor sequence selection, enrollment, captured claim inputs, finality refusal matrix, binding assertions and disclosure assertions into named helpers; separated the statement-local enum and added resource digit separators. Every original assertion remains in the same order."
+lints = ["clippy::too_many_lines", "clippy::items_after_statements", "clippy::unreadable_literal"]
+
+[attempt4.repair_cycle.gotcha]
+symptom = "The applied seed and merged main test targets differ, so the historical target inventory was incomplete for this task revision."
+resolution = "Preserved all merged tests and repaired the newly reported client locations at their source; no lint levels or assertions were relaxed."
+
+[attempt4.final_result]
+status = "implemented-not-qualified"
+remaining_distinct_locations = 2
+remaining_in_scope_locations = 1
+remaining_out_of_scope_locations = 1
+repair_units_spent = 2
+stop = "The bounded repair budget is exhausted; no further implementation edits or gate runs are authorized. This record-only append reports the last gate result and is not claimed as a separately verified candidate."
+coverage = "The final gate reports the remaining locations below; no zero-lint or completion claim is made. The newly exposed snapshot target remains unrepaired."
+compatibility = "All 31 dependent-crate checks passed at the final gate revision; private evidence /out/logs/dependents-2.log."
+
+[attempt4.final_build]
+revision = "ec5a5d483b4d0616c7effa241d58274965e09594"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+exit = 0
+log = "/out/logs/build-2.log"
+
+[attempt4.final_verify]
+revision = "ec5a5d483b4d0616c7effa241d58274965e09594"
+command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+
+[attempt4.remaining.lint.1]
+file = "services/platform/hosted/gateway/src/evm.rs"
+line = 603
+column = 41
+name = "clippy::unreadable_literal"
+status = "Unrepaired: bounded repair budget exhausted; gateway source is outside scope."
+
+[attempt4.remaining.lint.2]
+file = "services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs"
+line = 136
+column = 46
+name = "clippy::range_plus_one"
+status = "Unrepaired: bounded repair budget exhausted; gateway source is outside scope."
+
+[attempt4.remaining.file.1]
+file = "services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs"
+count = 1
+
+[attempt4.remaining.file.2]
+file = "services/platform/hosted/gateway/src/evm.rs"
+count = 1
+
+[attempt4.gotcha.late_target]
+symptom = "The final bounded verification reached snapshot_binding_v2 and reported range_plus_one at line 136 after the prior inventory repairs."
+resolution = "Recorded the exact source location and failed gate evidence and stopped at the repair budget without changing its assertion or claiming qualification."
+
+
+[attempt5.continuation]
+seed_revision = "59a578ed9d2db337ef42ccde304987f4530e7d05"
+decision = "3080"
+gotcha = "3870"
+coverage = "Preserved the inherited lint repairs and repaired the two remaining locations without changing gateway sources, public signatures or test assertions."
+
+[attempt5.path_replacement]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+replaced_path_attribute = "../../../../platform/hosted/gateway/src/evm.rs"
+resolved_source = "services/platform/hosted/gateway/src/evm.rs"
+replacement = "support/gateway_evm_22_39_219.rs"
+public_dependency = "layerx-platform-gateway dev-dependency, path ../../../platform/hosted/gateway"
+repair = "The old module was used only for its embedded tests. Copied all ten tests and their private word_u64 helper into client-owned support and imported the real public gateway codecs from the dev-dependency; copied the unchanged producer ABI fixture into client test fixtures."
+
+[attempt5.lint.1]
+file = "services/platform/hosted/gateway/src/evm.rs"
+line = 603
+column = 41
+name = "clippy::unreadable_literal"
+repair = "Added separators to 123_456_789 in the copied client-owned test, retaining the exact expected word and leaving the gateway source untouched."
+
+[attempt5.lint.2]
+file = "services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs"
+line = 136
+column = 46
+name = "clippy::range_plus_one"
+repair = "Replaced the slice ending at n + 1 with the equivalent inclusive slice ending at n; the rejection assertion and extra-byte bound are unchanged."
+
+[attempt5.qualification]
+status = "Qualification is determined only by the paired final passing build and verify rows at the same revision in the referenced private ledger."
+evidence = "/out/run/gates.jsonl"
+build_reference = "Final build row: revision, command, exit and log; the command is cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets."
+verify_reference = "Final verify row: revision, command, exit and log; cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo runs the declared clippy command with graph checks."
+remaining_count_reference = "Zero only if the final verify row exits zero; otherwise the lint diagnostics and remaining locations are in that row's log."
+
+[attempt5.gotcha.foreign_tests]
+symptom = "The path-included gateway module has no API callers in proof_client, but contributes ten embedded tests; merely deleting the include would remove those tests."
+resolution = "Retained every test and assertion in client-owned support, with the public production API provided by the gateway dev-dependency and identical producer fixture bytes."
+
+[attempt5.gotcha.manifest_path]
+symptom = "The first offline dependency resolution failed because the manifest-relative gateway path used the extra parent required by the old tests-relative source include."
+resolution = "Used ../../../platform/hosted/gateway from the crate manifest; no build or verify gate had run."
+
+[attempt5.gotcha.offline_resolution]
+symptom = "Offline dependency resolution could not find base64 because this sandbox had no crates.io index cached."
+resolution = "Resolved the added gateway dev-dependency online with cargo update -p layerx-client, preserving existing locked packages and carrying services/agent/Cargo.lock with the changed manifest."
+
+
+[attempt5.final_result]
+status = "implemented-not-qualified"
+revision = "639bd653dd259aba099a3a9b20beed6ec880b8a1"
+stop = "hf-done refused with exit 7 because its built-in dependent check failed outside scope; the gate explicitly requires stopping without editing dependent sources."
+verification = "The declared clippy verify_cmd and graph completion did not run; no zero-lint count or spec completion is claimed."
+remaining_count = "Unknown: verification was blocked before client lint diagnostics."
+record_only = "This append records the stopped result after the built candidate; it does not claim a separately built or verified candidate."
+
+[attempt5.final_build]
+revision = "639bd653dd259aba099a3a9b20beed6ec880b8a1"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt5.final_gate]
+revision = "639bd653dd259aba099a3a9b20beed6ec880b8a1"
+command = "hf-done"
+exit = 7
+log = "/out/logs/dependents-1.log"
+
+[attempt5.finding.dependent_native_tests]
+task = "22.39.219"
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs"
+symbol = "repair_22_33_1535"
+observed = "At revision 639bd653dd259aba099a3a9b20beed6ec880b8a1, cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agent-api -p layerx-agentd -p layerx-agentd-host -p layerx-crypto -p layerx-identity-binding -p layerx-mcp -p layerx-proof -p layerx-sdk -p layerx-types -p layerx-wire exited 101; log /out/logs/dependents-1.log."
+assumption = "The five unresolved daemon-test references are unrelated to the client lint repair and their source file is outside task scope."
+severity = "blocker"
+
+[attempt5.finding.errors]
+count = 5
+error_1 = "E0425 at protocol_evidence_native_tests.rs:303:24: cannot find function canonical_receipt_reference in module super."
+error_2 = "E0433 at protocol_evidence_native_tests.rs:308:39: unresolved import crate::finality::VerifiedReceipt."
+error_3 = "E0433 at protocol_evidence_native_tests.rs:311:39: unresolved import crate::human_runtime::write_submission."
+error_4 = "E0433 at protocol_evidence_native_tests.rs:315:24: unresolved import crate::agent_rpc_dispatch::decode_write_answer."
+error_5 = "E0425 at protocol_evidence_native_tests.rs:469:24: cannot find function canonical_receipt_reference in module super."
+
+[attempt5.gotcha.dependent_gate]
+symptom = "hf-done runs dependent compilation before cg spec done and refuses client verification when an unrelated dependent test fails."
+resolution = "Recorded the exact dependent errors, revision and private log in the permitted task record and stopped without rerunning or editing the foreign source."
+
+[attempt6.continuation]
+seed_revision = "f4cc14241df4b006e6c3c491427e6bb795d0d3ef"
+decision = "3089"
+gotcha = "3886"
+prerequisite = "22.39.238 is done in the supplied tree."
+implementation = "Preserved the inherited client lint repairs, gateway dev-dependency, copied gateway tests and fixture, and inclusive slice range; no daemon source changes."
+
+[attempt6.qualification]
+evidence = "/out/run/gates.jsonl"
+build_reference = "The final build row records the exact candidate revision, cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets, exit code and private log."
+verify_reference = "The final verify row records the same candidate revision, cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo, exit code and private log; hf-done runs dependent checks and the declared all-targets clippy verification."
+remaining_count_reference = "A passing final verify row establishes zero remaining client and test-target lint errors; a failing row's private log is authoritative and does not establish zero."
+status = "Qualified only when both final gate rows pass at the same candidate revision."
+
+[attempt6.repair1.verify]
+revision = "dbddafffa605ed70ede4195d749db9d06894ffb6"
+command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+reported_locations = 6
+
+[attempt6.repair1.lint.1]
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+line = 56
+reported_file = "services/platform/hosted/gateway/src/evm.rs:603:41"
+name = "clippy::unreadable_literal"
+replaced_path_attribute = "../../../../platform/hosted/gateway/src/evm.rs"
+repair = "Imported the real public gateway codec through the existing dev-dependency and retained all ten embedded gateway tests via support/gateway_evm_22_39_219.rs, whose equivalent literal has separators; no foreign source changed."
+
+[attempt6.repair1.lint.2]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 119
+name = "clippy::similar_names"
+repair = "Renamed the captured fixture clone to response_case, preserving all requests and assertions."
+
+[attempt6.repair1.lint.3]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 212
+name = "clippy::similar_names"
+repair = "Renamed the captured fixture clone to response_record, preserving all requests and assertions."
+
+[attempt6.repair1.lint.4]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 2
+name = "clippy::doc_markdown"
+repair = "Wrapped the repair record path in documentation backticks."
+
+[attempt6.repair1.lint.5]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 28
+name = "clippy::expect_used"
+repair = "Matched the metadata result explicitly, preserving the failure message and the following NotFound assertion."
+
+[attempt6.repair1.lint.6]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 62
+name = "clippy::needless_pass_by_value"
+repair = "Borrowed the frame payload as a slice and retained an owned copy for the spawned receiver; the bidirectional equality assertions remain in order."
+
+[attempt6.gotcha.additional_include]
+symptom = "Merged repair_22_31_221 still compiled the gateway source by path, independently of the proof_client include replaced in attempt 5."
+resolution = "Reused the public dependency and client-owned gateway test support so every embedded test remains compiled in each integration target without linting foreign source."
+
+[attempt6.final_result]
+status = "implemented-not-qualified"
+revision = "993a6d356e2b61597015274a668d1ede5ff0251b"
+remaining_count = 1
+repair_units_spent = 2
+stop = "The wrapper counts each additional build and verify invocation as one repair unit; build-2 and verify-2 exhaust its two-unit budget. No further source repair or gate invocation is permitted."
+record_only = "This append records the bounded failed result after qualification; it is not claimed as a separately built or verified candidate."
+
+[attempt6.final_build]
+revision = "993a6d356e2b61597015274a668d1ede5ff0251b"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
+exit = 0
+log = "/out/logs/build-2.log"
+
+[attempt6.final_verify]
+revision = "993a6d356e2b61597015274a668d1ede5ff0251b"
+command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+
+[attempt6.remaining.lint.1]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 28
+name = "clippy::manual_let_else"
+status = "Unrepaired at the bounded stop; the explicit Result match replacing expect_err must use let Err(error) = ... else with the same panic message."
+
+[attempt6.remaining.file.1]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+count = 1
+
+[attempt6.gotcha.match_style]
+symptom = "Replacing expect_err with a two-arm diverging match introduced manual_let_else under the workspace pedantic lint policy."
+resolution = "Recorded the exact final diagnostic and stopped at the exhausted wrapper budget without disabling the lint or weakening the absence assertion."
+
+[attempt6.gotcha.gate_budget]
+symptom = "The gate wrapper charges one repair unit for the additional build and another for the additional verify, rather than treating the pair as a single unit."
+resolution = "Stopped after build-2 and verify-2 with their exact evidence; no third gate invocation or unqualified completion claim."
+
+[attempt8.continuation]
+seed_revision = "a6a2b3f98a842b9c61de44ce235a518a801e97da"
+base_revision = "b352db3185e20cbc473cdf712dd16f353fc18097"
+decision = "3099"
+gotcha = "3926"
+implementation = "Preserved all inherited source repairs, tests, assertions, gateway dev-dependency and lockfile. The path replacement in repair_22_31_221.rs and six repairs in repair_22_33_1544.rs are recorded in attempt6.repair1; completed the remaining let-else shape below."
+
+[attempt8.lint.1]
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+line = 28
+name = "clippy::manual_let_else"
+repair = "Replaced the diverging metadata match with let Err(error) = ... else, preserving the exact panic message and following NotFound assertion. No allowance or assertion changed."
+
+[attempt8.qualification]
+evidence = "/out/run/gates.jsonl"
+build_reference = "The final build row records the verified candidate revision, cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets, exit code and private log."
+verify_reference = "The final verify row records the same candidate revision, cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo, exit code and private log; hf-done runs the declared all-targets clippy verification and graph checks."
+dependents_reference = "The dependents row records the dependent-crate compilation, candidate revision, exit code and private log."
+remaining_count_reference = "The final passing verify row establishes a final count of zero remaining lint errors in the crate and its test targets; a failed row records remaining diagnostics in its private log and does not establish zero."
+status = "Qualified only when the final build, dependents and verify rows pass at the same candidate revision; the gate ledger supplies the exact verified revision by reference."
+
+[attempt8.gotcha.seed_state]
+symptom = "The resumed seed already contains the gateway path replacement and the six earlier target repairs, but still contains the recorded manual_let_else diagnostic at repair_22_33_1544.rs:28."
+resolution = "Continued from the applied seed, completed only the missing let-else repair, and retained the historical inventory and evidence without rerunning a baseline gate."

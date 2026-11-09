@@ -1,4 +1,13 @@
-import { keccak256, stringToHex, type Hex, type TransactionReceipt } from 'viem';
+import {
+  BaseError,
+  UserRejectedRequestError,
+  TransactionRejectedRpcError,
+  InvalidParamsRpcError,
+  keccak256,
+  stringToHex,
+  type Hex,
+  type TransactionReceipt,
+} from 'viem';
 import { PendingAttemptStore, type PendingStorage } from '../trading/transaction-controls/recovery';
 import { address, abiHex, type Address } from './domain';
 
@@ -102,6 +111,22 @@ export class AdvancedActionRecovery {
     );
   }
 
+  private persist(key: string, attempt: AdvancedAttempt & { hash: Hex }) {
+    broadcasts.set(key, attempt);
+    new PendingAttemptStore(this.storage, attempt.account).save({
+      version: 1,
+      chainId: 125,
+      from: attempt.account,
+      txHash: attempt.hash,
+      submittedAt: attempt.submittedAt,
+      intentId: this.deployment + attempt.intentId.slice(2),
+      action: `advanced:${attempt.action}`,
+      actionFingerprint: attempt.intentId,
+    });
+    this.storage.setItem(key, JSON.stringify(attempt));
+    broadcasts.delete(key);
+  }
+
   async run<T>(
     account: Address,
     action: AdvancedAction,
@@ -131,29 +156,81 @@ export class AdvancedActionRecovery {
         submittedAt,
       };
       // A persisted signing reservation also fences a crash before the wallet returns its hash.
-      this.storage.setItem(key, JSON.stringify(attempt));
-      const hash = await send();
-      const broadcast = { ...attempt, hash };
-      broadcasts.set(key, broadcast);
-      new PendingAttemptStore(this.storage, account).save({
-        version: 1,
-        chainId: 125,
-        from: account,
-        txHash: hash,
-        submittedAt,
-        intentId: this.deployment + attempt.intentId.slice(2),
-        action: `advanced:${action}`,
-        actionFingerprint: attempt.intentId,
-      });
-      this.storage.setItem(key, JSON.stringify(broadcast));
-      broadcasts.delete(key);
-      return await this.recover(account, action, read, reconcile);
+      const reservation = JSON.stringify(attempt);
+      this.storage.setItem(key, reservation);
+      let hash: Hex;
+      try {
+        hash = await send();
+      } catch (error) {
+        const confirmed =
+          error instanceof BaseError &&
+          error.walk(
+            (cause) =>
+              cause instanceof UserRejectedRequestError ||
+              cause instanceof TransactionRejectedRpcError ||
+              cause instanceof InvalidParamsRpcError,
+          );
+        try {
+          if (confirmed) {
+            const stored = new PendingAttemptStore(this.storage, account).load();
+            if (
+              !stored.corrupt &&
+              this.storage.getItem(key) === reservation &&
+              !broadcasts.has(key) &&
+              !stored.records.some(
+                (record) =>
+                  record.action === `advanced:${action}` &&
+                  record.intentId.startsWith(this.deployment),
+              )
+            )
+              this.storage.removeItem(key);
+          }
+        } finally {
+          throw error;
+        }
+      }
+      this.persist(key, { ...attempt, hash });
+      return await this.settle(account, action, read, reconcile);
     } finally {
       dispatches.delete(key);
     }
   }
 
   async recover<T>(
+    account: Address,
+    action: AdvancedAction,
+    read: (hash: Hex) => Promise<TransactionReceipt>,
+    reconcile: (attempt: AdvancedAttempt, receipt: TransactionReceipt) => Promise<T>,
+    validate: (attempt: AdvancedAttempt) => Promise<void>,
+    hash?: Hex,
+  ): Promise<T> {
+    const key = this.key(account, action);
+    if (dispatches.has(key))
+      throw new Error('Advanced action already signing; resume existing attempt');
+    dispatches.add(key);
+    try {
+      const attempt = this.pending(account, action);
+      if (!attempt) throw new Error('No advanced action to recover');
+      if (hash !== undefined) {
+        abiHex(hash, 32);
+        if (attempt.hash && attempt.hash.toLowerCase() !== hash.toLowerCase())
+          throw new Error('Conflicting advanced transaction hash');
+        if (!attempt.hash) {
+          const candidate = { ...attempt, hash: hash.toLowerCase() as Hex };
+          await validate(candidate);
+          const current = this.pending(account, action);
+          if (!current || JSON.stringify(current) !== JSON.stringify(attempt))
+            throw new Error('Advanced recovery reservation changed');
+          this.persist(key, candidate);
+        }
+      }
+      return await this.settle(account, action, read, reconcile);
+    } finally {
+      dispatches.delete(key);
+    }
+  }
+
+  private async settle<T>(
     account: Address,
     action: AdvancedAction,
     read: (hash: Hex) => Promise<TransactionReceipt>,

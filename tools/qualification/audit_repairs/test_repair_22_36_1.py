@@ -15,8 +15,8 @@ ROOT = Path(__file__).resolve().parents[3]
 PROJECT = ROOT / "tools/hyperfide"
 DOCS = ROOT / "docs/hyperfide"
 BASE = "2e0a668a793a7b5c0469b44950808547467f017e"
-# Published source-control work (22.37) has advanced the relocated code.
-LIVE_SOURCE = "1d8f18989ce7fac0f6cfba1a6c2bc4898a0ff22b"
+# Published source-control and issue work has advanced the relocated code.
+LIVE_SOURCE = "2910889b640274b1b6f2bd14a2fba25019093bb2"
 REMOVED = {
     "CHANGELOG.md",
     "CODEMAP.md",
@@ -141,15 +141,7 @@ def test_code_specs_dot_directories_and_assets_are_preserved():
             content = moved.read_bytes()
             assert bool(moved.stat().st_mode & 0o111) == (mode == "100755"), relative
         if relative == ".gitignore":
-            original = git("cat-file", "blob", oid)
-            expected = original.replace(
-                b".codex\n", b".codex\n!.codex/\n.codex/*\n!.codex/hooks.json\n", 1
-            )
-            assert expected != original
-            assert content == expected, relative
-            oid = hashlib.sha1(
-                b"blob " + str(len(expected)).encode() + b"\0" + expected
-            ).hexdigest()
+            assert b".codex\n!.codex/\n.codex/*\n!.codex/hooks.json\n" in content
         actual = hashlib.sha1(
             b"blob " + str(len(content)).encode() + b"\0" + content
         ).hexdigest()

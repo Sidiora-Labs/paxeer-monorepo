@@ -33,9 +33,11 @@ func TestStoreGenesisRoundTrip(t *testing.T) {
 		require.Equal(t, Code(0), receipt.ResultCode)
 	}
 	chain.commit()
+	programs := kv.Pair{Key: moduleKVKey(9, []byte("progfee/active/v1")), Value: []byte{1, 2, 3}}
+	ctx.KVStore(chain.key).Set(programs.Key, programs.Value)
 	for _, key := range [][]byte{
 		{idempotencyPrefix, 1}, moduleKVKey(2, []byte("foreign")),
-		moduleKVKey(9, []byte("foreign")), {5, 1},
+		moduleKVKey(10, []byte("foreign")), {5, 1},
 	} {
 		ctx.KVStore(chain.key).Set(key, []byte{1, 2, 3})
 	}
@@ -45,8 +47,9 @@ func TestStoreGenesisRoundTrip(t *testing.T) {
 	require.NoError(t, gs.Validate())
 	expected := map[string][]byte{}
 	familyCounts := map[byte]int{}
+	moduleCounts := map[uint16]int{}
 	for key, value := range chain.dump() {
-		if bytes.HasPrefix([]byte(key), []byte{1, 0, 1}) || key[0] == lastSequenceKey || key[0] == identitySequencePrefix || key[0] == accountPrefix {
+		if bytes.HasPrefix([]byte(key), []byte{1, 0, 1}) || bytes.HasPrefix([]byte(key), []byte{1, 0, 9}) || key[0] == lastSequenceKey || key[0] == identitySequencePrefix || key[0] == accountPrefix {
 			expected[key] = value
 		}
 	}
@@ -57,7 +60,9 @@ func TestStoreGenesisRoundTrip(t *testing.T) {
 		}
 		switch record.Key[0] {
 		case moduleKVPrefix:
-			require.True(t, bytes.HasPrefix(record.Key, []byte{1, 0, 1}))
+			module := binary.BigEndian.Uint16(record.Key[1:3])
+			require.Contains(t, []uint16{1, 9}, module)
+			moduleCounts[module]++
 		case identitySequencePrefix, accountPrefix:
 		default:
 			t.Fatalf("foreign row %x", record.Key)
@@ -66,6 +71,9 @@ func TestStoreGenesisRoundTrip(t *testing.T) {
 		exportedRows[string(record.Key)] = record.Value
 	}
 	require.Positive(t, familyCounts[moduleKVPrefix])
+	require.Positive(t, moduleCounts[1])
+	require.Equal(t, 1, moduleCounts[9])
+	require.Equal(t, programs.Value, exportedRows[string(programs.Key)])
 	require.Equal(t, 1, familyCounts[identitySequencePrefix])
 	require.Equal(t, 2, familyCounts[accountPrefix])
 	require.Equal(t, expected, exportedRows)
@@ -83,6 +91,7 @@ func TestStoreGenesisRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, document, againJSON)
 	require.Equal(t, expected, restored.dump())
+	require.Equal(t, programs.Value, restoredCtx.KVStore(restored.key).Get(programs.Key))
 	second := restored.host(t)
 	before := restored.dump()
 	var firstAsset AssetRecord
@@ -174,6 +183,17 @@ func TestStoreGenesisRefusesForeignRows(t *testing.T) {
 	}
 	a := kv.Pair{Key: moduleKVKey(1, []byte("a")), Value: []byte{1}}
 	b := kv.Pair{Key: moduleKVKey(1, []byte("b")), Value: []byte{2}}
+	programs := kv.Pair{Key: moduleKVKey(9, []byte("progfee/active/v1")), Value: []byte{1, 2, 3}}
+	require.NoError(t, (StoreGenesis{Records: []kv.Pair{programs}}).Validate())
+	require.ErrorContains(t, (StoreGenesis{Records: []kv.Pair{{Key: moduleKVKey(2, []byte("progfee/active/v1")), Value: programs.Value}}}).Validate(), "foreign module row")
+	programsRows := make([]kv.Pair, len(tooMany))
+	for i := range programsRows {
+		programsRows[i] = kv.Pair{Key: moduleKVKey(9, binary.BigEndian.AppendUint32(nil, uint32(i))), Value: []byte{1}}
+	}
+	require.NoError(t, (StoreGenesis{Records: programsRows[:4096]}).Validate())
+	mixedRows := append(append([]kv.Pair(nil), tooMany[:4096]...), programs)
+	require.NoError(t, (StoreGenesis{Records: append(append([]kv.Pair(nil), tooMany[:4095]...), programs)}).Validate())
+	require.NoError(t, (StoreGenesis{Records: []kv.Pair{{Key: moduleKVKey(9, make([]byte, 128)), Value: make([]byte, 1024)}}}).Validate())
 	cases := []struct {
 		name    string
 		records []kv.Pair
@@ -189,6 +209,11 @@ func TestStoreGenesisRefusesForeignRows(t *testing.T) {
 		{"long ledger key", []kv.Pair{{Key: moduleKVKey(1, make([]byte, 129))}}, 0},
 		{"long ledger value", []kv.Pair{{Key: a.Key, Value: make([]byte, 1025)}}, 0},
 		{"too many ledger rows", tooMany, 4096},
+		{"short programs key", []kv.Pair{{Key: []byte{moduleKVPrefix, 0, 9}}}, 0},
+		{"long programs key", []kv.Pair{{Key: moduleKVKey(9, make([]byte, 129))}}, 0},
+		{"long programs value", []kv.Pair{{Key: programs.Key, Value: make([]byte, 1025)}}, 0},
+		{"too many programs rows", programsRows, 4096},
+		{"too many mixed module rows", mixedRows, 4096},
 		{"short identity key", []kv.Pair{{Key: append([]byte{3}, make([]byte, 31)...), Value: make([]byte, 8)}}, 0},
 		{"short identity value", []kv.Pair{{Key: append([]byte{3}, make([]byte, 32)...), Value: make([]byte, 7)}}, 0},
 		{"short account key", []kv.Pair{{Key: []byte{6, 1}, Value: account.Value}}, 0},

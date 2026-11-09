@@ -2,42 +2,101 @@
 //! A small, self-contained SHA512 implementation
 //! (C) Frank Denis, public domain
 
-#![allow(
-    non_snake_case,
-    clippy::cast_lossless,
-    clippy::eq_op,
-    clippy::identity_op,
-    clippy::many_single_char_names,
-    clippy::unreadable_literal
-)]
-
-#[cfg_attr(feature = "opt_size", inline(never))]
-#[cfg_attr(not(feature = "opt_size"), inline(always))]
+#[inline]
 fn load_be(base: &[u8], offset: usize) -> u64 {
     let addr = &base[offset..];
-    (addr[7] as u64)
-        | (addr[6] as u64) << 8
-        | (addr[5] as u64) << 16
-        | (addr[4] as u64) << 24
-        | (addr[3] as u64) << 32
-        | (addr[2] as u64) << 40
-        | (addr[1] as u64) << 48
-        | (addr[0] as u64) << 56
+    u64::from_be_bytes([
+        addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], addr[6], addr[7],
+    ])
 }
 
-#[cfg_attr(feature = "opt_size", inline(never))]
-#[cfg_attr(not(feature = "opt_size"), inline(always))]
+#[inline]
 fn store_be(base: &mut [u8], offset: usize, x: u64) {
-    let addr = &mut base[offset..];
-    addr[7] = x as u8;
-    addr[6] = (x >> 8) as u8;
-    addr[5] = (x >> 16) as u8;
-    addr[4] = (x >> 24) as u8;
-    addr[3] = (x >> 32) as u8;
-    addr[2] = (x >> 40) as u8;
-    addr[1] = (x >> 48) as u8;
-    addr[0] = (x >> 56) as u8;
+    base[offset..offset + 8].copy_from_slice(&x.to_be_bytes());
 }
+
+const SHA512_ROUND_CONSTANTS: [u64; 80] = [
+    0x428a_2f98_d728_ae22,
+    0x7137_4491_23ef_65cd,
+    0xb5c0_fbcf_ec4d_3b2f,
+    0xe9b5_dba5_8189_dbbc,
+    0x3956_c25b_f348_b538,
+    0x59f1_11f1_b605_d019,
+    0x923f_82a4_af19_4f9b,
+    0xab1c_5ed5_da6d_8118,
+    0xd807_aa98_a303_0242,
+    0x1283_5b01_4570_6fbe,
+    0x2431_85be_4ee4_b28c,
+    0x550c_7dc3_d5ff_b4e2,
+    0x72be_5d74_f27b_896f,
+    0x80de_b1fe_3b16_96b1,
+    0x9bdc_06a7_25c7_1235,
+    0xc19b_f174_cf69_2694,
+    0xe49b_69c1_9ef1_4ad2,
+    0xefbe_4786_384f_25e3,
+    0x0fc1_9dc6_8b8c_d5b5,
+    0x240c_a1cc_77ac_9c65,
+    0x2de9_2c6f_592b_0275,
+    0x4a74_84aa_6ea6_e483,
+    0x5cb0_a9dc_bd41_fbd4,
+    0x76f9_88da_8311_53b5,
+    0x983e_5152_ee66_dfab,
+    0xa831_c66d_2db4_3210,
+    0xb003_27c8_98fb_213f,
+    0xbf59_7fc7_beef_0ee4,
+    0xc6e0_0bf3_3da8_8fc2,
+    0xd5a7_9147_930a_a725,
+    0x06ca_6351_e003_826f,
+    0x1429_2967_0a0e_6e70,
+    0x27b7_0a85_46d2_2ffc,
+    0x2e1b_2138_5c26_c926,
+    0x4d2c_6dfc_5ac4_2aed,
+    0x5338_0d13_9d95_b3df,
+    0x650a_7354_8baf_63de,
+    0x766a_0abb_3c77_b2a8,
+    0x81c2_c92e_47ed_aee6,
+    0x9272_2c85_1482_353b,
+    0xa2bf_e8a1_4cf1_0364,
+    0xa81a_664b_bc42_3001,
+    0xc24b_8b70_d0f8_9791,
+    0xc76c_51a3_0654_be30,
+    0xd192_e819_d6ef_5218,
+    0xd699_0624_5565_a910,
+    0xf40e_3585_5771_202a,
+    0x106a_a070_32bb_d1b8,
+    0x19a4_c116_b8d2_d0c8,
+    0x1e37_6c08_5141_ab53,
+    0x2748_774c_df8e_eb99,
+    0x34b0_bcb5_e19b_48a8,
+    0x391c_0cb3_c5c9_5a63,
+    0x4ed8_aa4a_e341_8acb,
+    0x5b9c_ca4f_7763_e373,
+    0x682e_6ff3_d6b2_b8a3,
+    0x748f_82ee_5def_b2fc,
+    0x78a5_636f_4317_2f60,
+    0x84c8_7814_a1f0_ab72,
+    0x8cc7_0208_1a64_39ec,
+    0x90be_fffa_2363_1e28,
+    0xa450_6ceb_de82_bde9,
+    0xbef9_a3f7_b2c6_7915,
+    0xc671_78f2_e372_532b,
+    0xca27_3ece_ea26_619c,
+    0xd186_b8c7_21c0_c207,
+    0xeada_7dd6_cde0_eb1e,
+    0xf57d_4f7f_ee6e_d178,
+    0x06f0_67aa_7217_6fba,
+    0x0a63_7dc5_a2c8_98a6,
+    0x113f_9804_bef9_0dae,
+    0x1b71_0b35_131c_471b,
+    0x28db_77f5_2304_7d84,
+    0x32ca_ab7b_40c7_2493,
+    0x3c9e_be0a_15c9_bebc,
+    0x431d_67c4_9c10_0d4c,
+    0x4cc5_d4be_cb3e_42b6,
+    0x597f_299c_fc65_7e2a,
+    0x5fcb_6fab_3ad6_faec,
+    0x6c44_198c_4a47_5817,
+];
 
 struct W([u64; 16]);
 
@@ -48,85 +107,82 @@ impl W {
     fn new(input: &[u8]) -> Self {
         let mut w = [0u64; 16];
         for (i, e) in w.iter_mut().enumerate() {
-            *e = load_be(input, i * 8)
+            *e = load_be(input, i * 8);
         }
         W(w)
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
-    fn Ch(x: u64, y: u64, z: u64) -> u64 {
+    #[inline]
+    fn choice(x: u64, y: u64, z: u64) -> u64 {
         (x & y) ^ (!x & z)
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
-    fn Maj(x: u64, y: u64, z: u64) -> u64 {
+    #[inline]
+    fn majority(x: u64, y: u64, z: u64) -> u64 {
         (x & y) ^ (x & z) ^ (y & z)
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
-    fn Sigma0(x: u64) -> u64 {
+    #[inline]
+    fn sum_zero(x: u64) -> u64 {
         x.rotate_right(28) ^ x.rotate_right(34) ^ x.rotate_right(39)
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
-    fn Sigma1(x: u64) -> u64 {
+    #[inline]
+    fn sum_one(x: u64) -> u64 {
         x.rotate_right(14) ^ x.rotate_right(18) ^ x.rotate_right(41)
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
-    fn sigma0(x: u64) -> u64 {
+    #[inline]
+    fn schedule_zero(x: u64) -> u64 {
         x.rotate_right(1) ^ x.rotate_right(8) ^ (x >> 7)
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
-    fn sigma1(x: u64) -> u64 {
+    #[inline]
+    fn schedule_one(x: u64) -> u64 {
         x.rotate_right(19) ^ x.rotate_right(61) ^ (x >> 6)
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
-    fn M(&mut self, a: usize, b: usize, c: usize, d: usize) {
-        let w = &mut self.0;
-        w[a] = w[a]
-            .wrapping_add(Self::sigma1(w[b]))
-            .wrapping_add(w[c])
-            .wrapping_add(Self::sigma0(w[d]));
+    #[inline]
+    fn expand_word(
+        &mut self,
+        destination: usize,
+        late_word: usize,
+        middle_word: usize,
+        early_word: usize,
+    ) {
+        let words = &mut self.0;
+        words[destination] = words[destination]
+            .wrapping_add(Self::schedule_one(words[late_word]))
+            .wrapping_add(words[middle_word])
+            .wrapping_add(Self::schedule_zero(words[early_word]));
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
+    #[inline]
     fn expand(&mut self) {
-        self.M(0, (0 + 14) & 15, (0 + 9) & 15, (0 + 1) & 15);
-        self.M(1, (1 + 14) & 15, (1 + 9) & 15, (1 + 1) & 15);
-        self.M(2, (2 + 14) & 15, (2 + 9) & 15, (2 + 1) & 15);
-        self.M(3, (3 + 14) & 15, (3 + 9) & 15, (3 + 1) & 15);
-        self.M(4, (4 + 14) & 15, (4 + 9) & 15, (4 + 1) & 15);
-        self.M(5, (5 + 14) & 15, (5 + 9) & 15, (5 + 1) & 15);
-        self.M(6, (6 + 14) & 15, (6 + 9) & 15, (6 + 1) & 15);
-        self.M(7, (7 + 14) & 15, (7 + 9) & 15, (7 + 1) & 15);
-        self.M(8, (8 + 14) & 15, (8 + 9) & 15, (8 + 1) & 15);
-        self.M(9, (9 + 14) & 15, (9 + 9) & 15, (9 + 1) & 15);
-        self.M(10, (10 + 14) & 15, (10 + 9) & 15, (10 + 1) & 15);
-        self.M(11, (11 + 14) & 15, (11 + 9) & 15, (11 + 1) & 15);
-        self.M(12, (12 + 14) & 15, (12 + 9) & 15, (12 + 1) & 15);
-        self.M(13, (13 + 14) & 15, (13 + 9) & 15, (13 + 1) & 15);
-        self.M(14, (14 + 14) & 15, (14 + 9) & 15, (14 + 1) & 15);
-        self.M(15, (15 + 14) & 15, (15 + 9) & 15, (15 + 1) & 15);
+        self.expand_word(0, 14, 9, 1);
+        self.expand_word(1, 15, 10, 2);
+        self.expand_word(2, 0, 11, 3);
+        self.expand_word(3, 1, 12, 4);
+        self.expand_word(4, 2, 13, 5);
+        self.expand_word(5, 3, 14, 6);
+        self.expand_word(6, 4, 15, 7);
+        self.expand_word(7, 5, 0, 8);
+        self.expand_word(8, 6, 1, 9);
+        self.expand_word(9, 7, 2, 10);
+        self.expand_word(10, 8, 3, 11);
+        self.expand_word(11, 9, 4, 12);
+        self.expand_word(12, 10, 5, 13);
+        self.expand_word(13, 11, 6, 14);
+        self.expand_word(14, 12, 7, 15);
+        self.expand_word(15, 13, 8, 0);
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
-    fn F(&mut self, state: &mut State, i: usize, k: u64) {
+    #[inline]
+    fn compress_round(&mut self, state: &mut State, i: usize, k: u64) {
         let t = &mut state.0;
         t[(16 - i + 7) & 7] = t[(16 - i + 7) & 7]
-            .wrapping_add(Self::Sigma1(t[(16 - i + 4) & 7]))
-            .wrapping_add(Self::Ch(
+            .wrapping_add(Self::sum_one(t[(16 - i + 4) & 7]))
+            .wrapping_add(Self::choice(
                 t[(16 - i + 4) & 7],
                 t[(16 - i + 5) & 7],
                 t[(16 - i + 6) & 7],
@@ -135,114 +191,32 @@ impl W {
             .wrapping_add(self.0[i]);
         t[(16 - i + 3) & 7] = t[(16 - i + 3) & 7].wrapping_add(t[(16 - i + 7) & 7]);
         t[(16 - i + 7) & 7] = t[(16 - i + 7) & 7]
-            .wrapping_add(Self::Sigma0(t[(16 - i + 0) & 7]))
-            .wrapping_add(Self::Maj(
-                t[(16 - i + 0) & 7],
+            .wrapping_add(Self::sum_zero(t[(16 - i) & 7]))
+            .wrapping_add(Self::majority(
+                t[(16 - i) & 7],
                 t[(16 - i + 1) & 7],
                 t[(16 - i + 2) & 7],
             ));
     }
 
-    fn G(&mut self, state: &mut State, s: usize) {
-        const ROUND_CONSTANTS: [u64; 80] = [
-            0x428a2f98d728ae22,
-            0x7137449123ef65cd,
-            0xb5c0fbcfec4d3b2f,
-            0xe9b5dba58189dbbc,
-            0x3956c25bf348b538,
-            0x59f111f1b605d019,
-            0x923f82a4af194f9b,
-            0xab1c5ed5da6d8118,
-            0xd807aa98a3030242,
-            0x12835b0145706fbe,
-            0x243185be4ee4b28c,
-            0x550c7dc3d5ffb4e2,
-            0x72be5d74f27b896f,
-            0x80deb1fe3b1696b1,
-            0x9bdc06a725c71235,
-            0xc19bf174cf692694,
-            0xe49b69c19ef14ad2,
-            0xefbe4786384f25e3,
-            0x0fc19dc68b8cd5b5,
-            0x240ca1cc77ac9c65,
-            0x2de92c6f592b0275,
-            0x4a7484aa6ea6e483,
-            0x5cb0a9dcbd41fbd4,
-            0x76f988da831153b5,
-            0x983e5152ee66dfab,
-            0xa831c66d2db43210,
-            0xb00327c898fb213f,
-            0xbf597fc7beef0ee4,
-            0xc6e00bf33da88fc2,
-            0xd5a79147930aa725,
-            0x06ca6351e003826f,
-            0x142929670a0e6e70,
-            0x27b70a8546d22ffc,
-            0x2e1b21385c26c926,
-            0x4d2c6dfc5ac42aed,
-            0x53380d139d95b3df,
-            0x650a73548baf63de,
-            0x766a0abb3c77b2a8,
-            0x81c2c92e47edaee6,
-            0x92722c851482353b,
-            0xa2bfe8a14cf10364,
-            0xa81a664bbc423001,
-            0xc24b8b70d0f89791,
-            0xc76c51a30654be30,
-            0xd192e819d6ef5218,
-            0xd69906245565a910,
-            0xf40e35855771202a,
-            0x106aa07032bbd1b8,
-            0x19a4c116b8d2d0c8,
-            0x1e376c085141ab53,
-            0x2748774cdf8eeb99,
-            0x34b0bcb5e19b48a8,
-            0x391c0cb3c5c95a63,
-            0x4ed8aa4ae3418acb,
-            0x5b9cca4f7763e373,
-            0x682e6ff3d6b2b8a3,
-            0x748f82ee5defb2fc,
-            0x78a5636f43172f60,
-            0x84c87814a1f0ab72,
-            0x8cc702081a6439ec,
-            0x90befffa23631e28,
-            0xa4506cebde82bde9,
-            0xbef9a3f7b2c67915,
-            0xc67178f2e372532b,
-            0xca273eceea26619c,
-            0xd186b8c721c0c207,
-            0xeada7dd6cde0eb1e,
-            0xf57d4f7fee6ed178,
-            0x06f067aa72176fba,
-            0x0a637dc5a2c898a6,
-            0x113f9804bef90dae,
-            0x1b710b35131c471b,
-            0x28db77f523047d84,
-            0x32caab7b40c72493,
-            0x3c9ebe0a15c9bebc,
-            0x431d67c49c100d4c,
-            0x4cc5d4becb3e42b6,
-            0x597f299cfc657e2a,
-            0x5fcb6fab3ad6faec,
-            0x6c44198c4a475817,
-        ];
-        let rc = &ROUND_CONSTANTS[s * 16..];
-        self.F(state, 0, rc[0]);
-        self.F(state, 1, rc[1]);
-        self.F(state, 2, rc[2]);
-        self.F(state, 3, rc[3]);
-        self.F(state, 4, rc[4]);
-        self.F(state, 5, rc[5]);
-        self.F(state, 6, rc[6]);
-        self.F(state, 7, rc[7]);
-        self.F(state, 8, rc[8]);
-        self.F(state, 9, rc[9]);
-        self.F(state, 10, rc[10]);
-        self.F(state, 11, rc[11]);
-        self.F(state, 12, rc[12]);
-        self.F(state, 13, rc[13]);
-        self.F(state, 14, rc[14]);
-        self.F(state, 15, rc[15]);
+    fn compress_group(&mut self, state: &mut State, s: usize) {
+        let rc = &SHA512_ROUND_CONSTANTS[s * 16..];
+        self.compress_round(state, 0, rc[0]);
+        self.compress_round(state, 1, rc[1]);
+        self.compress_round(state, 2, rc[2]);
+        self.compress_round(state, 3, rc[3]);
+        self.compress_round(state, 4, rc[4]);
+        self.compress_round(state, 5, rc[5]);
+        self.compress_round(state, 6, rc[6]);
+        self.compress_round(state, 7, rc[7]);
+        self.compress_round(state, 8, rc[8]);
+        self.compress_round(state, 9, rc[9]);
+        self.compress_round(state, 10, rc[10]);
+        self.compress_round(state, 11, rc[11]);
+        self.compress_round(state, 12, rc[12]);
+        self.compress_round(state, 13, rc[13]);
+        self.compress_round(state, 14, rc[14]);
+        self.compress_round(state, 15, rc[15]);
     }
 }
 
@@ -257,13 +231,12 @@ impl State {
         ];
         let mut t = [0u64; 8];
         for (i, e) in t.iter_mut().enumerate() {
-            *e = load_be(&IV, i * 8)
+            *e = load_be(&IV, i * 8);
         }
         State(t)
     }
 
-    #[cfg_attr(feature = "opt_size", inline(never))]
-    #[cfg_attr(not(feature = "opt_size"), inline(always))]
+    #[inline]
     fn add(&mut self, x: &State) {
         let sx = &mut self.0;
         let ex = &x.0;
@@ -288,15 +261,15 @@ impl State {
         let mut inlen = input.len();
         while inlen >= 128 {
             let mut w = W::new(input);
-            w.G(&mut t, 0);
+            w.compress_group(&mut t, 0);
             w.expand();
-            w.G(&mut t, 1);
+            w.compress_group(&mut t, 1);
             w.expand();
-            w.G(&mut t, 2);
+            w.compress_group(&mut t, 2);
             w.expand();
-            w.G(&mut t, 3);
+            w.compress_group(&mut t, 3);
             w.expand();
-            w.G(&mut t, 4);
+            w.compress_group(&mut t, 4);
             t.add(self);
             self.0 = t.0;
             input = &input[128..];
@@ -356,19 +329,15 @@ impl Hash {
         let r = if self.r < 112 { 128 } else { 256 };
         let bits = self.len * 8;
         for i in 0..8 {
-            padded[r - 8 + i] = (bits as u64 >> (56 - i * 8)) as u8;
+            padded[r - 8 + i] = (u64::try_from(bits)
+                .unwrap_or_else(|error| panic!("SHA-512 length: {error}"))
+                >> (56 - i * 8))
+                .to_le_bytes()[0];
         }
         self.state.blocks(&padded[..r]);
         let mut out = [0u8; 64];
         self.state.store(&mut out);
         out
-    }
-
-    /// Compute SHA512(`input`)
-    pub fn hash<T: AsRef<[u8]>>(input: T) -> [u8; 64] {
-        let mut h = Hash::new();
-        h.update(input);
-        h.finalize()
     }
 }
 

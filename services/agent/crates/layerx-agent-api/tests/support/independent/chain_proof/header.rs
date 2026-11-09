@@ -229,7 +229,10 @@ fn encode_scalar(number: u32, value: u64, output: &mut Vec<u8>) {
 
 fn encode_bytes(number: u32, value: &[u8], output: &mut Vec<u8>) {
     encode_varint(u64::from(number) << 3 | 2, output);
-    encode_varint(value.len() as u64, output);
+    encode_varint(
+        u64::try_from(value.len()).unwrap_or_else(|error| panic!("encoded length: {error}")),
+        output,
+    );
     output.extend_from_slice(value);
 }
 
@@ -260,5 +263,5 @@ fn field_merkle_root(fields: &[Vec<u8>]) -> [u8; 32] {
             hasher.update(field_merkle_root(&fields[split..]));
         }
     }
-    hasher.finalize().into()
+    hasher.finalize()
 }

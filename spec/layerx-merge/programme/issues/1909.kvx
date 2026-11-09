@@ -1,0 +1,48 @@
+[issue.1909]
+number = 1909
+title = "[Coherence] The new qualification record for 22.39.117 attempt 6 names the wrong file and symbol, and uses a severity value the workflow does not allow"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The record added by commit d7fa22fa809f826d0468c317c01947a68375629a still names the unrelated chain test and severity high at spec/layerx-merge/qualification.kvx:36480, spec/layerx-merge/qualification.kvx:36481 and spec/layerx-merge/qualification.kvx:36484, although its observation at spec/layerx-merge/qualification.kvx:36482 names TestPhase2ConcurrentIndexesAndRecovery, declared at sdk/launchpad/shared/db/production/online_indexes_test.go:70 with the failing cleanup at sdk/launchpad/shared/db/production/online_indexes_test.go:39, while the chain test is declared separately at sdk/launchpad/shared/chain/client_test.go:569 and spec/workflow.kvx:66 excludes high from the allowed severities."
+close_comment = "Attempt 6's finding identifies an unrelated chain test and uses an unsupported severity. The follow-up will identify the production database test and use the allowed blocker severity, preserving the recorded failure and its evidence."
+
+[task.18.1909.1]
+title = "Issue #1909: Correct the attempt 6 qualification finding metadata"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181909.1"]
+capabilities = []
+interfaces = []
+do_1 = "In finding.22.39.117.6 at spec/layerx-merge/qualification.kvx:36478, set file to sdk/launchpad/shared/db/production/online_indexes_test.go and symbol to TestPhase2ConcurrentIndexesAndRecovery, matching the observation at spec/layerx-merge/qualification.kvx:36482 and the test and cleanup at sdk/launchpad/shared/db/production/online_indexes_test.go:70 and sdk/launchpad/shared/db/production/online_indexes_test.go:34; replace high with blocker, allowed by spec/workflow.kvx:66, because the recorded failure blocked qualification."
+do_2 = "Check only finding.22.39.117.6 for the exact corrected file, symbol and blocker severity and its six ordered workflow keys; preserve the task, observed and assumption values, every other finding and all database test behavior."
+symbols = []
+touches = ["spec/layerx-merge/qualification.kvx"]
+tests = ["spec/layerx-merge/qualification.kvx::finding.22.39.117.6 metadata check"]
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Pzq '\\[finding\\.22\\.39\\.117\\.6\\]\\ntask = \\x2222\\.39\\.117\\x22\\nfile = \\x22sdk/launchpad/shared/db/production/online_indexes_test\\.go\\x22\\nsymbol = \\x22TestPhase2ConcurrentIndexesAndRecovery\\x22\\nobserved = [^\\n]+\\nassumption = [^\\n]+\\nseverity = \\x22blocker\\x22\\n(?:\\n|\\z)' spec/layerx-merge/qualification.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181909]
+title = "The attempt 6 finding identifies the production database failure with an allowed severity"
+ac_1 = "Finding.22.39.117.6 at spec/layerx-merge/qualification.kvx:36478 contains file sdk/launchpad/shared/db/production/online_indexes_test.go, symbol TestPhase2ConcurrentIndexesAndRecovery and severity blocker in the six-key format required by spec/workflow.kvx:65, matching the test at sdk/launchpad/shared/db/production/online_indexes_test.go:70 and the allowed severities at spec/workflow.kvx:66, with its task, observed and assumption values and all other findings unchanged."
+
+[acceptance.18.1909.1]
+feature = "18"
+req = "181909.1"
+scenario = "Given the attempt 6 finding records a production database cleanup failure, when its metadata is checked, then its file names online_indexes_test.go, its symbol names TestPhase2ConcurrentIndexesAndRecovery and its severity is blocker, with the six workflow keys and the original failure evidence preserved."
+contract = "contracts/programme.md#programme"
+test = "spec/layerx-merge/qualification.kvx::finding.22.39.117.6 metadata check (planned)"
+qualification = "UNRUN"

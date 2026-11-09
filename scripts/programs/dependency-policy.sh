@@ -133,14 +133,13 @@ if command -v rg >/dev/null 2>&1; then
     unsafe_hits=$(rg -n --glob '*.rs' \
         --glob '!**/layerx-programs-runtime/src/ffi*.rs' \
         --glob '!**/layerx-programs-sandbox/src/host_ffi.rs' \
-        --glob '!**/layerx-programs-protocol-adapter/src/ffi.rs' \
         '\bunsafe\s+(fn|trait|impl|extern)|\bunsafe\s*\{' \
         "$repo_root/programs/crates" || true)
 else
     unsafe_hits=$(grep -rEn --include='*.rs' \
         '\bunsafe[[:space:]]+(fn|trait|impl|extern)|\bunsafe[[:space:]]*\{' \
         "$repo_root/programs/crates" | grep -Ev \
-        '/layerx-programs-runtime/src/ffi[^/]*\.rs:|/layerx-programs-sandbox/src/host_ffi\.rs:|/layerx-programs-protocol-adapter/src/ffi\.rs:' \
+        '/layerx-programs-runtime/src/ffi[^/]*\.rs:|/layerx-programs-sandbox/src/host_ffi\.rs:' \
         || true)
 fi
 if [ -n "$unsafe_hits" ]; then

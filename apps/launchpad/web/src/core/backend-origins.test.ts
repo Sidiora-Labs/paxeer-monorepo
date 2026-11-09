@@ -1,7 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, test, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import 'wagmi';
+import 'wagmi/connectors';
+import '@supabase/supabase-js';
 // Loaded before any test flips NODE_ENV, so React's JSX runtime matches the transform.
 import { BackendConfigurationError } from '@/ui/shared/backend-configuration-error';
 import { plainCopy } from '@/core/user-facing-error';
@@ -86,6 +89,173 @@ async function clientOrigins(): Promise<string[]> {
   ];
   return [...new Set(urls.filter((url): url is string => !!url).map(url => new URL(url).origin))].sort();
 }
+
+async function middlewareConfigurationErrorsRemainRenderable() {
+  const walletVariable = 'NEXT_PUBLIC_WALLET_IFRAME_ORIGIN';
+  const rpcVariables = [
+    'NEXT_PUBLIC_RPC_URL',
+    'NEXT_PUBLIC_RPC_URL_FALLBACK',
+    'NEXT_PUBLIC_PAXEER_RPC_URL',
+  ] as const;
+  const valid: Partial<Record<Name, string>> = {
+    ...RAILWAY,
+    NEXT_PUBLIC_WALLET_IFRAME_ORIGIN: 'https://wallet.example.test, https://other-wallet.example.test/',
+    NEXT_PUBLIC_RPC_URL: 'https://rpc.example.test/',
+    NEXT_PUBLIC_RPC_URL_FALLBACK: 'https://rpc2.example.test',
+    NEXT_PUBLIC_PAXEER_RPC_URL: 'https://rpc3.example.test',
+    NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.example.test',
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_example',
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 'example-project',
+  };
+  const invalidWallets = [
+    'https://wallet.example.test/path',
+    'http://wallet.example.test',
+    'https://user:password@wallet.example.test',
+    'malformed',
+    'https://wallet.example.test,,https://other-wallet.example.test',
+    ',https://wallet.example.test',
+    'https://wallet.example.test, ',
+  ];
+  const invalidRpcs = [
+    'https://rpc.example.test/rpc',
+    'http://rpc.example.test',
+    'https://user:password@rpc.example.test',
+    'malformed',
+    '',
+    'https://rpc.example.test?key=value',
+    'https://rpc.example.test#fragment',
+    'https://node.hyperpaxeer.com',
+  ];
+  const cases: { values: Partial<Record<Name, string>>; variables: Name[] }[] = [];
+  for (const value of invalidWallets) {
+    cases.push({ values: { [walletVariable]: value }, variables: [walletVariable] });
+  }
+  for (const variable of rpcVariables) {
+    for (const value of invalidRpcs) {
+      cases.push({ values: { [variable]: value }, variables: [variable] });
+    }
+    cases.push({
+      values: { [walletVariable]: invalidWallets[0], [variable]: 'malformed' },
+      variables: [walletVariable, variable],
+    });
+  }
+
+  function baselineHeaders(response: Response) {
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Strict-Transport-Security')).toBe('max-age=15552000; includeSubDomains; preload');
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(response.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+  }
+
+  for (const { values, variables } of cases) {
+    configure({ ...valid, ...values });
+    const { default: RootLayout } = await import('@/app/layout');
+    const origins = await import('@/core/backend-origins');
+    const rpc = await import('@/core/rpc');
+    const { middleware } = await import('@/middleware');
+    const problems = origins.backendConfigurationProblems();
+    expect(problems.map(problem => problem.variable), JSON.stringify(values)).toEqual(variables);
+    for (const variable of variables) {
+      expect(problems.find(problem => problem.variable === variable)?.message).toContain(variable);
+    }
+    expect(() => origins.backendOrigins()).toThrow(origins.BackendOriginError);
+    if (variables.includes(walletVariable)) {
+      expect(() => origins.walletParentOrigins()).toThrow(origins.BackendOriginError);
+    }
+    if (variables.some(variable => rpcVariables.some(rpcVariable => rpcVariable === variable))) {
+      expect(() => rpc.getPaxeerRpcUrls()).toThrow(rpc.RpcConfigurationError);
+    } else {
+      expect(rpc.getPaxeerRpcUrls()).toEqual(['https://rpc.example.test', 'https://rpc2.example.test', 'https://rpc3.example.test']);
+    }
+    expect(origins.browserConnectOrigins()).toEqual([]);
+
+    const response = middleware(new NextRequest('https://launchpad.example.test/explore'));
+    baselineHeaders(response);
+    const policy = response.headers.get('Content-Security-Policy') ?? '';
+    expect(directive(policy, 'connect-src')).toEqual(["'self'"]);
+    expect(directive(policy, 'frame-ancestors')).toEqual(["'self'"]);
+    for (const name of ['frame-src', 'child-src']) {
+      expect(directive(policy, name)).toEqual(["'self'", 'blob:']);
+    }
+    expect(directive(policy, 'default-src')).toEqual(["'self'"]);
+    expect(directive(policy, 'object-src')).toEqual(["'none'"]);
+    expect(directive(policy, 'base-uri')).toEqual(["'self'"]);
+    expect(response.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self)');
+
+    const layout = await RootLayout({ children: createElement('div', { 'data-state': 'configured-app' }) });
+    const body = layout.props.children;
+    const errorView = body.props.children;
+    const { BackendConfigurationError: ErrorView } = await import('@/ui/shared/backend-configuration-error');
+    expect(errorView.type).toBe(ErrorView);
+    expect(errorView.props.problems.map((problem: { variable: string }) => problem.variable)).toEqual(variables);
+    const markup = renderToStaticMarkup(layout);
+    expect(markup).toContain('<html lang="en">');
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain('data-state="backend-configuration-error"');
+    expect(markup).toContain(plainCopy.configuration);
+    expect(markup).not.toMatch(/configured-app|NEXT_PUBLIC_|data-detail/);
+
+    const chart = middleware(new NextRequest('https://launchpad.example.test/charting_library/charting_library.js'));
+    baselineHeaders(chart);
+    expect(chart.headers.get('Content-Security-Policy')).toBe("default-src 'self' 'unsafe-eval' 'unsafe-inline' blob: data:; worker-src 'self' blob:; child-src 'self' blob:");
+  }
+
+  for (const wallet of [undefined, valid.NEXT_PUBLIC_WALLET_IFRAME_ORIGIN]) {
+    const values = { ...valid };
+    if (wallet === undefined) delete values.NEXT_PUBLIC_WALLET_IFRAME_ORIGIN;
+    configure(values);
+    const origins = await import('@/core/backend-origins');
+    expect(origins.backendConfigurationProblems()).toEqual([]);
+    const expectedWallets = wallet ? ['https://wallet.example.test', 'https://other-wallet.example.test'] : [];
+    expect(origins.walletParentOrigins()).toEqual(expectedWallets);
+    const response = await servedPolicy();
+    baselineHeaders(response);
+    const policy = response.headers.get('Content-Security-Policy') ?? '';
+    expect(directive(policy, 'frame-ancestors')).toEqual(["'self'", ...expectedWallets]);
+    expect(directive(policy, 'frame-src')).toEqual(["'self'", 'blob:', ...expectedWallets]);
+    expect(response.headers.get('X-Frame-Options')).toBe(wallet ? null : 'SAMEORIGIN');
+    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self)');
+    expect(directive(policy, 'connect-src').slice(1).sort()).toEqual([
+      'https://api-production-e4bd.up.railway.app',
+      'https://api.paxscan.io',
+      'https://connect.paxportwallet.com',
+      'https://gateway-production-800c.up.railway.app',
+      'https://pnl-production-72f3.up.railway.app',
+      'https://project.supabase.example.test',
+      'https://rpc.example.test',
+      'https://rpc2.example.test',
+      'https://rpc3.example.test',
+      'wss://api-production-e4bd.up.railway.app',
+      'wss://gateway-production-800c.up.railway.app',
+      'wss://project.supabase.example.test',
+      ...origins.WALLETCONNECT_ORIGINS,
+    ].sort());
+    const { getPaxeerRpcUrl, paxeer, createWagmiConfig } = await import('@/core/wagmi-config');
+    const PAXEER_RPC_URL = getPaxeerRpcUrl();
+    expect(PAXEER_RPC_URL).toBe('https://rpc.example.test');
+    expect(paxeer.rpcUrls.default.http).toEqual(['https://rpc.example.test']);
+    expect(createWagmiConfig().chains[0].rpcUrls.default.http).toEqual(['https://rpc.example.test']);
+    expect(directive(policy, 'connect-src')).not.toContain('https://api5.mainnet-beta.paxeer.network');
+  }
+  configure(RAILWAY);
+  const { getPaxeerRpcUrls, DEFAULT_PAXEER_RPC_URL } = await import('@/core/rpc');
+  expect(getPaxeerRpcUrls()).toEqual([DEFAULT_PAXEER_RPC_URL]);
+  const response = await servedPolicy();
+  baselineHeaders(response);
+  expect(response.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+  expect(directive(response.headers.get('Content-Security-Policy') ?? '', 'connect-src').slice(1).sort()).toEqual([
+    'https://api-production-e4bd.up.railway.app',
+    'https://api.paxscan.io',
+    'https://api5.mainnet-beta.paxeer.network',
+    'https://gateway-production-800c.up.railway.app',
+    'https://pnl-production-72f3.up.railway.app',
+    'wss://api-production-e4bd.up.railway.app',
+    'wss://gateway-production-800c.up.railway.app',
+  ]);
+}
+
+test(middlewareConfigurationErrorsRemainRenderable.name, middlewareConfigurationErrorsRemainRenderable, 30_000);
 
 describe('backend origin resolver and CSP', () => {
   it('serves connect-src equal to the client origins for the Railway production environment', async () => {

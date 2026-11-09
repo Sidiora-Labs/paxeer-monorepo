@@ -1,0 +1,55 @@
+[task]
+id = "22.39.231"
+mode = "BUILD"
+base = "027bfa65e2a8c1dcc27852c4ea1d6414ec78c44e"
+scope = "modules/layerxpay/keeper; modules/layerxpay/integration/genesis_test.go"
+acceptance = "22998.1"
+baseline = "Attempt 2 continues the applied attempt-1 tree 3fb8fde7f50d, preserving service_dispute.go, service_dispute_test.go and service_offer_test.go unchanged; workflow bookkeeping is pre-existing, and /out/run/gates.jsonl has no gate runs for this attempt."
+
+[producer.dispute]
+owner = "22.33.1303 (dcc500a07b): modules/layerxpay/keeper/escrow_views.go decodeEscrowHold validates the stored hold identifier against its key."
+consumer = "modules/layerxpay/keeper/service_dispute.go serviceDisputeEscrow, shared by ServiceDisputeOpen and ServiceDisputeResolve."
+kernel = "include/layerx/lxp_result.h LXP_ERR_ESCROW_LINK_MISMATCH = -739; src/modules/service/lx_service_dispute.c agreement_escrow_link_check; precompiles/common/lxp_errors.go LXP_ESCROW_LINK_MISMATCH = -739. The kernel code was not renamed."
+repair = "Check the stored escrow identifier against the agreement before invoking the stricter escrow reader, preserving explicit corrupt-state errors for malformed records whose identifiers match. All existing owner, beneficiary, asset, missing-record and arbiter checks remain."
+tests = "TestServiceDisputeArbiterRefusals retains all cases and assertions and adds open/resolve identifier-mismatch precedence over missing arbiters and unauthorized callers, with empty receipts and exact host/pay store equality."
+
+[producer.offer]
+owner = "22.33.1304 (9b206de728): modules/layerxpay/keeper/execute.go Keeper.Submit calls RebuildServiceIndexes, whose modules/layerxpay/keeper/service_indexes.go producer persists service/index-version = 1."
+kernel = "src/modules/service/lx_service_module.c execute_offer_publish sets activity_id from lxp_ctx_activity_id; src/modules/service/lx_service_offer.c lx_service_offer_publish_execute sets global_sequence, withdrawn=false and accepted=false."
+repair = "The index version is persistent module schema state, not a per-offer market or registry record to delete. TestServiceOfferPublishWithdraw asserts exactly the initial module snapshot plus that producer's version byte after publish, then exact snapshots after withdraw and refusal."
+tests = "The full ServiceOffer equality remains and now binds ActivityID to the decoded real receipt, explicitly asserts both publication flags and names the kernel producer; balance, receipt, authorization, pause, sequence and withdrawal assertions remain intact."
+
+[producer.genesis]
+owner = "21f6e29026 (22.99.110): modules/layerxpay/keeper/escrow_views.go:42 Keeper.GetEscrow returns (types.EscrowRecord, bool, error), distinguishing absence from corrupt state."
+consumer = "modules/layerxpay/integration/genesis_test.go reads the escrow produced by the real escrowOpen precompile before genesis export/import and checks its absence before restoration and equality after restoration."
+repair = "Destructure all three GetEscrow results at all three consumer calls and require nil errors; retain the true presence flags and full EscrowRecord equalities before export and after restoration, and the false presence flag before restoration. No keeper implementation or keeper test changes in attempt 2."
+
+[gotcha]
+dispute = "A stricter general escrow view can mask a service-specific identifier mismatch; classify the link at its service consumer without weakening general corruption validation."
+offer = "First successful service submission initializes a persistent service index version even when the activity creates no delivery/progress indexes."
+genesis = "Gotcha 3762 and decision 2908: the integration consumer retained GetEscrow's former two-value shape after its producer added an error; the expanded attempt-2 scope permits this consumer correction."
+restoration = "The first attempt-2 build exposed two additional former two-value GetEscrow calls in the same test's restoration path; migrate both together to the producer's three-value shape without changing presence or equality assertions."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+revision = "Read the revision field of the last kind=verify ledger row; it must equal the last successful kind=build row."
+build = "hf-build; command go vet ./modules/layerxpay/...; exact revision, exit and private log are in the final kind=build ledger row (first run log /out/logs/build-1.log)."
+verify = "hf-done; command cg spec done 22.39.231 -f layerx-merge --root /work/paxeer-monorepo; exact revision, exit and private log are in the final kind=verify ledger row (first run log /out/logs/verify-1.log)."
+verify_cmd = "test -s modules/layerxpay/keeper/repair_22_39_231.kvx && go test -count=1 ./modules/layerxpay/keeper/ -run 'TestServiceDisputeArbiterRefusals|TestServiceOfferPublishWithdraw'"
+policy = "Evidence is recorded by reference before qualification to keep build and verification on the same candidate; this record does not declare a gate result before execution. Runner owns publication; no manual commit or push."
+
+[qualification.attempt_1]
+task = "22.39.231"
+file = "modules/layerxpay/integration/genesis_test.go:225"
+symbol = "GetEscrow"
+observed = "At revision 8dbf7b3b7cb32eecf254311a736fda83555c4d3e, go vet ./modules/layerxpay/... exited 1 with assignment mismatch: 2 variables but source.App.LayerXPayKeeper.GetEscrow returns 3 values; private log /out/logs/build-1.log."
+assumption = "This historical attempt-1 failure led to the expanded attempt-2 scope and the producer.genesis correction above; current qualification is referenced in evidence, and this entry is not a current gate result."
+severity = "blocker"
+
+[qualification.attempt_2_repair]
+task = "22.39.231"
+file = "modules/layerxpay/integration/genesis_test.go"
+symbol = "TestAppExportsPayGenesisWithSharedHost"
+observed = "At revision 914a3c139d0ed8a69d64413681023c54e62ef58e, go vet ./modules/layerxpay/... exited 1 on the pre-restoration GetEscrow call's two-variable assignment; private log /out/logs/build-1.log."
+assumption = "Both restoration calls consume the same three-value producer and require nil-error assertions alongside their existing presence assertions; final build and verification evidence is referenced in evidence."
+severity = "note"

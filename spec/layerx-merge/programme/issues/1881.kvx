@@ -1,0 +1,7 @@
+[issue.1881]
+number = 1881
+title = "[P2] Install gateway test dependencies in the wallet SDK CI job"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit 661007bc729b355a7d2eb1d843c691aa23715e3c adds the SDK-only frozen workspace install at .github/workflows/wallet-test.yml:62 before Vitest at .github/workflows/wallet-test.yml:70, covering gateway membership at services/wallet/pnpm-workspace.yaml:2 and its jose dependency at services/wallet/gateway/package.json:33 with the locked version at services/wallet/pnpm-lock.yaml:338, while tests/ci/test_wallet_test_workflow.py:129 asserts the prerequisite, frozen install and execution order."
+close_comment = "The wallet SDK CI job now installs the wallet workspace, including the gateway test dependencies, with the frozen lockfile before running Vitest. A workflow regression check requires this installation and its ordering; the existing test-name exclusions are unchanged."

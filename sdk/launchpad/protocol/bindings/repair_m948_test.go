@@ -374,6 +374,7 @@ func TestRepairM_948_NativeExecutorNode(t *testing.T) {
 	// submit an explicit gas limit and require a successful mined receipt.
 	s.auth[0].GasLimit = 7_000_000
 	mine := s.miner(t)
+	assertRepairM948ProductionRefusals(t, s)
 	at := protocol.ActiveAddresses.Precompile
 	router, err := b.NewRouter(at, s.client)
 	if err != nil {
@@ -413,6 +414,40 @@ func TestRepairM_948_NativeExecutorNode(t *testing.T) {
 	if market == nil || market.Creator != s.auth[0].From || market.Token == (common.Address{}) || market.Pool == (common.Address{}) || market.NftId.Sign() <= 0 {
 		t.Fatalf("native market result = %+v", market)
 	}
+	poolParser, err := b.NewRouter(market.Pool, s.client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initialized := 0
+	initializedTopic := crypto.Keccak256Hash([]byte("Initialized(uint64)"))
+	for _, log := range receipt.Logs {
+		if len(log.Topics) > 0 && log.Topics[0] == initializedTopic {
+			initialized++
+			parsed, err := poolParser.ParseInitialized(*log)
+			if err != nil || log.Address != market.Pool || parsed.Version != 1 {
+				t.Fatalf("market Initialized origin/version = %+v, %v", log, err)
+			}
+		}
+	}
+	if initialized != 1 {
+		t.Fatalf("market Initialized logs = %d, want one at the new pool", initialized)
+	}
+	nft, err := b.NewSidioraNFT(protocol.ActiveAddresses.Roles["SidioraNFT"], s.client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry, err := b.NewPoolRegistry(protocol.ActiveAddresses.Roles["PoolRegistry"], s.client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["SidioraFactory"], factory, b.SidioraFactoryMetaData, "MarketCreated", map[string]any{"token": market.Token, "pool": market.Pool, "creator": s.auth[0].From, "nftId": market.NftId, "optical": common.Address{}})
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["SidioraNFT"], nft, b.SidioraNFTMetaData, "Transfer", map[string]any{"from": common.Address{}, "to": s.auth[0].From, "tokenId": market.NftId})
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["SidioraNFT"], nft, b.SidioraNFTMetaData, "PoolNFTMinted", map[string]any{"tokenId": market.NftId, "creator": s.auth[0].From, "pool": market.Pool})
+	header, err := s.client.HeaderByNumber(context.Background(), receipt.BlockNumber)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["PoolRegistry"], registry, b.PoolRegistryMetaData, "PoolRegistered", map[string]any{"pool": market.Pool, "token": market.Token, "creator": s.auth[0].From, "optical": common.Address{}, "nftId": market.NftId, "timestamp": new(big.Int).SetUint64(header.Time)})
 	tokenContract := bind.NewBoundContract(market.Token, erc20, s.client, s.client, s.client)
 	var supply []any
 	if err := tokenContract.Call(nil, &supply, "totalSupply"); err != nil {
@@ -453,8 +488,17 @@ func TestRepairM_948_NativeExecutorNode(t *testing.T) {
 		if buy == nil || buy.Pool != market.Pool || buy.Buyer != s.auth[0].From || buy.UsdlIn.Cmp(amount) != 0 || buy.TokensOut.Sign() <= 0 {
 			t.Fatalf("native Router.Buy = %+v", buy)
 		}
+		assertRepairM948RoleLog(t, receipt, origin, route, b.RouterMetaData, "Buy", map[string]any{"pool": market.Pool, "buyer": s.auth[0].From, "usdlIn": amount, "tokensOut": buy.TokensOut})
 		assertRepairM948NodeEvent(t, s, receipt, "Swap", map[string]any{"poolId": poolID, "sender": s.auth[0].From, "isBuy": true, "amountIn": amount, "amountOut": buy.TokensOut})
 		assertRepairM948NodeEvent(t, s, receipt, "RouterTrade", map[string]any{"kind": uint8(0), "pool": market.Pool, "sender": s.auth[0].From, "tokenIn": quote, "tokenOut": market.Token, "amountIn": amount, "amountOut": buy.TokensOut, "intermediateUsdl": big.NewInt(0)})
+	}
+	feeMetadata, err := b.FeesRouterMetaData.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	nftConsumer, err := b.NewSidioraNFT(protocol.ActiveAddresses.Roles["SidioraNFT"], s.client)
+	if err != nil {
+		t.Fatal(err)
 	}
 	for i, origin := range []common.Address{at, protocol.ActiveAddresses.Roles["FeesRouter"]} {
 		fees, err := b.NewFeesRouter(origin, s.client)
@@ -464,29 +508,224 @@ func TestRepairM_948_NativeExecutorNode(t *testing.T) {
 		old, next := uint8(i), uint8(1-i)
 		receipt = mine(fees.SetFeeStrategy(s.auth[0], market.NftId, next))
 		assertRepairM948NodeEvent(t, s, receipt, "FeeStrategyChanged", map[string]any{"poolId": poolID, "nftId": market.NftId, "oldStrategy": old, "newStrategy": next})
-		// feeHandler emits its role log at the FeesRouter identity even
-		// for direct calls; emitAt's origin selection is checked separately.
+		// feeLog uses generation 2 identities even for a direct call.
+		assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["FeesRouter"], fees, b.FeesRouterMetaData, "FeeStrategyChanged", map[string]any{"nftId": market.NftId, "oldStrategy": old, "newStrategy": next})
+		assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["SidioraNFT"], nft, b.SidioraNFTMetaData, "FeeStrategyChanged", map[string]any{"tokenId": market.NftId, "oldStrategy": old, "newStrategy": next})
 		var changed *b.FeesRouterFeeStrategyChanged
+		roleCount, nftCount := 0, 0
 		for _, log := range receipt.Logs {
-			if log.Address == protocol.ActiveAddresses.Roles["FeesRouter"] {
-				if parsed, err := fees.ParseFeeStrategyChanged(*log); err == nil {
-					changed = parsed
+			if len(log.Topics) == 0 || log.Topics[0] != feeMetadata.Events["FeeStrategyChanged"].ID {
+				continue
+			}
+			switch log.Address {
+			case protocol.ActiveAddresses.Roles["SidioraNFT"]:
+				parsed, err := nftConsumer.ParseFeeStrategyChanged(*log)
+				if err != nil || parsed.TokenId.Cmp(market.NftId) != 0 || parsed.OldStrategy != old || parsed.NewStrategy != next {
+					t.Fatalf("native SidioraNFT strategy change: %+v, %v", parsed, err)
 				}
+				nftCount++
+			case protocol.ActiveAddresses.Roles["FeesRouter"]:
+				changed, err = fees.ParseFeeStrategyChanged(*log)
+				if err != nil {
+					t.Fatal(err)
+				}
+				roleCount++
+			default:
+				t.Fatalf("FeeStrategyChanged role topic at unexpected address %s for call at %s", log.Address, origin)
 			}
 		}
-		if changed == nil || changed.NftId.Cmp(market.NftId) != 0 || changed.OldStrategy != old || changed.NewStrategy != next {
-			t.Fatalf("native FeesRouter origin %s: %+v", origin, changed)
+		if roleCount != 1 || nftCount != 1 || changed == nil || changed.NftId.Cmp(market.NftId) != 0 || changed.OldStrategy != old || changed.NewStrategy != next {
+			t.Fatalf("native FeesRouter origin %s: %+v (FeesRouter logs %d, SidioraNFT logs %d)", origin, changed, roleCount, nftCount)
 		}
 	}
-	nft, err := b.NewSidioraNFT(protocol.ActiveAddresses.Roles["SidioraNFT"], s.client)
+	accumulator, err := b.NewFeeAccumulator(protocol.ActiveAddresses.Roles["FeeAccumulator"], s.client)
 	if err != nil {
 		t.Fatal(err)
 	}
+	fees, err := b.NewFeesRouter(protocol.ActiveAddresses.Roles["FeesRouter"], s.client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	amount, err := accumulator.GetAccumulatedFees(nil, market.Pool)
+	if err != nil || amount.Sign() <= 0 {
+		t.Fatalf("accumulated fees = %v, %v", amount, err)
+	}
+	receipt = mine(fees.ClaimFees(s.auth[0], market.NftId))
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["FeeAccumulator"], accumulator, b.FeeAccumulatorMetaData, "FeesClaimed", map[string]any{"pool": market.Pool, "recipient": s.auth[0].From, "amount": amount})
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["FeesRouter"], fees, b.FeesRouterMetaData, "FeesClaimed", map[string]any{"nftId": market.NftId, "owner": s.auth[0].From, "amount": amount})
+	remaining, err := accumulator.GetAccumulatedFees(nil, market.Pool)
+	if err != nil || remaining.Sign() != 0 {
+		t.Fatalf("fees after claim = %v, %v", remaining, err)
+	}
+	receipt = mine(nft.Approve(s.auth[0], s.auth[1].From, market.NftId))
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["SidioraNFT"], nft, b.SidioraNFTMetaData, "Approval", map[string]any{"owner": s.auth[0].From, "approved": s.auth[1].From, "tokenId": market.NftId})
+	receipt = mine(nft.SetApprovalForAll(s.auth[0], s.auth[2].From, true))
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["SidioraNFT"], nft, b.SidioraNFTMetaData, "ApprovalForAll", map[string]any{"owner": s.auth[0].From, "operator": s.auth[2].From, "approved": true})
 	receipt = mine(nft.TransferFrom(s.auth[0], s.auth[0].From, s.auth[1].From, market.NftId))
+	assertRepairM948RoleLog(t, receipt, protocol.ActiveAddresses.Roles["SidioraNFT"], nft, b.SidioraNFTMetaData, "Transfer", map[string]any{"from": s.auth[0].From, "to": s.auth[1].From, "tokenId": market.NftId})
 	assertRepairM948NodeEvent(t, s, receipt, "NftTransfer", map[string]any{"nft": protocol.ActiveAddresses.Roles["SidioraNFT"], "from": s.auth[0].From, "to": s.auth[1].From, "tokenId": market.NftId})
 	owner, err := nft.OwnerOf(nil, market.NftId)
 	if err != nil || owner != s.auth[1].From {
 		t.Fatalf("native recovered NFT owner = %s, %v", owner, err)
+	}
+}
+
+// Production calls and failed mined transactions are separate from emitAt schema checks.
+func assertRepairM948ProductionRefusals(t *testing.T, s *repairM948Chain) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(repair37Root(t), "precompiles/launchpad/abi.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := abi.JSON(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminError, exists := canonical.Errors["AccessControlUnauthorizedAccount"]
+	if !exists || adminError.Sig != "AccessControlUnauthorizedAccount(address,bytes32)" {
+		t.Fatal("missing canonical administrative error")
+	}
+	roles := []struct {
+		name     string
+		metadata *bind.MetaData
+		views    []string
+	}{
+		{"FeeAccumulator", b.FeeAccumulatorMetaData, []string{"protocolConfig", "treasury", "poolRegistry", "eventEmitter", "usdlAddress", "accountingInitialized", "totalLiabilities"}},
+		{"PoolRegistry", b.PoolRegistryMetaData, []string{"eventEmitter", "getPoolCount"}},
+		{"FeesRouter", b.FeesRouterMetaData, []string{"nftContract", "feeAccumulator", "poolRegistry"}},
+		{"ProtocolConfig", b.ProtocolConfigMetaData, []string{"usdlAddress", "eventEmitter", "creationFee", "virtualUsdlDefault", "virtualTokenDefault", "baseFeeBps"}},
+		{"Quoter", b.QuoterMetaData, []string{"poolRegistry", "protocolConfig"}},
+		{"Router", b.RouterMetaData, []string{"factory", "poolRegistry", "protocolConfig", "usdlAddress"}},
+		{"SidioraFactory", b.SidioraFactoryMetaData, []string{"poolBeacon", "nftContract", "poolRegistry", "eventEmitter", "protocolConfig", "treasury", "feeAccumulator", "usdlAddress"}},
+		{"SidioraNFT", b.SidioraNFTMetaData, []string{"name", "symbol", "totalSupply", "eventEmitter"}},
+	}
+	ctx := context.Background()
+	for _, role := range roles {
+		address := protocol.ActiveAddresses.Roles[role.name]
+		metadata, err := role.metadata.GetAbi()
+		if err != nil {
+			t.Fatal(err)
+		}
+		contract := bind.NewBoundContract(address, *metadata, s.client, s.client, s.client)
+		call := func(method string, args ...any) (string, error) {
+			data, err := metadata.Pack(method, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result string
+			err = s.client.Client().CallContext(ctx, &result, "eth_call", map[string]any{"from": s.auth[0].From, "to": address, "data": "0x" + common.Bytes2Hex(data)}, "latest")
+			return result, err
+		}
+		snapshot := func() map[string]string {
+			state := map[string]string{}
+			for _, method := range role.views {
+				result, err := call(method)
+				if err != nil {
+					t.Fatalf("%s.%s: %v", role.name, method, err)
+				}
+				state[method] = result
+			}
+			for i, account := range []common.Address{s.auth[0].From, s.auth[2].From} {
+				result, err := call("hasRole", [32]byte{}, account)
+				if err != nil {
+					t.Fatal(err)
+				}
+				state[fmt.Sprintf("admin%d", i)] = result
+			}
+			return state
+		}
+		before := snapshot()
+		block, err := s.client.BlockNumber(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		logs := func() []types.Log {
+			var result []types.Log
+			if err := s.client.Client().CallContext(ctx, &result, "eth_getLogs", map[string]any{"address": address, "fromBlock": fmt.Sprintf("0x%x", block), "toBlock": "latest"}); err != nil {
+				t.Fatal(err)
+			}
+			return result
+		}
+		logsBefore := logs()
+		args := make([]any, len(metadata.Methods["initialize"].Inputs))
+		for i, input := range metadata.Methods["initialize"].Inputs {
+			if input.Type.T == abi.StringTy {
+				args[i] = "Refused M948"
+			} else {
+				args[i] = s.auth[2].From
+			}
+		}
+		_, err = call("initialize", args...)
+		data, ok := ethclient.RevertErrorData(err)
+		declared, exists := metadata.Errors["AlreadyInitialized"]
+		if !exists || declared.Sig != "AlreadyInitialized()" || !ok || !bytes.Equal(data, declared.ID[:4]) || common.Bytes2Hex(data) != "0dc149f0" {
+			t.Fatalf("%s.initialize exact production refusal = %x (%v)", role.name, data, err)
+		}
+		tx, err := contract.Transact(s.auth[0], "initialize", args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		receipt, err := bind.WaitMined(ctx, s.client, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if receipt.Status != types.ReceiptStatusFailed || len(receipt.Logs) != 0 || tx.To() == nil || *tx.To() != address {
+			t.Fatalf("%s.initialize mined refusal = %+v", role.name, receipt)
+		}
+		s.auth[0].Nonce = new(big.Int).SetUint64(tx.Nonce() + 1)
+		if after := snapshot(); !reflect.DeepEqual(before, after) {
+			t.Fatalf("%s.initialize changed state: %v -> %v", role.name, before, after)
+		}
+		if after := logs(); !reflect.DeepEqual(logsBefore, after) {
+			t.Fatalf("%s.initialize changed logs", role.name)
+		}
+		// Public administrative grants are refused; a non-holder's renounce is
+		// a successful no-op, and cannot be mistaken for a RoleRevoked log.
+		_, err = call("grantRole", [32]byte{}, s.auth[2].From)
+		data, ok = ethclient.RevertErrorData(err)
+		packed, packErr := adminError.Inputs.Pack(s.auth[0].From, [32]byte{})
+		if packErr != nil || !ok || !bytes.Equal(data, append(adminError.ID[:4], packed...)) {
+			t.Fatalf("%s.grantRole refusal = %x, %v", role.name, data, err)
+		}
+		r := s.miner(t)(contract.Transact(s.auth[0], "renounceRole", [32]byte{}, s.auth[0].From))
+		if len(r.Logs) != 0 || !reflect.DeepEqual(before, snapshot()) || !reflect.DeepEqual(logsBefore, logs()) {
+			t.Fatalf("%s non-holder renounce changed state or logs", role.name)
+		}
+	}
+}
+
+func assertRepairM948RoleLog(t *testing.T, receipt *types.Receipt, origin common.Address, consumer any, metadata *bind.MetaData, name string, want map[string]any) {
+	t.Helper()
+	parsed, err := metadata.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := parsed.Events[name]
+	count := 0
+	for _, log := range receipt.Logs {
+		if len(log.Topics) == 0 || log.Topics[0] != event.ID || log.Address != origin {
+			continue
+		}
+		count++
+		if log.TxHash != receipt.TxHash || log.BlockHash != receipt.BlockHash || log.BlockNumber != receipt.BlockNumber.Uint64() {
+			t.Fatalf("%s receipt provenance differs", name)
+		}
+		args := map[string]any{}
+		for key, value := range want {
+			raw, err := json.Marshal(repair37Humanize(value))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var normalized any
+			if err := json.Unmarshal(raw, &normalized); err != nil {
+				t.Fatal(err)
+			}
+			args[key] = normalized
+		}
+		repairM948ParseExecution(t, consumer, event, repairM948Execution{Name: name, Log: *log, Args: args})
+	}
+	if count != 1 {
+		t.Fatalf("%s at production origin %s: got %d logs", name, origin, count)
 	}
 }
 
@@ -552,8 +791,54 @@ func assertRepairM948NodeEvent(t *testing.T, s *repairM948Chain, receipt *types.
 	}
 }
 
-func TestRepairM_948_RoleMetadata(t *testing.T) {
-	proofLaunchpadRoleMetadata(t)
+func repairM948ParseExecution(t *testing.T, consumer any, event abi.Event, observation repairM948Execution) {
+	t.Helper()
+	if len(observation.Log.Topics) == 0 || observation.Log.Topics[0] != event.ID {
+		t.Fatalf("%s executor topic differs from canonical event", observation.Name)
+	}
+	parser := reflect.ValueOf(consumer).MethodByName("Parse" + event.Name)
+	if !parser.IsValid() {
+		t.Fatalf("missing generated parser %s", event.Name)
+	}
+	results := parser.Call([]reflect.Value{reflect.ValueOf(observation.Log)})
+	if !results[1].IsNil() {
+		t.Fatal(results[1].Interface())
+	}
+	decoded := results[0].Elem()
+	if len(observation.Args) != len(event.Inputs) {
+		t.Fatalf("%s expected field inventory differs", event.Name)
+	}
+	for _, argument := range event.Inputs {
+		field := decoded.FieldByName(abi.ToCamelCase(argument.Name))
+		want, ok := observation.Args[argument.Name]
+		if !field.IsValid() || !ok {
+			t.Fatalf("missing decoded field %s.%s", event.Name, argument.Name)
+		}
+		raw, err := json.Marshal(repair37Humanize(field.Interface()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got any
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s.%s = %#v, want %#v", event.Name, argument.Name, got, want)
+		}
+	}
+	malformed := observation.Log
+	malformed.Data = malformed.Data[:min(31, len(malformed.Data))]
+	results = parser.Call([]reflect.Value{reflect.ValueOf(malformed)})
+	if len(event.Inputs.NonIndexed()) > 0 && results[1].IsNil() {
+		t.Fatalf("%s accepted malformed executor data", event.Name)
+	}
+	unknown := observation.Log
+	unknown.Topics = append([]common.Hash(nil), observation.Log.Topics...)
+	unknown.Topics[0] = common.HexToHash("0xdeadbeef")
+	results = parser.Call([]reflect.Value{reflect.ValueOf(unknown)})
+	if results[1].IsNil() {
+		t.Fatalf("%s accepted an unknown topic", event.Name)
+	}
 }
 
 type repairM948Execution struct {
@@ -564,7 +849,12 @@ type repairM948Execution struct {
 	Args     map[string]any
 }
 
+func TestRepairM_948_RoleMetadata(t *testing.T) {
+	proofLaunchpadRoleMetadata(t)
+}
+
 type repairM948Transcript struct {
+	NodeRPC      json.RawMessage
 	Revision     string
 	SourceHashes map[string]string
 	Family       []repairM948Execution
@@ -592,6 +882,8 @@ func TestRepairM_948_NativeExecutorTransport(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertProofABI(t, abi.ABI{Events: canonical.Events}, *native)
+	// This helper-emitted transcript proves schemas and codecs only; production
+	// role origins and initialization refusals are asserted by NativeExecutorNode.
 	// Recorded executor output is the boundary between the node's geth fork
 	// and this module's upstream geth types. Never synthesize producer logs.
 	path := filepath.Join("testdata", "repair_m948", "native-execution.json")
@@ -655,17 +947,29 @@ func TestRepairM_948_NativeExecutorTransport(t *testing.T) {
 	}
 	seenRoles := map[string]bool{}
 	seenOrigins := map[string]map[common.Address]bool{}
+	seenFeesCalls := map[common.Address]bool{}
 	for _, observation := range transcript.Roles {
 		role, ok := roles[observation.Role]
 		if !ok || observation.Name == "Initialized" {
 			t.Fatalf("invalid successful role emission %s.%s", observation.Role, observation.Name)
 		}
 		expected := protocol.ActiveAddresses.Roles[observation.Role]
+		if observation.Role == "FeesRouter" {
+			if observation.CalledAt != expected && observation.CalledAt != protocol.ActiveAddresses.Precompile {
+				t.Fatalf("invalid FeesRouter called-at surface %s", observation.CalledAt)
+			}
+			if observation.Log.Address == protocol.ActiveAddresses.Precompile {
+				t.Fatalf("FeesRouter.%s role log emitted at the precompile", observation.Name)
+			}
+			if observation.Name != "RoleGranted" && observation.Name != "RoleRevoked" {
+				seenFeesCalls[observation.CalledAt] = true
+			}
+		}
 		if observation.Name != "RoleGranted" && observation.Name != "RoleRevoked" {
 			switch observation.Role {
 			case "ProtocolConfig":
 				expected = protocol.ActiveAddresses.Precompile
-			case "Router", "FeesRouter":
+			case "Router":
 				if observation.CalledAt != expected && observation.CalledAt != protocol.ActiveAddresses.Precompile {
 					t.Fatalf("invalid called-at surface %s", observation.CalledAt)
 				}
@@ -701,12 +1005,18 @@ func TestRepairM_948_NativeExecutorTransport(t *testing.T) {
 			t.Fatalf("no executor emission for role %s", name)
 		}
 	}
-	for _, name := range []string{"Router", "FeesRouter"} {
-		for _, address := range []common.Address{protocol.ActiveAddresses.Precompile, protocol.ActiveAddresses.Roles[name]} {
-			if !seenOrigins[name][address] {
-				t.Fatalf("missing %s runtime origin %s", name, address)
-			}
+	for _, address := range []common.Address{protocol.ActiveAddresses.Precompile, protocol.ActiveAddresses.Roles["Router"]} {
+		if !seenOrigins["Router"][address] {
+			t.Fatalf("missing Router helper schema origin %s", address)
 		}
+	}
+	for _, address := range []common.Address{protocol.ActiveAddresses.Precompile, protocol.ActiveAddresses.Roles["FeesRouter"]} {
+		if !seenFeesCalls[address] {
+			t.Fatalf("missing FeesRouter call entry point %s", address)
+		}
+	}
+	if len(seenOrigins["FeesRouter"]) != 1 || !seenOrigins["FeesRouter"][protocol.ActiveAddresses.Roles["FeesRouter"]] {
+		t.Fatalf("invalid FeesRouter runtime origins: %v", seenOrigins["FeesRouter"])
 	}
 	refused := map[string]bool{}
 	for _, refusal := range transcript.Refusals {
@@ -717,61 +1027,11 @@ func TestRepairM_948_NativeExecutorTransport(t *testing.T) {
 	}
 	for name := range roles {
 		if !refused[name] {
-			t.Fatalf("missing %s Initialized runtime refusal", name)
+			t.Fatalf("missing %s Initialized helper guard refusal", name)
 		}
 	}
 	if observed, ok := protocol.LookupEvent(common.HexToHash("0xdeadbeef")); ok || observed != nil {
 		t.Fatal("lookup accepted unknown native topic")
-	}
-}
-
-func repairM948ParseExecution(t *testing.T, consumer any, event abi.Event, observation repairM948Execution) {
-	t.Helper()
-	if len(observation.Log.Topics) == 0 || observation.Log.Topics[0] != event.ID {
-		t.Fatalf("%s executor topic differs from canonical event", observation.Name)
-	}
-	parser := reflect.ValueOf(consumer).MethodByName("Parse" + event.Name)
-	if !parser.IsValid() {
-		t.Fatalf("missing generated parser %s", event.Name)
-	}
-	results := parser.Call([]reflect.Value{reflect.ValueOf(observation.Log)})
-	if !results[1].IsNil() {
-		t.Fatal(results[1].Interface())
-	}
-	decoded := results[0].Elem()
-	if len(observation.Args) != len(event.Inputs) {
-		t.Fatalf("%s expected field inventory differs", event.Name)
-	}
-	for _, argument := range event.Inputs {
-		field := decoded.FieldByName(abi.ToCamelCase(argument.Name))
-		want, ok := observation.Args[argument.Name]
-		if !field.IsValid() || !ok {
-			t.Fatalf("missing decoded field %s.%s", event.Name, argument.Name)
-		}
-		raw, err := json.Marshal(repair37Humanize(field.Interface()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var got any
-		if err := json.Unmarshal(raw, &got); err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("%s.%s = %#v, want %#v", event.Name, argument.Name, got, want)
-		}
-	}
-	malformed := observation.Log
-	malformed.Data = malformed.Data[:min(31, len(malformed.Data))]
-	results = parser.Call([]reflect.Value{reflect.ValueOf(malformed)})
-	if len(event.Inputs.NonIndexed()) > 0 && results[1].IsNil() {
-		t.Fatalf("%s accepted malformed executor data", event.Name)
-	}
-	unknown := observation.Log
-	unknown.Topics = append([]common.Hash(nil), observation.Log.Topics...)
-	unknown.Topics[0] = common.HexToHash("0xdeadbeef")
-	results = parser.Call([]reflect.Value{reflect.ValueOf(unknown)})
-	if results[1].IsNil() {
-		t.Fatalf("%s accepted an unknown topic", event.Name)
 	}
 }
 
@@ -802,9 +1062,25 @@ func newRepairM948Replay(t *testing.T) *repairM948Replay {
 	} else if strings.Contains(t.Name(), "NativeExecutorNode") {
 		name = "native-node-rpc.json"
 	}
-	raw, err := os.ReadFile(filepath.Join("testdata", "repair_m948", name))
+	path := name
+	if name == "native-node-rpc.json" {
+		path = "native-execution.json"
+	}
+	raw, err := os.ReadFile(filepath.Join("testdata", "repair_m948", path))
 	if err != nil {
 		t.Fatalf("recorded retained-contract execution unavailable: %v; see repair_m948.kvx wiring.retained_transcripts", err)
+	}
+	if name == "native-node-rpc.json" {
+		var execution repairM948Transcript
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&execution); err != nil {
+			t.Fatal(err)
+		}
+		if len(execution.NodeRPC) == 0 {
+			t.Fatal("missing native node execution recording")
+		}
+		raw = execution.NodeRPC
 	}
 	var transcript struct {
 		Revision       string
@@ -831,7 +1107,18 @@ func newRepairM948Replay(t *testing.T) *repairM948Replay {
 		}
 	}
 	if name == "native-node-rpc.json" {
-		for _, path := range []string{"precompiles/launchpad/events.go", "precompiles/launchpad/router.go", "precompiles/launchpad/fees.go", "precompiles/launchpad/nft.go", "precompiles/launchpad/run.go", "modules/launchpad/keeper/keeper.go", "node/testdata/v6120-halt-export.json"} {
+		revision, err := os.ReadFile("testdata/repair_m948/producer-revision.txt")
+		if err != nil || transcript.Revision != strings.TrimSpace(string(revision)) {
+			t.Fatalf("native producer provenance differs: %s, %v", transcript.Revision, err)
+		}
+		for _, role := range []string{"FeeAccumulator", "PoolRegistry", "FeesRouter", "ProtocolConfig", "Quoter", "Router", "SidioraFactory", "SidioraNFT"} {
+			path := "precompiles/launchpad/abi/" + role + ".json"
+			raw, err := os.ReadFile(filepath.Join(repair37Root(t), path))
+			if err != nil || transcript.SourceHashes[path] != fmt.Sprintf("%x", sha256.Sum256(raw)) {
+				t.Fatalf("native node ABI provenance differs for %s: %v", role, err)
+			}
+		}
+		for _, path := range []string{"precompiles/launchpad/events.go", "precompiles/launchpad/router.go", "precompiles/launchpad/fees.go", "precompiles/launchpad/nft.go", "precompiles/launchpad/views.go", "precompiles/launchpad/abi.go", "precompiles/launchpad/abi.json", "precompiles/launchpad/run.go", "precompiles/launchpad/errors.go", "modules/launchpad/types/errors.go", "modules/launchpad/keeper/roles.go", "modules/launchpad/keeper/keeper.go", "node/testdata/v6120-halt-export.json"} {
 			raw, err := os.ReadFile(filepath.Join(repair37Root(t), path))
 			if err != nil {
 				t.Fatal(err)

@@ -103,6 +103,16 @@ type Account struct {
 	Side    string `json:"side"`
 	Account string `json:"account"`
 }
+type Stability struct {
+	Level             string  `json:"level"`
+	Source            string  `json:"source"`
+	FinalizedBoundary *string `json:"finalized_boundary"`
+}
+type Settlement struct {
+	Level  string  `json:"level"`
+	Source *string `json:"source"`
+	Reason string  `json:"reason"`
+}
 type Row struct {
 	ID            string      `json:"id"`
 	Height        string      `json:"height_or_seq"`
@@ -114,8 +124,12 @@ type Row struct {
 	Asset         string      `json:"asset"`
 	Amount        string      `json:"amount"`
 	TxID          string      `json:"tx_id"`
+	TxHash        string      `json:"tx_hash"`
 	Ordinal       string      `json:"ordinal"`
 	Final         bool        `json:"final"`
+	FinalBasis    string      `json:"final_basis"`
+	Stability     Stability   `json:"stability"`
+	Settlement    Settlement  `json:"settlement"`
 	Decoded       interface{} `json:"decoded"`
 	AssetMetadata interface{} `json:"asset_metadata"`
 	Side          string      `json:"side,omitempty"`
@@ -149,6 +163,18 @@ func decimal(row map[string]interface{}, key string, bits int) (uint64, bool) {
 	parsed, err := strconv.ParseUint(value, 10, bits)
 	return parsed, err == nil
 }
+
+// historyID accepts the two ID namespaces emitted by the indexer without
+// changing the externally visible ID or admitting noncanonical decimals.
+func historyID(value string) (uint64, bool, bool) {
+	number, imported := strings.CutPrefix(value, "explorer:")
+	if !decimalPattern.MatchString(number) || number == "0" {
+		return 0, imported, false
+	}
+	id, err := strconv.ParseUint(number, 10, 64)
+	return id, imported, err == nil
+}
+
 func rowFrom(document map[string]interface{}, account Account, q Query) (Row, error) {
 	for _, field := range []string{"id", "height_or_seq", "chain", "kind", "direction", "account", "asset", "amount", "tx_id", "ordinal", "tx_index", "log_index"} {
 		if _, ok := text(document, field); !ok {
@@ -161,10 +187,17 @@ func rowFrom(document map[string]interface{}, account Account, q Query) (Row, er
 		}
 	}
 	encoded, _ := json.Marshal(document)
-	var row Row
+	row := Row{
+		FinalBasis: "block_commit",
+		Settlement: Settlement{Level: "unverified", Reason: "no_verified_checkpoint_evidence"},
+	}
 	decoder := json.NewDecoder(strings.NewReader(string(encoded)))
 	decoder.UseNumber()
 	if decoder.Decode(&row) != nil {
+		return Row{}, Invalid()
+	}
+	row.TxHash = row.TxID
+	if row.FinalBasis != "block_commit" && row.FinalBasis != "explorer_api" {
 		return Row{}, Invalid()
 	}
 	// Decode opaque payloads with UseNumber instead of passing through float64.
@@ -173,7 +206,7 @@ func rowFrom(document map[string]interface{}, account Account, q Query) (Row, er
 	tx, tOK := decimal(document, "tx_index", 32)
 	log, lOK := decimal(document, "log_index", 32)
 	ordinal, oOK := decimal(document, "ordinal", 64)
-	_, idOK := decimal(document, "id", 64)
+	_, _, idOK := historyID(row.ID)
 	_, finalOK := document["final"].(bool)
 	counterpartyOK := document["counterparty"] == nil
 	if _, ok := document["counterparty"].(string); ok {
@@ -183,7 +216,29 @@ func rowFrom(document map[string]interface{}, account Account, q Query) (Row, er
 	if ordinal > 0 {
 		expectedLog = ordinal - 1
 	}
-	if !hOK || !tOK || !lOK || !oOK || !idOK || row.ID == "0" || !finalOK || !counterpartyOK || expectedLog != log || !decimalPattern.MatchString(row.Amount) || !ValidKind(row.Kind) || (row.Chain != "paxeer" && row.Chain != "layerx") || (row.Direction != "in" && row.Direction != "out") || row.Account != account.Account || row.Asset == "" || row.TxID == "" || (q.Kind != nil && row.Kind != *q.Kind) {
+	if !hOK || !tOK || !lOK || !oOK || !idOK || !finalOK || !counterpartyOK || expectedLog != log || !decimalPattern.MatchString(row.Amount) || !ValidKind(row.Kind) || (row.Chain != "paxeer" && row.Chain != "layerx") || (row.Direction != "in" && row.Direction != "out") || row.Account != account.Account || row.Asset == "" || row.TxID == "" || (q.Kind != nil && row.Kind != *q.Kind) {
+		return Row{}, Invalid()
+	}
+	row.Stability.Source = row.FinalBasis
+	if row.FinalBasis == "explorer_api" {
+		row.Stability.Level = "explorer_recorded"
+		row.Stability.FinalizedBoundary = nil
+	} else {
+		row.Stability.Level = "reversible"
+		if row.Final {
+			row.Stability.Level = "depth_stable"
+		}
+		if boundary := row.Stability.FinalizedBoundary; boundary != nil {
+			if !decimalPattern.MatchString(*boundary) {
+				return Row{}, Invalid()
+			}
+			value, err := strconv.ParseUint(*boundary, 10, 63)
+			if err != nil || row.Final != (height <= value) {
+				return Row{}, Invalid()
+			}
+		}
+	}
+	if row.Settlement.Level != "unverified" || row.Settlement.Source != nil || row.Settlement.Reason != "no_verified_checkpoint_evidence" {
 		return Row{}, Invalid()
 	}
 	row.BlockHeight = height
@@ -316,8 +371,11 @@ func Merge(pages []Page, accounts []Account, limit int, tagged bool) (Page, erro
 		if ao != bo {
 			return ao < bo
 		}
-		ai, _ := strconv.ParseUint(a.ID, 10, 64)
-		bi, _ := strconv.ParseUint(b.ID, 10, 64)
+		ai, aImported, _ := historyID(a.ID)
+		bi, bImported, _ := historyID(b.ID)
+		if aImported != bImported {
+			return !aImported
+		}
 		return ai < bi
 	})
 	if len(result.Items) > limit {

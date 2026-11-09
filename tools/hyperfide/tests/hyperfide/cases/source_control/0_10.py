@@ -246,7 +246,16 @@ def require_layout_receipt(root=ROOT):
             raise ValueError('Passing layout and case qualification required')
         if receipt['bindings']['mapping_sha256'] != producer.digest(mapping_path) or receipt['bindings']['layout_generation'] != mapping['layout_generation']:
             raise ValueError('Layout mapping digest or generation differs')
-    except (OSError, ValueError, KeyError, TypeError) as error:
+        bindings = receipt['bindings']
+        current = producer.capture_bindings(root)
+        if producer.canonical_digest(bindings['source_snapshot']) != bindings['source_snapshot_sha256']:
+            raise ValueError('Layout source snapshot digest differs')
+        for key in ['source_snapshot', 'source_snapshot_sha256', 'source_prefix', 'source_tree_id']:
+            if bindings[key] != current[key]:
+                raise ValueError('Layout source binding differs: ' + key)
+        if producer.check_final_revision_clean(current, root)['status'] != 'PASS':
+            raise ValueError('Layout relevant tracked source is dirty')
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         raise ValueError('LAYOUT_RECEIPT_REQUIRED: ' + str(error)) from error
     return receipt
 

@@ -386,7 +386,7 @@ fn identifier(value: &str) -> Option<[u8; 32]> {
 }
 
 fn lower_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+    crate::hex(bytes)
 }
 
 /// Encodes the native owner answer from a verified EIP-1559 preparation.
@@ -459,146 +459,21 @@ where
     use crate::boundary::BoundaryRefusal;
     use layerx_agentd::tenant::Operation;
     use serde_json::json;
-    let refuse = || BoundaryRefusal::Malformed("mcp.native_write_binding".into());
-    if arguments.get("variant").and_then(serde_json::Value::as_str) != Some("native_write_v1") {
-        return Err(BoundaryRefusal::NotServed("native_write_v1"));
-    }
-    let intent = arguments.get("intent").ok_or_else(refuse)?;
-    let preparation = arguments.get("preparation").ok_or_else(refuse)?;
-    if intent
-        .get("idempotency_key")
-        .and_then(serde_json::Value::as_str)
-        .and_then(identifier)
-        != Some(key)
-    {
-        return Err(refuse());
-    }
-    let expected_id = preparation_id(arguments).ok_or_else(refuse)?;
-    let canonical_text = arguments
-        .get("canonical_bytes")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(refuse)?;
-    if canonical_text.is_empty()
-        || canonical_text.len() % 2 != 0
-        || !canonical_text
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-    {
-        return Err(refuse());
-    }
-    let canonical = (0..canonical_text.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&canonical_text[i..i + 2], 16).map_err(|_| refuse()))
-        .collect::<Result<Vec<_>, _>>()?;
-    let call = layerx_crypto::evm_transaction::decode_unsigned(&canonical).map_err(|_| refuse())?;
-    let signer = arguments
-        .get("signer_address")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(refuse)?;
-    let sender_text = signer.strip_prefix("0x").unwrap_or(signer);
-    if sender_text.len() != 40
-        || !sender_text
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-    {
-        return Err(refuse());
-    }
-    let mut sender = [0; 20];
-    for (index, byte) in sender.iter_mut().enumerate() {
-        *byte =
-            u8::from_str_radix(&sender_text[index * 2..index * 2 + 2], 16).map_err(|_| refuse())?;
-    }
-    let signature = arguments.get("signature").ok_or_else(refuse)?;
-    let signature_text = signature.as_str().ok_or_else(refuse)?;
-    let signature_text = signature_text.strip_prefix("0x").unwrap_or(signature_text);
-    if signature_text.len() != 130
-        || !signature_text
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-    {
-        return Err(refuse());
-    }
-    let signature_bytes = (0..signature_text.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&signature_text[i..i + 2], 16).map_err(|_| refuse()))
-        .collect::<Result<Vec<_>, _>>()?;
-    let authenticated_signature = layerx_crypto::signer::AgentSignature::new(
-        signature_bytes.try_into().map_err(|_| refuse())?,
-    )
-    .map_err(|_| refuse())?;
-    if layerx_crypto::evm_transaction::recover_sender(&call, &authenticated_signature)
-        .map_err(|_| refuse())?
-        != sender
-    {
-        return Err(refuse());
-    }
-    let preview =
-        layerx_crypto::disclosure::call::bind_call(&call, sender).map_err(|_| refuse())?;
     use sha2::{Digest, Sha256};
-    let signed = preparation.get("purpose").ok_or_else(refuse)?;
-    let purpose = signed.get("purpose").ok_or_else(refuse)?;
-    let same_decimal = |field: &str, n: u128| {
-        preparation.get(field).and_then(serde_json::Value::as_str) == Some(n.to_string().as_str())
-    };
-    let supplied_activity = preparation.get("activity").ok_or_else(refuse)?;
-    if <[u8; 32]>::from(Sha256::digest(&canonical)) != expected_id
-        || purpose
-            .get("canonical_digest")
-            .and_then(serde_json::Value::as_str)
-            .and_then(identifier)
-            != Some(expected_id)
-        || supplied_activity
-            .get("module")
-            .and_then(serde_json::Value::as_str)
-            .and_then(|s| s.parse::<u16>().ok())
-            != Some(preview.activity_type.module() as u16)
-        || supplied_activity
-            .get("ordinal")
-            .and_then(serde_json::Value::as_str)
-            .and_then(|s| s.parse::<u16>().ok())
-            != Some(preview.activity_type.ordinal())
-        || preparation
-            .get("actor")
-            .and_then(serde_json::Value::as_str)
-            .filter(|actor| !actor.is_empty())
-            != purpose.get("agent_did").and_then(serde_json::Value::as_str)
-        || purpose
-            .get("agent_did")
-            .and_then(serde_json::Value::as_str)
-            .is_none()
-        || preparation
-            .get("authority")
-            .and_then(serde_json::Value::as_str)
-            .map(|text| text.strip_prefix("0x").unwrap_or(text))
-            != Some(lower_hex(&preview.authority).as_str())
-        || !same_decimal("account_sequence", u128::from(preview.envelope_sequence()))
-        || !same_decimal("fee_limit", preview.fee_limit)
-        || !same_decimal("not_before", u128::from(preview.expiry.not_before))
-        || !same_decimal("not_after", u128::from(preview.expiry.not_after))
-        || preparation
-            .get("payload")
-            .and_then(serde_json::Value::as_str)
-            != Some(lower_hex(preview.canonical_payload()).as_str())
-        || preparation
-            .get("payload_hash")
-            .and_then(serde_json::Value::as_str)
-            .and_then(identifier)
-            != Some(
-                Sha256::new()
-                    .chain_update(b"LXP/v1/payload-hash\0")
-                    .chain_update(preview.canonical_payload())
-                    .finalize()
-                    .into(),
-            )
-        || preparation
-            .get("idempotency_key")
-            .and_then(serde_json::Value::as_str)
-            .and_then(identifier)
-            != Some(key)
-        || preview.idempotency_key != key
-    {
-        return Err(refuse());
-    }
+    let binding = NativeAliasBinding::from_arguments(arguments, key)?;
+    binding.validate_preparation(key)?;
+    let NativeAliasBinding {
+        intent,
+        preparation,
+        signature,
+        signer,
+        expected_id,
+        canonical,
+        call,
+        sender,
+        preview,
+    } = binding;
+    let refuse = || BoundaryRefusal::Malformed("mcp.native_write_binding".into());
     verify_native_intent(name, intent, &preview)?;
     let prepared_value = owner(Operation::Prepare, preparation)?;
     let prepared = layerx_sdk::agent_envelope::decode_native_preparation(&prepared_value)
@@ -665,6 +540,190 @@ where
         .and_then(serde_json::Value::as_str)
         .ok_or_else(|| BoundaryRefusal::Unavailable("mcp.native_submit_observation".into()))?;
     owner(Operation::Track, &json!({"submission_ref":submission}))
+}
+
+struct NativeAliasBinding<'a> {
+    intent: &'a serde_json::Value,
+    preparation: &'a serde_json::Value,
+    signature: &'a serde_json::Value,
+    signer: &'a str,
+    expected_id: [u8; 32],
+    canonical: Vec<u8>,
+    call: layerx_crypto::evm_transaction::Eip1559Call,
+    sender: [u8; 20],
+    preview: layerx_crypto::disclosure::Disclosure,
+}
+
+impl<'a> NativeAliasBinding<'a> {
+    fn from_arguments(
+        arguments: &'a serde_json::Value,
+        key: [u8; 32],
+    ) -> Result<Self, crate::boundary::BoundaryRefusal> {
+        use crate::boundary::BoundaryRefusal;
+        let refuse = || BoundaryRefusal::Malformed("mcp.native_write_binding".into());
+        if arguments.get("variant").and_then(serde_json::Value::as_str) != Some("native_write_v1") {
+            return Err(BoundaryRefusal::NotServed("native_write_v1"));
+        }
+        let intent = arguments.get("intent").ok_or_else(refuse)?;
+        let preparation = arguments.get("preparation").ok_or_else(refuse)?;
+        if intent
+            .get("idempotency_key")
+            .and_then(serde_json::Value::as_str)
+            .and_then(identifier)
+            != Some(key)
+        {
+            return Err(refuse());
+        }
+        let expected_id = preparation_id(arguments).ok_or_else(refuse)?;
+        let canonical_text = arguments
+            .get("canonical_bytes")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(refuse)?;
+        if canonical_text.is_empty()
+            || canonical_text.len() % 2 != 0
+            || !canonical_text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(refuse());
+        }
+        let canonical = (0..canonical_text.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&canonical_text[i..i + 2], 16).map_err(|_| refuse()))
+            .collect::<Result<Vec<_>, _>>()?;
+        let call =
+            layerx_crypto::evm_transaction::decode_unsigned(&canonical).map_err(|_| refuse())?;
+        let signer = arguments
+            .get("signer_address")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(refuse)?;
+        let sender_text = signer.strip_prefix("0x").unwrap_or(signer);
+        if sender_text.len() != 40
+            || !sender_text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(refuse());
+        }
+        let mut sender = [0; 20];
+        for (index, byte) in sender.iter_mut().enumerate() {
+            *byte = u8::from_str_radix(&sender_text[index * 2..index * 2 + 2], 16)
+                .map_err(|_| refuse())?;
+        }
+        let signature = arguments.get("signature").ok_or_else(refuse)?;
+        let signature_text = signature.as_str().ok_or_else(refuse)?;
+        let signature_text = signature_text.strip_prefix("0x").unwrap_or(signature_text);
+        if signature_text.len() != 130
+            || !signature_text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(refuse());
+        }
+        let signature_bytes = (0..signature_text.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&signature_text[i..i + 2], 16).map_err(|_| refuse()))
+            .collect::<Result<Vec<_>, _>>()?;
+        let authenticated_signature = layerx_crypto::signer::AgentSignature::new(
+            signature_bytes.try_into().map_err(|_| refuse())?,
+        )
+        .map_err(|_| refuse())?;
+        if layerx_crypto::evm_transaction::recover_sender(&call, &authenticated_signature)
+            .map_err(|_| refuse())?
+            != sender
+        {
+            return Err(refuse());
+        }
+        let preview =
+            layerx_crypto::disclosure::call::bind_call(&call, sender).map_err(|_| refuse())?;
+        Ok(Self {
+            intent,
+            preparation,
+            signature,
+            signer,
+            expected_id,
+            canonical,
+            call,
+            sender,
+            preview,
+        })
+    }
+
+    fn validate_preparation(&self, key: [u8; 32]) -> Result<(), crate::boundary::BoundaryRefusal> {
+        use crate::boundary::BoundaryRefusal;
+        use sha2::{Digest, Sha256};
+        let refuse = || BoundaryRefusal::Malformed("mcp.native_write_binding".into());
+        let preparation = self.preparation;
+        let preview = &self.preview;
+        let expected_id = self.expected_id;
+        let canonical = &self.canonical;
+        let signed_purpose = preparation.get("purpose").ok_or_else(refuse)?;
+        let purpose = signed_purpose.get("purpose").ok_or_else(refuse)?;
+        let same_decimal = |field: &str, n: u128| {
+            preparation.get(field).and_then(serde_json::Value::as_str)
+                == Some(n.to_string().as_str())
+        };
+        let supplied_activity = preparation.get("activity").ok_or_else(refuse)?;
+        if <[u8; 32]>::from(Sha256::digest(canonical)) != expected_id
+            || purpose
+                .get("canonical_digest")
+                .and_then(serde_json::Value::as_str)
+                .and_then(identifier)
+                != Some(expected_id)
+            || supplied_activity
+                .get("module")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|s| s.parse::<u16>().ok())
+                != Some(preview.activity_type.module() as u16)
+            || supplied_activity
+                .get("ordinal")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|s| s.parse::<u16>().ok())
+                != Some(preview.activity_type.ordinal())
+            || preparation
+                .get("actor")
+                .and_then(serde_json::Value::as_str)
+                .filter(|actor| !actor.is_empty())
+                != purpose.get("agent_did").and_then(serde_json::Value::as_str)
+            || purpose
+                .get("agent_did")
+                .and_then(serde_json::Value::as_str)
+                .is_none()
+            || preparation
+                .get("authority")
+                .and_then(serde_json::Value::as_str)
+                .map(|text| text.strip_prefix("0x").unwrap_or(text))
+                != Some(lower_hex(&preview.authority).as_str())
+            || !same_decimal("account_sequence", u128::from(preview.envelope_sequence()))
+            || !same_decimal("fee_limit", preview.fee_limit)
+            || !same_decimal("not_before", u128::from(preview.expiry.not_before))
+            || !same_decimal("not_after", u128::from(preview.expiry.not_after))
+            || preparation
+                .get("payload")
+                .and_then(serde_json::Value::as_str)
+                != Some(lower_hex(preview.canonical_payload()).as_str())
+            || preparation
+                .get("payload_hash")
+                .and_then(serde_json::Value::as_str)
+                .and_then(identifier)
+                != Some(
+                    Sha256::new()
+                        .chain_update(b"LXP/v1/payload-hash\0")
+                        .chain_update(preview.canonical_payload())
+                        .finalize()
+                        .into(),
+                )
+            || preparation
+                .get("idempotency_key")
+                .and_then(serde_json::Value::as_str)
+                .and_then(identifier)
+                != Some(key)
+            || preview.idempotency_key != key
+        {
+            return Err(refuse());
+        }
+        Ok(())
+    }
 }
 
 fn verify_native_intent(
@@ -751,44 +810,58 @@ mod native_disclosure_tests {
             include_str!("../../../layerx-crypto/tests/fixtures/payments/native-1-5.hex").trim();
         let payload = (0..payload.len())
             .step_by(2)
-            .map(|i| u8::from_str_radix(&payload[i..i + 2], 16).unwrap())
+            .map(|i| {
+                crate::result_assertion::required(
+                    u8::from_str_radix(&payload[i..i + 2], 16),
+                    "required success",
+                )
+            })
             .collect();
-        let key = k256::ecdsa::SigningKey::from_slice(&[3; 32]).unwrap();
-        let from = layerx_crypto::secp256k1::evm_address(
-            key.verifying_key().to_encoded_point(false).as_bytes(),
+        let key = crate::result_assertion::required(
+            k256::ecdsa::SigningKey::from_slice(&[3; 32]),
+            "required success",
+        );
+        let from = crate::result_assertion::required(
+            layerx_crypto::secp256k1::evm_address(
+                key.verifying_key().to_encoded_point(false).as_bytes(),
+            ),
+            "required success",
+        );
+        crate::result_assertion::required(
+            evm::prepare_bound(
+                evm::EvmPreparationState {
+                    chain_id: 125,
+                    pending_nonce: 7,
+                    base_fee_per_gas: 1,
+                    head_height: 50,
+                },
+                evm::PreparationDefaults {
+                    max_priority_fee_per_gas: 1,
+                    max_fee_per_gas: 5,
+                    maximum_payload_bytes: 65_536,
+                },
+                evm::PrepareRequest {
+                    from,
+                    call: evm::PrecompileCall::ledger_transfer(payload),
+                    expected_nonce: Some(7),
+                    max_priority_fee_per_gas: None,
+                    max_fee_per_gas: None,
+                    declared_payload_limit: 65_536,
+                },
+                100_000,
+            ),
+            "daemon Ledger call producer",
         )
-        .unwrap();
-        evm::prepare_bound(
-            evm::EvmPreparationState {
-                chain_id: 125,
-                pending_nonce: 7,
-                base_fee_per_gas: 1,
-                head_height: 50,
-            },
-            evm::PreparationDefaults {
-                max_priority_fee_per_gas: 1,
-                max_fee_per_gas: 5,
-                maximum_payload_bytes: 65536,
-            },
-            evm::PrepareRequest {
-                from,
-                call: evm::PrecompileCall::ledger_transfer(payload),
-                expected_nonce: Some(7),
-                max_priority_fee_per_gas: None,
-                max_fee_per_gas: None,
-                declared_payload_limit: 65536,
-            },
-            100_000,
-        )
-        .expect("daemon Ledger call producer")
     }
 
     fn arguments(prepared: &evm::Prepared) -> Value {
         let d = &prepared.disclosure;
         let canonical = prepared.call.encode_unsigned();
         let id: [u8; 32] = Sha256::digest(&canonical).into();
-        let raw = prepared.call.sign(&[3; 32]).unwrap();
-        let (_, signature) = decode_signed(&raw).unwrap();
+        let raw =
+            crate::result_assertion::required(prepared.call.sign(&[3; 32]), "required success");
+        let (_, signature) =
+            crate::result_assertion::required(decode_signed(&raw), "required success");
         let payload_hash: [u8; 32] = Sha256::new()
             .chain_update(b"LXP/v1/payload-hash\0")
             .chain_update(d.canonical_payload())
@@ -816,12 +889,15 @@ mod native_disclosure_tests {
     fn consume(
         prepared: &evm::Prepared,
         arguments: &Value,
-        changed: Option<(&str, Value)>,
+        changed: Option<&(&str, Value)>,
     ) -> Result<Value, crate::boundary::BoundaryRefusal> {
         execute_native_alias(
             "wallet.send",
             arguments,
-            &layerx_types::payload::ModuleRegistry::new(&[]).unwrap(),
+            &crate::result_assertion::required(
+                layerx_types::payload::ModuleRegistry::new(&[]),
+                "required success",
+            ),
             prepared.disclosure.idempotency_key,
             |operation, request| {
                 assert_eq!(
@@ -835,8 +911,8 @@ mod native_disclosure_tests {
                         lower_hex(&prepared.call.encode_unsigned())
                     );
                     let mut value = native_call_disclosure_answer(prepared)?;
-                    if let Some((field, replacement)) = &changed {
-                        value[*field] = replacement.clone();
+                    if let Some((field, replacement)) = changed {
+                        value[*field].clone_from(replacement);
                     }
                     value
                 } else {
@@ -846,13 +922,18 @@ mod native_disclosure_tests {
                     layerx_agent_api::error::RequestId(1),
                     value.take(),
                 );
-                let wire = serde_json::from_slice(&response.body).unwrap();
-                Ok(
-                    layerx_sdk::agent_envelope::decode_response(response.status, &wire)
-                        .expect("SDK response codec")
-                        .expect("daemon response")
-                        .value,
+                let wire = crate::result_assertion::required(
+                    serde_json::from_slice(&response.body),
+                    "required success",
+                );
+                Ok(crate::result_assertion::required(
+                    crate::option_assertion::required(
+                        layerx_sdk::agent_envelope::decode_response(response.status, &wire),
+                        "SDK response codec",
+                    ),
+                    "daemon response",
                 )
+                .value)
             },
         )
     }
@@ -861,16 +942,27 @@ mod native_disclosure_tests {
     fn native_disclosure_binds_served_ledger_call_and_signer() {
         let prepared = served_call();
         assert_eq!(&prepared.call.data[..4], &[0x2b, 0xb1, 0xae, 0x7c]);
-        let answer = native_call_disclosure_answer(&prepared).unwrap();
-        let decoded = layerx_sdk::agent_envelope::decode_native_disclosure(&answer).unwrap();
+        let answer = crate::result_assertion::required(
+            native_call_disclosure_answer(&prepared),
+            "required success",
+        );
+        let decoded = crate::option_assertion::required(
+            layerx_sdk::agent_envelope::decode_native_disclosure(&answer),
+            "required success",
+        );
         assert_eq!(decoded.disclosure_digest, prepared.call.signing_hash());
         let request = layerx_agent_api::identity::NativeDisclosureRequestV1 {
             canonical_bytes: prepared.call.encode_unsigned(),
         };
-        layerx_sdk::agent_envelope::validate_call_disclosure(&request, &decoded, prepared.from)
-            .expect("SDK and MCP bind the same served call");
+        crate::result_assertion::required(
+            layerx_sdk::agent_envelope::validate_call_disclosure(&request, &decoded, prepared.from),
+            "SDK and MCP bind the same served call",
+        );
         let args = arguments(&prepared);
-        let result = consume(&prepared, &args, None).expect("served Ledger transfer accepted");
+        let result = crate::result_assertion::required(
+            consume(&prepared, &args, None),
+            "served Ledger transfer accepted",
+        );
         assert_eq!(result["approval_required"], true);
         let mut wrong_signer = args.clone();
         wrong_signer["signer_address"] = json!(lower_hex(&[0x22; 20]));
@@ -884,7 +976,10 @@ mod native_disclosure_tests {
     fn native_disclosure_rejects_every_changed_answer_field() {
         let prepared = served_call();
         let args = arguments(&prepared);
-        let answer = native_call_disclosure_answer(&prepared).unwrap();
+        let answer = crate::result_assertion::required(
+            native_call_disclosure_answer(&prepared),
+            "required success",
+        );
         for field in [
             "preparation_id",
             "canonical_bytes",
@@ -899,28 +994,33 @@ mod native_disclosure_tests {
             "payload_expires_at",
             "idempotency_key",
         ] {
-            let text = answer[field].as_str().unwrap();
+            let text =
+                crate::option_assertion::required(answer[field].as_str(), "required success");
             let replacement = if matches!(
                 field,
                 "activity_type" | "fee_limit" | "not_before" | "not_after" | "payload_expires_at"
             ) {
-                (text.parse::<u128>().unwrap() ^ 1).to_string()
+                (crate::result_assertion::required(text.parse::<u128>(), "required success") ^ 1)
+                    .to_string()
             } else {
                 let mut bytes = text.as_bytes().to_vec();
                 bytes[0] = if bytes[0] == b'0' { b'1' } else { b'0' };
-                String::from_utf8(bytes).unwrap()
+                crate::result_assertion::required(String::from_utf8(bytes), "required success")
             };
             assert!(
-                consume(&prepared, &args, Some((field, json!(replacement)))).is_err(),
+                consume(&prepared, &args, Some(&(field, json!(replacement)))).is_err(),
                 "{field}"
             );
         }
-        let audit = prepared.disclosure.audit_digest().unwrap();
+        let audit = crate::result_assertion::required(
+            prepared.disclosure.audit_digest(),
+            "required success",
+        );
         assert_ne!(audit, prepared.signing_hash);
         assert!(consume(
             &prepared,
             &args,
-            Some(("disclosure_digest", json!(lower_hex(&audit))))
+            Some(&("disclosure_digest", json!(lower_hex(&audit))))
         )
         .is_err());
     }

@@ -3,6 +3,7 @@ package evmrpc
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"math"
 	"strconv"
@@ -10,15 +11,18 @@ import (
 	"time"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type pxKernelAPI struct {
-	tmClient       client.LocalClient
-	chainID        string
-	connectionType ConnectionType
+	tmClient         client.LocalClient
+	txConfigProvider func(int64) client.TxConfig
+	chainID          string
+	connectionType   ConnectionType
 }
 
 type pxCommitResult struct {
@@ -46,9 +50,10 @@ type pxBatchProof struct {
 }
 
 type pxSequenceBatchResult struct {
-	Height string        `json:"height"`
-	Tx     hexutil.Bytes `json:"tx"`
-	Proof  pxBatchProof  `json:"proof"`
+	Height      string          `json:"height"`
+	Tx          hexutil.Bytes   `json:"tx"`
+	Proof       pxBatchProof    `json:"proof"`
+	ActivityIDs []hexutil.Bytes `json:"activityIds"`
 }
 
 func pxChainUnavailable(code string) error {
@@ -155,6 +160,19 @@ func (a *pxKernelAPI) GetSequenceBatch(ctx context.Context, value string) (resul
 	if err != nil || batch.Height != uint64(height) {
 		return nil, pxChainUnavailable("invalid_consensus_response")
 	}
+	if a.txConfigProvider == nil {
+		return nil, pxChainUnavailable("invalid_consensus_response")
+	}
+	decode := a.txConfigProvider(height).TxDecoder()
+	ids := make([][32]byte, len(block.Txs)-1)
+	activityIDs := make([]hexutil.Bytes, len(ids))
+	for i, tx := range block.Txs[1:] {
+		ids[i] = pxBatchActivityID(tx, decode)
+		activityIDs[i] = append(hexutil.Bytes(nil), ids[i][:]...)
+	}
+	if seqtypes.VerifyBatchTxs(batch, ids) != nil {
+		return nil, pxChainUnavailable("invalid_consensus_response")
+	}
 	proof := block.Txs.Proof(0)
 	if proof.Validate(block.DataHash) != nil {
 		return nil, pxChainUnavailable("invalid_consensus_response")
@@ -163,5 +181,29 @@ func (a *pxKernelAPI) GetSequenceBatch(ctx context.Context, value string) (resul
 	for i, aunt := range proof.Proof.Aunts {
 		aunts[i] = aunt
 	}
-	return &pxSequenceBatchResult{Height: strconv.FormatInt(height, 10), Tx: hexutil.Bytes(block.Txs[0]), Proof: pxBatchProof{Total: proof.Proof.Total, Index: proof.Proof.Index, LeafHash: proof.Proof.LeafHash, Aunts: aunts}}, nil
+	return &pxSequenceBatchResult{Height: strconv.FormatInt(height, 10), Tx: hexutil.Bytes(block.Txs[0]), ActivityIDs: activityIDs, Proof: pxBatchProof{Total: proof.Proof.Total, Index: proof.Proof.Index, LeafHash: proof.Proof.LeafHash, Aunts: aunts}}, nil
+}
+
+func pxBatchActivityID(raw []byte, decode sdk.TxDecoder) (id [32]byte) {
+	id = sha256.Sum256(raw)
+	defer func() {
+		if recover() != nil {
+			id = sha256.Sum256(raw)
+		}
+	}()
+	tx, err := decode(raw)
+	if err != nil || tx == nil {
+		return id
+	}
+	msg := evmtypes.GetEVMTransactionMessage(tx)
+	if msg == nil || msg.IsAssociateTx() {
+		return id
+	}
+	if _, err := evmtypes.UnpackTxData(msg.Data); err != nil {
+		return id
+	}
+	if etx, _ := msg.AsTransaction(); etx != nil {
+		id = [32]byte(etx.Hash())
+	}
+	return id
 }

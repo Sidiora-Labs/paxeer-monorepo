@@ -40,20 +40,22 @@ async function rpcRootAndHostedOrigins(context) {
     return { result };
   });
   const gateway = await loopback(context, (body, request) => {
-    assert.equal(request.url, "/rpc");
+    assert.equal(request.url, "/");
     assert.equal(request.headers.authorization, "Bearer gateway-transcript");
     assert.equal(body.method, "px_getReceiptKeys");
     assert.deepEqual(body.params, []);
     return { result: { keys: [{ ...receipt.receiptKey, firstHeight: Number(keys[0].first_height), lastHeight: Number(keys[0].last_height) }] } };
   });
   const rpc = new PaymentRpc(node.endpoint, { authorization: "Bearer node-transcript" });
-  const hosted = new HostedGatewayRpc(`${gateway.endpoint}rpc`, { authorization: "Bearer gateway-transcript" });
+  const hosted = new HostedGatewayRpc(gateway.endpoint, { authorization: "Bearer gateway-transcript" });
+  assert.throws(() => new HostedGatewayRpc(`${gateway.endpoint}rpc`), /invalid-rpc-endpoint/u);
   assert.equal(await rpc.send(receipt.rawTransaction), txHash);
   assert.equal((await verifyRpcPayment(await rpc.receipt(txHash), receipt.rawTransaction, payer, offer, keys)).kind, "verified");
   assert.equal((await hosted.call("px_getReceiptKeys", [])).keys[0].keyId, receipt.receiptKey.keyId);
   assert.notEqual(node.endpoint, gateway.endpoint);
   assert.deepEqual(node.requests.map((request) => request.url), ["/", "/"]);
   assert.deepEqual(node.requests.map((request) => request.body.id), [1, 2]);
+  assert.deepEqual(gateway.requests.map((request) => request.url), ["/"]);
   assert.deepEqual(gateway.requests.map((request) => request.body.id), [1]);
   assert.throws(() => rpc.call("px_getReceiptKeys", []), /invalid-node-method/u);
   assert.throws(() => hosted.call("eth_sendRawTransaction", []), /invalid-gateway-method/u);

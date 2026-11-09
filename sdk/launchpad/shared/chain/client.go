@@ -1047,7 +1047,7 @@ func (a *ReadAdapter) Snapshot(ctx context.Context, pin BlockPin, pool common.Ad
 
 // surfaceRuntimeHash is keccak256 of the launchpad precompile SurfaceRuntime,
 // the runtime written at every surface pool address.
-var surfaceRuntimeHash = common.HexToHash("0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f")
+var surfaceRuntimeHash = common.HexToHash("0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993")
 
 // identifyPool requires PoolRegistry membership at pin, then the pool code: a
 // surface runtime is identified by its code hash alone; a pool proxy runtime

@@ -111,7 +111,7 @@ impl Envelope {
         }
     }
 
-    /// Lays out the ProtocolReceipt v2 fields in the canonical order of
+    /// Lays out the `ProtocolReceipt` v2 fields in the canonical order of
     /// `layerx_wire::receipt::encode`.
     fn layout(&self, signature: Option<[u8; 64]>) -> Result<Vec<u8>, WireError> {
         let mut seq_hash_preimage = b"PAXEER/v1/sequence\0".to_vec();

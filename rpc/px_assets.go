@@ -9,7 +9,6 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -61,81 +60,90 @@ type pxAsset struct {
 	Verification *string `json:"verification,omitempty"`
 }
 
-func (a *pxAccountAPI) assetRecords(ctx context.Context) ([]pxAsset, error) {
+// pxAssetCursor accepts only the published, canonical signed-64-bit row ID.
+func pxAssetCursor(value string) (int64, bool) {
+	n, err := strconv.ParseInt(value, 10, 64)
+	return n, err == nil && n > 0 && strconv.FormatInt(n, 10) == value
+}
+
+func (a *pxAccountAPI) assetRecords(ctx context.Context, cursor *string) ([]pxAsset, *string, error) {
 	if a.indexer == nil {
-		return nil, pxUnavailable("indexer_not_configured")
+		return nil, nil, pxUnavailable("indexer_not_configured")
 	}
 	bounded, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 	client := &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	records := make([]pxAsset, 0, 16)
-	cursor := uint64(0)
-	for {
-		endpoint := *a.indexer.url
-		endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/v1/assets"
-		query := url.Values{"limit": {"500"}}
-		if cursor != 0 {
-			query.Set("cursor", strconv.FormatUint(cursor, 10))
-		}
-		endpoint.RawQuery = query.Encode()
-		req, err := http.NewRequestWithContext(bounded, http.MethodGet, endpoint.String(), nil)
-		if err != nil {
-			return nil, pxUnavailable("indexer_unreachable")
-		}
-		req.Header.Set("Accept", "application/json")
-		response, err := client.Do(req)
-		if err != nil {
-			return nil, pxUnavailable("indexer_unreachable")
-		}
-		body, readErr := io.ReadAll(io.LimitReader(response.Body, 4*1024*1024+1))
-		response.Body.Close()
-		contentType, _, typeErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
-		if response.StatusCode != http.StatusOK || typeErr != nil || contentType != "application/json" {
-			return nil, pxUnavailable("indexer_assets_unavailable")
-		}
-		if readErr != nil || len(body) > 4*1024*1024 {
-			return nil, pxUnavailable("invalid_indexer_response")
-		}
-		var document struct {
-			Items json.RawMessage `json:"items"`
-			Next  json.RawMessage `json:"next_cursor"`
-		}
-		if json.Unmarshal(body, &document) != nil || len(document.Items) == 0 || string(document.Items) == "null" || len(document.Next) == 0 {
-			return nil, pxUnavailable("invalid_indexer_response")
-		}
-		var rows []map[string]json.RawMessage
-		if json.Unmarshal(document.Items, &rows) != nil || len(rows) > 500 {
-			return nil, pxUnavailable("invalid_indexer_response")
-		}
-		for _, row := range rows {
-			var asset, kind string
-			var denom *string
-			if len(row["denom"]) == 0 || json.Unmarshal(row["asset"], &asset) != nil || asset == "" || json.Unmarshal(row["kind"], &kind) != nil || string(row["kind"]) == "null" || json.Unmarshal(row["denom"], &denom) != nil {
-				return nil, pxUnavailable("invalid_indexer_response")
-			}
-			records = append(records, pxAsset{AssetID: asset, Denom: denom, Kind: kind})
-		}
-		// Retain the globally smallest sixteen records while collecting every page.
-		sort.SliceStable(records, func(i, j int) bool { return records[i].AssetID < records[j].AssetID })
-		if len(records) > 16 {
-			records = records[:16]
-		}
-		if string(document.Next) == "null" {
-			break
-		}
-		var next string
-		if json.Unmarshal(document.Next, &next) != nil || next == "" {
-			return nil, pxUnavailable("invalid_indexer_response")
-		}
-		nextCursor, err := strconv.ParseUint(next, 10, 64)
-		if err != nil || nextCursor <= cursor {
-			return nil, pxUnavailable("invalid_indexer_response")
-		}
-		cursor = nextCursor
+	endpoint := *a.indexer.url
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/v1/assets"
+	query := url.Values{"limit": {"16"}}
+	if cursor != nil {
+		query.Set("cursor", *cursor)
 	}
-	return records, nil
+	endpoint.RawQuery = query.Encode()
+	req, err := http.NewRequestWithContext(bounded, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return nil, nil, pxUnavailable("indexer_unreachable")
+	}
+	req.Header.Set("Accept", "application/json")
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, nil, pxUnavailable("indexer_unreachable")
+	}
+	defer response.Body.Close()
+	body, readErr := io.ReadAll(io.LimitReader(response.Body, 4*1024*1024+1))
+	contentType, _, typeErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
+	if response.StatusCode != http.StatusOK || typeErr != nil || contentType != "application/json" {
+		return nil, nil, pxUnavailable("indexer_assets_unavailable")
+	}
+	if readErr != nil || len(body) > 4*1024*1024 {
+		return nil, nil, pxUnavailable("invalid_indexer_response")
+	}
+	var document struct {
+		Version json.RawMessage `json:"version"`
+		Items   json.RawMessage `json:"items"`
+		Next    json.RawMessage `json:"next_cursor"`
+	}
+	if json.Unmarshal(body, &document) != nil || string(document.Version) != "1" || len(document.Items) == 0 || string(document.Items) == "null" || len(document.Next) == 0 {
+		return nil, nil, pxUnavailable("invalid_indexer_response")
+	}
+	var rows []map[string]json.RawMessage
+	if json.Unmarshal(document.Items, &rows) != nil || len(rows) > 16 {
+		return nil, nil, pxUnavailable("invalid_indexer_response")
+	}
+	var next *string
+	if string(document.Next) != "null" {
+		var value string
+		if json.Unmarshal(document.Next, &value) != nil {
+			return nil, nil, pxUnavailable("invalid_indexer_response")
+		}
+		nextID, valid := pxAssetCursor(value)
+		var lower int64
+		if cursor != nil {
+			lower, _ = pxAssetCursor(*cursor)
+		}
+		if !valid || nextID <= lower || len(rows) != 16 {
+			return nil, nil, pxUnavailable("invalid_indexer_response")
+		}
+		next = &value
+	}
+	records := make([]pxAsset, 0, len(rows))
+	seen := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		var asset, kind string
+		var denom *string
+		if len(row["denom"]) == 0 || json.Unmarshal(row["asset"], &asset) != nil || asset == "" || seen[asset] || json.Unmarshal(row["kind"], &kind) != nil || kind == "" || json.Unmarshal(row["denom"], &denom) != nil {
+			return nil, nil, pxUnavailable("invalid_indexer_response")
+		}
+		seen[asset] = true
+		records = append(records, pxAsset{AssetID: asset, Denom: denom, Kind: kind})
+	}
+	return records, next, nil
 }
+
 func (a *pxAccountAPI) assetMetadata(ctx context.Context, height int64, record pxAsset) pxAsset {
+	if ctx.Err() != nil {
+		return record
+	}
 	if record.Kind == "layerx" || record.Kind == "ledger" {
 		raw, err := hex.DecodeString(strings.TrimPrefix(record.AssetID, "0x"))
 		if err != nil || len(raw) != 32 {
@@ -147,7 +155,7 @@ func (a *pxAccountAPI) assetMetadata(ctx context.Context, height int64, record p
 			return record
 		}
 		values, err := a.call(ctx, height, common.HexToAddress("0x101a"), layerxledger.GetABI(), "getAsset", id)
-		if err != nil || values[0].([32]byte) != id {
+		if err != nil || ctx.Err() != nil || values[0].([32]byte) != id {
 			return record
 		}
 		symbol, name, decimals, paused := values[1].(string), values[2].(string), values[3].(uint8), values[10].(bool)
@@ -166,34 +174,81 @@ func (a *pxAccountAPI) assetMetadata(ctx context.Context, height int64, record p
 	}
 	values := make([]interface{}, 0, 4)
 	for _, method := range []string{"name", "symbol", "decimals", "supply"} {
+		if ctx.Err() != nil {
+			return record
+		}
 		output, err := a.call(ctx, height, common.HexToAddress("0x1001"), bank.GetABI(), method, *record.Denom)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return record
 		}
 		values = append(values, output[0])
 	}
-	name, symbol, decimals, supply := values[0].(string), values[1].(string), values[2].(uint8), values[3].(*big.Int).String()
+	// The bank precompile reports base-unit decimals. Asset listings describe
+	// the display unit recorded in the same committed bank metadata.
+	metadata, found := a.state.keeper.BankKeeper().GetDenomMetaData(a.state.ctxProvider(height).WithContext(ctx), *record.Denom)
+	if !found || ctx.Err() != nil {
+		return record
+	}
+	var decimals *uint8
+	for _, unit := range metadata.DenomUnits {
+		if unit != nil && unit.Denom == metadata.Display {
+			if decimals != nil || unit.Exponent > 255 {
+				return record
+			}
+			value := uint8(unit.Exponent)
+			decimals = &value
+		}
+	}
+	if decimals == nil {
+		return record
+	}
+	name, symbol, supply := values[0].(string), values[1].(string), values[3].(*big.Int).String()
 	record.Name = &name
 	record.Symbol = &symbol
-	record.Decimals = &decimals
+	record.Decimals = decimals
 	record.Supply = &supply
 	return record
 }
-func (a *pxAccountAPI) ListAssets(ctx context.Context) (result map[string]interface{}, returnErr error) {
+func (a *pxAccountAPI) ListAssets(ctx context.Context, cursor *string) (result map[string]interface{}, returnErr error) {
 	start := time.Now()
 	defer func() {
 		recordMetricsWithError(ctx, "px_listAssets", a.state.connectionType, start, returnErr, recover())
 	}()
-	records, err := a.assetRecords(ctx)
+	if cursor != nil {
+		if _, valid := pxAssetCursor(*cursor); !valid {
+			return nil, pxInvalidParams()
+		}
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	deadline := func() error {
+		if ctx.Err() != nil {
+			return pxUnavailable("asset_list_deadline_exceeded")
+		}
+		return nil
+	}
+	records, next, err := a.assetRecords(ctx, cursor)
+	if expired := deadline(); expired != nil {
+		return nil, expired
+	}
 	if err != nil {
 		return nil, err
 	}
 	height, err := a.height(ctx)
+	if expired := deadline(); expired != nil {
+		return nil, expired
+	}
 	if err != nil {
 		return nil, err
 	}
 	for i, record := range records {
+		if err := deadline(); err != nil {
+			return nil, err
+		}
 		records[i] = a.assetMetadata(ctx, height, record)
+		if err := deadline(); err != nil {
+			return nil, err
+		}
 	}
-	return map[string]interface{}{"height": height, "assets": records, "joined_limit": 16}, nil
+	return map[string]interface{}{"height": height, "assets": records, "joined_limit": 16, "next_cursor": next, "order": "registration"}, nil
 }

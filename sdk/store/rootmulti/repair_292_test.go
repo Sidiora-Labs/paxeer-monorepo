@@ -71,17 +71,23 @@ func TestRepair_292_ABCIHistoricalQuery(t *testing.T) {
 	for _, prove := range []bool{false, true} {
 		for _, height := range []int64{commits[0].Version, commits[1].Version, commits[1].Version + 1, -1} {
 			t.Run(fmt.Sprintf("height=%d/prove=%t", height, prove), func(t *testing.T) {
+				versioned, err := store.CacheMultiStoreWithVersion(height)
+				require.ErrorIs(t, err, rootmulti.ErrVersionedStateUnsupported)
+				require.Nil(t, versioned)
 				response := queryable.Query(context.Background(), abci.RequestQuery{
 					Path: "/bank/key", Data: []byte("balance"), Height: height, Prove: prove,
 				})
-				require.Equal(t, sdkerrors.ErrInvalidRequest.ABCICode(), response.Code)
-				require.Contains(t, response.Log, rootmulti.ErrVersionedStateUnsupported.Error())
-				require.Contains(t, response.Log, fmt.Sprintf("requested height %d", height))
+				require.Equal(t, sdkerrors.UndefinedCodespace, response.Codespace)
+				require.Equal(t, uint32(1), response.Code)
+				require.Equal(t, "internal error", response.Log)
+				require.Zero(t, response.Height)
 				require.Empty(t, response.Value)
 				require.Nil(t, response.ProofOps)
 			})
 		}
 	}
+	require.Equal(t, commits[1], store.LastCommitID())
+	require.Equal(t, []byte("second"), store.GetKVStore(key).Get([]byte("balance")))
 
 	cache := store.CacheMultiStore()
 	cache.GetKVStore(key).Set([]byte("balance"), []byte("working"))
@@ -89,6 +95,8 @@ func TestRepair_292_ABCIHistoricalQuery(t *testing.T) {
 	cache.Write()
 	response := queryable.Query(context.Background(), abci.RequestQuery{Path: "/bank/key", Data: []byte("balance")})
 	require.Zero(t, response.Code, response.Log)
+	require.Empty(t, response.Codespace)
+	require.Empty(t, response.Log)
 	require.Equal(t, []byte("working"), response.Value)
 	require.Equal(t, commits[1], store.LastCommitID())
 }

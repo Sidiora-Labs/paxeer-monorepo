@@ -18,7 +18,8 @@ pub fn exact_retry_codes_cross_the_real_api_consumer() {
             let error = ApiError::core_rejection(
                 RequestId(51),
                 transported,
-                ReasonCode::new("core.rejected").unwrap(),
+                ReasonCode::new("core.rejected")
+                    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
             );
             let canonical: Retriability = error.retriability;
             assert_eq!(error.class, ErrorClass::CoreRejection);
@@ -33,7 +34,8 @@ pub fn exact_retry_codes_cross_the_real_api_consumer() {
         let error = ApiError::core_rejection(
             RequestId(52),
             ResultCode::from_wire_bytes(unknown.to_wire_bytes()),
-            ReasonCode::new("core.unknown").unwrap(),
+            ReasonCode::new("core.unknown")
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
         );
         assert_eq!(error.protocol_result_code, Some(unknown));
         assert_eq!(error.retriability, Retriability::Terminal);
@@ -51,12 +53,15 @@ pub fn current_api_status_refuses_impossible_shortfalls() {
     for requested in rungs {
         for achieved in rungs {
             for _ in 0..2 {
-                let transported = Rung::from_name(achieved.name()).unwrap();
+                let transported = Rung::from_name(achieved.name())
+                    .unwrap_or_else(|| panic!("current rung must decode"));
                 assert_eq!(transported, achieved);
                 let status = RungStatus::Below {
                     requested,
                     achieved: transported,
-                    reason: ReasonCode::new("verification.below").unwrap(),
+                    reason: ReasonCode::new("verification.below").unwrap_or_else(|error| {
+                        panic!("test or reference input rejected: {error:?}")
+                    }),
                 };
                 assert_eq!(status.validate().is_ok(), achieved < requested);
                 assert_eq!(RungStatus::Achieved(transported).validate(), Ok(()));
@@ -71,10 +76,12 @@ pub fn committed_block_and_transaction_witness_back_current_tracking() {
         // Actual node output crosses the shared strict JSON/hex codec. Only
         // authenticated header/commit and inclusion witnesses justify the rung.
         let produced = document();
-        let verified = authenticate(&produced).expect("recorded committed evidence");
-        let receipt_ref =
-            ReceiptRef::new(format!("receipt:{}", hex(&verified.transaction_id))).unwrap();
-        let submission_ref = SubmissionRef::new(hex(&verified.transaction_id)).unwrap();
+        let verified = authenticate(&produced)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded committed evidence"));
+        let receipt_ref = ReceiptRef::new(format!("receipt:{}", hex(&verified.transaction_id)))
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
+        let submission_ref = SubmissionRef::new(hex(&verified.transaction_id))
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
         let request = WaitRequest {
             submission_ref: submission_ref.clone(),
             requested_rung: Rung::Committed,
@@ -83,7 +90,9 @@ pub fn committed_block_and_transaction_witness_back_current_tracking() {
         let signed = &verified.signed_receipt;
         assert_eq!(
             signed.as_bytes(),
-            produced.hex_at("bundle.signedReceipt").unwrap()
+            produced
+                .hex_at("bundle.signedReceipt")
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
         );
         let tracking = TrackedSubmission {
             submission_ref,
@@ -127,11 +136,15 @@ pub fn committed_block_and_transaction_witness_back_current_tracking() {
         assert!(!observed.value.deadline_elapsed);
         assert_eq!(
             observed.value.submission.evidence[0].digest,
-            produced.hex_array_at::<32>("bundle.receiptDigest").unwrap()
+            produced
+                .hex_array_at::<32>("bundle.receiptDigest")
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
         );
         assert_eq!(
             observed.value.submission.evidence[1].digest,
-            produced.hex_array_at::<32>("executionBlockHash").unwrap()
+            produced
+                .hex_array_at::<32>("executionBlockHash")
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
         );
         assert_eq!(verified.height, 10);
         assert_eq!(verified.result, KnownResult::Ok.into());
@@ -139,7 +152,12 @@ pub fn committed_block_and_transaction_witness_back_current_tracking() {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}").unwrap_or_else(|error| panic!("hex encoding: {error}"));
+    }
+    encoded
 }
 
 fn replace(doc: &mut JsonValue, path: &str, replacement: JsonValue) {
@@ -152,7 +170,7 @@ fn replace(doc: &mut JsonValue, path: &str, replacement: JsonValue) {
     let (_, value) = fields
         .iter_mut()
         .find(|(key, _)| key == name)
-        .expect("recorded field");
+        .unwrap_or_else(|| panic!("recorded field must exist"));
     if let Some(rest) = rest {
         replace(value, rest, replacement);
     } else {
@@ -174,7 +192,9 @@ pub fn committed_evidence_refuses_tampering() {
         "bundle.rawTransaction",
     ] {
         let mut recording = document();
-        let mut bytes = recording.hex_at(path).unwrap();
+        let mut bytes = recording
+            .hex_at(path)
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
         let last = bytes.len() - 1;
         bytes[last] ^= 1;
         replace(
@@ -188,7 +208,10 @@ pub fn committed_evidence_refuses_tampering() {
         );
     }
     let mut insufficient = document();
-    let commit = insufficient.field("insufficientCommit").unwrap().clone();
+    let commit = insufficient
+        .field("insufficientCommit")
+        .unwrap_or_else(|| panic!("test or reference input rejected"))
+        .clone();
     replace(&mut insufficient, "bundle.commit", commit);
     assert!(
         authenticate(&insufficient).is_err(),
@@ -210,12 +233,14 @@ pub fn committed_evidence_refuses_tampering() {
     let legacy = layerx_types::json::parse(include_str!(
         "../../../../../../tests/vectors/budget-proof-v2/export.json"
     ))
-    .unwrap();
+    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     let native = layerx_types::json::decode_hex(&format!(
         "0x{}",
-        legacy.str_at("budget_state.canonical_core_bytes").unwrap()
+        legacy
+            .str_at("budget_state.canonical_core_bytes")
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
     ))
-    .unwrap();
+    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     assert_eq!(
         crate::budget::ProtocolBudgetRecord::decode(&native),
         Err(crate::budget::ReconcileError::ProtocolStateSchemaUnavailable)

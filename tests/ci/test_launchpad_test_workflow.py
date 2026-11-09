@@ -4,7 +4,17 @@ import json
 from pathlib import Path
 import re
 
+import pytest
 import yaml
+
+from test_pnpm_workspace_roots import (
+    expand_matrix,
+    matrix_rows,
+    pnpm_commands,
+    pnpm_directory,
+    run_directory,
+)
+from test_workflow_runs_on_routed import ROUTED
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +25,25 @@ WORKSPACE = ROOT / "apps/launchpad"
 def launchpad_workflow():
     # BaseLoader preserves GitHub's `on` key instead of treating it as YAML 1.1 true.
     return yaml.load((ROOT / WORKFLOW).read_text(), Loader=yaml.BaseLoader)
+
+
+@pytest.mark.parametrize(
+    ("workflow_name", "job_name"),
+    (
+        ("paxeer-go-test.yml", "tagged-tests"),
+        ("paxeer-go-test.yml", "autobahn-integration"),
+        ("paxeer-go-test.yml", "hpx-registry"),
+        ("launchpad-test.yml", "launchpad-test"),
+    ),
+)
+def test_workflow_runner_contracts_match_routed_jobs(workflow_name, job_name):
+    workflow = yaml.load(
+        (ROOT / ".github/workflows" / workflow_name).read_text(),
+        Loader=yaml.BaseLoader,
+    )
+    assert workflow["jobs"][job_name]["runs-on"] == ROUTED, (
+        f"{workflow_name}:{job_name}: expected the exact routed runner expression"
+    )
 
 
 def test_launchpad_workflow_covers_every_package_with_a_test_script():
@@ -44,7 +73,7 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
     assert len(matrix) == len(set(matrix)), "Each package must run exactly once"
     assert "exclude" not in job["strategy"]["matrix"]
     assert job["strategy"]["fail-fast"] == "false"
-    assert job["runs-on"] == "ubuntu-latest"
+    assert job["runs-on"] == ROUTED
     assert "if" not in job
     assert "continue-on-error" not in job
     assert job["defaults"]["run"]["working-directory"] == "apps/launchpad"
@@ -75,8 +104,21 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
     )
     assert install["run"] == "pnpm install --frozen-lockfile"
     assert build["run"] == "pnpm run build:packages"
-    assert test["run"] == "pnpm run test"
-    assert test["working-directory"] == "${{ matrix.package }}"
+    assert test["working-directory"] == "."
+    for row in matrix_rows(job):
+        directory = run_directory(workflow, job, test, row)
+        assert directory == ROOT
+        (command,) = list(pnpm_commands(expand_matrix(test["run"], row), directory))
+        cwd, args = command
+        assert cwd == ROOT
+        assert args[:3] == ["--dir", "apps/launchpad", "--filter"]
+        assert args[4:] == ["--fail-if-no-match", "run", "test"]
+        assert pnpm_directory(cwd, args) == WORKSPACE
+        selector = args[3]
+        assert selector.startswith("./"), row
+        assert (WORKSPACE / selector).resolve() == (
+            ROOT / row["package"]
+        ).resolve(), row
     assert steps.index(checkout) < steps.index(setup) < steps.index(manager)
     assert (
         steps.index(manager) < steps.index(install)

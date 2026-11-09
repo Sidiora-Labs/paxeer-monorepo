@@ -9,7 +9,13 @@ trap 'rm -f -- "$metadata_file" "$license_file"' EXIT HUP INT TERM
 cargo metadata --manifest-path "$repo_root/services/interop/Cargo.toml" \
     --locked --format-version 1 >"$metadata_file"
 
-banned='^(bindgen|libsqlite3-sys|rusqlite|sqlx-sqlite|layerx-core|layerx-protocol-core|layerx-human-service|layerx-paxeer-client|layerx-explorer-index|ctor|inventory)$'
+banned='^(bindgen|libsqlite3-sys|rusqlite|sqlx-sqlite|layerx-core|layerx-protocol-core|layerx-human-service|ctor|inventory)$'
+retired_human_crates=$(jq -er '.components["human-two-domain"].symbols[] | select(startswith("layerx-"))' \
+    "$repo_root/tools/paxeer-x/retired_callers.json")
+if jq -r '.packages[].name' "$metadata_file" | grep -Fxq -- "$retired_human_crates"; then
+    echo "interop dependency policy: retired human boundary crate" >&2
+    exit 1
+fi
 if jq -r '.packages[].name' "$metadata_file" | grep -Eq "$banned"; then
     echo "interop dependency policy: forbidden boundary or global-initialisation crate" >&2
     exit 1

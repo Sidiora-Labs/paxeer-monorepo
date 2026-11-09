@@ -4,7 +4,9 @@ Each row joins one effective interface declaration to every task that explicitly
 
 Contract links resolve from this plan to the contract file and its declared anchor. The matrix preserves the declared anchor; anchor contents are maintained by the contract documents. Source citations refer to repository revision `2a1033aa2`.
 
-Source: `out/spec.kvx`; SHA-256: `e9b2e8c6a6dd2f595ff940309be9dde91599acb79ebc9d2ea7383c62b9b51929`. Regenerate with `python3 -I logs/J91-scripts/interface_matrix.py`; verify reproducibility with the same command followed by `--check`.
+Baseline source: `out/spec.kvx`; SHA-256: `e9b2e8c6a6dd2f595ff940309be9dde91599acb79ebc9d2ea7383c62b9b51929`. The baseline was generated with `python3 -I logs/J91-scripts/interface_matrix.py` (not present in this checkout).
+
+Issue-template correction (#1783): the ci-formats inventory is reconciled from `spec/layerx-merge/interfaces.kvx` (SHA-256: `97158c20c5e93ce3fa2896d2453ce3169aa6980f32b63fcc4a70d15e9c56f898`), retaining five issue templates among 14 file-format interfaces. The three obsolete stable rows are removed from the baseline matrix; domain and overall totals below reflect that correction. The focused regression test is `spec/layerx-merge/programme/tests/test_interfaces_reconcile.py::test_deleted_issue_templates_are_unregistered`.
 
 ## Totals by domain
 
@@ -25,15 +27,15 @@ Source: `out/spec.kvx`; SHA-256: `e9b2e8c6a6dd2f595ff940309be9dde91599acb79ebc9d
 | [13 — programs](#domain-13) | 4897 | 139 | 64 | 52 | 5152 |
 | [14 — web-explorer-bridge](#domain-14) | 6725 | 394 | 66 | 170 | 7355 |
 | [15 — cosmos-fork](#domain-15) | 5932 | 27 | 18 | 93 | 6070 |
-| [16 — tools-ops](#domain-16) | 6332 | 156 | 39 | 182 | 6709 |
+| [16 — tools-ops](#domain-16) | 6329 | 156 | 39 | 182 | 6706 |
 | [17 — programme](#domain-17) | 16 | 9 | 16 | 0 | 41 |
-| **Total** | 68959 | 3102 | 1303 | 4359 | **77723** |
+| **Total** | 68956 | 3102 | 1303 | 4359 | **77720** |
 
 ## Coverage proof
 
-The source contains 77723 interface blocks and 2517 task blocks. The matrix emits exactly 77723 distinct interface rows. Of these, 8764 require change coverage. Uncovered change, new or retire interfaces: 0. Stable interfaces named by modifying tasks: 0. Generation audit errors: 0.
+The baseline source contained 77723 interface blocks and 2517 task blocks. After the issue-template correction, the matrix emits exactly 77720 distinct interface rows. Of these, 8764 require change coverage. Uncovered change, new or retire interfaces: 0. Stable interfaces named by modifying tasks: 0. Generation audit errors: 0.
 
-The generator reads every cited positive source line: 72058 distinct locations in 7826 files; 1288 interface rows instead declare planned line 0. Another 2 planned rows incorrectly declare a positive line in an absent file. Invalid or absent positive source locations: 0. Source-line evidence SHA-256: `5f1afbbda798cc4a1a3ed4c50814d79a945a186ddfe160893cdd243c04f7717b`.
+The corrected matrix retains 72055 distinct positive source locations in 7823 files; 1288 interface rows instead declare planned line 0. Another 2 planned rows incorrectly declare a positive line in an absent file. The baseline audit reported 0 invalid or absent positive source locations. Historical source-line evidence SHA-256 (before the correction): `5f1afbbda798cc4a1a3ed4c50814d79a945a186ddfe160893cdd243c04f7717b`.
 
 Zero coverage mismatches means that the required interface-id set equals the covered interface-id set, no stable interface is modified, and each first-change wave is derived from the complete covering-task list. Totals are computed from the same row set, so every status and domain reconciles with the matrix. This proves consistency of the declared inventory and plan; it does not assert runtime qualification, signature correctness or exhaustive discovery of public items absent from that inventory.
 
@@ -76422,12 +76424,9 @@ These source declarations are preserved in the matrix and recorded for correctio
 | `interface.16.fmt-gh-codeowners` | `file_format` | `.github/CODEOWNERS:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
 | `interface.16.fmt-gh-codeql-codeql-config-yml` | `file_format` | `.github/codeql/codeql-config.yml:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
 | `interface.16.fmt-gh-dependabot-yml` | `file_format` | `.github/dependabot.yml:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
-| `interface.16.fmt-gh-issue-template-bug-report-md` | `file_format` | `.github/ISSUE_TEMPLATE/bug_report.md:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
 | `interface.16.fmt-gh-issue-template-bug-yml` | `file_format` | `.github/ISSUE_TEMPLATE/bug.yml:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
 | `interface.16.fmt-gh-issue-template-config-yml` | `file_format` | `.github/ISSUE_TEMPLATE/config.yml:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
-| `interface.16.fmt-gh-issue-template-enahancement-yml` | `file_format` | `.github/ISSUE_TEMPLATE/enahancement.yml:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
 | `interface.16.fmt-gh-issue-template-feature-yml` | `file_format` | `.github/ISSUE_TEMPLATE/feature.yml:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
-| `interface.16.fmt-gh-issue-template-general-issue-md` | `file_format` | `.github/ISSUE_TEMPLATE/general_issue.md:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
 | `interface.16.fmt-gh-issue-template-question-yml` | `file_format` | `.github/ISSUE_TEMPLATE/question.yml:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
 | `interface.16.fmt-gh-issue-template-security-md` | `file_format` | `.github/ISSUE_TEMPLATE/security.md:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
 | `interface.16.fmt-gh-labeler-yml` | `file_format` | `.github/labeler.yml:1` | stable | — | [contracts/operations.md#ci-formats](../../contracts/operations.md#ci-formats) | — |
