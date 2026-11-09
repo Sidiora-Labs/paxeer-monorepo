@@ -1,0 +1,48 @@
+[issue.1801]
+number = 1801
+title = "[Coherence] The SSH test image fixtures in litt/util/testdata are orphaned now that the only code that read them is deleted, and the container scope list still records the Dockerfile as a reviewed fixture"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 0f1630509434f756929cb1168951cd248e5a6757 deleted the commented BuildSSHTestImage consumer, and current SSH tests use the local receiver at storage/db_engine/litt/util/ssh_test.go:19 and storage/db_engine/litt/util/repair_114_test.go:321, but the obsolete image still copies its startup script at storage/db_engine/litt/util/testdata/ssh-test.Dockerfile:39, that script still starts sshd at storage/db_engine/litt/util/testdata/start.sh:4, and the Dockerfile remains in the container exclusion list at tools/containers/check.sh:132 and its exact-list assertion at tools/containers/test_out_of_scope_list.py:54."
+close_comment = "The obsolete Docker-based SSH fixtures have no remaining consumer; the current SSH tests use a local OpenSSH receiver. The follow-up task removes both fixtures and the stale container exclusion while retaining the scope-list checks."
+
+[task.18.1801.1]
+title = "Issue #1801: Remove the orphaned SSH image fixtures and their container exclusion"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181801.1"]
+capabilities = []
+interfaces = []
+do_1 = "Delete storage/db_engine/litt/util/testdata/ssh-test.Dockerfile:1 and storage/db_engine/litt/util/testdata/start.sh:1 because their builder was removed by commit 0f1630509434f756929cb1168951cd248e5a6757; remove only the obsolete Dockerfile entry from tools/containers/check.sh:132 and the exact reviewed-list expectation at tools/containers/test_out_of_scope_list.py:54, preserving every other exclusion and the complete equality assertion."
+do_2 = "Add test_orphaned_ssh_image_fixtures_removed in tools/containers/test_out_of_scope_list.py beside the existing test at line 59: assert both fixture paths are absent, including dangling symlinks, and the obsolete Dockerfile is absent from parse_out_of_scope applied to the real check.sh; run it together with test_out_of_scope_omits_consensus_test_dockerfile so the full reviewed list remains enforced."
+symbols = ["assert_reviewed_out_of_scope", "test_orphaned_ssh_image_fixtures_removed"]
+touches = ["storage/db_engine/litt/util/testdata/ssh-test.Dockerfile", "storage/db_engine/litt/util/testdata/start.sh", "tools/containers/check.sh", "tools/containers/test_out_of_scope_list.py"]
+tests = ["tools/containers/test_out_of_scope_list.py::test_orphaned_ssh_image_fixtures_removed", "tools/containers/test_out_of_scope_list.py::test_out_of_scope_omits_consensus_test_dockerfile"]
+planned_paths = []
+build_cmd = "bash -n tools/containers/check.sh && python3 -m py_compile tools/containers/test_out_of_scope_list.py"
+verify_cmd = "python3 -m pytest tools/containers/test_out_of_scope_list.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181801]
+title = "Obsolete SSH container fixtures leave the repository and container exclusions"
+ac_1 = "The orphaned fixture paths storage/db_engine/litt/util/testdata/ssh-test.Dockerfile:1 and storage/db_engine/litt/util/testdata/start.sh:1 are absent, and their obsolete exclusion at tools/containers/check.sh:132 and tools/containers/test_out_of_scope_list.py:54 is removed while the complete reviewed-list assertion remains enforced."
+
+[acceptance.18.1801.1]
+feature = "18"
+req = "181801.1"
+scenario = "Given the SSH image builder is deleted and current SSH tests use a local OpenSSH receiver, when the fixture-retirement and reviewed-list tests read the repository files, then neither orphaned fixture exists and the reviewed container exclusions omit the obsolete image while retaining all other expected entries."
+contract = "contracts/tools-ops.md#container-images"
+test = "tools/containers/test_out_of_scope_list.py::test_orphaned_ssh_image_fixtures_removed (planned)"
+qualification = "UNRUN"
