@@ -3349,9 +3349,12 @@ mod attestor_custody_protocol {
     }
 
     #[test]
-    fn attestor_custody_protocol_keeps_the_existing_behaviour_without_attestors() {
+    fn attestor_custody_protocol_requires_three_without_attestors() {
         assert_eq!(selected_custody_protocol(None, false), Ok(3));
-        assert_eq!(selected_custody_protocol(Some("2"), false), Ok(2));
+        assert_eq!(
+            selected_custody_protocol(Some("2"), false),
+            Err("LAYERX_HUMAN_PROTOCOL_VERSION is unsupported".to_owned())
+        );
         assert_eq!(selected_custody_protocol(Some("3"), false), Ok(3));
         for invalid in ["", "0", "1", "4", "65536", "three"] {
             assert!(selected_custody_protocol(Some(invalid), false).is_err());
