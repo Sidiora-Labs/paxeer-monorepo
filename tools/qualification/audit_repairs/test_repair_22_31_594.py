@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import re
+from urllib.parse import urlsplit
 
 import pytest
 import yaml
@@ -125,4 +126,330 @@ def test_gateway_egress_allows_public_https_nodes(documents):
             for rule in policy["spec"].get("egress", [])
         )
         for policy in policies
+    )
+
+
+def selector_matches(selector, labels):
+    if any(
+        labels.get(key) != value
+        for key, value in selector.get("matchLabels", {}).items()
+    ):
+        return False
+    for expression in selector.get("matchExpressions", []):
+        key = expression["key"]
+        operator = expression["operator"]
+        values = expression.get("values", [])
+        assert operator in {"In", "NotIn", "Exists", "DoesNotExist"}
+        if operator == "In" and (key not in labels or labels[key] not in values):
+            return False
+        if operator == "NotIn" and key in labels and labels[key] in values:
+            return False
+        if operator == "Exists" and key not in labels:
+            return False
+        if operator == "DoesNotExist" and key in labels:
+            return False
+    return True
+
+
+def network_peer_matches(peer, policy_namespace, remote):
+    assert set(peer) <= {"namespaceSelector", "podSelector", "ipBlock"}
+    if "ipBlock" in peer:
+        assert set(peer) == {"ipBlock"}
+        # These manifests only use universal IP blocks, which include every pod IP.
+        assert peer["ipBlock"] in ({"cidr": "0.0.0.0/0"}, {"cidr": "::/0"})
+        return True
+    if "namespaceSelector" in peer:
+        if not selector_matches(peer["namespaceSelector"], remote["namespace_labels"]):
+            return False
+    elif "podSelector" in peer and remote["namespace"] != policy_namespace:
+        return False
+    return "podSelector" not in peer or selector_matches(
+        peer["podSelector"], remote["labels"]
+    )
+
+
+def network_ports_allow(rule, destination, protocol, port):
+    if not rule.get("ports"):
+        return True
+    for entry in rule["ports"]:
+        if entry.get("protocol", "TCP") != protocol:
+            continue
+        if "port" not in entry:
+            return True
+        declared = entry["port"]
+        if isinstance(declared, str):
+            if any(
+                candidate.get("name") == declared
+                and candidate.get("protocol", "TCP") == protocol
+                and candidate["containerPort"] == port
+                for candidate in destination["ports"]
+            ):
+                return True
+        elif declared <= port <= entry.get("endPort", declared):
+            return True
+    return False
+
+
+def network_rule_allows(policy, rule, direction, remote, destination, protocol, port):
+    peers = rule.get("to" if direction == "Egress" else "from", [])
+    return network_ports_allow(rule, destination, protocol, port) and (
+        not peers
+        or any(
+            network_peer_matches(peer, policy["metadata"]["namespace"], remote)
+            for peer in peers
+        )
+    )
+
+
+def network_direction_allows(policies, source, destination, direction, port):
+    local, remote = (
+        (source, destination) if direction == "Egress" else (destination, source)
+    )
+    selected = []
+    for policy in policies:
+        spec = policy["spec"]
+        types = spec.get(
+            "policyTypes", ["Ingress"] + (["Egress"] if "egress" in spec else [])
+        )
+        if (
+            policy["metadata"]["namespace"] == local["namespace"]
+            and selector_matches(spec["podSelector"], local["labels"])
+            and direction in types
+        ):
+            selected.append(policy)
+    return not selected or any(
+        network_rule_allows(policy, rule, direction, remote, destination, "TCP", port)
+        for policy in selected
+        for rule in policy["spec"].get(direction.lower(), [])
+    )
+
+
+def test_gateway_cross_namespace_peer_policies(documents):
+    resources = list(documents)
+    for relative in (
+        "human/web-deployment.yaml",
+        "identity/deployment.yaml",
+        "paxeer/deployment.yaml",
+        "registry/deployment.yaml",
+        "testnet/deployment.yaml",
+    ):
+        manifest = ROOT / "services/platform/hosted" / relative
+        parsed = list(yaml.safe_load_all(manifest.read_text(encoding="utf-8")))
+        assert parsed and all(isinstance(resource, dict) for resource in parsed)
+        resources.extend(parsed)
+
+    namespace_label = "layerx.io/gateway-peer-namespace"
+    namespaces = {
+        resource["metadata"]["name"]: resource["metadata"].get("labels", {})
+        for resource in resources
+        if resource["kind"] == "Namespace"
+    }
+    assert namespaces["layerx-testnet"][namespace_label] == "true"
+    assert [name for name, labels in namespaces.items() if namespace_label in labels] == [
+        "layerx-testnet"
+    ]
+    assert all(
+        namespace_label not in resource["metadata"].get("labels", {})
+        for resource in resources
+        if resource["kind"] != "Namespace"
+    )
+
+    workloads = {}
+    for resource in resources:
+        if resource["kind"] not in {"Deployment", "StatefulSet"}:
+            continue
+        metadata = resource["metadata"]
+        namespace = metadata["namespace"]
+        template = resource["spec"]["template"]
+        labels = template["metadata"]["labels"]
+        assert namespace_label not in labels
+        assert selector_matches(resource["spec"]["selector"], labels)
+        assert metadata["name"] not in workloads
+        workloads[metadata["name"]] = {
+            "namespace": namespace,
+            "namespace_labels": {
+                **namespaces.get(namespace, {}),
+                "kubernetes.io/metadata.name": namespace,
+            },
+            "labels": labels,
+            "ports": [
+                port
+                for container in template["spec"]["containers"]
+                for port in container.get("ports", [])
+            ],
+            "containers": template["spec"]["containers"],
+        }
+
+    gateway = workloads["layerx-gateway"]
+    registry = workloads["layerx-program-registry"]
+    faucet = workloads["layerx-faucet"]
+    identity = workloads["layerx-identity"]
+    boundary = workloads["paxeer"]
+    web = workloads["layerx-human-web"]
+    assert gateway["namespace"] == "layerx-mainnet-beta"
+    assert all(
+        workload["namespace"] == "layerx-testnet"
+        for workload in (registry, faucet, identity, boundary, web)
+    )
+    policies = [resource for resource in resources if resource["kind"] == "NetworkPolicy"]
+
+    def policy_named(name, namespace):
+        matches = [
+            policy
+            for policy in policies
+            if policy["metadata"]["name"] == name
+            and policy["metadata"]["namespace"] == namespace
+        ]
+        assert len(matches) == 1, (name, namespace)
+        return matches[0]
+
+    gateway_policy = policy_named("layerx-gateway", gateway["namespace"])
+    web_policy = policy_named("layerx-human-web", web["namespace"])
+    web_ingress = policy_named("layerx-human-web-gateway", gateway["namespace"])
+    peer_namespace_selector = {"matchLabels": {namespace_label: "true"}}
+    gateway_namespace_selector = {
+        "matchLabels": {"kubernetes.io/metadata.name": gateway["namespace"]}
+    }
+
+    def assert_branch(
+        policy, direction, local, remote, destination, label_key, ports, namespace_selector
+    ):
+        assert policy["metadata"]["namespace"] == local["namespace"]
+        assert selector_matches(policy["spec"]["podSelector"], local["labels"])
+        assert direction in policy["spec"]["policyTypes"]
+        pod_selector = {"matchLabels": {label_key: remote["labels"][label_key]}}
+        branches = [
+            (rule, peer)
+            for rule in policy["spec"][direction.lower()]
+            for peer in rule.get("to" if direction == "Egress" else "from", [])
+            if peer.get("podSelector") == pod_selector
+        ]
+        assert len(branches) == 1, (policy["metadata"]["name"], pod_selector)
+        rule, peer = branches[0]
+        assert peer == {
+            "namespaceSelector": namespace_selector,
+            "podSelector": pod_selector,
+        }
+        assert rule["ports"] == [{"protocol": "TCP", "port": port} for port in ports]
+        policy_namespace = policy["metadata"]["namespace"]
+        assert network_peer_matches(peer, policy_namespace, remote)
+        unlabelled = {
+            **remote,
+            "namespace": "unlabelled",
+            "namespace_labels": {"kubernetes.io/metadata.name": "unlabelled"},
+        }
+        unrelated = {
+            **remote, "labels": {"app": "unrelated", "layerx-plane": "unrelated"}
+        }
+        assert not network_peer_matches(peer, policy_namespace, unlabelled)
+        assert not network_peer_matches(peer, policy_namespace, unrelated)
+        # A bare selector must remain local; this would reject the intended remote pod.
+        assert remote["namespace"] != policy_namespace
+        assert not network_peer_matches(
+            {"podSelector": pod_selector}, policy_namespace, remote
+        )
+        for port in ports:
+            assert network_ports_allow(rule, destination, "TCP", port)
+            assert not network_ports_allow(rule, destination, "UDP", port)
+        for port in (1, 9442, 65535):
+            assert port not in ports
+            assert not network_ports_allow(rule, destination, "TCP", port)
+
+    for remote, key, ports in (
+        (registry, "app", [9420]),
+        (identity, "layerx-plane", [9443, 9445, 9446]),
+        (boundary, "layerx-plane", [9443, 9445, 9446]),
+        (faucet, "app", [9443]),
+    ):
+        assert_branch(
+            gateway_policy, "Egress", gateway, remote, remote, key, ports,
+            peer_namespace_selector,
+        )
+    assert_branch(
+        gateway_policy, "Ingress", gateway, registry, gateway, "app", [9443],
+        peer_namespace_selector,
+    )
+    for name, destination, ports in (
+        ("layerx-program-registry", registry, [9420]),
+        ("layerx-faucet-public-ingress", faucet, [9443]),
+        ("layerx-identity-ingress", identity, [9443]),
+        ("paxeer-boundary", boundary, [9443, 9444]),
+    ):
+        assert_branch(
+            policy_named(name, destination["namespace"]),
+            "Ingress", destination, gateway, destination, "app", ports,
+            gateway_namespace_selector,
+        )
+    assert_branch(
+        web_policy, "Egress", web, gateway, gateway, "app", [9443],
+        gateway_namespace_selector,
+    )
+    assert_branch(
+        web_ingress, "Ingress", gateway, web, gateway, "app", [9443],
+        peer_namespace_selector,
+    )
+
+    for source, destination, port in (
+        (gateway, registry, 9420),
+        (gateway, faucet, 9443),
+        (gateway, identity, 9443),
+        (gateway, boundary, 9443),
+        (web, gateway, 9443),
+    ):
+        assert any(
+            entry["containerPort"] == port and entry.get("protocol", "TCP") == "TCP"
+            for entry in destination["ports"]
+        )
+        for direction in ("Egress", "Ingress"):
+            assert network_direction_allows(policies, source, destination, direction, port), (
+                source["labels"], destination["labels"], direction, port
+            )
+            assert not network_direction_allows(
+                policies, source, destination, direction, 65535
+            )
+
+    node_peer = {"podSelector": {"matchLabels": {"app": "layerx-node"}}}
+    assert any(
+        node_peer in rule.get("from", [])
+        for rule in gateway_policy["spec"]["ingress"]
+    )
+    redis = workloads["layerx-gateway-redis"]
+    assert network_direction_allows(policies, gateway, redis, "Egress", 6379)
+    assert network_direction_allows(policies, gateway, redis, "Ingress", 6379)
+    redis_policy = policy_named("layerx-gateway-redis", gateway["namespace"])
+    assert redis_policy["spec"]["egress"] == []
+
+    web_environments = [
+        entry
+        for container in web["containers"]
+        for entry in container.get("env", [])
+        if entry["name"] == "LAYERX_GATEWAY_URL"
+    ]
+    assert len(web_environments) == 1
+    url = urlsplit(web_environments[0]["value"])
+    assert url.scheme == "https" and url.path == "/"
+    services = [
+        resource
+        for resource in documents
+        if resource["kind"] == "Service"
+        and selector_matches(
+            {"matchLabels": resource["spec"]["selector"]}, gateway["labels"]
+        )
+    ]
+    assert len(services) == 1
+    service = services[0]
+    metadata = service["metadata"]
+    assert url.hostname == f'{metadata["name"]}.{metadata["namespace"]}.svc.cluster.local'
+    assert metadata["namespace"] == gateway["namespace"]
+    service_ports = [
+        entry for entry in service["spec"]["ports"]
+        if entry["port"] == (url.port or 443)
+    ]
+    assert len(service_ports) == 1
+    target = service_ports[0]["targetPort"]
+    assert any(
+        (entry.get("name") == target or entry["containerPort"] == target)
+        and entry["containerPort"] == 9443
+        and entry.get("protocol", "TCP") == "TCP"
+        for entry in gateway["ports"]
     )

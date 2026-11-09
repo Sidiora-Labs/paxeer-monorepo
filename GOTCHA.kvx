@@ -18695,3 +18695,273 @@ fix = "Decision 3070: the persistence of completed job results is proven by a mo
 title = "The drift test of the UCP checkout fixture compares two file lists that hold the same entries in different orders"
 symptom = "Task 18.1639.1 attempt 1 at fb2ca1f9175f (base 93249965659c) wrote the classification in sdk/platform/pipeline.kvx and the case ucp_checkout_fixture_classification_survives_check_and_write in sdk/platform/generators/tests/drift.rs, and the case failed at its OutputState equality: the two platform-conformance states carry the same files with the same digests, the regenerated one in the order the writer emits and the expected one in the order the test collected (git ls-files order against the sorted declaration order)."
 fix = "18.1639.1 attempt 2 compares the states through one ordering, the sorted path order the pipeline writer uses, and keeps the assertion otherwise unchanged."
+
+[gotcha.3775]
+title = "The explorer node-fetch allow-list test is red on main because three later specification files import node-fetch without an allow-list entry"
+symptom = "Task 18.1712.1 attempt 1 at e00b671ac7e4 (base 93249965659c) passed its build and failed its verification in the case nodeFetchImportsStayServerOnly of apps/explorer/repair-22-31-512.spec.ts: the case walks every file that imports node-fetch and requires each to be listed in nodeTestModules, and three files added after the list was written are not listed, nextjs/pages-tests/api/repair-22-35-10.spec.ts line 4 and ui/snippets/searchBar/repair-22-35-10.spec.tsx line 5 (22.35.10, 2026-11-06) and ui/pages/PaxeerXInference.spec.tsx line 4 (22.38.33, 2026-11-07). The failure is independent of the tree of the attempt and the allow-list file is outside its touches."
+fix = "Attempt 2 adds the three test modules to nodeTestModules with the allow-list file in the touches, under decision 2908."
+
+[gotcha.3776]
+title = "The chain indicators chart specification still passes the days property the producer removed, so the explorer type check fails"
+symptom = "Task 18.1720.1 attempt 1 at c4355decafc5 (base 93249965659c) removed the days property of ChainIndicatorsChart.tsx for the calendar-day window design and failed its build: apps/explorer/ui/home/indicators/ChainIndicatorsChart.spec.tsx line 53 (on main since 9a7c1d9479, 2026-10-21) still renders the component with days={ 14 }, so tsc reported TS2322 and the verification never ran. The specification file was outside the touches, so the attempt could not follow its own producer change into the consumer test (gotcha 3046)."
+fix = "Attempt 2 carries the specification file in its touches and rewrites the trims-the-series case to the calendar-day window."
+
+[gotcha.3777]
+title = "The launchpad render tests fail under the receipt qualification rule the baseline already records, so the status issue task waits for the retiring task"
+symptom = "Task 18.1695.1 attempt 1 at d2f97ccb678d (base 93249965659c) passed its build and failed both verification cases with receipt qualification rejected: TestRenderedProductionDocumentsBoot at render_test.go line 145 and TestIndexerStatus1695 at status_1695_test.go line 244, both through receipt.NewRPCQualification over the recorded production documents. tests/ci/data/launchpad_go_test_baseline.json records TestRenderedProductionDocumentsBoot as known failing for exactly this reason with retiring task 22.39.162 (wave 2, pending), and the new status test boots the same documents through the same rule."
+fix = "18.1695.1 requires 22.39.162 and moves to wave 2; attempt 2 continues after the retiring task lands."
+
+[gotcha.3778]
+title = "The explorer backend test environment has no Redis service, so every controller test that touches the session store fails with a persistence error"
+symptom = "Tasks 18.1673.1 attempt 1 at 47e42319140a and 18.1651.1 attempt 1 at d1ee7253d734 (both base 93249965659c) passed their builds and failed their verifications with BlockScoutWeb.Plug.RedisCookie.PersistenceError (18.1673.1 in confirm OTP successfully; 18.1651.1 in get watchlist id at address_controller_test.exs line 440). services/explorer/deploy/tools/mix-in-builder.sh runs mix inside the pinned Elixir builder container joined to the network namespace of one postgres:16 database container and starts nothing else; the session store of the backend endpoint (endpoint.ex line 68) writes through Redix, which services/explorer/backend/apps/explorer/lib/explorer/application.ex line 96 starts from ACCOUNT_REDIS_URL with the default redis://127.0.0.1:6379. The second verification of 18.1651.1 also showed a failure the attempt did not touch: get EIP-1967 proxy contract info (line 329) returns an empty implementations list on main."
+fix = "Decision 3071 and task 22.39.236 add a Redis container beside the database container; 18.1673.1 and 18.1651.1 require it, and the verification of 18.1651.1 names its three tests while the proxy failure is recorded as a qualification finding."
+
+[gotcha.3779]
+title = "The web search receipt fixtures of the TypeScript SDK test carry a settlement operation the client refuses, and the test casts a literal the compiler rejects"
+symptom = "Task 18.1713.1 attempt 1 at fca0ac74d127 (base 93249965659c) failed its first build because the script ran tsc through a package manager that is not installed for that directory, then compiled with one error, TS2352 at test/web-search.test.ts line 166 column 35 (a conversion between two object literal types with no overlap), and its verification failed twenty-nine of thirty-three cases with WebSearchError settlement-operation-mismatch thrown at services/agent/sdk/typescript/src/web-search.ts line 359, where the client requires receipt moduleId 12 and operation 2; the receipts the attempt wrote for its fixtures carry other values. The check is unchanged from main (line 358 there)."
+fix = "Attempt 2 writes fixture receipts that carry the settlement module and operation of the producer and replaces the cast with a typed literal."
+
+[gotcha.3780]
+title = "Four issue task gates name a package manager the directory does not use, so the gates fail before the tests run"
+symptom = "Task 18.1718.1 attempt 1 at 0daffc77f779 failed its build with ERR_PNPM_OTHER_PM_EXPECTED because apps/explorer is a yarn workspace (precedent gates of 22.33.274 use yarn). Task 18.1766.1 attempt 1 at 9402211da8e3 failed with webpack not found because services/explorer/backend/apps/block_scout_web/assets is installed with npm from its package-lock.json (precedent npm ci --ignore-scripts). Task 18.1711.1 attempt 1 at 80a88738417b failed with tsc not found because services/platform/middleware/conformance is an npm package whose build script is tsc -p tsconfig.json (precedent build of its sibling tasks). Task 18.1770.1 attempt 1 at 2a88ca65780f failed its build because apps/explorer/deploy/tools/envs-validator carries a yarn.lock and the pnpm install of its modules was refused (ERR_PNPM_OTHER_PM_EXPECTED), so vite could not resolve property-expr from the yup package (precedent gate of 22.33.499: yarn install with the frozen lock, then yarn). All four trees are complete; only the commands were wrong."
+fix = "Decision 3072 fixes the rule; the four gates move to the package manager of their lock files and the attempts requalify at their revisions."
+
+[gotcha.3781]
+title = "The agent daemon proof tests start the local node, whose script builds the node binary through the chain make file, which the gate shell cannot build without cmake"
+symptom = "Task 18.1743.1 attempt 1 at 37960b88eacc (base 93249965659c) passed its build and failed its verification: tests/proof_serve_errors.rs includes proof_native_reads.rs, whose cases start tools/qualification/localnode/v6120-node.sh (line 587), and the script builds paxd with make -f chain.mk install when PAXD is not executable (lines 332 to 345); that target builds evmone from source with cmake (gotcha 3769), so the node never started and the startup log was not collected. Task 21.95.1 passed the same build in its own build command (make -f chain.mk install before cargo) when the gate shell had cmake for that build."
+fix = "Decision 3073: a gate whose tests start the local node builds the node binary in its build command; the gate shell provides cmake for that build, and 18.1743.1 requalifies with the build command of 21.95.1."
+
+[gotcha.3782]
+title = "The platform CLI bootstrap test passes a UUID where the trace identifier parser requires the trc_ prefix and thirty-two hexadecimal digits"
+symptom = "Task 18.1747.1 attempt 1 at 492b07abcd86 (base 93249965659c) passed its build and panicked in tools/platform/cli/tests/repair_22_33_63.rs line 1648 with bootstrap peer: Malformed: the test calls TraceId::parse on 00000000-0000-4000-8000-000000000001, and TraceId::parse (trace.rs lines 12, 13 and 38 to 46) accepts only the prefix trc_ followed by thirty-two lowercase hexadecimal digits."
+fix = "Attempt 2 builds the identifier in the format of the producer."
+
+[gotcha.3783]
+title = "The px_listAssets method accepts an explicit null cursor, which the OpenRPC contract declares invalid"
+symptom = "Task 18.1665.1 attempt 1 at 3dd4b2d997c5 (base 93249965659c) passed its build and failed its verification twice: px_node_root_account_test.go line 687 expects error code -32602 for a request whose cursor is JSON null and received no error, and line 589 expected eight items and received none. rpc/px_assets.go ListAssets (lines 193 to 199) validates only a non-nil cursor, so a null cursor passes as if absent."
+fix = "Attempt 2 refuses a null cursor with invalid params and repairs the count case at its source."
+
+[gotcha.3784]
+title = "The subscription test fixture commits a block whose served header carries a zero state root, so the new-heads event is dropped as inconsistent"
+symptom = "Task 18.1643.1 attempt 1 at efcb96016b69 (base 93249965659c) passed its build and failed rpc/subscribe_test.go line 405: the expected stateRoot 0xc216... was the zero hash in the served header, and the log recorded dropping invalid newHeads event at height 1: new head block 1 hash does not match committed event. The fixture passes a ResponseFinalizeBlock whose AppHash is the state root to notifier.OnBlockCommitted while the header the server reads for height 1 was stored without that root, so the notifier and the header disagree."
+fix = "Attempt 2 wires the fixture so the committed header carries the state root the notifier announces, and asserts the value of the producer (gotcha 3046)."
+
+[gotcha.3785]
+title = "The gRPC query error test imports the auth transaction package, which imports the application through the ante handler and closes an import cycle"
+symptom = "Task 18.1678.1 attempt 1 at 6b398503dc8c (base 93249965659c) failed its build: query_grpc_error_test.go imports sdk/x/auth/tx, which imports x/auth/ante, x/params/keeper and baseapp, and baseapp imports the package under test, so go reported an import cycle and nothing compiled."
+fix = "Attempt 2 builds the request bytes without importing the x modules."
+
+[gotcha.3786]
+title = "Three lint attempts of the agent crates left the lints the gate names, in test support files and in the new test files themselves"
+symptom = "Task 22.39.217 attempt 2 at 21824c558755 declares the support/assertions.rs module twice in tests/repair_22_33_1558.rs and misses backticks in its documentation; task 22.39.219 attempt 2 at 9ef634b1ba16 leaves unnecessary semicolons at tests/committed_caps.rs lines 26, 80 and 84; task 22.39.221 attempt 2 at 119dfedb86cb leaves unnecessary parentheses at tests/support/independent/field25519.rs line 440, ten missing semicolons in tests/repair_22_31_214.rs (lines 740 to 871), backticks in proof_agent_api.rs lines 5 and 65 and tests/support/independent/edwards25519.rs lines 173 to 186, and a reference to an Option at tests/support/committed_landing.rs line 462. Each list is in the clippy output of its verification log."
+fix = "Each attempt continues on the named sites."
+
+[gotcha.3787]
+title = "Two attempts regenerated a shared Cargo.lock outside their planned paths and were held at collection"
+symptom = "Task 22.39.215 attempt 2 and task 18.1664.1 attempt 1 were held because services/agent/Cargo.lock and services/platform/Cargo.lock changed with their trees: a dependency edit in a member crate regenerates the shared lock of its Cargo workspace, as decision 2829 records for 22.31.547."
+fix = "The planned paths of both tasks carry the shared lock file and the attempts are released after the record is corrected."
+
+[gotcha.3788]
+title = "Two issue tasks changed the same retired-endpoint test file and the second one conflicts on merge"
+symptom = "Task 18.1729.1 attempt 1 was held because its change to tools/platform/cli/tests/repair_22_33_1496.rs conflicts with the change of 18.1728.1 published at 2c8a047541 on 2026-11-09; both tasks touch the same test file for neighbouring retired endpoints."
+fix = "Attempt 2 merges main and resolves the file so both repairs stand."
+
+[gotcha.3789]
+title = "The batch activity receipt test fails in its genuine mode because the SDK refuses the committed-wait response of the live node"
+symptom = "Task 18.1764.1 attempt 1 at c87168c7be37 (base 6b1a7b90506d) passed its build; its first verification failed at rpc/px_node_root_kernel_test.go line 134 with invalid bank recipient (a fixture send to a recipient the bank refuses), and after the repair the second verification failed at line 724: the Rust test committed_wait_uses_unfiltered_batch_activity_ids of services/agent/crates/layerx-sdk/tests/issue_1764.rs panicked at line 113 with genuine: InvalidResponse, so RpcClient.wait_for refused the response the proxied live node returned for the unaltered mode before any tampering mode ran. The refusal comes from one of the response parsers of rpc_commit.rs or rpc_verification.rs that the attempt changed, and the error names no field."
+fix = "Attempt 2 makes the parser follow the response shape of the node (gotcha 3046), names the refused field in the error, and keeps the tampering modes."
+
+[gotcha.3790]
+title = "Three perps issue tasks fail their type check on the main defect the perps type resolution task repairs"
+symptom = "Tasks 18.1676.1 attempt 1 at a2aeeabdfeca and 18.1655.1 attempt 1 at a1cc2ede1dd0 (both base 93249965659c) and 18.1656.1 attempt 1 at 7136e0b39e36 (base 027bfa65e2a8) failed their builds in the perps type check with the JSX component type errors of gotcha 3770, none in their changed files."
+fix = "The three tasks require 22.39.234 under decision 3068 and continue after it lands."
+
+[gotcha.3791]
+title = "The committed platform pipeline inventory misses eight conformance fixtures, so a live capture classifies more files than the inventory declares"
+symptom = "Task 18.1639.1 attempt 2 at 18d40c7ffbb0 (base 027bfa65e2a8) passed its build and failed its verification at tests/drift.rs line 955: the live capture of the platform-conformance output lists fifty-two handwritten files while the committed sdk/platform/pipeline.kvx declares forty-four; the eight files the capture adds are fixtures/fiat-receipts-v1.json, fixtures/generate_kernel_receipt_fixture.mjs, fixtures/kernel-receipt-v1.json, fixtures/native-program-binding-v4.json, fixtures/refresh_native_program_binding.py, fixtures/refresh_receipt_vectors.py, fixtures/vector-v6-sponsored-bind.json and fixtures/vector-v7-named-payee.json, all present under sdk/platform/conformance and added after the inventory was last regenerated. The generated file digests are equal on both sides."
+fix = "Attempt 3 declares the eight files handwritten in the committed inventory, the form the live capture produces."
+
+[gotcha.3792]
+title = "The wallet repair proof gate asserts five result counts and prints none, so its failure names no count"
+symptom = "Task 18.1662.1 attempt 1 at 90883a34f5d7 (base 027bfa65e2a8) passed its build and failed its verification with a bare AssertionError: the verification pipes the vitest JSON report into a python assertion over success and the total, passed, failed, pending and todo counts, and prints nothing before asserting, so the log shows neither which count differs nor which of the nine cases (six in repair-22-33-181.test.ts, three in repair-22-33-209.test.ts) failed or was skipped."
+fix = "The verification runs the suite once with the verbose reporter and prints the five counts before the assertion; attempt 2 reads them and repairs the cases."
+
+[gotcha.3793]
+title = "Three explorer backend attempts failed in one window because the precompiled NIF archives of ex_keccak, evil_crc32c and vix could not be fetched"
+symptom = "Task 18.1652.1 attempt 1 at 90fd237e718d, task 18.1806.1 attempt 1 at 865e4c1d9e48 and task 18.1659.1 attempt 1 at 28d5b1bec076 each failed their build between 07:50Z and 08:10Z on 2026-11-09 while the Elixir build fetched a precompiled native archive: ex_keccak and evil_crc32c answered 504 Gateway Time-out from the release host and vix reported that its precompiled archive does not exist or cannot download (enoent). No file of the three attempts was at fault and the verification never ran."
+fix = "The three attempts are requalified unchanged; the archives download in every other window of the day."
+
+[gotcha.3794]
+title = "Four perps issue tasks fail the type check on the duplicated React type packages that task 22.39.234 removes"
+symptom = "Tasks 18.1675.1 (9440476f4d02), 18.1802.1 (2b3daa8a0e11), 18.1803.1 (1b3f1e38c29d) and 18.1658.1 (70631c59d2b6) each failed their build with TS2786 in files of apps/perps they did not change, because two copies of the React type package are resolved in the perps tree, the defect decision 3068 assigns to task 22.39.234. Each attempt implemented its own case and could not pass a type check that fails on main."
+fix = "The four tasks require 22.39.234 and continue on their attempt-1 trees after it lands."
+
+[gotcha.3795]
+title = "The spot release gate test renders MarketsPage without a query client since the markets rows moved to a query"
+symptom = "Task 22.39.234 attempt 1 at 3455fe6fb966 pinned the React type package and passed its build and type check; its verification failed in markets_mode_handler_switches_to_spot of apps/perps/tests/spot-release-gate.test.ts with No QueryClient set, because the Harness of lines 80 to 95 renders MarketsPage directly while MarketsPage reaches useMarketsRows, usePerpsMarkets and useQuery since e924a72638 (2026-11-02); tests/mobile-markets.test.ts lines 6, 41 and 73 wrap the same page in a QueryClientProvider with a fresh QueryClient. The test file was outside the touches of the task."
+fix = "Attempt 2 wraps the Harness in a QueryClientProvider as the sibling test does, with the test file in its touches."
+
+[gotcha.3796]
+title = "Five gates of the vendored tree ran with commands that neither install its packages the way their lock files prescribe nor name real paths"
+symptom = "Task 18.1815.1 attempt 1 at 9796214ff3ff failed with thirty-one TS2307 errors for pg because the control-plane package of the vendored tree is excluded from its pnpm workspace and carries its own package-lock.json, so only npm ci in that directory installs it. Task 18.1826.1 attempt 1 at 7284bfbc7510 ran tsc in the client SDK package of the vendored tree, whose typecheck script is tsrs and which has no tsc binary. Tasks 18.1772.1 (95e997fddf7a), 18.1817.1 (6155a7bedc11) and 18.1819.1 (ebca190ef9ae) shipped with the wording of their prose in their build and verify commands (the vendored case file ...) instead of the real paths under the vendored tests directory, so the gate shell could not find the files."
+fix = "Decision 3075: a gate of the vendored tree installs with the lock file of its directory and runs the package typecheck script; the five commands are corrected and the attempts requalified."
+
+[gotcha.3797]
+title = "The agent TypeScript SDK was never installed for the pay6 HTTP conformance gate, so its node peer could not resolve noble hashes"
+symptom = "Task 18.1833.1 attempt 2 at 7c2ace3c4c5d (attempt 1 at 6cf9bcb179f6 the same) failed its verification because the node peer of services/platform/middleware/conformance/pay6/test_http.py imports services/agent/sdk/typescript/src/committed-proof.ts, which imports the noble hashes package, and the gate had not installed the typescript SDK directory (package-lock.json present, no node_modules); the python side of the gate was complete."
+fix = "The build command of the task installs the typescript SDK with npm ci before the python compile, and the attempt is requalified."
+
+[gotcha.3798]
+title = "The bind transport python gate needs anvil on the path and the python profile does not provision it"
+symptom = "Task 18.1840.1 attempt 1 at cb0bf13491d4 failed its verification because test_bind_rpc_transport_loss_keeps_unknown_submission_outcome starts anvil and the python profile of the gate shell provisions the Foundry toolchain only when the command names anvil, forge or cast; the case itself was complete."
+fix = "The verify command gains an anvil --version prefix as 22.39.162 did, and the attempt is requalified."
+
+[gotcha.3799]
+title = "The launchpad web image build requires the WEB_GATEWAY_UPSTREAM build argument the gate command did not pass"
+symptom = "Task 18.1823.1 attempt 1 at ab4222df2384 failed its build at deploy/launchpad/Dockerfile.web line 31, where web-build-env.sh refuses with missing production upstream: WEB_GATEWAY_UPSTREAM when the argument is absent; the files of the attempt were complete."
+fix = "The build command passes the argument with a placeholder upstream, and the attempt is requalified."
+
+[gotcha.3800]
+title = "The qualification environment installs the buildx plugin and not the compose plugin, so a compose config test cannot run"
+symptom = "Task 18.1821.1 attempt 1 at 558c6682a924 failed its verification in test_image_namespaces because it runs docker compose config --images and the environment answered unknown flag: --images, the message of the legacy compose shim when the compose plugin is absent; the environment provisions only the buildx plugin for docker build commands."
+fix = "The qualification environment installs the compose plugin whenever a gate names docker compose or the image namespace test, and the attempt is requalified."
+
+[gotcha.3801]
+title = "The core-suite wiring assertion and the launchpad test workflow still carry Foundry v1.7.1 while every other workflow pins v1.8.1"
+symptom = "Task 18.1834.1 attempt 1 at c3281ef4556f failed test_ci_runs_core_test_all because tests/ci/test_core_test_all_wired.py line 65 asserts version v1.7.1 while ci.yml pins v1.8.1, the defect task 18.1846.1 owns; task 18.1846.1 attempt 1 at 718022689f16 corrected the assertion and failed test_foundry_version_is_exact_and_uniform because .github/workflows/launchpad-test.yml line 246 still pins v1.7.1, outside its touches."
+fix = "18.1846.1 carries the workflow line with the workflow in its touches; 18.1834.1 requires it."
+
+[gotcha.3802]
+title = "The runner routing check fails on main on two fixed human workflow jobs, two fixed launchpad jobs and a stale exclusion table"
+symptom = "Task 18.1843.1 attempt 1 at f2eb04350bcf, task 18.1845.1 attempt 1 at 556f8587bca5 and task 18.1850.1 attempt 1 at f962e5cbca89 each ran scripts/ci/runner-routing-check.sh through the routing test and failed on the same facts: .github/workflows/human.yml jobs schema-check (line 25) and browser-performance (line 126) carry a fixed ubuntu-24.04 since b910eb9938, .github/workflows/launchpad-test.yml jobs launchpad-go-test (line 80) and launchpad-go-wiring (line 333) carry a fixed ubuntu-latest, and the EXCLUDED table of the script records ubuntu-latest and macos-latest for twenty-two excluded jobs whose workflows now pin ubuntu-24.04 and macos-15. Task 18.1863.1 asserts the same file."
+fix = "Decision 3077: 18.1843.1 owns the routing check and carries the two workflows and the table; 18.1845.1, 18.1850.1 and 18.1863.1 require it."
+
+[gotcha.3803]
+title = "The hpx registry module declares go 1.25 while the root module and the workflow pin 1.25.8"
+symptom = "Task 18.1838.1 attempt 1 at 62b5057806db failed its verification because tools/hpx/registry/go.mod declares go 1.25 while the root go.mod declares go 1.25.8 and paxeer-go-test.yml pins GO_VERSION 1.25.8; the module file was outside the touches."
+fix = "Decision 3077: the task carries the go directive with the module file in its touches."
+
+[gotcha.3804]
+title = "The developer dashboard lock script asserts a four-level path to the UI package while the manifest declares five"
+symptom = "Task 18.1818.1 attempt 1 at fc28835c4726 failed because scripts/ci/developer-dashboard-lock.mjs line 10 asserts file:../../../../apps/web/packages/layerx-ui while services/platform/hosted/dashboard/web/package.json line 17 declares file:../../../../../apps/web/packages/layerx-ui, the depth that is right for the directory; the script was outside the touches."
+fix = "Decision 3077: the task corrects the script with the file in its touches."
+
+[gotcha.3805]
+title = "The activation runbook test counts five goldens while the bring-up golden file carries seven, and the rendered runbook differs from its renderer"
+symptom = "Task 18.1812.1 attempt 1 at f8384f9fbbdb failed its verification twice: the rendered docs/activation-runbook.md differs byte for byte from the renderer output, and spec/layerx-merge/programme/tests/test_activation_runbook.py lines 28 and 69 assert len(goldens) == 5 while programme/data/goldens/merge-bringup.kvx carries seven goldens (accepted, no-leaders, lastseq, no-key, bad-genesis, custody-release, anchor-retired)."
+fix = "Attempt 2 regenerates the runbook with the renderer and names the seven goldens in both assertions."
+
+[gotcha.3806]
+title = "The node-root history rows omit tx_hash and final_basis that the gateway contract requires"
+symptom = "Task 18.1633.1 attempt 2 at a5eec0fa95f0 and task 18.1632.1 attempt 2 at f8243b509391 failed TestPxNodeRoot_History_TransportShapesAndRestart with result.items[0] lacks final_basis and lacks tx_hash: services/platform/hosted/gateway/openrpc.json (6ac9c39c3d, 22.38.12) requires px_getHistory and px_getUnifiedHistory items to carry tx_hash (exactly equal to tx_id) and final_basis (block_commit or explorer_api), and the Row of src/modules/history/indexer.go line 116 emits tx_id only."
+fix = "Decision 3076: 18.1633.1 adds both fields to the row; 18.1632.1 requires it."
+
+[gotcha.3807]
+title = "The platform SDK drift check refuses every drift-gated task because the agent API schema changed after the last generation"
+symptom = "Task 18.1639.1 attempt 3 at 88d6d06c2b2c failed sdk/platform/generators/tests/drift.rs line 971 with stale generated SDKs: schema agent-api changed after the last generation: services/agent/schema/agent-api changed at fcf0c791af (2026-11-05) and no task regenerated the outputs of sdk/platform/pipeline.kvx since. The regeneration touches eleven output roots across the agent crates, the agent SDKs, the web API client and the platform SDKs, far outside any issue task."
+fix = "Decision 3078: task 22.39.237 regenerates the platform SDKs; 18.1639.1 requires it."
+
+[gotcha.3808]
+title = "The daemon submission conformance fixture predates the current serializer"
+symptom = "Task 18.1711.1 attempt 2 at 71ddd5172ce2 failed conformance_daemon_fixture_tracks_and_recovers_real_serializer_output (test/repair-22-33-1480.test.mjs line 210): the recorded fixtures/daemon-submission.json differs from the serializer output at the current revision (asset differs; block_height, first_height and inclusion_height missing), and the fixture file was outside the touches."
+fix = "Attempt 3 regenerates the fixture from the real serializer with the fixture in its touches."
+
+[gotcha.3809]
+title = "The V6 committed fixture recorder cannot deploy the V1 programs vector"
+symptom = "Task 18.1667.1 attempt 1 at bb0601198954 failed TestRecorderAllSelectedV6Executes (daemon/committed-fixture/main_test.go line 197) with record vector-v1-programs-positive: V1 Programs deployment reverted, reason LXP_ERR_VERSION_UNSUPPORTED: the V6 genesis of the recorder does not keep V1 program deployment supported, and the all-vector recording needs it."
+fix = "Attempt 2 keeps V1 program deployment supported in the V6 recorder genesis."
+
+[gotcha.3810]
+title = "The receipt equality restart capture reads a non-zero result code and a budget state the producer did not derive"
+symptom = "Task 18.1724.1 attempt 1 at 392b746b5011 failed node/sequencer/receipt_equality_test.go line 430 (require.Zero on the receipt result code, got 0x2d) on its second run and line 434 (restart capture requires producer-derived budget state) on its first."
+fix = "Attempt 2 derives the restart capture from the producer receipt path so the result code is zero and the budget state is the producer value."
+
+[gotcha.3811]
+title = "The explorer token transfer live update test expects the display page size and receives the fetch size"
+symptom = "Task 18.1679.1 attempt 1 at 8e41db2dc232 failed tokenTransferLiveUpdatesFollowDisplayPage with expected 50 to be 25."
+fix = "Attempt 2 makes the live update follow the display page size the producer declares."
+
+[gotcha.3812]
+title = "The layout search results specification uses JSX without importing React"
+symptom = "Task 18.1717.1 attempt 1 at 92a8d7a90c30 failed LayoutSearchResults.spec.tsx with ReferenceError: React is not defined; the sibling specifications import React explicitly."
+fix = "Attempt 2 imports React in the specification."
+
+[gotcha.3813]
+title = "The native rewards aggregation test begins aggregation at a negative balance"
+symptom = "Task 18.1749.1 attempt 1 at e23026208c77 panicked at programs/crates/layerx-programs-ai-market/tests/rewards_native.rs line 2677 with BeginAggregation left: -601 right: 0."
+fix = "Attempt 2 repairs the aggregation fixture or the producer at the site the assertion names."
+
+[gotcha.3814]
+title = "The explorer assets webpack configuration requires terser-webpack-plugin that its lock file does not carry"
+symptom = "Task 18.1766.1 attempt 2 at a94ffba122d7 failed npm run build with Cannot find module terser-webpack-plugin: services/explorer/backend/apps/block_scout_web/assets/webpack.config.js line 2 requires it and the assets package-lock.json has no entry for it."
+fix = "Attempt 3 adds the plugin to the assets manifest and lock with both in its touches."
+
+[gotcha.3815]
+title = "The launchpad shared module leaves fourteen Close results unchecked and the connected export test needs a bucket the environment never creates"
+symptom = "Task 22.39.117 attempt 9 at 84d7c279ea70 failed errcheck on sdk/launchpad/shared (auth/contract.go lines 432 and 656, load_measurement.go lines 448 and 759, chain/client.go lines 1510, 1731, 1804, 1823, 1837, 1844 and 1881, readpolicy/measurement.go lines 61 and 324) and the connected encrypted export single-use download case failed with S3 PutObject 404 NoSuchBucket (services/launchpad/user/internal/account/connected_integration_test.go line 222): the connected test reads its bucket from the environment while internaltest/containers.go line 199 creates buckets only for container-based tests."
+fix = "22.39.117 fixes the unchecked results and adds the account package case to the BASELINE with retiring task 22.39.168, whose do gains the bucket creation."
+
+[gotcha.3816]
+title = "The human web build calls tsup through a relative bin path that only one hoisting layout provides"
+symptom = "Task 17.5.7 attempt 3 at 5340e6005e85 failed make workspace-build at Makefile line 1743 (human-build, Error 127): apps/web/package.json line 13 runs cd packages/layerx-ui && ../../node_modules/.bin/tsup, and the binary was absent at apps/web/node_modules/.bin after npm ci installed the tree (tsup 9.0.0 at the root and 8.5.1 under packages/layerx-ui in the lock)."
+fix = "Attempt 4 resolves tsup through npx --no-install inside the package so either layout works, with apps/web/package.json in its touches."
+
+[gotcha.3817]
+title = "Six of the nine wallet lease proofs never reach the signing entry within their settle window"
+symptom = "Task 18.1662.1 attempt 2 at 612de178d08099 (attempt 1 at 90883a34f5d7 the same six) registered all nine proofs; six cases of services/wallet/gateway/test/repair-22-33-181.test.ts (lease duration, lease loss during signing, renewal error, lease loss during receipt, expiry drain, operation deadline) time out at the within helper of line 547 waiting for db.signingEntered or receiptEntered after four seconds, with the participant interval at 20 ms and the lease at 500 ms. The proofs had never executed before this task registered them."
+fix = "Attempt 3 traces the first case against the current claim and lease SQL of src/db/actions.ts and src/agent/actions, with both in its touches."
+
+[gotcha.3818]
+title = "The web search exact payment test builds a receipt the verifier refuses as the wrong settlement operation"
+symptom = "Task 18.1713.1 attempt 2 at 84840c93e9d7 failed every case of webSearchExactPaymentLogReceipts with settlement-operation-mismatch from verifyWebSearchPayment (src/web-search.ts line 358): the fixture receipt does not carry module 12 operation 2, or its raw transaction does not decode as a ledger transaction."
+fix = "Attempt 3 builds the fixture receipt and raw transaction through the producer encoders with module 12 operation 2."
+
+[gotcha.3819]
+title = "The proof crate test targets carry six pedantic lints after two attempts"
+symptom = "Task 22.39.218 attempt 3 at a724daeb709d failed clippy with missing backticks at tests/sequencer_corpus.rs line 114 and tests/repair_22_33_1557.rs line 2, too many lines at tests/inclusion.rs line 128, expect_err on a Result at tests/repair_22_33_1557.rs line 232, clone on the Copy type AuthorizedBatch at line 259 and format in an iterator at line 313."
+fix = "Attempt 4 repairs the six sites."
+
+[gotcha.3820]
+title = "The asset list method accepts an explicit null cursor the contract refuses"
+symptom = "Task 18.1665.1 attempt 2 at e989d4af8ae9 failed TestPxNodeRoot_Assets_CursorSchema at rpc/px_node_root_account_test.go line 686: the explicit null cursor of px_listAssets must answer invalid params -32602 (decision 3074) and rpc/px_assets.go answered without error."
+fix = "Attempt 3 refuses the null cursor in px_assets.go."
+
+[gotcha.3821]
+title = "The clock-unit regressions of the human service fail at their peer fixture with Unavailable"
+symptom = "Task 18.1747.1 attempt 2 at 55fb3d91800b failed native_approval_clock_units and native_producer_clock_units at tests/repair_22_33_63.rs line 1619 with bootstrap peer: Unavailable: the must helper of line 94 unwraps a peer request the fixture answers with Unavailable instead of the producer answer."
+fix = "Attempt 3 supplies the fixture answer the real peer gives at that request."
+
+[gotcha.3822]
+title = "Eight launchpad web cases remain red after the ninth repair attempt"
+symptom = "Task 22.39.95 attempt 9 at 5ea9c3c82ef7 passed 1270 cases and failed eight: four of chart-datafeed-recovery.test.ts (two real joined chart scenario time-outs at lines 440 and 541, Actual canonical candle required at line 636, and the browser fallback journey at line 431 whose Playwright context failed), socialRequestDeadline of repair-22-33-921.test.ts line 355 timing out at 63 seconds, the TopTrades case of portfolio-widgets.test.tsx line 214 missing Lantern, the funded chain125 journey of trade-journey.integration.test.tsx and the advanced deployment of connected-journeys.test.tsx line 201 (Order creation block outside admitted history); the trading charts origin answered 503 DEPENDENCY_UNAVAILABLE during the chart cases."
+fix = "Attempt 10 repairs the eight cases at their sites with the trading charts origin started with its dependencies."
+
+[gotcha.3823]
+title = "The explorer header shortcut test does not move focus to the search input"
+symptom = "Task 18.1718.1 attempt 2 at ed8eb25ac200 failed searchShortcutFocusesTheRealInput: the active element after the shortcut is body, not the input."
+fix = "Attempt 3 fires the shortcut key event on the element the header listens to and awaits the focus."
+
+[gotcha.3824]
+title = "The native reads proofs cannot start the local node and the startup log stays outside the record"
+symptom = "Task 18.1743.1 attempt 2 at 043ba0b46254 failed proof::happy_path_and_malformed_producer_result and proof::program_state_unavailable at tests/proof_native_reads.rs line 642: tools/qualification/localnode/v6120-node.sh failed (exit status 1) and its startup.log under /tmp/lx-localnode was not copied into the record, so the cause is unknown."
+fix = "Attempt 3 copies the startup log into the record directory on failure and repairs the start."
+
+[gotcha.3825]
+title = "The newHeads fixture compares a twenty-byte field against a thirty-two-byte literal"
+symptom = "Task 18.1643.1 attempt 2 at d07832aff51d failed TestSubscribeNewHeadsAutobahn at rpc/subscribe_test.go line 195: expected a thirty-two-byte zero-padded value ending in 05 and received the twenty-byte value the producer emits."
+fix = "Attempt 3 asserts the width the producer field type defines."
+
+[gotcha.3826]
+title = "The crypto crate test support module is loaded by several test targets and by path, so the duplicate module lint fails"
+symptom = "Task 22.39.217 attempt 3 at 67698b8f4ddb failed clippy with duplicate_mod for tests/support/mod.rs and its four files (tests/repair_22_33_1560.rs line 38 and tests/support/mod.rs lines 3, 4 and 8), unnecessary return value at tests/repair_22_33_1561.rs line 178, missing backticks at tests/repair_22_33_1333.rs line 2 and expect_err at tests/disclosure.rs line 220."
+fix = "Attempt 4 replaces the duplicate mod items with use items and repairs the three sites."
+
+[gotcha.3827]
+title = "An issue task attempt ended without a change in scope"
+symptom = "Task 18.1750.1 attempt 1 ended at 08:28Z on 2026-11-09 without a revision and without a change inside its scope; the record carries no build and no verification."
+fix = "The task is relaunched by a do item restating its deliverable."
+
+[gotcha.3828]
+title = "The retired-caller scan finishes in under a minute on main and reports one caller in the vendored geth four-byte signature database"
+symptom = "Task 17.2.8 attempt 2 at b046adf30176 (base 9f7574fefe1a, after 22.39.214 landed) ran the scan in 47 seconds and failed in retired.owners at spec/layerx-merge/programme/retired.py line 368: no owning domain for caller core/deps/geth/signer/fourbyte/4byte.json. Line 1511 of that file is the selector entry 015bf264 for depositTokens(uint256,address,uint256), an upstream signature database of the vendored geth tree that lists every public selector ever registered, among them a retired name. core/deps holds 3006 tracked files of upstream cosmwasm and geth sources; tools/paxeer-x/tests/retired_callers_test.py excludes the catalogue, deleted and retiring trees, test directories and documentation but no vendored upstream tree, and no DOMAIN_PREFIXES entry owns core/deps."
+fix = "Decision 3079: vendored upstream sources under core/deps are not callers; the scanner excludes the tree by pathspec and 17.2.8 attempt 3 carries that change with the scanner in its touches."

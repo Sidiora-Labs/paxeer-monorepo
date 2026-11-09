@@ -43,6 +43,11 @@ fn profile() -> RoomProfile {
         host_share_bps: 1000,
         protocol_share_bps: 100,
         settlement_account: AccountId::new([80; 32]).unwrap(),
+        max_generated_tokens: 4096,
+        queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
+        liveness_timeout_ms: 30_000,
+        acknowledgement_window_ms: 5_000,
+        canary_relative_tolerance_bps: 100,
     }
 }
 fn payload(size: usize, encode: impl FnOnce(&mut [u8]) -> CodecResult<usize>) -> Vec<u8> {
@@ -485,7 +490,9 @@ impl Harness {
         self.apply(
             dispatch::OpenRoom,
             HOST,
-            &payload(168, |out| open_request(room).encode(out)),
+            &payload(OPEN_ROOM_REQUEST_BYTES, |out| {
+                open_request(room).encode(out)
+            }),
             Presence::Absent,
         )
     }
@@ -733,7 +740,7 @@ fn crossing_pairs_require_price_funding_room_and_model_matches() {
     h.apply(
         dispatch::OpenRoom,
         HOST,
-        &payload(168, |out| other.encode(out)),
+        &payload(OPEN_ROOM_REQUEST_BYTES, |out| other.encode(out)),
         Presence::Absent,
     );
     h.priced_ask(60, 1, 20, 1);
@@ -932,7 +939,7 @@ fn separate_models_have_independent_bid_caps_and_view_codec_refuses_malformed_da
     h.apply(
         dispatch::OpenRoom,
         HOST,
-        &payload(168, |out| room.encode(out)),
+        &payload(OPEN_ROOM_REQUEST_BYTES, |out| room.encode(out)),
         Presence::Absent,
     );
     for id in 1..=128 {

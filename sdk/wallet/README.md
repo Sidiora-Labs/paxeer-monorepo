@@ -173,10 +173,12 @@ Other exports include:
 
 Wallet HTTP failures use `PaxeerWalletError` with `code`, `status` and `detail`; a missing session produces `NO_SESSION` (401). JSON-RPC callers use `JsonRpcError` or `JsonRpcTransportError`. EIP-1193 provider failures use the codes in [`errors.ts`](src/errors.ts).
 
-## Node and hosted reads
+## Node reads and hosted operations
 
 `EndpointClient` defaults to `https://api-mainnet-beta.paxeer.network` for node calls. Public node JSON-RPC uses the root URL of that alias or `api1` through `api14.mainnet-beta.paxeer.network`, with chain ID `125`. See [public RPC endpoints](../../docs/site/docs/reference/public-rpc.md).
 
-Set `nodeUrl` (or the legacy `url` option) to choose a node, and `hostedUrl` to use the hosted gateway's `px_` account, balance, network, capabilities and history methods. `EndpointClient.batch()` routes those methods to the hosted client, except `px_getReceiptKeys`, which goes to the node. Hosted reads require an explicit `hostedUrl`; they are not enabled by choosing a public node. The hosted contract is [OpenRPC](../../services/platform/hosted/gateway/openrpc.json).
+Set `nodeUrl` (or the legacy `url` option) to choose a node. `px_` reads go to the node root; only `px_register` and `px_requestFunds` require `hostedUrl`. Account, asset, balance, network, capabilities and history reads use the node, as does `px_getReceiptKeys`. Configure `hostedUrl` separately for the hosted gateway's two operations; its contract is [OpenRPC](../../services/platform/hosted/gateway/openrpc.json).
+
+`EndpointClient.batch()` uses the same split: it sends `px_register` and `px_requestFunds` to the hosted gateway and all other methods, including `px_getReceiptKeys`, to the node, then returns results in the original call order. Without `hostedUrl`, a batch containing either hosted operation throws `JsonRpcTransportError`. The legacy error message refers to hosted reads, but read-only batches do not require `hostedUrl`.
 
 `KernelClient` uses this endpoint and `KernelAvailability` to return either `{ available: true, result }` or a typed unavailable state. Availability depends on a consensus head that is not catching up. Recognized kernel-unavailable responses use JSON-RPC code `-32010` with `data.code = "kernel_unavailable"`; unrelated errors propagate. These clients access the same network and its hosted services.

@@ -7,8 +7,10 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import zipfile
 
@@ -209,6 +211,198 @@ def test_statik_consumers_share_one_bundle():
     assert (
         '_ "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/docs/statik"' in server
     )
+
+
+def test_shared_swagger_generation_round_trip(tmp_path):
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    paths = (
+        "scripts/swagger_assets.py", "scripts/update-swagger-ui-statik.sh",
+        "sdk/scripts/update-swagger-ui-statik.sh", "sdk/Makefile",
+        "sdk/contrib/devtools/Makefile", "sdk/client/docs/statik/statik.go",
+        "consensus/version/version.go", "docs/swagger/statik.go",
+    )
+    for name in paths:
+        destination = checkout / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / name, destination)
+    shutil.copytree(ROOT / "docs/swagger-ui", checkout / "docs/swagger-ui")
+    module = "github.com/Sidiora-Labs/Paxeer-X-Network"
+    (checkout / "go.mod").write_text(
+        f"module {module}\n\ngo 1.20\n\nrequire github.com/rakyll/statik v0.1.7\n"
+    )
+    (checkout / "go.sum").write_text("".join(
+        line for line in (ROOT / "go.sum").read_text().splitlines(keepends=True)
+        if line.startswith("github.com/rakyll/statik v0.1.7")
+    ))
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    env = dict(os.environ, GOWORK="off", GOTOOLCHAIN="local", GOBIN=str(binaries))
+    env["PATH"] = str(binaries) + os.pathsep + env["PATH"]
+    env["STATIK"] = str(binaries / "statik")
+
+    def run(*command, cwd=checkout, check=True):
+        result = subprocess.run(
+            command, cwd=cwd, env=env, capture_output=True, text=True, timeout=180,
+        )
+        if check:
+            assert result.returncode == 0, (
+                f"{command}: {result.returncode}\n{result.stdout}\n{result.stderr}"
+            )
+        return result
+
+    run("go", "install", "github.com/rakyll/statik@v0.1.7")
+    checker = checkout / "checker"
+    checker.mkdir()
+    (checker / "main.go").write_text('''package main
+
+import (
+    "crypto/sha256"
+    "encoding/hex"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+    "os"
+
+    _ "github.com/Sidiora-Labs/Paxeer-X-Network/docs/swagger"
+    _ "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/docs/statik"
+    "github.com/rakyll/statik/fs"
+)
+
+func readAssets(files http.FileSystem) map[string]string {
+    values := make(map[string]string)
+    for _, name := range []string{
+        "swagger.yml", "swagger.yaml", "index.html",
+        "swagger-initializer.js", "swagger-ui-bundle.js",
+    } {
+        file, err := files.Open("/" + name)
+        if err != nil { panic(err) }
+        data, err := io.ReadAll(file)
+        if err != nil { panic(err) }
+        if err := file.Close(); err != nil { panic(err) }
+        if len(data) == 0 { panic(fmt.Sprintf("empty asset: %s", name)) }
+        digest := sha256.Sum256(data)
+        values[name] = hex.EncodeToString(digest[:])
+    }
+    return values
+}
+
+func main() {
+    ordinary, err := fs.New()
+    if err != nil { panic(err) }
+    named, err := fs.NewWithNamespace("swagger")
+    if err != nil { panic(err) }
+    if err := json.NewEncoder(os.Stdout).Encode(map[string]map[string]string{
+        "default": readAssets(ordinary), "swagger": readAssets(named),
+    }); err != nil { panic(err) }
+}
+''')
+    archive = checkout / "docs/swagger/statik.go"
+    shim = checkout / "sdk/client/docs/statik/statik.go"
+    original_shim = shim.read_bytes()
+    schema = (checkout / "docs/swagger-ui/swagger.yml").read_bytes()
+    assert schema
+    expected = {
+        name: hashlib.sha256((checkout / "docs/swagger-ui" / name).read_bytes()).hexdigest()
+        for name in (
+            "swagger.yml", "index.html", "swagger-initializer.js", "swagger-ui-bundle.js",
+        )
+    }
+    expected["swagger.yaml"] = expected["swagger.yml"]
+
+    def assert_bundle():
+        source = archive.read_text()
+        assert source.count("\tdata := ") == 1
+        assert source.count("\tfs.Register(data)") == 1
+        assert source.count("\tfs.RegisterWithNamespace(swaggerNamespace, data)") == 1
+        assert shim.read_bytes() == original_shim
+        assert list((checkout / "sdk/client/docs/statik").glob("*.go")) == [shim]
+        literal = re.search(r'(?m)^\tdata := (.*)$', source)[1]
+        with zipfile.ZipFile(io.BytesIO(ast.literal_eval("b" + literal))) as bundle:
+            assert len(bundle.namelist()) == len(set(bundle.namelist()))
+            assert bundle.testzip() is None
+            assert bundle.read("swagger.yml") == bundle.read("swagger.yaml") == schema
+        run("go", "build", "-mod=mod", "-o", str(binaries / "consumer"), "./checker")
+        assert json.loads(run(str(binaries / "consumer")).stdout) == {
+            "default": expected, "swagger": expected,
+        }
+        assert not list((checkout / "docs").glob(".swagger-statik.*"))
+
+    # Bundle the existing canonical schema explicitly; full OpenAPI regeneration
+    # still requires the real Ignite project configuration in the root script.
+    run("sh", "scripts/update-swagger-ui-statik.sh", "--assets-only", cwd=checkout)
+    assert_bundle()
+    first = archive.read_bytes()
+    run("sh", str(checkout / "sdk/scripts/update-swagger-ui-statik.sh"), cwd=tmp_path)
+    assert_bundle()
+    assert archive.read_bytes() == first
+
+    # A real temporary Git repository gives the Make drift check a tracked HEAD
+    # without changing the working repository or replacing Git with a test double.
+    run("git", "init", "-q")
+    run("git", "add", ".")
+    run("git", "-c", "user.name=Swagger test", "-c", "user.email=swagger@example.invalid",
+        "-c", "core.hooksPath=/dev/null", "commit", "-qm", "Canonical Swagger baseline")
+    make = (
+        "make", "-C", str(checkout / "sdk"), "update-swagger-docs",
+        f"TOOLS_DESTDIR={binaries}", "LEDGER_ENABLED=false",
+    )
+    run(*make)
+    assert_bundle()
+    assert archive.read_bytes() == first
+
+    # Schema drift reaches the published archive and must fail synchronization.
+    schema += b"\n# round-trip schema change\n"
+    (checkout / "docs/swagger-ui/swagger.yml").write_bytes(schema)
+    expected["swagger.yml"] = expected["swagger.yaml"] = hashlib.sha256(schema).hexdigest()
+    drift = run(*make, check=False)
+    assert drift.returncode != 0
+    assert "Swagger docs are out of sync" in drift.stdout + drift.stderr
+    assert_bundle()
+    assert archive.read_bytes() != first
+
+    # Staged and unstaged shim changes must also remain covered by the check.
+    (checkout / "docs/swagger-ui/swagger.yml").write_bytes(
+        (ROOT / "docs/swagger-ui/swagger.yml").read_bytes()
+    )
+    for staged in (False, True):
+        shim.write_bytes(original_shim + b"\n// drift\n")
+        if staged:
+            run("git", "add", "sdk/client/docs/statik/statik.go")
+        drift = run(*make, check=False)
+        assert drift.returncode != 0
+        assert "Swagger docs are out of sync" in drift.stdout + drift.stderr
+    shim.write_bytes(original_shim)
+    run("git", "add", "sdk/client/docs/statik/statik.go")
+    run(*make)
+
+    # Fail the actual statik executable and canonical-asset preparation, then
+    # invoke the actual publisher with malformed output: none may replace bytes.
+    previous = archive.read_bytes()
+    statik = binaries / "statik"
+    statik.chmod(0o644)
+    try:
+        for command in (
+            ("sh", "scripts/update-swagger-ui-statik.sh", "--assets-only"),
+            ("sh", "sdk/scripts/update-swagger-ui-statik.sh"), make,
+        ):
+            assert run(*command, check=False).returncode != 0
+            assert archive.read_bytes() == previous
+            assert shim.read_bytes() == original_shim
+            assert not list((checkout / "docs").glob(".swagger-statik.*"))
+    finally:
+        statik.chmod(0o755)
+    (checkout / "docs/swagger-ui/swagger.yml").write_bytes(b"")
+    assert run("sh", "scripts/update-swagger-ui-statik.sh", "--assets-only", check=False).returncode != 0
+    assert archive.read_bytes() == previous
+    malformed = tmp_path / "malformed.go"
+    malformed.write_bytes(previous[:100])
+    assert run("python3", "scripts/swagger_assets.py", str(malformed), str(archive), check=False).returncode != 0
+    assert archive.read_bytes() == previous
+    assert shim.read_bytes() == original_shim
+    assert not list(archive.parent.glob(".statik-*"))
+    assert not list((checkout / "docs").glob(".swagger-statik.*"))
 
 
 def test_other_intentional_copies_match_sources():

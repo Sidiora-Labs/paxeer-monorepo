@@ -127,9 +127,9 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.pc-0x101b-streamopenforask | precompile_method | precompiles/layerxpay/stream.go (planned) | streamOpenForAsk(bytes32,address,uint256,uint8,uint256,bytes32) returns (uint64) (planned) | 22.38.9 | new |
-| interface.22.pc-0x101b-askstreamof | precompile_method | precompiles/layerxpay/stream.go (planned) | askStreamOf(bytes32) view returns (uint64) (planned) | 22.38.9 | new |
-| interface.22.pc-0x101b-evt-askstreamopened | precompile_event | precompiles/layerxpay/events.go (planned) | AskStreamOpened(bytes32 indexed,uint64 indexed,address) (planned) | 22.38.9 | new |
+| interface.22.pc-0x101b-streamopenforask | precompile_method | precompiles/layerxpay/stream.go (planned) | streamOpenForAsk(bytes32,address,uint256,uint8,uint256,bytes32) returns (bytes32) (planned) | 22.38.9 | new |
+| interface.22.pc-0x101b-askstreamof | precompile_method | precompiles/layerxpay/stream.go (planned) | askStreamOf(bytes32) view returns (bytes32) (planned) | 22.38.9 | new |
+| interface.22.pc-0x101b-evt-askstreamopened | precompile_event | precompiles/layerxpay/events.go (planned) | AskStreamOpened(bytes32 indexed,bytes32 indexed,address) (planned) | 22.38.9 | new |
 
 ## attestation-0x0907
 

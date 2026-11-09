@@ -195,7 +195,7 @@ pub fn vote_sign_bytes(
     block_id: Option<&BlockId>,
     timestamp: Timestamp,
 ) -> Result<Vec<u8>, ChainProofError> {
-    let mut vote = vec![0x08, SIGNED_MSG_TYPE_PRECOMMIT as u8];
+    let mut vote = vec![0x08, SIGNED_MSG_TYPE_PRECOMMIT.to_le_bytes()[0]];
     if height != 0 {
         vote.push(0x11);
         vote.extend_from_slice(&height.to_le_bytes());
@@ -212,21 +212,27 @@ pub fn vote_sign_bytes(
         write_bytes(0x32, chain_id.as_bytes(), &mut vote);
     }
     let mut bytes = Vec::new();
-    write_varint(vote.len() as u64, &mut bytes);
+    write_varint(
+        u64::try_from(vote.len()).unwrap_or_else(|error| panic!("encoded vote length: {error}")),
+        &mut bytes,
+    );
     bytes.extend_from_slice(&vote);
     Ok(bytes)
 }
 
 fn write_varint(mut value: u64, bytes: &mut Vec<u8>) {
     while value >= 0x80 {
-        bytes.push((value & 0x7f) as u8 | 0x80);
+        bytes.push((value & 0x7f).to_le_bytes()[0] | 0x80);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(value.to_le_bytes()[0]);
 }
 
 fn write_bytes(key: u8, value: &[u8], bytes: &mut Vec<u8>) {
     bytes.push(key);
-    write_varint(value.len() as u64, bytes);
+    write_varint(
+        u64::try_from(value.len()).unwrap_or_else(|error| panic!("encoded length: {error}")),
+        bytes,
+    );
     bytes.extend_from_slice(value);
 }

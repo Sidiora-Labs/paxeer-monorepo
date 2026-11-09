@@ -700,9 +700,9 @@ file = "services/launchpad/user/internal/account/v2_owner_wire.go"
 line = 11
 class = "interface-mismatch"
 severity = "low"
-observed = "Registry row 4.go-user-adapt-v2-owner-j29 declares requestID uuid.UUID arguments; actual adapters take raw []byte, with update or kind/status parameters. Its contracts/services.md#launchpad-user contract target is absent from this tree."
+observed = "Registry row 4.go-user-adapt-v2-owner-j29 declares requestID uuid.UUID arguments; actual adapters take raw []byte, with update or kind/status parameters."
 expected = "Adapter registry signatures and contract links must describe the concrete callable API and an existing authoritative response contract."
-proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-owner-j29 with user/internal/account/v2_owner_wire.go and replace its missing contracts/services.md link with the authoritative frozen user contracts."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-owner-j29 with user/internal/account/v2_owner_wire.go and retain its valid contracts/services.md#launchpad-user contract link."
 owner_domain = 4
 interface = "4.go-user-adapt-v2-owner-j29"
 
@@ -711,9 +711,9 @@ file = "services/launchpad/user/internal/account/v2_wire.go"
 line = 31
 class = "interface-mismatch"
 severity = "low"
-observed = "Registry row 4.go-user-adapt-v2-profile-patch-j29 declares requestID, WireProfile, revision and time arguments; AdaptV2ProfilePatch accepts Envelope[PublicProfile]. Its contracts/services.md contract link is absent."
+observed = "Registry row 4.go-user-adapt-v2-profile-patch-j29 declares requestID, WireProfile, revision and time arguments; AdaptV2ProfilePatch accepts Envelope[PublicProfile]."
 expected = "The profile adapter declaration must match its concrete Go input type and link an existing authoritative ProfilePatchResponse contract."
-proposal = "Update spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-profile-patch-j29 from user/internal/account/v2_wire.go to Envelope[PublicProfile] and link the current frozen response schema."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-profile-patch-j29 from user/internal/account/v2_wire.go to Envelope[PublicProfile] and retain its valid contracts/services.md#launchpad-user contract link."
 owner_domain = 4
 interface = "4.go-user-adapt-v2-profile-patch-j29"
 
@@ -722,9 +722,9 @@ file = "services/launchpad/user/internal/account/v2_wire.go"
 line = 13
 class = "interface-mismatch"
 severity = "low"
-observed = "Registry row 4.go-user-adapt-v2-watchlist-j29 declares four requestID/entries/revision/time arguments; AdaptV2Watchlist accepts Envelope[[]WireWatchEntry]. Its contracts/services.md contract target is absent."
+observed = "Registry row 4.go-user-adapt-v2-watchlist-j29 declares four requestID/entries/revision/time arguments; AdaptV2Watchlist accepts Envelope[[]WireWatchEntry]."
 expected = "The watchlist adapter registry must match the callable envelope signature and existing frozen WatchlistGetResponse contract."
-proposal = "Update spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-watchlist-j29 from user/internal/account/v2_wire.go and replace the missing contract target with the current frozen response schema."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-watchlist-j29 from user/internal/account/v2_wire.go to Envelope[[]WireWatchEntry] and retain its valid contracts/services.md#launchpad-user contract link."
 owner_domain = 4
 interface = "4.go-user-adapt-v2-watchlist-j29"
 
@@ -1015,5 +1015,5 @@ notes = "Read all 42 lines: phase-one/three trust, artifacts and assurance bound
 
 [doc.14]
 path = "contracts/services.md"
-status = "missing"
-notes = "User adapter registry rows link #launchpad-user here, but this file is absent; adapter signature findings propose authoritative contract pointers."
+status = "accurate"
+notes = "The registry-relative contract target resolves to the existing spec/layerx-merge/contracts/services.md#launchpad-user section at spec/layerx-merge/contracts/services.md:3537-3612, documenting 30 key, secret and token variables, 175 interfaces and covering tasks 4.23.1-4.23.4. The three adapter signature findings remain valid."
