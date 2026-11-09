@@ -38706,3 +38706,123 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 7 at 631acc08d200: python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_6_gate.py exit 0; verification exit 1: test_wave_6_gate_passes fails inside make platform-build-all with services/platform/Makefile.inc:60, run make platform-sample-install first, after the sample installation failed at platform-install-local-artifacts (JVM testCompile, 60 errors) and the .NET restore (NETSDK1045, SDK 8.0.427 cannot target net10.0); log /out/logs/verify-1.log."
 assumption = "With the JVM test compiling and the .NET channel present the sample installation succeeds and the gate proceeds past the platform targets."
 severity = "high"
+
+[finding.18.1747.1.10]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 10 at 3d07ef2a7e45: cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test repair_22_33_63 exit 0; cg spec done 18.1747.1 exit 1: native_approval_clock_units panics at crates/layerx-human-service/tests/repair_22_33_63.rs:2391 with Agent(Refused), phase Preparing, retained purpose present, custody refusal None, last daemon exchange opcode 66 status 0; native_producer_clock_units passes; log /out/logs/verify-2.log."
+assumption = "One of the five admission steps between the preview and the opcode 67 exchange refuses, and the bisection with public pieces names it."
+severity = "high"
+
+[finding.22.39.258.1]
+task = "22.39.258"
+file = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+symbol = "ai_market.py"
+observed = "Attempt 2 at fe32a21a6e97: pnpm --dir services/agent/sdk/typescript run build exit 1, tsc not found; no verification ran; log /out/logs/build-1.log. Attempt 1 at a965c7286964: cg spec done 22.39.258 exit 1: pnpm run test:self-contained reports 27 failed cases in px.test.ts, web-search-sequencer.test.ts, repair-22-31-148.test.ts and proof_gas_station.test.ts, none touched by the attempt; log /out/logs/verify-1.log."
+assumption = "With the dependencies installed and 22.39.288 landed the verification reaches the scan."
+severity = "high"
+
+[finding.22.39.246.1]
+task = "22.39.246"
+file = "include/layerx/lxp_authority.h"
+symbol = "lxp_authority.h"
+observed = "Attempt 1 at 9aed8118683e: build exit 0; cg spec done 22.39.246 exit 1: the scan reports 42 findings, 35 live identifiers carrying a retired prefix and 7 reserve account rows; log /out/logs/verify-1.log."
+assumption = "Directory allowances cover every finding and the scan reports none."
+severity = "high"
+
+[finding.22.39.247.1]
+task = "22.39.247"
+file = "src/modules/asset/README.md"
+symbol = "README.md"
+observed = "Attempt 1 at d7f3b63b7576: build exit 0; cg spec done 22.39.247 exit 1: the scan reports 18 findings, all live identifiers carrying a retired prefix; log /out/logs/verify-1.log."
+assumption = "Directory allowances cover every finding and the scan reports none."
+severity = "high"
+
+[finding.22.39.248.1]
+task = "22.39.248"
+file = "node/app.go"
+symbol = "app.go"
+observed = "Attempt 1 at 8c32e3e5efdd: no build and no verification ran; the model session recorded the 19 findings and declined the catalogue edit as outside the touches list."
+assumption = "The 19 references belong to the shipping module surface and the upgrade store removal."
+severity = "high"
+
+[finding.22.39.250.1]
+task = "22.39.250"
+file = "modules/lxphost/host.go"
+symbol = "host.go"
+observed = "Attempt 1 at ec990cbc8521: make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./engine/executor/... exit 2, cmake not found; no verification ran; log /out/logs/build-1.log."
+assumption = "With cmake present the native libraries build and the allowances cover the nine findings."
+severity = "high"
+
+[finding.22.39.251.1]
+task = "22.39.251"
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+symbol = "ffi_call.rs"
+observed = "Attempt 1 at 4cf37a697dc4: build exit 0; cg spec done 22.39.251 exit 1: cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib fails traced_abi_one_execution_v3_is_not_candidate_evidence at crates/layerx-programs-runtime/src/terminal.rs:1263, traced ABI1 producer vector rejected, 246 passed; the scan did not run; log /out/logs/verify-1.log."
+assumption = "The vector predates a layout change of the v3 payload and the rebuilt vector passes the decoder."
+severity = "high"
+
+[finding.22.39.259.1]
+task = "22.39.259"
+file = "services/human/crates/layerx-human-service/src/audit/event.rs"
+symbol = "event.rs"
+observed = "Attempt 1 at 8c8ddd1e2840: no build and no verification ran; the model session recorded the 13 findings and declined the catalogue edit as outside the touches list."
+assumption = "Eleven findings are allowances and two are the comment rewrite."
+severity = "high"
+
+[finding.22.39.261.1]
+task = "22.39.261"
+file = "services/human/schema/human-api/baseline.kvx"
+symbol = "baseline.kvx"
+observed = "Attempt 1 at 1b7ae12e2570: build exit 0; cg spec done 22.39.261 exit 1: cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml fails verification_level_retires_settlement_values_and_maps_rungs at tests/journey_vocabulary.rs:201, type.EvidenceRef optional fields; log /out/logs/verify-1.log."
+assumption = "With the schema restored the case passes and the allowance covers the 76 markers."
+severity = "high"
+
+[finding.22.39.264.1]
+task = "22.39.264"
+file = "services/platform/hosted/human/README.md"
+symbol = "README.md"
+observed = "Attempt 1 at 797c2ed99d56: build exit 0; cg spec done 22.39.264 exit 1: python3 -m pytest -q services/platform/hosted/human reports 9 failed and 59 passed in test_material.py, test_provision.py and test_owner_request.py, none touched by the attempt; the scan did not run; log /out/logs/verify-1.log."
+assumption = "Without the three red files the verification reaches the scan and the allowances cover the findings."
+severity = "high"
+
+[finding.22.39.265.1]
+task = "22.39.265"
+file = "services/platform/ramps/journey_contract.py"
+symbol = "journey_contract.py"
+observed = "Attempt 1 at 2bb0dda2e731: build exit 0; cg spec done 22.39.265 exit 1: cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --lib exit 101, no library targets found in package layerx-reference-ramp; log /out/logs/verify-1.log."
+assumption = "The binary targets carry the two unit cases and the allowances cover the remaining findings."
+severity = "high"
+
+[finding.22.39.266.1]
+task = "22.39.266"
+file = "tools/platform/cli/README.md"
+symbol = "README.md"
+observed = "Attempt 1 at 574ea4cc57b3: build exit 0; cg spec done 22.39.266 exit 1: cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli fails positional_requests_match_published_contract at cli/src/rpc.rs:665, the fixture and the gateway contract differ at the activityIds requirement of the inclusion evidence, 23 passed; the scan did not run; log /out/logs/verify-1.log."
+assumption = "With the fixture following the gateway the case passes and the allowances cover the findings."
+severity = "high"
+
+[finding.22.39.268.1]
+task = "22.39.268"
+file = "sdk/wallet/src/endpoint.ts"
+symbol = "endpoint.ts"
+observed = "Attempt 1 at ffdbfa83942b: build 3 exit 0 after two repairs; cg spec done 22.39.268 exit 1: pnpm --dir services/wallet/gateway run test reports 68 failed, 332 passed, 25 failed files, no healthy RPC endpoint and provisioning is not configured; the shell check and the scan did not run; log /out/logs/verify-1.log."
+assumption = "With the suite self-contained the verification reaches the scan."
+severity = "high"
+
+[finding.22.39.235.6]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 6 at 24dd6e16c37b: two builds exit 0; cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-deps --all-targets -- -D warnings exit 101 after two repairs with 21 sites in tests/determinism.rs, tests/repair_22_33_218.rs and tests/repair_22_33_229.rs; log /out/logs/verify-2.log."
+assumption = "The 21 sites are the whole remaining lint output."
+severity = "high"
+
+[finding.22.39.242.5]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 5: build exit 0; the verification exit 1: the ten cases fail with receipt qualification rejected at repair_53_test.go:517, :518, :524 and :562, repair_m999_test.go:368 and repair_m995_test.go:318 because NewRPCQualification requires the manifest to equal the approved deployment; log /out/logs/verify-1.log."
+assumption = "The private fixture path accepts the recorded roles and the ten cases pass."
+severity = "high"
