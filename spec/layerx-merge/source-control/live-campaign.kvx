@@ -1,0 +1,472 @@
+[task.22.37.31]
+task = "22.37.31"
+mode = "BUILD"
+status = "UNRUN"
+cwd = "tools/hyperfide"
+registry = "tools/hyperfide/tests/hyperfide/source-control/registry.json"
+input_policy = "Variable names and fixture identities only; no access values. Missing inputs remain UNRUN, never PASS."
+exit_policy = "Return 0 only for a current REAL_S3 sparse PASS with no executed case failed; missing owner inputs remain UNRUN. Return 77 for an unexecuted sparse proof and 1 for any failed case."
+manifest_input = "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS names a private directory of owner-supplied campaign manifests, using each registration filename; the existing qualifier verifies native capture, pinned inputs, approvals and the exact assertion inventory."
+status_policy = "These are admission-time statuses. The private task result inventory and registry contain observed statuses, exact revision, command, exit and redacted log for every executed case; they are referenced below to preserve the immutable build and verify revision."
+private_result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json"
+build_ref = "${HF_RUN_DIR}/gates.jsonl#kind=build (final row; revision, command, exit, log)"
+verification_ref = "${HF_RUN_DIR}/gates.jsonl#kind=verify (final row; revision, command, exit, log)"
+repair_revision_ref = "${HF_RUN_DIR}/gates.jsonl#kind=verify.revision"
+sparse_driver = "tools/hyperfide/tests/hyperfide/cases/source_control/sparse_live.py"
+sparse_command = "python3 tests/hyperfide/cases/source_control/sparse_live.py --actor"
+sparse_variables = ["S3_ENDPOINT", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_BUCKET"]
+sparse_missing = []
+sparse_admission_status = "READY"
+sparse_status_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#sparse_status"
+sparse_receipt_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#sparse_receipt"
+postgres_fixture_supplied = true
+postgres_failover_supplied = false
+provider_execution_supplied = false
+gotcha = "The task supplies S3_*; the native backend reads HF_SOURCE_S3_*. Map each of the five explicitly without printing values. Ordinary withpg disables synchronous commits and does not establish PostgreSQL18 failover capability."
+
+[gotcha.task-tooling]
+observed = "apply_patch rejects a delete and add for the same path in one patch; use an update. Corepack resolves the root package manager before pnpm --dir; invoke it from the vendored working directory."
+
+[repair.process-ownership]
+revision = "648117e7180fb40415c0c396b116b27397c24151"
+command = "cg spec done 22.37.31 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The sparse actor emitted a REAL_S3 PASS receipt with fourteen passing host assertions, but strict process supervision rejected its teardown."
+repair = "The sparse actor owns and reaps orphaned compiler helpers before returning; the campaign retains all strict descendant checks and records their results in each private receipt."
+verified_revision_ref = "${HF_RUN_DIR}/gates.jsonl#kind=verify (final row; revision, command, exit, log)"
+
+[case.SCM-001]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-001"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-001.json"]
+variants = ["case:hyperfide-source-control/SCM-001/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-001.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-001.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-001/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-001"
+
+[case.SCM-002]
+driver = ["tests/hyperfide/source-control/full_case/durability.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/durability.py --case SCM-002"]
+registrations = ["tests/hyperfide/source-control/registrations/durability-scm-002.json"]
+variants = ["case:hyperfide-source-control/SCM-002/real-s3"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/durability-scm-002.json"]
+variables = ["S3_ENDPOINT", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_BUCKET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned native inputs", "owned PostgreSQL18 physical failover capability and actual configured S3 credentials", "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim", "owned PostgreSQL 18 synchronous physical standby, promotion and physical backup restore; ordinary withpg does not supply this"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-002.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "owned PostgreSQL 18 failover fixture and admitted synchronous durability profile", "signed campaign manifest for case:hyperfide-source-control/SCM-002/real-s3 (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-002"
+
+[case.SCM-003]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-003"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-003.json"]
+variants = ["case:hyperfide-source-control/SCM-003/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-003.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-003.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-003/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-003"
+
+[case.SCM-004]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-004"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-004.json"]
+variants = ["case:hyperfide-source-control/SCM-004/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-004.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL and native process fixtures; shared fixed-UID4.2 lock", "explicit scoped capabilities and current source authority; no live-provider claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-004.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-004/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-004"
+
+[case.SCM-005]
+driver = ["tests/hyperfide/source-control/full_case/durability.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/durability.py --case SCM-005"]
+registrations = ["tests/hyperfide/source-control/registrations/durability-scm-005.json"]
+variants = ["case:hyperfide-source-control/SCM-005/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/durability-scm-005.json"]
+variables = ["S3_ENDPOINT", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_BUCKET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned native inputs", "owned PostgreSQL18 physical failover capability and actual configured S3 credentials", "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim", "owned PostgreSQL 18 synchronous physical standby, promotion and physical backup restore; ordinary withpg does not supply this"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-005.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "owned PostgreSQL 18 failover fixture and admitted synchronous durability profile", "signed campaign manifest for case:hyperfide-source-control/SCM-005/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-005"
+
+[case.SCM-006]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-006"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-006.json"]
+variants = ["case:hyperfide-source-control/SCM-006/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-006.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-006.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-006/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-006"
+
+[case.SCM-007]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-007"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-007.json"]
+variants = ["case:hyperfide-source-control/SCM-007/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-007.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-007.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-007/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-007"
+
+[case.SCM-008]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-008"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-008.json"]
+variants = ["case:hyperfide-source-control/SCM-008/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-008.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-008.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-008/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-008"
+
+[case.SCM-009]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-009"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-009.json"]
+variants = ["case:hyperfide-source-control/SCM-009/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-009.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-009.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-009/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-009"
+
+[case.SCM-010]
+driver = ["tests/hyperfide/source-control/full_case/workspaces.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/workspaces.py --case SCM-010 --full", "python3 tests/hyperfide/source-control/full_case/workspaces.py --case SCM-010"]
+registrations = ["tests/hyperfide/source-control/registrations/full-SCM-010-full.json", "tests/hyperfide/source-control/registrations/full-SCM-010-source-backed-sparse-real-s3.json"]
+variants = ["case:hyperfide-source-control/SCM-010/full", "case:hyperfide-source-control/SCM-010/source-backed-sparse-real-s3"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/full-SCM-010-full.json", "${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/full-SCM-010-source-backed-sparse-real-s3.json"]
+variables = ["S3_ENDPOINT", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_BUCKET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL runtime, configured real S3 object backend and actual native host filesystem"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-010.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-010/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)", "signed campaign manifest for case:hyperfide-source-control/SCM-010/source-backed-sparse-real-s3 (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-010"
+
+[case.SCM-011]
+driver = ["tests/hyperfide/source-control/full_case/workspaces.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/workspaces.py --case SCM-011 --full", "python3 tests/hyperfide/source-control/full_case/workspaces.py --case SCM-011"]
+registrations = ["tests/hyperfide/source-control/registrations/full-SCM-011-full.json", "tests/hyperfide/source-control/registrations/full-SCM-011-linux-fuse7-real-s3.json"]
+variants = ["case:hyperfide-source-control/SCM-011/full", "case:hyperfide-source-control/SCM-011/linux-fuse7-real-s3"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/full-SCM-011-full.json", "${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/full-SCM-011-linux-fuse7-real-s3.json"]
+variables = ["S3_ENDPOINT", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_BUCKET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL runtime, configured real S3 object backend and actual native host filesystem", "Linux FUSE character device and admitted mount capability for linux-fuse7-source-v1"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-011.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-011/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)", "signed campaign manifest for case:hyperfide-source-control/SCM-011/linux-fuse7-real-s3 (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-011"
+
+[case.SCM-012]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-012"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-012.json"]
+variants = ["case:hyperfide-source-control/SCM-012/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-012.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "actual pinned native scanner, owned PostgreSQL and isolated SigV4 object fixture; no live-S3 claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-012.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-012/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-012"
+
+[case.SCM-013]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-013"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-013.json"]
+variants = ["case:hyperfide-source-control/SCM-013/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-013.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL and native process fixtures; shared fixed-UID4.2 lock", "explicit scoped capabilities and current source authority; no live-provider claim"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-013.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-013/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-013"
+
+[case.SCM-014]
+driver = ["tests/hyperfide/source-control/full_case/live_fleet.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/live_fleet.py"]
+registrations = ["tests/hyperfide/source-control/registrations/live-scm-014.json"]
+variants = ["case:hyperfide-source-control/SCM-014/hyperfide-fleet"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/live-scm-014.json"]
+variables = ["HF_FLEET_QUALIFICATION_TARGET", "HF_FLEET_QUALIFICATION_EVIDENCE", "HF_SOURCE_LIVE_FLEET_CONFIG", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["actual complete provider-backed fleet execution and immutable evidence", "protected independent native source and taskless client configuration", "actual provider-backed execution and independently verified signed fleet evidence"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-014.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_FLEET_QUALIFICATION_TARGET", "HF_FLEET_QUALIFICATION_EVIDENCE", "HF_SOURCE_LIVE_FLEET_CONFIG", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-014/hyperfide-fleet (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-014"
+
+[case.SCM-015]
+driver = ["tests/hyperfide/source-control/full_case/core.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/core.py --case SCM-015"]
+registrations = ["tests/hyperfide/source-control/registrations/core-scm-015.json"]
+variants = ["case:hyperfide-source-control/SCM-015/github"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/core-scm-015.json"]
+variables = ["HF_CANARY_INVENTORY", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned source and environment", "owned PostgreSQL, isolated SigV4 fixture and authenticated GitHub CLI", "explicit untouched private GitHub canary repository and approved retained resource expiry", "authenticated GitHub CLI, untouched private canary repository, approved retention expiry and observed cleanup"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-015.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_CANARY_INVENTORY", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-015/github (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-015"
+
+[case.SCM-016]
+driver = ["tests/hyperfide/source-control/full_case/imports.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/imports.py --case SCM-016"]
+registrations = ["tests/hyperfide/source-control/registrations/import-scm-016.json"]
+variants = ["case:hyperfide-source-control/SCM-016/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/import-scm-016.json"]
+variables = ["HF_SOURCE_GITHUB_IMPORT_RECEIPT", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "retained owned GitHub import receipt, authenticated read-only GitHub fetch, actual local Git history and owned PostgreSQL import fixture"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-016.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_GITHUB_IMPORT_RECEIPT", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-016/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-016"
+
+[case.SCM-017]
+driver = ["tests/hyperfide/source-control/full_case/imports.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/imports.py --case SCM-017"]
+registrations = ["tests/hyperfide/source-control/registrations/import-scm-017.json"]
+variants = ["case:hyperfide-source-control/SCM-017/cutover"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/import-scm-017.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "owned PostgreSQL, real local Git storage, kernel-isolated writer fences and atomic cutover/rollback fixture"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-017.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-017/cutover (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-017"
+
+[case.SCM-018]
+driver = ["tests/hyperfide/source-control/full_case/durability.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/durability.py --case SCM-018"]
+registrations = ["tests/hyperfide/source-control/registrations/durability-scm-018.json"]
+variants = ["case:hyperfide-source-control/SCM-018/metadata-failover"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/durability-scm-018.json"]
+variables = ["S3_ENDPOINT", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_BUCKET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned native inputs", "owned PostgreSQL18 physical failover capability and actual configured S3 credentials", "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim", "owned PostgreSQL 18 synchronous physical standby, promotion and physical backup restore; ordinary withpg does not supply this"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-018.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "owned PostgreSQL 18 failover fixture and admitted synchronous durability profile", "signed campaign manifest for case:hyperfide-source-control/SCM-018/metadata-failover (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-018"
+
+[case.SCM-019]
+driver = ["tests/hyperfide/source-control/full_case/durability.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/durability.py --case SCM-019"]
+registrations = ["tests/hyperfide/source-control/registrations/durability-scm-019.json"]
+variants = ["case:hyperfide-source-control/SCM-019/restore"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/durability-scm-019.json"]
+variables = ["S3_ENDPOINT", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_BUCKET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["immutable campaign manifest with pinned native inputs", "owned PostgreSQL18 physical failover capability and actual configured S3 credentials", "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim", "owned PostgreSQL 18 synchronous physical standby, promotion and physical backup restore; ordinary withpg does not supply this"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-019.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "owned PostgreSQL 18 failover fixture and admitted synchronous durability profile", "signed campaign manifest for case:hyperfide-source-control/SCM-019/restore (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-019"
+
+[case.SCM-020]
+driver = ["tests/hyperfide/source-control/full_case/scale.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/scale.py --case SCM-020 --variant growth"]
+registrations = ["tests/hyperfide/source-control/registrations/scale-scm-020-growth.json"]
+variants = ["case:hyperfide-source-control/SCM-020/growth"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/scale-scm-020-growth.json"]
+variables = ["HF_SOURCE_SCALE_PLAN", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "actual configured backend or fleet required by the case; missing capability blocks execution", "completed growth matrix: cold unique content, directory fanout, history depth, independently measured source tier; pinned hardware, native source authority, isolated metadata/object scopes and fresh provider topology readback"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-020.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_SCALE_PLAN", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-020/growth (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-020"
+
+[case.SCM-021]
+driver = ["tests/hyperfide/source-control/full_case/scale.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/scale.py --case SCM-021 --variant mixed-load", "python3 tests/hyperfide/source-control/full_case/scale.py --case SCM-021 --variant open-admission"]
+registrations = ["tests/hyperfide/source-control/registrations/scale-scm-021-mixed-load.json", "tests/hyperfide/source-control/registrations/scale-scm-021-open-admission.json"]
+variants = ["case:hyperfide-source-control/SCM-021/mixed-load", "case:hyperfide-source-control/SCM-021/open-admission"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/scale-scm-021-mixed-load.json", "${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/scale-scm-021-open-admission.json"]
+variables = ["HF_SOURCE_SCALE_PLAN", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "actual configured backend or fleet required by the case; missing capability blocks execution", "completed 5000-workspace mixed-load and twenty-million logical-open admission campaigns; authoritative ledgers, native source authority, isolated metadata/object scopes, pinned hardware and measured provider topology"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-021.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_SCALE_PLAN", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-021/mixed-load (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)", "signed campaign manifest for case:hyperfide-source-control/SCM-021/open-admission (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-021"
+
+[case.SCM-022]
+driver = ["tests/hyperfide/source-control/full_case/scale.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/scale.py --case SCM-022 --variant real-s3-72h", "python3 tests/hyperfide/source-control/full_case/scale.py --case SCM-022 --variant real-worker"]
+registrations = ["tests/hyperfide/source-control/registrations/scale-scm-022-real-s3-72h.json", "tests/hyperfide/source-control/registrations/scale-scm-022-real-worker.json"]
+variants = ["case:hyperfide-source-control/SCM-022/real-s3-72h", "case:hyperfide-source-control/SCM-022/real-worker"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/scale-scm-022-real-s3-72h.json", "${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/scale-scm-022-real-worker.json"]
+variables = ["HF_SOURCE_SCALE_PLAN", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "completed real-S3 72-hour endurance campaign, three daily revision inventories, credential renewal, independent real-worker revisions, fault receipts, measured provider topology and cleanup"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-022.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_SCALE_PLAN", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-022/real-s3-72h (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)", "signed campaign manifest for case:hyperfide-source-control/SCM-022/real-worker (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-022"
+
+[case.SCM-023]
+driver = ["tests/hyperfide/source-control/full_case/scm_023_live_full.py", "tests/hyperfide/source-control/full_case/scm_023.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/scm_023_live_full.py", "python3 tests/hyperfide/source-control/full_case/scm_023.py"]
+registrations = ["tests/hyperfide/source-control/registrations/full-SCM-023-api-cli-ui.json", "tests/hyperfide/source-control/registrations/full-SCM-023-owned-api-cli-ui.json"]
+variants = ["case:hyperfide-source-control/SCM-023/api-cli-ui", "case:hyperfide-source-control/SCM-023/owned-api-cli-ui"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/full-SCM-023-api-cli-ui.json", "${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/full-SCM-023-owned-api-cli-ui.json"]
+variables = ["HF_SOURCE_LIVE_JOURNEY_INPUT", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "built control service and CLI, pinned Chromium and desktop/tablet/mobile browser fixture, real signed native fleet candidate and independent Git readback", "actual provider-backed execution and independently verified signed fleet evidence"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-023.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_JOURNEY_INPUT", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-023/api-cli-ui (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)", "signed campaign manifest for case:hyperfide-source-control/SCM-023/owned-api-cli-ui (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-023"
+
+[case.SCM-024]
+driver = ["tests/hyperfide/source-control/full_case/verifier_layout.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/verifier_layout.py --case SCM-024"]
+registrations = ["tests/hyperfide/source-control/registrations/verifier-scm-024.json"]
+variants = ["case:hyperfide-source-control/SCM-024/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/verifier-scm-024.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "verifier, closure, release, campaign and status-contract conformance inventories plus specification-authoring validator"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-024.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-024/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-024"
+
+[case.SCM-025]
+driver = ["tests/hyperfide/source-control/full_case/verifier_layout.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/verifier_layout.py --case SCM-025"]
+registrations = ["tests/hyperfide/source-control/registrations/verifier-scm-025.json"]
+variants = ["case:hyperfide-source-control/SCM-025/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/verifier-scm-025.json"]
+variables = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "current complete layout receipt build/layout/0.9/receipt.json, runtime receipts 0.4 through 0.8, authorized layout ancestry, original Git baseline and rollback inventory"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-025.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "current complete layout receipt build/layout/0.9/receipt.json", "signed campaign manifest for case:hyperfide-source-control/SCM-025/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-025"
+
+[case.SCM-026]
+driver = ["tests/hyperfide/source-control/full_case/prerequisites.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/prerequisites.py --case SCM-026"]
+registrations = ["tests/hyperfide/source-control/registrations/prerequisite-scm-026.json"]
+variants = ["case:hyperfide-source-control/SCM-026/full"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/prerequisite-scm-026.json"]
+variables = ["HF_FLEET_QUALIFICATION_EVIDENCE", "HF_FLEET_QUALIFICATION_TARGET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "actual provider-backed execution and independently verified signed fleet evidence"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-026.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_FLEET_QUALIFICATION_EVIDENCE", "HF_FLEET_QUALIFICATION_TARGET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-026/full (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-026"
+
+[case.SCM-027]
+driver = ["tests/hyperfide/source-control/full_case/prerequisites.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/prerequisites.py --case SCM-027"]
+registrations = ["tests/hyperfide/source-control/registrations/prerequisite-scm-027.json"]
+variants = ["case:hyperfide-source-control/SCM-027/provider-sandbox"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/prerequisite-scm-027.json"]
+variables = ["HF_FLEET_QUALIFICATION_EVIDENCE", "HF_FLEET_QUALIFICATION_TARGET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "actual provider-backed execution and independently verified signed fleet evidence"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-027.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_FLEET_QUALIFICATION_EVIDENCE", "HF_FLEET_QUALIFICATION_TARGET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-027/provider-sandbox (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-027"
+
+[case.SCM-028]
+driver = ["tests/hyperfide/source-control/full_case/prerequisites.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/prerequisites.py --case SCM-028"]
+registrations = ["tests/hyperfide/source-control/registrations/prerequisite-scm-028.json"]
+variants = ["case:hyperfide-source-control/SCM-028/primary-wave-managers"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/prerequisite-scm-028.json"]
+variables = ["HF_FLEET_QUALIFICATION_EVIDENCE", "HF_FLEET_QUALIFICATION_TARGET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "actual provider-backed execution and independently verified signed fleet evidence"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-028.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_FLEET_QUALIFICATION_EVIDENCE", "HF_FLEET_QUALIFICATION_TARGET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-028/primary-wave-managers (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-028"
+
+[case.SCM-029]
+driver = ["tests/hyperfide/source-control/full_case/prerequisites.py"]
+commands = ["python3 tests/hyperfide/source-control/full_case/prerequisites.py --case SCM-029"]
+registrations = ["tests/hyperfide/source-control/registrations/prerequisite-scm-029.json"]
+variants = ["case:hyperfide-source-control/SCM-029/supervisor-failover"]
+manifests = ["${HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS}/prerequisite-scm-029.json"]
+variables = ["HF_FLEET_QUALIFICATION_EVIDENCE", "HF_FLEET_QUALIFICATION_TARGET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS"]
+fixtures = ["complete assertion inventory registered by owning task", "immutable campaign manifest with pinned source and environment", "actual provider-backed execution and independently verified signed fleet evidence"]
+assertion_inventory = "tests/hyperfide/source-control/registry.json#cases.SCM-029.full_assertion_ids"
+assertion_inventory_supplied = true
+supplied = false
+status = "UNRUN"
+missing = ["HF_FLEET_QUALIFICATION_EVIDENCE", "HF_FLEET_QUALIFICATION_TARGET", "HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS", "signed campaign manifest for case:hyperfide-source-control/SCM-029/supervisor-failover (HF_SOURCE_LIVE_CAMPAIGN_MANIFESTS)"]
+result_ref = "${HF_OUT_DIR}/source-control/22.37.31/latest.json#inventory/case.SCM-029"

@@ -1,7 +1,10 @@
 #![allow(dead_code)]
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_crypto::send::{encode_send_envelope, DisclosedEnvelope, EnvelopeOptions};
+use layerx_crypto::disclosure::Disclosure;
 use layerx_crypto::signer::BindMessage;
+use layerx_crypto::signer::SigningRequest;
+use layerx_crypto::SignatureMessage;
+use layerx_wire::hash::Domain;
 use openssl::asn1::Asn1Time;
 use openssl::bn::BigNum;
 use openssl::hash::MessageDigest;
@@ -35,23 +38,15 @@ pub fn binding() -> BindMessage {
     let bytes = super::paxeer_binding::Binding::new(125, [0xa1; 20], 7).message();
     BindMessage::decode(&bytes).expect("real retained bind producer")
 }
-pub fn old_envelope(public_key: [u8; 32]) -> DisclosedEnvelope {
-    let (payload, _) = super::kernel_payloads::send(123);
-    encode_send_envelope(
-        &payload,
-        &EnvelopeOptions {
-            actor: "did:layerx:crypto-repair",
-            public_key,
-            protocol_version: super::PROTOCOL_VERSION,
-            network_id: super::NETWORK_ID,
-            identity_sequence: 7,
-            idempotency_key: super::IDEMPOTENCY_KEY,
-            fee_limit: 20,
-            not_before: 10,
-            not_after: 100,
-        },
+pub fn activity_request<'a>(canonical: &'a [u8], disclosure: &'a Disclosure) -> SigningRequest<'a> {
+    let message = SignatureMessage::new(
+        Domain::SignaturePreimage,
+        super::PROTOCOL_VERSION,
+        super::NETWORK_ID,
+        canonical,
     )
-    .expect("legacy producer for refusal coverage")
+    .expect("activity signature preimage domain");
+    SigningRequest::new(message, disclosure).expect("validated call disclosure")
 }
 pub struct Directory(pub PathBuf);
 impl Directory {

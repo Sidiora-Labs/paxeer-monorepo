@@ -72,26 +72,19 @@ impl<T> GuestIndex<T> for [T] {
         self.split_at_mut(mid)
     }
 
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
-    #[cfg_attr(not(target_arch = "wasm32"), inline(always))]
+    #[inline(always)]
     fn guest_copy_from_slice(&mut self, source: &[T])
     where
         T: Copy,
     {
         #[cfg(target_arch = "wasm32")]
-        {
-            if self.len() != source.len() {
-                core::arch::wasm32::unreachable();
-            }
-            for (dest, source) in self.iter_mut().zip(source) {
-                *dest = *source;
-            }
-        }
+        crate::guest_cell::copy_slice(self, source);
         #[cfg(not(target_arch = "wasm32"))]
         self.copy_from_slice(source);
     }
 
-    #[inline(always)]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg_attr(not(target_arch = "wasm32"), inline(always))]
     fn guest_copy_within<R: core::ops::RangeBounds<usize>>(&mut self, source: R, dest: usize)
     where
         T: Copy,
@@ -113,22 +106,7 @@ impl<T> GuestIndex<T> for [T] {
                     .unwrap_or_else(|| core::arch::wasm32::unreachable()),
                 Bound::Unbounded => self.len(),
             };
-            let len = self.guest_index(start..end).len();
-            let dest_end = dest
-                .checked_add(len)
-                .unwrap_or_else(|| core::arch::wasm32::unreachable());
-            self.guest_index(dest..dest_end);
-            if dest > start {
-                for i in (0..len).rev() {
-                    let value = *self.guest_index(start + i);
-                    *self.guest_index_mut(dest + i) = value;
-                }
-            } else {
-                for i in 0..len {
-                    let value = *self.guest_index(start + i);
-                    *self.guest_index_mut(dest + i) = value;
-                }
-            }
+            crate::guest_cell::copy_within(self, start, end, dest);
         }
         #[cfg(not(target_arch = "wasm32"))]
         self.copy_within(source, dest);
@@ -179,18 +157,20 @@ impl<'a> CheckedIdentityBytes<'a> {
     }
 }
 
-/// Private initialization for a fully overwritten decoder destination. Seeded
-/// identities stay checked even while the destination is being assembled.
+/// Private initialization for a fully overwritten decoder destination. Identity
+/// scratch uses the valid nonzero constant [1; 32]; the ordered reader overwrites
+/// every field before exposing a record. Malformed input returns an error without
+/// exposing the partially written destination.
 pub(crate) trait InitialField {
-    fn initial(seed: &Digest32) -> Self;
+    fn initial(seed: CheckedIdentityBytes<'_>) -> Self;
 }
 pub(crate) trait CheckedIdentity {
-    fn seed(self) -> Digest32;
+    fn seed(&self) -> CheckedIdentityBytes<'_>;
 }
 macro_rules! initial_scalar {
     ($($ty:ty => $value:expr),+ $(,)?) => {$(
         impl InitialField for $ty {
-            fn initial(_: &Digest32) -> Self { $value }
+            fn initial(_: CheckedIdentityBytes<'_>) -> Self { $value }
         }
     )+};
 }
@@ -200,12 +180,12 @@ initial_scalar! {
     PublicKey32 => PublicKey32([0; 32]), Signature64 => Signature64([0; 64]),
 }
 impl<const N: usize> InitialField for [u8; N] {
-    fn initial(_: &Digest32) -> Self {
+    fn initial(_: CheckedIdentityBytes<'_>) -> Self {
         [0; N]
     }
 }
 impl<T> InitialField for Presence<T> {
-    fn initial(_: &Digest32) -> Self {
+    fn initial(_: CheckedIdentityBytes<'_>) -> Self {
         Self::Absent
     }
 }
@@ -216,14 +196,14 @@ macro_rules! id32 {
         #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         pub struct $name([u8; 32]);
         impl InitialField for $name {
-            #[inline]
-            fn initial(seed: &Digest32) -> Self { Self::from_seed(*seed) }
+            #[cfg_attr(target_arch = "wasm32", inline(never))]
+            #[cfg_attr(not(target_arch = "wasm32"), inline)]
+            fn initial(_: CheckedIdentityBytes<'_>) -> Self { Self([1; 32]) }
         }
         impl CheckedIdentity for $name {
-            fn seed(self) -> Digest32 { Digest32(self.bytes()) }
+            fn seed(&self) -> CheckedIdentityBytes<'_> { CheckedIdentityBytes(self.as_bytes()) }
         }
         impl $name {
-            fn from_seed(seed: Digest32) -> Self { Self(seed.bytes()) }
             #[inline]
             pub(crate) fn from_checked(bytes: CheckedIdentityBytes<'_>) -> Self { Self(*bytes.bytes()) }
             pub(crate) fn decode_destination(&mut self) -> &mut [u8; 32] { &mut self.0 }
@@ -256,13 +236,14 @@ id32!(
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Digest32([u8; 32]);
 impl InitialField for Digest32 {
-    fn initial(seed: &Digest32) -> Self {
-        *seed
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn initial(_: CheckedIdentityBytes<'_>) -> Self {
+        Self([1; 32])
     }
 }
 impl CheckedIdentity for Digest32 {
-    fn seed(self) -> Digest32 {
-        self
+    fn seed(&self) -> CheckedIdentityBytes<'_> {
+        CheckedIdentityBytes(self.as_bytes())
     }
 }
 impl Digest32 {
@@ -300,14 +281,14 @@ macro_rules! digest {
         #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         pub struct $name(Digest32);
         impl InitialField for $name {
-            #[inline]
-            fn initial(seed: &Digest32) -> Self { Self::from_seed(*seed) }
+            #[cfg_attr(target_arch = "wasm32", inline(never))]
+            #[cfg_attr(not(target_arch = "wasm32"), inline)]
+            fn initial(_: CheckedIdentityBytes<'_>) -> Self { Self(Digest32([1; 32])) }
         }
         impl CheckedIdentity for $name {
-            fn seed(self) -> Digest32 { Digest32(self.bytes()) }
+            fn seed(&self) -> CheckedIdentityBytes<'_> { CheckedIdentityBytes(self.as_bytes()) }
         }
         impl $name {
-            fn from_seed(seed: Digest32) -> Self { Self(seed) }
             #[inline]
             pub(crate) fn from_checked(bytes: CheckedIdentityBytes<'_>) -> Self { Self(Digest32(*bytes.bytes())) }
             pub(crate) fn decode_destination(&mut self) -> &mut [u8; 32] { &mut self.0.0 }

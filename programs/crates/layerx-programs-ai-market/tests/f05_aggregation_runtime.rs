@@ -29,9 +29,9 @@ use layerx_programs_ai_market::{
     dispatch::{self, Operation},
     epoch::{self, Frozen, Outcome as Opening, ADVANCE_SCRATCH_BYTES, OPEN_SCRATCH_BYTES},
     errors::{
-        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_SCORE_RANGE,
-        F05_REPORT_INVARIANT, F06_EPOCH_TERMINAL, NON_CANONICAL, NOT_FOUND, REVOKED, ROLE_CONFLICT,
-        STALE_CURSOR, WRONG_CONFIG, WRONG_EPOCH, WRONG_PHASE, WRONG_ROSTER,
+        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_NONCANONICAL_VECTOR,
+        F03_SCORE_RANGE, F05_REPORT_INVARIANT, F06_EPOCH_TERMINAL, NON_CANONICAL, NOT_FOUND,
+        REVOKED, ROLE_CONFLICT, STALE_CURSOR, WRONG_CONFIG, WRONG_EPOCH, WRONG_PHASE, WRONG_ROSTER,
     },
     evaluators::{
         admission::{self as f03, AdmissionReceipt},
@@ -300,6 +300,7 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation: Vec<u8>,
     replay: ReplayTable,
     features: Vec<u8>,
 }
@@ -307,6 +308,8 @@ impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let (_, table) = layerx_programs_ai_market::reputation_transition::split_joint(admission)?;
+        let reputation = admission[..admission.len() - table.len()].to_vec();
         let (workers, region) = split_identity_section(identity)?;
         Ok(Self {
             revision: state.revision,
@@ -315,7 +318,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation,
             replay: state.control.replay,
             features: state.control.feature_bytes.to_vec(),
         })
@@ -335,15 +339,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let admission = [self.reputation.as_slice(), admission.as_slice()].concat();
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &admission],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &self.features,
@@ -696,10 +696,11 @@ impl World {
 impl World {
     /// Permissionless object-local `OPEN_EPOCH` of the clock epoch of `at`.
     fn open(&mut self, at: u64) -> CodecResult<Frozen> {
-        repair::refresh_workers(&mut self.bytes, at)?;
+        let mut candidate = self.clone();
+        repair::refresh_workers(&mut candidate.bytes, at)?;
         let mut next = vec![0; MAX_STATE_BYTES];
         let mut scratch = vec![0; OPEN_SCRATCH_BYTES];
-        let preview = epoch::preview_open(&self.bytes, at, &mut next, &mut scratch)?;
+        let preview = epoch::preview_open(&candidate.bytes, at, &mut next, &mut scratch)?;
         let call = Req {
             epoch: preview.epoch,
             config: preview.config.get(),
@@ -714,7 +715,7 @@ impl World {
         } = epoch::open_epoch(
             &call.context(at)?,
             &decode_envelope(&encoded)?,
-            &self.bytes,
+            &candidate.bytes,
             &mut next,
             &mut scratch,
             &mut event,
@@ -723,7 +724,8 @@ impl World {
             return Err(NON_CANONICAL);
         };
         next.truncate(state_len);
-        self.bytes = next;
+        candidate.bytes = next;
+        *self = candidate;
         Ok(frozen)
     }
     /// Permissionless object-local `ADVANCE_ACTIVATION`; the lifecycle becomes ACTIVE.
@@ -1814,7 +1816,7 @@ fn f05_a10_refused_scores_and_tampered_persisted_records() -> TestResult {
     let template = m.reveal_call(5, &report, SALT, 3, ROLE_EXPIRY)?;
     for (scores, code) in [
         (entries(&[(a, 1_000_001), (b, 1)]), F03_SCORE_RANGE),
-        (entries(&[(a, 1), (a, 1)]), NON_CANONICAL),
+        (entries(&[(a, 1), (a, 1)]), F03_NONCANONICAL_VECTOR),
     ] {
         let body = raw_body(&report.body, 2, &scores)?;
         let call = Req {
@@ -1936,6 +1938,7 @@ fn f05_a12_settlement_window_and_delayed_completion() -> TestResult {
 #[test]
 fn f05_a13_cursor_retries_and_once_only_completion() -> TestResult {
     let mut m = crowded(13)?;
+    let initial_history = m.history()?;
     let scores = m.all(500_000);
     let plan = (2..=4).map(|n| (n, scores.clone())).collect::<Vec<_>>();
     m.admit(&plan)?;
@@ -1974,7 +1977,19 @@ fn f05_a13_cursor_retries_and_once_only_completion() -> TestResult {
         (done, FINALIZE_RESPONSE_BYTES)
     );
     assert_eq!(m.world.bytes, terminal);
-    assert_eq!(m.history()?.len(), 1);
+    let history = m.history()?;
+    assert_eq!(history.len(), initial_history.len() + 1);
+    assert_eq!(
+        &history[..initial_history.len()],
+        initial_history.as_slice()
+    );
+    assert_eq!(
+        (
+            history.last().unwrap().epoch,
+            Presence::Present(history.last().unwrap().root)
+        ),
+        (m.frozen.epoch, done.root)
+    );
     let binding = m.frozen_binding();
     let variants = [
         (
@@ -2052,23 +2067,34 @@ fn f05_a15_worker_replacement_after_freeze() -> TestResult {
     let mut m = market()?;
     let plan = both(&m);
     m.admit(&plan)?;
+    let frozen_workers = epoch::captured_roster(&decode_shared_state(&m.world.bytes)?)?
+        .ok_or(WRONG_ROSTER)?
+        .workers()
+        .to_vec();
+    let frozen_binding = m.frozen_binding();
+    let mut baseline = m.clone();
+    baseline.begin(SETTLE_AT)?;
+    let expected = baseline.complete(SETTLE_AT + 2)?;
     let mut sealed_first = m.clone();
     let sealed = sealed_first.begin(SETTLE_AT)?;
     m.replace_worker(LOW, 1110)?;
-    let begin = m.begin_call()?;
-    assert_eq!(m.aggregation_refused(&begin, SETTLE_AT)?, WRONG_ROSTER);
+    // Decision 2515's aggregation-reconstructs-mutable-roster repair
+    // (22.31.253) keeps next-epoch rotations separate from this opening.
+    assert_eq!(m.begin(SETTLE_AT)?, sealed);
     sealed_first.replace_worker(LOW, SETTLE_AT + 1)?;
-    let call = sealed_first.process_call(input_of(&sealed)?, 0)?;
-    assert_eq!(
-        sealed_first.aggregation_refused(&call, SETTLE_AT + 2)?,
-        WRONG_ROSTER
-    );
-    for replaced in [&m, &sealed_first] {
+    for replaced in [&mut m, &mut sealed_first] {
         assert_eq!(replaced.reward_row()?.status, EpochStatus::Reserved);
         assert_eq!(replaced.progress()?.cursor, 0);
+        let state = decode_shared_state(&replaced.world.bytes)?;
+        let captured = epoch::captured_roster(&state)?.ok_or(WRONG_ROSTER)?;
+        assert_eq!(captured.binding, frozen_binding);
+        assert_eq!(captured.workers(), frozen_workers.as_slice());
+        let terminal = replaced.complete(SETTLE_AT + 2)?;
+        assert_eq!(terminal, expected);
+        assert_eq!(replaced.outputs()?, baseline.outputs()?);
+        assert_eq!(replaced.history()?, baseline.history()?);
+        assert_eq!(replaced.reward_row()?, baseline.reward_row()?);
     }
-    assert!(m.tail().is_err());
-    assert!(sealed_first.history()?.is_empty());
     Ok(())
 }
 
@@ -2078,6 +2104,7 @@ fn f05_a15_worker_replacement_after_freeze() -> TestResult {
 fn f05_a16_refused_steps_keep_committed_progress() -> TestResult {
     repair::aggregation_storage_admission_refusal()?;
     let mut m = crowded(13)?;
+    let initial_history_bytes = m.tail()?.1;
     let scores = m.all(500_000);
     let plan = (2..=4).map(|n| (n, scores.clone())).collect::<Vec<_>>();
     m.admit(&plan)?;
@@ -2115,7 +2142,7 @@ fn f05_a16_refused_steps_keep_committed_progress() -> TestResult {
         F06_EPOCH_TERMINAL
     );
     assert_eq!(terminalized.tail()?, before);
-    assert_eq!(before.1, [0, 0]);
+    assert_eq!(before.1, initial_history_bytes);
     assert_eq!(terminalized.progress()?.phase, AggregationPhase::Processing);
     assert_eq!(complete.progress()?.cursor, 13);
     Ok(())

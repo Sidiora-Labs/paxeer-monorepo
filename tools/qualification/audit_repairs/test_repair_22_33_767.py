@@ -183,7 +183,7 @@ def test_doc1_build_and_release_describe_integrated_paxd():
     assert prerequisites == ["paxd-native-libs"]
     assert "tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
-    assert make_rule("Makefile", "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build"]
+    assert make_rule("Makefile", "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     prerequisites, recipe = make_rule("chain.mk", "build")
     assert prerequisites == ["paxd-native-libs"]
     assert "go build $(BUILD_FLAGS) -o ./build/paxd ./daemon/paxd" in recipe

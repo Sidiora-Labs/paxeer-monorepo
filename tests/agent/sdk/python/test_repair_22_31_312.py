@@ -40,7 +40,7 @@ def recorded_programs_rpc(evidence, terminal_output):
             request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             requests.append((self.path, self.headers["Content-Type"], request))
             if (
-                self.path != "/rpc"
+                self.path != "/"
                 or self.headers["Content-Type"] != "application/json"
                 or request["jsonrpc"] != "2.0"
             ):
@@ -72,7 +72,7 @@ def recorded_programs_rpc(evidence, terminal_output):
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield PaymentRpc(f"http://127.0.0.1:{server.server_port}/rpc"), requests
+        yield PaymentRpc(f"http://127.0.0.1:{server.server_port}/"), requests
     finally:
         server.shutdown()
         server.server_close()
@@ -112,7 +112,7 @@ def test_programs_terminal_response_recorded_call_survives_transport_reopen(
             assert receipt == evidence.vector["receiptJson"]
             assert evidence.submission(receipt) == receipt
             assert len(requests) == 1
-            assert requests[0][0:2] == ("/rpc", "application/json")
+            assert requests[0][0:2] == ("/", "application/json")
             result = rpc.call("eth_call", [
                 {
                     "to": "0x" + transaction.to.hex(),
@@ -121,7 +121,7 @@ def test_programs_terminal_response_recorded_call_survives_transport_reopen(
                 "latest",
             ])
             assert len(requests) == 2
-            assert requests[1][0:2] == ("/rpc", "application/json")
+            assert requests[1][0:2] == ("/", "application/json")
             assert result == "0x" + terminal_output.hex()
             outputs.append(bytes.fromhex(result[2:]))
     assert outputs[0] == outputs[1]

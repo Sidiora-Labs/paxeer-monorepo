@@ -1493,7 +1493,7 @@ pub fn read_native_lifecycle_budget_sources_call(
 pub fn read_program_budget_sources(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
     programs: &mut ProgramOperations,
-    prepared: &crate::prepare::Prepared,
+    prepared: &crate::prepare::EvmPrepared,
     signing: Option<&crate::sign::SigningPreparation>,
     caps: &CommittedCaps,
     now: u64,
@@ -1512,7 +1512,7 @@ pub fn read_program_budget_sources(
 }
 pub fn read_native_effect_budget_sources(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
-    prepared: &crate::prepare::Prepared,
+    prepared: &crate::prepare::EvmPrepared,
     signing: Option<&crate::sign::SigningPreparation>,
     caps: &CommittedCaps,
     now: u64,
@@ -1532,7 +1532,7 @@ pub fn read_native_effect_budget_sources(
 }
 pub fn read_native_lifecycle_budget_sources(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
-    prepared: &crate::prepare::Prepared,
+    prepared: &crate::prepare::EvmPrepared,
     signing: Option<&crate::sign::SigningPreparation>,
     caps: &CommittedCaps,
     proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,

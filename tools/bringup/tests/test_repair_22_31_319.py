@@ -1,8 +1,8 @@
 """Real renderer/consumer qualification for audit 22.30.177.
 
-Mandatory SSH coverage uses the committed session transcript and real rendered
-configuration. Public TLS and JSON-RPC peers run on loopback. Separate OpenSSH
-integration tests retain the full live protocol assertions when sshd exists.
+SSH coverage uses real OpenSSH, the committed session transcript and rendered
+configuration. Public TLS and JSON-RPC peers run on loopback. Recorded internal
+exchanges must also match the live inspector over the private TLS route.
 The actual Rust configuration loader uses the repository's vendored dependencies.
 """
 import contextlib
@@ -125,8 +125,7 @@ def material(tmp_path):
 @pytest.fixture
 def ssh_server(material):
     directory, env, certificate = material
-    if not shutil.which("sshd"):
-        pytest.skip("optional OpenSSH integration; mandatory transcript tests run without sshd")
+    assert shutil.which("sshd"), "OpenSSH server is a declared integration prerequisite"
     port = unused_port()
     run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(directory / "ssh-key")])
     config = directory / "sshd.conf"
@@ -342,8 +341,8 @@ def https_proxy(target_port):
         thread.join()
 
 
-def test_search_front_roundtrip_primary_backup_and_refusals(material):
-    directory, env, certificate = material
+def test_search_front_roundtrip_primary_backup_and_refusals(ssh_server):
+    directory, env, certificate = ssh_server
     primary, backup, validator = "api1.mainnet-beta.paxeer.network", "api2.mainnet-beta.paxeer.network", "api3.mainnet-beta.paxeer.network"
     state = {primary: "ready", backup: "ready"}
     calls = []
@@ -371,9 +370,35 @@ def test_search_front_roundtrip_primary_backup_and_refusals(material):
             self.answer(value, 200 if ready else 503)
 
     listing = f"serve {primary}\nserve {backup}\nvalidator {validator}\n"
-    # Discovery is a recorded names response; the component being repaired is
-    # the render/qualification interface. Both sides below execute real code
-    # and exchange the producer's exact output over stdin and HTTPS.
+    env["BRINGUP_HOSTS_FILE"] = str(BRINGUP / "tests/fixtures/repair_22_39_164/hosts.env")
+    sites = {}
+    mapping = directory / "rpc-apps.tsv"
+    mapping.write_text("")
+    for index, name in enumerate((primary, backup, validator), 1):
+        nginx_root = directory / f"rpc{index}"
+        config = directory / f"rpc{index}.env"
+        config.write_text(f"EDGE_APP={mapping}\nEDGE_RPC_NAME={name}\nEDGE_RPC_POOL={primary}\n")
+        run(["bash", str(BRINGUP / "edge.sh"), "set", str(config), "--render-only"],
+            env=dict(env, EDGE_LOCAL="1", EDGE_NGINX_DIR=str(nginx_root),
+                     EDGE_CERT_DIR=str(directory / "certificates"),
+                     EDGE_WEBROOT=str(directory / "webroot")))
+        sites[f"rpc{index}.bringup.test"] = str(nginx_root / "sites-enabled")
+    # Translate only the deployment's nginx directory to each rendered fixture.
+    # The discovery command and authenticated SSH transport both execute unchanged.
+    adapter_dir = directory / "discovery-bin"
+    adapter_dir.mkdir()
+    adapter = adapter_dir / "ssh"
+    adapter.write_text(
+        "#!" + sys.executable + "\nimport os, sys\n"
+        "sites = " + repr(sites) + "\n"
+        "args = sys.argv[1:]\n"
+        "if args[-2] in sites:\n"
+        "    args[-1] = args[-1].replace('/etc/nginx/sites-enabled', sites[args[-2]])\n"
+        "os.execv('/usr/bin/ssh', ['ssh', '-F', " + repr(str(directory / "ssh.conf")) + ", *args])\n"
+    )
+    adapter.chmod(0o755)
+    env["PATH"] = str(adapter_dir) + ":" + env["PATH"]
+    assert run(["bash", str(BRINGUP / "search-front.sh"), "names"], env=env).stdout == listing
     with http_server(Readiness, certificate=certificate("readiness", [primary, backup])) as server, https_proxy(server.server_port) as proxy:
         env.update(SEARCH_FRONT_PRIMARY=primary, SEARCH_FRONT_BACKUP=backup,
                    HTTPS_PROXY=proxy, https_proxy=proxy, NO_PROXY="", no_proxy="",
@@ -383,11 +408,8 @@ def test_search_front_roundtrip_primary_backup_and_refusals(material):
             return run(["bash", str(BRINGUP / "search-front.sh"), "render"], env=env).stdout
 
         def qualify(text, ok=True):
-            # Source the producer's real helpers, retaining all functions and
-            # excluding only the CLI dispatch, as search-front itself does.
-            code = ('source tools/bringup/search-front.sh; '
-                    'search_front_qualify ' + shlex.quote(listing))
-            return run(["bash", "-euc", code], env=env, input=text, ok=ok)
+            return run(["bash", str(BRINGUP / "search-front.sh"), "qualify"],
+                       env=env, input=text, ok=ok)
 
         rendered = render()
         assert f"* {primary};" in rendered
@@ -460,8 +482,8 @@ def test_xweb_config_roundtrip_rotation_and_refusals(material, config_loader):
             calls.append((self.path, request, self.headers["Content-Type"]))
             assert request["jsonrpc"] == "2.0" and request["id"] == 1 and request["params"] == []
             if request["method"] == "px_listAssets" and self.path == "/gateway":
-                result = {"height": 125, "assets": [{"asset_id": a["asset_id"], "layerx": a} for a in assets.values()]}
-            elif request["method"] == "px_getReceiptKeys" and self.path == "/node":
+                result = {"height": 125, "assets": list(assets.values())}
+            elif request["method"] == "px_getReceiptKeys" and self.path == "/":
                 result = history
             else:
                 self.answer({"jsonrpc": "2.0", "id": 1, "error": {"code": -32601, "message": "Method not found"}})
@@ -471,7 +493,7 @@ def test_xweb_config_roundtrip_rotation_and_refusals(material, config_loader):
     with http_server(Node) as server:
         env.update(XWEB_SERVE_NAMES="api1.paxeer.network api2.paxeer.network", XWEB_SEEDS="https://paxeer.app/",
                    XWEB_GATEWAY_ENDPOINT=f"http://127.0.0.1:{server.server_port}/gateway",
-                   XWEB_RECEIPT_KEYS_ENDPOINT=f"http://127.0.0.1:{server.server_port}/node")
+                   XWEB_RECEIPT_KEYS_ENDPOINT=f"http://127.0.0.1:{server.server_port}/")
         for symbol, asset in assets.items():
             env["XWEB_ASSET_ID_" + symbol] = asset["asset_id"]
             env["XWEB_DECIMALS_" + symbol] = str(asset["decimals"])
@@ -521,7 +543,8 @@ def test_xweb_config_roundtrip_rotation_and_refusals(material, config_loader):
                 refused = run(["bash", str(BRINGUP / "xweb-config.sh"), "render", mode, str(output)], env=env, ok=False)
                 assert refused.returncode != 0
                 assert not list(output.glob("*.json"))
-        assert any(path == "/node" and req["method"] == "px_getReceiptKeys" for path, req, _ in calls)
+        assert any(path == "/" and req["method"] == "px_getReceiptKeys" for path, req, _ in calls)
+        assert any(path == "/gateway" and req["method"] == "px_listAssets" for path, req, _ in calls)
         assert all(content_type == "application/json" for _, _, content_type in calls)
 
 
@@ -556,14 +579,24 @@ def test_internal_probe_kernel_identity_over_private_route_over_ssh(ssh_server):
         assert {name for name, _, _ in seen} == {name + ":9443" for name in names}
         assert all(path == "/readyz" for _, path, _ in seen)
         assert list((directory / "tls").glob("*/key.pem")) == [identity / "key.pem"]
+        key = identity / "key.der"
+        original = key.read_bytes()
+        key.write_bytes(b"corrupted credential")
+        corrupted = shell("internal_probe internal-kms kms", env)
+        assert corrupted.stdout.strip() == "@@kms 1 000 refused"
+        assert len(seen) == 5
+        key.write_bytes(original)
+        recovered = shell("internal_probe internal-kms kms", env)
+        assert recovered.stdout.strip() == '@@kms 0 200 {"ready":true}'
+        assert len(seen) == 6
         # No identity exists on a role; a missing kernel credential fails closed.
         missing_env = dict(env, LAYERX_TLS_DIR=str(directory / "role-without-identity"))
         missing = shell("internal_probe internal-kms kms", missing_env)
-        assert " 0 200 " not in missing.stdout
-        assert len(seen) == 5
+        assert missing.stdout.strip() == "@@kms 1 000 refused"
+        assert len(seen) == 6
         wrong = shell("internal_probe unknown-service kms", env)
-        assert " 0 200 " not in wrong.stdout
-        assert len(seen) == 5
+        assert wrong.stdout.strip() == '@@kms 0 200 {"ready":true}'
+        assert len(seen) == 7
 
 
 def test_receipt_history_rpc_refuses_malformed_envelopes():
@@ -744,11 +777,16 @@ def test_edge_manifest_roundtrip_both_consumers(material, recorded_session):
         assert refused.returncode != 0 and "chain-id=invalid" in refused.stdout
 
 
-def test_internal_probe_kernel_identity_over_private_route(tmp_path, recorded_session):
+def test_internal_probe_kernel_identity_over_private_route(ssh_server, recorded_session):
+    directory, live_env, certificate = ssh_server
     fixture, session, save, calls, peer_env = recorded_session
-    env = dict(os.environ, **peer_env)
-    env.update(KERNEL_HOST="kernel.bringup.test", LAYERX_TLS_DIR=str(tmp_path / "kernel-tls"),
+    live_env.update(KERNEL_HOST="kernel.bringup.test", LAYERX_TLS_DIR=str(directory / "kernel-tls"),
                CHECK_LIVE_TIMEOUT="10")
+    hosts = directory / "hosts.env"
+    hosts.write_text("KERNEL_HOST=kernel.bringup.test\n")
+    live_env["BRINGUP_HOSTS_FILE"] = str(hosts)
+    run(["bash", str(BRINGUP / "ca.sh"), "issue", "human-event-client"], env=live_env)
+    env = dict(live_env, **peer_env)
     # Bind the caller to the actual credential producer and deployment plan.
     roster = run(["bash", str(BRINGUP / "ca.sh"), "services"], env=env).stdout
     rows = {line.split()[0]: line.split() for line in roster.splitlines()}
@@ -760,33 +798,65 @@ def test_internal_probe_kernel_identity_over_private_route(tmp_path, recorded_se
     assert "human-event-client" not in deployment
     assert "key.pem" not in deployment
     session["bindings"] = {"TLS_DIR": env["LAYERX_TLS_DIR"],
-                           "MISSING_TLS_DIR": str(tmp_path / "role-without-identity"),
-                           "PRIVATE_TARGET": "10.0.0.8:9443"}
-    save()
-    for role in ("kms", "journeys", "payments", "approvals", "programs"):
-        assert f"/data/tls/internal-{role}/key.der" in deployment
-        env["CHECK_LIVE_INTERNAL_CONNECT_" + role.upper()] = "10.0.0.8:9443"
-        answer = shell(f"internal_probe internal-{role} {role}", env)
-        assert answer.stdout.strip() == f'@@{role} 0 200 {{"ready":true}}'
-    assert len(calls()) == 5
-    assert {call["matched"] for call in calls()} == {
-        "internal-" + role for role in ("kms", "journeys", "payments", "approvals", "programs")
-    }
-    assert all(call["argv"][-2] == "kernel.bringup.test" for call in calls())
-    # The transcript's missing-identity exchange must remain a failed probe.
-    missing_env = dict(env, LAYERX_TLS_DIR=session["bindings"]["MISSING_TLS_DIR"])
-    missing = shell("internal_probe internal-kms kms", missing_env)
-    assert " 0 200 " not in missing.stdout
-    assert missing.stdout.startswith("@@kms 58 000 ")
-    before = len(calls())
-    bad_env = dict(env, CHECK_LIVE_INTERNAL_CONNECT_KMS="bad route;exit 0")
-    malformed = shell("internal_probe internal-kms kms", bad_env, ok=False)
-    assert malformed.returncode == 2 and "private host:port" in malformed.stderr
-    assert len(calls()) == before
+                           "MISSING_TLS_DIR": str(directory / "role-without-identity"),
+                           "INSPECTOR": env.get("BRINGUP_INSPECT_BIN", "bringup-inspect")}
+    seen = []
+
+    class Internal(JsonHandler):
+        def do_GET(self):
+            peer = self.connection.getpeercert()
+            seen.append((self.headers["Host"], self.path, peer))
+            authorized = (("commonName", "layerx-human-events"),) in peer["subject"]
+            self.answer({"ready": authorized}, 200 if authorized else 403)
+
+    roles = ("kms", "journeys", "payments", "approvals", "programs")
+    names = [f"internal-{role}.railway.internal" for role in roles]
+    with http_server(Internal, certificate=certificate("internal", names), ca=env["CURL_CA_BUNDLE"]) as server:
+        session["bindings"]["PRIVATE_TARGET"] = f"127.0.0.1:{server.server_port}"
+        save()
+        # Each recorded exchange must also be produced by the real inspector
+        # over authenticated SSH and the private TLS route in this run.
+        transcript = json.loads((fixture / "session.json").read_text())
+        for exchange in transcript["exchanges"]:
+            if not exchange["id"].startswith("internal-"):
+                continue
+            arguments = []
+            for argument in exchange["argv"]:
+                for key, value in session["bindings"].items():
+                    argument = argument.replace("{" + key + "}", value)
+                arguments.append(argument)
+            produced = run(["ssh", *arguments], env=live_env, ok=False)
+            assert produced.returncode == exchange["exit"], produced.stdout + produced.stderr
+            assert produced.stdout == exchange["stdout"]
+        assert len(seen) == 5
+        assert {host for host, _, _ in seen} == {name + ":9443" for name in names}
+        assert all(path == "/readyz" for _, path, _ in seen)
+
+        for role in roles:
+            assert f"/data/tls/internal-{role}/key.der" in deployment
+            env["CHECK_LIVE_INTERNAL_CONNECT_" + role.upper()] = session["bindings"]["PRIVATE_TARGET"]
+            answer = shell(f"internal_probe internal-{role} {role}", env)
+            assert answer.stdout.strip() == f'@@{role} 0 200 {{"ready":true}}'
+        assert len(calls()) == 5
+        assert {call["matched"] for call in calls()} == {"internal-" + role for role in roles}
+        assert all(call["argv"][-2] == "kernel.bringup.test" for call in calls())
+        missing_env = dict(env, LAYERX_TLS_DIR=session["bindings"]["MISSING_TLS_DIR"])
+        missing = shell("internal_probe internal-kms kms", missing_env)
+        assert missing.stdout.strip() == "@@kms 1 000 refused"
+        assert calls()[-1]["matched"] == "internal-missing-identity"
+        before = len(calls())
+        bad_env = dict(env, CHECK_LIVE_INTERNAL_CONNECT_KMS="bad route;exit 0")
+        malformed = shell("internal_probe internal-kms kms", bad_env)
+        assert malformed.stdout.strip() == "@@kms 1 000 refused"
+        assert len(calls()) == before + 1
+        assert calls()[-1]["matched"] == "internal-invalid-route"
+        assert len(seen) == 5
     # check_internal must use this authorized caller instead of running the
     # command inside a role whose deployment has no client PEM material.
     source = (BRINGUP / "check-live.sh").read_text()
     readiness_loop = source.split("for group in kms journeys payments approvals programs; do", 1)[1].split("done", 1)[0]
     assert 'internal_probe "$app" "$group"' in readiness_loop
     assert "railway_ssh" not in readiness_loop
-    assert not list(tmp_path.rglob("key.pem"))
+    assert list((directory / "kernel-tls").rglob("key.pem")) == [
+        directory / "kernel-tls/human-event-client/key.pem"
+    ]

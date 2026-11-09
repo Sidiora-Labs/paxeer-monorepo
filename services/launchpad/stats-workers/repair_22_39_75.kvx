@@ -1,0 +1,50 @@
+[meta]
+task = "22.39.75"
+module = "services/launchpad/stats-workers"
+package_prefix = "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers"
+
+[producer]
+workflow = ".github/workflows/launchpad-test.yml"
+job = "launchpad-go-test"
+runner = "tests/ci/data/launchpad_go_tests.py"
+toolchain = "go1.27.3"
+
+[measurement]
+revision = "2dc1f6cff2c54413d495eb33434338370e71e448"
+command = "make -C services/launchpad test"
+exit = 0
+log = "/out/logs/verify-1.log"
+result = "The baseline-aware module runner returned zero within the declared make test target; every package result is retained in the private log."
+aggregate_command = "cg spec done 22.39.75 -f layerx-merge --root /work/paxeer-monorepo"
+aggregate_exit = 1
+aggregate_result = "The wiring suite and all seventeen module test targets passed; five required directory touches were absent, so the task remained unqualified at this measured revision."
+
+[baseline]
+retiring_task = "22.39.168"
+count = 23
+tests = [
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase2AdmittedOriginCapacity",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase2CanonicalPublicationIdempotencyAndExpiry",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase3CanonicalHostileInputsHaveNoDatabaseEffect",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase3RealWorkerSIGKILLAndBrokerRedelivery",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase4LaneMeasurementHarness",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/app::TestRepair_70_CrossWalletCatchupAndRestart",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumer::TestCanonicalLegacyBridgeReplaysRealPaxeerPool",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestAccountingIntegrityErrorRollsBackSavepoint",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestCanonicalActorProvenance",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestCanonicalArchiveReplayExactlyOnceAndRejectsConflicts",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestCanonicalCatchupMatchesIndependentArchiveDigest",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestHoldingsNumericSchemaAndOrdering",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestPhase4CapacityMeasurement",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestRetainedCanonicalReplay",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi::TestPlatformRoute",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi::TestPrecomputePublishesPlatformUpdate",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase2ActualReceiptBatchAndReplay",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase2IntegratedCanonicalHTTPAgainstSource",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase3RedisRestartAndCanonicalDependencyOutage",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase4RealMeasurementProvidersAndIntegerReference",
+  "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/search::TestSearchCapacityReleaseMeasurement",
+]
+policy = "These exact package-scoped exclusions are the reviewed temporary baseline, not passing tests; their reasons remain in tests/ci/data/launchpad_go_test_baseline.json. No module source, assertion or test selection changed for this qualification record."

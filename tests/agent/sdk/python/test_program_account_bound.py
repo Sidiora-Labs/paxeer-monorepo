@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
 
 from layerx_sdk.program_wire import (  # noqa: E402
-    _ACCOUNT_BOUND_SET, _AUTHORITY, _Reader, _signed_call_envelope, _verify_authorization_root,
-    bind_retained_program_call, decode_signed_program_call,
+    _ACCOUNT_BOUND_SET, _AUTHORITY, _Reader, _historical_activity_envelope, _verify_authorization_root,
+    bind_historical_program_call, decode_historical_program_call,
 )
 from layerx_sdk.native_program_call import decode_native_program_call  # noqa: E402
 from layerx_sdk.programs import NativeProgramRequest  # noqa: E402
@@ -23,7 +23,7 @@ class ProgramAccountBoundTest(unittest.TestCase):
         fixture = root / "tests/fixtures/programs/account-bound-call"
         cls.execution = json.loads((fixture / "execution.json").read_text())
         cls.signed = bytes.fromhex((fixture / "signed-activity.hex").read_text())
-        envelope = _signed_call_envelope(cls.signed)
+        envelope = _historical_activity_envelope(cls.signed)
         cls.payload_hash = envelope.payload_hash
         cls.payload = envelope.payload
         cls.request = NativeProgramRequest(
@@ -32,10 +32,10 @@ class ProgramAccountBoundTest(unittest.TestCase):
     def test_real_native_call_verifies_with_principal_account_binding(self):
         """Historical Activity codec coverage; chain identity is tested separately."""
         self.assertEqual(sha256(b"LXP/v1/activity-id\0" + self.signed).hexdigest(), self.execution["activity_id"])
-        binding = decode_signed_program_call(self.request, self.execution["idempotency_key"])
+        binding = decode_historical_program_call(self.request, self.execution["idempotency_key"])
         self.assertEqual(binding.activity_id, self.execution["activity_id"])
         self.assertEqual(binding.canonical_bytes, self.signed)
-        self.assertEqual(bind_retained_program_call(
+        self.assertEqual(bind_historical_program_call(
             self.signed, binding.activity_id, self.execution["program_id"], 3),
             (self.payload_hash, self.execution["guest_abi_version"], self.execution["idempotency_key"]))
         self.assertEqual(self.payload_hash, sha256(b"LXP/v1/payload-hash\0" + self.payload).digest())
@@ -106,7 +106,7 @@ class ProgramAccountBoundTest(unittest.TestCase):
             (self.execution["activity_id"], self.execution["program_id"], 2),
         ):
             with self.subTest(activity=activity, program=program, protocol=protocol), self.assertRaises(ValueError):
-                bind_retained_program_call(self.signed, activity, program, protocol)
+                bind_historical_program_call(self.signed, activity, program, protocol)
         native = self.request.native_call
         for changed in (
             replace(self.request, fee_limit=self.request.fee_limit + 1),
@@ -116,6 +116,6 @@ class ProgramAccountBoundTest(unittest.TestCase):
             replace(self.request, signed_activity=self.signed + b"\0"),
         ):
             with self.subTest(request=changed), self.assertRaises(ValueError):
-                decode_signed_program_call(changed)
+                decode_historical_program_call(changed)
         with self.assertRaisesRegex(ValueError, "signed activity idempotency"):
-            decode_signed_program_call(self.request, "00" * 32)
+            decode_historical_program_call(self.request, "00" * 32)

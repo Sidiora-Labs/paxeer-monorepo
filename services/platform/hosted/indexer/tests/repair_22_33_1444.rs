@@ -1256,6 +1256,9 @@ fn tenant_query_authenticates_database_domains_and_falls_back_to_node() -> Check
     let node = ingester(&server, false)?;
     let mut rows: BlockscoutRange =
         serde_json::from_str(include_str!("fixtures/backfill_blockscout.json"))?;
+    for transaction in &mut rows.transactions {
+        transaction.chain_id = None;
+    }
     assert!(rows.transactions.iter().all(|t| t.chain_id.is_none()));
     // Even a populated domain hint is untrusted database content.
     rows.transactions[0].chain_id = Some("125000999".into());

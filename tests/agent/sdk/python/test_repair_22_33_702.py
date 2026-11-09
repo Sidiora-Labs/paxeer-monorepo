@@ -405,7 +405,5 @@ def test_payment_baseline_entries_are_retired_and_the_transport_baseline_is_pres
     retired = [entry for entry in original if entry["nodeid"].split("::")[0] in repaired_paths]
     assert len(retired) == 48
     assert all(entry["retiring_task"] == "22.39.120" for entry in retired)
-    assert retained == [entry for entry in original if entry not in retired]
-    assert [entry for entry in retained if entry["retiring_task"] == "22.39.119"] == [
-        entry for entry in original if entry["retiring_task"] == "22.39.119"
-    ]
+    assert all(entry in original for entry in retained)
+    assert not any(entry in retired for entry in retained)

@@ -42,10 +42,10 @@ def _encode(text: str) -> bytes:
 class RevertRegistryTest(unittest.TestCase):
     def test_retryable_table_is_the_registry_column(self) -> None:
         registry = _registry()
-        self.assertEqual(len(registry), 274)
+        self.assertEqual(len(registry), 395)
         self.assertEqual(len({code for code, _, _ in registry}), len(registry))
         self.assertEqual(dict(LXP_RETRYABLE), {code: retryable for code, _, retryable in registry})
-        self.assertEqual(sum(LXP_RETRYABLE.values()), 37)
+        self.assertEqual(sum(LXP_RETRYABLE.values()), 54)
 
     def test_every_registry_code_decodes(self) -> None:
         for code, message, retryable in _registry():

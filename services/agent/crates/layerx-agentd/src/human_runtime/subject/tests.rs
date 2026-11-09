@@ -118,8 +118,13 @@ fn signed_submission() -> crate::sign::VerifiedSubmission {
         ModuleId::Governance,
         &[kind],
     ))]));
-    let activity = must(layerx_wire::activity::decode_signed(bytes, &registry));
-    assert_eq!(must(layerx_wire::activity::encode_signed(&activity)), bytes);
+    let activity = must(layerx_wire::historical::activity::decode_signed(
+        bytes, &registry,
+    ));
+    assert_eq!(
+        must(layerx_wire::historical::activity::encode_signed(&activity)),
+        bytes
+    );
     let registration = must(layerx_crypto::payments::SponsoredRegistration::decode(
         activity.payload(),
     ));

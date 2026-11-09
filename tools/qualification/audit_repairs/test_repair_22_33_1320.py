@@ -65,7 +65,11 @@ def test_scoped_shell_scripts_parse(name):
 def test_relay_retirement_9_and_10_maintained_ownership_and_consumers():
     manifest = tomllib.loads(source("Cargo.toml"))
     assert manifest["package"]["name"] == "layerx-platform-paxeer-boundary"
-    assert manifest["bin"] == [{"name": "layerx-paxeer-boundary", "path": "src/main.rs"}]
+    assert manifest["bin"] == [
+        {"name": "paxeer-native-tool", "path": "src/native_main.rs"},
+        {"name": "layerx-paxeer-boundary", "path": "src/main.rs"},
+    ]
+    assert manifest["lib"] == {"name": "paxeer_native", "path": "src/native.rs"}
     operator = manifest["package"]["metadata"]["paxd-operator"]
     assert operator == {
         "owner-domain": 8,
@@ -331,7 +335,7 @@ def test_relay_retirement_11_upgrade_halt_and_proposal_checks_preserved():
 
 def test_relay_retirement_12_native_genesis_entrypoint_and_legacy_refusal():
     shell = source("init-chain.sh")
-    assert 'exec "$SCRIPT_DIR/../node/bootstrap.sh" "$@"' in shell
+    assert 'exec paxeer-native-tool bootstrap --bootstrap-script "$SCRIPT_DIR/../node/bootstrap.sh" "$@"' in shell
     assert 'for name in "${!LAYERX_PAXEER_@}"' in shell
     assert "app_state.layerxcustody" not in shell
     assert "custody-genesis.py" not in shell

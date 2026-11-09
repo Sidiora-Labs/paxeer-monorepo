@@ -179,21 +179,23 @@ impl EvaluatorRecord {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
         let grant = decode_grant(r.take(GRANT_BYTES)?)?;
-        let last = LastRequest {
-            sequence: r.u64()?,
-            request: r.request_id()?,
-            digest: r.request_digest()?,
-            result: r.result_digest()?,
-        };
+        let last = crate::codec::read_record!(r, LastRequest {
+            sequence = r.u64()?;
+        }; request = r.request_id()?;
+            digest: RequestDigest, result: ResultDigest
+        );
         let rekey_bytes = r.take(REKEY_BYTES)?;
         let rekey = if rekey_bytes.iter().all(|b| *b == 0) {
             None
         } else {
             let mut k = Reader::new(rekey_bytes);
+            let (key, key_version, effective_epoch) = crate::codec::read_values!(&mut k;
+                seed = last.request; key: PublicKey32, key_version: Version, effective_epoch: U64
+            );
             let rekey = PendingRekey {
-                key: PublicKey32(k.fixed()?),
-                key_version: k.version()?,
-                effective_epoch: k.u64()?,
+                key,
+                key_version,
+                effective_epoch,
             };
             k.finish()?;
             Some(rekey)
@@ -1170,12 +1172,16 @@ pub fn open_epoch(
         let grant = record.grant;
         if grant.status == GrantStatus::Active
             && grant.rubric == ctx.approved_rubric
+            && (grant.principal == ctx.market.owner_principal
+                || ctx.workers.iter().any(|w| w.owner == grant.principal))
+        {
+            return Err(ROLE_CONFLICT);
+        }
+        if grant.status == GrantStatus::Active
+            && grant.rubric == ctx.approved_rubric
             && membership(ctx.admission, &grant, ctx.epoch).is_some()
         {
-            if grant.principal == ctx.market.owner_principal
-                || ctx.workers.iter().any(|w| w.owner == grant.principal)
-                || snapshot.entries().any(|f| f.entry.owner == grant.principal)
-            {
+            if snapshot.entries().any(|f| f.entry.owner == grant.principal) {
                 return Err(ROLE_CONFLICT);
             }
             if snapshot

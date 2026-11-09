@@ -235,7 +235,7 @@ def test_operator_commands_build_linked_paxd_and_start_that_binary():
     assert deps == ["paxd-native-libs"]
     assert "jq -er .version tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
-    assert make_rule("Makefile", "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build"]
+    assert make_rule("Makefile", "paxd-native-libs")[0] == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     makefile = source("Makefile")
     assert "LIBRARY := $(BUILD_DIR)/liblayerx.a" in makefile
     assert "PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk" in makefile

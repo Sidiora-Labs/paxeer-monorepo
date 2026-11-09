@@ -1,0 +1,65 @@
+[repair.22.39.156]
+mode = "BUILD"
+base_revision = "215e9d31d2501e5207b4bb09ec9130e66ccaf154"
+requirement = "22998.1"
+scope = [".gitignore", "tests/ci/data/tools_python_suite_baseline.json", "tools/jev/tests"]
+implementation = "Restore the failure-log inputs, follow the current README section boundaries and Cargo.lock anchors, supply valid choice distributions and retain the original beta parser corpus without weakening its scale or vocabulary assertions."
+verified_revision_source = "The last successful build and verify entries of /out/run/gates.jsonl name the final candidate revision, exact commands, exit codes and private logs; qualification is claimed only when both entries have the same revision and verification exits zero."
+build_evidence = "/out/run/gates.jsonl, kind=build; /out/logs/build-1.log (or the last repair build log named by the ledger)."
+verify_evidence = "/out/run/gates.jsonl, kind=verify; /out/logs/verify-1.log (or the last repair verification log named by the ledger)."
+
+[correction.failure_logs]
+producer = "tools/jev/checks/failures.py:135 extract_cargo, :175 extract_ctest, :202 extract_forge, :223 extract_pytest, :286 extract_fuzz, :336 collect; .gitignore:54 ignored every *.log."
+consumers = "test_failures.py: CargoExtractionTests, HarnessExtractionTests, ForgeExtractionTests, PytestExtractionTests, FuzzExtractionTests, SniffTests, RedactionTests, NormalisationTests, CollectTests, AnchorTests, CandidatePairTests, ClusterTests, FindingTests and DryRunTests."
+change = "Add the narrow failure-fixture negation immediately below *.log and add cargo.log, ctest.log, forge.log, pytest.log and fuzz.log."
+provenance = "git log --all for the five exact log paths returns no commits; dd44ae4b2ea8f9f5cd2d14e9c19667ad1bd00cc7, which introduced this fixture directory, contains conformance.json only. The new files encode the existing test expectations in the real extractor input formats; they are test vectors, not claims of new executed failing gates."
+assertions = "Retain three cargo records with their exact panic locations and messages, three C failures with two shared-file anchors and a redacted hex mismatch, both Forge failure syntaxes repeated exactly for deduplication, two pytest summaries and both fuzz divergence and sanitizer records. Backtrace notes and summary lines remain excluded."
+
+[correction.failure_choice_distribution]
+producer = "tools/jev/client.py:128 _probabilities requires a nonempty distribution summing to one; :146 parse_answer consumes it. tools/jev/checks/failures.py:32 CATEGORIES declares the five choices."
+consumer = "test_failures.py::choice_answer; FindingTests."
+change = "Keep the selected category probability and reported confidence unchanged and distribute the remaining probability equally over the other declared categories."
+assertions = "All category, route, score, cluster, anchor and redaction assertions remain intact."
+
+[correction.readme_headings]
+producer = "README.md:38, :55, :77, :86, :101, :129, :151, :157, :171, :177, :207, :213, :221, :225, :245, :247, :253, :297, :314, :320, :336; docs/readme/README.de.md:35, :53, :75, :97, :121, :135, :149, :225, :229, :233. tools/jev/checks/docs.py:130 split_sections and :156 pair_sections pair by section position."
+consumers = "test_docs.py::SectionSplitterTests.test_real_readme_splits_into_a_preamble_and_every_heading; PairingTests.test_real_german_readme_reports_the_current_structural_difference; PairingTests.test_dropped_translation_sections_are_code_level_findings; PublishedCatalogTests.test_both_maintained_trees_have_explicit_sources_and_separate_anchors; test_repair_22_33_705.py::test_jev_doc_test_headings invokes those same assertions."
+change = "Pin all 22 English sections including the preamble and their levels, adding Integrated network topology, Quick start: connect to chain 125, Submit a transaction and follow its committed receipt, Accounts and native funding, and Receipt and proof verification."
+assertions = "Keep all 11 German section titles and levels, exact source/translation pairing, missing and extra section counts, fenced-heading boundaries, all heading-line checks and both published catalogs unchanged. The existing shared expectations propagate to the repair suite."
+
+[correction.readme_body]
+producer = "README.md:86 starts Quick start: connect to chain 125; :88 contains the root-URL prose; :91 contains curl --max-time 10; :93 contains eth_chainId. README.md:82 retains docs/wiki/Quickstart.md under Documentation."
+consumers = "test_docs.py::SectionSplitterTests.test_bodies_hold_the_content_below_each_heading; SanitizeTests.test_code_fence_commands_and_prose_survive; test_repair_22_33_705.py::test_jev_doc_test_headings."
+change = "Read eth_chainId and the sanitized curl command, URL, fence removal and root-path prose from their current Quick start section; continue checking the Quickstart link in Documentation."
+assertions = "Keep every exact command, endpoint, prose and link assertion; the curl example was moved under a new heading, not removed."
+
+[correction.lockfile_anchors]
+producer = "services/agent/Cargo.lock:1289 declares paste and :1475 declares rustls; services/interop/Cargo.lock:1984 declares paste and :2353 declares rustls."
+consumers = "test_deps.py::ParseDiagnosticsTests.test_unmaintained_diagnostic_keeps_crate_anchor_and_graph; ParseDiagnosticsTests.test_vulnerability_diagnostic_keeps_its_own_lock_line; DependencyScanTests.test_captured_anchors_resolve_to_the_real_lockfile_crate_lines; GroupingTests.test_duplicate_ids_collapse_and_list_every_workspace; FindingTests.test_findings_carry_the_anchor_answer_and_route; FindingTests.test_findings_survive_the_report_serialisation; test_repair_22_33_705.py::test_jev_deps_test_roots; test_dependency_capture_reaches_client_and_report_with_real_lockfile_anchors."
+change = "Relocate only the advisory label line offsets in fixtures/deps/agent-advisories.jsonl and interop-advisories.jsonl, and the corresponding exact anchor expectations: agent paste 1261 -> 1289, agent rustls 1447 -> 1475, interop paste 1982 -> 1984, interop rustls 2351 -> 2353."
+assertions = "Retain equality against the actual crate-name line for every captured diagnostic and every serialized report anchor. Historical advisory versions, descriptions and graphs stay byte-identical; this is no claim of a fresh vulnerability capture. No Cargo.lock anchors occur in test_ledger.py."
+
+[correction.pr_choice_distribution]
+producer = "tools/jev/client.py:128 requires a nonempty normalized probability distribution; :170 checks the choice distribution. tools/jev/checks/pr.py:388 choice_confidence uses accepted probability mass and :393-395 retains the absent-distribution helper fallback."
+consumer = "test_pr.py::ConfidenceTests.test_choice_confidence_falls_back_to_the_reported_confidence."
+change = "Supply normalized consistent/overclaims distributions matching the unchanged 0.64 and 0.36 confidence expectations. Also exercise the helper fallback on the real Answer type with the distribution absent, and assert that the real client parser rejects an absent distribution."
+assertions = "Both original numeric assertions remain; both helper fallback branches and the client refusal are explicitly asserted. test_ledger.py AGREEING_SEVERITY and DISAGREEING_SEVERITY already carry complete normalized distributions and need no change."
+
+[correction.beta_ledger_path]
+producer = "92e0cbb547ea61c2a70ef679b0dcf44e8d3ecec8:spec/layerx-beta/qualification.kvx is the authentic 1759-observation beta ledger; the current spec/layerx-beta/qualification.kvx:8 explicitly states that no records exist yet. tools/jev/checks/ledger.py:148 parse_ledger reads observation blocks and :198 load_records loads paths."
+consumers = "test_ledger.py::ParserTests.test_the_real_beta_ledger_parses_into_the_severity_vocabulary; ParserTests.test_records_without_observed_text_are_not_judged; all excerpt anchor assertions use LEDGER."
+change = "Restore the historical beta ledger byte for byte to fixtures/ledger/beta-qualification.kvx and point LEDGER at that existing committed test input. Load it together with a temporary ledger containing the existing EXCERPT plus an observation whose observed field is absent for the missing-field case."
+assertions = "Keep >1700 observations, exact four-level severity vocabulary, nonempty observed text and path/line anchors. Keep every missing-observed/judgeable assertion; the temporary malformed input makes that edge case independent of the current live ledger contents. The historical fixture is parser input, not current readiness evidence."
+
+[correction.baseline]
+producer = "tests/ci/data/tools_python_suite_baseline.json as landed by 22.39.84 lists 42 exact jev nodeids, all retiring under 22.39.156."
+change = "Delete all 42 tools/jev/ entries; retain every other baseline row unchanged."
+assertions = "The declared hf-done gate checks that no jev entry remains, cargo.log is not ignored and is nonempty, then executes the complete tools/jev/tests directory with the graph checks. No test is deleted, skipped, ignored or marked expected to fail by this repair."
+
+[gotcha.scope]
+observed = "Runner setup already changed graph ignore rules, workflow pointers and task statuses before this task began; global GOTCHA.kvx and spec files are outside the explicit task scope."
+action = "Preserve those setup changes and record task-local gotchas here. Leave status transitions, commits and publication to the authorized runner."
+
+[gotcha.gate_revision]
+observed = "An edit to the repair record after hf-build would create a different candidate revision before hf-done."
+action = "Record build and verification evidence by reference before the first build, then stop immediately on a passing hf-done without editing the candidate."

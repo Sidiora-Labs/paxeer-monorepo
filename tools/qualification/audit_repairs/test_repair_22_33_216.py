@@ -212,7 +212,7 @@ def test_doc03_build_and_merged_developer_path():
     assert prerequisites == ["paxd-native-libs"]
     assert "tools/release/version.json" in recipe and "$(PAXEER_MAKE) build" in recipe
     prerequisites, _ = make_rule(makefile, "paxd-native-libs")
-    assert prerequisites == ["$(LIBRARY)", "programs-release-build"]
+    assert prerequisites == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert "LIBRARY := $(BUILD_DIR)/liblayerx.a" in makefile
     chain = source("chain.mk")
     prerequisites, recipe = make_rule(chain, "paxd-native-libs")

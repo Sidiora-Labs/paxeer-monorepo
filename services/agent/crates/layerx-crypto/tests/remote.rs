@@ -221,6 +221,22 @@ fn mutually_authenticated_remote_signer_returns_one_verified_signature() {
     let certificates = Certificates::create();
     let (address, attempts, handle) = spawn_server(&certificates, Behavior::Sign);
     let signer = remote(&certificates, address, Duration::from_secs(2));
+    let produced = support::send_call(25, 7);
+    let canonical = produced.call.encode_unsigned();
+    let message = layerx_crypto::SignatureMessage::new(
+        layerx_wire::hash::Domain::SignaturePreimage,
+        support::PROTOCOL_VERSION,
+        support::NETWORK_ID,
+        &canonical,
+    )
+    .expect("activity preimage domain");
+    let request = layerx_crypto::signer::SigningRequest::new(message, &produced.disclosure)
+        .expect("validated audit request");
+    assert_eq!(
+        ready(signer.sign(request)),
+        Err(SignError::InvalidDisclosure)
+    );
+    assert_eq!(attempts.load(Ordering::SeqCst), 0);
     assert!(sign(&signer).is_ok());
     assert!(handle.join().is_ok());
     assert_eq!(attempts.load(Ordering::SeqCst), 1);

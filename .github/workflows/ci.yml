@@ -42,6 +42,26 @@ jobs:
       - name: Run Python command, daemon, conformance and hosted suites
         run: make test-python-suites
 
+  qualification-python:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install qualification test dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes
+          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl
+      - name: Install Python qualification dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/qualification-python"
+          "$RUNNER_TEMP/qualification-python/bin/python3" -m pip install -r tools/qualification/requirements.txt
+          echo "$RUNNER_TEMP/qualification-python/bin" >> "$GITHUB_PATH"
+      - name: Run Python qualification tests
+        run: make test-qualification-python
+
   tools-python:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
@@ -58,11 +78,11 @@ jobs:
       - name: Install native tools suite dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl openssh-server zstd
+          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl openssh-server nginx libnginx-mod-stream zstd
       - name: Install Python test dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/tools-python"
-          "$RUNNER_TEMP/tools-python/bin/python3" -m pip install pytest PyYAML -r tests/bridge/requirements.txt
+          "$RUNNER_TEMP/tools-python/bin/python3" -m pip install pytest PyYAML requests -r tests/bridge/requirements.txt
           echo "$RUNNER_TEMP/tools-python/bin" >> "$GITHUB_PATH"
       - name: Install pinned tools suite toolchain
         run: rustup toolchain install 1.91.1 --profile minimal

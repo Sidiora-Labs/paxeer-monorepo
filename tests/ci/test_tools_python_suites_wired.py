@@ -80,8 +80,13 @@ def test_tools_python_baseline_tracks_exact_cases():
     })
     paxeer_cases = [case for case in cases
                     if case["nodeid"].startswith("tools/paxeer-x/tests/")]
-    assert len(paxeer_cases) == len(expected) == 44
-    assert {case["nodeid"] for case in paxeer_cases} == expected
+    remaining = {
+        "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid",
+    }
+    retired = expected - remaining
+    assert not retired & {case["nodeid"] for case in cases}
+    assert {case["nodeid"] for case in paxeer_cases} <= remaining
+    assert len(paxeer_cases) == sum(case["retiring_task"] == "22.39.144" for case in cases)
     assert len(cases) == len({case["nodeid"] for case in cases})
     families = {
         "22.39.144": lambda nodeid: nodeid in expected,
@@ -125,6 +130,14 @@ def test_tools_python_baseline_tracks_exact_cases():
             declarations = declaration.body
 
 
+def test_bringup_and_benchmark_baseline_is_retired():
+    cases = json.loads((ROOT / BASELINE).read_text())
+    assert not [case for case in cases if case["nodeid"].startswith(
+        ("tools/bringup/", "tools/benchmark/")
+    )]
+    assert not [case for case in cases if case["retiring_task"] == "22.39.164"]
+
+
 def test_ci_runs_tools_python_target():
     workflow = yaml.load(
         (ROOT / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader,
@@ -158,6 +171,7 @@ def test_ci_runs_tools_python_target():
     assert go["with"]["cache-dependency-path"] == "go.sum"
     install = next(step for step in steps
                    if "-m pip install pytest PyYAML" in step.get("run", ""))
+    assert "requests" in shlex.split(install["run"])
     assert 'echo "$RUNNER_TEMP/tools-python/bin" >> "$GITHUB_PATH"' in install["run"]
     assert steps.index(checkout) < steps.index(go) < steps.index(run)
     assert steps.index(install) < steps.index(run)
@@ -170,7 +184,7 @@ def test_ci_runs_tools_python_target():
     assert buildx["uses"] == "docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f"
     native = next(step for step in steps
                   if "apt-get install" in step.get("run", ""))
-    assert {"zstd", "openssh-server", "python3-venv"} <= set(shlex.split(native["run"]))
+    assert {"zstd", "openssh-server", "python3-venv", "nginx", "libnginx-mod-stream"} <= set(shlex.split(native["run"]))
     rust = next(step for step in steps
                 if "rustup toolchain install 1.91.1 --profile minimal" in step.get("run", ""))
     build = next(step for step in steps

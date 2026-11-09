@@ -180,11 +180,19 @@ class PrecompileCallsTest(unittest.TestCase):
 
     def test_launchpad_generated_write_mutability_matches_abi(self) -> None:
         launchpad_writes = {
-            signature_of(entry): entry.get("stateMutability") == "payable"
+            signature_of(entry): False
             for entry in abi("launchpad")
             if entry["type"] == "function" and entry.get("stateMutability") not in ("view", "pure")
         }
         self.assertEqual(LAUNCHPAD_WRITES, launchpad_writes)
+        upgrade = next(entry for entry in abi("launchpad")
+                       if entry["type"] == "function" and signature_of(entry) == "upgradeToAndCall(address,bytes)")
+        self.assertEqual(upgrade["stateMutability"], "payable")
+        for signature in launchpad_writes:
+            self.assertIs(LAUNCHPAD_WRITES[signature], False)
+        with self.assertRaises(PrecompileAbiError) as caught:
+            launchpad_call("upgradeToAndCall(address,bytes)", [address("ab"), "0x"], value=1)
+        self.assertEqual(caught.exception.code, "invalid_value")
 
     def test_every_write_encodes_its_abi_calldata(self) -> None:
         self.assertEqual(abi_selector("transfer(address,uint256)"), "0xa9059cbb")

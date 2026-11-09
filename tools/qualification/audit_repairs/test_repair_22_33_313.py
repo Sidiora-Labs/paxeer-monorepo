@@ -182,7 +182,7 @@ def test_current_node_build_operations_and_no_separate_deployment():
         "running network entry point is `paxd`",
     ):
         assert fact in build, fact
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in source("Makefile")
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in source("Makefile")
     assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     for target in re.findall(r"\]\(([^)]+)\)", build):

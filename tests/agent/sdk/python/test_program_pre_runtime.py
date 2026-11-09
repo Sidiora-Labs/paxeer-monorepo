@@ -8,7 +8,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from layerx_sdk.program_wire import bind_retained_program_call
+from layerx_sdk.program_wire import bind_historical_program_call
 from layerx_sdk.programs import _execution, _submission, _verify_execution_receipt
 from layerx_sdk.verifier import (
     SequencerReceiptVerificationError,
@@ -27,7 +27,7 @@ class ProgramPreRuntimeTest(unittest.TestCase):
         fixture = root / "tests/fixtures/programs/pre-runtime-refusal"
         cls.execution = json.loads((fixture / "execution.json").read_text())
         cls.signed = bytes.fromhex((fixture / "signed-activity.hex").read_text())
-        cls.payload_hash, cls.abi, cls.key = bind_retained_program_call(
+        cls.payload_hash, cls.abi, cls.key = bind_historical_program_call(
             cls.signed, cls.execution["activity_id"], cls.execution["program_id"], 3
         )
         cls.evidence = ProgramReceiptEvidence()
@@ -62,13 +62,13 @@ class ProgramPreRuntimeTest(unittest.TestCase):
             }
             expected["expected_activity" if field == "activity_id" else "expected_program"] = "ab" * 32
             with self.subTest(field=field), self.assertRaises(ValueError):
-                bind_retained_program_call(self.signed, **expected)
+                bind_historical_program_call(self.signed, **expected)
             with self.subTest(receipt=field), self.assertRaises(ValueError):
                 evidence.verify({**evidence.execution, field: "ab" * 32})
         for canonical in (self.signed[:-1], self.signed + b"\0"):
             with self.assertRaises(ValueError):
-                bind_retained_program_call(canonical, self.execution["activity_id"], self.execution["program_id"], 3)
-        payload_hash, abi, key = bind_retained_program_call(
+                bind_historical_program_call(canonical, self.execution["activity_id"], self.execution["program_id"], 3)
+        payload_hash, abi, key = bind_historical_program_call(
             self.signed, self.execution["activity_id"], self.execution["program_id"], 3
         )
         self.assertEqual((payload_hash, abi, key), (self.payload_hash, 2, self.key))
@@ -125,13 +125,13 @@ class ProgramPreRuntimeTest(unittest.TestCase):
         canonical[:2] = (2).to_bytes(2, "big")
         canonical[6:8] = (2).to_bytes(2, "big")
         activity = sha256(b"LXP/v1/activity-id\0" + canonical).digest()
-        payload_hash, abi, key = bind_retained_program_call(
+        payload_hash, abi, key = bind_historical_program_call(
             bytes(canonical), activity.hex(), self.execution["program_id"], 2
         )
         self.assertEqual((payload_hash, abi, key), (self.payload_hash, 2, self.key))
         self.assertEqual(_execution(self.execution, "refused")["outcome"], self.execution["outcome"])
         with self.assertRaises(ValueError):
-            bind_retained_program_call(bytes(canonical), activity.hex(), self.execution["program_id"], 3)
+            bind_historical_program_call(bytes(canonical), activity.hex(), self.execution["program_id"], 3)
 
     def test_resigned_terminal_fields_cannot_rebind_refusal(self):
         evidence = self.evidence
@@ -149,7 +149,7 @@ class ProgramPreRuntimeTest(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(ValueError, "receipt binding failed"):
                 evidence.verify({**execution, field: value}, trust=trust)
         document = deepcopy(evidence.vector["receiptJson"])
-        document["receipt"] = encoded.hex()
+        document["receipt"] = "0x" + encoded.hex()
         document["signingKey"] = "0x" + pin.hex()
         self.assertEqual(
             _submission(document, evidence.signatures, trust,

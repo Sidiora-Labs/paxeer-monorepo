@@ -1,0 +1,93 @@
+[repair.22.39.125]
+base_revision = "ad045b706f73240dd117c8e2e75ca0a2a99fa57d"
+acceptance = "22998.1"
+decisions = ["2800", "2826"]
+baseline = "Gotcha 3483 and the committed interop_test_baseline.json inventory; no additional baseline gate was run. The sandbox began with runner bookkeeping changes and no previous hf-build/hf-done ledger or task implementation."
+verified_revision_record = "The final hf-done JSON and /out/run/gates.jsonl identify the exact verified candidate revision, command, exit and private log. Build and verification must refer to the same candidate; this record claims no gate before it runs."
+build_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof -p layerx-fiat -p layerx-portable -p layerx-mirror --no-run"
+verify_cmd = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof -p layerx-fiat -p layerx-portable -p layerx-mirror --no-fail-fast"
+
+[target.committed_vectors]
+side = "consumer test; retain the current producer-aligned expectations"
+record = "services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+decision = "The prerequisite already updated total versus signed voting power for two validators with an absent power-1 vote, and pins the normalized copy to the source SHA256. Preserve all those assertions and every consensus/proof refusal. Share its existing strict base64 and UTC timestamp decoders with receipted instead of assuming a particular recording's time and key."
+
+[target.proof_rs_committed_proof_crate]
+side = "consumer test; retain the current producer-aligned expectations"
+record = "services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+decision = "Retain the prerequisite's exact two-validator, absent-vote and signed-power assertions, source provenance checks, repeated public producer-to-consumer verification and malformed timestamp/signature/proof refusals. No additional production change is justified by this older inventory entry."
+
+[target.receipted]
+side = "consumer test"
+record = "daemon/committed-fixture/vectors/vector-v4-committed.json and services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+decision = "Decode execution-header UTC time and each recorded validator's base64 public key verbatim, including the second validator. The retired recording's hardcoded time and single repeated key cannot describe the current source. Keep strict decoding, header/set commitment verification, exact block-hash/height bindings, receipt signature/digest verification and all altered-view/rung refusals."
+
+[target.repair_22_33_90]
+side = "consumer test; retain the current producer-aligned expectations"
+record = "services/interop/crates/layerx-committed-proof/tests/repair_22_33_90.rs and services/interop/specs/conformance/committed/repair_22_31_622.kvx"
+decision = "Both public verifier namespaces already consume the current normalized recording and source-pinned receipt; retain digest authentication, consensus inclusion and all three exact consensus refusal results. Qualify this target as part of the complete member gate."
+
+[target.fiat_sequenced_vectors]
+side = "consumer test"
+record = "rpc/sequencer_receipt_vectors_test.go::TestRepairM_489_FiatJourneysDerived and sdk/platform/conformance/fixtures/fiat-receipts-v1.json"
+decision = "Read the dedicated producer recording named by every journey, assert each producer case name, transaction hash, receipt digest, payment reference and exact calldata, and consume unchanged recorded receipts/logs for all three credited rails plus submitted and reverted journeys. Keep signed provider authentication, exact intents, all five coverage slots, replay call counts, translation state and ReceiptMismatch on the reverted execution. Fresh loopback production remains separately exercised by the existing producer_path test."
+negative_provenance = "resigned_mutations_are_not_producer_recordings deliberately starts from the generic V1-layerxledger-pay-exact case, whose requested reference differs from all three provider references. Its signer is the producer's explicit public test seed 0x5e repeated 32 times, checked against the pin; its original digest is authenticated against the source case. Re-signing remains confined to this negative provenance test: different logs, bytes and digests cannot substitute for the original transaction. Retired source_receipt_digest/test_signing_seed journey fields are no longer read."
+
+[target.independent_verifier]
+side = "consumer test and declared test environment"
+record = "rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors and services/interop/crates/layerx-portable/tests/requirements.txt"
+decision = "Enumerate all seven valid recordings: five successful executions and two reverts, including V2-pax-transfer-insufficient-funds. Preserve every digest/activity/result assertion, byte mutation, key-window endpoint and untrusted-key-list refusal in Rust and the independent Python verifier. Reap the Python child even when writing its input fails, and include its exit status and stderr in the input error."
+setup_cmd = "uv pip install --system -r services/interop/crates/layerx-portable/tests/requirements.txt"
+setup_reason = "cryptography 50.0.2 was installed but pycryptodome was absent; install the already-declared pycryptodome 4.3.0 pin, without changing requirements or adding any verifier fallback."
+
+[target.proof_portable_receipt]
+side = "consumer test"
+record = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+decision = "Require all seven real successful/reverted outcomes through both exporters and the public JSON consumer twice; preserve exact raw-transaction, signature, digest, key, activity, sequence, height and result checks plus corruption and ambiguous-pin refusals. The extra reverted outcome expands coverage; no bound or result policy changes."
+
+[target.repair_22_31_167]
+side = "test subprocess lifecycle and declared test environment"
+record = "services/interop/crates/layerx-portable/tests/repair_22_31_167.rs and tests/requirements.txt in the same crate"
+decision = "Install the independent verifier's declared dependencies and collect its exit/stderr before asserting an input write, so an early verifier exit is reported instead of an unexplained broken pipe and an unreaped child. Preserve real Go sequencer production and every exact 1500000-byte, just-below/above, signature and Rust/Python round-trip assertion."
+
+[target.repair_22_33_95]
+side = "consumer test"
+record = "services/interop/repair_22_33_95.kvx and services/interop/tests/repair_22_33_95.rs"
+decision = "Keep the integration target name and all four tests, relocating its registered source into the allowed layerx-portable/tests directory with adjusted relative imports. The original shared source is outside this task's scope and is left untouched; Cargo executes only the registered crate-local source. Require all seven current recordings rather than six; preserve the compiled real example, guide/source equality, exact exported bytes/results, signed-height windows and all trust/format refusals."
+
+[target.portable_sequencer_vectors]
+side = "consumer test"
+record = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+decision = "Require all seven valid shared cases through receipted/committed answers, with and without raw transaction bytes, preserving result code 1 for both V2 reverts and every existing malformed export, raw binding, signature, pin and height refusal."
+
+[target.mirror_sequencer_vectors]
+side = "consumer test"
+record = "services/interop/crates/layerx-mirror/tests/repair_22_33_103.kvx and rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors"
+decision = "Classify the producer's additional V2-pax-transfer-insufficient-funds answer explicitly; require all thirteen named unique cases and seven valid receipt answers. Preserve all six V3 classifications and the three typed signature/decode consumer refusals. Mirror's existing signature-only API still does not claim R4/R5/R6 client-context refusal; all existing assertions that expose those separate boundaries remain."
+
+[target.mirror_repair_22_33_103]
+side = "consumer test via the existing included sequencer_vectors module"
+record = "services/interop/crates/layerx-mirror/tests/repair_22_33_103.rs and repair_22_33_103.kvx"
+decision = "The same explicit thirteen-case inventory repair applies to the included sequencer tests. Retain every native acquisition, concrete publication, pending/reorg/expiry, journal reopening and archive retrieval test without altering the production verifier or its evidence level."
+
+[baseline_retirement]
+file = "tests/ci/data/interop_test_baseline.json"
+members = ["layerx-committed-proof", "layerx-fiat", "layerx-portable", "layerx-mirror"]
+entries_removed = 17
+policy = "Remove exactly these members' baseline entries; leave every other member and retiring-task assignment intact. No test is deleted, skipped, ignored or marked expected-failure. The declared gate runs all tests of all four members with --no-fail-fast and the wiring checks."
+
+[gotcha.scope]
+observed = "The general workflow requests GOTCHA/spec edits and publication, while the direct task forbids these paths and reserves commits/pushes for the runner."
+resolution = "Record task decisions and small errors here, preserve runner setup, use only the bounded hf-build/hf-done gates, and leave publication to the runner."
+
+[gotcha.graph_search]
+observed = "The scoped Codify graph does not index the RPC producer, so cg grep returns no candidates for known source symbols."
+resolution = "Inspect the exact producer file with rg and bounded source reads; do not infer that absent graph results mean absent production interfaces."
+
+[gotcha.python_dependencies]
+observed = "An independent Python verifier can exit on its missing Crypto import before a large input is written, surfacing BrokenPipe instead of the dependency failure."
+resolution = "Install the committed pinned Python requirements, always reap the child and report its diagnostics, without suppressing any verifier failure."
+
+[gotcha.cli]
+observed = "uv pip has no index subcommand."
+resolution = "Use python3 -m pip index versions for read-only package metadata; use uv pip for installation."

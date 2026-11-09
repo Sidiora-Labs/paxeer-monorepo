@@ -35,7 +35,7 @@ def build_instructions():
             break
         instructions.append((op.upper(), shlex.split(arguments)))
     assert instructions[0] == (
-        "FROM", ["node:24.11.0-bookworm-slim", "AS", "build"]
+        "FROM", ["node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152", "AS", "build"]
     )
     return instructions
 
@@ -104,7 +104,7 @@ def test_pinned_frozen_wallet_install_precedes_web_build():
     instructions = build_instructions()
     index, command = wallet_install(instructions)
     assert command == [
-        "npm", "exec", "--yes", "--package=pnpm@9.15.9", "--", "pnpm",
+        "npm", "exec", "--yes", "--package=pnpm@10.34.9", "--", "pnpm",
         "--dir", "/src/services/wallet", "install", "--frozen-lockfile",
         "--ignore-scripts", "--filter", "@paxeer/wallet",
     ]
@@ -124,25 +124,35 @@ def test_pinned_frozen_wallet_install_precedes_web_build():
 
 
 def test_wallet_manifest_dependencies_have_locked_producers():
-    lock = yaml.safe_load(source(f"{WORKSPACE}/pnpm-lock.yaml"))
+    lock = yaml.safe_load(source(f"{SDK}/pnpm-lock.yaml"))
+    workspace_lock = yaml.safe_load(source(f"{WORKSPACE}/pnpm-lock.yaml"))
     assert lock["lockfileVersion"] == "9.0"
+    assert workspace_lock["lockfileVersion"] == "9.0"
     sdk = manifest(SDK)
-    importer = lock["importers"]["../../sdk/wallet"]
-    for group in ("dependencies", "devDependencies"):
-        assert set(sdk[group]) == set(importer[group])
-        for name, specifier in sdk[group].items():
-            dependency = importer[group][name]
-            assert dependency["specifier"] == specifier
-            version = dependency["version"]
-            if specifier.startswith("link:"):
-                assert name == "@sidiora/layerx-sdk"
-                assert version == "link:../../services/agent/sdk/typescript"
-                assert manifest("services/agent/sdk/typescript")["name"] == name
-                continue
-            assert re.match(r"^\d+\.\d+\.\d+", version), (name, version)
-            package = f"{name}@{version.split('(', 1)[0]}"
-            assert lock["packages"][package]["resolution"]["integrity"].startswith("sha512-")
-            assert f"{name}@{version}" in lock["snapshots"]
+    importer = lock["importers"]["."]
+    workspace_importer = workspace_lock["importers"]["../../sdk/wallet"]
+    assert set(workspace_importer["dependencies"]) == set(sdk["dependencies"])
+    for name, specifier in sdk["dependencies"].items():
+        assert workspace_importer["dependencies"][name]["specifier"] == specifier
+    for selected_lock, selected_importer, groups in (
+        (lock, importer, ("dependencies", "devDependencies")),
+        (workspace_lock, workspace_importer, ("dependencies",)),
+    ):
+        for group in groups:
+            assert set(sdk[group]) == set(selected_importer[group])
+            for name, specifier in sdk[group].items():
+                dependency = selected_importer[group][name]
+                assert dependency["specifier"] == specifier
+                version = dependency["version"]
+                if specifier.startswith("link:"):
+                    assert name == "@sidiora/layerx-sdk"
+                    assert version == "link:../../services/agent/sdk/typescript"
+                    assert manifest("services/agent/sdk/typescript")["name"] == name
+                    continue
+                assert re.match(r"^\d+\.\d+\.\d+", version), (name, version)
+                package = f"{name}@{version.split('(', 1)[0]}"
+                assert selected_lock["packages"][package]["resolution"]["integrity"].startswith("sha512-")
+                assert f"{name}@{version}" in selected_lock["snapshots"]
     assert {"viem", "@supabase/supabase-js"} <= set(importer["dependencies"])
 
 
