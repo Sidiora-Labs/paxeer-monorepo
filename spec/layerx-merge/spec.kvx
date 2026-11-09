@@ -160047,7 +160047,7 @@ do_5 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree 97
 
 [task.18.1803.1]
 title = "Issue #1803: Align embedded-wallet regression coverage with explicit endpoint configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.234"]
@@ -191220,7 +191220,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.238]
 title = "Remove the by-path include of the native evidence test module from the agent daemon integration target repair_22_33_1535"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -279125,7 +279125,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.237]
 title = "Regenerate the platform SDKs after the agent API schema change"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
