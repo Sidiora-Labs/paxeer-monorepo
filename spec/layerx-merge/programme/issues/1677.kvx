@@ -1,0 +1,7 @@
+[issue.1677]
+number = 1677
+title = "[Coherence] The repair record says the restart test verifies timestamps, but no assertion reads them"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "The timestamp-preservation claim in services/explorer/backend/apps/explorer/test/explorer/migrator/repair_22_33_537.kvx:5 is supported by complete persisted-row equality assertions in services/explorer/backend/apps/explorer/test/explorer/migrator/pending_operations_restart.exs:133, :139, :145 and :152, which include the inserted_at and updated_at fields declared through timestamps() in services/explorer/backend/apps/explorer/lib/explorer/chain/pending_transaction_operation.ex:20; the separate consumer comparison at services/explorer/backend/apps/explorer/test/explorer/migrator/pending_operations_restart.exs:217 checks only its four published fields, and services/explorer/backend/apps/explorer/lib/explorer/chain/pending_operations_helper.ex:123 supplies timestamps for converted rows."
+close_comment = "The restart regression already compares complete pending-operation rows, including inserted_at and updated_at, after reopening the database pool, repeated startup and source replay. These assertions verify timestamp preservation; they do not independently validate the generated timestamp values."

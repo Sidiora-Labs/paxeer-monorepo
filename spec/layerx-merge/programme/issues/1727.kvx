@@ -1,0 +1,7 @@
+[issue.1727]
+number = 1727
+title = "[Coherence] Existing CLI tests still assert the retired /rpc and /rpc/ws routes and the old dropped-reply error, so they now fail"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "The RPC unit tests use the node root at tools/platform/cli/src/rpc.rs:764 and tools/platform/cli/src/rpc.rs:949, the HTTP capture assertions require POST / at tools/platform/cli/tests/program_evm_lifecycle.rs:72, tools/platform/cli/tests/program_evm_calls.rs:57, tools/platform/cli/tests/program_evm_registry.rs:54 and tools/platform/cli/tests/program_evm_registry.rs:172, wallet subscriptions require / at tools/platform/cli/tests/wallet_watch_logs.rs:102 and fee estimation requires POST / at tools/platform/cli/tests/wallet_estimate_fee.rs:98, while dropped lifecycle and program replies assert the retained transaction hash and unknown rung at tools/platform/cli/tests/program_evm_lifecycle.rs:153 and tools/platform/cli/tests/program_evm_calls.rs:261, completing the corrections in commits a08a60044bf3f1a66189338037862089c11b31f0 and 9312cc94824f54010f3e8de51f5c44b85902e96d."
+close_comment = "The CLI tests now use the root HTTP and WebSocket endpoints. Dropped program and lifecycle submission replies are checked as unknown outcomes with the transaction hash retained for recovery."

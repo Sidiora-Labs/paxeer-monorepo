@@ -1,0 +1,50 @@
+[issue.1693]
+number = 1693
+title = "[Coherence] The browser journey now targets the image editor and viewer, but no app route renders either component, so the real journey still cannot reach its assertions"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The selector repair in commit ae388719db22f91f29e5d00b944b8eef08578eb1 still requires the editor and viewer regions at apps/launchpad/web/src/features/metadata-media/measure.browser.mjs:146 and :202, but apps/launchpad/web/src/app/tokens/[tokenAddress]/metadata/page.tsx:33 renders only MetadataV2Editor and apps/launchpad/web/src/widgets/trading/token-market-layout.tsx:146 renders trading without MetadataViewer, while apps/launchpad/web/src/features/metadata-media/viewer.tsx:14 and :19 have no route consumers, apps/launchpad/web/test/repair-22-33-970.test.mjs:218 and :278 render components directly rather than calling runMetadataBrowser, and apps/launchpad/web/src/features/metadata-media/repair-22-33-970.kvx:19 requests dependency wiring only."
+close_comment = "The coin image editor and metadata viewer are still missing from the app routes, so the image journey cannot reach its upload and viewer checks. Follow-up task 18.1693.1 connects both components to the creator and coin pages and adds route integration coverage for uploads, approved images and trading during metadata outages."
+
+[task.18.1693.1]
+title = "Issue #1693: Connect coin image editing and viewing to app routes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181693.1"]
+capabilities = []
+interfaces = []
+do_1 = "Mount CreatorMetadataMedia in TokenMetadataPage at apps/launchpad/web/src/app/tokens/[tokenAddress]/metadata/page.tsx:33 using the current token, metadata revision, authenticated wallet session headers, API audience and wallet signer required by apps/launchpad/web/src/features/metadata-media/transport.ts:7; preserve text editing and connection/chain checks, and synchronize image authority when the account, token or committed revision changes."
+do_2 = "Mount MetadataViewer from apps/launchpad/web/src/features/metadata-media/viewer.tsx:14 in the coin route's TokenMarketLayout at apps/launchpad/web/src/widgets/trading/token-market-layout.tsx:88, using the resolved token address rather than the pool address and the existing trading controls at :146 and :171; keep the Coin details region unique and retain usable Trading controls at mobile and desktop widths when metadata fails."
+do_3 = "Add metadata_routes_connect_editor_and_viewer in apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx, rendering the actual metadata and coin route exports with their real providers and loopback services rather than substituting the image components as apps/launchpad/web/test/repair-22-33-970.test.mjs:218 and :278 do; exercise wallet authorization, real image upload and signed metadata commit, then assert the browser labels from apps/launchpad/web/src/features/metadata-media/measure.browser.mjs:9 select the route-rendered editor and viewer, the viewer consumes the committed image/revision, and trading survives metadata loss, without weakening the existing journey assertions."
+symbols = ["TokenMetadataPage", "TokenMarketLayout", "metadata_routes_connect_editor_and_viewer"]
+touches = ["apps/launchpad/web/src/app/tokens/[tokenAddress]/metadata/page.tsx", "apps/launchpad/web/src/widgets/trading/token-market-layout.tsx", "apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx"]
+tests = ["apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx::metadata_routes_connect_editor_and_viewer"]
+planned_paths = ["apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx"]
+build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/features/metadata-media/route-wiring.test.tsx -t '^metadata_routes_connect_editor_and_viewer$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181693]
+title = "Coin routes expose the image editor and approved metadata viewer"
+ac_1 = "Given an authenticated creator on Paxeer, the metadata route at apps/launchpad/web/src/app/tokens/[tokenAddress]/metadata/page.tsx:11 exposes the Coin image chooser and commits an approved image through the real image transport, while disconnected or wrong-chain sessions cannot upload."
+ac_2 = "Given that committed image, the coin route at apps/launchpad/web/src/app/coin/[address]/page.tsx:9 reaches MetadataViewer through TokenMarketLayout at apps/launchpad/web/src/widgets/trading/token-market-layout.tsx:88, exposes one Coin details region with the matching Coin image and revision, and retains token identity and usable Trading controls when metadata becomes unavailable."
+
+[acceptance.18.1693.1]
+feature = "18"
+req = "181693.1"
+scenario = "Given the actual creator and coin routes with an authenticated creator and approved image, when the creator uploads and commits the image and the coin route reads it before and during a metadata outage, then the image editor and viewer are reachable through the journey's accessible labels, the viewer displays the committed image, unauthorized uploads are blocked, and trading remains available."
+contract = "contracts/clients.md#launchpad-web-app"
+test = "apps/launchpad/web/src/features/metadata-media/route-wiring.test.tsx::metadata_routes_connect_editor_and_viewer (planned)"
+qualification = "UNRUN"
