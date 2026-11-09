@@ -1,5 +1,5 @@
 import { measureWalletOperation } from './measurement';
-import { getPaxeerRpcUrls } from '@/core/rpc';
+import { getPaxeerRpcUrl } from '@/core/rpc';
 import { createPublicClient, createWalletClient, custom, defineChain, getAddress, http, type Address, type EIP1193Provider, type Hex } from 'viem';
 export const PAXEER_CHAIN_ID = 125;
 
@@ -8,7 +8,13 @@ export const paxeerWalletChain = defineChain({
   name: 'Paxeer X Network',
   nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 },
   // Same RPC precedence as wagmi and the CSP connect-src (core/rpc.ts).
-  rpcUrls: { default: { http: [getPaxeerRpcUrls()[0]] } },
+  rpcUrls: {
+    default: {
+      get http() {
+        return [getPaxeerRpcUrl()] as const;
+      },
+    },
+  },
 });
 
 /** Public RPC reads do not authorize signing or imply wallet connection. */
