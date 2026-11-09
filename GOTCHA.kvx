@@ -19320,3 +19320,398 @@ fix = "Requalify with a build command that runs pnpm --dir sdk/plugins run build
 title = "The retired-caller scan with the corrected catalogue still reports 2155 findings across sixteen domains"
 symptom = "Task 17.2.8 attempt 5 at 448acce8fb02 built and failed test_scan_reports_no_caller (log /out/logs/verify-1.log, lines 97 to 2256): with GOTCHA.kvx, CHANGELOG.md and CODEMAP.md as documentation paths the scan reports 2155 live hits: domain 16 (shared tooling: Makefile targets, qualification records, release tooling) 461, domain 6 (custody, anchor and verify precompiles and modules) 411, domain 17 (documentation) 379, domain 8 199, domain 9 172, domain 14 143, domain 10 116, domain 1 74, domain 3 43, domain 13 40, domain 7 36, domain 5 31, domain 4 27, domain 12 14, domain 2 5, domain 11 4; the largest files are precompiles/layerxcustody/layerxcustody.go (51), modules/layerxcustody/types/tx.pb.go (40) and contracts/address-inventory.md (31), and third-party charting locale bundles under apps/launchpad/web/public are among the hits."
 fix = "Decision 3087 holds: the task stays implemented-not-qualified; the release owner decides whether the retired custody, anchor and verify code is removed before the upgrade or the catalogue is narrowed to callers; no relaunch until that ruling."
+
+[gotcha.3900]
+title = "The JVM regeneration repair task found its check already green on main and the gate recorded no change inside scope"
+symptom = "Task 22.39.239 attempt 1 at candidate 6f38d9c07124 ran generate_jvm.py --check and generate_portable.py --check with exit 0 at main 0f2f833488 without touching the two Java files, because dd11131421 (task 22.39.237) regenerated the platform SDKs after the wave-6 gate attempt of 17.5.7 at base db8dce2b1fe7 had reported the stale schema; the gate ended the attempt as failed with no change inside scope and no revision"
+fix = "The task becomes a gate-only task (gate_kind existing) that proves the check at main; a repair task written from a gate failure records the base revision of that failure and is checked against main before launch"
+
+[gotcha.3901]
+title = "The one-source read target of the platform gateway includes main.rs and fails seven cases beyond the endpoint path"
+symptom = "Task 22.39.240 attempt 1 at c1dde6555d4d: 165 passed and 7 failed; the two readiness contract cases of main.rs read PAXEER_X_GATEWAY_READINESS_CASE and PAXEER_X_ROUTER_READINESS_CASE and panic with NotPresent, schema_lists_every_public_method counts 22 published names against 17 documented methods, both px_listAssets cases get -32001 Paxeer read unavailable with data code invalid_identifier, px_getBalances returns a document different from the expected one, and px_get_account_reads_no_kernel_backend gets 503 from /readyz because the serving rule at main.rs:2383 requires every listed backend ready while consensus and indexer are not configured"
+fix = "Decisions 3095 and 3097; the touches widen to the gateway source so the producer defects are repaired in the same task"
+
+[gotcha.3902]
+title = "The recorded launchpad producer packet embeds the deployment manifest from before 18.1625.1 and ten repair-record cases are red on main"
+symptom = "Task 22.39.162 attempt 5 at 0411b6851f88: TestRepairM_999 (two cases), TestRepairM_995 (four) and TestRepair_53 (four) fail because services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json carries runtimeHash 0x6302ff80f4168c2a for nine contracts and a LaunchpadPrecompile runtimeHash while cf4c67eeb4 (task 18.1625.1) moved current.json to 0xe67f4b121cfa0071 and dropped the precompile hash; the cases compare the packet Options.Manifest with deployment.Current(); the attempt also edited two cases of the source package and introduced source pool identity failures"
+fix = "Task 22.39.242 re-records the packet manifest; 22.39.162 requires it and takes the two source cases as main carries them"
+
+[gotcha.3903]
+title = "The ai-market bonds task failed its dependents check on a daemon test target repaired after its base"
+symptom = "Task 22.38.7 attempt 4 at 3e8aef8b1e49 (base eb14231acb56): build exit 0; the dependents check of the agent crates failed on the layerx-agentd test repair_22_33_1535 (canonical_receipt_reference not found at protocol_evidence_native_tests.rs:303 and :469); task 22.39.238 repaired that target at 69e43e947f28, which is not an ancestor of the base; log /out/logs/dependents-2.log"
+fix = "Requalify on main"
+
+[gotcha.3904]
+title = "The shared Go RPC decoder refuses an omitted non-pointer argument before the handler runs"
+symptom = "Task 18.1665.1 attempt 5 at d2f243ee46ab declared the cursor of px_listAssets as json.RawMessage per decision 3083; the decoder answers an omitted argument with missing value for required argument 0 (-32602) before the handler runs, so TestPxNodeRoot_Account_ConfigAndIndexerUnavailable expected -32001 and got -32602 at px_node_root_account_test.go:411; a pointer argument receives nil for both omitted and explicit null, so no handler signature separates the two shapes"
+fix = "Decision 3094: pointer parameter plus the explicit-null refusal in the px params guard"
+
+[gotcha.3905]
+title = "The V1 programs vector deploys with ABI 4 and the v4 interface domain and the kernel refuses the version for the fourth time"
+symptom = "Task 18.1667.1 attempt 4 at 6e7b6514d5b4: record vector-v1-programs-positive reverts Error(LXP_ERR_VERSION_UNSUPPORTED) (-101) with the same encoding as attempts 2 and 3; the passing precompile case TestProgramsDeployRegistersProgram (precompiles/layerxprograms/method_deploy_test.go:76) deploys with ABI version 1, the interface prefix LayerX/program-interface/v1 and a zero byte followed by the code hash, the counter module of deployCounterWasm and the metering store entries its helper writes first"
+fix = "Copy the passing encoding instead of inventing a version"
+
+[gotcha.3906]
+title = "Hand-encoded kernel activities in the receipt equality harness fail the context and asset checks of the kernel"
+symptom = "Task 18.1724.1 attempt 4 at 52573c8923b7: cycle 1 LXP_CONTEXT_MISMATCH at budgetCreateNative (receipt_equality_test.go:407 and :545); cycle 2 -402 LXP_ERR_ASSET_MISMATCH at :509 from the hand-encoded accountOpen activity 0x00010004 at :520"
+fix = "Drive the ledger and budget setup through the keepers (RegisterAsset, OpenAccount and Mint of modules/layerxledger/keeper and the budget keeper of modules/layerxpay) that encode the payloads"
+
+[gotcha.3907]
+title = "The human service fixture serves one request per connection and the engine drops the refusal reason"
+symptom = "Task 18.1747.1 attempt 5 at aaedcead6462: native_producer_clock_units panics bootstrap peer: Unavailable at repair_22_33_63.rs:2093 (preview_send_v2) and native_approval_clock_units panics bootstrap peer: Agent(Refused) at :2215 (the engine.advance loop); the client fixture (fn client at :1352) answers through serve_one of src/server/http.rs:130, which reads exactly one request, and the Refused variant the journeys engine returns carries no reason while agents/create.rs refuses with a static reason string"
+fix = "Serve every request in a loop and surface the reason before answering the refused lifecycle request with real material"
+
+[gotcha.3908]
+title = "The state export case derives a limit id the owner budgets do not know and the repaired export is refused at the binding stages"
+symptom = "Task 18.1752.1 attempt 2 at 578ada4d67f7: cycle 1 panics bootstrap peer: UnknownLimit(LimitId([1; 16])) at issue_1752.rs:794 where the case asks budgets.consumed for daemon_limit_id(enrolment_limit_id(tenant, Tenant([2; 32]), LimitId([1; 16]))) although the owner was created with that LimitConfig at :653; cycle 2 gets 403 owner.refused at :852 with the daemon logging state export refused at account_binding: requested account differs from authenticated account and at retain_committed_receipt: Binding { fact: 0 }"
+fix = "Read the limit id the owner exposes for the configured limit and keep the requested account equal to the bound account of the credential"
+
+[gotcha.3909]
+title = "The launchpad web image pulls the base account connector chain through the wagmi connectors barrel"
+symptom = "Task 18.1823.1 attempt 3 failed with Module not found for @x402/evm, @x402/core and @x402/svm subpaths imported by @coinbase/cdp-sdk through @base-org/account and the baseAccount connector of @wagmi/connectors, which the barrel wagmi/connectors loads although app-providers.tsx:9 and :26 use only injected(); attempt 4 at 2b317dd1786e added @solana/kit, @solana/sysvars and four @x402 packages to the web package, which produced attempted import errors between @solana/kit 5.5.1 and 8 and then a JavaScript heap exhaustion at the 2 GB default in the second build; log /out/logs/build-2.log"
+fix = "Decision 3096: alias the unused connector packages to false, add no dependency, grant the build a 3 GiB heap"
+
+[gotcha.3910]
+title = "The install-status case of the vendored client SDK needs the control-plane dist the build command did not produce"
+symptom = "Task 18.1826.1 attempt 5 at 4b38f10e73a5: build exit 0; the verification fails with FileNotFoundError for the control-plane dist directory of the vendored tree at install-status.test.ts:220, raised by the identity fixture the case starts"
+fix = "The build command installs and builds the control-plane package of the vendored tree with npm, as task 18.1772.1 does"
+
+[gotcha.3911]
+title = "The focused host-checkpoint mode enrols the native actor outside the granted run and action"
+symptom = "Task 18.1772.1 attempt 5 at 124700d75609: build exit 0; the case test_host_checkpoint_submission_and_reopen fails because the native actor exits 1 with FoundationError AUTH_SCOPE_DENIED Operation outside granted run/action from authorize in control/identity/enrollment of the compiled actors tree during the enrolment the focused mode performs at native_source_product_actor.mjs:1281 through the enrolment support module of the vendored tests at its line 39"
+fix = "The focused mode enrols with the run and action identities of the host checkpoint operation it performs, as the other modes of the actor do"
+
+[gotcha.3912]
+title = "The client crate lint run after the rebase reports a second path include of the gateway evm.rs and six pedantic sites in a repair test"
+symptom = "Task 22.39.219 attempt 6 at 203ab269d797: cargo clippy -D warnings fails in test target repair_22_31_221, which includes platform/hosted/gateway/src/evm.rs by path at line 56 and inherits its unreadable literal at evm.rs:603:41, and in repair_22_33_1544.rs with similar_names (118/119 and 211/212), doc_markdown (line 2), expect_used (28), needless_pass_by_value (62) and, after the first repair, manual_let_else (28)"
+fix = "Replace the path include like the proof_client target and repair the six sites"
+
+[gotcha.3913]
+title = "The reward reopen case refuses its own participant enrolment at height 66 with F02_DEADLINE_INVALID after the native setup returned GAS_EXHAUSTED"
+symptom = "Task 18.1749.1 attempt 3 at 7b5c49a06f71: build exit 0; reward_reopen_preserves_recipient_balances panics at repair_22_33_261.rs:359 with ApplicationError(529) for the participant enrolment operation at height 66, the call generator native_reward_calls refusing with 0x0211 F02_DEADLINE_INVALID (errors.rs:205) for the enrolment it generates at height 66; earlier the native setup call of type 0x90003 returned result code -601, GAS_EXHAUSTED (ffi.rs:13), with kernel status 0; the case ran 115 s and the model session hit its working-time limit while the gate compiled the dependents"
+fix = "The generator writes an enrolment deadline that follows the height it submits at; the time limit rises to 45 minutes"
+
+[gotcha.3914]
+title = "The wallet RPC binary of the client SDK fails needless_return after the library lint sites were repaired"
+symptom = "Task 22.39.225 attempt 4 at 1f2452926c23 (base 0f2f833488): cycle 1 repaired six library sites (items after statements twice, a range pattern, an unused self, a manual is_multiple_of, an unnecessary Result wrap); cycle 2 fails clippy -D warnings in the bin layerx-wallet-rpc at crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs:360 with needless_return on the get_balances arm; log /out/logs/verify-2.log"
+fix = "One more site; the arm drops the return keyword and the trailing semicolon"
+
+[gotcha.3915]
+title = "The F11 component of the captured snapshot derives from the projected market state, and the attempt changed only a comment"
+symptom = "Task 18.1777.1 attempt 3 at e1aea2ac8369 differs from the attempt-2 tree c4f16e6f124e by a two-line comment; inference_availability_uses_gateway_credentials fails at main.rs:2885 with components F11 not-enabled against available; the indexer decodes the eleven availability bytes of the stored record with availability_from (services/platform/hosted/indexer/src/ai_market.rs:919, RawRecord::decode at :1098) and the bytes come from the projection of the shared state the test-local capture creates from its policy (main.rs:3012) and the F02 participant table (main.rs:3107); the reward feature is F11 and a blank row carries RewardField not-enabled (ai_market.rs:984)"
+fix = "The capture creates its market with the reward feature enabled so the projection records byte 1 for F11; the consumer check and the indexer stay unchanged"
+
+[gotcha.3916]
+title = "The select-fifty-rows step of the token transfer live-update case times out at two seconds while the select-twenty-five step passes"
+symptom = "Task 18.1679.1 attempt 4 at 53337efc891d: the step select 50 rows (TokenTransfer.spec.tsx:137 to :143, fired on the second display page after seven socket sends) does not observe data-value 50 within its 2 s step timeout; the earlier select 25 rows step passed; the case ran 21.8 s in a gate with 6.8 GiB free; onRowsChange (useTokenTransferPages.ts:57) sets the rows and resets the page, and the control renders data-value from its value prop (ScanShowRows.tsx:61)"
+fix = "Decision 3098: measure the step, size the timeout from the render it performs, and only then trace the change path if the value never arrives"
+
+[gotcha.3917]
+title = "Two model sessions completed no turn within the working-time limit"
+symptom = "Task 18.1717.1 attempt 4 (d92a00495405) and task 18.1632.1 attempt 4 (7670b1df7fd5), both launched 11:21Z to 11:23Z: the session log holds thread.started, the SessionEnd timeout clamp notice and turn.started and nothing else for 29 minutes until the limit; no command ran, the changed files are the applied note tree of attempt 3"
+fix = "Decision 3099: relaunch as a continue from the terminal attempt whose tree equals the note tree"
+
+[gotcha.3918]
+title = "The model endpoint flagged the turn of the host boundary extension as a possible cybersecurity risk and failed it"
+symptom = "Task 18.1750.1 attempt 2 at 3ef5d57f106e (base 9bd2dd9072): after 38 items the endpoint answered turn.failed with a content flag (not a gateway refusal, exit 1); the tree holds one partial edit of tests/programs/test_ai_host_boundary.c (array sizes widened from three to five) and no build ran"
+fix = "Relaunch from main per decision 3044 with the partial edit discarded; the note names the cryptographic material of the case in the words the file already uses"
+
+[gotcha.3919]
+title = "The producer packet re-record rewrote the recorded epoch identities besides the manifest"
+symptom = "Task 22.39.242 attempt 1 at a84b541f2322: the attempt set Options.Manifest.roles to the active runtimeHash 0xe67f4b121cfa0071 of current.json as do_1 asks and also rewrote identity.runtimeHash of Options.Epochs 1, 2, 3, 4, 6, 7, 8 and 9 in repair53-producer.json and dropped the runtimeHash keys of Epochs 10 and Manifest.roles.LaunchpadPrecompile; main carries eighteen mentions of the obsolete identity 0x6302ff80 and the attempt one; repair_53_test.go:478 requires the recorded obsolete runtime identity to fail exact code attestation and the rehydrate historical creation case fails with receipt qualification rejected (ErrQualification at receipt/qualified.go:25)"
+fix = "Only the manifest changes; the epochs keep the identity they recorded"
+
+[gotcha.3920]
+title = "The public read limiter of the platform gateway is process-global and the parallel test binary shares it"
+symptom = "Task 22.39.240 attempt 2 at 1d644f35fe65: unified_history_with_a_did_selector_resolves_through_addr fails with -32005 Read unavailable (public_read_rate_limit at paxeer.rs:683) while the other cases of the binary pass; READ_WINDOWS of services/platform/hosted/gateway/src/public_reads.rs is a static LazyLock over one ReadWindows with READS_PER_SECOND 120 and READS_PER_CLIENT_PER_SECOND 30, and the thread-local client defaults to unattributed, so every fixture of the parallel test binary draws from one window"
+fix = "Decision 3103: the read windows belong to the gateway instance state"
+
+[gotcha.3921]
+title = "The deploy vector of the custody program submits the simulation protocol version where the state record path requires the state commitment version"
+symptom = "Task 18.1667.1 attempt 5 at a13ea2374c97: the deploy with ABI version 1 still reverts with LXP_ERR_VERSION_UNSUPPORTED; src/modules/programs/state_record.c:406 admits only ctx->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT and src/codec/lxp_codec.c:2741 checks the envelope version, while the vector builds its envelope with ProtocolVersion 3 as precompiles/layerxprograms/method_simulate.go:72 does; the production submit path (submit.go:82) uses codec.StateCommitmentProtocolVersion"
+fix = "The vector submits through the production submit path version"
+
+[gotcha.3922]
+title = "The human service fixture serves one request per accepted connection while the runtime keeps one pooled connection"
+symptom = "Task 18.1747.1 attempt 6 at eed8dfaa7024: the fixture client at repair_22_33_63.rs:1409 accepts on a non-blocking UnixListener in Peer::spawn and calls serve_one once per accepted connection; the runtime limits maximum_connections to 1 and reuses the connection, so the second frame on it is never answered: must(preview_send_v2) fails Unavailable at :2153 and must(advanced) fails Agent(Refused) at :2294 after the clock regression authority read of /v1/agent/identity"
+fix = "The fixture serves every frame of an accepted connection until the peer closes"
+
+[gotcha.3923]
+title = "Two native cases exceed the CPU budget by a few units at the roster-sized operations"
+symptom = "Task 22.33.223 attempt 19 at 0c1c636578c6: the OPEN_EPOCH operation at 32 participants and 8 evaluators is refused with BudgetExceeded Cpu 1000003 after candidates six and seven; task 18.1749.1 attempt 4 at 5e4ecdb9c872: BeginAggregation in reward_reopen_preserves_recipient_balances (rewards_native.rs:2662, Native::start with native_reward_calls) fails BudgetExceeded Cpu 1000009 at :2677; epoch.rs:1293 and :1381 load the whole roster per call and aggregation.rs:54 fixes the per-chunk participant count at 8"
+fix = "The per-participant step loads only the chunk it needs; the reopen case uses the smallest roster that exercises the reopen"
+
+[gotcha.3924]
+title = "Two redundant field name sites remain in the human runtime after the lint repair"
+symptom = "Task 22.39.222 attempt 3 at 86e2e0b8456e: clippy -D warnings fails redundant_field_names at crates/layerx-agentd/src/human_runtime.rs:5352 and :5448 (human: human) after the earlier sites were repaired; log /out/logs/verify-1.log"
+fix = "Both sites use the shorthand"
+
+[gotcha.3925]
+title = "The restart budget setup of the custody case creates its activity with facts that differ from the executing block"
+symptom = "Task 18.1724.1 attempt 5 at 183b0f6fb177: budgetCreateNative fails LXP_CONTEXT_MISMATCH in the restart setup at height 2 with identity sequence 4; src/modules/budget/lx_budget_module.c:164 to :173 refuses when activity_type, the activity binding of ctx->activity_id, account_id, the verified key of the authority, next_sequence or the actor DID of the facts differ from the context, and :218 to :231 require payload encoding_version 2 with source_sequence equal to next_sequence"
+fix = "The create facts follow the executing block and the authority of the case"
+
+[gotcha.3926]
+title = "Three model sessions reconnected on a usage limit answer of the endpoint and then completed no turn"
+symptom = "Task 18.1823.1 attempt 5 at 58788d6f719b, task 22.39.219 attempt 7 at a6a2b3f98a84 and task 22.39.225 attempt 5 at a56888ee0266: the session log holds a reconnect notice after a 429 usage limit answer and nothing further for the rest of the working time; no command ran and each tree equals the note tree of the terminal attempt"
+fix = "Decision 3099: relaunch as a continue from the terminal attempt"
+
+[gotcha.3927]
+title = "The release registry checker refuses the gate jobs that became reusable workflow calls"
+symptom = "Task 17.5.7 attempt 6 at 9b215c97f3d5: make platform-build runs layerx-platform-release --check tools/platform/release/registries.kvx and exits with release gate programs-acceptance must run through scripts/ci/release-gate.sh so its gate record is emitted (main.rs:745); since task 22.39.103 the three gate jobs of .github/workflows/platform.yml (:424 to :441) are uses calls of programs-conformance.yml and agent.yml, whose steps run make programs-test, make agent-test-sanitize and make agent-fuzz-long without the gate runner, so no release gate record is emitted on main"
+fix = "Task 22.39.243 restores the gate runner on the called workflows and makes the checker follow a uses call"
+
+[gotcha.3928]
+title = "The chain select of the search results layout does not render inside the filters until the multichain configuration is set"
+symptom = "Task 18.1717.1 attempt 5 at 3e43ad1d9d5f: LayoutSearchResults.spec.tsx:222 finds no combobox named All chains inside the filters region (only the tabs render); ChainSelect of ui/shared/externalChains renders the toolkit Select with placeholder Select chain and the All chains option from the chains of window.__multichainConfig, which the spec reads at :51 and the case never sets before rendering"
+fix = "The case sets the multichain configuration with its chains before rendering and resolves the trigger by the name the toolkit Select exposes"
+
+[gotcha.3929]
+title = "The side enumeration of the unified history document admits only paxeer"
+symptom = "Task 18.1632.1 attempt 5 at fbc0d2f3390e: rpc/px_node_root_account_test.go:698 validates the node-root results against services/platform/hosted/gateway/openrpc.json, whose accounts[].side (about :2080) and items[].side (about :2339, described as the selected EVM indexer account, always paxeer) admit only paxeer, while the unified history carries layerx rows (px_node_root_history_test.go:497, :735, :762 to :768)"
+fix = "Both enumerations admit paxeer and layerx and the description names both sides"
+
+[gotcha.3930]
+title = "The committed receipt retention refuses the served bundle because its receipt key is outside the trust set"
+symptom = "Task 18.1752.1 attempt 3 at 351ea0188683: retain_committed_receipt refuses with Binding fact 0 at services/agent/crates/layerx-agentd/src/export.rs:200, which fires when bundle.verification_level is below Rung::Committed or receipt_key is not in trust.receipt_keys; the fixture serves a bundle whose key the trust set does not list, so the witness calls never reach storage_witness"
+fix = "The served bundle is at Rung::Committed under a receipt key of the fixture trust set"
+
+[gotcha.3931]
+title = "The first verification of the room market bond cases fails on the room record capacity"
+symptom = "Task 22.38.7 attempt 5 at d2b06b45b51b (attempts 1 to 4 never reached the verification): eight bond cases fail at f11_bonds.rs:334 with CAPACITY 0x0016 at OpenRoom height 898, raised by rooms.rs:111 when the state slice is shorter than ROOM_RECORD_BYTES (:25); the passing F08 cases size their fixture state for the records they write; one case also meets F09_EVIDENCE_TASK_SET_UNSEALED 0x0901"
+fix = "The fixture state is sized as the passing cases size theirs"
+
+[gotcha.3932]
+title = "The feature availability query hard-codes the room market family as not-enabled"
+symptom = "Task 18.1777.1 attempt 4 at 7fc8cb94d0f4: inference_availability_uses_gateway_credentials still fails at main.rs:2885 with components F11 not-enabled although the capture enables the reward feature; programs/crates/layerx-programs-ai-market/src/queries.rs:930 builds the eleven availability entries and :945 to :948 set index 10 (F11) to NotEnabled whenever the policy decodes, regardless of the room profile (policy.rs:431 minimum_bond, :449) and the placement book section; tests/f11_family_table.rs:312 to :329 expects eleven NotYetProduced entries for an empty state"
+fix = "Task 22.39.244 reports F11 from the captured policy and the placement book; the consumer task requires it"
+
+[gotcha.3933]
+title = "The focused actor instruction of the host checkpoint case was not applied"
+symptom = "Task 18.1772.1 attempt 6 at 7f9a26b43f24: the tree leaves native_source_product_actor.mjs unchanged against attempt 5, so AUTH_SCOPE_DENIED persists at enrollment.js:159 through :1349 and the browser case does not select the virtual host mode (VIRTUAL_HOST_CONFIGURATION_REQUIRED); the attempt spent both cycles on the test runner options"
+fix = "The next attempt applies do_10 exactly before anything else"
+
+[gotcha.3934]
+title = "Twenty lints remain in the test targets of the programs runtime crate after the second repair cycle"
+symptom = "Task 22.39.235 attempt 3 at f3d4852c64d5: build exit 0; clippy -D warnings in cycle 2 reports thirteen doc items missing backticks at tests/repair_22_31_261.rs lines 2 to 8 and tests/repair_22_33_258.rs lines 2 to 13, five unwrap_err calls on a Result at tests/repair_22_31_488.rs lines 151, 166, 178 and 201, a redundant closure at tests/step_conformance.rs:50 and a needless borrow at tests/step_conformance.rs:181; the model session reached its working-time limit after the second cycle; log /out/logs/verify-2.log"
+fix = "The twenty sites are repaired in one pass and the record lists them"
+
+[gotcha.3935]
+title = "The launchpad module session stalled for hours on a Go module download under model endpoint reconnects"
+symptom = "Task 22.39.168 attempt 3 at 0ca51cadc0a4: the build (anvil --version and make -C services/launchpad vet) exited 0, then the Go module download of the user module ran for hours while the model endpoint answered 429 and the session reconnected until the working-time limit; no verification ran and do_8 (the connected export bucket) was not applied"
+fix = "Decision 3099: the attempt is a stall of the model session; the task relaunches as a continue with do_8 unchanged"
+
+[gotcha.3936]
+title = "The explorer build command runs pnpm inside a package pinned to yarn and the package manager of the qualification environment now refuses it"
+symptom = "Task 18.1717.1 attempt 6 at 6b410c64589a: the build pnpm --dir apps/explorer exec tsc --noEmit exits 1 with ERR_PNPM_OTHER_PM_EXPECTED because apps/explorer/package.json:295 pins packageManager to yarn 1.22.22; attempt 3 of the same task saw only a warning from an older pnpm; task 18.1679.1 attempt 4 installed the package with yarn --cwd apps/explorer install --frozen-lockfile by hand before its case ran; every qualified explorer task runs its commands as cd apps/explorer and yarn, which the qualification environment installs with the frozen lockfile"
+fix = "Decision 3107: the explorer commands of the two tasks change to the yarn form; the changed trees stand"
+
+[gotcha.3937]
+title = "The registry check refuses the guarded publication job once the gate records are emitted again"
+symptom = "Task 22.39.243 attempt 1 at 9c5a04a11157: build exit 0; the three gate jobs are named and the called workflows emit the gate records; layerx-platform-release --check then refuses job publish-crates-io must run under the release condition because the publication-job clause (main.rs:951 of the attempt tree) compares the whole condition string with the release condition while task 22.39.98 (7008181d46) wrote vars.LAYERX_RELEASE_CRATES_IO_INDEX is not empty in conjunction with the parenthesised release condition at platform.yml:487; the registries test binary did not run; log /out/logs/verify-1.log"
+fix = "Decision 3106: the clause accepts configuration guards conjoined with the parenthesised release condition"
+
+[gotcha.3938]
+title = "The retired-caller scan on main reports 2139 findings in 452 files, most of them outside live code"
+symptom = "python3 tools/paxeer-x/tests/retired_callers_test.py on the main tree at b352db3185 (excluding GOTCHA.kvx, CHANGELOG.md and CODEMAP.md per decision 3087) reports 2139 findings: custody-deposit 466, settlement-domain 184, router-joins 184, anchor 182, lni 132, layerxctl-port 122, finality-authority 110 and the rest below one hundred each; 186 findings lie in spec/layerx-merge/programme/reconcile, 72 in spec/release-v6-12-0, 25 in spec/layerx-merge/programme, 123 in tools/paxeer-x/route-catalogue.json, and several hundred in repair records (repair_*.kvx), the 4byte database under core/deps/geth/signer/fourbyte, programs/vendor, the charting library bundles under apps/launchpad/web/public and the vendored tree under tools"
+fix = "Decision 3104 scopes the catalogue before the per-package repairs of decision 3105"
+
+[gotcha.3939]
+title = "Two deleted trees of the catalogue are live by ruling and one holds only a record file"
+symptom = "The --deleted scan reports tests/daemon (finality-authority), services/agent/crates/layerx-wire (wire-codec) and services/agent/crates/layerx-client/src/lni (lni) as present: decision 542 retired the C daemon cases of tests/daemon, and the tree now holds the recorded daemon Python cases (conftest.py, recorded_paxd.py, the recorder, the serve and handover cases); decisions 910 and 921 keep layerx-wire as a workspace member (services/agent/Cargo.toml:4) and retire only its kernel activity envelope; the lni tree holds only repair_22_33_1544.kvx left behind after task 9.24.7 deleted the module"
+fix = "The first two leave the deleted-tree lists and the record moves to the crate root"
+
+[gotcha.3940]
+title = "The router-joins component lists as retired the three method names its own replacement keeps"
+symptom = "The replacement text of router-joins in tools/paxeer-x/retired_callers.json keeps the method names with one-source answers, yet its symbol list carries px_getUnifiedHistory, px_getNetwork and px_listAssets, so every live caller of the published methods (184 findings) is reported as retired"
+fix = "The three names leave the symbol list; the retired join and router symbols stay"
+
+[gotcha.3941]
+title = "The production stream relay case fails instead of starting the file-backed broker the sibling cases start"
+symptom = "Task 22.39.117 attempt 12 at ef16d9ebde7a: build exit 0; the shared chain, db, delivery and storage packages pass; make -C services/launchpad ci fails in core/api/internal/app because TestProductionStreamRelayPublishesCommittedFrames (stream_relay_production_test.go:107) calls t.Fatalf when CORE_API_TEST_NATS_URL is empty, while realBrokerProcess of sdk/launchpad/shared/delivery/natsdriver/driver_test.go:32 and the gateway identity case start a file-backed nats-server from NATS_SERVER_BINARY or the PATH for the same need; the qualification environment provides NATS_SERVER_BINARY and no broker URL; log /out/logs/verify-1.log"
+fix = "The case starts the broker from the binary when the URL is empty and keeps the URL override"
+
+[gotcha.3942]
+title = "The unified history lists up to sixteen accounts while the document still allows one"
+symptom = "Task 18.1632.1 attempt 6 at 8f5ff0492f78: build exit 0; the four px_getUnifiedHistory subcases of TestPxNodeRoot_History_ExplorerImportedRows fail at px_node_root_account_test.go:711 with result.accounts exceeds maxItems because rpc/px_history.go:80 to :96 composes the accounts of a bound identity as the EVM account (side paxeer), the canonical main account and every owned account ListOwnedAccounts returns up to fifteen (side layerx) and refuses beyond sixteen, while services/platform/hosted/gateway/openrpc.json:2071 keeps maxItems 1 and describes the single EVM indexer account; log /out/logs/verify-1.log"
+fix = "Decision 3108: the document follows the producer and allows sixteen accounts"
+
+[gotcha.3943]
+title = "Two human protocol frames of the agent runtime disagree with the daemon that answers them"
+symptom = "Task 18.1747.1 attempt 7 at c6af26c33f1e: build exit 0; native_producer_clock_units panics at repair_22_33_63.rs:2218 because AgentRuntime::pending_nonce (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1921) reads a u64 and a rung byte while the daemon answer of ACCOUNT_SEQUENCE (services/agent/crates/layerx-agentd/src/human_runtime.rs:15668) writes the u64 only, so the eight-byte payload ends in Unavailable; native_approval_clock_units panics at :2348 because native_send_preview_v2 (agent_runtime.rs:5375) converts the signature of NativeLocalGrantConsentV1, declared as sixty-four bytes at services/agent/crates/layerx-agent-api/src/identity.rs:545, into sixty-five bytes and maps the failure to Refused before any lifecycle submission; the fixture peer now serves pooled connections; log /out/logs/verify-1.log"
+fix = "Decision 3109: the agent runtime of the human service reads and writes the frames as the daemon and the shared API types define them"
+
+[gotcha.3944]
+title = "The committed receipt bundle of the native reader is refused by the export verifier before the storage witness runs"
+symptom = "Task 18.1752.1 attempt 4 at f0d3af66aebc: build exit 0; the altered-evidence loop of state_export_owner_rpc_retains_and_recovers_witnesses fails at issue_1752.rs:903 (witness refusal stage, zero eth_getProof calls) because the export path refuses at retain_committed_receipt with Binding fact 0: human_runtime.rs:17095 retains an OfflineExport whose height is the receipt height and whose bundle the native reader acquired (NativeProofRequest, read/proof_bundle.rs:820), and export::verify (export.rs:200 to :262) refuses it in one of its binding checks (rung and key, sequencer signature, protocol fields against the artifact height, validator set, two-item inclusion and the results trie value); the same fixture acquisition passes inside the test node; the session recorded that the native bundle carries the checkpoint of the following height and the ABCI result inclusion while the verifier expects the receipt height and an RLP inclusion; log /out/logs/verify-1.log"
+fix = "The verifier consumes the bundle layout the native reader produces, after the refused check is named"
+
+[gotcha.3945]
+title = "The V1 programs deployment of the recorder now reverts with an Error string instead of the version refusal"
+symptom = "Task 18.1667.1 attempt 6 at 497c7e485910: build exit 0; TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:240 with record vector-v1-programs-positive: V1 Programs deployment reverted (submit protocol 3, activity 0x00090001, ABI 1) and an 08c379a0 revert payload the recorder does not decode; the submit path uses the state commitment protocol version as do_8 required; the passing precompile case TestProgramsDeployRegistersProgram writes metering store entries directly before its deploy, which a live chain cannot do; log /out/logs/verify-2.log"
+fix = "The revert reason is decoded and the activation the unit case writes directly is provided through the chain the fixture starts"
+
+[gotcha.3946]
+title = "The restart capture still refuses the native budget create with a context mismatch after the facts were aligned by hand"
+symptom = "Task 18.1724.1 attempt 6 at 8618a1863e6e: build exit 0; TestCurrentReceiptRestartFixture fails at node/sequencer/receipt_equality_test.go:422 with LXP_ERR_CONTEXT_MISMATCH (result -213) for activity 0x30001 at height 2, protocol version 3, identity sequence 4, after do_7 aligned activity type, binding, account id, verified key, sequence and actor by hand; the keeper case TestBudgetCreateAndFund of modules/layerxpay/keeper/budget_create_test.go passes on main through the keeper; the session also reports that a nonzero value conflicts with the nonpayable budgetSpend interface and the zero-value rule of decode_signed; log /out/logs/verify-2.log"
+fix = "The restart setup reuses the keeper path of the passing case end to end and prints the facts of both sides when a mismatch persists"
+
+[gotcha.3947]
+title = "The reward reopen case fails on the roster CPU cap that task 22.33.223 owns"
+symptom = "Task 18.1749.1 attempt 5 at d6bc790807e3: build exit 0; reward_reopen_preserves_recipient_balances fails because BeginAggregation reports CPU 1,000,009 above the 1,000,000 cap with the asserted minimum roster, after the enrolment deadline of gotcha 3913 was repaired; the cap is the subject of task 22.33.223 (gotcha 3924); log /out/logs/verify-1.log"
+fix = "The task now requires 22.33.223 and moves to its wave; the next attempt runs after that task lands"
+
+[gotcha.3948]
+title = "The web image build cannot see the precompile ABI files the app imports"
+symptom = "Task 18.1823.1 attempt 6 at f936ca678ab0: the docker build of deploy/launchpad/Dockerfile.web fails in the type check of apps/launchpad/web/src/core/network/abis/canonical-abi.ts:1 because precompiles/launchpad/abi/FeesRouter.json (and Quoter.json, Router.json) are imported seven directories up from the app and the build stage does not copy precompiles/launchpad/abi; the files exist on main; the build also prints ESLint: The requested module minimatch does not provide an export named default; log /out/logs/build-1.log"
+fix = "The build stage copies the ABI directory and the lint message is recorded"
+
+[gotcha.3949]
+title = "The epoch identities restored to the obsolete runtime hash are rejected by the RPC qualification before replay"
+symptom = "Task 22.39.242 attempt 2 at 9c481226fbc1: build exit 0; six cases fail with receipt qualification rejected because services/launchpad/indexer/internal/receipt/rpc.go:705 to :716 requires every epoch whose deployment address matches a manifest role to carry exactly that role identity and refuses any other identity unless the supplemental approved list digests it, while do_3 restored the obsolete 0x6302ff80 identities on epochs 1 to 4 and 6 to 9 for the attestation case at repair_53_test.go:478; log /out/logs/verify-1.log"
+fix = "Only the epoch the attestation case checks carries the obsolete identity, through the supplemental list; the role epochs carry the manifest identity"
+
+[gotcha.3950]
+title = "The release verification job carries the registry presence guards the checker admits only on publication jobs"
+symptom = "Task 22.39.243 attempt 2 at 6a87c6bbad14: build exit 0; the registry check refuses at the verification clause of tools/platform/release/src/main.rs (:1122 of the attempt tree) because .github/workflows/platform.yml:1440 runs release-verification under a conjunction of the parenthesised presence guard of the two snapshot variables (a disjunction of two vars is-not-empty guards) and the parenthesised release condition, while that clause compares the condition with the bare release condition; the publication clause of decision 3106 admits plain guard conjuncts only and in any order; log /out/logs/verify-1.log"
+fix = "Decision 3110: one condition rule for the publication and verification jobs, with a parenthesised disjunction of presence guards as one guard"
+
+[gotcha.3951]
+title = "The browser case of the host checkpoint reaches the assignment inspection and finds its button disabled"
+symptom = "Task 18.1772.1 attempt 7 at 1ac80304421c: build exit 0; the actor now completes the host checkpoint and the reopen, the stale-evidence check passes, and the browser step that clicks Inspect assignment after the original checkpoint resolves times out because the button stays disabled (workspace-detail.tsx:629 disables it while an operation is pending or the assignment field is empty) although the Assignment field was filled through the native value setter; the page shows the assigned workspace selector without a selection; both repair cycles were used; log /out/logs/verify-2.log"
+fix = "The timeout message names the disabled reason and the step runs once the view admits it"
+
+[gotcha.3952]
+title = "A gateway integration test omits the read window field of the configuration and fails the dependents check of unrelated tasks"
+symptom = "Task 18.1777.1 attempt 5 at 69d00e492695 and task 22.39.235 attempt 4 at 717742d6533d: build exit 0; the dependents check exits 7 before each verification because services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 builds a Config literal without the read_windows field that services/platform/hosted/gateway/src/rpc.rs:180 initialises with Default::default (E0063, test target repair_22_33_1336 of layerx-platform-gateway); the target is red on main; logs /out/logs/dependents-1.log of both attempts"
+fix = "Decision 3111: task 22.39.279 adds the field; both attempts continue behind it"
+
+[gotcha.3953]
+title = "The client SDK clippy run still reports seventy-four sites, most of them in test files included from the agent daemon"
+symptom = "Task 22.39.225 attempt 6 at b84be16d823c: build exit 0 and the twenty-one dependents pass; cycle 2 fails clippy -D warnings with seventy-four errors in the test targets proof_layerx_wallet_rpc and agent_operation_envelope of services/agent/crates/layerx-sdk, forty-two of them in sources the file tests/repair_22_31_547.rs:2 includes from services/agent/crates/layerx-agentd/tests (repair_22_31_560.rs and through it native_send_preview_evm.rs) with include!, the rest in tests/proof_layerx_wallet_rpc.rs, tests/repair_22_31_563.rs and tests/repair_22_31_547.rs (missing doc backticks, expect_err on Result, functions over one hundred lines, identical match arms, a missing semicolon); both repair cycles were used; log /out/logs/verify-2.log"
+fix = "The include follows decision 3080 first, then the remaining sites are repaired in file order"
+
+[gotcha.3954]
+title = "The control-plane namespace label of issue 1791 conflicts with the peer namespace label issue 1790 landed on the same line"
+symptom = "Task 18.1791.1 attempt 1 at 8bfd76300b90 passed its build and verification but could not be merged onto the platform integration branch: services/platform/hosted/testnet/deployment.yaml:3 was rewritten by issue 1790 (commit 9e17ec8e4d) into a metadata block with a labels map, while the attempt rewrote the same inline metadata line to add the layerx-control-plane label; the attempt was ended so the next one rebases"
+fix = "The next attempt adds its label to the labels map that is now on main"
+
+[gotcha.3955]
+title = "Two held lint repairs changed the shared agent lockfile outside their declared paths"
+symptom = "Task 22.39.219 attempt 8 at 2e98b54e1701 and task 22.39.224 attempt 5 at 9a0db072f933 passed their builds and verifications but changed services/agent/Cargo.lock, which neither task declared, because dependency edits of a member crate regenerate the shared lockfile (as for 22.31.547 under decision 2829); both results are held"
+fix = "The planned paths of both tasks now carry the lockfile and the held results are released"
+
+[gotcha.3956]
+title = "The chain select trigger of the explorer search results carries no accessible name because the toolkit select never forwards trigger properties"
+symptom = "Task 18.1717.1 attempt 7 at adfd8670f810: build exit 0; searchResultsRoutesKeepOneHeaderAndLiveSearch fails at LayoutSearchResults.spec.tsx:228 because the single combobox inside the filters has no accessible name (label null, text All chains) and the query by the names Select chain or All chains finds nothing; apps/explorer/toolkit/chakra/select.tsx:255 to :263 renders SelectControl without the triggerProps that SelectControl spreads on its trigger (:49), so ui/shared/externalChains/ChainSelect.tsx cannot name its trigger; log /out/logs/verify-1.log"
+fix = "Decision 3112: the toolkit select forwards trigger properties and the chain select names its trigger Chain"
+
+[gotcha.3957]
+title = "The launchpad Go wiring test still asserts a literal runner image after the workflow moved to the routed runner expression"
+symptom = "Task 22.39.168 attempt 4 at 5234eca6cedb: build exit 0; the verification stops at tests/ci/test_launchpad_go_tests_wired.py:51 because test_launchpad_workflow_has_go_job asserts runs-on equals ubuntu-latest while .github/workflows/launchpad-test.yml:80 carries the routed runner expression (the fork guard, vars.CI_LINUX_RUNNER and the ubuntu-24.04 fallback) since the routed form was restored on the workflows (commit e0a5a9cb96) and issue 1843; the other forty-one wiring cases pass and no Go module ran; the test file is among the touches of the task; log /out/logs/verify-1.log"
+fix = "Decision 3113: the wiring test asserts the routed form through the shared runner check"
+
+[gotcha.3958]
+title = "The human protocol clock-unit cases stay red while the runtime file they need lies outside the task scope"
+symptom = "Task 18.1747.1 attempt 8 at 9a0e0f27767: native_approval_clock_units and native_producer_clock_units of services/human/crates/layerx-human-service/tests/repair_22_33_63.rs fail as in attempt 7; the model session declined the edit of src/server/agent_runtime.rs that the attempt-8 note asks for because the touches list names only the test file and its record; the daemon reader of opcode 66 at services/agent/crates/layerx-agentd/src/human.rs:2722 to :2727 already reads the consent signature as 64 fixed bytes, so the runtime of the human service is the only side to change"
+fix = "The touches list now names the runtime file and the attempt repairs the service runtime as decision 3109 states"
+
+[gotcha.3959]
+title = "The agent daemon source repair fails its dependents check on the gateway test target that task 22.39.279 repairs"
+symptom = "Task 22.39.222 attempt 4 at 86962ecb44c2: build exit 0; the dependents check compiles services/platform/hosted/gateway/tests/repair_22_33_1336.rs and fails at line 28 with E0063 (missing field read_windows), the defect of gotcha 3952, exit 7"
+fix = "The task now requires 22.39.279, which landed, and continues after a rebase"
+
+[gotcha.3960]
+title = "The parity inventory passes 45 of 50 rows; four red rows lack toolchains the qualification environment provides only for commands that name them, and one gateway test collides on its Redis directory"
+symptom = "Task 17.4.6 attempt 4 at 4d0f034118e2: run_all records 45 passing rows; construct.existing-router-gateway-authority-and-indexer fails in the gateway test one_source_reads, where px_get_balances_reads_bank_all_balances_at_one_height panics at services/platform/hosted/gateway/tests/one_source_reads.rs:41 with test Redis directory must be created: File exists (os error 17), the name being the process id and a timestamp that two starts within one clock tick share; construct.existing-wallet-human-service-and-explorer-playwright and construct.new-signed-receipt-logs-new-case find no Playwright under apps/wallet, construct.existing-wallet-human-service-and-explorer-vitest finds no Vitest, and construct.new-explorer-signature finds no mix for services/explorer/backend; the qualification environment installs Node packages, browser libraries and the explorer builder only for build or verification commands that name pnpm, playwright or services/explorer/deploy/tools/mix-in-builder.sh, and the build command of the task named only py_compile"
+fix = "Task 22.39.280 makes the Redis directory unique per start; the build command of 17.4.6 now names the package installs, the browser install and the explorer builder, and run_all runs Elixir rows through the explorer builder script (decision 3115)"
+
+[gotcha.3961]
+title = "The V1 programs deploy of the committed fixture reverts LXP_ERR_VERSION_UNSUPPORTED because the chain it starts carries no programs metering records"
+symptom = "Task 18.1667.1 attempt 7 at b7c9341c45af: the recorder now decodes the Error string of the revert; the deploy (activity 0x00090001, ABI 1, the state commitment protocol version) reverts LXP_ERR_VERSION_UNSUPPORTED; the precompile case TestProgramsDeployRegistersProgram passes only after the metering helper above it in precompiles/layerxprograms/method_deploy_test.go writes progmet/active/v1 and progmet/history/v1/1 into module 9 of the store, as tests/daemon/recorder/main.go:425 to :441 does for its chain together with the fee records; on main no message server implements MsgUpdateMeteringSchedule (the type exists in precompiles/layerxprograms/types/tx.pb.go only), the public testnet genesis manifest under tests/fixtures carries the metering record, and a chain started from genesis.json receives module records through the lxphost store genesis (StoreGenesis.Records of modules/lxphost/genesis.go, applied by InitGenesis at modules/lxphost/module.go:70)"
+fix = "Decision 3114: the fixture writes the four programs records into the lxphost genesis of the chain it starts, with its own authority, before the first block"
+
+[gotcha.3962]
+title = "The budget spend of the restart case is refused LXP_ERR_NON_CANONICAL after the keeper-created budget admits the plain transfer"
+symptom = "Task 18.1724.1 attempt 7 at 8e28238080ce: the budget is created through the keeper call sequence of TestBudgetCreateAndFund, CheckWrite admits budgetSpend, the 25 wei transfer to the recipient is accepted with result code 0, and the budgetSpend call of the pay precompile (budget id, recipient, 25) is refused with code 45, LXP_ERR_NON_CANONICAL, at receipt_equality_test.go:467; the budget module refuses NON_CANONICAL at src/modules/budget/lx_budget_module.c:508 when the budget account kind is not agent-budget or the recipient kind is not agent-main (agent-asset only for a native source), at :559 when the capability record has another shape and at :577 when the consumed amount exceeds the maximum; the passing reference is TestBudgetSpendWithinPeriodLimit of modules/layerxpay/keeper/budget_spend_test.go:72"
+fix = "The attempt compares the account kinds and the capability record of the restart setup with those of the keeper spend case and repairs the first that differs"
+
+[gotcha.3963]
+title = "The eight surface epochs of the launchpad producer record were aligned to the current runtime hash, which the migration case must see refused"
+symptom = "Task 22.39.242 attempt 3 at 5128ff63d2c1: the record now carries the current runtime hash on the eight surface epochs; TestRepair_53_migrated_role_epochs requires each of the eight original surface epochs to fail exact code attestation (repair_53_test.go:478, the error is nil) while the active epoch the authority resolves for the same address attests the installed migration runtime (:470 to :473); the four qualification cases still fail at identity.go:444, rehydrate historical creation, for the pre-activation market at height 33963716 that proveHistoricalMarket checks"
+fix = "The original epochs keep the obsolete approved identity, which migratedRoleEpoch (:484) normalises into the admitted execution epoch, and the historical creation of the record is re-recorded against the fields proveHistoricalMarket compares"
+
+[gotcha.3964]
+title = "The export witness attempt fails its build on an inherited agent lockfile and cannot touch the verifier its note names"
+symptom = "Task 18.1752.1 attempt 5 at ecbd11c045f3: cargo build --locked refuses because services/agent/Cargo.lock needs an update after the rebase (exit 101; the lockfile is in neither the touches nor the planned paths), and the note of attempt 5 asks for stage names in export::verify of services/agent/crates/layerx-agentd/src/export.rs, a file the touches list does not name, so the model session declined it as out of scope"
+fix = "The planned paths admit the agent lockfile and the touches list names export.rs; decision 3116"
+
+[gotcha.3965]
+title = "The aggregation chunk of the market program costs 46 percent more fuel at 32 participants than at 16 although a chunk is eight participants"
+symptom = "Task 22.33.223 attempt 20 at d74a1c29af7d: the opening fuel repair holds (OPEN_EPOCH 720967, BeginAggregation 593976, FinalizeAggregation 491195 at 32 and 8, all under the 900000 margin) and 31 of 32 cases pass; roster_state_fuel_scaling fails at tests/fuel_budget.rs:3145 because the first ProcessAggregation chunk (selector 0x0502) costs 189384 fuel at 16 and 4 and 276514 at 32 and 8, a slope of about 5500 fuel per added roster participant with a constant eight-participant chunk, which means a pass over the whole roster on every chunk call; the candidates in the tree are the whole-state decode at line 1520 of the entry module of the program and the roster section it carries, the replay table of every actor slot decoded and re-encoded per call (state.rs decode_replay at :496 and encode_replay at :423), and the roster load inside epoch::aggregate (entered at line 2196 of the entry module)"
+fix = "The chunk step touches only the region of its chunk and the replay entry of the calling actor; the per-pass fuel is measured and recorded before the change"
+
+[gotcha.3966]
+title = "The launchpad stream relay attempt ran no gate because the file its note names is outside the task scope"
+symptom = "Task 22.39.117 attempt 13: the attempt-13 note asks for the loopback JetStream server inside services/launchpad/api/internal/app/stream_relay_production_test.go, which the touches list does not name; the model session kept the attempt-12 tree ef16d9ebde7a and ran no build and no verification"
+fix = "The touches list names the test file; decision 3116"
+
+[gotcha.3967]
+title = "The launchpad image task ran out of working time on a 557 second image build under a 30 minute limit"
+symptom = "Task 18.1823.1 attempt 7 at 2ea4848b5c49: the model session hit the working-time limit after the image build alone took 557 seconds, thirteen paths were changed and no gate ran; the time limit of the task was 30 minutes"
+fix = "The time limit is 90 minutes and attempt 8 continues from the attempt-7 tree"
+
+[gotcha.3968]
+title = "The SDK lint task stopped on a dependent gateway test that main has since repaired"
+symptom = "Task 22.39.225 attempt 7 at fd299ca99eea: the build passes, then the dependent check fails with E0063 at services/platform/hosted/gateway/tests/repair_22_33_1336.rs:28 because the configuration literal of that test lacks the read window field; main carries the repair since bdbadaedbc"
+fix = "Attempt 8 rebases on main and continues"
+
+[gotcha.3969]
+title = "The programs runtime lint task has fifteen documentation sites and two further lints left in its test targets"
+symptom = "Task 22.39.235 attempt 5 at b8e4850b4acc: after ten repaired sites the clippy run under -D warnings still reports fifteen doc-markdown sites (identifiers without backticks) in tests/repair_22_33_259.rs and tests/repair_22_31_266.rs, items_after_statements in tests/repair_22_31_259.rs and assigning_clones in tests/repair_22_31_577.rs of programs/crates/layerx-programs-runtime; the dead-code warnings printed for programs/sdk/rust belong to the dependency and are not errors"
+fix = "Attempt 6 repairs the remaining sites of the crate"
+
+[gotcha.3970]
+title = "The store genesis validation of lxphost refuses the programs-module rows the committed fixture writes"
+symptom = "Task 18.1667.1 attempt 8 at b6f4f6ac6d08: TestRecorderV6GenesisSelection fails in every selection because paxd gentx reports lxphost: record 0: foreign module row; StoreGenesis.Validate at modules/lxphost/genesis.go:82 admits module rows of C.LXP_MODULE_ASSET only, while the fixture writes the metering and fee rows decision 3114 requires under C.LXP_MODULE_PROGRAMS, and ExportStoreGenesis at genesis.go:117 exports the asset prefix only"
+fix = "Task 22.39.282 admits programs-module rows in validation and export; decision 3121"
+
+[gotcha.3971]
+title = "The agent workspace lockfile on main is stale for every build that passes the locked flag"
+symptom = "Task 18.1724.1 attempt 8 at e8ddcf78cbb1 (build exit 101: the lock file services/agent/Cargo.lock needs to be updated but --locked was passed), task 18.1752.1 attempt 5 (gotcha 3964) and task 18.1777.1 attempt 6, held for regenerating the lockfile outside its planned paths, all hit the same lockfile; it has not followed the manifests since the merge d6aef6b24c"
+fix = "Task 22.39.283 regenerates the lockfile; the tasks that build the workspace with the locked flag follow it; decision 3120"
+
+[gotcha.3972]
+title = "The approval clock case of the human service is refused because its journey never bound a transaction sender"
+symptom = "Task 18.1747.1 attempt 9 at be777ff4e246: native_producer_clock_units passes, native_approval_clock_units panics at crates/layerx-human-service/tests/repair_22_33_63.rs:2378 with Agent(Refused) on the native journey advance; native_send_preview_v2 of services/agent/crates/layerx-agentd/src/server/agent_runtime.rs refuses at :5443 when transaction_sender is unset, and the approval case binds the journey context at :2352 without the bind_transaction_sender call the producer case makes at :1524"
+fix = "The approval case binds the sender before the journey context"
+
+[gotcha.3973]
+title = "The launchpad workflow test still asserts the Foundry version the core-suite alignment moved on"
+symptom = "Task 22.39.168 attempt 5 at 80becdf17c91: tests/ci/test_launchpad_go_tests_wired.py:103 asserts the Foundry action input version v1.7.1 while .github/workflows/launchpad-test.yml:252 pins v1.8.1; issue 1846 aligned the core-suite assertion with v1.8.1 and left the launchpad assertion behind"
+fix = "The assertion names the value the workflow pins (gotcha 3046)"
+
+[gotcha.3974]
+title = "Setting the recorded launchpad packet manifest to the current deployment makes the receipt qualification reject the recorded code"
+symptom = "Task 22.39.242 attempt 4 at 4d99d03cc6d9: with Options.Manifest of services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json set to deployment.Current() six of the ten cases fail (receipt qualification rejected at repair_53_test.go:458 and :496, TestRepairM_999_ReceiptQualifiedBackfill, TestRepairM_995_NativeReceiptAttribution); the packet is a transcript of the live chain whose role code is the 41-byte runtime with keccak 6302ff80, while current.json pins the guarded surface runtime e67f4b12 that no deployment runs before the upgrade, so the recorded code can never qualify against the current manifest and the packet can never equal it"
+fix = "The ten cases compare the manifests without the runtime hash fields and the packet keeps the manifest it was recorded with; decision 3119"
+
+[gotcha.3975]
+title = "The launchpad stream relay task is red on the same recorded packet cases"
+symptom = "Task 22.39.117 attempt 14 at dc36fbcb9ce5: make ci fails on TestRepairM_999_ProductionBackfillDefault, TestRepairM_995_NativeRoleProvenance, TestRepairM_995_ConservativeEvidence, TestRepairM_995_ReceiptIdentity and TestRepair_53_migrated_role_epochs, the recorded packet cases of gotcha 3974, and every other package passes"
+fix = "The task follows 22.39.242 and clears the staged runtime hash the same way"
+
+[gotcha.3976]
+title = "The retired-caller catalogue task finds seven references in four trees that have or now get a repair task of their own"
+symptom = "Task 22.39.245 attempt 1 at 27d4df847c64: the thirty self-test cases pass and the whole-tree scan reports modules/layerxanchor/keeper/custody_reader.go:6 and :36 (custody-deposit, layerxcustody), modules/layerxexchange/types/state.go:186 (custody-disclosure, paxeer-reserve), services/agent/crates/layerx-client/src/ai_market.rs:628 (checkpoint-finality, FINALIZED_RANK) and services/agent/crates/layerx-wire/src/hash.rs:38, :72 and :819 (human-two-domain, EvmPayoutBinding); the client tree belongs to 22.39.256 and the other three trees had no repair task"
+fix = "The verification of 22.39.245 scans only trees without a repair task; tasks 22.39.284 to 22.39.286; decision 3122"
+
+[gotcha.3977]
+title = "The aggregation chunk slope of the market program now sits in the report-score projection of the vote phase"
+symptom = "Task 22.33.223 attempt 21 at 3ce387375a31: 31 of 32 cases pass and roster_state_fuel_scaling fails at tests/fuel_budget.rs:3218 with the first ProcessAggregation chunk at 175338 fuel for 16 and 4 against 251901 for 32 and 8; the attempt-21 measurements show the chunk roster read flat and no replay decode, with the vote phase at 66026 against 130658, so the report-score projection still walks the score cells of every roster participant on each chunk call; the regenerated guest was 60 bytes over the deployment limit before the final repair"
+fix = "The projection covers only the reports of the eight participants of the chunk"
+
+[gotcha.3978]
+title = "The light muted label of the explorer misses the 3:1 contrast the design brief promises by three hundredths"
+symptom = "Issue 1716: LIGHT_ROLES.textMuted #8A91A0 of apps/explorer/toolkit/theme/foundations/palette.ts:10 against the light surface #F7F8FA gives 2.9769:1 while spec/layerx-merge/programme/docs/explorer-ui/design-brief.md:29 promises 3:1; the nearest value meeting the ratio on that surface is #8A90A0 (3.0045:1)"
+fix = "Task 22.39.281 darkens the label, keeps the surface and adds an unrounded contrast regression; decision 3118"

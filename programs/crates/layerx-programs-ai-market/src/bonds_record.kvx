@@ -1,0 +1,315 @@
+[meta]
+task = "22.38.7"
+attempt = 3
+base_revision = "25f2f0c1b736641c9ae31d1b0cdf8e29634b934e"
+inherited_candidate = "c40704964dbd4d62047e5ece0a1d13def9a538d8"
+basis = "Decisions 2900, 2927, 2928, 2929, 2940 and 3012"
+
+[implementation]
+records = "Bond rows share RoomBook beside bids; shared typed field writer and ordered destination reader encode every bond record and request"
+slash_guard = "LapSettlement stores a bit per peer and lap; ReceiptBatch commits missing_countersigners and its summary binds the sealed evidence"
+bid_setups = "The five actual PostBid producers lock before applying; f04 and f05 reuse those producers; f11_family_table encodes envelopes without posting bids"
+refund = "CloseRoom requires completed payouts and no open challenge; RefundBond waits for all peer deals and both close and canary challenge windows"
+
+[baseline]
+revision = "25f2f0c1b736641c9ae31d1b0cdf8e29634b934e"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast"
+exit = 101
+log = "/out/logs/22.38.7-baseline.log"
+case_record = "/out/logs/22.38.7-baseline.json"
+passed_cases = 540
+observed = "Fifteen native or fuel cases require host-boundary or Fund fixtures absent from the fresh sandbox; the declared build generates them"
+
+[before.f03_evaluator_host]
+failed = ["native_f03_schedule_capacity_role_conflicts_and_revocation"]
+
+[before.fuel_budget]
+failed = ["every_routed_operation_fits_the_protocol_cpu_fuel_cap", "fund_fits_the_protocol_cpu_fuel_cap", "fund_entry_gas_for_committed_receipt_fixture_is_bounded"]
+
+[before.host_boundary]
+failed = ["a09_native_policy_variants_and_maxima", "a03_native_stage_open_refusal_cancel_and_restage", "a01_native_create_binds_principal_origin_and_refuses_duplicates", "a02_native_activation_schedule_rebinds_worker_revision_and_needs_readiness", "a16_native_policy_width_and_assessment_modes", "a19_native_treasury_presence_and_later_setters", "native_context_binds_chain_program_and_height", "native_read_selectors_return_exact_snapshot_without_writes", "native_selectors_preserve_exact_routed_refusals"]
+
+[before.rewards_native]
+failed = ["reward_conservation_authority_and_rollback", "reward_finality_recovery_and_capacity"]
+
+[after]
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast"
+log = "/out/logs/22.38.7-final-suite.log"
+case_record = "/out/logs/22.38.7-final-suite.json"
+regression_record = "/out/logs/22.38.7-task-record.json"
+policy = "No case that passed before may fail after; final lists and measured results are retained privately without changing the built candidate"
+
+[measurement]
+record = "/out/logs/22.38.7-task-record.json"
+before_guest = "/out/logs/22.38.7-baseline-raw.wasm, emitted by the baseline 64-lap production guest test"
+size_source = "Host-boundary production target build/paxai-host-boundary/ai_market.wasm and programs/target/repair-478/guest-sizes.json"
+fund_source = "Production allowance gate programs/target/repair-478/measurement.kvx; baseline and final packages measured on the same transported Fund fixture"
+policy = "Record exact package sizes, added bytes and Fund CPU fuel together; preserve the deployment bound and allowance"
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+evidence = "/out/run/gates.jsonl: last matching successful build and verify rows provide revision, exact command, exit and private log"
+policy = "Only passing hf-done on the same candidate as passing hf-build qualifies the task; the runner publishes"
+
+[repair.first_comparison]
+revision = "743c172479b725bd263f42fcdaec3632c083b887"
+log = "/out/logs/22.38.7-first-comparison.log"
+cases = "Four bond cases and seventeen room/placement cases fail in the first final comparison; the final comparison record retains the exact names"
+rosters = "Bind the settlement to the deal admission roster and bind canary evidence to the reward epoch core roster, checking settled epoch and config explicitly"
+responses = "Return the bid identity as the 32-byte subject for bond operations, retaining the existing room-family event and result assertions"
+
+[repair.second_comparison]
+revision = "7335515cfaae070e936d0a093badb21b3efa71d3"
+log = "/out/logs/22.38.7-second-comparison.log"
+capacity = "Posted bonds reuse bid fields; shared placement-book identity rows retain worker and default lock height, sparse adjustment rows retain slash, refund and differing heights; pending locks retain full rows"
+close = "Registered markets retain the original open-deal close refusal; active markets require completed payouts before closing"
+
+[attempt4]
+base_revision = "eb14231acb56903efeabea4385e375d7726f7442"
+inherited_candidate = "17c9ba36e6285d49c5d1b23b11a7d07f85f26161"
+implementation = "Preserve bond rows, minimum-lock admission, committed missing-countersigner bitmap and settlement slash masks; merge the current room profile fields with the seven-table bond book, version 3"
+test_setup = "Bond tests use the current RoomProfile and CanaryRoomProfile types; existing bid producers retain their lock-before-bid setup and assertions"
+size_technique = "One never-inlined feature finalizer shares replay recording, revision checks, policy encoding, capacity checks and state encoding across room, lap, canary, assessment, task and aggregation commits; bond paths reuse decoded books, room profiles and exact mul_div_rem arithmetic"
+behavior = "Public operations, application error registry, result/event encodings, query results, deployment bound and all existing test assertions are preserved"
+
+[attempt4.measurement]
+merged_base_packaged_bytes = 500386
+merged_bond_start_packaged_bytes = 528015
+final_packaged_bytes = 524068
+packaged_bytes_recovered = 3947
+required_recovery_bytes = 3552
+net_bytes_added_over_merged_base = 23682
+deployment_bound_bytes = 524184
+deployment_headroom_bytes = 116
+packaging = "Unchanged Makefile paxai-host-boundary-build and wasm-opt -Oz --strip-debug --strip-producers"
+base_command = "make -s -o programs-build -o build/tests/paxai_host_boundary paxai-host-boundary-build"
+base_log = "/out/logs/22.38.7-merged-base-size.log"
+base_snapshot = "/out/logs/22.38.7-merged-base: archived HEAD market crate in a copied programs workspace with unchanged supporting sources; reuse the already built native harness"
+starting_log = "/out/logs/22.38.7-size-start.log"
+final_measurement_log = "/out/logs/22.38.7-size-bond-helpers.log"
+final_size_evidence = "/out/logs/22.38.7-final-measurements.json"
+fund_fuel_before_and_after = "/out/logs/22.38.7-fund-comparison.json"
+fund_measurement = "After hf-build produces the real kernel Fund observation, replay that unchanged observation through the example --measure consumer with the merged-base and final host-boundary packages; private comparison records both exact fuel counts, bytes and delta"
+fund_gate_evidence = "programs/target/repair-478/measurement.kvx and guest-sizes.json, produced by the declared TestRepair478_ gate; copied into private final measurements"
+fund_execution = "No bond operation or shared feature finalizer is added to the direct apply_fund execution path"
+
+[attempt4.step.profile_annotations]
+before_bytes = 528015
+after_bytes = 528015
+saved_bytes = 0
+retained = false
+log = "/out/logs/22.38.7-size-profile.log"
+
+[attempt4.step.helper_annotations]
+before_bytes = 528015
+after_bytes = 528015
+saved_bytes = 0
+retained = false
+log = "/out/logs/22.38.7-size-shared.log"
+
+[attempt4.step.digest_reader]
+before_bytes = 528015
+after_bytes = 528975
+saved_bytes = -960
+retained = false
+log = "/out/logs/22.38.7-size-digest.log"
+
+[attempt4.step.room_lap_finalizer]
+before_bytes = 528015
+after_bytes = 526001
+saved_bytes = 2014
+retained = true
+log = "/out/logs/22.38.7-size-finalizer.log"
+
+[attempt4.step.feature_finalizer]
+before_bytes = 526001
+after_bytes = 525017
+saved_bytes = 984
+retained = true
+log = "/out/logs/22.38.7-size-feature-finalizer.log"
+
+[attempt4.step.assessment_task_commits]
+before_bytes = 525017
+after_bytes = 524523
+saved_bytes = 494
+retained = true
+log = "/out/logs/22.38.7-size-shared-commits.log"
+
+[attempt4.step.aggregation_commit]
+before_bytes = 524523
+after_bytes = 524356
+saved_bytes = 167
+retained = true
+log = "/out/logs/22.38.7-size-aggregation.log"
+
+[attempt4.step.bond_helpers]
+before_bytes = 524356
+after_bytes = 524068
+saved_bytes = 288
+retained = true
+log = "/out/logs/22.38.7-size-bond-helpers.log"
+
+[attempt4.qualification]
+build = "hf-build"
+verify = "hf-done"
+revision_command_exit_log = "/out/run/gates.jsonl: final matching build and verify rows; both gates must pass on the same candidate"
+regression_lists = "The before/after target lists above are inherited attempt-3 evidence, not fresh attempt-4 runs; this sandbox permits only the bounded hf-build and hf-done gates, so no additional whole-crate suite is claimed"
+
+[attempt4.gotchas]
+merge = "The seed book version and fixed room width conflict with the current versioned profile; retain current ROOM_RECORD_BYTES and use the bond book version consistently in decoder and writer"
+name_mapping = "A diagnostic build without stripping is incompatible with compressed relocations; use strip=debuginfo for the private name map, and match the twenty-five largest binary metrics by position and size against the real stripped package"
+name_mapping_limit = "Private name retention permutes twenty smaller generic functions; every top-twenty-five index and binary metric matches, and only those matches are named below"
+annotation = "Existing compiler boundaries made several never-inline annotations byte-identical; outlining digest32 increased the package by 960 bytes, so both trials were withdrawn"
+compile = "Corrected a misplaced slot annotation and a missing qualified ApplicationError type during size measurements; neither failed compile is counted as a package measurement"
+evidence = "An old package can survive a failed compile; only a successful guest compilation followed by packaging is a size measurement"
+metrics_command = "wasm-opt build/paxai-host-boundary/ai_market.wasm --func-metrics -o /dev/null"
+starting_metrics = "/out/logs/22.38.7-functions-start.log"
+final_metrics = "/out/logs/22.38.7-bond-helpers.metrics"
+
+[attempt4.start.function.1]
+index = 536
+name = "layerx_programs_ai_market::dispatch::handle_assessment"
+metrics_binary_bytes = 36148
+
+[attempt4.start.function.2]
+index = 538
+name = "layerx_programs_ai_market::dispatch::handle_settlement"
+metrics_binary_bytes = 28344
+
+[attempt4.start.function.3]
+index = 531
+name = "layerx_programs_ai_market::dispatch::handle_identity"
+metrics_binary_bytes = 25657
+
+[attempt4.start.function.4]
+index = 534
+name = "layerx_programs_ai_market::dispatch::handle_admission"
+metrics_binary_bytes = 20704
+
+[attempt4.start.function.5]
+index = 578
+name = "layerx_call"
+metrics_binary_bytes = 20510
+
+[attempt4.start.function.6]
+index = 352
+name = "layerx_programs_ai_market::epoch::aggregate::{{closure}}"
+metrics_binary_bytes = 19708
+
+[attempt4.start.function.7]
+index = 345
+name = "layerx_programs_ai_market::epoch::compose_in_state"
+metrics_binary_bytes = 18531
+
+[attempt4.start.function.8]
+index = 457
+name = "layerx_programs_ai_market::queries::placement::apply"
+metrics_binary_bytes = 17435
+
+[attempt4.start.function.9]
+index = 501
+name = "layerx_programs_ai_market::rewards::bonds::apply"
+metrics_binary_bytes = 13686
+
+[attempt4.start.function.10]
+index = 525
+name = "layerx_programs_ai_market::dispatch::handle_tasks"
+metrics_binary_bytes = 13545
+
+[attempt4.start.function.11]
+index = 532
+name = "layerx_programs_ai_market::dispatch::handle_registry"
+metrics_binary_bytes = 12964
+
+[attempt4.start.function.12]
+index = 521
+name = "layerx_programs_ai_market::dispatch::handle_laps"
+metrics_binary_bytes = 12129
+
+[attempt4.start.function.13]
+index = 537
+name = "layerx_programs_ai_market::dispatch::handle_split_payout"
+metrics_binary_bytes = 10236
+
+[attempt4.start.function.14]
+index = 523
+name = "layerx_programs_ai_market::dispatch::handle_close"
+metrics_binary_bytes = 9854
+
+[attempt4.start.function.15]
+index = 458
+name = "layerx_programs_ai_market::rewards::apply_fund"
+metrics_binary_bytes = 6592
+
+[attempt4.start.function.16]
+index = 122
+name = "layerx_programs_ai_market::evaluators::authority::EvaluatorRegion::decode"
+metrics_binary_bytes = 4669
+
+[attempt4.start.function.17]
+index = 178
+name = "layerx_programs_ai_market::reputation_transition::split_joint"
+metrics_binary_bytes = 4567
+
+[attempt4.start.function.18]
+index = 189
+name = "layerx_programs_ai_market::rewards::decode_reward_state"
+metrics_binary_bytes = 4099
+
+[attempt4.start.function.19]
+index = 530
+name = "layerx_programs_ai_market::dispatch::handle_advance"
+metrics_binary_bytes = 4047
+
+[attempt4.start.function.20]
+index = 529
+name = "layerx_programs_ai_market::dispatch::handle_canary"
+metrics_binary_bytes = 3937
+
+[attempt4.start.function.21]
+index = 524
+name = "layerx_programs_ai_market::dispatch::handle_rooms"
+metrics_binary_bytes = 3785
+
+[attempt4.start.function.22]
+index = 522
+name = "layerx_programs_ai_market::dispatch::handle_read"
+metrics_binary_bytes = 3702
+
+[attempt4.start.function.23]
+index = 245
+name = "layerx_programs_ai_market::canary::persist"
+metrics_binary_bytes = 3682
+
+[attempt4.start.function.24]
+index = 176
+name = "layerx_programs_ai_market::aggregation_codec::decode_current"
+metrics_binary_bytes = 3586
+
+[attempt4.start.function.25]
+index = 120
+name = "layerx_programs_ai_market::registry_ops::PolicySection::decode"
+metrics_binary_bytes = 3232
+
+[attempt4.repair1]
+observed_revision = "8c221501ec1be20e3d0c8432b829cb04a6699194"
+build = "hf-build passed; exact revision, command, exit 0 and /out/logs/build-1.log are in /out/run/gates.jsonl"
+dependency_gate = "hf-done stopped before cg spec done and f11_bonds: downstream cargo check exit 101, wrapper exit 7, /out/logs/dependents-1.log"
+scoped_repair = "The platform repair_22_33_1439 target includes producer modules without the lib.rs root bonds reexport; all six rooms.rs references now name the defining crate::rewards::bonds module, preserving identical public types and operations"
+unrelated_agent_errors = "layerx-agentd test repair_22_33_1535 includes protocol_evidence_native_tests.rs with missing super::canonical_receipt_reference at lines 303 and 469, and unresolved crate::finality, crate::human_runtime and crate::agent_rpc_dispatch at lines 308, 311 and 315; these unchanged agent test modules are outside scope"
+fund_packaged_before_cpu_fuel = 850810
+fund_packaged_after_cpu_fuel = 850810
+fund_packaged_cpu_delta = 0
+fund_allowance = 1000000
+fund_measurement_log = "/out/logs/22.38.7-fund-comparison.json"
+fund_measurement_note = "The unchanged genuine kernel CALL requires CPU allowance 1000000; both host-boundary packages reproduced exact expected state, result, event and transfer at this allowance"
+final_evidence = "/out/run/gates.jsonl: scoped repair is rebuilt before hf-done; passing build alone does not qualify the task"
+
+[attempt6]
+inherited_candidate = "d2b06b45b51b352db138b895fde5dc86ed35a73f"
+capacity = "The fixture already allocates MAX_STATE_BYTES; ROOM_RECORD_BYTES omitted the eight-byte closed_height introduced by bonds, so the fixed room encoder slice could not contain both timestamps; the record width now includes both"
+regression = "room_record_capacity_includes_refund_close_height round-trips the close height in exactly ROOM_RECORD_BYTES and refuses a one-byte-short destination"
+evidence_lifecycle = "The constructor retains its explicit task-set seal and settle_batch seals before constructing the evidence manifest and calling SealEvidence"
+qualification = "/out/run/gates.jsonl: final hf-build and hf-done rows retain exact candidate revision, command, exit and private log; only matching passing rows qualify"
+regression_suite = "Inherited before/after lists remain historical evidence; the current task authorizes only hf-build and hf-done, so no new aggregate suite is claimed"

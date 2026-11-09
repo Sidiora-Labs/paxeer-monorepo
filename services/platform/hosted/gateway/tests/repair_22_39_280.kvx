@@ -1,0 +1,12 @@
+[repair]
+task = "22.39.280"
+acceptance = "22998.1"
+decision = "3115"
+gotcha = "3960"
+base = "588db2a0bec1a2cb28cf76600f6784b5be416957"
+change = "Make RedisProcess::start directory names unique per call with a process-wide atomic counter; retain fs::create_dir so a collision remains visible."
+name_parts = ["process id", "timestamp in nanoseconds since UNIX_EPOCH", "REDIS_DIRECTORY_COUNTER.fetch_add(1, Ordering::Relaxed)"]
+test_target = "one_source_reads"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test one_source_reads"
+verify_cmd = "test -s services/platform/hosted/gateway/tests/repair_22_39_280.kvx && cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test one_source_reads"
+revision_evidence = "The runner's private gates.jsonl and final hf-done JSON name the exact built and verified candidate revision containing this repair record; no verification is claimed before hf-done passes."

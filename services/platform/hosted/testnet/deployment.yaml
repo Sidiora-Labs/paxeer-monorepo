@@ -2,7 +2,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: layerx-testnet
-  labels: {layerx.io/gateway-peer-namespace: "true"}
+  labels:
+    layerx.io/gateway-peer-namespace: "true"
+    layerx-control-plane: enabled
 ---
 apiVersion: v1
 kind: ConfigMap
