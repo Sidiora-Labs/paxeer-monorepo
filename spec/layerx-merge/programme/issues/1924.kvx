@@ -1,0 +1,7 @@
+[issue.1924]
+number = 1924
+title = "[Coherence] The lint record skips the unchanged-tree Clippy inventory that the task's first step requires, so its lint list is not the baseline the task describes"
+revision = "86ae60188357c8c436f0f6e5deac9888cdfd2160"
+verdict = "spec-edit"
+evidence = "Task 22.39.216 is done at spec/layerx-merge/spec.kvx:192468 but requires an unchanged-tree inventory at spec/layerx-merge/spec.kvx:192475, reaffirmed by decision 3057 at spec/layerx-merge/spec.kvx:11457, while services/agent/crates/layerx-wire/src/repair_22_39_216.kvx:8 explicitly records no baseline, :21 distinguishes source-review repairs and :75 identifies 39 post-change diagnostics at revision 54f39a6949b99e72809e041f2502b8ea4fda01b7 rather than the base at :6; the spec must distinguish the repairs preserved by commit 6d0d1338fe737ada102a402bb2814f205a91db88 and their later diagnostics from the still-unqualified unchanged-tree inventory, retaining that requirement until supported by evidence."
+close_comment = "The layerx-wire lint repairs are recorded, but the required pre-change Clippy inventory has no supporting result. Task 22.39.216 needs a specification correction that distinguishes the recorded repairs and post-change diagnostics from the baseline requirement, which remains unqualified until supported by evidence."

@@ -37138,3 +37138,395 @@ symbol = "assistant.spec.ts::explorerAssistantStartupValidation"
 observed = "Attempt 1 at 2a88ca65780f: build failed because vite could not resolve property-expr from yup after the pnpm install of the yarn directory was refused; the verification never ran; log /out/logs/build-1.log."
 assumption = "Only the package manager of the gate was wrong."
 severity = "high"
+
+[finding.18.1652.1.1]
+task = "18.1652.1"
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs::running main export retries HTTP 503 without a queue process restart"
+symbol = "main_export_queue_test.exs::running main export retries HTTP 503 without a queue process restart"
+observed = "Attempt 1 at 90fd237e718d: build exit 1, the ex_keccak precompiled archive answered 504 Gateway Time-out; the verification never ran; log /out/logs/build-1.log."
+assumption = "Nothing in the tree is at fault; the archive host was unavailable for twenty minutes."
+severity = "high"
+
+[finding.18.1806.1.1]
+task = "18.1806.1"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs::issue1806_governed_receipt_keys"
+symbol = "sequencer_receipt_test.exs::issue1806_governed_receipt_keys"
+observed = "Attempt 1 at 865e4c1d9e48: build exit 1, the evil_crc32c precompiled archive answered 504 Gateway Time-out; the verification never ran; log /out/logs/build-1.log."
+assumption = "Nothing in the tree is at fault; the archive host was unavailable for twenty minutes."
+severity = "high"
+
+[finding.18.1659.1.1]
+task = "18.1659.1"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_490_test.exs::replay_database_outage_recovers"
+symbol = "repair_22_31_490_test.exs::replay_database_outage_recovers"
+observed = "Attempt 1 at 28d5b1bec076: build exit 1, the vix precompiled archive does not exist or cannot download (enoent) in the same window as the two 504 answers; the verification never ran; log /out/logs/build-1.log."
+assumption = "Nothing in the tree is at fault; the archive host was unavailable for twenty minutes."
+severity = "high"
+
+[finding.18.1675.1.1]
+task = "18.1675.1"
+file = "apps/perps/tests/repair-22-33-578.test.ts::portfolioTopBarBalanceFailureAndRetry"
+symbol = "repair-22-33-578.test.ts::portfolioTopBarBalanceFailureAndRetry"
+observed = "Attempt 1 at 9440476f4d02: build exit 2 with TS2786 in perps files the attempt did not change (duplicated React type packages, decision 3068); the verification never ran; log /out/logs/build-1.log."
+assumption = "The type check fails on main until 22.39.234 lands; the case of the task is complete."
+severity = "high"
+
+[finding.18.1802.1.1]
+task = "18.1802.1"
+file = "apps/perps/tests/repair-22-31-603.test.ts::disabled_embedded_wallet_keeps_injected_connector"
+symbol = "repair-22-31-603.test.ts::disabled_embedded_wallet_keeps_injected_connector"
+observed = "Attempt 1 at 2b3daa8a0e11: build exit 2 with TS2786 in perps files the attempt did not change (decision 3068); the verification never ran; log /out/logs/build-1.log."
+assumption = "The type check fails on main until 22.39.234 lands; the case of the task is complete."
+severity = "high"
+
+[finding.18.1803.1.1]
+task = "18.1803.1"
+file = "apps/perps/tests/embedded-wallet.test.ts::chainIdFromChainObject"
+symbol = "embedded-wallet.test.ts::chainIdFromChainObject"
+observed = "Attempt 1 at 1b3f1e38c29d: build exit 2 with TS2786 in perps files the attempt did not change (decision 3068); the verification never ran; log /out/logs/build-1.log."
+assumption = "The type check fails on main until 22.39.234 lands; the case of the task is complete."
+severity = "high"
+
+[finding.18.1658.1.1]
+task = "18.1658.1"
+file = "services/platform/perps-data/internal/feeds/proof_websocket_test.go::TestMarketsNullableSnapshotsReachMountedView"
+symbol = "proof_websocket_test.go::TestMarketsNullableSnapshotsReachMountedView"
+observed = "Attempt 1 at 70631c59d2b6: build exit 2 with TS2786 in perps files the attempt did not change (decision 3068); the verification never ran; log /out/logs/build-1.log."
+assumption = "The type check fails on main until 22.39.234 lands; the case of the task is complete."
+severity = "high"
+
+[finding.22.39.234.1]
+task = "22.39.234"
+file = "apps/perps/tests/spot-release-gate.test.ts"
+symbol = "spot-release-gate.test.ts"
+observed = "Attempt 1 at 3455fe6fb966: build and type check exit 0; verification exit 1: markets_mode_handler_switches_to_spot failed with No QueryClient set; log /out/logs/verify-1.log."
+assumption = "Only the test harness lags the producer; the type resolution of the task is complete."
+severity = "high"
+
+[finding.18.1815.1.1]
+task = "18.1815.1"
+file = "tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs::test_source_query_ancestor_type_changes"
+symbol = "native_source_api_actor.mjs::test_source_query_ancestor_type_changes"
+observed = "Attempt 1 at 9796214ff3ff: build exit 2 with thirty-one TS2307 errors for pg because the package was never installed; the verification never ran; log /out/logs/build-1.log."
+assumption = "The gate command was wrong; the tree of the attempt is complete."
+severity = "high"
+
+[finding.18.1826.1.1]
+task = "18.1826.1"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"
+symbol = "install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"
+observed = "Attempt 1 at 7284bfbc7510: build exit 1, tsc not found in the client SDK package; the verification never ran; log /out/logs/build-1.log."
+assumption = "The gate command was wrong; the tree of the attempt is complete."
+severity = "high"
+
+[finding.18.1772.1.1]
+task = "18.1772.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"
+symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
+observed = "Attempt 1 at 95e997fddf7a: the gate commands named prose wording instead of file paths and the gate shell found no file; log /out/logs/build-1.log."
+assumption = "The gate commands were wrong; the tree of the attempt is complete."
+severity = "high"
+
+[finding.18.1817.1.1]
+task = "18.1817.1"
+file = "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"
+symbol = "native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"
+observed = "Attempt 1 at 6155a7bedc11: the gate commands named prose wording instead of file paths and the gate shell found no file; log /out/logs/build-1.log."
+assumption = "The gate commands were wrong; the tree of the attempt is complete."
+severity = "high"
+
+[finding.18.1819.1.1]
+task = "18.1819.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py::LayoutReceiptGateTest.test_retained_pass_receipt_rejects_stale_source_bindings"
+symbol = "layout_receipt_gate_test.py::LayoutReceiptGateTest.test_retained_pass_receipt_rejects_stale_source_bindings"
+observed = "Attempt 1 at ebca190ef9ae: the gate commands named prose wording instead of file paths and the gate shell found no file; log /out/logs/build-1.log."
+assumption = "The gate commands were wrong; the tree of the attempt is complete."
+severity = "high"
+
+[finding.18.1833.1.1]
+task = "18.1833.1"
+file = "services/platform/middleware/conformance/pay6/test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip"
+symbol = "test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip"
+observed = "Attempt 2 at 7c2ace3c4c5d (attempt 1 at 6cf9bcb179f6 the same): verification exit 1, the node peer failed with ERR_MODULE_NOT_FOUND for the noble hashes package; log /out/logs/verify-1.log."
+assumption = "The typescript SDK was never installed; the python side of the attempt is complete."
+severity = "high"
+
+[finding.18.1840.1.1]
+task = "18.1840.1"
+file = "tests/agent/sdk/python/test_account_derivation.py::BindTransportTest::test_bind_rpc_transport_loss_keeps_unknown_submission_outcome"
+symbol = "test_account_derivation.py::BindTransportTest::test_bind_rpc_transport_loss_keeps_unknown_submission_outcome"
+observed = "Attempt 1 at cb0bf13491d4: verification exit 1, test_bind_rpc_transport_loss_keeps_unknown_submission_outcome could not start anvil; log /out/logs/verify-1.log."
+assumption = "The toolchain was absent; the case of the attempt is complete."
+severity = "high"
+
+[finding.18.1823.1.1]
+task = "18.1823.1"
+file = "tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+symbol = "test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"
+observed = "Attempt 1 at ab4222df2384: build exit 1 at deploy/launchpad/Dockerfile.web line 31, missing production upstream: WEB_GATEWAY_UPSTREAM; the verification never ran; log /out/logs/build-1.log."
+assumption = "The gate command omitted a required build argument; the files of the attempt are complete."
+severity = "high"
+
+[finding.18.1821.1.1]
+task = "18.1821.1"
+file = "tests/ci/test_image_namespaces.py::test_cluster_image_identity_contract"
+symbol = "test_image_namespaces.py::test_cluster_image_identity_contract"
+observed = "Attempt 1 at 558c6682a924: verification exit 1, test_image_namespaces received unknown flag: --images because the compose plugin was absent; log /out/logs/verify-1.log."
+assumption = "The environment lacked the plugin; the files of the attempt are complete."
+severity = "high"
+
+[finding.18.1834.1.1]
+task = "18.1834.1"
+file = "tests/ci/test_core_test_all_wired.py::test_payer_grant_archive_inspects_built_library"
+symbol = "test_core_test_all_wired.py::test_payer_grant_archive_inspects_built_library"
+observed = "Attempt 1 at c3281ef4556f: verification exit 1, test_ci_runs_core_test_all asserts version v1.7.1 while ci.yml pins v1.8.1; log /out/logs/verify-1.log."
+assumption = "The Foundry assertion belongs to 18.1846.1; the wiring of the task is complete."
+severity = "high"
+
+[finding.18.1846.1.1]
+task = "18.1846.1"
+file = "tests/ci/test_core_test_all_wired.py::test_ci_runs_core_test_all"
+symbol = "test_core_test_all_wired.py::test_ci_runs_core_test_all"
+observed = "Attempt 1 at 718022689f16: verification exit 1, test_foundry_version_is_exact_and_uniform found .github/workflows/launchpad-test.yml line 244 at v1.7.1 against v1.8.1; log /out/logs/verify-1.log."
+assumption = "One workflow line outside the former touches is the only remaining drift."
+severity = "high"
+
+[finding.18.1843.1.1]
+task = "18.1843.1"
+file = "tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on"
+symbol = "test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on"
+observed = "Attempt 1 at f2eb04350bcf: verification exit 1, scripts/ci/runner-routing-check.sh reported two fixed human jobs, two fixed launchpad jobs and twenty-two excluded jobs whose recorded runner changed; log /out/logs/verify-1.log."
+assumption = "The routing check is red on main; the test changes of the attempt are complete."
+severity = "high"
+
+[finding.18.1845.1.1]
+task = "18.1845.1"
+file = "tests/ci/test_workflow_live_inputs_guarded.py::test_ten_line_verification_runs_only_in_guarded_step"
+symbol = "test_workflow_live_inputs_guarded.py::test_ten_line_verification_runs_only_in_guarded_step"
+observed = "Attempt 1 at 556f8587bca5: verification exit 1 on the routing check facts of gotcha 3802; log /out/logs/verify-1.log."
+assumption = "The routing check belongs to 18.1843.1; the guard of the task is complete."
+severity = "high"
+
+[finding.18.1850.1.1]
+task = "18.1850.1"
+file = "tests/ci/test_workflow_runs_on_routed.py::test_autobahn_hosted_runner_preserves_cluster_entrypoint"
+symbol = "test_workflow_runs_on_routed.py::test_autobahn_hosted_runner_preserves_cluster_entrypoint"
+observed = "Attempt 1 at f962e5cbca89: verification exit 1, test_autobahn_hosted_runner_preserves_multinode_entrypoint failed on the routing check facts of gotcha 3802 and test_autobahn_routed_make_without_runtime_is_refused failed after it; log /out/logs/verify-1.log."
+assumption = "The routing table belongs to 18.1843.1; the guard of the task may need one repair."
+severity = "high"
+
+[finding.18.1838.1.1]
+task = "18.1838.1"
+file = "tests/ci/test_go_build_tags_wired.py::test_go_test_matrix_covers_build_tags"
+symbol = "test_go_build_tags_wired.py::test_go_test_matrix_covers_build_tags"
+observed = "Attempt 1 at 62b5057806db: verification exit 1, tools/hpx/registry/go.mod declares go 1.25 against 1.25.8; log /out/logs/verify-1.log."
+assumption = "One directive outside the former touches is the only drift."
+severity = "high"
+
+[finding.18.1818.1.1]
+task = "18.1818.1"
+file = "tests/ci/test_dashboard_proxy_origin_configurable.py::test_dashboard_docker_build_origin"
+symbol = "test_dashboard_proxy_origin_configurable.py::test_dashboard_docker_build_origin"
+observed = "Attempt 1 at fc28835c4726: verification exit 1, the lock script asserts a four-level path against the five-level manifest path; log /out/logs/verify-1.log."
+assumption = "The script lags the manifest; the files of the attempt are complete."
+severity = "high"
+
+[finding.18.1812.1.1]
+task = "18.1812.1"
+file = "spec/layerx-merge/programme/tests/test_activation_runbook.py::test_runbook_matches_render"
+symbol = "test_activation_runbook.py::test_runbook_matches_render"
+observed = "Attempt 1 at f8384f9fbbdb: verification exit 1, the rendered runbook differs from the renderer output and two assertions count five goldens against seven; log /out/logs/verify-1.log."
+assumption = "The runbook and the two counts lag the golden file; the plan changes are complete."
+severity = "high"
+
+[finding.18.1633.1.2]
+task = "18.1633.1"
+file = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity"
+symbol = "px_node_root_history_test.go::TestPxNodeRoot_History_TransactionHashParity"
+observed = "Attempt 2 at a5eec0fa95f0: verification exit 1, TestPxNodeRoot_History_TransportShapesAndRestart reported result.items[0] lacks final_basis; log /out/logs/verify-1.log."
+assumption = "The row lags the contract; the transaction hash preservation of the task is complete."
+severity = "high"
+
+[finding.18.1632.1.2]
+task = "18.1632.1"
+file = "rpc/px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+symbol = "px_node_root_history_test.go::TestPxNodeRoot_History_ExplorerImportedRows"
+observed = "Attempt 2 at f8243b509391: verification exit 1, TestPxNodeRoot_History_TransportShapesAndRestart reported result.items[0] lacks tx_hash; log /out/logs/verify-1.log."
+assumption = "The field belongs to 18.1633.1; the testdata of the task may need regeneration."
+severity = "high"
+
+[finding.18.1639.1.3]
+task = "18.1639.1"
+file = "sdk/platform/generators/tests/drift.rs::ucp_checkout_fixture_classification_survives_check_and_write"
+symbol = "drift.rs::ucp_checkout_fixture_classification_survives_check_and_write"
+observed = "Attempt 3 at 88d6d06c2b2c: verification exit 101, drift.rs line 971 reported stale generated SDKs: schema agent-api changed after the last generation; log /out/logs/verify-1.log."
+assumption = "The regeneration belongs to 22.39.237; the case of the task is complete."
+severity = "high"
+
+[finding.18.1711.1.2]
+task = "18.1711.1"
+file = "services/platform/middleware/conformance/pay6/walkthrough.mjs::mergedHttpEnvelopesSurviveReopen"
+symbol = "walkthrough.mjs::mergedHttpEnvelopesSurviveReopen"
+observed = "Attempt 2 at 71ddd5172ce2: verification exit 1, conformance_daemon_fixture_tracks_and_recovers_real_serializer_output (line 210) found the recorded fixture behind the serializer; log /out/logs/verify-1.log."
+assumption = "The fixture predates the serializer; the service changes of the task are complete."
+severity = "high"
+
+[finding.18.1667.1.1]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 1 at bb0601198954: verification exit 1, TestRecorderAllSelectedV6Executes reported V1 Programs deployment reverted with LXP_ERR_VERSION_UNSUPPORTED; log /out/logs/verify-1.log."
+assumption = "The V6 genesis of the recorder drops V1 support the all-vector recording needs."
+severity = "high"
+
+[finding.18.1724.1.1]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 1 at 392b746b5011: verification exit 1, receipt_equality_test.go line 434 (restart capture requires producer-derived budget state) on the first run and line 430 (result code 0x2d) on the second; log /out/logs/verify-1.log."
+assumption = "The capture is built from constants where the producer value is required."
+severity = "high"
+
+[finding.18.1679.1.1]
+task = "18.1679.1"
+file = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx::tokenTransferLiveUpdatesFollowDisplayPage"
+symbol = "TokenTransfer.spec.tsx::tokenTransferLiveUpdatesFollowDisplayPage"
+observed = "Attempt 1 at 8e41db2dc232: verification exit 1, tokenTransferLiveUpdatesFollowDisplayPage expected 50 to be 25; log /out/logs/verify-1.log."
+assumption = "The live update reads the wrong size; the rest of the attempt is complete."
+severity = "high"
+
+[finding.18.1717.1.1]
+task = "18.1717.1"
+file = "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+symbol = "LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+observed = "Attempt 1 at 92a8d7a90c30: verification exit 1, LayoutSearchResults.spec.tsx failed with ReferenceError: React is not defined; log /out/logs/verify-1.log."
+assumption = "One missing import; the specification is otherwise complete."
+severity = "high"
+
+[finding.18.1749.1.1]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 1 at e23026208c77: verification exit 101, rewards_native.rs line 2677 panicked with BeginAggregation left: -601 right: 0; log /out/logs/verify-1.log."
+assumption = "The fixture or the producer overspends before aggregation; the rest of the attempt is complete."
+severity = "high"
+
+[finding.18.1766.1.2]
+task = "18.1766.1"
+file = "services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js::legacyBlockCounterKeepsHeight"
+symbol = "chain.js::legacyBlockCounterKeepsHeight"
+observed = "Attempt 2 at a94ffba122d7: build exit 1, npm run build failed with Cannot find module terser-webpack-plugin; the verification never ran; log /out/logs/build-1.log."
+assumption = "The lock lacks a module the configuration requires; the page change of the task is complete."
+severity = "high"
+
+[finding.22.39.117.9]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 9 at 84d7c279ea70: verification exit 2, errcheck reported fourteen unchecked Close results in sdk/launchpad/shared and the connected export case failed with S3 PutObject 404 NoSuchBucket (line 222); log /out/logs/verify-1.log."
+assumption = "The lints are in the touches of the task; the bucket belongs to the retiring task."
+severity = "high"
+
+[finding.17.5.7.3]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 3 at 5340e6005e85: verification exit 2, make workspace-build stopped at Makefile line 1743 (human-build) with ../../node_modules/.bin/tsup not found after npm ci of apps/web; log /out/logs/verify-1.log."
+assumption = "The relative bin path depends on hoisting; the gate changes of the task are complete."
+severity = "high"
+
+[finding.18.1662.1.2]
+task = "18.1662.1"
+file = "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers"
+symbol = "repair-22-33-181.test.ts::actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers"
+observed = "Attempt 2 at 612de178d080 (attempt 1 at 90883a34f5d7 the same): verification exit 1, six of nine cases of repair-22-33-181.test.ts timed out at the within helper (line 547) after four seconds waiting for the signing or receipt entry; log /out/logs/verify-1.log."
+assumption = "The proofs never executed before; the fixture or the producer drifted since they were written."
+severity = "high"
+
+[finding.18.1713.1.2]
+task = "18.1713.1"
+file = "services/agent/sdk/typescript/test/web-search.test.ts::webSearchExactPaymentLogReceipts"
+symbol = "web-search.test.ts::webSearchExactPaymentLogReceipts"
+observed = "Attempt 2 at 84840c93e9d7: verification exit 1, every webSearchExactPaymentLogReceipts case failed with settlement-operation-mismatch from verifyWebSearchPayment; log /out/logs/verify-1.log."
+assumption = "The fixture receipt does not match the producer shape; the acceptance change is complete."
+severity = "high"
+
+[finding.22.39.218.3]
+task = "22.39.218"
+file = "services/agent/crates/layerx-proof"
+symbol = "layerx-proof"
+observed = "Attempt 3 at a724daeb709d: verification exit 101 twice, clippy reported six lint errors across sequencer_corpus, inclusion and repair_22_33_1557; log /out/logs/verify-2.log."
+assumption = "Six named sites remain; the rest of the crate is clean."
+severity = "high"
+
+[finding.18.1665.1.2]
+task = "18.1665.1"
+file = "rpc/px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+symbol = "px_node_root_account_test.go::TestPxNodeRoot_Assets_CursorSchema"
+observed = "Attempt 2 at e989d4af8ae9: verification exit 1, TestPxNodeRoot_Assets_CursorSchema at line 686 expected an error for the explicit null cursor and got nil; log /out/logs/verify-1.log."
+assumption = "One refusal the contract requires is missing; the pages of the task are complete."
+severity = "high"
+
+[finding.18.1747.1.2]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 2 at 55fb3d91800b: verification exit 101, native_approval_clock_units and native_producer_clock_units panicked at line 1619 with bootstrap peer: Unavailable; log /out/logs/verify-1.log."
+assumption = "The fixture peer lacks one answer the clock-unit path needs."
+severity = "high"
+
+[finding.22.39.95.8]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 9 at 5ea9c3c82ef7: build exit 0; verification exit 1: 1270 cases passed and eight failed in five files (chart-datafeed-recovery four, repair-22-33-921 one, portfolio-widgets one, trade-journey.integration one, connected-journeys one); log /out/logs/verify-2.log."
+assumption = "Eight cases remain, each with a named site; the suite is otherwise green."
+severity = "high"
+
+[finding.18.1718.1.2]
+task = "18.1718.1"
+file = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::horizontalHeaderGroupsAndSearch"
+symbol = "repair-22-35-2.spec.tsx::horizontalHeaderGroupsAndSearch"
+observed = "Attempt 2 at ed8eb25ac200: verification exit 1, searchShortcutFocusesTheRealInput found document.activeElement at body instead of the input; log /out/logs/verify-1.log."
+assumption = "The specification fires the shortcut where the header does not listen or asserts before focus moves."
+severity = "high"
+
+[finding.18.1743.1.2]
+task = "18.1743.1"
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs::native_read_unavailable_has_fixed_body"
+symbol = "proof_native_reads.rs::native_read_unavailable_has_fixed_body"
+observed = "Attempt 2 at 043ba0b46254: verification exit 101, proof::happy_path_and_malformed_producer_result and proof::program_state_unavailable failed at line 642 because the local node script exited 1; its startup log stayed under /tmp/lx-localnode outside the record; log /out/logs/verify-1.log."
+assumption = "The local node did not start and the record does not say why."
+severity = "high"
+
+[finding.18.1643.1.2]
+task = "18.1643.1"
+file = "rpc/subscribe_test.go::TestSubscribeNewHeadsAutobahn"
+symbol = "subscribe_test.go::TestSubscribeNewHeadsAutobahn"
+observed = "Attempt 2 at d07832aff51d: verification exit 1 twice, TestSubscribeNewHeadsAutobahn at line 195 expected a thirty-two-byte value ending in 05 and received the twenty-byte value; log /out/logs/verify-2.log."
+assumption = "The fixture literal and the field width disagree."
+severity = "high"
+
+[finding.22.39.217.3]
+task = "22.39.217"
+file = "services/agent/crates/layerx-crypto"
+symbol = "layerx-crypto"
+observed = "Attempt 3 at 67698b8f4ddb: verification exit 101 twice, clippy reported five duplicate_mod errors and three further lints across four test targets; log /out/logs/verify-2.log."
+assumption = "Named sites remain; the rest of the crate is clean."
+severity = "high"
+
+[finding.17.2.8.2]
+task = "17.2.8"
+file = "spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"
+symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
+observed = "Attempt 2 at b046adf30176: build exit 0; verification exit 1 after 47 seconds: test_scan_reports_no_caller raised ValueError no owning domain for caller core/deps/geth/signer/fourbyte/4byte.json at retired.py line 368; log /out/logs/verify-1.log."
+assumption = "The vendored selector database is the only reported caller; the scan time is now within the limit."
+severity = "high"
+
+[finding.18.1863.1.1]
+task = "18.1863.1"
+file = "tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on"
+symbol = "test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on"
+observed = "Attempt 1 at 2c94f3dca27f: build exit 0; verification exit 1: the three restored-job cases failed at line 79 on human.yml schema-check (ubuntu-24.04) and launchpad-test.yml launchpad-go-test (ubuntu-latest) instead of the routed expression; log /out/logs/verify-1.log."
+assumption = "The routing repair belongs to 18.1843.1; the cases of the task are complete."
+severity = "high"
