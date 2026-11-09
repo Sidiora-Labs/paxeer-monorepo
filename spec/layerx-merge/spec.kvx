@@ -160645,7 +160645,7 @@ do_5 = "Attempt 3 (continue, gotcha 3868): the attempt-2 tree 4c05c0590293 stand
 
 [task.18.1689.1]
 title = "Issue #1689: Keep configuration errors renderable under invalid wallet and RPC settings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -302685,7 +302685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1633.1]
 title = "Issue #1633: Preserve transaction hashes in node-root history rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -412844,7 +412844,7 @@ do_3 = "Attempt 2 (requalify, gotcha 3793): the attempt-1 tree 865e4c1d9e48 stan
 
 [task.18.1659.1]
 title = "Issue #1659: Preserve price acceptance replay retries when held-job diagnostics fail"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
