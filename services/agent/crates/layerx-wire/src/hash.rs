@@ -34,7 +34,8 @@ pub enum Domain {
     AccountId,
     /// DID identifier digest.
     DidId,
-    /// EVM payout binding digest.
+    /// Historical EVM payout binding digest retained for core protocol compatibility.
+    /// The human binding journey is retired; the core domain tag still ships.
     EvmPayoutBinding,
     /// State leaf digest.
     StateLeaf,
@@ -796,6 +797,10 @@ mod domain_tests {
 
     #[test]
     fn all_domains_separate_identical_canonical_bytes() {
+        assert_eq!(
+            Domain::EvmPayoutBinding.tag(),
+            b"LXP/v1/evm-payout-binding\0"
+        );
         let bytes = include_bytes!("../../../../../tests/fixtures/asset/supply-pause.receipt");
         let receipt = crate::receipt::decode(bytes)
             .unwrap_or_else(|error| panic!("published receipt failed decode: {error:?}"));
