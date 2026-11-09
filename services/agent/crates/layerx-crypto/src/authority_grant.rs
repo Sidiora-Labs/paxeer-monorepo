@@ -305,6 +305,9 @@ impl AuthorityGrant {
 }
 
 /// Produces the actual 0x101c call consumed by sender-bound approval and signing.
+///
+/// # Errors
+/// Refuses invalid grants, malformed call fields or overflowing transaction fee bounds.
 pub fn authority_grant_call(
     grant: &AuthorityGrant,
     options: &crate::send::CallOptions,

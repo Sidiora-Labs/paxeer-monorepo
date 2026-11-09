@@ -1,14 +1,14 @@
-//! Proves: SendDebit, CallOptions, DisclosedCall, Disclosure and KeystoreSigner -> canonical payer authorizations and EIP-1559 calldata -> DisclosedCall::from_call, Disclosure validation and sign_disclosed_call.
+//! Proves: `SendDebit`, `CallOptions`, `DisclosedCall`, `Disclosure` and `KeystoreSigner` -> canonical payer authorizations and EIP-1559 calldata -> `DisclosedCall::from_call`, `Disclosure` validation and `sign_disclosed_call`.
 //!
-//! The daemon's human_runtime consumes prepared calls with DisclosedCall::from_call;
-//! prepare/disclose and approval/native_effect consume canonical bytes with
-//! Disclosure::validate_canonical; budget, capability/binding and capability/effects
+//! The daemon's `human_runtime` consumes prepared calls with `DisclosedCall::from_call`;
+//! prepare/disclose and `approval/native_effect` consume canonical bytes with
+//! `Disclosure::validate_canonical`; budget, capability/binding and capability/effects
 //! validate public semantics before making authorization decisions. These are the
 //! same production boundary functions exercised here, without a replacement signer,
 //! ABI codec, transport or disclosure decoder.
 //!
-//! Repairs: src/signer.rs::sign_disclosed_call did not bind the signer to the
-//! disclosed sender; src/disclosure.rs::Disclosure::construct_method returned a
+//! Repairs: `src/signer.rs::sign_disclosed_call` did not bind the signer to the
+//! disclosed sender; `src/disclosure.rs::Disclosure::construct_method` returned a
 //! method from an altered disclosure. The listed daemon consumers now validate
 //! public semantics before using them for purpose, effect and budget decisions.
 //! The anchor is stateless: every observation below decodes and validates again.
@@ -136,65 +136,7 @@ fn proof_crypto_producer_to_call_consumer_twice_and_refusals() -> TestResult {
         }
         previous = first;
 
-        let wrong_account = derive_from_seed(&[8; 64], 0)?;
-        let wrong_signer = LocalSigner::from_derived_account(&wrong_account);
-        assert_eq!(
-            complete(sign_disclosed_call(
-                &wrong_signer,
-                &produced.call,
-                &produced.disclosure,
-                from,
-            )),
-            Err(SignError::DisclosureMismatch("signer"))
-        );
-        let no_evm_key = LocalSigner::new([9; 32]);
-        assert_eq!(
-            complete(sign_disclosed_call(
-                &no_evm_key,
-                &produced.call,
-                &produced.disclosure,
-                from,
-            )),
-            Err(SignError::EvmKeyUnavailable)
-        );
-
-        let mut altered = produced.disclosure.clone();
-        altered.amounts[0].value += 1;
-        assert_eq!(
-            altered.validate(),
-            Err(DisclosureError::FieldMismatch("amounts"))
-        );
-        assert_eq!(
-            altered.construct_method(),
-            Err(DisclosureError::FieldMismatch("amounts"))
-        );
-        assert_eq!(
-            complete(sign_disclosed_call(&signer, &produced.call, &altered, from,)),
-            Err(SignError::DisclosureMismatch("call"))
-        );
-        let mut malformed = produced.call.clone();
-        malformed.data.pop();
-        assert!(matches!(
-            DisclosedCall::from_call(malformed, from),
-            Err(DisclosureError::MalformedPayload)
-        ));
-        let mut malformed_payload = payload.clone();
-        malformed_payload[4] ^= 1;
-        assert!(matches!(
-            ledger_payment_call(&malformed_payload, &options),
-            Err(DisclosureError::MalformedPayload)
-        ));
-        let mut malformed_raw = assemble(
-            &produced.call,
-            &complete(sign_disclosed_call(
-                &signer,
-                &produced.call,
-                &produced.disclosure,
-                from,
-            ))?,
-        );
-        malformed_raw.push(0);
-        assert!(decode_signed(&malformed_raw).is_err());
+        assert_producer_refusals(&signer, &produced, &payload, &options)?;
     }
     Ok(())
 }
@@ -374,5 +316,75 @@ fn proof_crypto_real_keystore_transport_survives_agent_reopen_and_refuses_unknow
             Err(SignError::KeystoreUnavailable)
         );
     }
+    Ok(())
+}
+
+fn assert_producer_refusals(
+    signer: &LocalSigner,
+    produced: &DisclosedCall,
+    payload: &[u8],
+    options: &CallOptions,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let from = options.from;
+    let wrong_account = derive_from_seed(&[8; 64], 0)?;
+    let wrong_signer = LocalSigner::from_derived_account(&wrong_account);
+    assert_eq!(
+        complete(sign_disclosed_call(
+            &wrong_signer,
+            &produced.call,
+            &produced.disclosure,
+            from,
+        )),
+        Err(SignError::DisclosureMismatch("signer"))
+    );
+    let no_evm_key = LocalSigner::new([9; 32]);
+    assert_eq!(
+        complete(sign_disclosed_call(
+            &no_evm_key,
+            &produced.call,
+            &produced.disclosure,
+            from,
+        )),
+        Err(SignError::EvmKeyUnavailable)
+    );
+
+    let mut altered = produced.disclosure.clone();
+    altered.amounts[0].value += 1;
+    assert_eq!(
+        altered.validate(),
+        Err(DisclosureError::FieldMismatch("amounts"))
+    );
+    assert_eq!(
+        altered.construct_method(),
+        Err(DisclosureError::FieldMismatch("amounts"))
+    );
+    assert_eq!(
+        complete(sign_disclosed_call(signer, &produced.call, &altered, from,)),
+        Err(SignError::DisclosureMismatch("call"))
+    );
+    let mut malformed = produced.call.clone();
+    malformed.data.pop();
+    assert!(matches!(
+        DisclosedCall::from_call(malformed, from),
+        Err(DisclosureError::MalformedPayload)
+    ));
+    let mut malformed_payload = payload.to_vec();
+    malformed_payload[4] ^= 1;
+    assert!(matches!(
+        ledger_payment_call(&malformed_payload, options),
+        Err(DisclosureError::MalformedPayload)
+    ));
+    let mut malformed_raw = assemble(
+        &produced.call,
+        &complete(sign_disclosed_call(
+            signer,
+            &produced.call,
+            &produced.disclosure,
+            from,
+        ))?,
+    );
+    malformed_raw.push(0);
+    assert!(decode_signed(&malformed_raw).is_err());
+
     Ok(())
 }
