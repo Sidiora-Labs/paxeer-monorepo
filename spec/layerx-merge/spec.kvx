@@ -189266,7 +189266,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1739.1]
 title = "Issue #1739: Prove membership and read-verification refusals through the production consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189297,7 +189297,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1732.1]
 title = "Issue #1732: Bind A2A journey receipt verification to independent payment and sequence evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189357,7 +189357,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1728.1]
 title = "Issue #1728: Reject ordinary program calls as lifecycle completion evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189593,7 +189593,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1637.1]
 title = "Issue #1637: Align custody protocol assertions with version-3 selection"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218449,7 +218449,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.18.1702.1]
 title = "Issue #1702: Bound segment transfers by progress instead of total elapsed time"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218478,7 +218478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1701.1]
 title = "Issue #1701: Close earlier value shards when segment construction fails"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218628,7 +218628,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1680.1]
 title = "Issue #1680: Report the effective legacy REST request body limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218719,7 +218719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1641.1]
 title = "Issue #1641: Bind transfer metric instruments to each contract test invocation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218778,7 +218778,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1629.1]
 title = "Issue #1629: Honor archived shipping acknowledgments during snapshot retention"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -299728,7 +299728,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1706.1]
 title = "Issue #1706: Select exactly the recorded indexed state replay case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -299787,7 +299787,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1686.1]
 title = "Issue #1686: Align venue ticker index prices with successful aggregate updates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -299816,7 +299816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1683.1]
 title = "Issue #1683: Forward the tracing context during v5.7.5 address recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -299907,7 +299907,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1660.1]
 title = "Issue #1660: Exercise local governed receipt-key authority in RPC tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -299968,7 +299968,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1634.1]
 title = "Issue #1634: Scan every leaf when collecting state-size statistics"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -344674,7 +344674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1594.1]
 title = "Issue #1594: Correct the four retired-harness audit notes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -408099,7 +408099,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1640.1]
 title = "Issue #1640: Reconcile deferred orphan replay jobs with bounded price-feed retention"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
