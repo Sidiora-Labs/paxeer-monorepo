@@ -62,7 +62,7 @@ def test_ci_runs_core_test_all():
     assert steps.index(foundry_step) < steps.index(core_step)
     assert "if" not in foundry_step
     assert "continue-on-error" not in foundry_step
-    assert foundry_step["with"] == {"version": "v1.7.1", "cache": "false"}
+    assert foundry_step["with"] == {"version": "v1.8.1", "cache": "false"}
     solidity_foundry_step = next(
         step
         for step in workflow["jobs"]["solidity"]["steps"]
