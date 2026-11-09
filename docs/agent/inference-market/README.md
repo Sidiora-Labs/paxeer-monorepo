@@ -8,10 +8,13 @@ model or join a room.
 
 ## Availability
 
-The inference market is not yet available. These guides describe its planned
-interface, including the F11 operations, daemon profile, peer runtime, SDK
-additions and wallet/explorer surfaces. The daemon mode parser currently accepts
-`full` and `human-owner`; the planned `inference-market` profile is unavailable.
+The daemon accepts full, human-owner and inference-market.
+The [mode parser](../../../services/agent/crates/layerx-agentd/src/human_owner_mode.rs)
+and [profile configuration](../../../services/agent/crates/layerx-agentd/src/config.rs)
+are implemented, as are the attestor's peer-binding methods at `0x0907`.
+These guides cover the F11 operations, daemon profile, peer runtime, SDK
+additions and wallet/explorer surfaces; implementation does not establish
+network deployment or end-to-end readiness.
 Check F11 availability on the target network before attempting the flows.
 
 ## Three planes
