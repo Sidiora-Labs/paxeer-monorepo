@@ -1,0 +1,536 @@
+[disposition.22.33.194.4]
+finding = "22.33.194.4"
+status = "resolved"
+evidence = "Commit e253063c81 landed the eight spot-widget regressions retained on main at apps/perps/tests/repair-22-33-194.test.ts:763, including complete desktop/mobile rendering, account-change history recovery and bounded trade highlights; the complete-consumer case is listed at :769 and registered at :773."
+
+[disposition.22.33.194.5]
+finding = "22.33.194.5"
+status = "resolved"
+evidence = "Commit e253063c81 landed the eight spot-widget regressions retained on main at apps/perps/tests/repair-22-33-194.test.ts:763, including complete desktop/mobile rendering, account-change history recovery and bounded trade highlights; the complete-consumer case is listed at :769 and registered at :773."
+
+[disposition.22.33.195.1]
+finding = "22.33.195.1"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:55 declares the agent SDK link and :57 declares viem, the wallet provider and receipt entry points are exported at :19 and :23."
+
+[disposition.22.33.195.2]
+finding = "22.33.195.2"
+status = "resolved"
+evidence = "Main excludes incremental TypeScript metadata at apps/perps/.gitignore:45 and :46, and commit 8d2d6fd745 removed the tracked build-info file; collateral removal still checks fresh account risk at apps/perps/tests/repair-22-33-195.test.ts:113."
+
+[disposition.22.33.195.3]
+finding = "22.33.195.3"
+status = "environment"
+evidence = "On main, collateral removal reads position details and account risk at the same fresh block in apps/perps/tests/repair-22-33-195.test.ts:75 and :113; the two registered cases at :198 and :199 cover tiered maintenance, refreshing before submission and unavailable risk."
+
+[disposition.22.33.196.1]
+finding = "22.33.196.1"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:55 declares the agent SDK link and :57 declares viem, the wallet provider and receipt entry points are exported at :19 and :23."
+
+[disposition.22.33.196.2]
+finding = "22.33.196.2"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:55 declares the agent SDK link and :57 declares viem, the wallet provider and receipt entry points are exported at :19 and :23."
+
+[disposition.22.33.196.3]
+finding = "22.33.196.3"
+status = "resolved"
+evidence = "Commit 53ff46dcce landed exact integer tick rounding at apps/perps/src/widgets/trading/chartOrderPrices.ts:23 and propagates the same decimal price to the line and order state at :45; main retains entry, take-profit and stop-loss grid assertions at apps/perps/tests/repair-22-33-196.test.ts:224."
+
+[disposition.22.33.196.4]
+finding = "22.33.196.4"
+status = "resolved"
+evidence = "Commit 53ff46dcce landed exact integer tick rounding at apps/perps/src/widgets/trading/chartOrderPrices.ts:23 and propagates the same decimal price to the line and order state at :45; main retains entry, take-profit and stop-loss grid assertions at apps/perps/tests/repair-22-33-196.test.ts:224."
+
+[disposition.22.33.198.1]
+finding = "22.33.198.1"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:55 declares the agent SDK link and :57 declares viem, the wallet provider and receipt entry points are exported at :19 and :23."
+
+[disposition.22.33.198.2]
+finding = "22.33.198.2"
+status = "resolved"
+evidence = "Commit 8d2d6fd745 removed the tracked perps build-info file and main ignores its regenerated form at apps/perps/.gitignore:45; portfolio valuation retains explicit price and margin-tier checks at apps/perps/tests/repair-22-33-198.test.ts:276."
+
+[disposition.22.33.198.3]
+finding = "22.33.198.3"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-198.test.ts:198 checks the limited-history disclosure and :276 builds a position valuation from the served mark and margin tiers; the five registered portfolio cases retain precision, privacy and missing-price coverage."
+
+[disposition.22.33.199.1]
+finding = "22.33.199.1"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:55 declares the agent SDK link and :57 declares viem, the wallet provider and receipt entry points are exported at :19 and :23."
+
+[disposition.22.33.199.2]
+finding = "22.33.199.2"
+status = "resolved"
+evidence = "Commit 8d2d6fd745 removed the tracked incremental metadata and main ignores it at apps/perps/.gitignore:45; feedback acceptance remains contingent on feedbackWasAccepted in apps/perps/src/widgets/errors/feedback-submission.ts:57."
+
+[disposition.22.33.199.3]
+finding = "22.33.199.3"
+status = "resolved"
+evidence = "Commit 813d2cb73e landed the feedback draft state machine at apps/perps/src/widgets/errors/feedback-submission.ts:43, which waits for acknowledgement and preserves failed drafts; main exercises the real capture and retry path at apps/perps/tests/repair-22-33-199.test.ts:100."
+
+[disposition.22.33.200.1]
+finding = "22.33.200.1"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:55 declares the agent SDK link and :57 declares viem, the wallet provider and receipt entry points are exported at :19 and :23."
+
+[disposition.22.33.200.2]
+finding = "22.33.200.2"
+status = "resolved"
+evidence = "Commit 8d2d6fd745 removed the tracked incremental metadata and main ignores it at apps/perps/.gitignore:45; network status still preserves the last good block while marking failed refreshes stale at apps/perps/tests/repair-22-33-200.test.ts:103."
+
+[disposition.22.33.200.3]
+finding = "22.33.200.3"
+status = "environment"
+evidence = "On main, apps/perps/tests/repair-22-33-200.test.ts:103 asserts that failed health reads retain the last good block with stale=true and no latency, and :128 requires a connected response to recover the observation; both network-status cases remain registered at :239."
+
+[disposition.22.33.201.1]
+finding = "22.33.201.1"
+status = "environment"
+evidence = "On main, sdk/wallet/package.json:55 declares the agent SDK link and :57 declares viem, the wallet provider and receipt entry points are exported at :19 and :23."
+
+[disposition.22.33.205.1]
+finding = "22.33.205.1"
+status = "resolved"
+evidence = "Commit cda4e5f2e2 aligned the wallet receipt consumer with authenticated chain outcomes at apps/wallet/src/surfaces/repair-22-33-205.test.ts:46; main checks the V1 transaction hash and chain id at :48 and :51 and renders its confirmed receipted outcome at :72."
+
+[disposition.22.33.205.2]
+finding = "22.33.205.2"
+status = "resolved"
+evidence = "Commit cda4e5f2e2 aligned the wallet receipt consumer with authenticated chain outcomes at apps/wallet/src/surfaces/repair-22-33-205.test.ts:46; main checks the V1 transaction hash and chain id at :48 and :51 and renders its confirmed receipted outcome at :72."
+
+[disposition.22.33.205.3]
+finding = "22.33.205.3"
+status = "resolved"
+evidence = "Commit cda4e5f2e2 aligned the wallet receipt consumer with authenticated chain outcomes at apps/wallet/src/surfaces/repair-22-33-205.test.ts:46; main checks the V1 transaction hash and chain id at :48 and :51 and renders its confirmed receipted outcome at :72."
+
+[disposition.22.33.206.1]
+finding = "22.33.206.1"
+status = "resolved"
+evidence = "Commits cda4e5f2e2 and b23a43fd9a landed the current surface receipt expectations and read sequence at apps/wallet/src/surfaces/test/repair-22-33-206.test.ts:82; main derives the call from the recorded BridgeOut transaction and checks the authenticated receipt and decoded precompile event at :99 and :103."
+
+[disposition.22.33.207.1]
+finding = "22.33.207.1"
+status = "resolved"
+evidence = "Commit bbc78e14e7 landed the station replay regression, retained on main at services/wallet/gateway/test/repair-22-33-207.test.ts:784, which compares Buffer.from(evidence.receipt.activityId) with the transaction-hash bytes after canonical receipt authentication."
+
+[disposition.22.33.208.1]
+finding = "22.33.208.1"
+status = "resolved"
+evidence = "Commit 0e95c00565 declared the gateway database dependencies in services/wallet/gateway/package.json:40 and :41; main provides both PGlite and its socket adapter in the gateway manifest, alongside the receipt cases in services/wallet/gateway/test/repair-22-33-208.test.ts:177."
+
+[disposition.22.33.208.2]
+finding = "22.33.208.2"
+status = "resolved"
+evidence = "Commit fc308aa6ac made the account limiter use the held database client at services/wallet/gateway/src/routes/sign.ts:408; commit f865e09150 loads the V6 sponsored deployment, success and refusal recordings at services/wallet/gateway/test/support/node-receipts.ts:190 and includes them in the receipt corpus at :251 on main."
+
+[disposition.22.33.208.3]
+finding = "22.33.208.3"
+status = "resolved"
+evidence = "Commit fc308aa6ac made the account limiter use the held database client at services/wallet/gateway/src/routes/sign.ts:408; commit f865e09150 loads the V6 sponsored deployment, success and refusal recordings at services/wallet/gateway/test/support/node-receipts.ts:190 and includes them in the receipt corpus at :251 on main."
+
+[disposition.22.33.208.4]
+finding = "22.33.208.4"
+status = "resolved"
+evidence = "Commit fc308aa6ac made the account limiter use the held database client at services/wallet/gateway/src/routes/sign.ts:408; commit f865e09150 loads the V6 sponsored deployment, success and refusal recordings at services/wallet/gateway/test/support/node-receipts.ts:190 and includes them in the receipt corpus at :251 on main."
+
+[disposition.22.33.210.1]
+finding = "22.33.210.1"
+status = "resolved"
+evidence = "Commit fe3abc7765 made recordSequencerReceipt use the recording-specific governed pin at services/wallet/gateway/test/support/chain.ts:233 and reject a mismatched predecessor root at :238; main authenticates the chain receipt before storing it at :241."
+
+[disposition.22.33.210.2]
+finding = "22.33.210.2"
+status = "resolved"
+evidence = "Commit fe3abc7765 made recordSequencerReceipt use the recording-specific governed pin at services/wallet/gateway/test/support/chain.ts:233 and reject a mismatched predecessor root at :238; main authenticates the chain receipt before storing it at :241."
+
+[disposition.22.33.212.1]
+finding = "22.33.212.1"
+status = "resolved"
+evidence = "Commit d56c2b440d carried the fallible CLI transaction factory through its callers; on main, sdk/x/auth/client/cli/tx_sign.go:69 binds both the factory and its error before signing, and precompiles/layerxprograms/repair_m212_test.go:110 retains ABI output semantics checks."
+
+[disposition.22.33.213.1]
+finding = "22.33.213.1"
+status = "resolved"
+evidence = "Commit d56c2b440d carried the fallible factory through CLI callers, as retained on main at sdk/x/auth/client/cli/tx_sign.go:69; the programs consumer retains its simulation and native execution proof at precompiles/layerxprograms/repair_m213_test.go:111 and :116 from commit f3402ae5ff."
+
+[disposition.22.33.213.2]
+finding = "22.33.213.2"
+status = "resolved"
+evidence = "Commit f3402ae5ff landed simulation comparisons through the production ABI at precompiles/layerxprograms/method_simulate_test.go:65, including nil calldata; main compares the simulated result to the real call at :80 and checks unchanged stores at :74."
+
+[disposition.22.33.213.3]
+finding = "22.33.213.3"
+status = "resolved"
+evidence = "Commit f3402ae5ff landed the production sandbox execution and recorded-result consumers at precompiles/layerxprograms/repair_m213_test.go:28 and :111; main decodes the native transaction response, requires a canonical receipt and validates its state root at :61, with mutation refusals at :77 and :91."
+
+[disposition.22.33.213.4]
+finding = "22.33.213.4"
+status = "resolved"
+evidence = "Commit f3402ae5ff landed the production sandbox execution and recorded-result consumers at precompiles/layerxprograms/repair_m213_test.go:28 and :111; main decodes the native transaction response, requires a canonical receipt and validates its state root at :61, with mutation refusals at :77 and :91."
+
+[disposition.22.33.213.5]
+finding = "22.33.213.5"
+status = "resolved"
+evidence = "Commit f3402ae5ff landed the production sandbox execution and recorded-result consumers at precompiles/layerxprograms/repair_m213_test.go:28 and :111; main decodes the native transaction response, requires a canonical receipt and validates its state root at :61, with mutation refusals at :77 and :91."
+
+[disposition.22.33.213.6]
+finding = "22.33.213.6"
+status = "resolved"
+evidence = "Commit 87f25cefc8 repaired native sandbox receipt framing and commit f3402ae5ff landed its consumer; on main, precompiles/layerxprograms/repair_m213_test.go:61 decodes the production result and :103 rejects the former receipt-plus-digest terminal attachment."
+
+[disposition.22.33.213.7]
+finding = "22.33.213.7"
+status = "resolved"
+evidence = "Commit f3402ae5ff landed the current producer recording and decoder regression at precompiles/layerxprograms/repair_m213_test.go:28; main derives the usage root from the canonical ledger at :60, requires DecodeProgramExecutionResult to succeed at :62 and checks its terminal result and receipt at :63 and :66."
+
+[disposition.22.33.217.1]
+finding = "22.33.217.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d ported the human balance consumer to Quantity on main at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and :23; conversion to an operational Amount uses for_operation at :24 and verifies both zero and maximum-u128 amounts at :25 and :26."
+
+[disposition.22.33.217.2]
+finding = "22.33.217.2"
+status = "resolved"
+evidence = "Commit 1a3c69501c ported hosted reads to the current client schema; main reads native.balance.bytes() at services/platform/hosted/core/src/public_reads.rs:95, serializes the optional supply at :149 and carries the asset identifier directly at :151."
+
+[disposition.22.33.217.3]
+finding = "22.33.217.3"
+status = "resolved"
+evidence = "Commit 9397b65f47 connected the daemon budget-state consumers to the exported authority API and native store; main retains BudgetStateConfig construction at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:558 and calls budget_state::read at :581."
+
+[disposition.22.33.217.4]
+finding = "22.33.217.4"
+status = "resolved"
+evidence = "Commit b6d38a9897 moved the native-send digest onto its wire request type at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; main hashes canonical request bytes under the native-send domain and the wire regression checks request.prepare_digest() at :3337."
+
+[disposition.22.33.217.5]
+finding = "22.33.217.5"
+status = "resolved"
+evidence = "Commit 6c2ecdfc08 made empty feature content explicitly NotYetProduced at programs/crates/layerx-programs-ai-market/src/queries.rs:932; main retains the absent-policy assertion at programs/crates/layerx-programs-ai-market/tests/view_binding.rs:332 and the absent reward distinction at :315."
+
+[disposition.22.33.217.6]
+finding = "22.33.217.6"
+status = "resolved"
+evidence = "Commit d6543a4874 ported the native-send producer consumer to the V2 consent key; main checks first.purpose.consent_public_key against the session owner key at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681, alongside the canonical digest at :672."
+
+[disposition.22.33.217.7]
+finding = "22.33.217.7"
+status = "resolved"
+evidence = "Commit 6c2ecdfc08 made empty feature content explicitly NotYetProduced at programs/crates/layerx-programs-ai-market/src/queries.rs:932; main retains the absent-policy assertion at programs/crates/layerx-programs-ai-market/tests/view_binding.rs:332 and the absent reward distinction at :315."
+
+[disposition.22.33.218.1]
+finding = "22.33.218.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d ported the human balance consumer to Quantity on main at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and :23; conversion to an operational Amount uses for_operation at :24 and verifies both zero and maximum-u128 amounts at :25 and :26."
+
+[disposition.22.33.218.2]
+finding = "22.33.218.2"
+status = "resolved"
+evidence = "Commit a8b57f6565 landed the trace-boundary regression at programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs:343; main accounts for the complete trace framing, constructs the separately hashed workload at :355 and checks its length and artifact digest at :367 and :380."
+
+[disposition.22.33.218.3]
+finding = "22.33.218.3"
+status = "resolved"
+evidence = "Commit 1a3c69501c ported hosted reads to the current client schema; main reads native.balance.bytes() at services/platform/hosted/core/src/public_reads.rs:95, serializes the optional supply at :149 and carries the asset identifier directly at :151."
+
+[disposition.22.33.218.4]
+finding = "22.33.218.4"
+status = "resolved"
+evidence = "Commit 9397b65f47 connected the daemon budget-state consumers to the exported authority API and native store; main retains BudgetStateConfig construction at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:558 and calls budget_state::read at :581."
+
+[disposition.22.33.218.5]
+finding = "22.33.218.5"
+status = "resolved"
+evidence = "Commit b6d38a9897 moved the native-send digest onto its wire request type at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; main hashes canonical request bytes under the native-send domain and the wire regression checks request.prepare_digest() at :3337."
+
+[disposition.22.33.218.6]
+finding = "22.33.218.6"
+status = "resolved"
+evidence = "Commit a8b57f6565 landed the trace-boundary regression at programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs:343; main accounts for the complete trace framing, constructs the separately hashed workload at :355 and checks its length and artifact digest at :367 and :380."
+
+[disposition.22.33.220.1]
+finding = "22.33.220.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d ported the human balance consumer to Quantity on main at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and :23; conversion to an operational Amount uses for_operation at :24 and verifies both zero and maximum-u128 amounts at :25 and :26."
+
+[disposition.22.33.221.1]
+finding = "22.33.221.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d ported the human balance consumer to Quantity on main at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and :23; conversion to an operational Amount uses for_operation at :24 and verifies both zero and maximum-u128 amounts at :25 and :26."
+
+[disposition.22.33.222.1]
+finding = "22.33.222.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d ported the human balance consumer to Quantity on main at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and :23; conversion to an operational Amount uses for_operation at :24 and verifies both zero and maximum-u128 amounts at :25 and :26."
+
+[disposition.22.33.222.2]
+finding = "22.33.222.2"
+status = "resolved"
+evidence = "Commit 1a3c69501c ported hosted reads to the current client schema; main reads native.balance.bytes() at services/platform/hosted/core/src/public_reads.rs:95, serializes the optional supply at :149 and carries the asset identifier directly at :151."
+
+[disposition.22.33.222.3]
+finding = "22.33.222.3"
+status = "resolved"
+evidence = "Commit 9397b65f47 connected the daemon budget-state consumers to the exported authority API and native store; main retains BudgetStateConfig construction at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:558 and calls budget_state::read at :581."
+
+[disposition.22.33.222.4]
+finding = "22.33.222.4"
+status = "resolved"
+evidence = "Commit b6d38a9897 moved the native-send digest onto its wire request type at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; main hashes canonical request bytes under the native-send domain and the wire regression checks request.prepare_digest() at :3337."
+
+[disposition.22.33.223.10]
+finding = "22.33.223.10"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.11]
+finding = "22.33.223.11"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.12]
+finding = "22.33.223.12"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.1]
+finding = "22.33.223.1"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.2]
+finding = "22.33.223.2"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.3]
+finding = "22.33.223.3"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.4]
+finding = "22.33.223.4"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.5]
+finding = "22.33.223.5"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.6]
+finding = "22.33.223.6"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.7]
+finding = "22.33.223.7"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.8]
+finding = "22.33.223.8"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.223.9]
+finding = "22.33.223.9"
+status = "open"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:91 declares a 32-operation guest inventory, while spec/layerx-merge/spec.kvx:194934 keeps the all-selector and settlement proof task 22.33.223 pending. Its declared programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs proof is absent from main."
+follow_up = "22.33.223"
+
+[disposition.22.33.224.1]
+finding = "22.33.224.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d ported the human balance consumer to Quantity on main at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and :23; conversion to an operational Amount uses for_operation at :24 and verifies both zero and maximum-u128 amounts at :25 and :26."
+
+[disposition.22.33.224.2]
+finding = "22.33.224.2"
+status = "resolved"
+evidence = "Commit 1a3c69501c ported hosted reads to the current client schema; main reads native.balance.bytes() at services/platform/hosted/core/src/public_reads.rs:95, serializes the optional supply at :149 and carries the asset identifier directly at :151."
+
+[disposition.22.33.224.3]
+finding = "22.33.224.3"
+status = "resolved"
+evidence = "Commit 9397b65f47 connected the daemon budget-state consumers to the exported authority API and native store; main retains BudgetStateConfig construction at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:558 and calls budget_state::read at :581."
+
+[disposition.22.33.224.4]
+finding = "22.33.224.4"
+status = "resolved"
+evidence = "Commit b6d38a9897 moved the native-send digest onto its wire request type at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; main hashes canonical request bytes under the native-send domain and the wire regression checks request.prepare_digest() at :3337."
+
+[disposition.22.33.225.1]
+finding = "22.33.225.1"
+status = "resolved"
+evidence = "Commit 5154e9a777 landed the sandbox rollback coverage and registration cases, retained on main at tests/programs/test_registration.c:525; the sandbox fixture derives the treasury account from the explicit system:fees identifier at tests/codec/lxp_test_sandbox_lifecycle.c:158 rather than a retired fee constant."
+
+[disposition.22.33.225.2]
+finding = "22.33.225.2"
+status = "resolved"
+evidence = "Commit 5154e9a777 landed the sandbox rollback coverage and registration cases, retained on main at tests/programs/test_registration.c:525; the sandbox fixture derives the treasury account from the explicit system:fees identifier at tests/codec/lxp_test_sandbox_lifecycle.c:158 rather than a retired fee constant."
+
+[disposition.22.33.23.1]
+finding = "22.33.23.1"
+status = "resolved"
+evidence = "Commit 4acb4e720d landed the SDK producer-path regressions and commit 10fe4690e5 updated their current interface expectations; main keeps the authenticated operation probe at services/agent/sdk/typescript/test/repair-22-33-23.test.ts:65 and registers the pending-nonce route proof at :371."
+
+[disposition.22.33.23.2]
+finding = "22.33.23.2"
+status = "resolved"
+evidence = "Commit 4acb4e720d landed the SDK producer-path regressions and commit 10fe4690e5 updated their current interface expectations; main keeps the authenticated operation probe at services/agent/sdk/typescript/test/repair-22-33-23.test.ts:65 and registers the pending-nonce route proof at :371."
+
+[disposition.22.33.23.3]
+finding = "22.33.23.3"
+status = "resolved"
+evidence = "Commit 4acb4e720d landed the SDK producer-path regressions and commit 10fe4690e5 updated their current interface expectations; main keeps the authenticated operation probe at services/agent/sdk/typescript/test/repair-22-33-23.test.ts:65 and registers the pending-nonce route proof at :371."
+
+[disposition.22.33.23.4]
+finding = "22.33.23.4"
+status = "resolved"
+evidence = "Commit faa0f795f1 landed the account-bearing exchange overload, and main retains its six-field SDK encoding proof at services/agent/sdk/typescript/test/repair-22-33-23.test.ts:322; the encoded call must match the producer recording at :340 and reject the legacy argument shape at :363."
+
+[disposition.22.33.23.5]
+finding = "22.33.23.5"
+status = "resolved"
+evidence = "Commit 10fe4690e5 replaced stale handler-text assumptions with ABI and byte-level comparisons at services/agent/sdk/typescript/test/repair-22-33-23.test.ts:322; main checks the six account-bearing words at :348, the distinct legacy selector at :360 and rejection of mismatched argument counts at :363."
+
+[disposition.22.33.23.6]
+finding = "22.33.23.6"
+status = "resolved"
+evidence = "Commit 10fe4690e5 replaced stale handler-text assumptions with ABI and byte-level comparisons at services/agent/sdk/typescript/test/repair-22-33-23.test.ts:322; main checks the six account-bearing words at :348, the distinct legacy selector at :360 and rejection of mismatched argument counts at :363."
+
+[disposition.22.33.230.1]
+finding = "22.33.230.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d ported the human balance consumer to Quantity on main at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and :23; conversion to an operational Amount uses for_operation at :24 and verifies both zero and maximum-u128 amounts at :25 and :26."
+
+[disposition.22.33.233.1]
+finding = "22.33.233.1"
+status = "resolved"
+evidence = "Commit 8510976ba5 declared the AI-market proof test dependencies at programs/crates/layerx-programs-ai-market/Cargo.toml:22 and :23; main links committed-proof and runtime by workspace-relative paths and retains their proof consumer at programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:443."
+
+[disposition.22.33.233.2]
+finding = "22.33.233.2"
+status = "environment"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:443 recovers authenticated guest captures and :521 rejects unauthenticated evidence across restart; the consumer checks finalized publication and current freshness at :464 and :465 and recovered finality refusal at :616."
+
+[disposition.22.33.233.3]
+finding = "22.33.233.3"
+status = "resolved"
+evidence = "Commit 9397b65f47 connected the daemon budget-state consumers to the exported authority API and native store; main retains BudgetStateConfig construction at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:558 and calls budget_state::read at :581."
+
+[disposition.22.33.233.4]
+finding = "22.33.233.4"
+status = "resolved"
+evidence = "Commit b6d38a9897 moved the native-send digest onto its wire request type at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; main hashes canonical request bytes under the native-send domain and the wire regression checks request.prepare_digest() at :3337."
+
+[disposition.22.33.233.5]
+finding = "22.33.233.5"
+status = "environment"
+evidence = "On main, programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs:443 recovers authenticated guest captures and :521 rejects unauthenticated evidence across restart; the consumer checks finalized publication and current freshness at :464 and :465 and recovered finality refusal at :616."
+
+[disposition.22.33.233.6]
+finding = "22.33.233.6"
+status = "resolved"
+evidence = "Commit d6543a4874 ported the native-send producer consumer to the V2 consent key; main checks first.purpose.consent_public_key against the session owner key at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681, alongside the canonical digest at :672."
+
+[disposition.22.33.235.1]
+finding = "22.33.235.1"
+status = "resolved"
+evidence = "Commit 68d2255e4b landed the CosmWasm adapter proofs retained on main at programs/porting/cosmwasm/tests/repair_22_33_235.rs:117 and :206; they cover surrogate-pair transcoding and atomic partial-import recovery, with two-trader settlement and reopen coverage at :393."
+
+[disposition.22.33.236.1]
+finding = "22.33.236.1"
+status = "resolved"
+evidence = "Commit f550f4b281 landed the Solana adapter proofs retained on main at programs/porting/solana/tests/repair_22_33_236.rs:101 and :315; they cover partial-import rejection after reopen and participant isolation, with transfer and scope refusal rollback at :462."
+
+[disposition.22.33.239.1]
+finding = "22.33.239.1"
+status = "resolved"
+evidence = "Commit 84b126ec6a landed executable EVM porting guidance proofs at programs/porting/evm/tests/repair_22_33_239.rs:198 and :499; main exercises later custody payouts, the complete LXT20 codec and native interface, and initialization-authority rollback at :574."
+
+[disposition.22.33.24.1]
+finding = "22.33.24.1"
+status = "resolved"
+evidence = "Commit 2425f89be1 landed current ledger-read recordings and commit 10fe4690e5 aligned their producer expectations; main resolves each offered ledger account through resolveWebLedgerAccount at services/agent/sdk/typescript/test/repair-22-33-24.test.ts:83 and checks every recorded call at :99."
+
+[disposition.22.33.24.2]
+finding = "22.33.24.2"
+status = "resolved"
+evidence = "Commit 2425f89be1 landed regenerated metered payment evidence, retained on main at services/agent/sdk/typescript/test/repair-22-33-24.test.ts:21; :45 verifies the receipt against the current offer and grant, while :54 explicitly rejects the historical receipt as receipt-offer-mismatch."
+
+[disposition.22.33.240.1]
+finding = "22.33.240.1"
+status = "resolved"
+evidence = "Commit e1b1a67969 landed the CosmWasm storage guidance proofs at programs/porting/cosmwasm/tests/repair_22_33_240.rs:49 and :150; main covers cross-sender state and scoped cursor bounds, with the real guest-host scan at :473 and later bounded custody withdrawal at :558."
+
+[disposition.22.33.242.1]
+finding = "22.33.242.1"
+status = "resolved"
+evidence = "Commit cd442df032 declared the registry and runtime development dependencies at programs/sdk/rust/Cargo.toml:17 and :18; main includes the exact-limit and one-byte-over generated-call proof module at programs/sdk/rust/tests/repair_22_33_242.rs:10."
+
+[disposition.22.33.244.1]
+finding = "22.33.244.1"
+status = "resolved"
+evidence = "Commit 0f2268dc6d ported the human balance consumer to Quantity on main at services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:18 and :23; conversion to an operational Amount uses for_operation at :24 and verifies both zero and maximum-u128 amounts at :25 and :26."
+
+[disposition.22.33.246.1]
+finding = "22.33.246.1"
+status = "environment"
+evidence = "On main, programs/sdk/assemblyscript/package.json:18 includes the canonical ABI manifest in the published package, and programs/sdk/assemblyscript/tools/determinism-lint.mjs:541 resolves that manifest relative to the installed tool; tools/qualification/audit_repairs/test_repair_22_33_246.py:28 checks the published inventory."
+
+[disposition.22.33.248.1]
+finding = "22.33.248.1"
+status = "resolved"
+evidence = "Commit 6a6db94827 routes ABI 5 to validate_v5 at programs/sdk/rust/lint/src/lib.rs:778; main retains the accepted market import, wrong-signature refusal and older-version refusal cases at programs/sdk/rust/lint/tests/repair_22_33_248.rs:11, :19 and :39."
+
+[disposition.22.33.249.1]
+finding = "22.33.249.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c ported hosted reads to the current client schema; main reads native.balance.bytes() at services/platform/hosted/core/src/public_reads.rs:95, serializes the optional supply at :149 and carries the asset identifier directly at :151."
+
+[disposition.22.33.249.2]
+finding = "22.33.249.2"
+status = "resolved"
+evidence = "Commit 9397b65f47 connected the daemon budget-state consumers to the exported authority API and native store; main retains BudgetStateConfig construction at services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:558 and calls budget_state::read at :581."
+
+[disposition.22.33.249.3]
+finding = "22.33.249.3"
+status = "resolved"
+evidence = "Commit b6d38a9897 moved the native-send digest onto its wire request type at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851; main hashes canonical request bytes under the native-send domain and the wire regression checks request.prepare_digest() at :3337."
+
+[disposition.22.33.25.1]
+finding = "22.33.25.1"
+status = "resolved"
+evidence = "Commit df308289f0 landed the KMS regression with its declared attestor module at services/human/crates/layerx-human-kms/tests/repair_22_33_25.rs:22 before including config at :49; main uses the production attestor implementation and validates its exact EIP-1559 wire form at :28."
+
+[disposition.22.33.25.2]
+finding = "22.33.25.2"
+status = "resolved"
+evidence = "Commit df308289f0 landed the KMS absolute transport cutoff at services/human/crates/layerx-human-kms/src/server.rs:140 and :147; main bounds every read by the remaining connection lifetime at :83 and :110 and closes the transport on drop at :75, with fragmented-handshake permit recovery checked at services/human/crates/layerx-human-kms/tests/repair_22_33_25.rs:995."
+
+[disposition.22.33.25.3]
+finding = "22.33.25.3"
+status = "resolved"
+evidence = "Commit df308289f0 landed the KMS absolute transport cutoff at services/human/crates/layerx-human-kms/src/server.rs:140 and :147; main bounds every read by the remaining connection lifetime at :83 and :110 and closes the transport on drop at :75, with fragmented-handshake permit recovery checked at services/human/crates/layerx-human-kms/tests/repair_22_33_25.rs:995."
+
+[disposition.22.33.253.1]
+finding = "22.33.253.1"
+status = "resolved"
+evidence = "Commit 34996678db landed the configured order-plan proof at apps/perps/tests/repair-22-33-253.test.ts:52; main reads market configuration and tiers through the real client, checks the encoded placeOrder at :68 and rejects excess leverage and off-tick prices at :74 and :77."
