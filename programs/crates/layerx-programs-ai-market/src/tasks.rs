@@ -41,15 +41,15 @@ use crate::{
     evaluators::{
         authority::split_identity_section, codec::verify_digest, model::VerificationError,
     },
-    registry::{check_f01_capacity, market_clock, MarketHeader},
+    registry::{market_clock, MarketHeader},
     registry_ops::{
         CallContext, PolicySection, ACTIVE, CLOSED, EMPTY_TASK_REGION, RECEIPT_MAX_BYTES,
         WINDING_DOWN,
     },
     rewards::RewardState,
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ActorSlot, ReplayDecision,
-        ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, settlement_rewards, ActorSlot, ReplayDecision, ReplayRequest,
+        RetainedResult, Section, SharedState,
     },
     types::{
         Authentication, Digest32, EpochPhase, EpochWindows, MarketId, MetadataDigest, PolicyDigest,
@@ -672,28 +672,18 @@ fn finish(
     let revision = opened.state.revision.checked_add(1).ok_or(ARITHMETIC)?;
     let mut section = opened.section;
     section.task_region = region.get(..region_len).ok_or(CAPACITY)?;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
-    let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
-    let mut candidate = opened
-        .state
-        .replace_section(Section::PolicyLifecycle, policy)?;
     let receipt = Receipt::new(&opened.binding, revision, e.request, e.operation)?;
-    match replay {
-        Some(request) => {
-            if candidate.record_success(request, call.ctx.height, receipt.digest)?
-                != ReplayDecision::Apply
-            {
-                return Err(NON_CANONICAL);
-            }
-        }
-        None => candidate.revision = revision,
-    }
-    if candidate.revision != revision {
-        return Err(NON_CANONICAL);
-    }
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
+    let (_, state_len) = crate::rewards::finish_feature_transition(
+        opened.state.clone(),
+        section,
+        replay,
+        call.ctx.height,
+        receipt.digest,
+        NON_CANONICAL,
+        policy,
+        control,
+        next,
+    )?;
     let event_len = codec::encode_event_frame(
         e.operation,
         &EventCommon {
