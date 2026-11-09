@@ -191573,7 +191573,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1729.1]
 title = "Issue #1729: Prove lifecycle and registry endpoint behavior through their own commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
