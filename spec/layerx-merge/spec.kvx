@@ -11560,6 +11560,36 @@ value = "px_listAssets and the other px_ list methods of the node root treat a J
 basis = "Gotcha 3783, decision 2521"
 affects = ["18.1665.1"]
 
+[decision.3075]
+title = "A gate of the vendored tree installs with the lock file of its directory and runs the package typecheck script"
+value = "A task whose gate builds or checks a package of the vendored tree uses the package manager of the lock file in the directory of that package: the control-plane package carries its own package-lock.json and is excluded from the pnpm workspace, so its gate runs npm ci and npm run build in that directory; a workspace member installs with pnpm install --frozen-lockfile at the vendored root, builds its workspace dependencies with a recursive filter, and runs the typecheck script of the package (tsrs) rather than a tsc binary the package does not provide. Build and verify commands always name the real repository paths of the files they run; the wording used in prose never enters a command."
+basis = "Gotcha 3796, decision 3072"
+affects = ["18.1815.1", "18.1826.1", "18.1772.1", "18.1817.1", "18.1819.1"]
+
+[decision.3076]
+title = "Node-root history items carry every field the gateway contract requires"
+value = "Every item px_getHistory and px_getUnifiedHistory return carries tx_hash, exactly equal to tx_id, and final_basis, one of block_commit and explorer_api, as services/platform/hosted/gateway/openrpc.json defines them; the Row of src/modules/history/indexer.go emits both fields and the transport tests assert them by the contract names. Task 18.1633.1 owns the fields and task 18.1632.1 requires it."
+basis = "Gotcha 3806, gotcha 3046"
+affects = ["18.1633.1", "18.1632.1"]
+
+[decision.3077]
+title = "A task whose gate reads a repository-wide contract carries the fix of the producer it names"
+value = "When a test of a task walks a repository-wide contract (the runner routing check and its exclusion table, the toolchain version uniformity test, the Go directive uniformity test, the dashboard lock script, the activation goldens) and fails on a producer file outside the task, the task carries that producer file in its touches and corrects it in the same attempt: 18.1843.1 owns the routing check with .github/workflows/human.yml, .github/workflows/launchpad-test.yml and scripts/ci/runner-routing-check.sh, and 18.1845.1, 18.1850.1 and 18.1863.1 require it; 18.1846.1 owns the Foundry pin of launchpad-test.yml and 18.1834.1 requires it; 18.1838.1 owns the hpx registry go directive; 18.1818.1 owns the dashboard lock script."
+basis = "Gotchas 3801 to 3804, decision 2908"
+affects = ["18.1843.1", "18.1845.1", "18.1850.1", "18.1863.1", "18.1846.1", "18.1834.1", "18.1838.1", "18.1818.1"]
+
+[decision.3078]
+title = "Generated platform SDKs regenerate in a dedicated task after a schema change, and drift-gated tasks require it"
+value = "After a source schema of sdk/platform/pipeline.kvx changes, one task of the platform owner runs the generation target and commits every output root the pipeline declares, with the drift test as its verification; no issue task regenerates the SDKs as a side effect. Task 22.39.237 regenerates after the agent-api change of fcf0c791af, and task 18.1639.1 requires it."
+basis = "Gotcha 3807"
+affects = ["22.39.237", "18.1639.1"]
+
+[decision.3079]
+title = "Vendored upstream sources under core/deps are never callers of a retired component; the retired-caller scanner excludes the tree by pathspec"
+value = "The retired-caller scan of tools/paxeer-x/tests/retired_callers_test.py adds the pathspec :(top,exclude,literal)core/deps beside the catalogue, deleted-tree and retiring-tree exclusions, so the upstream cosmwasm and geth copies (including the geth four-byte selector database) are never reported; a vendored copy carries no call into the repository. The owner map of retired.py stays unchanged: a path under core/deps reaching retired.owners remains an error. The task whose gate runs the scan carries the scanner change in its touches and records the excluded tree in the task record."
+basis = "Gotcha 3828, decision 3065"
+affects = ["17.2.8"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41220,6 +41250,78 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.93.400]
+title = "Triage issue #1930: Reconcile Autobahn runner requirements across repair plans"
+reqs = ["22102.1"]
+touches = ["spec/layerx-merge/programme/issues/1930.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/issues/check.py 1930"
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1930.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+symbols = []
+
+[capability.22.93.399]
+title = "Triage issue #1929: Reconcile contradictory empty-config requirements in perps repair plans"
+reqs = ["22102.1"]
+touches = ["spec/layerx-merge/programme/issues/1929.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/issues/check.py 1929"
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1929.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+symbols = []
+
+[capability.22.93.398]
+title = "Triage issue #1928: Include TypeScript/TSX rows in the parity runner repair plan"
+reqs = ["22102.1"]
+touches = ["spec/layerx-merge/programme/issues/1928.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/issues/check.py 1928"
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1928.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+symbols = []
+
+[capability.22.93.397]
+title = "Triage issue #1927: Replace unsupported git grep pathspec flags in retired-scan repair plan"
+reqs = ["22102.1"]
+touches = ["spec/layerx-merge/programme/issues/1927.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/issues/check.py 1927"
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1927.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+symbols = []
+
+[capability.22.93.396]
+title = "Triage issue #1926 and write its report"
+reqs = ["22102.1"]
+touches = ["spec/layerx-merge/programme/issues/1926.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/issues/check.py 1926"
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1926.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+symbols = []
+
+[capability.22.93.395]
+title = "Triage issue #1925 and write its report"
+reqs = ["22102.1"]
+touches = ["spec/layerx-merge/programme/issues/1925.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/issues/check.py 1925"
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1925.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+symbols = []
+
+[capability.22.93.394]
+title = "Triage issue #1924 and write its report"
+reqs = ["22102.1"]
+touches = ["spec/layerx-merge/programme/issues/1924.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/issues/check.py 1924"
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1924.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+symbols = []
+
+[capability.22.39.237]
+title = "Regenerate the platform SDKs after the agent API schema change"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agent-api/src", "services/agent/crates/layerx-sdk/src", "services/agent/sdk", "apps/web/src/api/generated", "sdk/platform/go", "sdk/platform/jvm", "sdk/platform/conformance", "sdk/platform/swift/Sources/LayerXSDK", "sdk/platform/dotnet", "sdk/platform/generators"]
+tests = ["sdk/platform/generators/tests/drift.rs"]
+verification_contract = "test -s sdk/platform/repair_22_39_237.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift"
+do_1 = "do_1 Decision 3078, gotcha 3807. services/agent/schema/agent-api changed at fcf0c791af (2026-11-05) after the last generation, so the drift test of sdk/platform/generators/tests/drift.rs refuses every drift-gated task with stale generated SDKs. Run make platform-sdk-generate (services/platform/Makefile.inc line 241) at the current revision and commit every output root sdk/platform/pipeline.kvx declares: services/agent/crates/layerx-agent-api/src, services/agent/crates/layerx-sdk/src, services/agent/sdk/typescript/src/generated, services/agent/sdk/python/layerx_sdk/generated, the compatibility files under services/agent/sdk, apps/web/src/api/generated, sdk/platform/go, sdk/platform/jvm, sdk/platform/conformance, sdk/platform/swift/Sources/LayerXSDK and sdk/platform/dotnet; handwritten files the pipeline lists stay as they are."
+symbols = []
 
 [capability.22.39.236]
 title = "Run a Redis container beside the database container of the explorer backend test environment"
@@ -159793,7 +159895,7 @@ symbols = ["install_status_reads_actual_ready_and_preserves_typed_errors"]
 touches = ["tools/hyperfide/sdk/client/src/node.ts", "tools/hyperfide/sdk/client/src/browser.ts", "tools/hyperfide/sdk/client/src/core.ts", "tools/hyperfide/sdk/client/test/install-status.test.ts"]
 tests = ["tools/hyperfide/sdk/client/test/install-status.test.ts::install_status_reads_actual_ready_and_preserves_typed_errors"]
 planned_paths = []
-build_cmd = "pnpm --dir tools/hyperfide/sdk/client exec tsc --noEmit"
+build_cmd = "pnpm --dir tools/hyperfide install --frozen-lockfile && pnpm --dir tools/hyperfide -r --filter ./sdk/client^... run build && pnpm --dir tools/hyperfide/sdk/client run typecheck"
 verify_cmd = "pnpm --dir tools/hyperfide/sdk/client exec vitest run --config vitest.config.ts test/install-status.test.ts -t '^install_status_reads_actual_ready_and_preserves_typed_errors$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -159806,6 +159908,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree 7284bfbc7510 stands unchanged. The build command now installs the vendored tree with its frozen pnpm lock, builds the workspace dependencies of the client SDK package and runs its typecheck script (tsrs) instead of a tsc binary the package does not provide. Run the build once and the verification once at that revision."
 
 [task.18.1823.1]
 title = "Issue #1823: Include canonical chart declarations in the launchpad image builder"
@@ -159822,7 +159925,7 @@ symbols = ["test_launchpad_docker_chart_declarations"]
 touches = ["deploy/launchpad/Dockerfile.web", "tests/ci/test_frontend_asset_names.py"]
 tests = ["tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations"]
 planned_paths = []
-build_cmd = "docker build --target build -f deploy/launchpad/Dockerfile.web ."
+build_cmd = "docker build --target build --build-arg WEB_GATEWAY_UPSTREAM=http://gateway.internal:8080 -f deploy/launchpad/Dockerfile.web ."
 verify_cmd = "python3 -m pytest tests/ci/test_frontend_asset_names.py::test_launchpad_docker_chart_declarations -q"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -159835,6 +159938,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (requalify, gotcha 3799): the attempt-1 tree ab4222df2384 stands unchanged. The build command now passes WEB_GATEWAY_UPSTREAM=http://gateway.internal:8080 to the image build so web-build-env.sh admits the build stage. Run the build once and the verification once at that revision."
 
 [task.18.1815.1]
 title = "Issue #1815: Preserve selected descendant changes across ancestor type replacements"
@@ -159853,7 +159957,7 @@ symbols = ["SourceQueries", "createSourceApi", "test_source_query_ancestor_type_
 touches = ["tools/hyperfide/core/control-plane/src/source_control/queries.ts", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs"]
 tests = ["tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs::test_source_query_ancestor_type_changes"]
 planned_paths = []
-build_cmd = "npm --prefix tools/hyperfide/core/control-plane run build"
+build_cmd = "npm --prefix tools/hyperfide/core/control-plane ci --ignore-scripts --no-audit --no-fund && npm --prefix tools/hyperfide/core/control-plane run build"
 verify_cmd = "python3 tools/hyperfide/tests/hyperfide/cases/source_control/2_1.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -159866,13 +159970,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree 9796214ff3ff stands unchanged. The build command now installs the control-plane package of the vendored tree with npm ci in its own directory, the only install its package-lock.json allows, and runs its build script. Run the build once and the verification once at that revision."
 
 [task.18.1803.1]
 title = "Issue #1803: Align embedded-wallet regression coverage with explicit endpoint configuration"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["22.39.234"]
 reqs = ["181803.1"]
 capabilities = ["18.1803.1"]
 interfaces = []
@@ -159896,13 +160001,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3794, decision 3068): the attempt-1 tree 1b3f1e38c29d stands (the embedded wallet test). Merge main once 22.39.234 is on it, change nothing else, run the build once and the verification once at the final revision and record both by reference; if a case of the task fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1802.1]
 title = "Issue #1802: Preserve injected wallets when the embedded wallet is disabled"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["22.39.234"]
 reqs = ["181802.1"]
 capabilities = ["18.1802.1"]
 interfaces = []
@@ -159925,6 +160031,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3794, decision 3068): the attempt-1 tree 2b3daa8a0e11 stands (the embedded wallet client change, the repair test). Merge main once 22.39.234 is on it, change nothing else, run the build once and the verification once at the final revision and record both by reference; if a case of the task fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1797.1]
 title = "Issue #1797: Align middleware conformance gateway requests with the root endpoint"
@@ -159974,8 +160081,8 @@ symbols = ["NativeSlicesProvider", "slicesHostContract", "slicesRpcContract", "s
 touches = ["tools/hyperfide/sdk/source-control/src/host/provider.ts", "tools/hyperfide/plugins/environment-slices/contract.ts", "tools/hyperfide/plugins/hyperfide-source-control/contract.ts", "tools/hyperfide/plugins/hyperfide-source-control/server.ts", "tools/hyperfide/plugins/hyperfide-source-control/app.tsx", "tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx", "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py", "tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs"]
 tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"]
 planned_paths = []
-build_cmd = "pnpm --dir tools/hyperfide/plugins/*-source-control run typecheck"
-verify_cmd = "python3 -m pytest the vendored source-control case file 4_3.py::test_host_checkpoint_submission_and_reopen -q"
+build_cmd = "pnpm --dir tools/hyperfide install --frozen-lockfile && pnpm --dir tools/hyperfide -r --filter ./plugins/*-source-control^... run build && pnpm --dir tools/hyperfide/plugins/*-source-control run typecheck"
+verify_cmd = "python3 -m pytest tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen -q"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-tools-ops"
@@ -159987,6 +160094,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree 95e997fddf7a stands unchanged. The build and verify commands now name the real paths of the source-control plugin package and of case file 4_3.py under the vendored tests directory, install with the frozen pnpm lock and build the workspace dependencies before the typecheck script. Run the build once and the verification once at that revision."
 
 [task.18.1770.1]
 title = "Issue #1770: Accept the Explorer Ask flag in startup validation"
@@ -160046,6 +160154,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3812): the attempt-1 tree 92a8d7a90c30 stands. Import React in apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx as the sibling specifications do so the JSX compiles under the explorer test runtime; nothing else changes. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1679.1]
 title = "Issue #1679: Restrict live transfer updates and notices to the first display page"
@@ -160075,13 +160184,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3811): the attempt-1 tree 8e41db2dc232 stands. Make the token transfer live update follow the display page size the page declares (25) so tokenTransferLiveUpdatesFollowDisplayPage passes, at the site where the live update reads the fetch size (50) instead; no assertion changes. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1675.1]
 title = "Issue #1675: Show a retryable Portfolio header error when balance reads fail"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["22.39.234"]
 reqs = ["181675.1"]
 capabilities = ["18.1675.1"]
 interfaces = []
@@ -160104,6 +160214,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3794, decision 3068): the attempt-1 tree 9440476f4d02 stands (the portfolio page and top bar changes, the repair test). Merge main once 22.39.234 is on it so the perps tree resolves one React type package, change nothing else, run the build once and the verification once at the final revision and record both by reference; if a case of the task fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1662.1]
 title = "Issue #1662: Register and execute all nine wallet repair proofs"
@@ -160118,7 +160229,7 @@ do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1662.kvx
 do_2 = "Run only the two repair suites against their existing production code paths and committed peers; require the Vitest JSON result to report success, exactly nine total and passed tests, zero failed tests, zero pending tests and zero TODO tests."
 do_3 = "Correct the proof comments in services/wallet/gateway/test/repair-22-33-181.test.ts:12 and services/wallet/gateway/test/repair-22-33-209.test.ts:27 to state that former callback-less TODO collection did not execute the assertions and cannot substantiate repair qualification; retain their finding mappings and separate wiring requests."
 symbols = ["actionLeaseLossStopsDelayedSigningAndFencesRelease", "actionLeaseRenewalErrorStopsAdvancement", "actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome", "actionLeaseExpiryDrainsPendingRenewal", "actionOperationDeadlineBoundsDelayedSigning", "attestorListenersStayReservedUntilDaemonHandoff", "retainedRoutesAuthenticateWhileCustodyStaysAbsent", "evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart"]
-touches = ["services/wallet/gateway/test/repair-22-33-181.test.ts", "services/wallet/gateway/test/repair-22-33-209.test.ts"]
+touches = ["services/wallet/gateway/test/repair-22-33-181.test.ts", "services/wallet/gateway/test/repair-22-33-209.test.ts", "services/wallet/gateway/src/agent/actions", "services/wallet/gateway/src/db/actions.ts"]
 tests = ["services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseLossStopsDelayedSigningAndFencesRelease", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseRenewalErrorStopsAdvancement", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionLeaseExpiryDrainsPendingRenewal", "services/wallet/gateway/test/repair-22-33-181.test.ts::actionOperationDeadlineBoundsDelayedSigning", "services/wallet/gateway/test/repair-22-33-209.test.ts::attestorListenersStayReservedUntilDaemonHandoff", "services/wallet/gateway/test/repair-22-33-209.test.ts::retainedRoutesAuthenticateWhileCustodyStaysAbsent", "services/wallet/gateway/test/repair-22-33-209.test.ts::evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart"]
 planned_paths = []
 build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
@@ -160135,6 +160246,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3792): the attempt-1 tree 90883a34f5d7 stands (the nine registered proofs across the two test files). Run the verification, which now runs the suite with the verbose reporter and prints the five counts, read which case fails or is skipped, and repair it at its source in the two test files (a skipped or todo case becomes a running case; a failing case asserts the value the wallet gateway produces); the count assertion stays at nine passed. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3817): the attempt-2 tree 612de178d080 stands (the nine registered proofs). Trace the lease duration case (signing and receipt time-out with competing participants) first: log every query the participant issues against the fixture database of services/wallet/gateway/test/repair-22-33-181.test.ts and compare it with the claim and lease SQL of src/db/actions.ts and src/agent/actions/lease.ts at the current revision; where the fixture answers a query shape the producer no longer issues, align the fixture to the producer, and where the producer never reaches signing with a valid claim, repair the producer at that site (both producer paths are in the touches from this round). Apply the same cause to the five sibling cases, keep every assertion, and record the cause in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1656.1]
 title = "Issue #1656: Display protocol snapshot TVL in six-decimal USDL units"
@@ -160181,7 +160293,7 @@ do_1 = "do_1 Decision 3068, gotcha 3770. Run pnpm --dir apps/perps exec tsc --no
 do_2 = "do_2 Restore one React type resolution: pin @types/react in apps/perps/package.json and the lockfile to the version the wallet lockfile resolves so both trees share one declaration set, or, if a dependency requires the second version, map react and react/jsx-runtime through the compilerOptions paths of apps/perps/tsconfig.json to the perps declaration set; no component, module or test source changes for the type check alone, and the record names the resolution chosen with the dependency that introduced the second version."
 do_3 = "do_3 Run the build once and the verification once at the final revision and record both by reference. If the type check still fails after one repair cycle, record the remaining errors by file and stop the attempt."
 symbols = []
-touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/tsconfig.json"]
+touches = ["apps/perps/package.json", "apps/perps/pnpm-lock.yaml", "apps/perps/tsconfig.json", "apps/perps/tests/spot-release-gate.test.ts"]
 tests = ["apps/perps/tests/spot-release-gate.test.ts"]
 planned_paths = ["apps/perps/repair_22_39_234.kvx"]
 build_cmd = "pnpm --dir apps/perps install --frozen-lockfile --offline && pnpm --dir apps/perps exec tsc --noEmit"
@@ -160197,6 +160309,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3795, decision 3068): the attempt-1 tree 3455fe6fb966 stands (the pinned React type package 18.3.31, the three tsconfig path entries, the lock, the record). In apps/perps/tests/spot-release-gate.test.ts wrap the Harness of lines 80 to 95 in a QueryClientProvider with a fresh QueryClient per render, the setup tests/mobile-markets.test.ts uses at lines 6, 41 and 73, so MarketsPage reaches useMarketsRows with a client; no assertion changes and the test file is in the touches from this round. Record the fixture change with the producer it follows (useMarketsRows through useQuery since e924a72638) in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1766.1]
 title = "Issue #1766: Preserve the legacy explorer block height across live updates"
@@ -160212,7 +160325,7 @@ do_2 = "Declare a named legacyBlockCounterKeepsHeight regression in services/exp
 do_3 = "For first_block values zero and 100, assert an initial rendered counter of 500 remains 500 on load, advances to 501 on a block-501 notification, stays 501 on a duplicate or replacement at 501 and an older notification at 499, and advances again on 502; assert the visible counter and Redux state, retain replacement-tile assertions, and cover an initially empty block list receiving a notification below its loaded height."
 do_4 = "Preserve the latest-consensus-height server contract at services/explorer/backend/apps/explorer/lib/explorer/chain.ex:1322 and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/templates/chain/show.html.eex:138; the configured first block remains available at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/templates/layout/app.html.eex:63, and the existing controller regression at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs:18 proves initial HTML only; the legacy router remains optional under services/explorer/backend/apps/block_scout_web/config/config.exs:73 and services/explorer/deploy/env/backend.example.env:115, as described by decision.2667 at spec/layerx-merge/spec.kvx:9115."
 symbols = ["baseReducer", "legacyBlockCounterKeepsHeight"]
-touches = ["services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js", "services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js"]
+touches = ["services/explorer/backend/apps/block_scout_web/assets/js/pages/chain.js", "services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js", "services/explorer/backend/apps/block_scout_web/assets/package.json", "services/explorer/backend/apps/block_scout_web/assets/package-lock.json"]
 tests = ["services/explorer/backend/apps/block_scout_web/assets/__tests__/pages/chain.js::legacyBlockCounterKeepsHeight"]
 planned_paths = []
 build_cmd = "cd services/explorer/backend/apps/block_scout_web/assets && npm ci --ignore-scripts --no-audit --no-fund && npm run build"
@@ -160229,6 +160342,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Requalify attempt 1 at 9402211da8e3 with the npm build and verification of decision 3072; the tree stands unchanged (the chain page script and its test). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
+do_6 = "Attempt 3 (continue, gotcha 3814): the attempt-2 tree a94ffba122d7 stands (the chain page and its test). Add terser-webpack-plugin to the devDependencies of services/explorer/backend/apps/block_scout_web/assets/package.json at the version webpack 5.104.1 pairs with and refresh its package-lock.json with npm install --package-lock-only, so webpack.config.js line 2 resolves it; both files are in the touches from this round and no other dependency changes. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1720.1]
 title = "Issue #1720: Keep home transaction history within its calendar-day window"
@@ -160320,6 +160434,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Requalify attempt 1 at 0daffc77f779 with the yarn build and verification of decision 3072; the tree stands unchanged (the header specification repair). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
+do_4 = "Attempt 3 (continue, gotcha 3823): the attempt-2 tree ed8eb25ac200 stands (the accessible label lookup). In apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx fire the search shortcut key event on the element the header registers its listener on (document or window, as the header source shows) with the exact key and modifiers it checks, then await the focus with waitFor before asserting document.activeElement is the input; no production code changes. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1713.1]
 title = "Issue #1713: Accept exact payments within complete receipt log lists"
@@ -160350,6 +160465,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3779, gotcha 3046): the attempt-1 tree fca0ac74d127 stands (the exact payment log receipts in web-search.ts and the client tests). In services/agent/sdk/typescript/test/web-search.test.ts write every fixture receipt with the settlement moduleId 12 and operation 2 the client requires at src/web-search.ts line 359 (the producer values, unchanged from main), and replace the cast at line 166 column 35 with a literal of the receipt type; no check in src/web-search.ts is loosened. Run the build once through the package manager of the directory and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_4 = "Attempt 3 (continue, gotcha 3818, gotcha 3046): the attempt-2 tree 84840c93e9d7 stands (the exact payment acceptance in src/web-search.ts, the test). Build the fixture receipt and raw transaction of webSearchExactPaymentLogReceipts in test/web-search.test.ts through the producer encoders (the pinned receipt encoder with module 12 operation 2 and the ledger transaction encoder) so verifyWebSearchPayment (src/web-search.ts line 358) accepts them, instead of hand-written bytes; keep every assertion and the webSearchClientTests case. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1712.1]
 title = "Issue #1712: Restore real HTTP regression coverage alongside fetch boundary checks"
@@ -160395,7 +160511,7 @@ do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1711.kvx
 do_2 = "In services/platform/middleware/conformance/service.mjs:523 authenticate the recorded signed receipt and raw transaction with the pinned receipt keys at :532 through verifySequencerReceipt and use its receiptDigest in the proof instead of the Keccak construction at :529; retain the exact digest assertions for the agent result and committed budget at :688 and :698 and the recovery and replay checks at :742."
 do_3 = "Extend conformance_daemon_fixture_tracks_and_recovers_real_serializer_output in services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs:124 to independently verify the transcript receipt with its pinned keys, assert that every receipt-service proof and the recovered budget carry that authenticated digest, and assert it differs from the legacy signed-receipt Keccak hash; retain its exact producer-transcript, six-scenario, restart and single-budget-commit assertions at :129, :133, :154 and :184, then run it together with mergedHttpEnvelopesSurviveReopen against current source."
 symbols = ["mergedHttpEnvelopesSurviveReopen", "runAgentServiceScenarios", "conformance_daemon_fixture_tracks_and_recovers_real_serializer_output"]
-touches = ["services/platform/middleware/conformance/pay6/walkthrough.mjs", "services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"]
+touches = ["services/platform/middleware/conformance/pay6/walkthrough.mjs", "services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs", "services/platform/middleware/conformance/fixtures/daemon-submission.json"]
 tests = ["services/platform/middleware/conformance/pay6/walkthrough.mjs::mergedHttpEnvelopesSurviveReopen", "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_daemon_fixture_tracks_and_recovers_real_serializer_output"]
 planned_paths = []
 build_cmd = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-middleware-conformance && npm --prefix services/platform/middleware/conformance run build"
@@ -160412,6 +160528,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Requalify attempt 1 at 80a88738417b with the npm build of decision 3072; the tree stands unchanged (the walkthrough and service changes with their test). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3808): the attempt-2 tree 71ddd5172ce2 stands (the walkthrough and service changes, the test). Regenerate services/platform/middleware/conformance/fixtures/daemon-submission.json from the real serializer at the final tree so asset, block_height, first_height and inclusion_height match the current output, with the fixture in the touches from this round; no assertion of test/repair-22-33-1480.test.mjs changes. Record the regeneration with the serializer it follows in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1699.1]
 title = "Issue #1699: Recover advanced actions after rejected or failed wallet signatures"
@@ -161028,6 +161145,7 @@ do_6 = "Attempt 5 (continue, gotcha 3651, decisions 2829, 2900, 2908, 2917, 2926
 do_7 = "Attempt 6 (continue, gotcha 3672, decisions 2900, 2917, 2926, 2965 and 2971): the attempt-5 tree 9cac716c3d5e stands (the ordered producers, the owned deployment, the repaired issuer, the RPC_URLS input, the Redis fan-out, the separate HTTPS identity and HTTP chart origins, the repaired cases, the record). Per decision 2971 make src/widgets/trading/run-joined-services.py and scripts/prepare-test-environment.py write the run directory under build/launchpad-tests/ of apps/launchpad/web (ignored by git), name the role, its exit status and the last forty log lines in every readiness failure message and in result.json, and choose the six role ports through one helper that holds every listener until the last port is chosen. Then reproduce the preparation outside the gate: start the roles in the producer order, read the log of any role that exits, repair its configuration from the configuration loader of that service under services/launchpad (the variable names and the lines they come from), and repeat until every role answers its readiness URL and the public market snapshot answers 200; record per role the required variables with their source lines in apps/launchpad/web/repair-22-39-95.kvx. Then run the web suite to its end and the mobile suite: every failing case is this task to repair at the site its assertion names, with the failing names before and after recorded as decision 2900 requires. Reproduce the job steps and the fresh database service before every gate run. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_8 = "Attempt 7 (continue, gotcha 3682, decisions 2900, 2917, 2965, 2971 and 2981): the attempt-6 tree 30d180caaaa2 stands (the datafeed recovery, UDF wire and trade journey repairs, the owned deployment preparation, the phase scripts, the vitest configuration). In apps/launchpad/web/src/widgets/trading/run-joined-services.py start the api as one process without API_ROLE under the test environment, the configuration dev_stream_test.go boots at its line 305, in place of the rest and sockets pair: one api origin carries NEXT_PUBLIC_DATA_API_URL, NEXT_PUBLIC_PNL_API_URL, WEB_API_UPSTREAM, WEB_SOCKETS_UPSTREAM, the websocket form of NEXT_PUBLIC_STREAM_ORIGIN and the api_origin of the written configuration, and stream_ready probes GET /v2/snapshots on that origin after its health check; the readiness refusal, its diagnostics and the distinct-port helper stay. The api code under services/launchpad/api, the rewrite table of next-build-config.ts and the production topology stay unchanged; if the single process cannot serve both the REST reads and the stream in the setup, record a suspect finding against the rewrite table with the observed response and stop rather than editing the api. Before every gate run reproduce the fresh database service as decision 2917 requires. Record the failing names by target before and after per decision 2900. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_9 = "Attempt 8 (continue, gotcha 3696, decisions 2900, 2917, 2965, 2971, 2981 and 2996): the attempt-7 tree f9670ab45d4e stands (the single api process, the chart consumer, the datafeed recovery, UDF wire and trade journey repairs, the owned deployment preparation, the phase scripts, the vitest configuration, the record). Add to the stats module a command under its cmd directory (a main package beside the service entry) that reads DATABASE_URL, calls Up of its migrate package and exits non-zero on error; in apps/launchpad/web/src/widgets/trading/run-joined-services.py build and run that command over the private database after the indexer role and before the api role, recording its exit status and output under the run directory, and replace the comment that claims every schema is migrated at service startup with the roles that are and the stats schema that is not. In stream_ready wait at least one second between requests, honour a Retry-After header when the answer carries one, treat a 404 NOT_FOUND envelope for a topic the projection has not filled as not yet ready while keeping the 404 page not found refusal and the 503 refusal, and record every answer as it does now; give the api role API_RATE_LIMIT_MAX 1000 and API_RATE_LIMIT_WINDOW_SEC 60 in its environment. The api code and the stats service stay unchanged apart from the new command, and the stats module directory is in the touches from this round. Reproduce the preparation outside the gate to readiness as decision 2971 requires, reading the api log for any further degraded message and repairing its cause in the preparation before the gate pair; keep the decision 2900 record of failing names by target before and after, record the command and the probe with the producers they follow (the migrate package of the stats module, the rate limit of the api development stream test), and run the build once and the verification once at the final revision, recording both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_10 = "Attempt 10 (continue, gotcha 3822, decisions 2908 and 2917): the attempt-9 tree 5ea9c3c82ef7 stands (1270 passing cases). Repair the eight remaining cases at their sites: start the trading charts origin of the chart cases with the dependencies it reports as unavailable (the 503 DEPENDENCY_UNAVAILABLE answers of the history cache, the symbols and the recovery socket come from an origin without its candle store) so the real joined chart scenarios of src/widgets/trading/chart-datafeed-recovery.test.ts (lines 440, 541 and 636) see canonical candles; provision the Playwright browser the fallback journey at line 431 launches, or bind the case to the browser provisioning the launchpad web test setup documents; bound socialRequestDeadline of src/widgets/social/repair-22-33-921.test.ts (line 355) to the deadline the producer enforces so it finishes under its time-out; make the TopTrades case of src/widgets/profile/portfolio-widgets.test.tsx (line 214) receive the pool name Lantern from the pnl-tracker origin fixture; and repair the funded chain125 journey of trade-journey.integration.test.tsx and the advanced deployment of src/widgets/meta-ag/connected-journeys.test.tsx (line 201, Order creation block outside admitted history) against the loopback chain fixture they bind. Keep the decision 2900 record of failing names before and after. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.94]
 title = "Run the launchpad and sdk/wallet test jobs under their own pnpm workspace roots"
@@ -182103,7 +182221,7 @@ symbols = ["_parse_settlement_proof", "capture_settlement", "paymentPeer", "test
 touches = ["services/agent/sdk/python/layerx_sdk/x402_http.py", "services/platform/middleware/conformance/pay6/peers.mjs", "services/platform/middleware/conformance/pay6/test_http.py"]
 tests = ["services/platform/middleware/conformance/pay6/test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip"]
 planned_paths = []
-build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_http.py services/platform/middleware/conformance/pay6/test_http.py"
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_http.py services/platform/middleware/conformance/pay6/test_http.py"
 verify_cmd = "python3 -m pytest services/platform/middleware/conformance/pay6/test_http.py::HttpTests::test_typescript_settlement_metadata_round_trip -q"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -182116,6 +182234,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 3 (requalify, gotcha 3797): the attempt-2 tree 7c2ace3c4c5d stands unchanged. The build command now installs services/agent/sdk/typescript with npm ci from its package-lock.json before the python compile, so the node peer of test_http.py resolves the noble hashes package through committed-proof.ts. Run the build once and the verification once at that revision."
 
 [task.18.1828.1]
 title = "Issue #1828: Scope interop baseline skips to their recorded package and Cargo target"
@@ -182192,7 +182311,7 @@ do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1818.kvx
 do_2 = "Add services/platform/hosted/dashboard/web/README.md documenting that the API origin is a non-secret build-time input embedded in Next rewrites, that changing it requires rebuilding the image, and how to provide it to the canonical Dockerfile, shared image builder, publication variable and the Fly Dockerfile path at services/platform/hosted/dashboard/web/fly.toml:6-7 using an explicit build argument; do not introduce a private-host default or suggest a runtime environment variable can replace the built rewrite."
 do_3 = "Extend tests/ci/test_dashboard_proxy_origin_configurable.py with test_dashboard_docker_build_origin: invoke the real image_build_args helper with the supported origin and assert its exact forwarded value and its nonzero refusal for missing, empty or whitespace-containing input; inspect the canonical image produced by build_cmd using Docker and assert that its generated routes-manifest.json rewrites /v1/dashboard/:path* to https://dashboard-api.example.com/v1/dashboard/:path*, that its standalone server exists, and that a different runtime DASHBOARD_API_ORIGIN does not alter that built destination. Preserve and run the existing direct-import production-refusal and no-private-host cases at :13-62, and assert the publication configuration forwards the same origin without a fallback; do not mock Docker, skip absent images, or replace image inspection with a source-text assertion."
 symbols = ["image_build_args", "test_dashboard_docker_build_origin"]
-touches = ["docker/platform-dashboard-web/Dockerfile", "services/platform/hosted/tests/beta-images.sh", ".github/workflows/publish-images.yml", "services/platform/hosted/dashboard/web/README.md", "tests/ci/test_dashboard_proxy_origin_configurable.py"]
+touches = ["docker/platform-dashboard-web/Dockerfile", "services/platform/hosted/tests/beta-images.sh", ".github/workflows/publish-images.yml", "services/platform/hosted/dashboard/web/README.md", "tests/ci/test_dashboard_proxy_origin_configurable.py", "scripts/ci/developer-dashboard-lock.mjs"]
 tests = ["tests/ci/test_dashboard_proxy_origin_configurable.py::test_dashboard_docker_build_origin", "tests/ci/test_dashboard_proxy_origin_configurable.py::test_dashboard_next_config_reads_dashboard_api_origin", "tests/ci/test_dashboard_proxy_origin_configurable.py::test_dashboard_next_config_names_no_private_host"]
 planned_paths = ["services/platform/hosted/dashboard/web/README.md"]
 build_cmd = "DASHBOARD_API_ORIGIN=https://dashboard-api.example.com bash -ec 'source services/platform/hosted/tests/beta-images.sh; docker build --file docker/platform-dashboard-web/Dockerfile $(image_build_args layerx-dashboard-web) --tag layerx-dashboard-web:issue-1818 .'"
@@ -182208,6 +182327,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3804, decision 3077): the attempt-1 tree fc28835c4726 stands (the Dockerfile, the beta image test, the publish workflow, the README, the proxy origin test). In scripts/ci/developer-dashboard-lock.mjs line 10 assert the five-level path file:../../../../../apps/web/packages/layerx-ui that services/platform/hosted/dashboard/web/package.json line 17 declares and that is right for its directory depth; the script is in the touches from this round and the manifest stays unchanged. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1817.1]
 title = "Issue #1817: Reject unsupported sparse-workspace profiles before source writes"
@@ -182225,8 +182345,8 @@ symbols = ["main", "testSparseWorkspaceLauncherProfiles"]
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs"]
 tests = ["tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs::testSparseWorkspaceLauncherProfiles"]
 planned_paths = []
-build_cmd = "python3 -m py_compile the vendored source-control case file 2_2.py && node --check the vendored test support file native_source_sparse_fixture.mjs"
-verify_cmd = "python3 the vendored source-control case file 2_2.py"
+build_cmd = "python3 -m py_compile tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py && node --check tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs"
+verify_cmd = "python3 tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-tools-ops"
@@ -182238,6 +182358,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree 6155a7bedc11 stands unchanged. The build and verify commands now name the real paths of case file 2_2.py and the native source sparse fixture under the vendored tests directory. Run the build once and the verification once at that revision."
 
 [task.18.1750.1]
 title = "Issue #1750: Prove authenticated Claim and RefundFree replay through native activities"
@@ -182269,6 +182390,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_6 Gotcha 3827: attempt 1 ended without a change in scope; the deliverable stands as do_1 to do_5 describe it, implemented in tests/programs/test_ai_host_boundary.c and programs/crates/layerx-programs-ai-market/tests/rewards_native.rs only, built with make paxai-host-boundary-build and verified with the exact rewards_native case the verify command names."
 
 [task.18.1749.1]
 title = "Issue #1749: Prove Claim and RefundFree replay preserves recipient balances after reopen"
@@ -182298,6 +182420,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3813): the attempt-1 tree e23026208c77 stands. At programs/crates/layerx-programs-ai-market/tests/rewards_native.rs line 2677 the aggregation begins at balance -601 where zero is required: trace the fixture steps before the assertion, correct the step that spends past zero or the producer path that lets it, and keep the assertion; record the cause in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1724.1]
 title = "Issue #1724: Prove nonzero restart accounting with node-produced transaction receipts"
@@ -182327,6 +182450,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3810): the attempt-1 tree 392b746b5011 stands (the restart fixture, the current node support, the outbox recovery test). Derive the restart capture of node/sequencer/receipt_equality_test.go from the producer receipt path so the receipt result code at line 430 is zero (the run returned 0x2d) and the budget state at line 434 is the value the producer derives rather than a fixture constant; no assertion changes. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1684.1]
 title = "Issue #1684: Align native receipt references and preserve producer evidence during recovery"
@@ -182363,8 +182487,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1658: Preserve markets snapshots with unavailable feed metrics"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["22.39.234"]
 reqs = ["181658.1"]
 capabilities = ["18.1658.1"]
 interfaces = []
@@ -182390,6 +182514,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue after 22.39.234 lands; gotcha 3794, decision 3068): the attempt-1 tree 70631c59d2b6 stands (the markets stream, realtime price, freshness and rows changes). Merge main once 22.39.234 is on it, change nothing else, run the build once and the verification once at the final revision and record both by reference; if a case of the task fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1764.1]
 title = "Issue #1764: Verify committed receipts against the complete batch activity list"
@@ -191418,6 +191543,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3782): the attempt-1 tree 492b07abcd86 stands (the bootstrap peer repair and its test). In tools/platform/cli/tests/repair_22_33_63.rs line 1648 build the trace identifier in the format TraceId::parse accepts (trace.rs lines 38 to 46): the prefix trc_ followed by thirty-two lowercase hexadecimal digits; no change to the parser. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3821): the attempt-2 tree 55fb3d91800b stands (the two clock-unit regressions). At tests/repair_22_33_63.rs line 1619 the must helper of line 94 unwraps a peer request the fixture answers with Unavailable: identify the request the clock-unit path issues to the fixture peer and answer it the way the real producer does (the sibling fixtures of the file show the answers for the other requests), keep every assertion of native_approval_clock_units and native_producer_clock_units, and record the request and answer in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1745.1]
 title = "Issue #1745: Exercise the production committed-state predicate in approval budget repair tests"
@@ -191479,6 +191605,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Requalify attempt 1 at 37960b88eacc with the build of decision 3073 (make -f chain.mk install before the cargo build of the proof_serve_errors target); the tree stands unchanged (the proof serve error tests). Run the build once and the verification once and record both by reference; if the node build or a case fails, repair it within the one allowed cycle and rerun once, recording the node startup log by reference."
+do_5 = "Attempt 3 (continue, gotcha 3824, decision 3073): the attempt-2 tree 043ba0b46254 stands (the code-only refusal responses, the two tests). In services/agent/crates/layerx-agentd/tests/proof_native_reads.rs copy the startup log of tools/qualification/localnode/v6120-node.sh into the record directory under /out/logs when the start fails, so the record carries the cause; then read it, repair the start (the binary make -f chain.mk install produced must be the one the script finds on PATH after PAXD is removed from the environment) and keep every assertion. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1740.1]
 title = "Issue #1740: Bind the AI market consumer transcript to its production sources"
@@ -191813,8 +191940,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1639: Classify the UCP checkout receipt fixture and prove check and regeneration preserve it"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["22.39.237"]
 reqs = ["181639.1"]
 capabilities = ["18.1639.1"]
 interfaces = []
@@ -191839,6 +191966,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3774): the attempt-1 tree fb2ca1f9175f stands (the classification in sdk/platform/pipeline.kvx, the case in tests/drift.rs). Compare the two OutputState values through one ordering, the sorted path order the pipeline writer emits, by sorting the collected file list before the equality or by comparing the states as maps from path to digest; the other assertions of the case stay unchanged. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
 do_4 = "Attempt 3 (continue, gotcha 3791, decision 2908): the attempt-2 tree 18d40c7ffbb0 stands (the classification, the sorted comparison in tests/drift.rs). In sdk/platform/pipeline.kvx declare handwritten, in the platform-conformance output, the eight fixture files the live capture lists and the inventory misses: fixtures/fiat-receipts-v1.json, fixtures/generate_kernel_receipt_fixture.mjs, fixtures/kernel-receipt-v1.json, fixtures/native-program-binding-v4.json, fixtures/refresh_native_program_binding.py, fixtures/refresh_receipt_vectors.py, fixtures/vector-v6-sponsored-bind.json and fixtures/vector-v7-named-payee.json, in the order the capture writes; change no generated digest and no assertion. Record the eight entries in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 4 (continue after 22.39.237 lands; gotcha 3807, decision 3078): the attempt-3 tree 88d6d06c2b2c stands (the pipeline entry and the drift test case). Merge main once 22.39.237 is on it so the generated SDKs are current, change nothing else, run the build once and the verification once at the final revision and record both by reference; if the case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1637.1]
 title = "Issue #1637: Align custody protocol assertions with version-3 selection"
@@ -192300,6 +192428,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): the attempt-1 tree a145e3ae66b3 stands (the build passes). The one remaining library lint, the large variant ProofRecord::AccountState carrying AccountStateRecord by value, is a lint whose only repair changes a public signature: attach the allowance for that lint to the ProofRecord enum alone with a reason naming the public variant layout, list it in the record, then run the clippy command of do_1 and repair the inventory of the integration test targets it reveals in order, rerunning the same command after each file. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed cycles, record the remaining count by file and stop."
 do_5 = "Attempt 3 (continue, gotcha 3767, decisions 3053 and 3057): the attempt-2 tree 44fccbf445bc stands (the library and most test targets pass). Repair the seven remaining test-target lints at their sites: split the 183-line function at tests/native_terminal_outcome.rs line 337 into named helpers, add the backticks and rename the field that starts with its struct name at tests/repair_22_31_226.rs line 2, and replace the format folds at tests/support/historical_checkpoint.rs lines 35 and 136 with write or a collected String; no assertion changes. Record each lint with its repair and the final count of zero. Run the build once and the verification once at the final revision and record both by reference."
+do_6 = "Attempt 4 (continue, gotcha 3819): the attempt-3 tree a724daeb709d stands. Repair the six remaining lint sites in the test targets of services/agent/crates/layerx-proof: backticks in the documentation at tests/sequencer_corpus.rs line 114 and tests/repair_22_33_1557.rs line 2, the 129-line function at tests/inclusion.rs line 128 split into named helpers, expect_err on the Result at tests/repair_22_33_1557.rs line 232 replaced with a match on Err, the clone of the Copy type AuthorizedBatch at line 259 removed, and the format in the iterator at line 313 replaced with write into a String; no assertion changes. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.217]
 title = "Bring the layerx-crypto crate and its test targets under the workspace lints"
@@ -192332,6 +192461,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from the attempt-1 record tree 873ad023077b. First restore the build: the extracted peer helper of the test support (tests/support/signing.rs) needs the public_key accessor its callers use; then run the clippy command of do_1 once and record the inventory by file, line and lint name, and repair in inventory order rerunning the same clippy command after each file so the crate compiles at every step. A lint whose only repair changes a public signature carries the item-level allowance with a reason per decision 3057 and is listed in the record. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed cycles, record the remaining count by file and stop."
 do_5 = "Attempt 3 (continue, gotcha 3786, decision 3053): the attempt-2 tree 21824c558755 stands. In tests/repair_22_33_1558.rs keep one declaration of the support/assertions.rs module and wrap the identifiers of its documentation comments in backticks; rerun clippy on the crate with the gate flags and repair any further reported lint at its source. Record the lints and repairs in the task record. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
+do_6 = "Attempt 4 (continue, gotcha 3826): the attempt-3 tree 67698b8f4ddb stands. In services/agent/crates/layerx-crypto replace the duplicate mod items that load tests/support/mod.rs and its files twice (tests/repair_22_33_1560.rs line 38 and tests/support/mod.rs lines 3, 4 and 8, where the paxeer_binding source of the client crate is loaded by path) with use items of one module, as the duplicate_mod lint prescribes; remove the unnecessary return value at tests/repair_22_33_1561.rs line 178, add backticks at tests/repair_22_33_1333.rs line 2 and replace expect_err at tests/disclosure.rs line 220 with a match on Err; no assertion changes. Run the build once and the verification once at the final revision and record both by reference; if a lint remains, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.216]
 title = "Bring the layerx-wire crate and its test targets under the workspace lints"
@@ -221373,6 +221503,7 @@ do_4 = "Gotcha 3693, decision 2993: the baseline also names TestDevelopmentProfi
 do_5 = "do_3 Decision 3004, gotcha 3701. TestRequestParsing of services/launchpad/security/policy/policy_test.go posts its valid body with the lowercase key name into a destination whose untagged field is Name; since the repair of 22.33.1021 DecodeMutation admits only the exact canonical field name, as parsing_test.go of the same package asserts. Correct the case to the canonical key the producer defines (gotcha 3046), keep every invalid-body assertion of the case, never loosen mutationFields or canonicalMutationFields, and retire the baseline entry of the case with the other security entries."
 do_6 = "Attempt 2 (continue, gotcha 3746, decisions 2893, 2917, 2947, 2948, 3023, 3036 and 3050): start from the attempt-1 tree 933ff2d7d58e and first restore the two api entries of owner 22.39.154 it removed (TestDevelopmentTransactionStatusFromChainRPC and TestRepair_27_log_free_receipts of core/api/internal/app) exactly as main carries them. Then proceed module by module through the twelve modules: reproduce the public launchpad Go job environment with the fresh database service, run the module under the baseline-aware runner, bring its cases to green at the producer the way do_1, do_4 and do_5 state, and only then remove the entries whose retiring_task is 22.39.168 for that module. In tests/ci/test_launchpad_go_tests_wired.py change the expectations that name these twelve modules or their entries to the state after retirement: the total at line 213, the per-module counts at line 950 to zero, the user profile conflict case at line 1001 and the security canonical field case at line 1018 to assert the entries are gone and the repaired producer behaviour the attempt records, and the module qualification records case at line 1050 to name no remaining case; every expectation about entries of owners 22.39.117, 22.39.154 and 22.39.162 stays unchanged. The test file and the baseline file are in the touches from this round. Record per module the cases brought to green, the producer followed and the entries retired in services/launchpad/repair_22_39_168.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_7 = "Attempt 3 (continue, gotcha 3756, decisions 2947, 2948, 3046 and 3060): the attempt-2 tree d6875dc1123f stands (the restored api entries, the snapshot fixture on the registered migration, the module records). Add a registered migration to launchpad/spec/production-system/integration/migrations (new file and registry entry; 190000.sql unchanged) replacing the check constraint on snapshots.category with the eight categories ranker.Categories declares, so TestProductionUniverseCompletesAndPublishes, TestNewServesAndRanks and TestRepairM_934_PublicationEveryCategoryAndRestartRecovery pass with their assertions unchanged; the migrations directory is in the touches from this round. Then continue module by module as do_6 states, reproducing the fresh database service before every run, bringing each module green at its producer and retiring its baseline entries only when green. Record per module the cases retired and the producer followed. Run the build once and the verification once at the final revision and record both by reference; if a later module fails, repair within the one allowed cycle and rerun once."
+do_8 = "do_8 Gotcha 3815: the connected encrypted export single-use download case of services/launchpad/user/internal/account/connected_integration_test.go (line 222) reads its bucket name from the environment and fails with NoSuchBucket because no step creates it; create the bucket in the connected test setup the way internaltest/containers.go line 199 does for container-based tests, remove the case from the account package BASELINE of services/launchpad/Makefile, and record the change in the task record."
 
 [task.22.39.165]
 title = "Build the evmone 0.12.0 shared library the Giga executor loads with a make target from the pinned upstream source and run it in the node build check"
@@ -221696,6 +221827,7 @@ do_7 = "Attempt 6 (requalify, gotcha 3733, decisions 3023, 3030 and 3036): the a
 do_8 = "Attempt 7 (continue, gotcha 3737, decisions 2908, 3036 and 3040): the attempt-6 tree b7b8ec69ce77 stands unchanged (the Go 1.27.3 pin, the four service variables, the tidied indexer module, the baseline entries, the record). In sdk/launchpad/shared/db/production/online_indexes_test.go make the cleanup of phase2MigrationFixture (lines 33 to 40) follow coordinatortest.go line 334: close the pool, then drop the private database with DROP DATABASE IF EXISTS and WITH (FORCE) under a thirty-second context, and report a drop failure with t.Logf; no assertion, no lock-wait measurement and no change in online_indexes.go. Record the corrected cleanup with the precedent it follows in the task record. Before every gate run reproduce the fresh database service as decision 2917 requires. Merge main, run the build once and the verification once at the final revision and record both by reference; if a further case fails, repair it within the one allowed cycle and rerun once."
 do_9 = "Attempt 8 (continue, gotcha 3744, decisions 2908, 2917, 3036, 3040 and 3048): the attempt-7 tree c19a2e3904d3 stands unchanged (the Go 1.27.3 pin, the four service variables, the tidied indexer module, the baseline entries, the cleanup of the online index test, the record). In sdk/launchpad/shared/db/production/production_test.go make the three cases TestPostgresRoleAndNumericBoundaries, TestPostgresCoordinatorAndCancellation and TestPhase3CancellationAndAuthorization rerunnable against one server: before each CREATE block remove the same objects if they exist (DROP SCHEMA l07_stats and l07_indexer CASCADE, DROP TABLE IF EXISTS l07_rollback, DROP OWNED BY and DROP ROLE IF EXISTS for l07_stats_owner, l07_stats_runtime, l07_indexer_owner, l07_phase3_stats_runtime and every other role the case creates) and register a t.Cleanup that removes them again; assertions, manifests and the SQL under test stay unchanged, and the file is under the touches already. Record the corrected cases in the task record with the collision they remove. Before the gate run reproduce the fresh database service as decision 2917 requires. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_10 = "Attempt 9 (continue, gotcha 3757, decisions 2908 and 3061): the attempt-8 tree 9e3d5fdcb4a4 stands unchanged (the database fixture cleanup, the shared module changes, the record). Run gofmt -w on sdk/launchpad/shared/interfaces/v2/types.gen.go, sdk/launchpad/shared/interfaces/v2/validators.gen.go and services/launchpad/trading-charts/internal/engine/candle_stream_test.go and change nothing else in them; the trading-charts file is in the touches from this round. Run the check mode of tools/launchpad/production/interfaces/codegen.py against the formatted generated pair and record the result; if it refuses, regenerate the pair with the generator in format mode and record the difference. Before the gate reproduce the fresh database service as decision 2917 requires. Run the build once and the verification once at the final revision and record both by reference; if make ci fails at a later stage, repair within the one allowed cycle and rerun once."
+do_11 = "Attempt 10 (continue, gotcha 3815, decisions 2908 and 2917): the attempt-9 tree 84d7c279ea70 stands. Check the fourteen Close results errcheck names in sdk/launchpad/shared (auth/contract.go lines 432 and 656, load_measurement.go lines 448 and 759, chain/client.go lines 1510, 1731, 1804, 1823, 1837, 1844 and 1881, readpolicy/measurement.go lines 61 and 324), logging or returning each error as the surrounding function does. Add the connected encrypted export single-use download case of services/launchpad/user/internal/account/connected_integration_test.go to the BASELINE of the account package in services/launchpad/Makefile with retiring task 22.39.168, which owns the bucket creation for the connected test. Before every gate run reproduce the fresh database service as decision 2917 requires. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
@@ -278849,6 +278981,38 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.237]
+title = "Regenerate the platform SDKs after the agent API schema change"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.237"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3078, gotcha 3807. services/agent/schema/agent-api changed at fcf0c791af (2026-11-05) after the last generation, so the drift test of sdk/platform/generators/tests/drift.rs refuses every drift-gated task with stale generated SDKs. Run make platform-sdk-generate (services/platform/Makefile.inc line 241) at the current revision and commit every output root sdk/platform/pipeline.kvx declares: services/agent/crates/layerx-agent-api/src, services/agent/crates/layerx-sdk/src, services/agent/sdk/typescript/src/generated, services/agent/sdk/python/layerx_sdk/generated, the compatibility files under services/agent/sdk, apps/web/src/api/generated, sdk/platform/go, sdk/platform/jvm, sdk/platform/conformance, sdk/platform/swift/Sources/LayerXSDK and sdk/platform/dotnet; handwritten files the pipeline lists stay as they are."
+do_2 = "do_2 Change no generator, no schema and no handwritten file; if the generator fails on the current schema, record the failing generator and output in the task record and stop without a further repair cycle."
+do_3 = "do_3 Record the generation revision, the outputs regenerated and the drift test result in sdk/platform/repair_22_39_237.kvx. Run the build once and the verification once at the final revision and record both by reference."
+symbols = []
+touches = ["services/agent/crates/layerx-agent-api/src", "services/agent/crates/layerx-sdk/src", "services/agent/sdk", "apps/web/src/api/generated", "sdk/platform/go", "sdk/platform/jvm", "sdk/platform/conformance", "sdk/platform/swift/Sources/LayerXSDK", "sdk/platform/dotnet", "sdk/platform/generators"]
+tests = ["sdk/platform/generators/tests/drift.rs"]
+planned_paths = ["sdk/platform/repair_22_39_237.kvx"]
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && make platform-sdk-generate"
+verify_cmd = "test -s sdk/platform/repair_22_39_237.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.25.5]
 title = "Name the journey responses of the portable catalogue after the human schema and reseal the pipeline"
 status = "done"
@@ -301988,8 +302152,8 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 title = "Issue #1834: Enforce retired payer-grant symbol absence in the built archive"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["18.1846.1"]
 reqs = ["181834.1"]
 capabilities = ["18.1834.1"]
 interfaces = []
@@ -302014,6 +302178,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue after 18.1846.1 lands; gotcha 3801, decision 3077): the attempt-1 tree c3281ef4556f stands (the Makefile wiring and the core-suite test change). Merge main once 18.1846.1 is on it so tests/ci/test_core_test_all_wired.py asserts Foundry v1.8.1, change nothing else, run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1810.1]
 title = "Issue #1810: Decode public node discovery in the wallet SDK"
@@ -302133,6 +302298,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3809): the attempt-1 tree bb0601198954 stands. In daemon/committed-fixture/main.go keep V1 program deployment supported in the V6 recorder genesis (the version table the deployment path reads) so record vector-v1-programs-positive executes instead of reverting with LXP_ERR_VERSION_UNSUPPORTED, and keep every other vector as it is; TestRecorderAllSelectedV6Executes (main_test.go line 197) stays unchanged. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1715.1]
 title = "Issue #1715: Align the web payer sequence read with the native account-ID ABI"
@@ -302314,6 +302480,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue, gotcha 3783, decision 3074): the attempt-1 tree 3dd4b2d997c5 stands (the asset listing repair and its tests). In rpc/px_assets.go ListAssets (lines 193 to 199) treat a JSON null cursor as invalid params and answer -32602 through pxRootError, as the test at px_node_root_account_test.go line 687 asserts; then repair the count case at line 589 (eight expected, none returned) at its source in the listing path. Record both repairs in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_6 = "Attempt 3 (continue, gotcha 3820, decision 3074): the attempt-2 tree e989d4af8ae9 stands (the cursor pages, the contract text, the tests). In rpc/px_assets.go answer invalid params -32602 when the cursor parameter of px_listAssets is an explicit null, distinct from an omitted parameter, so the assertion at rpc/px_node_root_account_test.go line 686 holds; nothing else changes. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1661.1]
 title = "Issue #1661: Complete CW20 deployment without retired DEX commands"
@@ -302407,6 +302574,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3784, gotcha 3046): the attempt-1 tree efcb96016b69 stands (the newHeads consistency check and the subscription test). In rpc/subscribe_test.go wire the fixture so the header stored for height 1 carries the state root the notifier announces through OnBlockCommitted (store the header with the AppHash of the ResponseFinalizeBlock before the notification), and assert at line 405 the value the server serves; the consistency check in the server stays unchanged. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3825): the attempt-2 tree d07832aff51d stands. At rpc/subscribe_test.go line 195 assert the value at the width the producer field type defines (the twenty-byte value the newHeads notification carries for that field) instead of a thirty-two-byte zero-padded literal, following the field type of the notification struct; if the field is a hash the producer must emit thirty-two bytes and the producer is repaired instead, with the cause recorded. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1634.1]
 title = "Issue #1634: Scan every leaf when collecting state-size statistics"
@@ -302468,13 +302636,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Requalify attempt 1 at 16600cc3e5d0 with the build of decision 3067 (go build of the rpc and history packages, no native library target); the tree stands unchanged (the history indexer repair and its test). Run the build once and the verification once and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
+do_5 = "Attempt 3 (continue, gotcha 3806, decision 3076): the attempt-2 tree a5eec0fa95f0 stands. In src/modules/history/indexer.go give the Row the fields tx_hash, exactly equal to tx_id, and final_basis, block_commit for rows the indexer classifies from a committed block and explorer_api for rows from the explorer, the names and values services/platform/hosted/gateway/openrpc.json defines for px_getHistory and px_getUnifiedHistory items; rpc/px_node_root_history_test.go asserts both by the contract names. Record the fields with the producer contract in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1632.1]
 title = "Issue #1632: Accept explorer-imported IDs in node-root history"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["18.1633.1"]
 reqs = ["181632.1"]
 capabilities = ["18.1632.1"]
 interfaces = []
@@ -302500,6 +302669,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue, gotcha 3769, decision 3067): the attempt-1 tree b2698d0728ca stands (the indexer change, the node-root history test, the recorded responses and their README). The build is now go build ./rpc/... ./src/modules/history/... without the native library make target. Run the build once and the verification once at the final revision and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
+do_6 = "Attempt 3 (continue after 18.1633.1 lands; gotcha 3806, decision 3076): the attempt-2 tree f8243b509391 stands (the testdata responses and README, the test changes). Merge main once 18.1633.1 is on it so the Row carries tx_hash and final_basis, regenerate rpc/testdata/px-history/responses.json from the producer if its shape changed, run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1628.1]
 title = "Issue #1628: Scope installed pending transaction filters to their virtual chain"
@@ -327884,7 +328054,7 @@ do_1 = "Run python3 tools/paxeer-x/tests/retired_callers_test.py --deleted (tool
 do_2 = "Treat any reported caller as a failure naming its owning domain through retired.owners; the change lands in spec/layerx-merge/programme/tests/test_no_retired_callers.py (planned)."
 do_3 = "Create spec/layerx-merge/programme/tests/test_no_retired_callers.py (planned) with the test named below."
 symbols = ["test_scan_reports_no_caller"]
-touches = ["spec/layerx-merge/programme/tests/test_no_retired_callers.py"]
+touches = ["spec/layerx-merge/programme/tests/test_no_retired_callers.py", "tools/paxeer-x/tests/retired_callers_test.py"]
 tests = ["spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_no_retired_callers.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_no_retired_callers.py"
@@ -327901,6 +328071,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.39.214 lands; gotcha 3747, decision 3051): the attempt-1 tree ceda589fd709 stands unchanged (the test module running the scanner with --deleted through evidence.run and naming the owning domain of every reported caller). Merge main once 22.39.214 is on it, so the scanner issues one git grep over the tracked files, and run the case under the 120-minute limit of this round. Treat every reported caller as a finding against its owning domain through retired.owners as do_2 states and record the scan wall time by reference. Run the build once and the verification once at the final revision and record both by reference; if the scan still does not finish, record the elapsed time and stop without a repair cycle."
+do_5 = "Attempt 3 (continue, gotcha 3828, decisions 3065 and 3079): the attempt-2 tree bb34d05cdf5b stands (the test module naming the owning domain of every reported caller). In tools/paxeer-x/tests/retired_callers_test.py add the pathspec :(top,exclude,literal)core/deps to the exclusions the scan passes to git grep, beside the catalogue, deleted-tree and retiring-tree entries, so the vendored upstream sources are never reported; the scanner is in the touches from this round and the owner map of retired.py stays unchanged. Record the excluded tree and the scan wall time by reference in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, treat every remaining caller as a finding against its owning domain as do_2 states and repair within the one allowed cycle."
 
 [task.17.3.1]
 title = "Write the migration rehearsal plan from a v6.12.0 chain through v7.0"
@@ -328458,7 +328629,7 @@ do_1 = "Run gates.run_wave(6, root) from spec/layerx-merge/programme/gates.py (p
 do_2 = "Record the evidence line in logs/waves/6 named by [wave.6] of spec/layerx-merge/programme/data/wave-gates.kvx (planned); a nonzero exit fails the wave and files a finding in spec/layerx-merge/qualification.kvx:1 format."
 do_3 = "Create spec/layerx-merge/programme/tests/test_wave_6_gate.py (planned) with the test named below; it runs the real script, never --list alone."
 symbols = ["test_wave_6_gate_passes"]
-touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs"]
+touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json"]
 tests = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_6_gate.py"
@@ -328476,6 +328647,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3755, decision 3059): the attempt-1 tree f0619bc8c681 is the starting point (the test stands). In spec/layerx-merge/programme/gates.py make run_wave create a detached worktree of HEAD under a temporary directory (git worktree add --detach), run the wave script there with the build caches shared through the environment (CARGO_TARGET_DIR pointing at the target directory of the repository, the Go cache as the environment defines it), keep the evidence line with the revision of HEAD, and remove the worktree afterwards; scripts/gates/run_gate.py stays unchanged; gates.py is in the touches from this round. The time limit is 600 minutes. Run the build once and the verification once at the final revision and record both by reference; if the wave script fails inside the worktree, record the failing command and log as a finding and stop the attempt."
 do_5 = "Attempt 3 (continue, gotcha 3766, decisions 2908 and 3059): the attempt-2 tree 2cec5a4643d8 stands (the detached worktree run, the test). In services/human/tools/api-gen/tests/completion_gate.rs make human_completion_retired_surfaces_absent count an interface as retired when its registry status is retire or retired, the two words the registry uses since the re-status of e5cb35b977 and 88761d5290, with the test file in the touches from this round; keep the expected count of 52 when the two statuses together yield it, and otherwise record the counted rows by id with the registry commit that changed them and assert the counted number with its name. Record the corrected count with the producer it follows (the status rows of the thirteen wave-6 tasks in the registry) in the record of the task. Run the wave script once more through the worktree and the verification once at the final revision and record both by reference; if a further case fails, record it as a finding of the wave and stop the attempt."
+do_6 = "Attempt 4 (continue, gotcha 3816, decision 2908): the attempt-3 tree 5340e6005e85 stands (the wave gate test, gates.py, the completion gate test). In apps/web/package.json line 13 run the UI build as cd packages/layerx-ui && rm -rf dist && npx --no-install tsup so the binary resolves from the package or the root node_modules whichever layout the install produced; no dependency version changes and the manifest is in the touches from this round. Run the build once and the verification once at the final revision and record both by reference; if a target still fails, repair it within the one allowed cycle and rerun once."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -347217,6 +347389,223 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.93.400]
+title = "Triage issue #1930: Reconcile Autobahn runner requirements across repair plans"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22102.1"]
+capabilities = ["22.93.400"]
+interfaces = []
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1930.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+do_2 = "Write spec/layerx-merge/programme/issues/1930.kvx as spec/layerx-merge/programme/issues/README.md prescribes: an [issue.1930] header with number, title, revision (the 40-hex commit of main the reading was made at), verdict (task, already-fixed, not-relevant, duplicate, spec-edit or needs-owner), evidence (one sentence with path:line or commit cites that settles the verdict) and close_comment (one or two sentences in product wording that can be posted on the issue when it is closed); then, for a task verdict only, the three blocks [task.18.1930.1], [req.181930] and [acceptance.18.1930.1] with exactly the keys, order and tail values the README shows, one focused build and one focused verify of the touched package, touches listing only the files the fix changes, and requires naming only ids that exist in spec/layerx-merge/spec.kvx."
+do_3 = "Verdict rules: already-fixed when main already behaves as the issue demands (cite the line or commit); not-relevant when the code, file, test or spec block the issue is about left the repository, the commit it reviews was superseded, or the behaviour it asks for contradicts a later decision of spec.kvx (cite it); duplicate when another record under spec/layerx-merge/programme/issues/input describes the same defect (name it); spec-edit when the text of a done task drifted from the code (say in one sentence what the spec must say); needs-owner only for a money, credential, external-account or product-choice decision that no evidence in the repository settles. Never weaken a test or a check to make an issue go away; a task repairs the behaviour the issue describes."
+do_4 = "Wording: product facts only, no names of people, no issue authors, nothing about how or where work is executed; build_cmd and verify_cmd contain no double quotes and never run a whole workspace. The verify runs the checker of the README on the report; the report is the only file written."
+symbols = []
+touches = ["spec/layerx-merge/programme/issues/1930.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/issues/1930.kvx"]
+build_cmd = "test -f spec/layerx-merge/programme/issues/input/1930.md && python3 -m py_compile spec/layerx-merge/programme/issues/check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/issues/check.py 1930"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the report file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.93.399]
+title = "Triage issue #1929: Reconcile contradictory empty-config requirements in perps repair plans"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22102.1"]
+capabilities = ["22.93.399"]
+interfaces = []
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1929.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+do_2 = "Write spec/layerx-merge/programme/issues/1929.kvx as spec/layerx-merge/programme/issues/README.md prescribes: an [issue.1929] header with number, title, revision (the 40-hex commit of main the reading was made at), verdict (task, already-fixed, not-relevant, duplicate, spec-edit or needs-owner), evidence (one sentence with path:line or commit cites that settles the verdict) and close_comment (one or two sentences in product wording that can be posted on the issue when it is closed); then, for a task verdict only, the three blocks [task.18.1929.1], [req.181929] and [acceptance.18.1929.1] with exactly the keys, order and tail values the README shows, one focused build and one focused verify of the touched package, touches listing only the files the fix changes, and requires naming only ids that exist in spec/layerx-merge/spec.kvx."
+do_3 = "Verdict rules: already-fixed when main already behaves as the issue demands (cite the line or commit); not-relevant when the code, file, test or spec block the issue is about left the repository, the commit it reviews was superseded, or the behaviour it asks for contradicts a later decision of spec.kvx (cite it); duplicate when another record under spec/layerx-merge/programme/issues/input describes the same defect (name it); spec-edit when the text of a done task drifted from the code (say in one sentence what the spec must say); needs-owner only for a money, credential, external-account or product-choice decision that no evidence in the repository settles. Never weaken a test or a check to make an issue go away; a task repairs the behaviour the issue describes."
+do_4 = "Wording: product facts only, no names of people, no issue authors, nothing about how or where work is executed; build_cmd and verify_cmd contain no double quotes and never run a whole workspace. The verify runs the checker of the README on the report; the report is the only file written."
+symbols = []
+touches = ["spec/layerx-merge/programme/issues/1929.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/issues/1929.kvx"]
+build_cmd = "test -f spec/layerx-merge/programme/issues/input/1929.md && python3 -m py_compile spec/layerx-merge/programme/issues/check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/issues/check.py 1929"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the report file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.93.398]
+title = "Triage issue #1928: Include TypeScript/TSX rows in the parity runner repair plan"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22102.1"]
+capabilities = ["22.93.398"]
+interfaces = []
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1928.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+do_2 = "Write spec/layerx-merge/programme/issues/1928.kvx as spec/layerx-merge/programme/issues/README.md prescribes: an [issue.1928] header with number, title, revision (the 40-hex commit of main the reading was made at), verdict (task, already-fixed, not-relevant, duplicate, spec-edit or needs-owner), evidence (one sentence with path:line or commit cites that settles the verdict) and close_comment (one or two sentences in product wording that can be posted on the issue when it is closed); then, for a task verdict only, the three blocks [task.18.1928.1], [req.181928] and [acceptance.18.1928.1] with exactly the keys, order and tail values the README shows, one focused build and one focused verify of the touched package, touches listing only the files the fix changes, and requires naming only ids that exist in spec/layerx-merge/spec.kvx."
+do_3 = "Verdict rules: already-fixed when main already behaves as the issue demands (cite the line or commit); not-relevant when the code, file, test or spec block the issue is about left the repository, the commit it reviews was superseded, or the behaviour it asks for contradicts a later decision of spec.kvx (cite it); duplicate when another record under spec/layerx-merge/programme/issues/input describes the same defect (name it); spec-edit when the text of a done task drifted from the code (say in one sentence what the spec must say); needs-owner only for a money, credential, external-account or product-choice decision that no evidence in the repository settles. Never weaken a test or a check to make an issue go away; a task repairs the behaviour the issue describes."
+do_4 = "Wording: product facts only, no names of people, no issue authors, nothing about how or where work is executed; build_cmd and verify_cmd contain no double quotes and never run a whole workspace. The verify runs the checker of the README on the report; the report is the only file written."
+symbols = []
+touches = ["spec/layerx-merge/programme/issues/1928.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/issues/1928.kvx"]
+build_cmd = "test -f spec/layerx-merge/programme/issues/input/1928.md && python3 -m py_compile spec/layerx-merge/programme/issues/check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/issues/check.py 1928"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the report file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.93.397]
+title = "Triage issue #1927: Replace unsupported git grep pathspec flags in retired-scan repair plan"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22102.1"]
+capabilities = ["22.93.397"]
+interfaces = []
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1927.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+do_2 = "Write spec/layerx-merge/programme/issues/1927.kvx as spec/layerx-merge/programme/issues/README.md prescribes: an [issue.1927] header with number, title, revision (the 40-hex commit of main the reading was made at), verdict (task, already-fixed, not-relevant, duplicate, spec-edit or needs-owner), evidence (one sentence with path:line or commit cites that settles the verdict) and close_comment (one or two sentences in product wording that can be posted on the issue when it is closed); then, for a task verdict only, the three blocks [task.18.1927.1], [req.181927] and [acceptance.18.1927.1] with exactly the keys, order and tail values the README shows, one focused build and one focused verify of the touched package, touches listing only the files the fix changes, and requires naming only ids that exist in spec/layerx-merge/spec.kvx."
+do_3 = "Verdict rules: already-fixed when main already behaves as the issue demands (cite the line or commit); not-relevant when the code, file, test or spec block the issue is about left the repository, the commit it reviews was superseded, or the behaviour it asks for contradicts a later decision of spec.kvx (cite it); duplicate when another record under spec/layerx-merge/programme/issues/input describes the same defect (name it); spec-edit when the text of a done task drifted from the code (say in one sentence what the spec must say); needs-owner only for a money, credential, external-account or product-choice decision that no evidence in the repository settles. Never weaken a test or a check to make an issue go away; a task repairs the behaviour the issue describes."
+do_4 = "Wording: product facts only, no names of people, no issue authors, nothing about how or where work is executed; build_cmd and verify_cmd contain no double quotes and never run a whole workspace. The verify runs the checker of the README on the report; the report is the only file written."
+symbols = []
+touches = ["spec/layerx-merge/programme/issues/1927.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/issues/1927.kvx"]
+build_cmd = "test -f spec/layerx-merge/programme/issues/input/1927.md && python3 -m py_compile spec/layerx-merge/programme/issues/check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/issues/check.py 1927"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Delete the report file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.93.396]
+title = "Triage issue #1926 and write its report"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22102.1"]
+capabilities = ["22.93.396"]
+interfaces = []
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1926.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+do_2 = "Write spec/layerx-merge/programme/issues/1926.kvx as spec/layerx-merge/programme/issues/README.md prescribes: an [issue.1926] header with number, title, revision (the 40-hex commit of main the reading was made at), verdict (task, already-fixed, not-relevant, duplicate, spec-edit or needs-owner), evidence (one sentence with path:line or commit cites that settles the verdict) and close_comment (one or two sentences in product wording that can be posted on the issue when it is closed); then, for a task verdict only, the three blocks [task.18.1926.1], [req.181926] and [acceptance.18.1926.1] with exactly the keys, order and tail values the README shows, one focused build and one focused verify of the touched package, touches listing only the files the fix changes, and requires naming only ids that exist in spec/layerx-merge/spec.kvx."
+do_3 = "Verdict rules: already-fixed when main already behaves as the issue demands (cite the line or commit); not-relevant when the code, file, test or spec block the issue is about left the repository, the commit it reviews was superseded, or the behaviour it asks for contradicts a later decision of spec.kvx (cite it); duplicate when another record under spec/layerx-merge/programme/issues/input describes the same defect (name it); spec-edit when the text of a done task drifted from the code (say in one sentence what the spec must say); needs-owner only for a money, credential, external-account or product-choice decision that no evidence in the repository settles. Never weaken a test or a check to make an issue go away; a task repairs the behaviour the issue describes."
+do_4 = "Wording: product facts only, no names of people, no issue authors, nothing about how or where work is executed; build_cmd and verify_cmd contain no double quotes and never run a whole workspace. The verify runs the checker of the README on the report; the report is the only file written."
+symbols = []
+touches = ["spec/layerx-merge/programme/issues/1926.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/issues/1926.kvx"]
+build_cmd = "test -f spec/layerx-merge/programme/issues/input/1926.md && python3 -m py_compile spec/layerx-merge/programme/issues/check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/issues/check.py 1926"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Delete the report file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.93.395]
+title = "Triage issue #1925 and write its report"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22102.1"]
+capabilities = ["22.93.395"]
+interfaces = []
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1925.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+do_2 = "Write spec/layerx-merge/programme/issues/1925.kvx as spec/layerx-merge/programme/issues/README.md prescribes: an [issue.1925] header with number, title, revision (the 40-hex commit of main the reading was made at), verdict (task, already-fixed, not-relevant, duplicate, spec-edit or needs-owner), evidence (one sentence with path:line or commit cites that settles the verdict) and close_comment (one or two sentences in product wording that can be posted on the issue when it is closed); then, for a task verdict only, the three blocks [task.18.1925.1], [req.181925] and [acceptance.18.1925.1] with exactly the keys, order and tail values the README shows, one focused build and one focused verify of the touched package, touches listing only the files the fix changes, and requires naming only ids that exist in spec/layerx-merge/spec.kvx."
+do_3 = "Verdict rules: already-fixed when main already behaves as the issue demands (cite the line or commit); not-relevant when the code, file, test or spec block the issue is about left the repository, the commit it reviews was superseded, or the behaviour it asks for contradicts a later decision of spec.kvx (cite it); duplicate when another record under spec/layerx-merge/programme/issues/input describes the same defect (name it); spec-edit when the text of a done task drifted from the code (say in one sentence what the spec must say); needs-owner only for a money, credential, external-account or product-choice decision that no evidence in the repository settles. Never weaken a test or a check to make an issue go away; a task repairs the behaviour the issue describes."
+do_4 = "Wording: product facts only, no names of people, no issue authors, nothing about how or where work is executed; build_cmd and verify_cmd contain no double quotes and never run a whole workspace. The verify runs the checker of the README on the report; the report is the only file written."
+symbols = []
+touches = ["spec/layerx-merge/programme/issues/1925.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/issues/1925.kvx"]
+build_cmd = "test -f spec/layerx-merge/programme/issues/input/1925.md && python3 -m py_compile spec/layerx-merge/programme/issues/check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/issues/check.py 1925"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programs"
+rollback = "Delete the report file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.93.394]
+title = "Triage issue #1924 and write its report"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22102.1"]
+capabilities = ["22.93.394"]
+interfaces = []
+do_1 = "Decision 3056 (decision 2427 round four): read spec/layerx-merge/programme/issues/input/1924.md (the title and body of the issue as recorded when the triage was opened) and check every claim it makes against main at the revision of the task: re-locate every cited line at the current revision and cite current line numbers only; a permalink pinned to an older commit is a pointer, not evidence. Open the files, read the commits the issue names (git log, git show) and the tests around them; never decide from the issue text alone."
+do_2 = "Write spec/layerx-merge/programme/issues/1924.kvx as spec/layerx-merge/programme/issues/README.md prescribes: an [issue.1924] header with number, title, revision (the 40-hex commit of main the reading was made at), verdict (task, already-fixed, not-relevant, duplicate, spec-edit or needs-owner), evidence (one sentence with path:line or commit cites that settles the verdict) and close_comment (one or two sentences in product wording that can be posted on the issue when it is closed); then, for a task verdict only, the three blocks [task.18.1924.1], [req.181924] and [acceptance.18.1924.1] with exactly the keys, order and tail values the README shows, one focused build and one focused verify of the touched package, touches listing only the files the fix changes, and requires naming only ids that exist in spec/layerx-merge/spec.kvx."
+do_3 = "Verdict rules: already-fixed when main already behaves as the issue demands (cite the line or commit); not-relevant when the code, file, test or spec block the issue is about left the repository, the commit it reviews was superseded, or the behaviour it asks for contradicts a later decision of spec.kvx (cite it); duplicate when another record under spec/layerx-merge/programme/issues/input describes the same defect (name it); spec-edit when the text of a done task drifted from the code (say in one sentence what the spec must say); needs-owner only for a money, credential, external-account or product-choice decision that no evidence in the repository settles. Never weaken a test or a check to make an issue go away; a task repairs the behaviour the issue describes."
+do_4 = "Wording: product facts only, no names of people, no issue authors, nothing about how or where work is executed; build_cmd and verify_cmd contain no double quotes and never run a whole workspace. The verify runs the checker of the README on the report; the report is the only file written."
+symbols = []
+touches = ["spec/layerx-merge/programme/issues/1924.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/issues/1924.kvx"]
+build_cmd = "test -f spec/layerx-merge/programme/issues/input/1924.md && python3 -m py_compile spec/layerx-merge/programme/issues/check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/issues/check.py 1924"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Delete the report file; nothing else is written."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.236]
 title = "Run a Redis container beside the database container of the explorer backend test environment"
 status = "done"
@@ -347252,8 +347641,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1863: Check routed runners on the concrete Platform release gate jobs"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["18.1843.1"]
 reqs = ["181863.1"]
 capabilities = ["18.1863.1"]
 interfaces = []
@@ -347276,6 +347665,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 18.1843.1 lands; gotcha 3802, decision 3077): the attempt-1 tree a7a6752c91de stands (the restored-job cases of tests/ci/test_workflow_runs_on_routed.py). Merge main once 18.1843.1 is on it so human.yml schema-check and browser-performance and launchpad-test.yml launchpad-go-test and launchpad-go-wiring carry the routed expression and the routing table is current, change nothing else, run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1861.1]
 title = "Issue #1861: Align Chainflow SDK runtime requirements with their manifests"
@@ -347484,8 +347874,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1850: Keep Autobahn integration on a Docker-capable runner and guard its indirect runtime dependency"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["18.1843.1"]
 reqs = ["181850.1"]
 capabilities = ["18.1850.1"]
 interfaces = []
@@ -347509,6 +347899,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 18.1843.1 lands; gotcha 3802, decision 3077): the attempt-1 tree f962e5cbca89 stands (the Autobahn job routing, the container runtime guard, the two tests). Merge main once 18.1843.1 is on it so the routing table and the fixed jobs are current, re-run the two cases, and if test_autobahn_routed_make_without_runtime_is_refused still fails repair it at the site it names within the one allowed cycle. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.18.1847.1]
 title = "Issue #1847: Align control finalization documentation with the committed rung contract"
@@ -347552,7 +347943,7 @@ interfaces = []
 do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1846.kvx, verdict task): Update test_ci_runs_core_test_all at tests/ci/test_core_test_all_wired.py:65 to require version v1.8.1 and cache false, matching .github/workflows/ci.yml:171 and .github/workflows/ci.yml:191; preserve the pinned action, installation ordering, unconditional execution and cross-job equality assertions at tests/ci/test_core_test_all_wired.py:56 through tests/ci/test_core_test_all_wired.py:72."
 do_2 = "Run the corrected test_ci_runs_core_test_all at tests/ci/test_core_test_all_wired.py:36 together with test_foundry_version_is_exact_and_uniform at tests/ci/test_workflow_toolchain_versions.py:72 against the real workflow files, proving the wiring and uniform-version checks agree without changing the workflows or weakening either check."
 symbols = ["test_ci_runs_core_test_all"]
-touches = ["tests/ci/test_core_test_all_wired.py"]
+touches = ["tests/ci/test_core_test_all_wired.py", ".github/workflows/launchpad-test.yml"]
 tests = ["tests/ci/test_core_test_all_wired.py::test_ci_runs_core_test_all", "tests/ci/test_workflow_toolchain_versions.py::test_foundry_version_is_exact_and_uniform"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tests/ci/test_core_test_all_wired.py"
@@ -347568,13 +347959,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3801, decision 3077): the attempt-1 tree 718022689f16 stands (the v1.8.1 assertion in tests/ci/test_core_test_all_wired.py). In .github/workflows/launchpad-test.yml line 246 pin Foundry v1.8.1 like every other workflow, so test_foundry_version_is_exact_and_uniform passes; the workflow is in the touches from this round and nothing else changes. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1845.1]
 title = "Issue #1845: Separate registry verification from unconditional middleware checks"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["18.1843.1"]
 reqs = ["181845.1"]
 capabilities = ["18.1845.1"]
 interfaces = []
@@ -347597,6 +347989,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 18.1843.1 lands; gotcha 3802, decision 3077): the attempt-1 tree 556f8587bca5 stands (the platform workflow guard, the Makefile include, the live inputs test). Merge main once 18.1843.1 is on it so the routing check passes, change nothing else, run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1844.1]
 title = "Issue #1844: Select the explorer umbrella test step by its command"
@@ -347639,7 +348032,7 @@ interfaces = []
 do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1843.kvx, verdict task): In tests/ci/test_workflow_runs_on_routed.py:17 and :37, move explorer-images.yml explorer-backend-test from HOSTED_JOBS into RESTORED_JOBS so test_restored_job_keeps_routed_runs_on at line 110 asserts the exact routed expression and absence from routing_exclusions; retain the ci.yml c17 sanitizer entry and every hosted-runner assertion at lines 123 through 129."
 do_2 = "Rename test_explorer_backend_exclusion_retains_container_builder at tests/ci/test_workflow_runs_on_routed.py:132 to test_explorer_backend_routed_job_retains_container_builder, preserve its exact mix-in-builder command assertion, and assert the job’s exact ROUTED expression and absence from routing_exclusions; retain test_repository_runner_routing_check_passes at line 100 so the real workflow and container-runtime provisioning remain checked by scripts/ci/runner-routing-check.sh:120."
 symbols = ["RESTORED_JOBS", "HOSTED_JOBS", "test_explorer_backend_routed_job_retains_container_builder"]
-touches = ["tests/ci/test_workflow_runs_on_routed.py"]
+touches = ["tests/ci/test_workflow_runs_on_routed.py", ".github/workflows/human.yml", ".github/workflows/launchpad-test.yml", "scripts/ci/runner-routing-check.sh"]
 tests = ["tests/ci/test_workflow_runs_on_routed.py::test_restored_job_keeps_routed_runs_on", "tests/ci/test_workflow_runs_on_routed.py::test_hosted_job_keeps_runner_and_exclusion_reason", "tests/ci/test_workflow_runs_on_routed.py::test_explorer_backend_routed_job_retains_container_builder", "tests/ci/test_workflow_runs_on_routed.py::test_repository_runner_routing_check_passes"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tests/ci/test_workflow_runs_on_routed.py"
@@ -347655,6 +348048,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3802, decision 3077): the attempt-1 tree f2eb04350bcf stands (the restored explorer backend job assertions). Carry the routing check to green on main: in .github/workflows/human.yml give the jobs schema-check (line 25) and browser-performance (line 126) the exact routed runs-on expression every other job uses; in .github/workflows/launchpad-test.yml give launchpad-go-test (line 80) and launchpad-go-wiring (line 333) the same routed expression; in the EXCLUDED table of scripts/ci/runner-routing-check.sh record the runner each excluded job now declares (ubuntu-24.04 where the table says ubuntu-latest, macos-15 where it says macos-latest) so the table matches the workflows; the three files are in the touches from this round. Record each line changed with the check that required it in the task record. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1840.1]
 title = "Issue #1840: Use the node root endpoint in the account-binding transport-loss test"
@@ -347672,7 +348066,7 @@ touches = ["tests/agent/sdk/python/test_account_derivation.py"]
 tests = ["tests/agent/sdk/python/test_account_derivation.py::BindTransportTest::test_bind_rpc_transport_loss_keeps_unknown_submission_outcome"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tests/agent/sdk/python/test_account_derivation.py"
-verify_cmd = "python3 -m pytest tests/agent/sdk/python/test_account_derivation.py::BindTransportTest::test_bind_rpc_transport_loss_keeps_unknown_submission_outcome -q"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest tests/agent/sdk/python/test_account_derivation.py::BindTransportTest::test_bind_rpc_transport_loss_keeps_unknown_submission_outcome -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-agent"
@@ -347684,6 +348078,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (requalify, gotcha 3798): the attempt-1 tree cb0bf13491d4 stands unchanged. The verify command now starts with anvil --version so the Foundry toolchain is provisioned before the bind transport case runs, as 22.39.162 did. Run the build once and the verification once at that revision."
 
 [task.18.1838.1]
 title = "Issue #1838: Align Go and launchpad workflow assertions with the exact routed runner contract"
@@ -347697,7 +348092,7 @@ interfaces = []
 do_1 = "Decision 3056 (triage record spec/layerx-merge/programme/issues/1838.kvx, verdict task): Replace the obsolete ubuntu-latest equalities in tests/ci/test_go_build_tags_wired.py:26 and tests/ci/test_launchpad_test_workflow.py:47 with exact equality to ROUTED from tests/ci/test_workflow_runs_on_routed.py:12, preserving the fork condition, configurable runner and ubuntu-24.04 fallback required by .github/workflows/paxeer-go-test.yml:158, :187, :205 and .github/workflows/launchpad-test.yml:38; preserve all other job, matrix, step and command assertions and leave the workflows unchanged."
 do_2 = "Add test_workflow_runner_contracts_match_routed_jobs in tests/ci/test_launchpad_test_workflow.py, parameterized over tagged-tests, autobahn-integration and hpx-registry in paxeer-go-test.yml and launchpad-test in launchpad-test.yml, parsing the real YAML with BaseLoader and asserting exact equality to ROUTED; run it alongside both existing Go wiring tests so all three helper call sites execute, while the separate command-shape drift at tests/ci/test_launchpad_test_workflow.py:78 described by input/1859.md remains with issue #1859."
 symbols = ["assert_required_job", "test_launchpad_workflow_covers_every_package_with_a_test_script", "test_workflow_runner_contracts_match_routed_jobs"]
-touches = ["tests/ci/test_go_build_tags_wired.py", "tests/ci/test_launchpad_test_workflow.py"]
+touches = ["tests/ci/test_go_build_tags_wired.py", "tests/ci/test_launchpad_test_workflow.py", "tools/hpx/registry/go.mod"]
 tests = ["tests/ci/test_go_build_tags_wired.py::test_go_test_matrix_covers_build_tags", "tests/ci/test_go_build_tags_wired.py::test_hpx_registry_go_test_wired", "tests/ci/test_launchpad_test_workflow.py::test_workflow_runner_contracts_match_routed_jobs"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tests/ci/test_go_build_tags_wired.py tests/ci/test_launchpad_test_workflow.py"
@@ -347713,6 +348108,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3803, decision 3077): the attempt-1 tree 62b5057806db stands (the two tests). In tools/hpx/registry/go.mod set the go directive to 1.25.8, the version the root go.mod and GO_VERSION of paxeer-go-test.yml declare, and change nothing else; the module file is in the touches from this round. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1836.1]
 title = "Issue #1836: Correct the SettleLaps qualification finding attribution"
@@ -347829,6 +348225,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (requalify, gotcha 3800): the attempt-1 tree 558c6682a924 stands unchanged. The qualification environment now installs the compose plugin whenever a gate names docker compose or the image namespace test, so docker compose config --images runs. Run the build once and the verification once at that revision."
 
 [task.18.1820.1]
 title = "Issue #1820: Preserve ECR manual-run source and tag identity"
@@ -347874,8 +348271,8 @@ symbols = ["require_layout_receipt", "test_retained_pass_receipt_rejects_stale_s
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py", "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"]
 tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py::LayoutReceiptGateTest.test_retained_pass_receipt_rejects_stale_source_bindings"]
 planned_paths = []
-build_cmd = "python3 -m py_compile the vendored source-control case file 0_10.py the vendored source-control case file layout_receipt_gate_test.py"
-verify_cmd = "python3 -m pytest the vendored source-control case file layout_receipt_gate_test.py -q"
+build_cmd = "python3 -m py_compile tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+verify_cmd = "python3 -m pytest tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-tools-ops"
@@ -347887,6 +348284,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (requalify, gotcha 3796, decision 3075): the attempt-1 tree ebca190ef9ae stands unchanged. The build and verify commands now name the real paths of case file 0_10.py and the layout receipt gate test under the vendored tests directory. Run the build once and the verification once at that revision."
 
 [task.18.1816.1]
 title = "Issue #1816: Align ask-stream documentation with the native bytes32 identifiers"
@@ -347947,6 +348345,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3805): the attempt-1 tree f8384f9fbbdb stands (the activation plan, activation.py, the runbook, the three tests, the repair test). Regenerate spec/layerx-merge/docs/activation-runbook.md with the renderer of activation.py at the final tree so the bytes match, and in spec/layerx-merge/programme/tests/test_activation_runbook.py lines 28 and 69 assert the seven goldens of programme/data/goldens/merge-bringup.kvx by name (accepted, no-leaders, lastseq, no-key, bad-genesis, custody-release, anchor-retired) instead of the count five. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 
 [task.18.1804.1]
 title = "Issue #1804: Fail reference fixture checks when regenerated artifacts differ from the committed set"
@@ -412359,6 +412758,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (requalify, gotcha 3793): the attempt-1 tree 865e4c1d9e48 stands unchanged. Run the build once and the verification once at that revision; the precompiled evil_crc32c archive downloads outside the failure window."
 
 [task.18.1659.1]
 title = "Issue #1659: Preserve price acceptance replay retries when held-job diagnostics fail"
@@ -412389,6 +412789,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 3793): the attempt-1 tree 28d5b1bec076 stands unchanged. Run the build once and the verification once at that revision; the vix precompiled archive downloads outside the failure window."
 
 [task.18.1652.1]
 title = "Issue #1652: Retry multichain exports with valid buffered queue entries"
@@ -412419,6 +412820,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 3793): the attempt-1 tree 90fd237e718d stands unchanged. Run the build once and the verification once at that revision; the precompiled ex_keccak archive downloads outside the 07:50Z to 08:10Z window."
 
 [task.18.1674.1]
 title = "Issue #1674: Connect interop HTTP paging to the complete message cursor"
