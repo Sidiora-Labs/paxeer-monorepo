@@ -22,7 +22,7 @@ function deriveDeployment(contractRoot) {
     assert.equal(identity.kind, expectedKind, `${role}:role kind mismatch`);
     assert.match(identity.runtimeHash, /^0x[0-9a-fA-F]{64}$/, `${role}:missing runtime hash`);
     if (identity.kind === 'surface') {
-      assert.equal(identity.runtimeHash, '0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993', `${role}:surface runtime hash mismatch`);
+      assert.equal(identity.runtimeHash, '0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f', `${role}:surface runtime hash mismatch`);
     } else {
       assert.equal(identity.runtimeHash, record.runtimeHash, `${role}:runtime hash mismatch`);
     }
