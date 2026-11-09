@@ -1,0 +1,7 @@
+[issue.1765]
+number = 1765
+title = "[Coherence] The repair_22_31_564 byte-limit test still asserts the old observer refusal text without a site, so it fails now that every supplement refusal adds a site name"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 1342437ee8b3175447aa5c8b8c8cbba6d1d47b72 updated the 512-byte profile assertion at programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs:156 to expect SupplementRejected at retain_boundary_capture.source, matching the companion assertion at programs/crates/layerx-programs-runtime/tests/repair_22_31_569.rs:217, the refusal site recorded at programs/crates/layerx-programs-runtime/src/host/mod.rs:619, the site-bearing formatting at programs/crates/layerx-programs-runtime/src/host/mod.rs:348 and callback-error mapping at programs/vendor/wasmi-0.31.2/src/store.rs:2157."
+close_comment = "The byte-limit regression test now expects the full refusal reason, including retain_boundary_capture.source, matching the runtime diagnostic and the companion refusal test. The exact byte-limit and boundary-limit assertions remain in place."
