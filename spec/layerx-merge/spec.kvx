@@ -335515,7 +335515,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.181]
 title = "Complete the 7.0.0 consensus-commit ledger from the last v6.12.0 ledger commit with rows produced from history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.180"]
