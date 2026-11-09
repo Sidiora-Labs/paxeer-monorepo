@@ -202,6 +202,11 @@ impl Market {
             host_share_bps: 1000,
             protocol_share_bps: 1000,
             settlement_account: AccountId::new([80; 32]).unwrap(),
+            max_generated_tokens: 4096,
+            queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
+            liveness_timeout_ms: 30_000,
+            acknowledgement_window_ms: 5_000,
+            canary_relative_tolerance_bps: 100,
         };
         market.call(
             dispatch::OpenRoom,
@@ -559,10 +564,7 @@ impl Market {
             prompt_digest: digest(90),
             expected_logits_digest: canary::logits_digest(&[100_000; 8]).unwrap(),
             answer_digest: canary::logits_digest(&answer).unwrap(),
-            profile: CanaryRoomProfile {
-                room: room.profile,
-                relative_tolerance_bps: 100,
-            },
+            profile: CanaryRoomProfile { room: room.profile },
             peer_signature: Signature64([0; 64]),
         };
         task.peer_signature = Signature64(

@@ -7,7 +7,7 @@ use crate::{
     dispatch,
     errors::*,
     evaluators::authority::split_identity_section,
-    policy::RoomProfile,
+    policy::{RoomProfile, ROOM_PROFILE_BYTES},
     registry::market_clock,
     registry_ops::{CallContext, PolicySection, ACTIVE, REGISTERED},
     reputation_transition::split_joint,
@@ -22,7 +22,9 @@ pub const ASK_CAPACITY: usize = 64;
 pub const BID_CAPACITY: usize = 128;
 pub const DEAL_CAPACITY: usize = 16;
 pub const MAX_DEAL_PEERS: usize = 32;
-pub const ROOM_RECORD_BYTES: usize = 209;
+pub const ROOM_RECORD_BYTES: usize = 4 * 32 + ROOM_PROFILE_BYTES + 1 + 8;
+pub const OPEN_ROOM_REQUEST_BYTES: usize = 3 * 32 + ROOM_PROFILE_BYTES;
+pub const ROOM_BOOK_VERSION: u16 = 2;
 pub const ASK_RECORD_BYTES: usize = 193;
 pub const BID_RECORD_BYTES: usize = 162;
 pub const DEAL_RECORD_BYTES: usize = 146 + 36 * MAX_DEAL_PEERS;
@@ -358,7 +360,7 @@ impl OpenRoomRequest {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.profile.validate()?;
-        let mut w = Writer::new(out.get_mut(..168).ok_or(CAPACITY)?);
+        let mut w = Writer::new(out.get_mut(..OPEN_ROOM_REQUEST_BYTES).ok_or(CAPACITY)?);
         crate::codec::write_fields!(w;
             id32: self.room_id.as_bytes();
             id32: self.model_digest.as_bytes();
@@ -540,7 +542,7 @@ impl<'a> RoomBook<'a> {
         if r.take(4)? != b"F11B" {
             return Err(NON_CANONICAL);
         }
-        if r.u16()? != 1 {
+        if r.u16()? != ROOM_BOOK_VERSION {
             return Err(BAD_VERSION);
         }
         let mut book = Self {
@@ -639,7 +641,7 @@ impl<'a> RoomBook<'a> {
         }
         let mut w = Writer::new(out);
         w.put(b"F11B")?;
-        w.u16(1)?;
+        w.u16(ROOM_BOOK_VERSION)?;
         for count in counts {
             w.u16(count as u16)?;
         }
