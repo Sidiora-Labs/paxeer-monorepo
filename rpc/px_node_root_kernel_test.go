@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -11,8 +12,11 @@ import (
 	"math"
 	"math/big"
 	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -39,7 +43,11 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
+	clienttx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/tx"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	signing "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx/signing"
+	authsigning "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -60,6 +68,7 @@ type pxRootKernelHarness struct {
 	pins   seqkeeper.ReceiptKeys
 	tx     *ethtypes.Transaction
 	batch  []byte
+	trust  []map[string]interface{}
 }
 
 // Connect the one produced sequenced height to the node's proposal builder.
@@ -78,7 +87,8 @@ func (a *pxRootKernelConsensusApp) Sequenced(height int64) bool {
 // The real executor, receipter, WAL release and ConsensusSource produce the
 // transactions and receipts. A local consensus node commits those exact bytes;
 // the RPC listeners read its local client and the committed sequencer stores.
-func newPxRootKernelHarness(t *testing.T) *pxRootKernelHarness {
+func newPxRootKernelHarness(t *testing.T, mixed ...bool) *pxRootKernelHarness {
+	mixedBlock := len(mixed) != 0 && mixed[0]
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	t.Cleanup(cancel)
@@ -112,6 +122,20 @@ func newPxRootKernelHarness(t *testing.T) *pxRootKernelHarness {
 	coins := sdk.NewCoins(sdk.NewInt64Coin("uhpx", 1_000_000_000_000))
 	require.NoError(t, application.BankKeeper.MintCoins(producerCtx, minttypes.ModuleName, coins))
 	require.NoError(t, application.BankKeeper.SendCoinsFromModuleToAccount(producerCtx, minttypes.ModuleName, sender.AccountAddress, coins))
+	bankSender := utils.NewSigner()
+	if mixedBlock {
+		require.NoError(t, application.BankKeeper.MintCoins(producerCtx, minttypes.ModuleName, coins))
+		require.NoError(t, application.BankKeeper.SendCoinsFromModuleToAccount(producerCtx, minttypes.ModuleName, bankSender.AccountAddress, coins))
+		domainParams := application.LayerXChainsKeeper.GetParams(producerCtx)
+		operator := sender.EvmAddress
+		bond := domainParams.MinBond.Add(domainParams.CreationFee)
+		domainCoins := sdk.NewCoins(sdk.NewCoin(application.EvmKeeper.GetBaseDenom(producerCtx), bond))
+		require.NoError(t, application.BankKeeper.MintCoins(producerCtx, "evm", domainCoins))
+		require.NoError(t, application.BankKeeper.SendCoinsFromModuleToAccount(producerCtx, "evm", sender.AccountAddress, domainCoins))
+		domain, err := application.LayerXChainsKeeper.Create(producerCtx, operator, "batch-activity", domainParams.MinGasAllowance, domainParams.MinByteAllowance, 0, bond, application.EvmKeeper.GetNextBaseFeePerGas(producerCtx))
+		require.NoError(t, err)
+		require.Equal(t, uint32(1), domain.Id)
+	}
 	seed := bytes.Repeat([]byte{0x34}, 32)
 	public := ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey)
 	keyID := bytes.Repeat([]byte{0x24}, 32)
@@ -164,16 +188,46 @@ func newPxRootKernelHarness(t *testing.T) *pxRootKernelHarness {
 	builder.SetGasLimit(21000)
 	encoded, err := application.GetTxConfig().TxEncoder()(builder.GetTx())
 	require.NoError(t, err)
+	acceptBank := func() {
+		open, err := exec.Snapshot()
+		require.NoError(t, err)
+		acct := application.AccountKeeper.GetAccount(open, bankSender.AccountAddress)
+		require.NotNil(t, acct)
+		tc := application.GetTxConfig()
+		bank := tc.NewTxBuilder()
+		require.NoError(t, bank.SetMsgs(banktypes.NewMsgSend(bankSender.AccountAddress, sender.AccountAddress, sdk.NewCoins(sdk.NewInt64Coin("uhpx", 5)))))
+		bank.SetGasLimit(200_000)
+		bank.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("uhpx", 30_000)))
+		mode := tc.SignModeHandler().DefaultMode()
+		require.NoError(t, bank.SetSignatures(signing.SignatureV2{PubKey: bankSender.PrivateKey.PubKey(), Data: &signing.SingleSignatureData{SignMode: mode}, Sequence: acct.GetSequence()}))
+		sig, err := clienttx.SignWithPrivKey(mode, authsigning.SignerData{ChainID: genesis.ChainID, AccountNumber: acct.GetAccountNumber(), Sequence: acct.GetSequence()}, bank, bankSender.PrivateKey, tc, acct.GetSequence())
+		require.NoError(t, err)
+		require.NoError(t, bank.SetSignatures(sig))
+		raw, err := tc.TxEncoder()(bank.GetTx())
+		require.NoError(t, err)
+		_, err = accepter.Accept(raw)
+		require.NoError(t, err)
+	}
+	if mixedBlock {
+		acceptBank()
+	}
 	accepted, err := accepter.Accept(encoded)
 	require.NoError(t, err)
 	require.NotEmpty(t, accepted.Receipt)
+	if mixedBlock {
+		acceptBank()
+	}
 	consensusSource, err := seqnode.NewConsensusSource(application, exec, key)
 	require.NoError(t, err)
 	sealedBlock, err := consensusSource.Seal(ctx, 2)
 	require.NoError(t, err)
 	sealed := consensusSource.Sealed()
 	require.NotNil(t, sealed)
-	require.Len(t, sealed.Txs, 2)
+	if mixedBlock {
+		require.Len(t, sealed.Txs, 4)
+	} else {
+		require.Len(t, sealed.Txs, 2)
+	}
 	require.NoError(t, application.SetSealedStateToCommit(sealed.Context(), sealed.Context().MultiStore().(sdk.CacheMultiStore)))
 	_, err = application.Commit(ctx)
 	require.NoError(t, err)
@@ -220,6 +274,13 @@ func newPxRootKernelHarness(t *testing.T) *pxRootKernelHarness {
 		return read.WithConsensusParams(application.GetConsensusParams(read))
 	}
 	h := &pxRootKernelHarness{pxRootAccountHarness: root, source: source, pins: pins, tx: tx, batch: sealedBlock.Batch}
+	validators := make([]*tmtypes.Validator, len(genesis.Validators))
+	for i, v := range genesis.Validators {
+		validators[i] = tmtypes.NewValidator(v.PubKey, v.Power)
+	}
+	for _, v := range tmtypes.NewValidatorSet(validators).Validators {
+		h.trust = append(h.trust, map[string]interface{}{"key": hexutil.Encode(v.PubKey.Bytes()), "power": v.VotingPower})
+	}
 	root.start(t, h.receiptOption())
 	return h
 }
@@ -546,4 +607,125 @@ func TestPxNodeRoot_Kernel_RestartAndGovernedKeys(t *testing.T) {
 	for _, c := range h.clients {
 		require.Equal(t, before, pxKernelCall(t, c, "px_getReceiptKeys"))
 	}
+}
+
+func TestCommittedWaitUsesBatchActivityIDs(t *testing.T) {
+	h := newPxRootKernelHarness(t, true)
+	block, err := h.tm.Block(t.Context(), ptrPxHeight(2))
+	require.NoError(t, err)
+	require.Len(t, block.Block.Txs, 4)
+	expected := make([]interface{}, 3)
+	typed := make([]sdk.Tx, 3)
+	for i, raw := range block.Block.Txs[1:] {
+		typed[i], err = h.app.GetTxConfig().TxDecoder()(raw)
+		require.NoError(t, err)
+		id := sha256.Sum256(raw)
+		if i == 1 {
+			id = [32]byte(h.tx.Hash())
+		} else {
+			require.Nil(t, h.app.GetEVMMsg(typed[i]))
+		}
+		expected[i] = hexutil.Encode(id[:])
+	}
+	require.Equal(t, seqtypes.TxRoot([][32]byte{sha256.Sum256(block.Block.Txs[1]), [32]byte(h.tx.Hash()), sha256.Sum256(block.Block.Txs[3])}), h.app.SequencedTxRoot(block.Block.Txs[1:].ToSliceOfBytes(), typed))
+	decoded, err := seqtypes.DecodeSequenceBatchTx(h.batch)
+	require.NoError(t, err)
+	for i, c := range append(h.clients, domainHTTPClient(t, h.http, "/chain/1"), domainWSClient(t, h.ws, "/chain/1")) {
+		batch := pxKernelCall(t, c, "px_getSequenceBatch", "2")
+		require.Equal(t, expected, batch["activityIds"])
+		receipt := pxKernelCall(t, c, "pax_sequencerReceipt", h.tx.Hash())
+		require.Equal(t, "committed", receipt["rung"])
+		var view map[string]interface{}
+		require.NoError(t, c.CallContext(t.Context(), &view, "eth_getBlockByNumber", "0x2", false))
+		require.NotNil(t, view)
+		transactions := view["transactions"].([]interface{})
+		require.NotContains(t, transactions, expected[0])
+		require.NotContains(t, transactions, expected[2])
+		if i < 2 {
+			require.Equal(t, []interface{}{h.tx.Hash().Hex()}, transactions)
+		} else {
+			require.Empty(t, transactions)
+		}
+	}
+	endpoint := "http://" + h.http.ListenAddr() + "/"
+	target, err := url.Parse(endpoint)
+	require.NoError(t, err)
+	endpoints := map[string]string{"genuine": endpoint}
+	for _, mode := range []string{"missing", "truncated", "reordered", "altered", "malformed", "short_eth"} {
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		proxy.ModifyResponse = func(response *http.Response) error {
+			method := response.Request.Header.Get("X-Issue-1764-Method")
+			if method != "px_getSequenceBatch" && !(mode == "short_eth" && method == "eth_getBlockByNumber") {
+				return nil
+			}
+			raw, err := io.ReadAll(response.Body)
+			if err != nil {
+				return err
+			}
+			response.Body.Close()
+			var wire map[string]interface{}
+			if err := json.Unmarshal(raw, &wire); err != nil {
+				return err
+			}
+			result, ok := wire["result"].(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("production response has no result: %s", raw)
+			}
+			if method == "eth_getBlockByNumber" {
+				result["transactions"] = []interface{}{}
+			} else {
+				ids := result["activityIds"].([]interface{})
+				switch mode {
+				case "missing":
+					delete(result, "activityIds")
+				case "truncated":
+					result["activityIds"] = ids[:len(ids)-1]
+				case "reordered":
+					ids[0], ids[2] = ids[2], ids[0]
+				case "altered":
+					ids[2] = common.HexToHash("0xbad").Hex()
+				case "malformed":
+					ids[0] = "0x01"
+				}
+			}
+			encoded, err := json.Marshal(wire)
+			if err != nil {
+				return err
+			}
+			response.Body = io.NopCloser(bytes.NewReader(encoded))
+			response.ContentLength = int64(len(encoded))
+			response.Header.Set("Content-Length", strconv.Itoa(len(encoded)))
+			return nil
+		}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			var request struct {
+				Method string `json:"method"`
+			}
+			if err := json.Unmarshal(raw, &request); err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(raw))
+			r.Header.Set("X-Issue-1764-Method", request.Method)
+			proxy.ServeHTTP(w, r)
+		}))
+		t.Cleanup(server.Close)
+		endpoints[mode] = server.URL
+	}
+	config := map[string]interface{}{"endpoints": endpoints, "validators": h.trust, "chainId": "pax-test", "activity": h.tx.Hash().Hex(), "keyId": hexutil.Encode(h.pins[0].KeyId), "receiptKey": hexutil.Encode(h.pins[0].PublicKey), "height": 2, "fromSequence": decoded.FromSeq, "targetSequence": decoded.FromSeq + 1, "blockHash": hexutil.Encode(block.BlockID.Hash)}
+	path := filepath.Join(t.TempDir(), "issue-1764.json")
+	encoded, err := json.Marshal(config)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, encoded, 0600))
+	command := exec.CommandContext(t.Context(), "cargo", "test", "--locked", "--manifest-path", "../services/agent/crates/layerx-sdk/Cargo.toml", "--test", "issue_1764", "committed_wait_uses_unfiltered_batch_activity_ids", "--", "--exact", "--nocapture")
+	command.Env = append(os.Environ(), "ISSUE_1764_CONFIG="+path)
+	output, err := command.CombinedOutput()
+	require.NoError(t, err, "%s", output)
+	require.Contains(t, string(output), "1 passed", "%s", output)
+	t.Logf("%s", output)
 }
