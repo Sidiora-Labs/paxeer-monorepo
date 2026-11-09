@@ -1,0 +1,7 @@
+[issue.1624]
+number = 1624
+title = "[Coherence] The site's Public RPC endpoints reference page still lists sixteen node names and calls api-mainnet-beta the unified router URL"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit c2851259933f250e7fdb033975e7366f0d9aa0eb corrected the reference page: docs/site/docs/reference/public-rpc.md:8 describes root HTTPS and WebSocket access without the former beta restriction, :16 lists the direct canonical alias, :17 through :30 list only api1 through api14, and :38 and :87 explicitly reject the router and separate LayerX interface, matching docs/readme/PUBLIC-RPC.md:13 and :25 while docs/site/mkdocs.yml:143 still publishes the corrected page."
+close_comment = "The Public RPC endpoints reference now lists api1 through api14 plus api-mainnet-beta at the root for HTTPS and WebSocket access. It describes the alias as a direct node endpoint, removes the beta availability restriction, and explicitly states that the former unified router is retired, matching the Public RPC documentation."

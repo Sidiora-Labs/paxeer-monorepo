@@ -1,0 +1,51 @@
+[issue.1712]
+number = 1712
+title = "Restore real HTTP coverage after explorer fetchApi switches to global fetch"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 050e1cbc17da350964bccc3fa262dd2452c5f34d switched fetchApi to global fetch, still called at apps/explorer/nextjs/utils/fetchApi.ts:26, but apps/explorer/vitest/setup.ts:8 enables its mock and apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:15 starts the loopback server without disabling or restoring that mock despite the real HTTP contract at apps/explorer/nextjs/utils/repair-22-33-543.kvx:4 and the twelve-request assertion at apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:88, while apps/explorer/repair-22-31-512.kvx:16 qualifies only the boundary suite before the production build."
+close_comment = "The retained HTTP regression still uses the globally mocked fetch, so it cannot prove real upstream status handling and stats metadata behavior. A focused follow-up will restore real loopback requests with mock restoration and qualify the HTTP regression alongside the fetch import-boundary tests."
+
+[task.18.1712.1]
+title = "Issue #1712: Restore real HTTP regression coverage alongside fetch boundary checks"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181712.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:15, capture the setup-installed global fetch and disable its existing fetchMock before requests reach fetchApi; in the teardown at line 30, restore the mock and environment in a finally path even if server cleanup fails, and assert that global fetch is the captured mock again; preserve real loopback HTTP, the production fetchApi and stats metadata callers, and every retained assertion."
+do_2 = "Extend httpErrorsAsPayloads at apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:38 to assert that fetch is not mocked during the HTTP proof; retain the 400/404/500/503 refusal assertions at line 57, 200/201 payload and metadata assertions at line 72, and exactly twelve requests with six metadata queries at line 88, without adding a replacement transport or changing apps/explorer/nextjs/utils/fetchApi.ts:26."
+do_3 = "Add test:fetch-boundary to the existing scripts at apps/explorer/package.json:37, invoking vitest run nextjs/utils/repair-22-33-543.spec.ts repair-22-31-512.spec.ts; use that script in apps/explorer/repair-22-31-512.kvx:16 and update its tests and qualification summary to include httpErrorsAsPayloads while retaining the existing type-check, both boundary tests and production build; the frontend suite already discovers both files through apps/explorer/vitest.config.ts:21 and .github/workflows/explorer-build.yml:90."
+symbols = ["httpErrorsAsPayloads"]
+touches = ["apps/explorer/nextjs/utils/repair-22-33-543.spec.ts", "apps/explorer/package.json", "apps/explorer/repair-22-31-512.kvx"]
+tests = ["apps/explorer/nextjs/utils/repair-22-33-543.spec.ts::httpErrorsAsPayloads", "apps/explorer/repair-22-31-512.spec.ts::nodeFetchImportsStayServerOnly", "apps/explorer/repair-22-31-512.spec.ts::testModulesStayOutOfNextPages"]
+planned_paths = []
+build_cmd = "cd apps/explorer && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && yarn test:fetch-boundary"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181712]
+title = "Explorer fetch boundary qualification proves real HTTP behavior and restores fetch isolation"
+ac_1 = "Given the global fetch mock enabled at apps/explorer/vitest/setup.ts:8, when the retained regression at apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:38 runs, then real loopback responses 400/404/500/503 return undefined with null stats metadata, 200/201 preserve payloads and enhanced metadata, and the server observes exactly twelve requests including six date-bounded metadata queries as asserted at line 88."
+ac_2 = "Given the real HTTP regression has finished or failed, when its teardown at apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:30 completes, then the original global fetch mock and environment are restored even if server cleanup fails, with an assertion proving the restored fetch identity."
+ac_3 = "Given the fetch import boundary checks at apps/explorer/repair-22-31-512.spec.ts:37 and line 59, when test:fetch-boundary qualifies a fetch-boundary change, then both boundary checks and httpErrorsAsPayloads run together, and apps/explorer/repair-22-31-512.kvx:16 includes the retained HTTP regression without removing the type-check or production build."
+
+[acceptance.18.1712.1]
+feature = "18"
+req = "181712.1"
+scenario = "Given explorer enables a global fetch mock, when fetch-boundary qualification runs the retained HTTP regression and boundary checks together, then real refusal and success responses produce the expected payloads and metadata, exactly twelve requests reach the loopback server, and teardown restores the original global fetch mock."
+contract = "contracts/explorer-frontend-config.md#cfg-meta"
+test = "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts::httpErrorsAsPayloads (planned)"
+qualification = "UNRUN"
