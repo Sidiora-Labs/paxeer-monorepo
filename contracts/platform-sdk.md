@@ -220,7 +220,7 @@ receipts are implemented alongside those generated files.
 
 ## SDK dotnet
 
-The [.NET project](../sdk/platform/dotnet/LayerX.Sdk.csproj) targets `net8.0` and
+The [.NET project](../sdk/platform/dotnet/LayerX.Sdk.csproj) targets `net10.0` and
 uses package ID `LayerX.Sdk`. `Generated` contains the operation, mirror and
 receipt contract definitions. `Transport.cs`, `Production.cs`, `Verifier.cs`,
 `Committed.cs` and `PortableReceipt.cs` implement the corresponding client paths.
