@@ -160353,7 +160353,7 @@ do_3 = "Attempt 2 (continue, gotcha 3779, gotcha 3046): the attempt-1 tree fca0a
 
 [task.18.1712.1]
 title = "Issue #1712: Restore real HTTP regression coverage alongside fetch boundary checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182393,7 +182393,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1764.1]
 title = "Issue #1764: Verify committed receipts against the complete batch activity list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -220944,7 +220944,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1678.1]
 title = "Issue #1678: Preserve internal error redaction through ABCI query conversion"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -347424,7 +347424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1852.1]
 title = "Issue #1852: Document both receipt RPC transports in the registry and contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -348507,7 +348507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1698.1]
 title = "Issue #1698: Align the browser-source repair record with its pnpm verification command"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
