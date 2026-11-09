@@ -348701,7 +348701,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1775.1]
 title = "Issue #1775: Require peer-loss recovery before inference market closure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -364884,7 +364884,7 @@ title = "Close the inference market series: interface rows served, docs cross-ch
 status = "pending"
 mode = "BUILD"
 wave = 9
-requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.13", "22.38.22", "22.38.29", "22.38.30"]
+requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.13", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
 reqs = ["22380.6", "22998.1"]
 capabilities = ["22.38.39"]
 interfaces = []
