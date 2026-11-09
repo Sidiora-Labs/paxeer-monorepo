@@ -347942,7 +347942,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1863.1]
 title = "Issue #1863: Check routed runners on the concrete Platform release gate jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1843.1"]
