@@ -1,0 +1,7 @@
+[issue.1830]
+number = 1830
+title = "[Coherence] Web search and RPC payment verification still pass the ledger payer as `payer`, which now has to match the recovered EVM sender"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 5247adc56b93433fa7d8ad18a98455124a7e19df repaired the caller mismatch: services/agent/sdk/python/layerx_sdk/web_search.py:445 passes offer.payer as ledger_payer, services/agent/sdk/python/tests/test_sequencer_receipt.py:293 supplies the verified receipt sender to the RPC payer argument forwarded at services/agent/sdk/python/layerx_sdk/x402_rpc.py:351, and services/agent/sdk/python/tests/test_sequencer_receipt.py:97 plus services/agent/sdk/python/tests/test_x402_draw_sequencer.py:369 assert separate ledger and recovered-sender bindings enforced at services/agent/sdk/python/layerx_sdk/x402.py:214 and services/agent/sdk/python/layerx_sdk/x402.py:245."
+close_comment = "Web search now binds the offer's payer to the ledger account, while RPC payment verification binds its expected payer to the EVM transaction sender. The receipt tests supply these distinct accounts correctly and retain checks that reject incorrect account bindings."
