@@ -28,7 +28,7 @@ permissions:
 jobs:
   cleanup:
     name: Prune old integration test images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       actions: read

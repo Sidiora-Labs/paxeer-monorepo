@@ -2,6 +2,9 @@ import json
 import os
 import re
 import shlex
+import shutil
+
+import pytest
 import subprocess
 import tempfile
 from pathlib import Path
@@ -38,6 +41,10 @@ def eth_call(endpoint, address, data, request_id):
 
 
 def test_merge_precompiles_served():
+    binary = os.environ.get("PAXD") or shutil.which("paxd")
+    if binary is None:
+        pytest.skip("missing tool paxd; exact command: make -f chain.mk install")
+    assert Path(binary).is_file() and os.access(binary, os.X_OK), binary
     base = Path(os.environ.get("TMPDIR", "/tmp")) / "lx-localnode"
     base.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="merge-test.", dir=base) as directory:
@@ -50,6 +57,7 @@ def test_merge_precompiles_served():
                 capture_output=True,
                 text=True,
                 timeout=300,
+                env={**os.environ, "PAXD": binary},
             )
             ready = re.search(
                 r"^v6120-node: ready; home=(.+) env=(.+)$",

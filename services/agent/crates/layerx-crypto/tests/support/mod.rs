@@ -141,23 +141,12 @@ pub fn bridge_withdraw_registry() -> ModuleRegistry {
 // Archive fixtures have explicit names so the current transaction fixtures
 // remain unchanged for consumers migrated by other tasks.
 pub fn archived_send(amount: u128) -> Vec<u8> {
-    let (payload, key) = kernel_payloads::send(amount);
-    layerx_crypto::send::encode_send_envelope(
+    let (payload, _) = kernel_payloads::send(amount);
+    archived_activity(
         &payload,
-        &layerx_crypto::send::EnvelopeOptions {
-            actor: "did:layerx:alice",
-            public_key: key,
-            protocol_version: PROTOCOL_VERSION,
-            network_id: NETWORK_ID,
-            identity_sequence: SEQUENCE,
-            idempotency_key: IDEMPOTENCY_KEY,
-            fee_limit: 20,
-            not_before: NOT_BEFORE,
-            not_after: EXPIRES_AT,
-        },
+        ActivityType::new(ModuleId::Asset, 5).expect("archived send kind"),
+        IDEMPOTENCY_KEY,
     )
-    .expect("legacy producer compatibility")
-    .canonical
 }
 
 fn archived_activity(payload: &[u8], kind: ActivityType, action_key: [u8; 32]) -> Vec<u8> {
@@ -198,8 +187,10 @@ fn archived_activity(payload: &[u8], kind: ActivityType, action_key: [u8; 32]) -
     builder
         .payload(Payload::new(&registry, kind, payload).expect("payload"))
         .expect("payload field");
-    layerx_wire::activity::encode_unsigned_envelope(&builder.build().expect("archive envelope"))
-        .expect("archive bytes")
+    layerx_wire::historical::activity::encode_unsigned_envelope(
+        &builder.build().expect("archive envelope"),
+    )
+    .expect("archive bytes")
 }
 
 pub fn archived_bridge_credit(amount: u128) -> Vec<u8> {

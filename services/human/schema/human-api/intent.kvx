@@ -68,6 +68,10 @@ progress = "The journey is then read through GET /v1/journeys/{journey_id} like 
 tx_hash = "The actual submitted EVM transaction hash, when known. Submission alone does not establish a verified receipt."
 
 [operation.intent.plan]
+golden_responses = ["historical/intent.plan.response.json"]
+golden_requests = ["negative/intent.plan.paxeer-wallet.request.json"]
+golden_failures = ["negative/intent.plan.paxeer-wallet.response.json"]
+golden_inputs = ["producer/intent.plan.context.json"]
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/intents/plan"

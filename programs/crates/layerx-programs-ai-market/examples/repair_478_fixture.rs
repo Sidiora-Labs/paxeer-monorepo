@@ -39,6 +39,13 @@ fn main() {
         }
         return;
     }
+    if args[1] == "--measure" {
+        let allowance = args[3].parse().expect("diagnostic allowance");
+        let fuel = fixture::measure_kernel_fund(std::path::Path::new(&args[2]), allowance)
+            .expect("Fund must produce the exact state, result, event and transfer");
+        println!("{{\"cpu_fuel\":{fuel}}}");
+        return;
+    }
     if args[1] == "--probe" {
         println!(
             "Fund runtime: {:?}",

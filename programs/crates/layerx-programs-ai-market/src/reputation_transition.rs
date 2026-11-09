@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{Reader, Writer},
     errors::{
@@ -30,6 +31,7 @@ pub struct SegmentBinding {
 ///
 /// # Errors
 /// Propagates `ReputationCurrent::matches_segment`'s `NON_CANONICAL`/`F07_SEGMENT_MISMATCH` refusals; returns `NON_CANONICAL` when `height` is zero or before the last transition; `F07_BINDING_MISMATCH` when the config moves backwards or `reason` disagrees with the binding change; `WRONG_EPOCH` when the last applied epoch is not completed; `ARITHMETIC` when the generation overflows; propagates the digest and validation refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn reset_segment(
     old: &ReputationCurrent,
     old_key: SegmentKey,
@@ -98,6 +100,7 @@ pub fn reset_segment(
 ///
 /// # Errors
 /// Propagates `ReputationCurrent::matches_segment`'s and `reset_segment`'s refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn rollover_segment(
     old: &ReputationCurrent,
     old_key: SegmentKey,
@@ -149,6 +152,7 @@ pub(crate) struct EpochTally {
     dead_code,
     reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn update_record(
     record: &ReputationCurrent,
     key: SegmentKey,
@@ -242,6 +246,7 @@ pub(crate) struct CompletionDraft {
     reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
 )]
 impl CompletionDraft {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn begin(
         state: &ReputationState,
         frozen: FrozenBinding,
@@ -296,7 +301,7 @@ impl CompletionDraft {
                 return Err(F07_BINDING_MISMATCH);
             }
             previous = Some(worker.worker);
-            bounded_roster[i] = Some(*worker);
+            *bounded_roster.guest_index_mut(i) = Some(*worker);
         }
         Ok(CompletionStart::Pending(Self {
             staged: state.clone(),
@@ -311,6 +316,7 @@ impl CompletionDraft {
             covered: 0,
         }))
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn apply_worker(
         &mut self,
         key: SegmentKey,
@@ -329,7 +335,11 @@ impl CompletionDraft {
             .records()
             .position(|r| r.worker == worker.worker)
             .ok_or(F07_UNKNOWN_WORKER)?;
-        let old = self.staged.current[index].ok_or(NON_CANONICAL)?;
+        let old = self
+            .staged
+            .current
+            .guest_index(index)
+            .ok_or(NON_CANONICAL)?;
         let next = update_record(
             &old,
             key,
@@ -353,12 +363,13 @@ impl CompletionDraft {
             .covered
             .checked_add(u8::from(eligible > 0))
             .ok_or(ARITHMETIC)?;
-        self.staged.current[index] = Some(next);
+        *self.staged.current.guest_index_mut(index) = Some(next);
         self.cursor += 1;
         self.observed = observed;
         self.covered = covered;
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn finish(mut self) -> CodecResult<(ReputationState, CompletedHistory)> {
         if self.cursor != self.roster_len {
             return Err(F07_EPOCH_NOT_SEALED);
@@ -445,12 +456,16 @@ pub struct Region {
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn split_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
     if section.get(..4) != Some(SECTION_MAGIC.as_slice()) {
         return Ok((None, section));
     }
     let counts = section.get(6..8).ok_or(NON_CANONICAL)?;
-    let (current, history) = (usize::from(counts[0]), usize::from(counts[1]));
+    let (current, history) = (
+        usize::from(*counts.guest_index(0)),
+        usize::from(*counts.guest_index(1)),
+    );
     if current > LIMIT || history > LIMIT {
         return Err(CAPACITY);
     }
@@ -484,6 +499,15 @@ pub fn split_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
         }),
         table,
     ))
+}
+
+/// Validated F08 suffix of the joint reputation/admission section.
+///
+/// # Errors
+/// Preserves every framing, reputation and history-seal refusal of `split_joint`.
+#[allow(dead_code, reason = "also compiled by reputation vector tests")]
+pub fn joint_table(section: &[u8]) -> CodecResult<&[u8]> {
+    split_joint(section).map(|(_, table)| table)
 }
 
 fn check_seal(state: &ReputationState, seal: HistorySeal) -> CodecResult<()> {
@@ -525,7 +549,7 @@ pub fn encode_joint(region: &Region, table: &[u8], out: &mut [u8]) -> CodecResul
     let end = len.checked_add(table.len()).ok_or(ARITHMETIC)?;
     out.get_mut(len..end)
         .ok_or(CAPACITY)?
-        .copy_from_slice(table);
+        .guest_copy_from_slice(table);
     Ok(end)
 }
 
@@ -540,6 +564,7 @@ pub fn encode_joint(region: &Region, table: &[u8], out: &mut [u8]) -> CodecResul
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn seal_history(
     state: &ReputationState,
     epoch: u64,
@@ -587,6 +612,7 @@ pub fn seal_history(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn open_segments(
     state: &ReputationState,
     previous: SegmentBinding,
@@ -661,6 +687,7 @@ pub fn open_segments(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn bound_record(
     state: &ReputationState,
     worker: WorkerId,
@@ -715,6 +742,7 @@ pub fn check_expected(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn set_status(
     record: &ReputationCurrent,
     key: SegmentKey,
@@ -817,6 +845,7 @@ pub struct WorkerObservation {
     clippy::too_many_arguments,
     reason = "every input is a distinct authenticated producer value of the completion"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn complete_epoch(
     state: &ReputationState,
     seal: Presence<HistorySeal>,

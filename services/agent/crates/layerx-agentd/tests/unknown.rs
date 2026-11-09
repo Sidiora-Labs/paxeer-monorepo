@@ -1,3 +1,4 @@
+// Receipt fixtures bind paymentDenom to the signed protocol asset.
 #[path = "support/mod.rs"]
 mod support;
 

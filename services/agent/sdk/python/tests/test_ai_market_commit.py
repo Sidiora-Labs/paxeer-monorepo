@@ -417,7 +417,7 @@ def test_market_node_receipt_summary_events_and_return_binding(tmp_path, signatu
     from test_repair_22_33_17 import ReceiptNode, http_server
     from layerx_sdk import programs
     from layerx_sdk.x402 import verify_sequencer_receipt
-    from layerx_sdk.x402_rpc import PaymentRpc
+    from layerx_sdk.x402_rpc import HostedGatewayRpc, PaymentRpc
 
     corpus = json.loads((ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text())
     assert corpus["provenance"]["generator"] == "rpc/sequencer_receipt_vectors_test.go"
@@ -425,10 +425,15 @@ def test_market_node_receipt_summary_events_and_return_binding(tmp_path, signatu
     raw = bytes.fromhex(vector["rawTransaction"][2:])
     node = ReceiptNode()
     node.add_recording(vector)
-    with http_server(node.dispatch) as endpoint:
+    gateway = ReceiptNode()
+    gateway.path = "/rpc"
+    gateway.add_recording(vector)
+    with http_server(node.dispatch) as endpoint, http_server(gateway.dispatch) as gateway_endpoint:
         rpc = PaymentRpc(endpoint)
-        keys = rpc.receipt_keys()
+        keys = HostedGatewayRpc(gateway_endpoint + "/rpc").receipt_keys()
         result = rpc.receipt(vector["receiptJson"]["txHash"])
+        assert [request["method"] for request in gateway.requests] == ["px_getReceiptKeys"]
+        assert [request["method"] for request in node.requests] == ["pax_sequencerReceipt"]
         receipt = bytes.fromhex(result["receipt"][2:])
         verified = verify_sequencer_receipt(receipt, raw, keys, return_data=bytes.fromhex(result["returnData"][2:]))
         assert len(verified.receipt.effects) == len(result["logs"]) + 1

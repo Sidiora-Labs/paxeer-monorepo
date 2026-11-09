@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from layerx_sdk.account_derivation import (
+    checksum_address,
     ADDR_PRECOMPILE_ADDRESS,
     LAYERX_COIN_TYPE,
     AccountDerivationError,
@@ -309,7 +310,7 @@ class AccountDerivationTest(unittest.TestCase):
                     vector["passphrase"],
                     expected["index"],
                 )
-                self.assertEqual(derived.evm_address, expected["evm_address"])
+                self.assertEqual(derived.evm_address, checksum_address(expected["evm_address"]))
                 self.assertEqual(
                     derived.layerx_public_key, expected["layerx_public_key"]
                 )
@@ -380,7 +381,7 @@ class AccountDerivationTest(unittest.TestCase):
                 chain_id, address, "0x" + vector["signature"], index
             )
             self.assertEqual(derived.did, vector["did"])
-            self.assertEqual(derived.evm_address, address)
+            self.assertEqual(derived.evm_address, checksum_address(address))
             self.assertIsNone(derived.evm_private_key)
             for equivalent in vector["equivalent_signatures"]:
                 self.assertNotEqual(equivalent, vector["signature"])

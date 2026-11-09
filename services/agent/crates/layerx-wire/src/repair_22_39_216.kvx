@@ -1,0 +1,373 @@
+[meta]
+task = "22.39.216"
+decision = "3053"
+gotcha = "3749"
+acceptance = "22998.1"
+base_revision = "d231853743c82e8c3cb9d90f45e9eee7e331f914"
+inventory_kind = "Source review before qualification; compiler diagnostics, if any, are recorded separately."
+baseline = "Not run: the ordered gate instructions prohibit direct verification and gates before complete implementation. No unchanged-tree Clippy result is claimed."
+scope = "layerx-wire library and all test targets; workspace lint settings, public signatures and test assertions retained."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+build = "Final passing build row in the ledger: revision, command, exit and private log."
+verify = "Final verify row in the ledger, produced only by hf-done: revision, command, exit and private log."
+verified_revision = "The shared revision of the final passing build and verify rows in the ledger."
+required_final_lint_count = 0
+final_lint_count = 0
+final_lint_count_evidence = "The zero count is qualified only by a final passing verify row; on failure its log is authoritative."
+verify_cmd = "test -s services/agent/crates/layerx-wire/src/repair_22_39_216.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --no-deps --all-targets -- -D warnings"
+
+[source_repair.1]
+file = "services/agent/crates/layerx-wire/src/maintenance.rs"
+line = 11
+lint = "clippy::unreadable_literal"
+repair = "Add digit separators without changing the evidence limit."
+
+[source_repair.2]
+file = "services/agent/crates/layerx-wire/src/handover.rs"
+line = 36
+lint = "clippy::cast_possible_truncation"
+repair = "Use usize::try_from and retain the typed Bounds error on conversion failure."
+
+[source_repair.4]
+file = "services/agent/crates/layerx-wire/tests/rejection.rs"
+line = 162
+lint = "clippy::unwrap_used"
+repair = "Match Err explicitly; unexpected acceptance still panics and the result-code assertion remains."
+
+[source_repair.5]
+file = "services/agent/crates/layerx-wire/tests/rejection.rs"
+line = 166
+lint = "clippy::unwrap_used"
+repair = "Match Err explicitly and preserve the exact UnknownField assertion."
+
+[source_repair.6]
+file = "services/agent/crates/layerx-wire/tests/rejection.rs"
+line = 169
+lint = "clippy::unwrap_used"
+repair = "Match Err explicitly and preserve the exact VersionUnsupported assertion."
+
+[source_repair.7]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 112
+lint = "clippy::unwrap_used"
+repair = "Match Err explicitly and preserve the rejection taxonomy assertions."
+
+[source_repair.8]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 130
+lint = "clippy::unwrap_used"
+repair = "Use an explicit matching helper that panics on acceptance, preserving the typed bound assertion."
+
+[source_repair.9]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 67
+lint = "clippy::missing_panics_doc"
+repair = "Document the existing invalid-vector panic conditions."
+
+[source_repair.10]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 340
+lint = "clippy::too_many_lines"
+repair = "Extract custody-bound and disclosure-mutation helpers; the same test executes every existing assertion."
+
+[diagnostics]
+revision = "54f39a6949b99e72809e041f2502b8ea4fda01b7"
+command = "cg spec done 22.39.216 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+compiler_exit = 101
+log = "/out/logs/verify-1.log"
+count = 39
+source = "First bounded verification after complete implementation; not an unchanged-tree baseline."
+shared_targets = "repair_22_33_1523.rs is also compiled by hashing, rejection and structures; repeated target failure summaries do not add source diagnostics."
+
+[diagnostic_count.activity]
+file = "services/agent/crates/layerx-wire/src/activity.rs"
+count = 1
+
+[diagnostic_count.repair_22_33_1522]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+count = 16
+
+[diagnostic_count.repair_22_33_1523]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+count = 22
+
+[lint.1]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 2
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.2]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 2
+column = 28
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.3]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 3
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.4]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 3
+column = 25
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.5]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 4
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.6]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 4
+column = 19
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.7]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 5
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.8]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 5
+column = 30
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.9]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 6
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.10]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 7
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.11]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 7
+column = 24
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.12]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 23
+column = 68
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.13]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 24
+column = 9
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.14]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 26
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.15]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 27
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.16]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1522.rs"
+line = 32
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.17]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 4
+column = 7
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.18]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 4
+column = 26
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.19]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 5
+column = 7
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.20]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 5
+column = 31
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.21]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 6
+column = 7
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.22]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 6
+column = 31
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.23]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 7
+column = 7
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.24]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 7
+column = 30
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.25]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 10
+column = 41
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.26]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 20
+column = 48
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.27]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 21
+column = 5
+lint = "clippy::doc_markdown"
+repair = "Enclose the documented Rust identifier or source path in backticks."
+
+[lint.28]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 78
+column = 8
+lint = "clippy::must_use_candidate"
+repair = "Add must_use to the value-producing public helper; retain its signature and all callers."
+
+[lint.29]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 181
+column = 8
+lint = "clippy::must_use_candidate"
+repair = "Add must_use to the value-producing public helper; retain its signature and all callers."
+
+[lint.30]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 195
+column = 8
+lint = "clippy::must_use_candidate"
+repair = "Add must_use to the value-producing public helper; retain its signature and all callers."
+
+[lint.31]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 280
+column = 1
+lint = "clippy::missing_panics_doc"
+repair = "Document the exact failure conditions of the existing public conformance test under Panics."
+
+[lint.32]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 352
+column = 1
+lint = "clippy::missing_panics_doc"
+repair = "Document the exact failure conditions of the existing public conformance test under Panics."
+
+[lint.33]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 494
+column = 1
+lint = "clippy::missing_panics_doc"
+repair = "Document the exact failure conditions of the existing public conformance test under Panics."
+
+[lint.34]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 520
+column = 13
+lint = "clippy::match_same_arms"
+repair = "Combine the two exact patterns; the identical nonempty-payload assertion still executes for both cases."
+
+[lint.35]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 521
+column = 17
+lint = "clippy::semicolon_if_nothing_returned"
+repair = "Terminate the unchanged nonempty-payload assertion with a semicolon."
+
+[lint.36]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 524
+column = 17
+lint = "clippy::semicolon_if_nothing_returned"
+repair = "Terminate the unchanged nonempty-payload assertion with a semicolon."
+
+[lint.37]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 687
+column = 18
+lint = "clippy::map_unwrap_or"
+repair = "Use map_or_else with the same parse operation and the same missing-length panic."
+
+[lint.38]
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+line = 700
+column = 1
+lint = "clippy::missing_panics_doc"
+repair = "Document the exact failure conditions of the existing public conformance test under Panics."
+
+[lint.39]
+file = "services/agent/crates/layerx-wire/src/activity.rs"
+line = 405
+column = 1
+lint = "clippy::items_after_test_module"
+repair = "Move activity_from_signed before the test modules without changing its body or tests."
+
+[gotcha.task_lints]
+symptom = "A conformance helper imported by several integration test targets repeats its diagnostic summary."
+cause = "All-targets Clippy compiles the same source as an integration target and as a nested module."
+do = "Record every emitted file, line, column and lint, repair the shared source once, and retain all importing targets."

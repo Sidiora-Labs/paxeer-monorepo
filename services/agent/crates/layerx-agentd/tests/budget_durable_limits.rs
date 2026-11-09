@@ -22,24 +22,18 @@ use layerx_agentd::budget::{
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
-use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
-use layerx_agentd::prepare::{
-    prepare_activity_for_protocol, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PreparationLifecycle, PrepareError, PrepareRequest, Prepared,
-};
+use layerx_agentd::prepare::evm::{self, PrecompileCall};
+use layerx_agentd::prepare::{EvmPrepared, PreparationLifecycle};
 use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRegistry, Token};
 use layerx_agentd::session_control::{
     AdmissionStage, OperationPermit, SessionControl, WriteAdmission, WriteCharge,
 };
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{Operation, Surface};
-use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::Signer;
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
+use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
@@ -64,14 +58,6 @@ const DAEMON_CEILING: u128 = 1_000;
 const CREATE_SIGNING_SEED: [u8; 32] = [0xa5; 32];
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
-
-struct RecordedCore(CorePreparationState);
-
-impl CorePreparationBoundary for RecordedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
-    }
-}
 
 struct BoundaryIdentity(CoreIdentity);
 
@@ -195,88 +181,89 @@ fn legacy_create() -> Vec<u8> {
     encoder.finish()
 }
 
-fn prepare(
-    signer: &LocalSigner,
-    activity_type: ActivityType,
-    payload: Vec<u8>,
-) -> Result<Prepared, PrepareError> {
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: 17,
-        account_sequence: ENVELOPE_SEQUENCE,
-        protocol_timestamp: CORE_TIME_MS,
-        observed_head_sequence: OBSERVED_HEAD_SEQUENCE,
-        module_registry: registry(),
-    });
-    prepare_activity_for_protocol(
-        &mut core,
-        PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(12),
+fn prepare(call: PrecompileCall) -> Result<EvmPrepared, evm::PrepareError> {
+    let key = text(
+        k256::ecdsa::SigningKey::from_slice(&CREATE_SIGNING_SEED),
+        "key",
+    );
+    let from = text(
+        layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
+        ),
+        "sender",
+    );
+    evm::prepare_bound(
+        evm::EvmPreparationState {
+            chain_id: 17,
+            pending_nonce: ENVELOPE_SEQUENCE,
+            base_fee_per_gas: 3,
+            head_height: OBSERVED_HEAD_SEQUENCE,
+        },
+        evm::PreparationDefaults {
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
             maximum_payload_bytes: 1_024,
         },
-        PrepareRequest {
-            actor: text(Did::new(ACTOR.as_bytes()), "DID"),
-            authority: text(Authority::owner(&signer.public_key()), "authority"),
-            activity_type,
-            expected_account_sequence: Some(ENVELOPE_SEQUENCE),
-            timestamp_bound: Some(text(TimestampBound::new(995, NOT_AFTER_MS), "timestamp")),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new([4; 32]),
-            payload,
+        evm::PrepareRequest {
+            from,
+            call,
+            expected_nonce: Some(ENVELOPE_SEQUENCE),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: Some(7),
             declared_payload_limit: 1_024,
         },
-        3,
+        300_000,
     )
 }
 
-fn signed_evm_create(source: Option<([u8; 32], u64)>) -> Vec<u8> {
-    let integer = |value: u128| {
-        let mut word = [0; 32];
-        word[16..].copy_from_slice(&value.to_be_bytes());
-        AbiArgument::Word(word)
+fn budget_call(source: Option<([u8; 32], u64)>) -> PrecompileCall {
+    let request = layerx_agentd::budget::BudgetRequest {
+        tenant: tenant(),
+        request_id: [4; 32],
+        kind: layerx_agentd::budget::BudgetKind::ProtocolBudget,
+        asset: ASSET,
+        ceiling: PER_PERIOD_LIMIT,
+        expiry_ms: EXPIRY_MS,
+        core_time_ms: CORE_TIME_MS,
+        canonical_activity: Vec::new(),
+        verified_submission: None,
     };
-    let signature = if source.is_some() {
-        "budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)"
-    } else {
-        "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)"
-    };
-    let mut arguments = vec![
-        AbiArgument::Word(BUDGET_ID),
-        AbiArgument::Word(budget_account()),
-        AbiArgument::Word(ASSET),
-        AbiArgument::Word(PURPOSE),
-        integer(PER_PERIOD_LIMIT),
-        integer(0),
-        integer(INITIAL_AMOUNT),
-        integer(u128::from(PERIOD_LENGTH_MS)),
-        integer(u128::from(PERIOD_START_MS)),
-        integer(u128::from(EXPIRY_MS)),
-        integer(3),
-        integer(1),
-    ];
-    if let Some((account, sequence)) = source {
-        arguments.push(AbiArgument::Word(account));
-        arguments.push(integer(u128::from(sequence)));
-    }
-    let call = PrecompileCall {
-        target: PrecompileTarget::Pay,
-        selector: text(
-            transaction_hash(signature.as_bytes())[..4].try_into(),
-            "selector",
+    let key = text(
+        k256::ecdsa::SigningKey::from_slice(&CREATE_SIGNING_SEED),
+        "key",
+    );
+    let sender = text(
+        layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
         ),
-        arguments,
+        "sender",
+    );
+    let identity = layerx_agentd::budget::BudgetCreateIdentity {
+        encoding_version: if source.is_some() { 2 } else { 1 },
+        budget_id: BUDGET_ID,
+        sender,
+        budget_account: budget_account(),
+        asset: ASSET,
+        purpose: PURPOSE,
+        per_period_limit: PER_PERIOD_LIMIT,
+        carry_cap: 0,
+        initial_amount: INITIAL_AMOUNT,
+        period_length_ms: PERIOD_LENGTH_MS,
+        period_start_ms: PERIOD_START_MS,
+        expiry_ms: EXPIRY_MS,
+        revocation_sequence: 3,
+        rollover: 1,
+        source_account: source.map_or([0; 32], |(account, _)| account),
+        source_sequence: source.map_or(0, |(_, sequence)| sequence),
     };
-    let transaction = Eip1559Call {
-        chain_id: 17,
-        nonce: ENVELOPE_SEQUENCE,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 7,
-        gas_limit: 300_000,
-        to: PrecompileTarget::Pay.address(),
-        data: text(call.encode(), "budget create ABI"),
-    };
+    text(request.create_protocol_budget(&identity), "budget call")
+}
+
+fn signed_evm_create(source: Option<([u8; 32], u64)>) -> Vec<u8> {
+    let prepared = text(prepare(budget_call(source)), "prepare budget create");
+    text(evm::verify_call_binding(&prepared), "budget call binding");
     text(
-        transaction.sign(&CREATE_SIGNING_SEED),
+        prepared.call.sign(&CREATE_SIGNING_SEED),
         "sign EVM budget create",
     )
 }
@@ -328,8 +315,7 @@ fn hold_request(id: u8, amount: u128, limit: LimitId) -> ReservationRequest {
     }
 }
 
-fn send_prepared() -> Prepared {
-    let signer = LocalSigner::new([0xa5; 32]);
+fn send_prepared(id: u8) -> EvmPrepared {
     let mut encoder = Encoder::new(512);
     text(encoder.u16(0x5301), "tag");
     text(encoder.u16(10), "fields");
@@ -338,7 +324,7 @@ fn send_prepared() -> Prepared {
     text(encoder.fixed(&[0x33; 32]), "asset");
     text(encoder.u128(25), "amount");
     text(encoder.u64(ENVELOPE_SEQUENCE), "sequence");
-    text(encoder.fixed(&[4; 32]), "idempotency");
+    text(encoder.fixed(&[id; 32]), "idempotency");
     text(encoder.u64(NOT_AFTER_MS), "expiry");
     text(encoder.fixed(&[0x55; 32]), "context");
     text(encoder.u8(0), "conditions");
@@ -353,35 +339,14 @@ fn send_prepared() -> Prepared {
         "version",
     );
     let payload = support::send_authorization::sign(encoder.finish());
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: 17,
-        account_sequence: ENVELOPE_SEQUENCE,
-        protocol_timestamp: CORE_TIME_MS,
-        observed_head_sequence: OBSERVED_HEAD_SEQUENCE,
-        module_registry: registry(),
-    });
-    text(
-        layerx_agentd::prepare::prepare_activity(
-            &mut core,
-            PreparationDefaults {
-                timestamp_span: 30,
-                fee_limit: Amount::from_u128(12),
-                maximum_payload_bytes: 1_024,
-            },
-            PrepareRequest {
-                actor: text(Did::new(b"did:layerx:budget-suite"), "DID"),
-                authority: text(Authority::owner(&signer.public_key()), "authority"),
-                activity_type: send_kind(),
-                expected_account_sequence: Some(ENVELOPE_SEQUENCE),
-                timestamp_bound: Some(text(TimestampBound::new(995, NOT_AFTER_MS), "timestamp")),
-                fee_limit: Some(Amount::from_u128(7)),
-                idempotency_key: IdempotencyKey::new([4; 32]),
-                payload,
-                declared_payload_limit: 1_024,
-            },
-        ),
+    let prepared = text(
+        prepare(PrecompileCall::ledger_transfer(payload)),
         "prepare send",
-    )
+    );
+    text(evm::verify_call_binding(&prepared), "send call binding");
+    assert_eq!(prepared.disclosure.idempotency_key, [id; 32]);
+    assert_eq!(prepared.disclosure.expiry.payload_expires_at, NOT_AFTER_MS);
+    prepared
 }
 
 fn opened_session(store: &mut Store, sessions: &mut SessionRegistry) -> Token {
@@ -433,7 +398,6 @@ struct Harness {
     limiter: Arc<BudgetLimiter>,
     token: Token,
     limit: LimitId,
-    prepared: Prepared,
 }
 
 impl Harness {
@@ -462,7 +426,6 @@ impl Harness {
             limiter,
             token,
             limit: created.limit_id,
-            prepared: send_prepared(),
         }
     }
 
@@ -480,12 +443,13 @@ impl Harness {
     }
 
     fn admit(&self, preparation_id: u8, amount: u128) -> bool {
+        let prepared = send_prepared(preparation_id);
         self.permit(Operation::Prepare)
             .admit_write(
                 &self.control,
                 WriteAdmission {
                     stage: AdmissionStage::Prepare {
-                        prepared: &self.prepared,
+                        prepared: &prepared,
                     },
                     preparation_id: [preparation_id; 32],
                     charge: Some(WriteCharge {
@@ -548,16 +512,9 @@ fn core_create_identity_is_read_from_the_signed_v1_and_v2_bytes() {
     assert_eq!(identity.rollover, 1);
     assert_eq!(identity.source_account, [0; 32]);
     assert_eq!(identity.source_sequence, 0);
-    let prepared = text(
-        prepare(
-            &LocalSigner::new(CREATE_SIGNING_SEED),
-            create_kind(),
-            core_create(None),
-        ),
-        "prepare",
-    );
+    let prepared = text(prepare(budget_call(None)), "prepare");
     assert_eq!(
-        budget_create_identity(prepared.canonical_bytes.as_slice(), &registry()),
+        budget_create_identity(prepared.call.encode_unsigned().as_slice(), &registry()),
         Err(BudgetCreationError::NotBudgetCreation)
     );
 
@@ -586,22 +543,21 @@ fn core_create_identity_is_read_from_the_signed_v1_and_v2_bytes() {
 
 #[test]
 fn legacy_0x4201_create_cannot_be_prepared_or_identified() {
-    let signer = LocalSigner::new([0xa5; 32]);
     assert!(matches!(
-        prepare(&signer, create_kind(), legacy_create()),
-        Err(PrepareError::Disclosure(_))
+        prepare(PrecompileCall::ledger_transfer(legacy_create())),
+        Err(evm::PrepareError::Disclosure(_))
     ));
     let mut truncated = core_create(None);
     truncated.pop();
     assert!(matches!(
-        prepare(&signer, create_kind(), truncated),
-        Err(PrepareError::Disclosure(_))
+        prepare(PrecompileCall::ledger_transfer(truncated)),
+        Err(evm::PrepareError::Disclosure(_))
     ));
     let mut trailing = core_create(Some((main_account(), ENVELOPE_SEQUENCE)));
     trailing.push(0);
     assert!(matches!(
-        prepare(&signer, create_kind(), trailing),
-        Err(PrepareError::Disclosure(_))
+        prepare(PrecompileCall::ledger_transfer(trailing)),
+        Err(evm::PrepareError::Disclosure(_))
     ));
 }
 
@@ -1129,11 +1085,18 @@ fn authority_response_carries_exact_authority_and_truthful_enforcement() {
         Err(ContractError::Empty("budget_authorization"))
     );
     assert_eq!(unsigned.require_for(BudgetEnforcement::DaemonLimit), Ok(()));
+    let (_, signature) = text(
+        layerx_crypto::evm_transaction::decode_signed(&signed_evm_create(None)),
+        "budget transaction signature",
+    );
     let signed = SignedBudgetMutation {
         request: target,
         authorization: Some(BudgetAuthorization {
             preparation_ref: text(PreparationRef::new(hex(&[0x0f; 32])), "preparation ref"),
-            signature: text(SignatureBytes::new(vec![0x5a; 64]), "signature"),
+            signature: text(
+                SignatureBytes::new(signature.as_bytes().to_vec()),
+                "signature",
+            ),
             signer_public_key: Some(owner),
         }),
     };

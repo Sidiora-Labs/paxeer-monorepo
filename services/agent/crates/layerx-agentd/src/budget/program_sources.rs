@@ -11,7 +11,7 @@ use sha2::{Digest as _, Sha256};
 
 use crate::capability::{derive_effects, ProgramValueSource, VerifiedInputs};
 use crate::ops::program::ProgramOperations;
-use crate::prepare::Prepared;
+use crate::prepare::{verify_call_binding, EvmPrepared};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProgramSourceError {
@@ -109,14 +109,19 @@ pub struct ResolvedProgramCharge {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedResolvedProgramCharges {
     actor: [u8; 32],
+    owner_did: Did,
     state_root: [u8; 32],
     batch_number: u64,
     global_sequence: u64,
     preparation_digest: [u8; 32],
+    envelope_digest: [u8; 32],
     charges: Vec<ResolvedProgramCharge>,
 }
 
 impl VerifiedResolvedProgramCharges {
+    pub(super) fn owner_did(&self) -> &Did {
+        &self.owner_did
+    }
     #[must_use]
     pub const fn actor(&self) -> [u8; 32] {
         self.actor
@@ -138,11 +143,11 @@ impl VerifiedResolvedProgramCharges {
         &self.charges
     }
     #[must_use]
-    pub fn matches_prepared(&self, prepared: &Prepared) -> bool {
+    pub fn matches_prepared(&self, prepared: &EvmPrepared) -> bool {
         validate_prepared(prepared).is_ok()
-            && self.global_sequence == prepared.observed_head_sequence
+            && self.global_sequence == prepared.observed_head_height
             && self.preparation_digest
-                == <[u8; 32]>::from(Sha256::digest(&prepared.canonical_bytes))
+                == <[u8; 32]>::from(Sha256::digest(&prepared.call.encode_unsigned()))
     }
 
     pub fn budget_allocations(
@@ -230,10 +235,12 @@ pub(super) fn presentation_budget_reservation(
     let actor = Did::new(proof.owner().as_bytes()).expect("proof owner");
     let charges = VerifiedResolvedProgramCharges {
         actor: did_id_for_protocol(&actor, 3).expect("actor ID"),
+        owner_did: actor.clone(),
         state_root: proof.checkpoint_digest(),
         batch_number: proof.committed_height(),
         global_sequence: sequence,
         preparation_digest: proof.digest(),
+        envelope_digest: proof.digest(),
         charges: vec![ResolvedProgramCharge {
             source: ResolvedProgramSource::Principal {
                 account: proof.source_account(),
@@ -403,16 +410,17 @@ fn budget_charge_rows(
     Ok(rows.into_values().collect())
 }
 
-pub fn read_program_budget_sources(
+pub fn read_program_budget_sources_call(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
     programs: &mut ProgramOperations,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     caps: &CommittedCaps,
     now: u64,
     _fee_correlation_id: u64,
 ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
     validate_prepared(prepared)?;
-    verify_fee_payer(node, prepared, caps.state_root())?;
+    let owner_did = committed_owner_did(caps)?;
+    verify_fee_payer(node, prepared, &owner_did, caps.state_root())?;
     if !matches!(
         prepared.disclosure.native_operation,
         Some(
@@ -425,20 +433,19 @@ pub fn read_program_budget_sources(
     ) {
         return Err(ProgramSourceError::Unsupported);
     }
-    let actor = did_id_for_protocol(prepared.envelope.actor_did(), 3)
-        .map_err(|_| ProgramSourceError::Preparation)?;
+    let actor = caps.did();
     let freshness = caps.freshness();
     if now == 0
         || caps.did() != actor
         || caps.state_root() == [0; 32]
         || caps.level() < layerx_types::verify::VerificationLevel::STATE_PROVEN
-        || freshness.global_sequence != prepared.observed_head_sequence
-        || freshness.observed_head_sequence != prepared.observed_head_sequence
+        || freshness.global_sequence != prepared.observed_head_height
+        || freshness.observed_head_sequence != prepared.observed_head_height
         || freshness.batch_number != caps.observed_height()
         || node
             .block_number()
             .map_err(|_| ProgramSourceError::Snapshot)?
-            != prepared.observed_head_sequence
+            != prepared.observed_head_height
         || node
             .block_number()
             .map_err(|_| ProgramSourceError::Snapshot)?
@@ -457,12 +464,7 @@ pub fn read_program_budget_sources(
         }
         let source = match &bound.source {
             ProgramValueSource::Principal => {
-                let account = principal_source(
-                    caps.all_accounts(),
-                    prepared.envelope.actor_did(),
-                    prepared.envelope.protocol_version(),
-                    bound.asset,
-                )?;
+                let account = principal_source(caps.all_accounts(), &owner_did, 3, bound.asset)?;
                 ResolvedProgramSource::Principal { account }
             }
             ProgramValueSource::Program {
@@ -514,17 +516,12 @@ pub fn read_program_budget_sources(
     if let Some(charge) = read_fee_charge_for(
         node,
         caps.all_accounts(),
-        prepared.envelope.actor_did(),
-        prepared.envelope.protocol_version(),
-        prepared.observed_head_sequence,
+        &owner_did,
+        3,
+        prepared.observed_head_height,
         caps.state_root(),
         maximum_fee,
-        prepared
-            .disclosure
-            .actor
-            .as_slice()
-            .try_into()
-            .map_err(|_| ProgramSourceError::Preparation)?,
+        prepared.from,
         None,
     )? {
         charges.push(charge);
@@ -532,7 +529,7 @@ pub fn read_program_budget_sources(
     if node
         .block_number()
         .map_err(|_| ProgramSourceError::Snapshot)?
-        != prepared.observed_head_sequence
+        != prepared.observed_head_height
         || node
             .block_number()
             .map_err(|_| ProgramSourceError::Snapshot)?
@@ -542,41 +539,43 @@ pub fn read_program_budget_sources(
     }
     Ok(VerifiedResolvedProgramCharges {
         actor,
+        owner_did,
         state_root: caps.state_root(),
         batch_number: caps.observed_height(),
-        global_sequence: prepared.observed_head_sequence,
-        preparation_digest: Sha256::digest(&prepared.canonical_bytes).into(),
+        global_sequence: prepared.observed_head_height,
+        preparation_digest: Sha256::digest(&prepared.call.encode_unsigned()).into(),
+        envelope_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
         charges,
     })
 }
 
-pub fn read_native_effect_budget_sources(
+pub fn read_native_effect_budget_sources_call(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     caps: &CommittedCaps,
     now: u64,
     _fee_correlation_id: u64,
     profile: crate::capability::NativeAdmissionProfile,
 ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
     validate_prepared(prepared)?;
-    verify_fee_payer(node, prepared, caps.state_root())?;
-    if prepared.envelope.activity_type().module() == layerx_types::payload::ModuleId::Programs {
+    let owner_did = committed_owner_did(caps)?;
+    verify_fee_payer(node, prepared, &owner_did, caps.state_root())?;
+    if prepared.disclosure.activity_type.module() == layerx_types::payload::ModuleId::Programs {
         return Err(ProgramSourceError::Unsupported);
     }
-    let actor = did_id_for_protocol(prepared.envelope.actor_did(), 3)
-        .map_err(|_| ProgramSourceError::Preparation)?;
+    let actor = caps.did();
     let freshness = caps.freshness();
     if now == 0
         || caps.did() != actor
         || caps.state_root() == [0; 32]
         || caps.level() < layerx_types::verify::VerificationLevel::STATE_PROVEN
-        || freshness.global_sequence != prepared.observed_head_sequence
-        || freshness.observed_head_sequence != prepared.observed_head_sequence
+        || freshness.global_sequence != prepared.observed_head_height
+        || freshness.observed_head_sequence != prepared.observed_head_height
         || freshness.batch_number != caps.observed_height()
         || node
             .block_number()
             .map_err(|_| ProgramSourceError::Snapshot)?
-            != prepared.observed_head_sequence
+            != prepared.observed_head_height
         || node
             .block_number()
             .map_err(|_| ProgramSourceError::Snapshot)?
@@ -596,12 +595,7 @@ pub fn read_native_effect_budget_sources(
                 asset,
                 amount,
             } => {
-                let account = principal_source(
-                    caps.all_accounts(),
-                    prepared.envelope.actor_did(),
-                    prepared.envelope.protocol_version(),
-                    *asset,
-                )?;
+                let account = principal_source(caps.all_accounts(), &owner_did, 3, *asset)?;
                 if *to == [0; 32] || *amount == 0 {
                     return Err(ProgramSourceError::SourceOwnership);
                 }
@@ -629,12 +623,7 @@ pub fn read_native_effect_budget_sources(
                 asset,
                 amount,
             } => {
-                let source = principal_source(
-                    caps.all_accounts(),
-                    prepared.envelope.actor_did(),
-                    prepared.envelope.protocol_version(),
-                    *asset,
-                )?;
+                let source = principal_source(caps.all_accounts(), &owner_did, 3, *asset)?;
                 if source != *account || *amount == 0 {
                     return Err(ProgramSourceError::SourceOwnership);
                 }
@@ -690,17 +679,12 @@ pub fn read_native_effect_budget_sources(
     if let Some(charge) = read_fee_charge_for(
         node,
         caps.all_accounts(),
-        prepared.envelope.actor_did(),
-        prepared.envelope.protocol_version(),
-        prepared.observed_head_sequence,
+        &owner_did,
+        3,
+        prepared.observed_head_height,
         caps.state_root(),
         maximum_fee,
-        prepared
-            .disclosure
-            .actor
-            .as_slice()
-            .try_into()
-            .map_err(|_| ProgramSourceError::Preparation)?,
+        prepared.from,
         match profile {
             crate::capability::NativeAdmissionProfile::Registration { fee_asset } => {
                 Some(fee_asset)
@@ -713,7 +697,7 @@ pub fn read_native_effect_budget_sources(
     if node
         .block_number()
         .map_err(|_| ProgramSourceError::Snapshot)?
-        != prepared.observed_head_sequence
+        != prepared.observed_head_height
         || node
             .block_number()
             .map_err(|_| ProgramSourceError::Snapshot)?
@@ -723,10 +707,12 @@ pub fn read_native_effect_budget_sources(
     }
     Ok(VerifiedResolvedProgramCharges {
         actor,
+        owner_did,
         state_root: caps.state_root(),
         batch_number: caps.observed_height(),
-        global_sequence: prepared.observed_head_sequence,
-        preparation_digest: Sha256::digest(&prepared.canonical_bytes).into(),
+        global_sequence: prepared.observed_head_height,
+        preparation_digest: Sha256::digest(&prepared.call.encode_unsigned()).into(),
+        envelope_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
         charges,
     })
 }
@@ -766,10 +752,12 @@ fn read_fee_charge_for<A: SourceAccount>(
     }))
 }
 
-fn validate_prepared(prepared: &Prepared) -> Result<(), ProgramSourceError> {
-    super::native_binding::validate_retained_preparation(prepared)
-        .map(|_| ())
-        .map_err(|_| ProgramSourceError::Preparation)
+fn validate_prepared(prepared: &EvmPrepared) -> Result<(), ProgramSourceError> {
+    verify_call_binding(prepared).map_err(|_| ProgramSourceError::Preparation)?;
+    if prepared.disclosure.actor.as_slice() != prepared.from {
+        return Err(ProgramSourceError::Preparation);
+    }
+    Ok(())
 }
 
 pub(super) fn principal_source<A: SourceAccount>(
@@ -818,7 +806,7 @@ pub(super) fn principal_source<A: SourceAccount>(
     Ok(account.account_id())
 }
 
-fn account_owner<A: SourceAccount>(account: &A) -> Result<[u8; 32], ProgramSourceError> {
+fn account_owner_did<A: SourceAccount>(account: &A) -> Result<Did, ProgramSourceError> {
     let name = account.name();
     let end = match account.kind() {
         1 if name.starts_with(b"agent:") && name.ends_with(b":main") => name.len().checked_sub(5),
@@ -836,7 +824,30 @@ fn account_owner<A: SourceAccount>(account: &A) -> Result<[u8; 32], ProgramSourc
             .ok_or(ProgramSourceError::SourceOwnership)?,
     )
     .map_err(|_| ProgramSourceError::SourceOwnership)?;
-    did_id_for_protocol(&did, 3).map_err(|_| ProgramSourceError::SourceOwnership)
+    Ok(did)
+}
+
+fn account_owner<A: SourceAccount>(account: &A) -> Result<[u8; 32], ProgramSourceError> {
+    did_id_for_protocol(&account_owner_did(account)?, 3)
+        .map_err(|_| ProgramSourceError::SourceOwnership)
+}
+
+fn committed_owner_did(caps: &CommittedCaps) -> Result<Did, ProgramSourceError> {
+    let mut owner = None;
+    for account in caps.all_accounts().values() {
+        if !matches!(account.kind, 1 | 14) {
+            continue;
+        }
+        let did = account_owner_did(account)?;
+        if did_id_for_protocol(&did, 3).map_err(|_| ProgramSourceError::SourceOwnership)?
+            != caps.did()
+            || owner.as_ref().is_some_and(|previous| previous != &did)
+        {
+            return Err(ProgramSourceError::SourceOwnership);
+        }
+        owner = Some(did);
+    }
+    owner.ok_or(ProgramSourceError::SourceOwnership)
 }
 
 fn program_source(
@@ -905,12 +916,12 @@ mod tests {
         let _: fn(
             &mut layerx_client::sequencer::SequencerEndpoint,
             &mut ProgramOperations,
-            &Prepared,
+            &EvmPrepared,
             &CommittedCaps,
             u64,
             u64,
         ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> =
-            read_program_budget_sources;
+            read_program_budget_sources_call;
         assert!(matches!(
             layerx_client::sequencer::SequencerEndpoint::new("http://example.com", &[]),
             Err(layerx_client::sequencer::SequencerError::Endpoint)
@@ -1301,17 +1312,12 @@ mod tests {
 
 fn verify_fee_payer(
     node: &layerx_client::sequencer::SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
+    actor: &Did,
     state_root: [u8; 32],
 ) -> Result<(), ProgramSourceError> {
-    let height = prepared.observed_head_sequence;
-    let actor = prepared.envelope.actor_did();
-    let payer: [u8; 20] = prepared
-        .disclosure
-        .actor
-        .as_slice()
-        .try_into()
-        .map_err(|_| ProgramSourceError::Preparation)?;
+    let height = prepared.observed_head_height;
+    let payer = prepared.from;
     let reads = crate::read::CommittedReads::open(node, height)
         .map_err(|_| ProgramSourceError::Snapshot)?;
     let actor_text =
@@ -1366,24 +1372,24 @@ fn read_fee_charge<A: SourceAccount>(
 
 /// Resolves native lifecycle debits at the preparation checkpoint, keeping
 /// value-account existence separate from its authenticated frozen status.
-pub fn read_native_lifecycle_budget_sources(
+pub fn read_native_lifecycle_budget_sources_call(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     caps: &CommittedCaps,
     proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
 ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
     validate_prepared(prepared)?;
-    verify_fee_payer(node, prepared, caps.state_root())?;
-    let actor = did_id_for_protocol(prepared.envelope.actor_did(), 3)
-        .map_err(|_| ProgramSourceError::Preparation)?;
+    let owner_did = committed_owner_did(caps)?;
+    verify_fee_payer(node, prepared, &owner_did, caps.state_root())?;
+    let actor = caps.did();
     if caps.did() != actor
-        || caps.observed_height() != prepared.observed_head_sequence
+        || caps.observed_height() != prepared.observed_head_height
         || caps.level() < layerx_types::verify::VerificationLevel::STATE_PROVEN
         || caps.state_root() == [0; 32]
         || node
             .block_number()
             .map_err(|_| ProgramSourceError::Snapshot)?
-            != prepared.observed_head_sequence
+            != prepared.observed_head_height
     {
         return Err(ProgramSourceError::Snapshot);
     }
@@ -1431,7 +1437,7 @@ pub fn read_native_lifecycle_budget_sources(
                     || source.balance == 0
                     || source.asset != route.asset
                     || source.seed != route.seed
-                    || source.registered_sequence > prepared.observed_head_sequence
+                    || source.registered_sequence > prepared.observed_head_height
                     || source.program != value.program_id.bytes()
                     || target.frozen
                     || target.asset_id() != route.asset
@@ -1440,7 +1446,7 @@ pub fn read_native_lifecycle_budget_sources(
                     || lifecycle.exit_program != value.program_id.bytes()
                     || lifecycle.deadline == 0
                     || lifecycle.effective_sequence == 0
-                    || lifecycle.effective_sequence > prepared.observed_head_sequence
+                    || lifecycle.effective_sequence > prepared.observed_head_height
                     || matches!(value.operation, ProgramWindDownOperation::BoundedExit { maximum_exit_amount, .. } if maximum_exit_amount == 0 || source.balance > maximum_exit_amount)
                 {
                     return Err(ProgramSourceError::ProgramBinding);
@@ -1462,27 +1468,81 @@ pub fn read_native_lifecycle_budget_sources(
     if let Some(fee) = read_fee_charge_for(
         node,
         caps.all_accounts(),
-        prepared.envelope.actor_did(),
+        &owner_did,
         3,
-        prepared.observed_head_sequence,
+        prepared.observed_head_height,
         caps.state_root(),
         prepared.disclosure.fee_limit,
-        prepared
-            .disclosure
-            .actor
-            .as_slice()
-            .try_into()
-            .map_err(|_| ProgramSourceError::Preparation)?,
+        prepared.from,
         None,
     )? {
         charges.push(fee);
     }
     Ok(VerifiedResolvedProgramCharges {
         actor,
+        owner_did,
         state_root: caps.state_root(),
         batch_number: caps.observed_height(),
-        global_sequence: prepared.observed_head_sequence,
-        preparation_digest: Sha256::digest(&prepared.canonical_bytes).into(),
+        global_sequence: prepared.observed_head_height,
+        preparation_digest: Sha256::digest(&prepared.call.encode_unsigned()).into(),
+        envelope_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
         charges,
     })
+}
+
+pub fn read_program_budget_sources(
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
+    programs: &mut ProgramOperations,
+    prepared: &crate::prepare::EvmPrepared,
+    signing: Option<&crate::sign::SigningPreparation>,
+    caps: &CommittedCaps,
+    now: u64,
+    correlation: u64,
+) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
+    super::native_binding::validate_retained_preparation(prepared, signing)
+        .map_err(|_| ProgramSourceError::Preparation)?;
+    read_program_budget_sources_call(
+        node,
+        programs,
+        &signing.ok_or(ProgramSourceError::Preparation)?.transaction,
+        caps,
+        now,
+        correlation,
+    )
+}
+pub fn read_native_effect_budget_sources(
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
+    prepared: &crate::prepare::EvmPrepared,
+    signing: Option<&crate::sign::SigningPreparation>,
+    caps: &CommittedCaps,
+    now: u64,
+    correlation: u64,
+    profile: crate::capability::NativeAdmissionProfile,
+) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
+    super::native_binding::validate_retained_preparation(prepared, signing)
+        .map_err(|_| ProgramSourceError::Preparation)?;
+    read_native_effect_budget_sources_call(
+        node,
+        &signing.ok_or(ProgramSourceError::Preparation)?.transaction,
+        caps,
+        now,
+        correlation,
+        profile,
+    )
+}
+pub fn read_native_lifecycle_budget_sources(
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
+    prepared: &crate::prepare::EvmPrepared,
+    signing: Option<&crate::sign::SigningPreparation>,
+    caps: &CommittedCaps,
+    proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
+) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
+    super::native_binding::validate_retained_preparation(prepared, signing)
+        .map_err(|_| ProgramSourceError::Preparation)?;
+    read_native_lifecycle_budget_sources_call(
+        node,
+        &signing.ok_or(ProgramSourceError::Preparation)?.transaction,
+        caps,
+        proofs,
+    )
 }

@@ -336,7 +336,7 @@ def test_f45_verification_fails_closed(tmp_path, live_peer, fault):
                 value["canonical"] = False
         elif kind == "/block":
             if fault == "native-wrapper":
-                changed = peer.envelope.replace(b"LegacyTx", b"UnknownX")
+                changed = peer.envelope.replace(b"DynamicFeeTx", b"UnknownFeeTx")
                 assert changed != peer.envelope
                 value["block"]["data"]["txs"][1] = b64(changed)
             elif fault == "wrong-native-hash":

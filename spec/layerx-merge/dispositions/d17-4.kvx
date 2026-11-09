@@ -1,8 +1,8 @@
 [disposition.17.5.1.6]
 finding = "17.5.1.6"
 status = "open"
-evidence = "Commit ed1b9b302 ports the MCP scope test to GrantRevokedOnChain at services/agent/crates/layerx-mcp/tests/scope.rs:525, but budget_record_wire still declares an unused level at services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1738 under the agent-lint deny-warnings command at Makefile:1886, requiring programme task 22.94.12.1 to remove that binding."
-follow_up = "22.94.12.1"
+evidence = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1738 on main still binds crate::agent_rpc_dispatch::rung_name to an unused local named level in budget_record_wire, which the agent lint target refuses with warnings denied. Task 22.39.209 owns removal of that binding."
+follow_up = "22.39.209"
 
 [disposition.17.5.2.5]
 finding = "17.5.2.5"

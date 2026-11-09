@@ -694,7 +694,11 @@ fn facilitator_reports_committed_only_with_a_proof() {
     for supplied in [None, Some(commitment.clone())] {
         let (facilitator, mut gateway, principal, trace) = context();
         let has_proof = supplied.is_some();
-        let mut plane = SequencerFacilitatorPlane::new(evidence.clone(), keys.clone());
+        let mut supplied_evidence = evidence.clone();
+        if !has_proof {
+            supplied_evidence.rung = SettlementRung::Receipted;
+        }
+        let mut plane = SequencerFacilitatorPlane::new(supplied_evidence, keys.clone());
         if let Some(supplied) = supplied {
             plane = plane.with_committed_proof(supplied);
         }
@@ -739,6 +743,24 @@ fn facilitator_reports_committed_only_with_a_proof() {
             })
         );
     }
+
+    let (facilitator, mut gateway, principal, trace) = context();
+    let mut plane = SequencerFacilitatorPlane::new(evidence.clone(), keys.clone());
+    assert_eq!(
+        facilitator
+            .settle(
+                &mut gateway,
+                &principal,
+                &request,
+                stable,
+                SettlementStep::Single,
+                &mut plane,
+                &trace,
+                1,
+            )
+            .map_err(layerx_interop_gateway::trace::Traced::into_error),
+        Err(X402Error::EvidenceMismatch),
+    );
 
     let mut bad_aunt = commitment.clone();
     bad_aunt.proof.batch_aunts[0][0] ^= 1;

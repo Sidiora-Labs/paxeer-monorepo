@@ -9,6 +9,10 @@ EXPECTED_GROUP = (
     "${{ github.workflow }}-${{ github.event_name }}-"
     "${{ github.event_name == 'push' && github.sha || github.ref }}"
 )
+LANE_GROUP_PREFIXES = {
+    "agent.yml": "${{ github.workflow }}-agent-${{ inputs.lane }}",
+    "programs-conformance.yml": "${{ github.workflow }}-programs-${{ inputs.scope }}",
+}
 TARGET_WORKFLOWS = {
     "agent.yml",
     "bridge-test.yml",
@@ -61,6 +65,12 @@ def workflow_events(workflow):
     return {triggers} if isinstance(triggers, str) else set(triggers)
 
 
+def expected_group(name):
+    return EXPECTED_GROUP.replace(
+        "${{ github.workflow }}", LANE_GROUP_PREFIXES.get(name, "${{ github.workflow }}")
+    )
+
+
 def test_push_workflows_key_concurrency_on_sha():
     checked = set()
     incorrect = {}
@@ -73,7 +83,7 @@ def test_push_workflows_key_concurrency_on_sha():
         if concurrency.get("cancel-in-progress") != "true":
             continue
         checked.add(name)
-        if concurrency.get("group") != EXPECTED_GROUP:
+        if concurrency.get("group") != expected_group(name):
             incorrect[name] = concurrency.get("group")
     assert TARGET_WORKFLOWS <= checked, (
         "Push triggers and cancellation must remain enabled",
@@ -92,7 +102,7 @@ def test_pull_request_concurrency_still_cancels():
         assert "pull_request" in workflow_events(workflow), name
         concurrency = workflow["concurrency"]
         assert concurrency["cancel-in-progress"] == "true", name
-        assert concurrency["group"] == EXPECTED_GROUP, (
+        assert concurrency["group"] == expected_group(name), (
             name,
             "Pull requests must share a ref-based group across commits",
         )
@@ -104,3 +114,19 @@ def test_codeql_concurrency_keyed_on_sha():
     assert "main" in workflow["on"]["push"]["branches"]
     assert workflow["concurrency"]["cancel-in-progress"] == "true"
     assert workflow["concurrency"]["group"] == EXPECTED_GROUP
+
+
+def test_called_lanes_have_distinct_concurrency_from_their_caller():
+    workflows = load_workflows()
+    caller = workflows["platform.yml"]
+    groups = {caller["concurrency"]["group"]}
+    for job_name in ("programs-acceptance", "agent-sanitizers", "agent-fuzz-corpus"):
+        job = caller["jobs"][job_name]
+        name = job["uses"].removeprefix("./.github/workflows/")
+        group = workflows[name]["concurrency"]["group"]
+        assert group == expected_group(name)
+        for key, value in job["with"].items():
+            assert f"${{{{ inputs.{key} }}}}" in group
+            group = group.replace(f"${{{{ inputs.{key} }}}}", value)
+        assert group not in groups, (job_name, group)
+        groups.add(group)

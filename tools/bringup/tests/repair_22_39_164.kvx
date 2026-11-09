@@ -1,0 +1,172 @@
+[repair]
+task = "22.39.164"
+requirement = "22998.1"
+source_revision = "215e9d31d2501e5207b4bb09ec9130e66ccaf154"
+decision = "2905, 2908, 2923, 2933"
+inventory_gotcha = "3609"
+status = "implemented; continuation from c8e49bb70d6a4b1d9ed5494c13c683d895e6bf14 on 4973ad176011a0316da0b6fc54c889207a688a8b; qualification requires the bounded gate evidence below"
+
+[qualification]
+verified_revision = "The revision field of the final passing kind=verify entry in /out/run/gates.jsonl, provided the passing kind=build entry has the same revision. No passing revision is claimed before that evidence exists."
+build = "hf-build"
+verify = "hf-done"
+private_evidence = "/out/run/gates.jsonl and the private /out/logs/build-*.log and /out/logs/verify-*.log paths it records"
+rule = "Only a passing hf-done at the built revision qualifies this repair; pre-existing producer conflicts remain failures."
+
+[environment]
+public_job = ".github/workflows/ci.yml:61 tools-python installs nginx and libnginx-mod-stream through apt alongside openssh-server and the existing native prerequisites."
+qualification = "The disposable qualification environment installs nginx and libnginx-mod-stream through apt in the same way as the public job; private installation evidence is /out/logs/prerequisite-apt.log. The native library, loadtest, bringup-inspect, xweb loader, pinned Solidity compiler and localhost SSH prerequisites follow the job's declared preparation commands."
+producer = "tools/bringup/tests/test_repair_22_31_319.py:test_edge_manifest_roundtrip_both_consumers_over_ssh requires nginx and loads /usr/lib/nginx/modules/ngx_stream_module.so; tools/bringup/edge.sh:397 names libnginx-mod-stream."
+assertion = "tests/ci/test_tools_python_suites_wired.py:test_ci_runs_tools_python_target requires both apt packages before the native prerequisite build and suite execution."
+
+[assertion.search_front]
+test = "tools/bringup/tests/test_repair_22_31_319.py:test_search_front_roundtrip_primary_backup_and_refusals"
+producer = "tools/bringup/search-front.sh:118 calls load_hosts before discovery; tools/bringup/check-live.sh:323-342 reads BRINGUP_HOSTS_FILE and requires every declared role; tools/bringup/check-live.sh:545-561 discovers the nginx site through rpc_unit."
+repair = "Supply tests/fixtures/repair_22_39_164/hosts.env, render each discovery site's real configuration with edge.sh, and translate the nginx directory to those fixture directories over real OpenSSH. Assert discovery equals the serving/validator listing before the original primary, backup, malformed and readiness refusal assertions."
+
+[assertion.xweb_rotation]
+test = "tools/bringup/tests/test_repair_22_31_319.py:test_xweb_config_roundtrip_rotation_and_refusals"
+producer = "tools/bringup/xweb_transport.go:59-64 validates separate hosted gateway and node roots; tools/bringup/upgrade_state.go:75 requires a root-only node URL; tools/bringup/xweb_transport.go:97-113 decodes flat committed asset records."
+repair = "Serve hosted px_listAssets at /gateway with its declared flat asset records and px_getReceiptKeys at the node root /. Retain every loader, rotation and malformed-history refusal assertion and assert both methods reach their declared paths."
+
+[assertion.kernel_credential]
+test = "tools/bringup/tests/test_repair_22_31_319.py:test_internal_probe_kernel_identity_over_private_route_over_ssh"
+producer = "tools/bringup/check-live.sh:2360-2374 dispatches on the role group using the kernel's Human identity; tools/bringup/repair_cli.go:208-231 reads the protected bundle and prints the typed success line; tools/bringup/bundle.go:141 checks PEM/DER consistency."
+repair = "Require exact refusal after DER key corruption and missing custody, restore the real key and prove readiness recovers, and assert the current group-based probe remains ready for an unused app argument. Count actual mTLS requests and retain the identity confinement assertions."
+
+[assertion.kernel_private_route]
+test = "tools/bringup/tests/test_repair_22_31_319.py:test_internal_probe_kernel_identity_over_private_route"
+producer = "tools/bringup/check-live.sh:2365-2373 sends bringup-inspect internal-readiness over SSH and maps remote refusal to @@<group> 1 000 refused; tools/bringup/live_repair.go:506 validates private connect targets inside the remote inspector."
+repair = "Update the existing transcript to the inspector command and typed response. Require every transcript exchange to equal a real OpenSSH/inspector/private TLS exchange in this test before replaying it. Missing identity and malformed routing must produce exact refusals without additional HTTP requests."
+
+[assertion.xweb_seeds]
+test = "tools/bringup/tests/test_xweb_config.py:XwebConfigTest.test_render_emits_no_lx_route"
+producer = "services/interop/crates/x-websearch/src/config.rs:473-482 rejects example.com and other placeholder hosts; lines 707-712 require a nonempty validated seed list."
+repair = "Use the published https://paxeer.network/ crawl seed and retain native loader validation of every rendered serve and attestor configuration and every altered configuration refusal."
+
+[assertion.erc721]
+test = "tools/benchmark/loadtest/contracts/evm/test_sources_match_bindings.py:test_my_nft_abi_matches_erc721_binding"
+producer = "tools/benchmark/loadtest/contracts/evm/src/ERC721.sol:149-156 declares both MyNFT.mint and MyNFT.burn with the uint256 parameter tokenId."
+repair = "Align bindings/erc721/abi.json and the Go binding's embedded ABI and method parameter names for both methods with the compiled source. Preserve exact canonical ABI equality and also require the embedded Go ABI to equal the compiled artifact."
+
+[assertion.block_statistics]
+test = "tools/benchmark/loadtest/scripts/test_repair_22_31_431.py:test_benchmark_rpc_envelope_block_statistics"
+producer = "tools/benchmark/loadtest/scripts/metrics.py:57-60 exposes a Python datetime and lines 71-73 serialize it back; tools/benchmark/loadtest/operations/metrics.go:185-192 subtracts the supplied timestamp from the next block's RFC3339Nano timestamp without rounding."
+repair = "Assert exactly (0, 33716908, 1869.633323): the supplied Python timestamp is 02:47:16.051308000 and the next captured block is 02:47:17.920941323. Keep tuple equality and the exact HTTP request sequence, without a floating point tolerance."
+
+[assertion.baseline]
+test = "tests/ci/test_tools_python_suites_wired.py"
+producer = "Makefile:test-tools-python reads tests/ci/data/tools_python_suite_baseline.json and deselects exactly its listed nodeids."
+repair = "Remove all ten bringup/benchmark entries and assert neither prefix nor retiring task 22.39.164 remains. Keep the 22.39.164 family in the exact-case validator so the family remains valid when empty."
+
+[finding.foundation_graph]
+task = "22.39.164"
+file = "tools/bringup/runtime-dependencies.json"
+symbol = "BringupFixturesRetiredTest.test_fixtures_name_no_retired_daemon"
+observed = "The existing task 22.39.84 attempt-3 finding records revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log: runtime-sources rejects the stale docs/swagger/statik.go digest. The current inspector still embeds that graph and validates source digests at tools/bringup/runtime_bundle.go:111-120."
+assumption = "Historical attempt-1 scope finding, resolved by the authorized attempt-2 regeneration of tools/bringup/runtime-dependencies.json; source integrity checks remain intact."
+severity = "blocker"
+
+[finding.retired_relay]
+task = "22.39.164"
+file = "tools/bringup/check-live.test.sh"
+symbol = "BringupFixturesRetiredTest.test_fixtures_name_no_retired_daemon"
+observed = "The existing task 22.39.84 attempt-3 finding at revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log records the retired relay assignments; they remain at producer line 1193 while test_bringup_fixtures_retired.py:49-53 forbids them."
+assumption = "Historical attempt-1 scope finding, resolved by the authorized attempt-2 removal of obsolete producer assignments; the retirement assertion remains intact."
+severity = "blocker"
+
+[finding.readme_name]
+task = "22.39.164"
+file = "README.md"
+symbol = "BringupSpecPathsTest.test_docs_names_reads_existing_spec"
+observed = "The existing task 22.39.84 attempt-3 finding at revision 068cca699aa8d3aa7f9be5663e2b6cd81a6fdd35, cg spec done 22.39.84 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log records docs-names refusing README.md; README.md:3 still contains www.paxeer.network in its encoded image URL and tools/bringup/live_repair.go:460-471 rejects unpublished names."
+assumption = "Historical attempt-1 scope finding, resolved by decoding escaped document hosts in ValidateDocumentNames and reading the existing public names website declaration; README.md and spec remain unchanged."
+severity = "blocker"
+
+[gotcha.scope]
+observed = "The task's ten baseline entries include producer conflicts in files its scope does not permit editing."
+resolution = "The attempt-2 ruling explicitly authorizes tools/bringup producer repairs; preserve the existing real-input assertions and source closure while implementing those repairs."
+
+[gotcha.loader_preparation]
+observed = "At source revision 215e9d31d2501e5207b4bb09ec9130e66ccaf154, the loader prerequisite command with --locked --offline and the programs/vendor source override exited 101; /out/logs/prerequisite-loader.log records zeroize locked at 1.9.1 while that vendor tree contains 1.9.0."
+resolution = "Use the public job's cargo build --locked --manifest-path tools/bringup/tests/xweb-loader/Cargo.toml without the vendor override; it exited zero, recorded in /out/logs/prerequisite-loader-registry.log. Keep the committed lockfile and version constraints intact."
+
+[repair.python_dependency]
+revision = "444720c13af88ec4407e3ca7483033f3a7f91514"
+command = "cg spec done 22.39.164 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The five wiring tests passed, then make test-tools-python stopped during collection with ModuleNotFoundError: requests in tools/benchmark/loadtest/scripts/test_repair_22_31_431.py:11."
+producer = "tools/benchmark/loadtest/scripts/metrics.py:9 imports requests for its compatibility HTTP errors; test_repair_22_31_431.py:11 imports and checks that public exception type. tests/bridge/requirements.txt does not supply requests."
+repair = "Declare requests in the tools-python pip installation alongside pytest and PyYAML, require it in test_ci_runs_tools_python_target, and install the same declared Python dependencies in the qualification environment; private installation evidence is /out/logs/prerequisite-python-repair.log."
+qualification = "Rebuild with hf-build and rerun only hf-done on the repaired candidate; the final gate ledger is authoritative."
+
+[repair.search_inventory]
+producer = "tools/bringup/search-front.sh:12 sources check-live.sh through /dev/fd; check-live.sh:296 derives repo_root there and :305 stores rpc_inventory before search-front.sh:13 restores its own root."
+repair = "At search-front.sh:14 reset rpc_inventory from the restored repo_root so load_rpc_inventory reads docs/site/docs/reference/public-rpc.md."
+assertion = "test_repair_22_31_319.py:test_search_front_roundtrip_primary_backup_and_refusals compares real SSH discovery with the serving/validator listing and then qualifies the rendered primary/backup configuration."
+
+[repair.indexer_environment]
+producer = "tools/bringup/check-live.test.sh:1190-1194 launches the indexer with its EVM and Comet origins; services/indexer/src/config.rs:relay_variables_are_not_read asserts relay inputs are retired."
+repair = "Remove both retired relay environment assignments from the stand-in launch; retain EVM and Comet TLS origins and every fixture-retirement assertion."
+assertion = "tools/bringup/tests/test_bringup_fixtures_retired.py:49-53 scans the real shell producer for retired relay variables."
+
+[repair.runtime_graph]
+producer = "tools/bringup/tests/runtime-dependencies.py:32-70 derives the producer closure and SHA256 digests using go list -deps; tools/bringup/runtime_bundle.go:111-120 rejects changed source digests."
+repair = "Regenerate only tools/bringup/runtime-dependencies.json with python3 tools/bringup/tests/runtime-dependencies.py after implementing the producer changes, recording the current docs/swagger/statik.go and live_repair.go digests."
+assertion = "tools/bringup/tests/test_bringup_fixtures_retired.py:27-39 executes foundation-artifacts.py against the real bringup-inspect runtime-sources import graph."
+
+[repair.document_names]
+producer = "tools/bringup/live_repair.go:431-459 reads the publication declaration including contract_context.108.decision.public_names.website; README.md:3 embeds the website media host inside a percent-encoded image URL."
+repair = "ValidateDocumentNames:461-474 percent-decodes complete escape sequences before scanning hosts, preserves literal percentages in prose, and retains the original URL root checks. The spec's existing website key publishes www.paxeer.network."
+assertion = "tools/bringup/tests/test_spec_paths.py:test_docs_names_reads_existing_spec validates the unchanged real documentation; test_docs_names_checks_percent_encoded_public_names drives the real inspector and accepts published escaped hosts while refusing unpublished literal and escaped hosts."
+
+[gotcha.baseline_merge]
+observed = "Applying the seed to e8cd0764863da4512301c7cfbeb4fd8e0dcc38a3 left current/seed conflict markers and historical release baseline rows on the seed side."
+resolution = "Use the current baseline as the source, remove its ten bringup/benchmark rows, and retain all 91 unrelated rows without restoring retired release cases."
+
+[environment.continuation]
+public_job = ".github/workflows/ci.yml:58-99 declares native apt packages, Python requirements, Rust 1.91.1, Foundry v1.8.1, buildx, make build/liblayerx.a, make build-loadtest, forge build, bringup-inspect, the xweb loader and localhost SSH."
+qualification = "Prepare those public prerequisites before hf-build; private prerequisite logs are /out/logs/prerequisite-*.log. Four container checks use the installed BuildKit buildx plugin."
+
+[gotcha.sandbox_cmake]
+observed = "Before either bounded gate, prerequisite make build-loadtest on the e8cd0764863da4512301c7cfbeb4fd8e0dcc38a3 continuation exited 2 because chain.mk:123 could not find cmake while preparing evmone; private evidence is /out/logs/prerequisite-loadtest.log."
+resolution = "Install CMake 3.31.10 in the disposable qualification environment, alongside the declared Python environment, to provide the base build tool available on the public Ubuntu runner; retain the source, dependency versions and native build commands. Installation evidence is /out/logs/prerequisite-cmake.log and continued preparation is /out/logs/prerequisite-loadtest-resume.log."
+
+[repair.search_public_qualification]
+revision = "90837503261d9f53734e93c5b8df4188d5ed6052"
+command = "cg spec done 22.39.164 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Discovery and rendering passed, but directly passing the test listing's terminal newline to search_front_qualify caused search_front_select's printf to append a blank line, which SelectSearchServing refused."
+producer = "tools/bringup/search-front.sh:215-220 public qualify dispatch obtains listing with command substitution before selection; tools/bringup/search_selection.go:18-25 requires exactly two fields on every discovery line."
+repair = "Invoke the public search-front.sh qualify CLI with the real mounted render on stdin, using the same authenticated SSH discovery as render; keep every primary/backup, malformed map and readiness refusal assertion."
+
+[finding.faucet_documentation]
+task = "22.39.164"
+file = "docs/ci/secrets-and-runners.md"
+symbol = "BringupSpecPathsTest.test_docs_names_reads_existing_spec"
+observed = "At revision 90837503261d9f53734e93c5b8df4188d5ed6052, cg spec done 22.39.164 -f layerx-merge --root /work/paxeer-monorepo exited 1, /out/logs/verify-1.log: docs-names refused docs/ci/secrets-and-runners.md:156 because LAYERX_SCHEDULED_FAUCET_URL contains the forbidden FAUCET_URL text."
+assumption = "Historical attempt-2 finding, resolved by the authorized attempt-3 restoration of the whole-word policy under decision 2933; the documentation remains unchanged."
+severity = "blocker"
+
+[repair.faucet_identifier]
+producer = "Before the 22.30.177 repair, tools/bringup/docs-names.sh used git grep -w for FAUCET_URL (6fce495bf8); GOTCHA.kvx:995-997 and decision 2933 preserve the whole-identifier boundary."
+repair = "ValidateDocumentNames rejects FAUCET_URL only when neither adjacent character is a letter, digit or underscore. LAYERX_FAUCET_URL, LAYERX_GATEWAY_FAUCET_URL and LAYERX_SCHEDULED_FAUCET_URL retain their documented meaning."
+assertion = "tools/bringup/repair_m794_test.go:TestRepairM_794_DocsNamePolicy and tools/bringup/tests/test_spec_paths.py:test_docs_names_checks_documentation_policy accept prefixed and suffixed identifiers and refuse the bare identifier at text edges and punctuation boundaries."
+
+[repair.node_parent_names]
+producer = "docs/site/docs/reference/public-rpc.md declares the node endpoints; spec/layerx-merge/spec.kvx:3546-3549 public_names publishes api1 through api14.mainnet-beta.paxeer.network; decision 2933 permits describing their shared parent and placeholder first labels."
+repair = "DocumentationNames derives each parent domain from inventory.Nodes by removing exactly its first label and adds only that exact parent to the allowed set. No wildcard host permission is introduced."
+assertion = "TestRepairM_794_DocsNamePolicy and test_docs_names_checks_documentation_policy accept mainnet-beta.paxeer.network and https://<node>.mainnet-beta.paxeer.network, and refuse unpublished.mainnet-beta.paxeer.network and api15.mainnet-beta.paxeer.network. The unchanged real documentation is checked by test_docs_names_reads_existing_spec."
+
+[repair.shell_url_port]
+revision = "f02fb9b77f343e0df1a6a3fcd78aa4d25936aa60"
+command = "cg spec done 22.39.164 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The five wiring tests passed and the tools suite recorded 769 passed and one failure: docs-names refused docs/release/7.0.0-validator-runbook.md as malformed documentation URL."
+producer = "docs/release/7.0.0-validator-runbook.md:18 declares COMET_RPC_PORT as a private inventory input and :213 uses http://127.0.0.1:$COMET_RPC_PORT/status; docs/runbooks/paxeer-x-fork.md:82 and :340 use the same local shell URL."
+repair = "Recognize a complete shell identifier in an explicit URL port before parsing the remaining URL structure, and separately retain the explicit-port marker so a declared public node with a templated port is still refused. Literal invalid ports and malformed template identifiers remain refused; no document changes."
+assertion = "TestRepairM_794_DocsNamePolicy and test_docs_names_checks_documentation_policy accept local bare/braced shell port identifiers and refuse public-node template ports, invalid literal ports and empty identifiers."
+qualification = "Regenerate runtime-dependencies.json, rebuild the embedded inspector, then run hf-build and hf-done once at the repaired revision; the final passing matching-revision ledger entries remain authoritative."

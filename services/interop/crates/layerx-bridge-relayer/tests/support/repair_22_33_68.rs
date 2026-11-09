@@ -349,11 +349,13 @@ pub fn configured_root_transport() {
 pub fn tls_aliases_are_not_independent_votes() {
     let first = Node::new(125, true);
     let second = Node::new(125, true);
-    let independent = vec![first.endpoint.clone(), second.endpoint.clone()];
     assert_eq!(
-        PaxeerRpc::new(independent)
-            .unwrap()
-            .call("eth_blockNumber", json!([])),
+        PaxeerRpc::with_backends(vec![
+            ("first".to_owned(), first.endpoint.clone()),
+            ("second".to_owned(), second.endpoint.clone())
+        ])
+        .unwrap()
+        .call("eth_blockNumber", json!([])),
         Ok(json!("0x10"))
     );
     for url in [
@@ -369,7 +371,7 @@ pub fn tls_aliases_are_not_independent_votes() {
         alias.url = url.to_owned();
         alias.trust_anchor_der = second.endpoint.trust_anchor_der.clone();
         assert!(matches!(
-            PaxeerRpc::new(vec![a, alias]),
+            PaxeerRpc::with_backends(vec![("first".to_owned(), a), ("second".to_owned(), alias)]),
             Err(RpcFault::Configuration)
         ));
     }
@@ -377,7 +379,11 @@ pub fn tls_aliases_are_not_independent_votes() {
     let mut alias = first.endpoint.clone();
     alias.url = "https://another-backend.example.invalid:9443/".to_owned();
     assert!(matches!(
-        PaxeerRpc::new(vec![first.endpoint.clone(), alias, second.endpoint.clone()]),
+        PaxeerRpc::with_backends(vec![
+            ("first".to_owned(), first.endpoint.clone()),
+            ("alias".to_owned(), alias),
+            ("second".to_owned(), second.endpoint.clone())
+        ]),
         Err(RpcFault::Configuration)
     ));
 }

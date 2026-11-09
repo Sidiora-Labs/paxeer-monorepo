@@ -1176,10 +1176,16 @@ func (k Keeper) newQueryHandler(ctx sdk.Context, contractAddress sdk.AccAddress)
 
 var ErrCW721OwnerLookup = errors.New("required CW721 pretransfer owner lookup failed")
 
-func (k Keeper) emitCW721OwnerBeforeTransferIfApplicable(ctx sdk.Context, contractAddress sdk.AccAddress, msg []byte) error {
+// CW721TransferTokenID classifies transfer shapes before querying their owner.
+func CW721TransferTokenID(msg []byte) (string, bool, error) {
 	parsedMsg := map[string]json.RawMessage{}
 	if err := json.Unmarshal(msg, &parsedMsg); err != nil {
-		return nil
+		return "", false, nil
+	}
+	for _, action := range []string{"send", "send_batch", "burn_batch", "mint_batch"} {
+		if _, ok := parsedMsg[action]; ok {
+			return "", false, nil
+		}
 	}
 	var subMsg json.RawMessage
 	for _, action := range []string{"transfer_nft", "send_nft", "burn"} {
@@ -1189,19 +1195,30 @@ func (k Keeper) emitCW721OwnerBeforeTransferIfApplicable(ctx sdk.Context, contra
 		}
 	}
 	if subMsg == nil {
-		return nil
+		return "", false, nil
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(subMsg, &fields); err != nil {
-		return fmt.Errorf("%w: invalid transfer: %v", ErrCW721OwnerLookup, err)
+		return "", true, fmt.Errorf("%w: invalid transfer: %v", ErrCW721OwnerLookup, err)
+	}
+	if _, ok := fields["amount"]; ok {
+		return "", false, nil
 	}
 	rawToken, ok := fields["token_id"]
 	if !ok {
-		return nil
+		return "", false, nil
 	}
 	var tokenID string
 	if err := json.Unmarshal(rawToken, &tokenID); err != nil || string(rawToken) == "null" || tokenID == "" {
-		return fmt.Errorf("%w: token_id must be a nonempty JSON string", ErrCW721OwnerLookup)
+		return "", true, fmt.Errorf("%w: token_id must be a nonempty JSON string", ErrCW721OwnerLookup)
+	}
+	return tokenID, true, nil
+}
+
+func (k Keeper) emitCW721OwnerBeforeTransferIfApplicable(ctx sdk.Context, contractAddress sdk.AccAddress, msg []byte) error {
+	tokenID, applicable, err := CW721TransferTokenID(msg)
+	if err != nil || !applicable {
+		return err
 	}
 	ownerQuery, err := json.Marshal(map[string]interface{}{"owner_of": map[string]string{"token_id": tokenID}})
 	if err != nil {

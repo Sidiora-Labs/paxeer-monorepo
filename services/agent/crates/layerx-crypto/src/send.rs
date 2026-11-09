@@ -1,13 +1,9 @@
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound, UnsignedEnvelope};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::Domain;
 use sha2::{Digest as _, Sha256};
 
 use crate::disclosure::call::bind_call;
-use crate::disclosure::{bind, Disclosure, DisclosureError};
+use crate::disclosure::{Disclosure, DisclosureError};
 use crate::evm_transaction::Eip1559Call;
 use crate::signer::{SignError, Signer, SigningRequest};
 use crate::SignatureMessage;
@@ -212,86 +208,4 @@ pub fn ledger_payment_call(
         data,
     };
     DisclosedCall::from_call(call, options.from)
-}
-
-#[deprecated(
-    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
-)]
-pub struct EnvelopeOptions<'a> {
-    pub actor: &'a str,
-    pub public_key: [u8; 32],
-    pub protocol_version: u16,
-    pub network_id: u32,
-    pub identity_sequence: u64,
-    pub idempotency_key: [u8; 32],
-    pub fee_limit: u128,
-    pub not_before: u64,
-    pub not_after: u64,
-}
-
-#[deprecated(
-    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
-)]
-pub struct DisclosedEnvelope {
-    pub envelope: UnsignedEnvelope,
-    pub registry: ModuleRegistry,
-    pub canonical: Vec<u8>,
-    pub disclosure: Disclosure,
-}
-
-/// # Errors
-/// Rejects malformed payloads and preserves independent source and identity sequences.
-#[deprecated(
-    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
-)]
-pub fn encode_send_envelope(
-    payload: &[u8],
-    options: &EnvelopeOptions<'_>,
-) -> Result<DisclosedEnvelope, DisclosureError> {
-    fn bad<E>(_: E) -> DisclosureError {
-        DisclosureError::MalformedPayload
-    }
-    let kind = ActivityType::new(ModuleId::Asset, 5).map_err(bad)?;
-    let registration = ModuleRegistration::new(ModuleId::Asset, &[kind]).map_err(bad)?;
-    let registry = ModuleRegistry::new(&[registration]).map_err(bad)?;
-    let mut hash = Sha256::new();
-    hash.update(Domain::PayloadHash.tag());
-    hash.update(payload);
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(options.protocol_version)
-        .map_err(bad)?;
-    builder.network_id(options.network_id).map_err(bad)?;
-    builder.activity_type(kind).map_err(bad)?;
-    builder
-        .actor_did(Did::new(options.actor.as_bytes()).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .authority(Authority::owner(&options.public_key).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .account_sequence(options.identity_sequence)
-        .map_err(bad)?;
-    builder
-        .timestamp_bound(TimestampBound::new(options.not_before, options.not_after).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .idempotency_key(IdempotencyKey::new(options.idempotency_key))
-        .map_err(bad)?;
-    builder
-        .fee_limit(Amount::from_u128(options.fee_limit))
-        .map_err(bad)?;
-    builder.payload_hash(hash.finalize().into()).map_err(bad)?;
-    builder
-        .payload(Payload::new(&registry, kind, payload).map_err(bad)?)
-        .map_err(bad)?;
-    let envelope = builder.build().map_err(bad)?;
-    let canonical = layerx_wire::activity::encode_unsigned_envelope(&envelope)?;
-    let disclosure = bind(&canonical, &registry)?;
-    Ok(DisclosedEnvelope {
-        envelope,
-        registry,
-        canonical,
-        disclosure,
-    })
 }

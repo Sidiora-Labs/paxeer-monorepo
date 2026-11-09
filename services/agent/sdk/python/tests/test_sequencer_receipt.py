@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import runpy
 import sys
 from dataclasses import FrozenInstanceError, replace
 from hashlib import sha256
@@ -28,13 +29,22 @@ VECTORS = json.loads(
 )["cases"]
 
 
-def _payment_vector():
-    settlement = json.loads(
-        (ROOT / "daemon/committed-fixture/vectors/vector-v4-committed.json").read_text()
-    )["settlement"]
-    governed = json.loads(
+def _payment_vector(*, committed=True):
+    source_path = ROOT / "daemon/committed-fixture/vectors/vector-v4-committed.json"
+    source_bytes = source_path.read_bytes()
+    source = json.loads(source_bytes)
+    settlement = source["settlement"]
+    conformance = json.loads(
         (ROOT / "sdk/platform/conformance/fixtures/vector-v4-committed.json").read_text()
-    )["positive"]
+    )
+    assert conformance["provenance"]["sha256"] == sha256(source_bytes).hexdigest()
+    # Regenerate the consumer view with the recorder's own conversion, keeping
+    # the transaction, signature and governed pin byte-for-byte intact.
+    refresh = runpy.run_path(str(
+        ROOT / "sdk/platform/conformance/fixtures/refresh_receipt_vectors.py"
+    ))
+    governed = refresh["_committed"](source)
+    assert governed == conformance["positive"]
     receipt = settlement["receipt"]
     assert receipt["txHash"] == governed["receiptJson"]["txHash"]
     assert receipt["receipt"] == governed["signedReceipt"]
@@ -44,7 +54,7 @@ def _payment_vector():
     return {
         "rawTransaction": settlement["raw_transaction"],
         "signedReceipt": receipt["receipt"],
-        "receiptJson": receipt,
+        "receiptJson": receipt if committed else governed["receiptJson"],
         "receiptDigest": governed["receiptDigest"],
         "pinnedKey": governed["pinnedKey"],
     }
@@ -70,7 +80,7 @@ def _payment_terms(vector):
 def test_payment_recording_binds_the_production_ledger_transaction():
     vector = _payment_vector()
     raw = _transaction_bytes(vector["rawTransaction"])
-    transaction, _ = decode_signed_transaction(raw)
+    transaction, signature = decode_signed_transaction(raw)
     terms = _payment_terms(vector)
     assert transaction.chain_id == 125
     assert transaction.to == LAYERX_LEDGER_ADDRESS
@@ -80,10 +90,20 @@ def test_payment_recording_binds_the_production_ledger_transaction():
     assert transaction.data[68:100].hex() == terms["asset"]
     assert int.from_bytes(transaction.data[100:132], "big") == int(terms["amount"])
     assert "0x" + keccak256(raw).hex() == vector["receiptJson"]["txHash"]
+    signer = _bytes(vector["receiptJson"]["from"]).rjust(32, b"\0").hex()
+    assert signer == _bytes(transaction.recover_signer(signature)).rjust(32, b"\0").hex()
     verified = verify_payment_receipt(
-        _bytes(vector["signedReceipt"]), raw, [_key(vector)], **terms
+        _bytes(vector["signedReceipt"]), raw, [_key(vector)],
+        ledger_payer=terms.pop("payer"), payer=signer, **terms
     )
     assert verified.receipt_digest == _bytes(vector["receiptDigest"])
+    assert verified.receipt.from_account.hex() == signer
+    with pytest.raises(PaymentBindingError) as refused:
+        verify_payment_receipt(
+            _bytes(vector["signedReceipt"]), raw, [_key(vector)],
+            ledger_payer="2a" * 32, payer=signer, **terms
+        )
+    assert refused.value.field == "payment"
 
 
 def test_committed_recording_keeps_its_governed_pin_and_wrong_chain_refusal():
@@ -249,23 +269,14 @@ def test_verify_sequencer_receipt_pinned_key():
 
 
 def test_verify_rpc_payment_uses_receipt_keys():
-    vector = _payment_vector()
+    vector = _payment_vector(committed=False)
     raw = _bytes(vector["rawTransaction"])
     fixture_receipt = verify_sequencer_receipt(
         _bytes(vector["signedReceipt"]), raw, [_key(vector)]
     ).receipt
-    payment_secret = Ed25519PrivateKey.from_private_bytes(b"\x31" * 32)
-    key = ReceiptKey(
-        b"k" * 32,
-        payment_secret.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw),
-        int(vector["receiptJson"]["height"], 16),
-        int(vector["receiptJson"]["height"], 16),
-    )
-    canonical = bytearray(_bytes(vector["signedReceipt"]))
-    canonical[-109:-77] = key.key_id
-    digest = sha256(b"LXP/v1/receipt\0" + bytes(canonical[:-69]) + b"\0").digest()
-    canonical[-64:] = payment_secret.sign(digest)
-    signed = bytes(canonical)
+    key = _key(vector)
+    signed = _bytes(vector["signedReceipt"])
+    digest = _bytes(vector["receiptDigest"])
     receipt = verify_sequencer_receipt(signed, raw, [key]).receipt
     result = {
         **vector["receiptJson"],
@@ -279,7 +290,7 @@ def test_verify_rpc_payment_uses_receipt_keys():
     }
 
     def verify(
-        row, keys=(key,), payer="0x" + payment_terms["payer"], **changes
+        row, keys=(key,), payer="0x" + fixture_receipt.from_account.hex(), **changes
     ):
         return verify_rpc_payment(
             row,
@@ -303,9 +314,13 @@ def test_verify_rpc_payment_uses_receipt_keys():
     assert verified.receipt.module_id == fixture_receipt.module_id
     assert verified.receipt.operation == fixture_receipt.operation
     assert verify({**result, "returnData": "0x"}) == payment
-    with pytest.raises(SequencerReceiptVerificationError) as raised:
+    with pytest.raises(ValueError, match="^missing-committed-evidence$"):
+        verify(_payment_vector()["receiptJson"])
+    with pytest.raises(ValueError, match="^payment-binding-mismatch$") as raised:
         verify(result, keys=())
-    assert raised.value.check == "unpinned_key"
+    assert isinstance(raised.value.__cause__, SequencerReceiptVerificationError)
+    assert raised.value.__cause__.check == "unpinned_key"
+    assert raised.value.__cause__.code == SdkErrorCode.VERIFICATION_FAILURE
 
     secret = Ed25519PrivateKey.from_private_bytes(b"\x2a" * 32)
     public_key = secret.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
@@ -319,9 +334,11 @@ def test_verify_rpc_payment_uses_receipt_keys():
         "receipt": "0x" + bytes(unpinned).hex(),
         "keyId": "0x" + "2a" * 32,
     }
-    with pytest.raises(SequencerReceiptVerificationError) as raised:
+    with pytest.raises(ValueError, match="^payment-binding-mismatch$") as raised:
         verify(unpinned_result)
-    assert raised.value.check == "unpinned_key"
+    assert isinstance(raised.value.__cause__, SequencerReceiptVerificationError)
+    assert raised.value.__cause__.check == "unpinned_key"
+    assert raised.value.__cause__.code == SdkErrorCode.VERIFICATION_FAILURE
     other_key = ReceiptKey(b"\x2a" * 32, public_key, key.first_height, key.last_height)
     assert verify(unpinned_result, keys=(other_key,)) == {
         **payment, "keyId": "0x" + other_key.key_id.hex()
@@ -330,9 +347,11 @@ def test_verify_rpc_payment_uses_receipt_keys():
         bytes(unpinned), raw, [other_key]
     ).canonical_bytes == bytes(unpinned)
 
-    with pytest.raises(SequencerReceiptVerificationError) as raised:
+    with pytest.raises(ValueError, match="^payment-binding-mismatch$") as raised:
         verify(result, keys=(replace(key, first_height=payment["height"] + 1),))
-    assert raised.value.check == "key_out_of_range"
+    assert isinstance(raised.value.__cause__, SequencerReceiptVerificationError)
+    assert raised.value.__cause__.check == "key_out_of_range"
+    assert raised.value.__cause__.code == SdkErrorCode.VERIFICATION_FAILURE
     with pytest.raises(ValueError, match="^transaction-hash-mismatch$"):
         verify(result, raw_transaction=_bytes(VECTORS[0]["rawTransaction"]))
     for changes in (
@@ -348,9 +367,11 @@ def test_verify_rpc_payment_uses_receipt_keys():
         verify(result, payer="0x" + "2a" * 32)
     altered_root = signed.replace(receipt.resulting_state_root, b"\x2a" * 32, 1)
     assert altered_root != signed
-    with pytest.raises(SequencerReceiptVerificationError) as raised:
+    with pytest.raises(ValueError, match="^payment-binding-mismatch$") as raised:
         verify({**result, "receipt": "0x" + altered_root.hex()})
-    assert raised.value.check == "bad_signature"
+    assert isinstance(raised.value.__cause__, SequencerReceiptVerificationError)
+    assert raised.value.__cause__.check == "bad_signature"
+    assert raised.value.__cause__.code == SdkErrorCode.VERIFICATION_FAILURE
     assert verify(
         {"txHash": result["txHash"], "nonce": result["nonce"], "rung": "submitted"}
     ) == {

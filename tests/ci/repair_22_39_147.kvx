@@ -1,0 +1,252 @@
+[repair.22.39.147]
+mode = "BUILD"
+decisions = ["2771", "2857", "2864", "2869", "2874"]
+gotchas = ["3554", "3562", "3567"]
+acceptance = "22998.1"
+base_revision = "b62e2aa496e51a50f8c2ba12e20305df484e2a9f"
+continuation_base_revision = "bde55cd44e77056aafdb67bb74ec69e63470e0c0"
+continued_tree = "94f1769f81b7be0ae0070751721ff5075a9ad9d8"
+producer_commit = "7008181d46ec93c756d31085adcb32b076ebd24b"
+producer_task = "22.39.98"
+reference = ".github/workflows/platform.yml:26 (build-lint-test)"
+contract = "scripts/ci/runner-routing-check.sh: ROUTED and EXCLUDED"
+verified_revision = "hf-done records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl; the final handoff copies that evidence. This repair record is part of that candidate."
+publication = "The external runner publishes the qualified candidate; no worker commit or push."
+build_cmd = "python3 -m py_compile tests/ci/test_workflow_live_inputs_guarded.py && bash -n scripts/ci/runner-routing-check.sh"
+verify_cmd = "test -s tests/ci/repair_22_39_147.kvx && bash scripts/ci/runner-routing-check.sh && python3 -m pytest -q tests/ci/test_workflow_live_inputs_guarded.py tests/ci/test_workflow_runs_on_routed.py tools/ci/tests/test_ci_loadtest_job.py tools/ci/tests/test_replay_golden_ci.py"
+
+[restored.human.build-lint-test]
+workflow = ".github/workflows/human.yml"
+job = "build-lint-test"
+line = 25
+producer_commit = "7008181d46ec93c756d31085adcb32b076ebd24b"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[restored.human.intent-fuzz]
+workflow = ".github/workflows/human.yml"
+job = "intent-fuzz"
+line = 161
+producer_commit = "7008181d46ec93c756d31085adcb32b076ebd24b"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[restored.platform.android-application-artifact]
+workflow = ".github/workflows/platform.yml"
+job = "android-application-artifact"
+line = 127
+producer_commit = "7008181d46ec93c756d31085adcb32b076ebd24b"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[restored.platform.programs-acceptance]
+workflow = ".github/workflows/platform.yml"
+job = "programs-acceptance"
+line = 414
+producer_commit = "7008181d46ec93c756d31085adcb32b076ebd24b"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[restored.platform.agent-sanitizers]
+workflow = ".github/workflows/platform.yml"
+job = "agent-sanitizers"
+line = 450
+producer_commit = "7008181d46ec93c756d31085adcb32b076ebd24b"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[restored.platform.agent-fuzz-corpus]
+workflow = ".github/workflows/platform.yml"
+job = "agent-fuzz-corpus"
+line = 501
+producer_commit = "7008181d46ec93c756d31085adcb32b076ebd24b"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[restored.platform.release-promotion]
+workflow = ".github/workflows/platform.yml"
+job = "release-promotion"
+line = 1602
+producer_commit = "7008181d46ec93c756d31085adcb32b076ebd24b"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[coverage]
+routing_check = "Both workflow test modules execute the real repository routing script at the repository root."
+job_shapes = "Every job with runs-on in human.yml and platform.yml outside the script's EXCLUDED table must carry the exact routed form; all eighteen restored jobs are explicitly named and independently asserted, including their absence from EXCLUDED. Both hosted jobs have independent assertions for their runner and exclusion reason."
+retained = "Only the eighteen runs-on lines change within workflow jobs; every guard, input and step is retained. The loadtest runner assertion follows the repository-audit reference under decision 2874; every other existing test assertion is retained. The explorer workflow adds a comment outside the jobs explaining its container-runtime exclusions, so its required touches path changes without altering either job."
+live_inputs = "job_inputs inspects the job body and inherited workflow environment, excluding the guard and only the exact routed runs-on expression. vars.CI_LINUX_RUNNER has a hosted-runner fallback in that expression and is not a required live-service input; every other input reference remains inspected, including any runner variable consumed elsewhere. The new exact-form routing assertions validate runner selection independently. Every existing presence, bypass and consumed-input assertion remains enforced."
+
+[implementation_notes]
+line_numbers = "The inventory's release-promotion line 576 predates the current workflow layout; its restored runs-on is at line 1602."
+
+[qualification.blocked]
+revision = "11fe90df2b7e3cda24858e506bd4151dddb03f8a"
+command = "cg spec done 22.39.147 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The repository routing check rejects 13 pre-existing fixed-runner jobs in ci.yml, explorer-images.yml, launchpad-test.yml and paxeer-go-test.yml, all outside the allowed scope; it reports none of the seven repaired jobs, and pytest is not reached."
+assumption = "The out-of-scope runner violations require separate authorized repairs; the task remains unqualified and the failed gate is not rerun unchanged."
+
+[qualification.references]
+build = "/out/run/gates.jsonl: the build entry records the candidate revision, exact build_cmd, exit and private log."
+verify = "/out/run/gates.jsonl: the verify entry records the same candidate revision, cg spec done command, exit and private log; its log includes the declared verify_cmd and graph checks."
+result = "The final handoff copies the last gate evidence; a reference to the ledger does not claim that a gate passed."
+
+[continuation]
+prior_blocker = "Attempt 2 authorizes the four formerly out-of-scope workflows and the routing script, settling all thirteen refusals recorded above."
+existing_contract_conflict = "Attempt 2 found tools/ci/tests/test_ci_loadtest_job.py comparing the routed loadtest job with the hosted sanitizer job c17. Attempt 3 follows decision 2874 and compares it with the routed repository-audit sibling, retaining the c17 pin, sanitizer exclusion and every other assertion."
+
+[continuation.attempt_3]
+base_revision = "d47ba77374b406d72c8c3b92a32b665c83a6b3ed"
+continued_tree = "06d1b91e26270a43ce5c420d81e08634995b247f"
+file = "tools/ci/tests/test_ci_loadtest_job.py"
+symbol = "CiLoadtestJobTest.test_root_workflow_runs_loadtest_module"
+line = 16
+producer_commit = "b27b4bd1c9975f8bfd4513a5a33e86d07276f58c"
+producer_task = "16.4.5"
+before = "self.assertEqual(job[\"runs-on\"], jobs[\"c17\"][\"runs-on\"])"
+after = "self.assertEqual(job[\"runs-on\"], jobs[\"repository-audit\"][\"runs-on\"])"
+reference = "tools/ci/tests/test_ci_loadtest_job.py:18 already compares the first checkout step with jobs[\"repository-audit\"][\"steps\"][0]; line 16 follows the same routed sibling for runs-on."
+workflow_reference = ".github/workflows/ci.yml:61 repository-audit and :136 loadtest carry the same routed expression; :74 c17 retains ubuntu-24.04."
+build_evidence = "/out/run/gates.jsonl: final-candidate build entry (revision, command, exit, log)."
+verify_evidence = "/out/run/gates.jsonl: final-candidate verify entry at the same revision (revision, command, exit, log); the final handoff copies its evidence."
+
+[continued.ci.c17]
+workflow = ".github/workflows/ci.yml"
+job = "c17"
+line = 74
+producer_commit = "a6dc9b69debbdcfb6af09eca6463ff1569f41279"
+producer_task = "22.39.3"
+disposition = "sanitizer"
+before = "ubuntu-24.04"
+after = "ubuntu-24.04"
+reason = "Hosted Ubuntu is required because the routed host preloads a library and traces processes, breaking the sanitizer rules; the c17 job stays byte for byte unchanged."
+
+[continued.ci.js-suite-inventory]
+workflow = ".github/workflows/ci.yml"
+job = "js-suite-inventory"
+line = 143
+producer_commit = "b05c9aead54f8b9a822d9020097add4f53f60adb"
+producer_task = "22.39.85"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.ci.js-node-tests]
+workflow = ".github/workflows/ci.yml"
+job = "js-node-tests"
+line = 160
+producer_commit = "b05c9aead54f8b9a822d9020097add4f53f60adb"
+producer_task = "22.39.85"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.ci.js-npm-tests]
+workflow = ".github/workflows/ci.yml"
+job = "js-npm-tests"
+line = 185
+producer_commit = "b05c9aead54f8b9a822d9020097add4f53f60adb"
+producer_task = "22.39.85"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.ci.js-workspace-tests]
+workflow = ".github/workflows/ci.yml"
+job = "js-workspace-tests"
+line = 210
+producer_commit = "b05c9aead54f8b9a822d9020097add4f53f60adb"
+producer_task = "22.39.85"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.ci.js-pnpm-tests]
+workflow = ".github/workflows/ci.yml"
+job = "js-pnpm-tests"
+line = 251
+producer_commit = "b05c9aead54f8b9a822d9020097add4f53f60adb"
+producer_task = "22.39.85"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.ci.js-wallet-gateway-tests]
+workflow = ".github/workflows/ci.yml"
+job = "js-wallet-gateway-tests"
+line = 278
+producer_commit = "b05c9aead54f8b9a822d9020097add4f53f60adb"
+producer_task = "22.39.85"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.ci.js-explorer-env-tests]
+workflow = ".github/workflows/ci.yml"
+job = "js-explorer-env-tests"
+line = 313
+producer_commit = "b05c9aead54f8b9a822d9020097add4f53f60adb"
+producer_task = "22.39.85"
+disposition = "routed"
+before = "ubuntu-24.04"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.explorer-images.explorer-backend-test]
+workflow = ".github/workflows/explorer-images.yml"
+job = "explorer-backend-test"
+line = 37
+producer_commit = "20b07243e3ea98c0398ab1c417c081ad4e593644"
+producer_task = "22.31.605"
+disposition = "docker-command"
+before = "ubuntu-24.04"
+after = "ubuntu-24.04"
+reason = "The umbrella test invokes services/explorer/deploy/tools/mix-in-builder.sh test, matching CONTAINER_RUNTIME; the explorer-backend-test job stays byte for byte unchanged."
+
+[continued.launchpad-test.launchpad-test]
+workflow = ".github/workflows/launchpad-test.yml"
+job = "launchpad-test"
+line = 28
+producer_commit = "a14fa928450d695780e79faa863346b2ee93d41f"
+producer_task = "22.39.10"
+disposition = "routed"
+before = "ubuntu-latest"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.paxeer-go-test.tagged-tests]
+workflow = ".github/workflows/paxeer-go-test.yml"
+job = "tagged-tests"
+line = 158
+producer_commit = "2fe29c124615156079dc871cf9d8aa51a0c65c2b"
+producer_task = "22.39.82"
+disposition = "routed"
+before = "ubuntu-latest"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.paxeer-go-test.autobahn-integration]
+workflow = ".github/workflows/paxeer-go-test.yml"
+job = "autobahn-integration"
+line = 187
+producer_commit = "2fe29c124615156079dc871cf9d8aa51a0c65c2b"
+producer_task = "22.39.82"
+disposition = "routed"
+before = "ubuntu-latest"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+
+[continued.paxeer-go-test.hpx-registry]
+workflow = ".github/workflows/paxeer-go-test.yml"
+job = "hpx-registry"
+line = 205
+producer_commit = "2fe29c124615156079dc871cf9d8aa51a0c65c2b"
+producer_task = "22.39.82"
+disposition = "routed"
+before = "ubuntu-latest"
+after = "${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"

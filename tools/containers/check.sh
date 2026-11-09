@@ -109,10 +109,12 @@ core/deps/geth/Dockerfile
 core/deps/geth/Dockerfile.alltools
 core/deps/geth/crypto/secp256k1/libsecp256k1/ci/linux-debian.Dockerfile
 sdk/contrib/devtools/dockerfile
-sdk/contrib/images/simd-dlv/Dockerfile
 sdk/contrib/images/simd-env/Dockerfile
-sdk/contrib/rosetta/node/Dockerfile
+sdk/contrib/rosetta/node/Dockerfile.historical
+sdk/contrib/rosetta/node/Dockerfile.paxd
 sdk/contrib/rosetta/rosetta-cli/Dockerfile
+tools/hyperfide/deploy/hyperfide/fleet-control/Dockerfile
+tools/hyperfide/plugins/environment-modal-sandbox/Dockerfile
 wasm-runtime/builders/Dockerfile.alpine
 wasm-runtime/builders/Dockerfile.centos7
 wasm-runtime/builders/Dockerfile.cross
@@ -128,8 +130,6 @@ consensus/spec/ivy-proofs/Dockerfile
 consensus/test/e2e/docker/Dockerfile
 services/explorer/backend/.devcontainer/Dockerfile
 storage/db_engine/litt/util/testdata/ssh-test.Dockerfile
-# Retired service name: test_platform_node_retired.py requires platform-node to be refused.
-docker/platform-node/Dockerfile
 # Auxiliary Redis cache image: checked by docker/redis/tests/redis-image.test.sh.
 docker/redis/Dockerfile
 '
@@ -141,6 +141,8 @@ REFERENCE_EXEMPT=(
     ':(exclude)services/explorer/backend/CHANGELOG.md'
     ':(exclude)GOTCHA.kvx'
     ':(exclude)tools/containers/check.sh'
+    ':(exclude)tools/qualification/audit_repairs/*.kvx'
+    ':(exclude)tools/jev/tests/fixtures'
 )
 # files where the bare word Dockerfile or an unflagged docker build is not the root image
 ROOT_TOKEN_EXEMPT=(
@@ -165,6 +167,7 @@ ROOT_TOKEN_EXEMPT=(
 )
 
 DOCKERFILE_NAME='(^|/)(Dockerfile[^/]*|dockerfile|[^/]+\.Dockerfile)$'
+ROOT_RECIPE_REFERENCE="(^|[[:space:]])(file:[[:space:]]*|-f[[:space:]]*|--file[=[:space:]]+|['\"]?dockerfile['\"]?[[:space:]]*[:=][[:space:]]*)['\"]?Dockerfile(\.dockerignore)?(['\"]|[[:space:]]|$)|^[[:space:]]*-[[:space:]]+['\"]?Dockerfile(\.dockerignore)?['\"]?[[:space:]]*$"
 LOG_DIR=${CONTAINERS_CHECK_LOG_DIR:-.logs/containers-check}
 
 rows() { printf '%s\n' "$1" | sed '/^[[:space:]]*#/d; /^$/d'; }
@@ -252,7 +255,7 @@ if [ "${#stale[@]}" -gt 0 ]; then
     fi
 fi
 if picked layerx; then
-    hits=$(git grep -n -E "['\"]Dockerfile(\.dockerignore)?['\"]|(file:|-f|--file=?|dockerfile *=) *Dockerfile(\.dockerignore)?([[:space:]]|$)|(^|[[:space:]])-[[:space:]]+Dockerfile(\.dockerignore)?[[:space:]]*$" -- . "${REFERENCE_EXEMPT[@]}" "${ROOT_TOKEN_EXEMPT[@]}" || true)
+    hits=$(git grep -n -E "$ROOT_RECIPE_REFERENCE" -- . "${REFERENCE_EXEMPT[@]}" "${ROOT_TOKEN_EXEMPT[@]}" || true)
     if [ -n "$hits" ]; then
         printf '%s\n' "$hits" >&2
         fail "tracked files still name the root Dockerfile instead of docker/layerx/Dockerfile"
@@ -266,7 +269,7 @@ if picked layerx; then
                     sub(/\\$/, "", line)
                     line = line " " next_line
                 }
-                if (line ~ /docker (buildx )?build([[:space:]]|$)/ && line !~ /(^|[[:space:]])(-f|--file)([[:space:]=]|$)/) {
+                if (line ~ /(^|[[:space:];&|])docker (buildx )?build([[:space:]]|$)/ && line !~ /(^|[[:space:]])(-f|--file)([[:space:]=]|$)/) {
                     print file ":" start ": " line
                 }
             }' "$file"
@@ -296,8 +299,7 @@ import sys
 
 recipe, context = map(Path, sys.argv[1:])
 source = re.sub(r"\\\n[ \t]*", " ", recipe.read_text())
-stage = ""
-sha256_args = set()
+stages = []
 for line in source.splitlines():
     parts = line.strip().split(None, 1)
     if len(parts) != 2:
@@ -305,7 +307,46 @@ for line in source.splitlines():
     instruction, rest = parts[0].upper(), parts[1]
     if instruction == "FROM":
         tokens = shlex.split(rest)
-        stage = tokens[-1] if len(tokens) >= 3 and tokens[-2].upper() == "AS" else ""
+        while tokens[0].startswith("--"):
+            tokens.pop(0)
+        name = tokens[-1] if len(tokens) >= 3 and tokens[-2].upper() == "AS" else ""
+        stages.append((name, tokens[0], []))
+        continue
+    if stages:
+        stages[-1][2].append((instruction, rest))
+
+required = set()
+pending = [len(stages) - 1] if stages else []
+while pending:
+    index = pending.pop()
+    if index in required:
+        continue
+    required.add(index)
+    name, base, instructions = stages[index]
+    dependencies = [base]
+    for instruction, rest in instructions:
+        if instruction in ("COPY", "ADD"):
+            for option in shlex.split(rest):
+                if not option.startswith("--"):
+                    break
+                if option.startswith("--from="):
+                    dependencies.append(option.split("=", 1)[1])
+    for dependency in dependencies:
+        for earlier, (alias, _, _) in enumerate(stages[:index]):
+            if dependency.lower() == alias.lower() or dependency == str(earlier):
+                pending.append(earlier)
+
+active_instructions = []
+for index, (stage, _, instructions) in enumerate(stages):
+    if index in required:
+        active_instructions.append(("STAGE", stage))
+        active_instructions.extend(instructions)
+
+stage = ""
+sha256_args = set()
+for instruction, rest in active_instructions:
+    if instruction == "STAGE":
+        stage = rest
         sha256_args = set()
         continue
     if instruction == "ARG":

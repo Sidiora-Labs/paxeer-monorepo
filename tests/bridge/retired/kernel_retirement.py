@@ -184,8 +184,7 @@ def checkpoint_settlement(root: Path = REPO) -> dict:
     return document
 
 
-def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
-    root = Path(root).resolve()
+def _retirement_targets(paths: Iterable[str | Path], root: Path) -> set[str]:
     targets = set()
     for path in paths:
         path = Path(path)
@@ -198,7 +197,12 @@ def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
         if name in {".", ".."} or name.startswith("../"):
             raise ValueError(f"Retired path must be inside the repository: {path}")
         targets.add(name)
+    return targets
 
+
+def live_references(paths: Iterable[str | Path], root: Path = REPO) -> list[str]:
+    root = Path(root).resolve()
+    targets = _retirement_targets(paths, root)
     result = subprocess.run(
         ["git", "ls-files", "--cached", "-z"],
         cwd=root,
@@ -207,7 +211,6 @@ def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
         stderr=subprocess.PIPE,
     )
     tracked = {os.fsdecode(name) for name in result.stdout.split(b"\0") if name}
-    still_tracked = sorted(targets & tracked)
     patterns = {
         target: re.compile(r"(?<![\w./-])" + re.escape(target) + r"(?![\w./-])")
         for target in targets
@@ -320,6 +323,22 @@ def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
             for target in sorted(matches):
                 references.append(f"{name}:{number}: {target}")
 
+    return sorted(references)
+
+
+def assert_retired(paths: Iterable[str | Path], root: Path = REPO) -> None:
+    root = Path(root).resolve()
+    targets = _retirement_targets(paths, root)
+    result = subprocess.run(
+        ["git", "ls-files", "--cached", "-z"],
+        cwd=root,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    tracked = {os.fsdecode(name) for name in result.stdout.split(b"\0") if name}
+    still_tracked = sorted(targets & tracked)
+    references = live_references(targets, root=root)
     if still_tracked or references:
         findings = ["Retirement check failed:"]
         if still_tracked:

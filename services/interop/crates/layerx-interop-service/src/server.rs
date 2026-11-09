@@ -3896,58 +3896,15 @@ mod tests {
     fn fiat_refund_fixture(
         reference: [u8; 32],
     ) -> X402TestResult<(Vec<u8>, Value, Vec<SequencerAuthorization>)> {
-        fn replace(bytes: &mut [u8], old: &[u8], new: &[u8]) {
-            assert_eq!(old.len(), new.len());
-            let positions: Vec<_> = bytes
-                .windows(old.len())
-                .enumerate()
-                .filter_map(|(index, value)| (value == old).then_some(index))
-                .collect();
-            assert_eq!(positions.len(), 1);
-            bytes[positions[0]..positions[0] + old.len()].copy_from_slice(new);
-        }
-        let (raw, mut answer, keys) = relay_fixture(reference)?;
-        let (transfer, _, old_hash) = decode_pay_exact(&raw)?;
+        let (raw, _, _) = relay_fixture(reference)?;
+        let (transfer, _, _) = decode_pay_exact(&raw)?;
         let (mut tx, _) = layerx_crypto::evm_transaction::decode_signed(&raw)?;
         tx.data[4..36].copy_from_slice(&transfer.to);
         tx.data[36..68].copy_from_slice(&transfer.from);
         tx.nonce += 1;
-        let raw = tx.sign(&[0x3b; 32])?;
-        let (_, _, hash) = decode_pay_exact(&raw)?;
-        let mut receipt = decode_hex(
-            answer["receipt"]
-                .as_str()
-                .and_then(|v| v.strip_prefix("0x"))
-                .ok_or("receipt")?,
-            MAX_BODY,
-        )?;
-        let verified = verify_sequencer_signature(&receipt, keys.as_slice())
-            .map_err(|e| format!("fixture: {e:?}"))?;
-        let protocol = verified.protocol().ok_or("protocol receipt")?;
-        let old_root = protocol.resulting_state_root();
-        let mut sequence = Sha256::new();
-        sequence.update(b"PAXEER/v1/sequence\0");
-        sequence.update(protocol.previous_state_root());
-        sequence.update(protocol.global_sequence().to_be_bytes());
-        sequence.update(hash);
-        let new_root: [u8; 32] = sequence.finalize().into();
-        replace(
-            &mut receipt,
-            &[reference, transfer.from, transfer.to].concat(),
-            &[reference, transfer.to, transfer.from].concat(),
-        );
-        replace(&mut receipt, &old_hash, &hash);
-        replace(&mut receipt, &old_root, &new_root);
-        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
-        let signature_start = receipt.len() - 64;
-        receipt[signature_start..]
-            .copy_from_slice(&SigningKey::from_bytes(&[0x5e; 32]).sign(&digest).to_bytes());
-        answer["txHash"] = json!(format!("0x{}", hex(&hash)));
-        answer["nonce"] = json!(format!("0x{:x}", tx.nonce));
-        answer["receipt"] = json!(format!("0x{}", hex(&receipt)));
-        answer["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&transfer.to)));
-        answer["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&transfer.from)));
-        Ok((raw, answer, keys))
+        let case = payment_fixture::transaction_case(&tx.sign(&[0x3b; 32])?)
+            .map_err(|error| error.to_string())?;
+        relay_case(&case)
     }
 
     #[test]
@@ -4275,28 +4232,22 @@ mod tests {
         Ok(())
     }
 
+    mod payment_fixture {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/payment_fixture.rs"
+        ));
+    }
+
     fn relay_fixture(
         reference: [u8; 32],
     ) -> X402TestResult<(Vec<u8>, Value, Vec<SequencerAuthorization>)> {
-        fn replace(bytes: &mut [u8], old: &[u8], new: &[u8]) {
-            assert_eq!(old.len(), new.len());
-            let positions: Vec<_> = bytes
-                .windows(old.len())
-                .enumerate()
-                .filter_map(|(index, value)| (value == old).then_some(index))
-                .collect();
-            assert_eq!(positions.len(), 1);
-            bytes[positions[0]..positions[0] + old.len()].copy_from_slice(new);
-        }
-        let fixture: Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-        ))?;
-        let case = fixture["cases"]
-            .as_array()
-            .ok_or("cases")?
-            .iter()
-            .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-            .ok_or("payExact fixture")?;
+        let case =
+            payment_fixture::payment_case(Some(reference)).map_err(|error| error.to_string())?;
+        relay_case(&case)
+    }
+
+    fn relay_case(case: &Value) -> X402TestResult<(Vec<u8>, Value, Vec<SequencerAuthorization>)> {
         let bytes = |value: &Value| -> X402TestResult<Vec<u8>> {
             Ok(decode_hex(
                 value
@@ -4317,46 +4268,11 @@ mod tests {
             pin["firstHeight"].as_u64().ok_or("first height")?,
             pin["lastHeight"].as_u64().ok_or("last height")?,
         )];
-        let raw = bytes(&case["rawTransaction"])?;
-        let (transfer, old_sender, old_hash) = decode_pay_exact(&raw)?;
-        let (mut tx, _) = layerx_crypto::evm_transaction::decode_signed(&raw)?;
-        replace(&mut tx.data, &transfer.reference, &reference);
-        let raw = tx.sign(&[0x3b; 32])?;
-        let (_, sender, hash) = decode_pay_exact(&raw)?;
-        let mut receipt = bytes(&case["signedReceipt"])?;
-        let verified = verify_sequencer_signature(&receipt, keys.as_slice())
-            .map_err(|error| format!("recorded receipt: {error:?}"))?;
-        let protocol = verified.protocol().ok_or("protocol receipt")?;
-        let old_root = protocol.resulting_state_root();
-        let mut sequence = Sha256::new();
-        sequence.update(b"PAXEER/v1/sequence\0");
-        sequence.update(protocol.previous_state_root());
-        sequence.update(protocol.global_sequence().to_be_bytes());
-        sequence.update(hash);
-        let new_root: [u8; 32] = sequence.finalize().into();
-        replace(
-            &mut receipt,
-            &[transfer.reference, transfer.from, transfer.to].concat(),
-            &[reference, transfer.from, transfer.to].concat(),
-        );
-        replace(&mut receipt, &old_hash, &hash);
-        replace(&mut receipt, &old_root, &new_root);
-        if old_sender != sender {
-            replace(&mut receipt, &old_sender, &sender);
-        }
-        let key = SigningKey::from_bytes(&[0x5e; 32]);
-        assert_eq!(key.verifying_key().to_bytes(), keys[0].public_key());
-        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
-        let signature_start = receipt.len() - 64;
-        receipt[signature_start..].copy_from_slice(&key.sign(&digest).to_bytes());
-        let mut answer = case["receiptJson"].clone();
-        answer["txHash"] = json!(format!("0x{}", hex(&hash)));
-        answer["from"] = json!(format!("0x{}", hex(&sender)));
-        answer["receipt"] = json!(format!("0x{}", hex(&receipt)));
-        answer["logs"][0]["topics"][1] = json!(format!("0x{}", hex(&reference)));
-        answer["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&transfer.from)));
-        answer["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&transfer.to)));
-        Ok((raw, answer, keys))
+        Ok((
+            bytes(&case["rawTransaction"])?,
+            case["receiptJson"].clone(),
+            keys,
+        ))
     }
 
     fn payment_relay(
@@ -4659,11 +4575,14 @@ mod tests {
             refusal: None,
             submitted: None,
         };
+        let merchant_config = layerx_ucp::UcpServiceConfig::new(
+            layerx_ucp::MerchantCurrencyBinding::new(*b"USD", transfer.asset, 2, 2)?,
+        );
         let pending = UcpAdapter::complete_checkout(
             &mut gateway,
             &principal,
             &submission,
-            &mut plane,
+            &mut merchant_config.bind_plane(&mut plane),
             &keys,
             &trace,
             1_700_000_000,
@@ -4706,7 +4625,7 @@ mod tests {
             &mut gateway,
             &principal,
             &submission,
-            &mut plane,
+            &mut merchant_config.bind_plane(&mut plane),
             &keys,
             &trace,
             1_700_000_000,

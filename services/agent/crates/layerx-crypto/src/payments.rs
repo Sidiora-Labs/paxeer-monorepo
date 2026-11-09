@@ -16,7 +16,7 @@ use crate::disclosure::DisclosureError;
 mod codec;
 use codec::{protocol_version_supported, Decoder, Encoder};
 
-pub use crate::disclosure::call::bind_call;
+pub use crate::disclosure::call::{bind_call, validate_call};
 pub use crate::disclosure::Disclosure;
 #[deprecated(note = "Use binding::BindAuthorization for EVM identity registration")]
 pub use crate::onboarding::{OnboardingConsent, SponsoredRegistration};

@@ -1,6 +1,8 @@
 //! F10 minimal finalized snapshot projection over real market state, real chunk capture,
 //! real Ed25519-signed block commits and a file-backed `SQLite` projection.
 
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -86,6 +88,33 @@ other_failure!(
     &'static str,
 );
 type Checked<T = ()> = Result<T, Failure>;
+
+thread_local! {
+    static CAPTURED_STATES: RefCell<BTreeMap<[u8; 32], (Vec<u8>, u8)>> =
+        const { RefCell::new(BTreeMap::new()) };
+}
+
+fn captured_state(record: &SnapshotRecord) -> Result<(Vec<u8>, u8), ViewError> {
+    CAPTURED_STATES.with(|states| {
+        states
+            .borrow()
+            .get(record.native_state_root.as_bytes())
+            .cloned()
+            .ok_or(ViewError::ProjectionUnavailable)
+    })
+}
+
+fn native_commit(state: &[u8], variant: u8, sequence: u64, chain_id: &str) -> (Header, Vec<u8>) {
+    let (proof, root) = repair_paths::native_membership_version(
+        state,
+        PROGRAM,
+        layerx_programs_ai_market::SHARED_STATE_KEY,
+        u64::from(variant),
+    );
+    let mut header = commit_header(variant, sequence, chain_id);
+    header.app_hash = root.to_vec();
+    (header, proof)
+}
 
 fn chain() -> Checked<ChainDomain> {
     Ok(ChainDomain::new(CHAIN)?)
@@ -229,13 +258,26 @@ fn chunk_payload(revision: u64, pinned: Option<StateDigest>, offset: u32) -> Vec
 
 /// Whole same-root capture through the real chunk selector and `StateCapture`.
 fn capture(state_bytes: &[u8], root: u8, sequence: u64) -> Checked<(Vec<u8>, CaptureFacts)> {
+    let (header, _) = native_commit(state_bytes, root, sequence, CHAIN_ID);
+    let native_root = Digest32::new(
+        header
+            .app_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| "app hash")?,
+    )?;
+    CAPTURED_STATES.with(|states| {
+        states
+            .borrow_mut()
+            .insert(native_root.bytes(), (state_bytes.to_vec(), root));
+    });
     let proof = ReadProof {
         chain: chain()?,
         program: program()?,
-        native_state_root: digest(root)?,
+        native_state_root: native_root,
         observed_sequence: sequence,
         execution_height: sequence + 110,
-        block_hash: Digest32::new(commit_header(root, sequence, CHAIN_ID).hash())?,
+        block_hash: Digest32::new(header.hash())?,
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let n = read_state_chunk(state_bytes, &chunk_payload(0, None, 0), &mut out)?;
@@ -389,9 +431,9 @@ fn promote_with(
     sequence: u64,
     chain_id: &str,
 ) -> Result<SnapshotRecord, ViewError> {
-    let header = commit_header(root, sequence, chain_id);
+    let (state, _) = captured_state(record)?;
+    let (header, store_proof) = native_commit(&state, root, sequence, chain_id);
     let commit = signed(&header, &[(1, false), (2, false), (3, false)]);
-    let store_proof = store_proof(root, sequence);
     store.promote(
         &record.snapshot_id,
         &BlockCommitProof {
@@ -405,7 +447,7 @@ fn promote_with(
 }
 
 fn finalize(store: &ProjectionStore, record: &SnapshotRecord) -> Checked<SnapshotRecord> {
-    let root = record.native_state_root.as_bytes()[0];
+    let (_, root) = captured_state(record)?;
     Ok(promote_with(
         store,
         record,
@@ -463,7 +505,7 @@ fn a01_pages_stay_pinned_to_one_snapshot_across_a_newer_root() -> Checked {
         NOW_MS + 1,
     )?;
     assert_eq!(page2.snapshot_id, first.snapshot_id);
-    assert_eq!(page2.binding.native_state_root, digest(0xA1)?);
+    assert_eq!(page2.binding.native_state_root, first.native_state_root);
     assert_eq!(page2.binding.observed_sequence, 900);
     assert_eq!(page2.rows.len(), 1);
     assert!(page2.cursor.is_none());
@@ -530,9 +572,9 @@ fn a02_only_a_rank4_checkpoint_for_the_same_root_finalizes() -> Checked {
         promote_with(&store, &record, 0xA1, 899, CHAIN_ID).err(),
         Some(ViewError::BindingMismatch)
     );
-    let header = commit_header(0xA1, 900, CHAIN_ID);
+    let (state, _) = captured_state(&record)?;
+    let (header, proof_bytes) = native_commit(&state, 0xA1, 900, CHAIN_ID);
     let mut commit = signed(&header, &[(1, false), (2, false), (3, false)]);
-    let proof_bytes = store_proof(0xA1, 900);
     let id: [u8; 32] = Sha256::digest(&proof_bytes).into();
     commit.block_id.hash[0] ^= 1;
     assert_eq!(
@@ -572,7 +614,7 @@ fn a02_only_a_rank4_checkpoint_for_the_same_root_finalizes() -> Checked {
     assert_eq!(view.binding.app_hash, record.native_state_root);
     assert_eq!(view.binding.block_height, record.execution_height);
     assert_eq!(view.binding.rank, 4);
-    assert_eq!(view.availability[5], Availability::NotEnabled);
+    assert_eq!(view.availability[5], Availability::NotYetProduced);
     assert_eq!(view.availability[2], Availability::NotYetProduced);
     Ok(())
 }
@@ -762,7 +804,7 @@ fn a06_rollback_removes_provisional_descendants_and_refuses_below_finality() -> 
     assert!(store.committed_rows(&child.snapshot_id)?.is_empty());
     let stream = store.stream(&market()?)?.ok_or("stream")?;
     assert_eq!(stream.observed_sequence, 900);
-    assert_eq!(stream.observed_root, Some(digest(0xA1)?));
+    assert_eq!(stream.observed_root, Some(finalized.native_state_root));
     assert_eq!(stream.next_subject, 2);
     assert_eq!(stream.finalized_snapshot, Some(finalized.snapshot_id));
     assert_eq!(store.pending_events(&market()?, 16)?.len(), 1);
@@ -866,7 +908,7 @@ fn a09_archived_content_is_typed_and_restored_only_by_digest() -> Checked {
     );
     store.restore_archived(&old.snapshot_id, &genuine)?;
     let restored = store.market_view(&alice, &market()?, Some(&old.snapshot_id), None)?;
-    assert_eq!(restored.binding.native_state_root, digest(0xA1)?);
+    assert_eq!(restored.binding.native_state_root, old.native_state_root);
 
     let history = store.epochs(&market()?, 4, 2)?;
     assert_eq!(history.component, Availability::NotYetProduced);
@@ -976,7 +1018,7 @@ fn a15_conflicts_refuse_or_quarantine_with_id_only_alerts() -> Checked {
         promote_with(&foreign, &pending, 0xA1, 900, "another-chain").err(),
         Some(ViewError::WrongDomain)
     );
-    let foreign_id = commit_header(0xA1, 900, "another-chain").hash();
+    let foreign_id = native_commit(&s, 0xA1, 900, "another-chain").0.hash();
     assert_eq!(
         foreign.alerts()?,
         vec![Alert {

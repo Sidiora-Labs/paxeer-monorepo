@@ -632,8 +632,6 @@ fn execution_state_uses_receipt_prestate_and_authenticated_account_status() {
             &native.call.encode_unsigned(),
             native.from,
             native.observed_head_height,
-            case.did(),
-            &registry,
         )
         .unwrap();
         native_capture::execute(&case);
@@ -724,10 +722,12 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
             &native.call.encode_unsigned(),
             native.from,
             native.observed_head_height,
-            case.did(),
-            &registry,
         )
         .unwrap();
+        let signing = SigningPreparation {
+            actor_address: native.from,
+            transaction: native.clone(),
+        };
         // The preference is read at the held preparation height even after the head advances.
         case.replay
             .answers
@@ -754,6 +754,7 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
             read_native_effect_budget_sources(
                 &mut case.replay.endpoint(),
                 &prepared,
+                Some(&signing),
                 &case.caps(8),
                 1_700_000_000_000,
                 1,
@@ -766,6 +767,7 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
         let sources = read_native_effect_budget_sources(
             &mut case.replay.endpoint(),
             &prepared,
+            Some(&signing),
             &case.caps(8),
             1_700_000_000_000,
             1,

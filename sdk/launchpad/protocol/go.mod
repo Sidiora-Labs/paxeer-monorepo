@@ -5,7 +5,10 @@ module github.com/Sidiora-Technologies/KindleLaunch/protocol
 
 go 1.25.0
 
-require github.com/ethereum/go-ethereum v1.17.3
+require (
+	github.com/ethereum/go-ethereum v1.17.3
+	github.com/gorilla/websocket v1.5.3
+)
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -23,7 +26,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect

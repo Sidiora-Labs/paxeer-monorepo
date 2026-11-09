@@ -95,6 +95,10 @@ def test_web_receipt_public_key_refuses_missing_keys(binding_listener):
     ([], '0'),
     ([RECEIPT_KEY], '-1'),
     ([RECEIPT_KEY], '1'),
+    ([RECEIPT_KEY], ''),
+    ([RECEIPT_KEY], 'invalid'),
+    ([RECEIPT_KEY], '0.0'),
+    ([RECEIPT_KEY] * 65, '0'),
 ])
 def test_web_receipt_public_key_refuses_missing_entry(binding_listener, keys, index):
     with receipt_keys_rpc({'keys': keys}, index) as daemon:
@@ -105,9 +109,18 @@ def test_web_receipt_public_key_refuses_missing_entry(binding_listener, keys, in
 
 @pytest.mark.parametrize('public_key', [
     None, 123, 'ab' * 32, '0x' + 'gg' * 32, '0x' + 'ab' * 31, '0x' + 'ab' * 33,
+    '0x' + '00' * 32,
 ])
 def test_web_receipt_public_key_refuses_malformed_key(binding_listener, public_key):
     with receipt_keys_rpc({'keys': [dict(RECEIPT_KEY, publicKey=public_key)]}) as daemon:
+        with pytest.raises(binding_listener.GateFailure,
+                           match='^receipt public key is malformed$'):
+            binding_listener.web_receipt_public_key(daemon)
+
+
+@pytest.mark.parametrize('key', [None, [], {}])
+def test_web_receipt_public_key_refuses_malformed_entry(binding_listener, key):
+    with receipt_keys_rpc({'keys': [key]}) as daemon:
         with pytest.raises(binding_listener.GateFailure,
                            match='^receipt public key is malformed$'):
             binding_listener.web_receipt_public_key(daemon)

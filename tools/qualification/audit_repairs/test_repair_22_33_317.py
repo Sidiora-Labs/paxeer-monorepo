@@ -193,7 +193,7 @@ def test_readme_separate_daemon_paxd_build():
     assert "tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
     dependencies, _ = make_rule("Makefile", "paxd-native-libs")
-    assert dependencies == ["$(LIBRARY)", "programs-release-build"]
+    assert dependencies == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     dependencies, recipe = make_rule("chain.mk", "build")
     assert dependencies == ["paxd-native-libs"]
     assert ["go", "build", "$(BUILD_FLAGS)", "-o", "./build/paxd", "./daemon/paxd"] == shlex.split(recipe)

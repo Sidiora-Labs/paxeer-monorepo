@@ -1,0 +1,115 @@
+[repair.22.39.144]
+base_revision = "78d0581353854ea2ddc3d88da4a611c84304c2c9"
+continued_tree = "187162452818c00e8b87067b65656396415d6b04"
+decisions = ["2762", "2820", "2857", "2878", "2906", "2908", "2918", "2920"]
+implementation = "Repair consumers against their maintained producers without changing policy, granting authority, removing tests or excluding any additional case."
+qualification = "Only the bounded hf-build and hf-done ledger establishes qualification; the record itself claims no passing gate."
+verified_revision_source = "/out/run/gates.jsonl: the final build and verify rows contain revision, exact command, exit code and private log; they must both pass at the same revision."
+build_command = "zstd --version > /dev/null && docker buildx version > /dev/null && forge --version > /dev/null && command -v nginx > /dev/null && test -x build/loadtest && test -s build/liblayerx.a && command -v bringup-inspect > /dev/null && test -x tools/bringup/tests/xweb-loader/target/debug/bringup-xweb-config-loader && ssh -o BatchMode=yes localhost true && python3 -m py_compile tools/paxeer-x/candidate.py tools/paxeer-x/ai_evidence.py"
+verify_command = "cg spec done 22.39.144 -f layerx-merge --root /work/paxeer-monorepo"
+build_log = "/out/logs/build-*.log"
+verify_log = "/out/logs/verify-*.log"
+baseline_retirement = "Remove 43 repaired paxeer-x rows so the declared make target executes them; retain only the pending LNI directory retirement with its owning-domain wiring request below. Qualification is established only by the bounded gate ledger."
+
+[correction.authority_strings]
+consumer = "tools/paxeer-x/tests/ai_evidence_test.py:EvidenceTests.setUpClass and test_changed_bytes_and_pin"
+producer = "tools/paxeer-x/ai_evidence.py:213 safe_path accepts canonical absolute strings; load_authority at line 504 consumes environment strings and validate_workspace at line 461 consumes authority references."
+change = "Create private admission and approval component fixtures from the producer-pinned identities, current contract and overlay digests, access restrictions and runtime controls; pass canonical strings and retain every structural refusal and byte-tampering case. Keep AUTHORITY injection for the real workspace gate. Exercise stale HEAD on the real current checkout and the interpreter refusal on a sparse checkout of the actual approved commit; on Python 3.12.3 prove that executing the validator outside that checkout still refuses, without granting admission."
+limitation = "The private fixture proves structure and refusals only; validate_workspace retains the historical base, branch and Python 3.12.3 requirements and refuses the current workspace."
+
+[correction.dispatch_catalogue]
+consumer = "tools/paxeer-x/tests/gate_dispatch_test.py:SERVICES"
+producer = "tools/paxeer-x/candidate.py:162 requires the complete 40-service catalogue; tests/ci/repair_22_39_84.kvx case.candidate_refusals identifies the 31-service fixture refusal before Go is called."
+change = "Declare forty services in the existing dispatcher fixture; retain every dispatch, identity, evidence, skip refusal and release assertion."
+
+[correction.inventory_service]
+consumer = "tools/paxeer-x/tests/candidate_test.py:test_production_cli_preserves_absent_pending_and_null_inventory and test_real_shell_selector_and_unknown_input_refusal"
+producer = "spec/layerx-merge/spec.kvx:134510 declares service.sequencer; candidate.py:199 and :430 reject service identities absent from that catalogue."
+change = "Use sequencer in the inventory and selector fixtures and expected results; retain every absent, pending, unknown, null, image and mutation assertion."
+
+[correction.governance_publisher]
+consumer = "tools/paxeer-x/gov/test.sh:release_files_name_v6120"
+producer = "tools/hpx/publish.sh:20-21 obtains PAXD_VERSION from tools/release/version.json unless HPX_PAXD_VERSION is explicitly set; the maintained manifest currently declares v7.0.0."
+change = "Assert the publisher's exact manifest binding and override expression and validate the manifest's semantic release tag; preserve the v6.12.0 migration checks for the governance kit and all proposal and dry-run assertions."
+
+[correction.signature_workspace]
+consumer = "tools/paxeer-x/tests/test_signature_route_catalogued.py:test_explorer_gate_runs_sig_provider"
+producer = "scripts/explorer/gate-test.sh:301-303 iterates libs, smart-contract-verifier and sig-provider, invoking cargo test --locked --workspace from each workspace after frontend-vitest."
+change = "Assert the exact loop membership, workspace working directory, cargo arguments, ordering and real Cargo.toml paths instead of expecting a nonexistent standalone --manifest-path invocation; route equality assertions remain intact."
+
+[correction.lni_retirement]
+consumer = "tools/paxeer-x/retired_callers.json and tools/paxeer-x/tests/retired_callers_test.py"
+producer = "spec/layerx-merge/spec.kvx:273040 task.9.24.7 owns LNI module retirement; services/agent/crates/layerx-client/src/lni/repair_22_33_1544.kvx retains evidence in the directory after the Rust files were deleted."
+change = "Record the extant directory under retiring_trees with task 9.24.7; validate canonical paths and task identities, refuse conflicting deleted/retiring declarations, and report pending retirement in --deleted scans without excluding the pending directory from symbol scans."
+assertion = "test_remaining_lni_tree_records_its_retiring_task checks the real catalogue and CLI refusal; the existing deleted-trees acceptance case remains unchanged and baselined until its producer completes directory retirement."
+wiring_request = "services/agent/crates/layerx-client/src/lni; agent domain owns task 9.24.7 and the retained repair_22_33_1544.kvx record; reconcile the directory's retained evidence with complete tree retirement before the baseline is removed."
+
+[gotcha.scope_inventory]
+observed = "The task orders baseline retirement, but its only allowed directory is tools/paxeer-x and tests/ci/test_tools_python_suites_wired.py:94 requires exactly all 44 original paxeer-x baseline entries."
+resolution = "Attempt 2 explicitly includes both CI files; remove the repaired rows and assert none can re-enter the baseline, while validating the remaining task family even when empty."
+
+[gotcha.authority_producer]
+observed = "The original AI setup consumes delegated private authority, not a portable repository fixture; the environment supplies neither record and the producer pins a historical candidate and interpreter."
+resolution = "The explicit continuation authorizes a private structural fixture from pinned constants; workspace qualification still requires the genuine historical authority and interpreter and is tested for refusal here."
+
+[gotcha.retirement_evidence_directory]
+observed = "The LNI source files have been retired but the lni directory still contains a task repair record, so path absence and module retirement differ at this revision."
+resolution = "Track pending tree retirement explicitly and keep --deleted failing on that real directory until the owning agent domain resolves the retained evidence path."
+
+
+[correction.contract_coverage]
+consumer = "tools/paxeer-x/tests/ai_evidence_test.py:test_actual_approved_authority and authority_fixture"
+producer = "tools/paxeer-x/ai_evidence.py:37 CONTRACT_PATHS declares four contracts; validate_structure at lines 381-386 requires exactly those paths and matching admission/approval digests."
+change = "Replace the stale count of thirty-nine with four and assert exact producer path coverage and the SHA256 of every current contract file; do not widen the producer's accepted contract set."
+
+[correction.baseline_retirement]
+consumer = "tests/ci/data/tools_python_suite_baseline.json and tests/ci/test_tools_python_suites_wired.py:test_tools_python_baseline_tracks_exact_cases"
+producer = "Makefile:296 translates each baseline nodeid to pytest --deselect; tests/ci/test_tools_python_suites_wired.py validates declared AST symbols and retiring-task families."
+change = "Remove all 24 authority cases, 15 dispatcher cases, two inventory cases, governance and signature cases from the baseline; assert repaired cases cannot return, count remaining paxeer-x rows by their retiring task and allow the family to become empty. Preserve all other task families and their assertions."
+
+[correction.ci_prerequisites]
+consumer = "The bounded hf-build and hf-done environment"
+producer = ".github/workflows/ci.yml:58-101 installs native dependencies, Python dependencies, Rust 1.91.1, Foundry v1.8.1, buildx, native libraries, loadtest, contracts, bringup-inspect, xweb loader and localhost SSH."
+change = "Prepare those real dependencies before the build gate; no test execution or substitute executable qualifies preparation."
+
+[baseline.1]
+nodeid = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid"
+wiring_request = "services/agent/crates/layerx-client/src/lni; agent domain owns task 9.24.7 and must reconcile the retained repair_22_33_1544.kvx evidence with complete directory retirement before this unchanged deletion assertion can retire from the CI baseline."
+
+[gotcha.private_fixture_parent]
+observed = "ai_evidence.py:233-243 open_path refuses ancestors writable by other users, so a default temporary directory under /tmp cannot host readable private evidence."
+resolution = "Create the fixture beneath the current user's private home directory and retain the validator's ownership, ancestor and permission checks."
+
+[gotcha.native_prerequisite_cmake]
+observed = "The first make build-loadtest preparation at base 78d0581353854ea2ddc3d88da4a611c84304c2c9 exits 2 in chain.mk:111 because cmake is absent (private log /out/logs/task-loadtest-build.log); the C archive and Programs release runtime built successfully."
+resolution = "Install real CMake 3.31.10 as environment tooling, then continue the declared native prerequisite build without changing source or checks."
+
+[correction.dispatch_catalogue_path]
+consumer = "tools/paxeer-x/tests/gate_dispatch_test.py:GateDispatchTest.setUp and make_manifest"
+producer = "tools/paxeer-x/candidate.py:138 SERVICE_CATALOGUE is spec/layerx-merge/spec.kvx; verify-task.sh:133 validates against ROOT / SERVICE_CATALOGUE, while verify-task.sh:283 and release.sh:52 read task registration from tools/paxeer-x/gates/registry.kvx."
+change = "Materialize the fixture's forty-service catalogue at the canonical producer path and keep task registration in the separate gate registry; create and dispatch candidates against the same actual catalogue without changing validation, any refusal code, assertion or gate behavior."
+observed = "At 3a2dfd7d6c1569a7bd7dc3007b786a544b75c25b, cg spec done 22.39.144 -f layerx-merge --root /work/paxeer-monorepo exits 1 (verify_cmd exits 2), private evidence /out/logs/verify-1.log: the original fixture stored services only in the gate registry, so dispatch refused the missing canonical catalogue."
+
+[finding.containers_outside_scope]
+task = "22.39.144"
+file = "tools/containers/check.sh"
+symbol = "test_check_all_services_scope and PaxdImagesTest.test_layerx_and_paxeer_images_pass_build_check"
+observed = "Revision 3a2dfd7d6c1569a7bd7dc3007b786a544b75c25b, cg spec done 22.39.144 -f layerx-merge --root /work/paxeer-monorepo exits 1 (verify_cmd exits 2), private log /out/logs/verify-1.log: two container checks interpret historical prose in tools/jev/tests/fixtures/ledger/beta-qualification.kvx as missing Dockerfile options; their real image build checks report ok."
+assumption = "The containers domain owns its invocation scanner and the jev domain owns the historical ledger fixture; both paths are outside scope, so this finding is recorded without investigation, exclusion or modification."
+severity = "blocker"
+
+[gotcha.yarn_cache_context]
+observed = "yarn cache clean from the repository root exits 1 because its packageManager field names a different package manager; private evidence /out/logs/task-cache-clean.log."
+resolution = "Run the cache maintenance with --cwd /tmp so it reads no repository package-manager declaration; do not edit manifests or installed dependencies."
+
+[correction.container_reference_fixture]
+consumer = "tools/containers/check.sh:138 REFERENCE_EXEMPT"
+producer = "tools/containers/check.sh:137-145 treats history and data as reference-exempt; decision 2959 and gotcha 3661 identify tools/jev/tests/fixtures/ledger/beta-qualification.kvx as committed qualification data."
+change = "Add tools/jev/tests/fixtures in the existing REFERENCE_EXEMPT pathspec form so historical ledger prose is not interpreted as an executable image build; preserve the scanner, ROOT_TOKEN_EXEMPT, Dockerfiles and ledger."
+continued_tree = "9fcc072c7f2cb6c6ca58d09d81aa15cd1653be23"
+decisions = ["2908", "2959"]
+qualification = "The final build and verify rows of /out/run/gates.jsonl record the candidate revision, exact commands, exits and private log paths by reference; qualification requires both gates passing at that same revision."
+
+[gotcha.continuation_environment]
+observed = "The attempt-2 source changes are restored, but build/loadtest, build/liblayerx.a, bringup-inspect, the xweb loader, zstd and nginx are absent from this fresh sandbox."
+resolution = "Prepare the real dependencies declared by .github/workflows/ci.yml before the bounded build, retaining the previous consumer repairs and every prerequisite check."

@@ -25,7 +25,7 @@ follow_up = "closure"
 [disposition.22.6.8.1]
 finding = "22.6.8.1"
 status = "resolved"
-evidence = "Commit 5bb4e3080 adds XWebProgramRequested to both Solidity interfaces, synchronizes the three selector comments, adds the consumer signature assertion and fourth event topic expectation, leaving precompiles/xweb/XWeb.sol and contracts/src/precompiles/IXWeb.sol byte-identical."
+evidence = "Commit 5bb4e3080 adds the program-admission event at precompiles/xweb/XWeb.sol:85 and contracts/src/precompiles/IXWeb.sol:85 with indexed programId and requestId, kind, payload and sequence fields. Both interfaces expose the same XWebProgramRequested signature to event consumers."
 follow_up = "closure"
 
 [disposition.22.8.12.1]

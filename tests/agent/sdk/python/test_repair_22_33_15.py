@@ -84,9 +84,9 @@ def recorded_server():
 
     class RecordedReceiptHandler(BaseHTTPRequestHandler):
         def do_POST(self):
-            assert self.path == "/rpc"
             assert self.headers.get_content_type() == "application/json"
             request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            assert self.path == ("/rpc" if request["method"] == "px_getReceiptKeys" else "/")
             assert set(request) == {"jsonrpc", "id", "method", "params"}
             assert request["jsonrpc"] == "2.0"
             assert type(request["id"]) is int
@@ -117,7 +117,8 @@ def recorded_server():
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"http://127.0.0.1:{server.server_port}/rpc", requests
+        yield (f"http://127.0.0.1:{server.server_port}/",
+               f"http://127.0.0.1:{server.server_port}/rpc"), requests
     finally:
         server.shutdown()
         server.server_close()
@@ -140,11 +141,11 @@ def test_offline_example_installed_receipt_round_trip(
     installed_example, recorded_server, vector
 ):
     assert VECTORS["provenance"]["generator"] == "rpc/sequencer_receipt_vectors_test.go"
-    endpoint, requests = recorded_server
-    client = installed_example.rpc.PaymentRpc(endpoint)
+    (node_endpoint, gateway_endpoint), requests = recorded_server
+    client = installed_example.rpc.PaymentRpc(node_endpoint)
     transaction_hash = client.send(vector["rawTransaction"])
     receipt = client.receipt(transaction_hash)
-    keys = client.receipt_keys()
+    keys = installed_example.rpc.HostedGatewayRpc(gateway_endpoint).receipt_keys()
     assert keys == (_pin(installed_example.sdk, vector),)
     assert receipt == vector["receiptJson"]
     assert receipt["receipt"] == vector["signedReceipt"]
@@ -163,7 +164,7 @@ def test_offline_example_installed_receipt_round_trip(
         "pax_sequencerReceipt",
         "px_getReceiptKeys",
     ]
-    assert [request["id"] for request in requests] == [1, 2, 3]
+    assert [request["id"] for request in requests] == [1, 2, 1]
 
 
 @pytest.mark.parametrize("boundary", ["first_height", "last_height"])

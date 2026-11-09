@@ -1,3 +1,11 @@
+import {
+  authenticatedReceipt,
+  committedReceipt,
+  committedVector,
+  nodeVector,
+  receiptPins,
+  receiptWireKeys,
+} from './support/receipt-recordings.js';
 import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -33,17 +41,15 @@ const explorerAnswers = JSON.parse(
 const explorerStatuses: Record<string, ExplorerTransactionStatus> = Object.fromEntries(
   Object.values(explorerAnswers).map((answer, index) => [`0x${`e${index + 1}`.repeat(32)}`, answer])
 );
-const sequencerAnswers = JSON.parse(
-  readFileSync(new URL('sequencer-receipt.json', fixtureDir), 'utf8')
-) as Record<SequencerRung, Record<string, unknown>>;
+const sequencerAnswers = {
+  submitted: { rung: 'submitted', txHash: committedReceipt.txHash, nonce: committedReceipt.nonce },
+  receipted: committedVector.receiptJson,
+  committed: committedReceipt,
+} as const;
 const transferHash = String(sequencerAnswers.committed.txHash);
 const transferBlock = String(sequencerAnswers.committed.blockNumber);
 const transferBlockHash = String(sequencerAnswers.committed.blockHash);
-const receiptedAnswer = {
-  ...sequencerAnswers.receipted,
-  blockNumber: transferBlock,
-  blockHash: transferBlockHash,
-};
+const receiptedAnswer = sequencerAnswers.receipted;
 const observations: Record<string, { sequencer: unknown; explorer?: ExplorerTransactionStatus }> = {
   receipted: { sequencer: receiptedAnswer },
   submitted: { sequencer: sequencerAnswers.submitted },
@@ -120,6 +126,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           },
         },
         { method: 'pax_sequencerReceipt', params: [transferHash], result: observation.sequencer },
+        { method: 'px_getReceiptKeys', params: [], result: receiptWireKeys(committedReceipt) },
+        {
+          method: 'eth_getRawTransactionByHash',
+          params: [transferHash],
+          result: committedVector.rawTransaction,
+        },
       ];
       const exchange = exchanges.find(
         (entry) =>
@@ -171,28 +183,40 @@ function observationRpc(name: string): TransferRpc {
 
 function status_ladder_from_sequencer_receipt_steps_up_to_the_node_rung() {
   const submitted = decodeSequencerReceipt(sequencerAnswers.submitted);
-  const receipted = decodeSequencerReceipt(receiptedAnswer);
-  const committed = decodeSequencerReceipt(sequencerAnswers.committed);
+  const receipted = decodeSequencerReceipt(
+    receiptedAnswer,
+    transferHash,
+    receiptPins(receiptedAnswer)
+  );
+  const committed = decodeSequencerReceipt(
+    sequencerAnswers.committed,
+    transferHash,
+    receiptPins(committedReceipt)
+  );
 
   expectTypeOf(statusLadder.fromSequencerReceipt(submitted)).toEqualTypeOf<readonly LadderStep[]>();
   expect(statusLadder.fromSequencerReceipt(submitted)).toEqual([
     { rung: 'submitted', source: 'receipt', state: 'submitted' },
   ]);
-  expect(statusLadder.fromSequencerReceipt(receipted)).toEqual([
+  expect(statusLadder.fromSequencerReceipt(receipted, receiptPins(receiptedAnswer))).toEqual([
     { rung: 'submitted', source: 'receipt', state: 'receipted' },
     { rung: 'receipted', source: 'receipt', state: 'receipted' },
   ]);
-  expect(statusLadder.fromSequencerReceipt(committed)).toEqual([
+  expect(statusLadder.fromSequencerReceipt(committed, receiptPins(committedReceipt))).toEqual([
     { rung: 'submitted', source: 'receipt', state: 'committed' },
     { rung: 'receipted', source: 'receipt', state: 'committed' },
     { rung: 'committed', source: 'receipt', state: 'committed' },
   ]);
 
   for (const answer of [submitted, receipted, committed]) {
-    expect(statusLadder.fromSequencerReceipt({ ...answer, status: '0x0' })).toEqual([
-      { rung: 'submitted', source: 'receipt', state: answer.rung },
-    ]);
+    expect(() =>
+      statusLadder.fromSequencerReceipt({ ...answer, status: '0x0' }, receiptPins(committedReceipt))
+    ).toThrow();
   }
+  const reverted = nodeVector('V2-layerxledger-revert').receiptJson;
+  expect(statusLadder.fromSequencerReceipt(reverted, receiptPins(reverted))).toEqual([
+    { rung: 'submitted', source: 'receipt', state: 'receipted' },
+  ]);
 }
 
 test(status_ladder_from_sequencer_receipt_steps_up_to_the_node_rung);
@@ -206,9 +230,10 @@ function recover_transfer_observation_maps_legacy_rungs_onto_the_merged_ladder()
     { rung: 'final', source: 'anchor', state: `final:${transferBlockHash}` },
   ];
   const evidence = {
-    blockNumber: Number(transferBlock),
+    blockNumber: Number(BigInt(transferBlock)),
     blockHash: transferBlockHash,
     steps: legacySteps,
+    sequencer: receiptedAnswer,
   };
   const recoveredEvidence = {
     ...evidence,
@@ -223,14 +248,18 @@ function recover_transfer_observation_maps_legacy_rungs_onto_the_merged_ladder()
     { identity, truth: 'included', ...evidence },
     { identity, truth: 'unknown', steps: [], blockNumber: null, lastVerified: evidence },
   ]) {
-    expect(recoverTransferObservation(identity, stored)).toEqual({
+    expect(recoverTransferObservation(identity, stored, receiptPins(receiptedAnswer))).toEqual({
       ...submittedTransfer(identity),
       lastVerified: recoveredEvidence,
     });
   }
   expect(evidence.steps.map((step) => step.rung)).toEqual(['instant', 'sealed', 'final', 'final']);
   expect(
-    recoverTransferObservation(identity, { identity, lastVerified: recoveredEvidence }).lastVerified
+    recoverTransferObservation(
+      identity,
+      { identity, lastVerified: recoveredEvidence },
+      receiptPins(receiptedAnswer)
+    ).lastVerified
   ).toEqual(recoveredEvidence);
 
   for (const step of [
@@ -259,28 +288,38 @@ async function observe_transfer_reaches_receipted_from_the_sequencer_receipt() {
     { method: 'eth_getTransactionReceipt', params: [transferHash] },
     { method: 'eth_getBlockByNumber', params: [transferBlock, false] },
     { method: 'pax_sequencerReceipt', params: [transferHash] },
+    { method: 'px_getReceiptKeys', params: [] },
+    { method: 'eth_getRawTransactionByHash', params: [transferHash] },
   ]);
   expect(observation.truth).toBe('included');
-  expect(observation.blockNumber).toBe(1000);
-  expect(observation.sequencer).toEqual(receiptedAnswer);
+  expect(observation.blockNumber).toBe(Number(BigInt(transferBlock)));
+  expect(observation.sequencer).toEqual(authenticatedReceipt(receiptedAnswer));
   expect(observation.steps).toEqual([
     { rung: 'receipted', source: 'receipt', state: `receipted:${transferBlockHash}` },
   ]);
   expect(statusLadder.highest(observation.steps)?.rung).toBe('receipted');
   expect(observation.lastVerified).toEqual({
-    blockNumber: 1000,
+    blockNumber: Number(BigInt(transferBlock)),
     blockHash: transferBlockHash,
     steps: observation.steps,
-    sequencer: receiptedAnswer,
+    sequencer: authenticatedReceipt(receiptedAnswer),
   });
   const recovered = recoverTransferObservation(
     submitted.identity,
-    JSON.parse(JSON.stringify(observation))
+    JSON.parse(
+      JSON.stringify(observation, (_key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      )
+    ),
+    receiptPins(receiptedAnswer)
   );
   expect(recovered.truth).toBe('submitted');
-  expect(recovered.lastVerified).toEqual(observation.lastVerified);
+  expect(recovered.lastVerified).toEqual({
+    ...observation.lastVerified,
+    sequencer: receiptedAnswer,
+  });
   const reobserved = await observeTransfer(observationRpc('receipted'), recovered);
-  expect(reobserved.sequencer).toEqual(receiptedAnswer);
+  expect(reobserved.sequencer).toEqual(authenticatedReceipt(receiptedAnswer));
   expect(statusLadder.highest(reobserved.steps)?.rung).toBe('receipted');
   for (const name of ['foreign', 'wrongBlock', 'wrongHash']) {
     await expect(observeTransfer(observationRpc(name), submitted)).rejects.toThrow(TypeError);
@@ -309,8 +348,10 @@ async function observe_transfer_reaches_committed_only_with_a_matching_explorer_
       url: `${base}/observe/${name}`,
     });
     const matching = name === 'matching' || name === 'nodeCommittedMatching';
-    expect(observation.blockNumber).toBe(1000);
-    expect(observation.sequencer).toEqual(observations[name]?.sequencer);
+    expect(observation.blockNumber).toBe(Number(BigInt(transferBlock)));
+    expect(observation.sequencer).toEqual(
+      authenticatedReceipt(observations[name]!.sequencer as typeof committedReceipt)
+    );
     expect(observation.steps.some((step) => step.rung === 'committed')).toBe(matching);
     expect(observation.steps.filter((step) => step.source === 'explorer')).toEqual(
       matching
@@ -338,7 +379,7 @@ async function observe_transfer_reaches_committed_only_with_a_matching_explorer_
     }
   }
   const nodeOnly = await observeTransfer(observationRpc('nodeCommitted'), submitted);
-  expect(nodeOnly.sequencer).toEqual(sequencerAnswers.committed);
+  expect(nodeOnly.sequencer).toEqual(authenticatedReceipt(sequencerAnswers.committed));
   expect(nodeOnly.steps.some((step) => step.rung === 'committed')).toBe(false);
   expect(nodeOnly.steps.filter((step) => step.source === 'receipt')).toEqual([
     { rung: 'receipted', source: 'receipt', state: `receipted:${transferBlockHash}` },
@@ -391,6 +432,8 @@ describe('statusLadder', () => {
       'still-checking': null,
       refused: null,
       'waiting-for-you': null,
+      closed: null,
+      'awaiting-approval': null,
     };
     expect(statusLadder.tables.journey).toEqual(expected);
     expect(Object.keys(statusLadder.tables.journey)).toEqual([...JOURNEY_STATES]);
@@ -438,6 +481,8 @@ describe('statusLadder', () => {
       'still-checking': null,
       refused: null,
       'waiting-for-you': null,
+      closed: null,
+      'awaiting-approval': null,
     });
     for (const [state, rung] of Object.entries(statusLadder.tables.journey)) {
       expect(statusLadder.fromJourney(state as JourneyState)).toEqual({
@@ -515,10 +560,10 @@ describe('statusLadder', () => {
 
   function ladder_explorer_status_refuses_a_committed_answer_below_its_block() {
     const committed = explorerAnswers.committed;
-    expect(committed.block_number).toBe(1000);
-    expect(() => decodeExplorerStatus({ ...committed, committed_height: 999 })).toThrow(
-      new TypeError('malformed explorer status')
-    );
+    expect(committed.block_number).toBe(Number(BigInt(transferBlock)));
+    expect(() =>
+      decodeExplorerStatus({ ...committed, committed_height: Number(BigInt(transferBlock)) - 1 })
+    ).toThrow(new TypeError('malformed explorer status'));
     expect(() => decodeExplorerStatus({ ...committed, committed_height: null })).toThrow(
       new TypeError('malformed explorer status')
     );
@@ -539,10 +584,10 @@ describe('statusLadder', () => {
     expect(statusLadder.fromJourney(journey.state)).toEqual({
       rung: 'receipted',
       source: 'journey',
-      state: 'processing',
+      state: 'done',
     });
     const stages = journey.stages.map((stage) => statusLadder.fromJourney(stage.state));
-    expect(stages.map((step) => step.rung)).toEqual(['receipted', 'receipted', 'receipted']);
+    expect(stages.map((step) => step.rung)).toEqual(['receipted']);
     expect(statusLadder.highest(stages)).toEqual({
       rung: 'receipted',
       source: 'journey',

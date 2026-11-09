@@ -51,3 +51,5 @@ finding = "22.24.12.1"
 status = "open"
 evidence = "services/wallet/gateway/src/chain.ts:15 still exports hyperPaxeer with the inferred defineChain return type and no portable Chain annotation, and pending task 18.1548.1 owns that annotation together with the Zod 4 record migration after task 22.95.7 was superseded."
 follow_up = "18.1548.1"
+
+# Continuation: d22-27.kvx contains the 105 dispositions listed in programme/closure/22.39.195.ids.

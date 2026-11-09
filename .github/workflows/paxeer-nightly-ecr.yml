@@ -16,7 +16,7 @@ jobs:
   publish:
     name: Publish nightly containers
     if: vars.AWS_ECR_ROLE_ARN != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       id-token: write
       contents: read
