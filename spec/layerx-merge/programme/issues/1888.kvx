@@ -1,0 +1,7 @@
+[issue.1888]
+number = 1888
+title = "[Coherence] Task 22.39.180 attempt 2 tells the gateway check to look for a sentence the Hosted gateway section does not contain, and forbids changing the documents"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Commit cc3d81fa233eff7273b4b57faf7f6fe0391569fd replaced the decision-number assertion: tests/ci/test_release_docs_gap_markers.py:205 checks upgraded public node root URLs in the Hosted gateway section (docs/release/7.0.0-service-operator-runbook.md:62), while tests/ci/test_release_docs_gap_markers.py:206 and tests/ci/test_release_docs_gap_markers.py:207 check the px_ node-root and no-router facts against the full document, where docs/release/7.0.0-service-operator-runbook.md:17 and docs/release/7.0.0-service-operator-runbook.md:16 state them."
+close_comment = "The release documentation check now reads the gateway URL requirement from the Hosted gateway section and the px_ node-root and no-router statements from the full runbook. Both routing assertions remain enforced without requiring duplicate statements in the Hosted gateway section."

@@ -1,0 +1,48 @@
+[issue.1919]
+number = 1919
+title = "[Coherence] Decision 3050 freezes wiring-test expectations that were already stale on main, so 22.39.168 cannot get the wiring test green"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "Commit a41ce5ffb6ebdadd31c6bb774d18347c92fd161f retired the two API entries, leaving 259 baseline entries including 115 owned by 22.39.168, but tests/ci/test_launchpad_go_tests_wired.py:213 still requires 261 and :370 still includes both retired tests, while spec/layerx-merge/spec.kvx:11415 and :216189 preserve those stale API expectations despite :216169 requiring the wiring test to pass."
+close_comment = "The launchpad baseline wiring checks still require two API failures that were already repaired, so they disagree with the 259-entry baseline. A focused correction will recognise that retirement, preserve the remaining baseline checks, and ensure the repaired API tests remain enabled."
+
+[task.18.1919.1]
+title = "Issue #1919: Align launchpad baseline wiring checks with the completed API retirement"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181919.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct tests/ci/test_launchpad_go_tests_wired.py:213 to require the 259 entries remaining after commit a41ce5ffb6ebdadd31c6bb774d18347c92fd161f, preserving its exact package inventory and declaration checks; correct the API expected set at :368 to exclude TestDevelopmentTransactionStatusFromChainRPC and TestRepair_27_log_free_receipts, and replace their obsolete reason check at :415 with explicit assertions that neither test occurs anywhere in the baseline. Preserve the exact remaining API identities, retiring owners, reason validation, broker reason check and existing stream retirement assertion at :408; leave the baseline and API receipt tests unchanged. This dedicated correction owns the already-completed API retirement expectations that 22.39.168 must preserve, separately from that task's later retirement of its own 115 entries and corresponding total of 144 when no other owner has retired entries."
+do_2 = "Run test_launchpad_baseline_names_only_reviewed_existing_tests and test_launchpad_baseline_records_api_failures_and_retiring_owner from tests/ci/test_launchpad_go_tests_wired.py:210 and :364 against the real baseline; both must pass with the exact remaining inventory and explicit absence of both repaired API cases, without restoring skips or changing any other owner's expectations."
+symbols = ["test_launchpad_baseline_names_only_reviewed_existing_tests", "test_launchpad_baseline_records_api_failures_and_retiring_owner"]
+touches = ["tests/ci/test_launchpad_go_tests_wired.py"]
+tests = ["tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_baseline_names_only_reviewed_existing_tests", "tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_baseline_records_api_failures_and_retiring_owner"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py"
+verify_cmd = "python3 -m pytest tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_baseline_names_only_reviewed_existing_tests tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_baseline_records_api_failures_and_retiring_owner -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181919]
+title = "Launchpad baseline wiring checks preserve the completed API retirement"
+ac_1 = "The checks at tests/ci/test_launchpad_go_tests_wired.py:210 and :364 pass against the 259-entry baseline from commit a41ce5ffb6ebdadd31c6bb774d18347c92fd161f, require the exact remaining package and API test inventory with valid retiring owners and reasons, and explicitly reject either retired API test reappearing as a skipped failure."
+
+[acceptance.18.1919.1]
+feature = "18"
+req = "181919.1"
+scenario = "Given the completed API log-free receipt repair and its 259-entry remaining baseline, when the focused baseline inventory and API wiring checks run, then both pass while asserting the exact remaining inventory and rejecting baseline entries for either repaired API test."
+contract = "contracts/services.md#launchpad-workspace"
+test = "tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_baseline_names_only_reviewed_existing_tests and tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_baseline_records_api_failures_and_retiring_owner (planned)"
+qualification = "UNRUN"

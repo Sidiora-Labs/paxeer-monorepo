@@ -1,0 +1,7 @@
+[issue.1918]
+number = 1918
+title = "[Coherence] Attempt 2 is told to restore two api baseline entries that main does not carry, because their owner 22.39.154 already retired them"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "spec-edit"
+evidence = "The spec must record that done task 22.39.154 retired TestDevelopmentTransactionStatusFromChainRPC and TestRepair_27_log_free_receipts in commit a41ce5ffb6ebdadd31c6bb774d18347c92fd161f, an ancestor of base b1fd5106ceaed43ab9d7fad46a5fb0cc7000c282, preserve their absence from the baseline as spec/layerx-merge/spec.kvx:216334 requires, and correct the restoration instruction at spec/layerx-merge/spec.kvx:216189, the retirement wording at spec/layerx-merge/spec.kvx:11415 and the attribution at GOTCHA.kvx:18556, since services/launchpad/api/internal/app/dev_network_reads_test.go:285 and services/launchpad/api/internal/app/repair_27_test.go:259 already assert the shared v2 log-free receipt projection."
+close_comment = "The two API receipt tests already follow the shared v2 projection, and task 22.39.154 retired their baseline exemptions before the twelve-module retirement began. The specification needs to preserve that retirement and remove the instruction to restore the exemptions and the incorrect attribution of their removal."
