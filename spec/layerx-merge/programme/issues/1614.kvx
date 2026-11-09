@@ -1,0 +1,7 @@
+[issue.1614]
+number = 1614
+title = "[Coherence] Two of the four blocking findings in the 22.30.117 audit record point at the wrong lines of policy.go"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "not-relevant"
+evidence = "The historical anchors remain at spec/layerx-merge/programme/audit/records/22.30.117.kvx:352 and :363, but commit 28659be73636bff21f4ccfcc909081cb3263a6e7 superseded their repair targets: services/wallet/attestor/internal/policy/policy.go:756 delegates construct inspection to construct.go:78, :102, :114, :120 and :125, which retain asset-specific transfer and funding effects and account for budget and escrow creation, with regression assertions in services/wallet/attestor/internal/policy/repair_244_test.go:171, :233, :252 and :278."
+close_comment = "These anchors belong to an earlier policy audit whose affected inspection logic has since been replaced. Construct inspection now retains asset-specific transfer and funding effects and accounts for funded budget and escrow creation, so the historical findings no longer identify a current repair target."

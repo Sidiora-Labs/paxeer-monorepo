@@ -1,0 +1,48 @@
+[issue.1651]
+number = 1651
+title = "[P2] Migrate existing BENS controller tests to the production route spelling"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Commit 08da21d2377053a40a0d0eb5793d404b4bcac9c6 removed environment-dependent BENS routes, and services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/bens.ex:153 still emits hyphenated paths while services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs:1143, :2831 and :2944 still register underscore paths, despite separate production-path coverage in services/explorer/backend/apps/explorer/test/repair/repair_22_33_455_test.exs:153."
+close_comment = "Three controller regressions still expect obsolete underscore BENS routes. The repair will migrate their HTTP listeners to production paths while preserving ENS enrichment, metadata, and request-payload checks."
+
+[task.18.1651.1]
+title = "Issue #1651: Migrate BENS controller regressions to production HTTP routes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181651.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs replace the BENS Bypass listeners at :1143 and :2831 with listeners for /api/v1/1/addresses:batch-resolve-names and the listener at :2944 with /api/v1/addresses:batch-resolve; add a start_bens_listener helper and a local Plug/Cowboy listener that accepts the actual hyphenated paths, following services/explorer/backend/apps/explorer/test/repair/repair_22_33_455_test.exs:34 and :95, with deterministic listener shutdown and restoration of changed application configuration. Keep metadata HTTP handling working and leave the environment-independent production URL selection at services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/bens.ex:153 unchanged."
+do_2 = "Drive the real transaction and log controller requests in the existing cases at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs:1113, :2792 and :2896 through the HTTP listener; assert exact POST paths, decoded address payloads and multiprotocol protocols without a chain-id path segment, preserving the ENS-name assertions at :1184, :2874 and :2991, metadata assertions at :1186 and :2876, and protocols assertion at :2947; run the address-controller test file and the unchanged repair_22_33_455_test.exs in their respective application test environments."
+symbols = ["start_bens_listener"]
+touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs::regression test for decoding issue", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs::regression test for 9926", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs::BENS multiprotocol: batch resolve uses protocol-based URL without chain_id", "services/explorer/backend/apps/explorer/test/repair/repair_22_33_455_test.exs"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh cmd --app block_scout_web mix compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs apps/explorer/test/repair/repair_22_33_455_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181651]
+title = "BENS controller regressions exercise the production routes in both protocol modes"
+ac_1 = "Given the controller regressions at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs:1113, :2792 and :2896, real HTTP requests use the hyphenated paths emitted by services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/bens.ex:153, and all three tests pass with ENS-name, metadata, address-body and multiprotocol assertions intact."
+
+[acceptance.18.1651.1]
+feature = "18"
+req = "181651.1"
+scenario = "Given enabled BENS enrichment in legacy and multiprotocol modes, when the transaction and log controller regressions send real requests, then their HTTP listeners assert the production paths and payloads and the responses retain the expected ENS names and metadata."
+contract = "contracts/explorer-http-api.md#api-v2-addresses"
+test = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs::BENS multiprotocol: batch resolve uses protocol-based URL without chain_id (planned)"
+qualification = "UNRUN"

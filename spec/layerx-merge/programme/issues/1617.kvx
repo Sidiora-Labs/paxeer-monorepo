@@ -1,0 +1,7 @@
+[issue.1617]
+number = 1617
+title = "[Coherence] The clean verdict for the v2 user socket describes behaviour the file does not have"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "The completed audit task at spec/layerx-merge/spec.kvx:375126 has a stale file.130 note at spec/layerx-merge/programme/audit/records/22.30.141.kvx:790 that must say v2 connect accepts any parameters and returns the socket unchanged without adding assigns, as services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/user_socket.ex:24 shows, while locale assignment belongs to the legacy socket at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/user_socket.ex:13."
+close_comment = "The v2 socket accepts any connection parameters and returns the socket unchanged; only the legacy socket assigns a supplied locale. The audit record needs a spec correction so file.130 describes that behavior."
