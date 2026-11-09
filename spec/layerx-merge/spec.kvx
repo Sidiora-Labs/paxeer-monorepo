@@ -160215,7 +160215,7 @@ do_3 = "Attempt 2 (continue, gotcha 3811): the attempt-1 tree 8e41db2dc232 stand
 
 [task.18.1675.1]
 title = "Issue #1675: Show a retryable Portfolio header error when balance reads fail"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.234"]
@@ -347982,7 +347982,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1846.1]
 title = "Issue #1846: Align the core-suite wiring assertion with Foundry v1.8.1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
