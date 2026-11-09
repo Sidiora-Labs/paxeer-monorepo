@@ -349428,7 +349428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.81]
 title = "Triage issue #1608 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349645,7 +349645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.74]
 title = "Triage issue #1601 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -349707,7 +349707,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.72]
 title = "Triage issue #1599 and write its report"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -350172,7 +350172,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.57]
 title = "Triage issue #1584: Align native program constructor with HTTP transaction binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -350203,7 +350203,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.56]
 title = "Triage issue #1583: Refresh retained Rust sequencer receipt fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -350234,7 +350234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.55]
 title = "Triage issue #1582: Align Python ProgramOperations input with EVM receipt verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -350296,7 +350296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.53]
 title = "Triage issue #1580: Two fully mitigated GHSAs remain unanswered; security escalation email unreachable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -350327,7 +350327,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.93.52]
 title = "Triage issue #1579: Refresh sponsored-status receipt fixtures for denomination fields"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
