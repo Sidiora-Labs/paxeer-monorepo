@@ -48,6 +48,44 @@ def source_product_evidence():
             assert artifact.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), name
 
 
+def test_host_checkpoint_submission_and_reopen():
+    # The focused actor grants its OPERATOR runner.dispatch.consume only for
+    # inputs.ids.run (scope.run_id), which enrollment uses for guardFleetLaunch.
+    # The bound RUNNER delegates with identity.worker.source.delegate in that
+    # same run; the issued WORKER checkpoints with source.workspaces.checkpoint.
+    # That WORKER and its matching managed workspace capability also receive
+    # source.objects.read/inspect and source.trees.lookup/entries in inputs.ids.run
+    # so the real host materializer can read the assigned baseline before editing.
+    # The running Node actor is registered with its observed PID and process start
+    # identity before receiving host reads, which are unavailable before launch.
+    if not os.environ.get("DATABASE_URL"):
+        result = subprocess.run([
+            sys.executable, str(ROOT / "tests/hyperfide/support/withpg.py"), "--",
+            sys.executable, "-m", "pytest", str(Path(__file__).resolve()) +
+            "::test_host_checkpoint_submission_and_reopen", "-q",
+        ], cwd=ROOT)
+        assert result.returncode == 0
+        return
+    environment = {
+        "HF_SOURCE_HOST_CHECKPOINT": "1",
+        "NODE_OPTIONS": "--import=" + str(ROOT / "node_modules/tsx/dist/loader.mjs") + " --conditions=source",
+    }
+    previous = {key: os.environ.get(key) for key in environment}
+    os.environ.update(environment)
+    try:
+        result = fixture.run_source_assignment_actor(
+            ROOT / "tests/hyperfide/support/native_source_product_actor.mjs",
+            migrations=fixture.default_source_migrations(), timeout=300,
+        )
+        assert result == 0, f"Host checkpoint actor exited {result}"
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def main():
     inside_owned_database = bool(os.environ.get("DATABASE_URL"))
     environment = {

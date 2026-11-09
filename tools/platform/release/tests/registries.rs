@@ -4,13 +4,52 @@ mod release;
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use release::workflow;
-use release::{plan, registries_declarations, release_pipeline};
+use release::{plan, registries_declarations, release_pipeline, release_pipeline_in_repository};
 
 const RELEASE_CONDITION: &str =
     "github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')";
 const TAG_CONDITION: &str = "startsWith(github.ref, 'refs/tags/sdk-v')";
+static WORKFLOW_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+struct RepositoryWorkflows(PathBuf);
+
+impl RepositoryWorkflows {
+    fn new() -> Self {
+        let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!(
+            "registries-workflows-{}-{}",
+            std::process::id(),
+            WORKFLOW_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(root.join(".github/workflows")).expect("create workflow repository");
+        for file in ["agent.yml", "programs-conformance.yml"] {
+            fs::write(
+                root.join(".github/workflows").join(file),
+                read(&format!("../../../.github/workflows/{file}")),
+            )
+            .expect("copy committed called workflow");
+        }
+        Self(root)
+    }
+
+    fn replace(&self, file: &str, from: &str, to: &str) {
+        let path = self.0.join(".github/workflows").join(file);
+        let source = fs::read_to_string(&path).expect("read called workflow");
+        fs::write(path, replaced(&source, from, to)).expect("change called workflow");
+    }
+
+    fn pipeline(&self) -> Result<release::ReleasePipeline, String> {
+        release_pipeline_in_repository(&committed_manifest(), &committed_workflow(), &self.0)
+    }
+}
+
+impl Drop for RepositoryWorkflows {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.0).expect("remove workflow repository");
+    }
+}
 
 fn read(relative: &str) -> String {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative);
@@ -240,6 +279,134 @@ fn committed_workflow_requires_every_release_gate() {
             ("agent-sanitizers", "make agent-test-sanitize"),
             ("agent-fuzz-corpus", "make agent-fuzz-long"),
         ]
+    );
+}
+
+#[test]
+fn committed_reusable_workflows_emit_release_gate_records() {
+    let source = committed_workflow();
+    let document = workflow::parse(&source).expect("parse committed release workflow");
+    for (gate, file, called_job, command) in [
+        (
+            "programs-acceptance",
+            "programs-conformance.yml",
+            "acceptance",
+            "make programs-test",
+        ),
+        (
+            "agent-sanitizers",
+            "agent.yml",
+            "adversarial",
+            "make agent-test-sanitize",
+        ),
+        (
+            "agent-fuzz-corpus",
+            "agent.yml",
+            "fuzz-corpus",
+            "make agent-fuzz-long",
+        ),
+    ] {
+        assert_eq!(
+            document
+                .path(&["jobs", gate, "uses"])
+                .and_then(workflow::Node::as_str),
+            Some(format!("./.github/workflows/{file}").as_str())
+        );
+        let called = workflow::parse(&read(&format!("../../../.github/workflows/{file}")))
+            .expect("parse called workflow");
+        let run = called
+            .path(&["jobs", called_job, "steps"])
+            .expect("called job steps")
+            .items()
+            .iter()
+            .filter_map(|step| step.get("run").and_then(workflow::Node::as_str))
+            .find(|run| run.contains(command))
+            .expect("gate command step");
+        assert!(
+            run.contains(&format!("scripts/ci/release-gate.sh --job {gate}")),
+            "{file}: {run}"
+        );
+        for argument in ["--spec", "--task", "--ledger", "--evidence-root"] {
+            assert!(run.contains(argument), "{file}: missing {argument}");
+        }
+        assert!(
+            run.contains(&format!("-- {command}")),
+            "{file}: gate command must go through runner"
+        );
+    }
+    let pipeline = release_pipeline(&committed_manifest(), &source)
+        .expect("committed workflow must follow the reusable release gates");
+    assert_eq!(pipeline.gates.len(), 3);
+}
+
+#[test]
+fn reusable_workflow_without_the_gate_runner_is_refused_at_its_step() {
+    let repository = RepositoryWorkflows::new();
+    repository.replace(
+        "programs-conformance.yml",
+        "scripts/ci/release-gate.sh",
+        "bash",
+    );
+    let error = repository
+        .pipeline()
+        .expect_err("called gate without runner must be refused");
+    assert!(
+        error.contains(
+            "release gate programs-acceptance must run through scripts/ci/release-gate.sh"
+        ),
+        "{error}"
+    );
+    assert!(
+        error.contains(".github/workflows/programs-conformance.yml job acceptance step"),
+        "{error}"
+    );
+    assert!(
+        error.contains("Run the aggregate Programs acceptance suite"),
+        "{error}"
+    );
+}
+
+#[test]
+fn reusable_workflow_without_the_gate_command_is_refused() {
+    let repository = RepositoryWorkflows::new();
+    repository.replace(
+        "agent.yml",
+        "-- make agent-fuzz-long",
+        "-- make agent-fuzz-wire",
+    );
+    let error = repository
+        .pipeline()
+        .expect_err("called workflow missing gate command must be refused");
+    assert!(
+        error.contains("release gate agent-fuzz-corpus must run `make agent-fuzz-long`"),
+        "{error}"
+    );
+    assert!(
+        error.contains(".github/workflows/agent.yml job fuzz-corpus step"),
+        "{error}"
+    );
+    assert!(error.contains("Run committed fuzz corpus"), "{error}");
+}
+
+#[test]
+fn a_runner_in_another_called_job_cannot_cover_an_unwrapped_gate() {
+    let repository = RepositoryWorkflows::new();
+    repository.replace(
+        "agent.yml",
+        "scripts/ci/release-gate.sh --job agent-fuzz-corpus",
+        "bash --job agent-fuzz-corpus",
+    );
+    let error = repository
+        .pipeline()
+        .expect_err("sanitizer runner cannot cover the fuzz gate");
+    assert!(
+        error
+            .contains("release gate agent-fuzz-corpus must run through scripts/ci/release-gate.sh"),
+        "{error}"
+    );
+    assert!(
+        error.contains(".github/workflows/agent.yml job fuzz-corpus step"),
+        "{error}"
     );
 }
 
@@ -746,6 +913,178 @@ fn missing_install_check_is_refused() {
 }
 
 #[test]
+fn publication_job_accepts_the_release_condition_alone() {
+    let source = replaced(
+        &committed_workflow(),
+        &format!(
+            "  publish-crates-io:\n    if: >-\n      vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''\n      && ({RELEASE_CONDITION})\n"
+        ),
+        &format!("  publish-crates-io:\n    if: {RELEASE_CONDITION}\n"),
+    );
+    let pipeline = release_pipeline(&committed_manifest(), &source)
+        .expect("publication may run under the release condition alone");
+    assert!(pipeline
+        .publications
+        .iter()
+        .any(|publication| publication.job == "publish-crates-io"));
+}
+
+#[test]
+fn publication_job_accepts_configuration_presence_guards() {
+    let source = committed_workflow();
+    let guarded = format!("vars.LAYERX_RELEASE_CRATES_IO_INDEX != '' && ({RELEASE_CONDITION})");
+    let document = workflow::parse(&source).expect("parse committed workflow");
+    assert_eq!(
+        document
+            .path(&["jobs", "publish-crates-io", "if"])
+            .and_then(workflow::Node::as_str),
+        Some(guarded.as_str())
+    );
+    let pipeline = release_pipeline(&committed_manifest(), &source)
+        .expect("committed publication configuration guard must be accepted");
+    for expression in [
+        format!("({RELEASE_CONDITION}) && vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''"),
+        format!(
+            "vars.LAYERX_RELEASE_CRATES_IO_INDEX != '' && ({RELEASE_CONDITION}) && vars.LAYERX_RELEASE_SIGNING_IDENTITY != ''"
+        ),
+    ] {
+        let changed = replaced(
+            &source,
+            &format!(
+                "      vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''\n      && ({RELEASE_CONDITION})"
+            ),
+            &format!("      {expression}"),
+        );
+        let changed_pipeline = release_pipeline(&committed_manifest(), &changed)
+            .unwrap_or_else(|error| panic!("configuration guard {expression} refused: {error}"));
+        assert_eq!(changed_pipeline.publications, pipeline.publications);
+    }
+}
+
+#[test]
+fn publication_job_refuses_guards_other_than_configuration_presence() {
+    for expression in [
+        format!("github.event_name == 'schedule' && ({RELEASE_CONDITION})"),
+        format!("vars.LAYERX_RELEASE_CRATES_IO_INDEX == 'enabled' && ({RELEASE_CONDITION})"),
+        format!("vars.LAYERX_RELEASE_CRATES_IO_INDEX != 'disabled' && ({RELEASE_CONDITION})"),
+        format!("secrets.LAYERX_RELEASE_CRATES_IO_TOKEN != '' && ({RELEASE_CONDITION})"),
+        format!("env.LAYERX_RELEASE_CRATES_IO_INDEX != '' && ({RELEASE_CONDITION})"),
+        format!("vars. != '' && ({RELEASE_CONDITION})"),
+        format!("vars.1INVALID != '' && ({RELEASE_CONDITION})"),
+        format!("vars.LAYERX_RELEASE_CRATES_IO_INDEX.EXTRA != '' && ({RELEASE_CONDITION})"),
+        format!("vars.LAYERX_RELEASE_CRATES_IO_INDEX != '' || ({RELEASE_CONDITION})"),
+        format!("vars.LAYERX_RELEASE_CRATES_IO_INDEX != '' && {RELEASE_CONDITION}"),
+        format!("({RELEASE_CONDITION}) && vars.LAYERX_RELEASE_CRATES_IO_INDEX != '' || true"),
+        format!("({RELEASE_CONDITION}) && ({RELEASE_CONDITION})"),
+        "vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''".to_owned(),
+    ] {
+        let source = replaced(
+            &committed_workflow(),
+            &format!(
+                "      vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''\n      && ({RELEASE_CONDITION})"
+            ),
+            &format!("      {expression}"),
+        );
+        expect_workflow_refusal(
+            &source,
+            &format!(
+                "job publish-crates-io must run under the release condition `{RELEASE_CONDITION}` alone or as a conjunction of `({RELEASE_CONDITION})` and configuration presence guards `vars.NAME != ''`"
+            ),
+        );
+    }
+}
+
+#[test]
+fn verification_job_accepts_configuration_presence_disjunctions() {
+    let source = committed_workflow();
+    let guards =
+        "(vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')";
+    let guarded = format!("{guards} && ({RELEASE_CONDITION})");
+    let document = workflow::parse(&source).expect("parse committed workflow");
+    assert_eq!(
+        document
+            .path(&["jobs", "release-verification", "if"])
+            .and_then(workflow::Node::as_str),
+        Some(guarded.as_str())
+    );
+    let pipeline = release_pipeline(&committed_manifest(), &source)
+        .expect("committed verification configuration guards must be accepted");
+    assert_eq!(pipeline.verification.job, "release-verification");
+    for expression in [
+        RELEASE_CONDITION.to_owned(),
+        format!("vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' && ({RELEASE_CONDITION})"),
+        format!("({RELEASE_CONDITION}) && {guards}"),
+        format!("{guards} && ({RELEASE_CONDITION}) && vars.LAYERX_RELEASE_SIGNING_IDENTITY != ''"),
+    ] {
+        let changed = replaced(
+            &source,
+            &format!("      {guards}\n      && ({RELEASE_CONDITION})"),
+            &format!("      {expression}"),
+        );
+        let changed_pipeline = release_pipeline(&committed_manifest(), &changed)
+            .unwrap_or_else(|error| panic!("verification guard {expression} refused: {error}"));
+        assert_eq!(changed_pipeline.verification, pipeline.verification);
+    }
+    let publication = replaced(
+        &source,
+        &format!("      vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''\n      && ({RELEASE_CONDITION})"),
+        &format!("      {guarded}"),
+    );
+    let changed_pipeline = release_pipeline(&committed_manifest(), &publication)
+        .expect("publication must share the verification presence disjunction rule");
+    assert_eq!(changed_pipeline.publications, pipeline.publications);
+}
+
+#[test]
+fn verification_job_refuses_guards_other_than_configuration_presence() {
+    let source = committed_workflow();
+    for expression in [
+        format!("github.event_name == 'schedule' && ({RELEASE_CONDITION})"),
+        format!(
+            "(vars.SNAPSHOT != '' || github.event_name == 'schedule') && ({RELEASE_CONDITION})"
+        ),
+        format!("(vars.SNAPSHOT != '' || vars.URL == 'enabled') && ({RELEASE_CONDITION})"),
+        format!("(vars.SNAPSHOT != '' || secrets.URL != '') && ({RELEASE_CONDITION})"),
+        format!("(vars.SNAPSHOT != '' || env.URL != '') && ({RELEASE_CONDITION})"),
+        format!("(vars.SNAPSHOT != '' || vars.1INVALID != '') && ({RELEASE_CONDITION})"),
+        format!("(vars.SNAPSHOT != '' || true) && ({RELEASE_CONDITION})"),
+        format!("(vars.SNAPSHOT != '' ||) && ({RELEASE_CONDITION})"),
+        format!("(|| vars.URL != '') && ({RELEASE_CONDITION})"),
+        format!("(vars.SNAPSHOT != '' || vars.URL != '') || ({RELEASE_CONDITION})"),
+        format!("vars.SNAPSHOT != '' || vars.URL != '' && ({RELEASE_CONDITION})"),
+        format!("(vars.SNAPSHOT != '' || vars.URL != '') && {RELEASE_CONDITION}"),
+        "(vars.SNAPSHOT != '' || vars.URL != '')".to_owned(),
+    ] {
+        let changed = replaced(
+            &source,
+            &format!(
+                "      (vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')\n      && ({RELEASE_CONDITION})"
+            ),
+            &format!("      {expression}"),
+        );
+        expect_workflow_refusal(
+            &changed,
+            &format!(
+                "job release-verification must run under the release condition `{RELEASE_CONDITION}` alone or as a conjunction of `({RELEASE_CONDITION})` and configuration presence guards `vars.NAME != ''` or parenthesised disjunctions of those guards `(vars.NAME != '' || vars.OTHER != '')`"
+            ),
+        );
+    }
+}
+
+#[test]
+fn release_pipeline_job_refuses_configuration_presence_guards() {
+    let source = replaced(
+        &committed_workflow(),
+        &format!("  release-pipeline:\n    if: {RELEASE_CONDITION}\n"),
+        &format!("  release-pipeline:\n    if: vars.SNAPSHOT != '' && ({RELEASE_CONDITION})\n"),
+    );
+    expect_workflow_refusal(
+        &source,
+        &format!("job release-pipeline must run under the release condition `{RELEASE_CONDITION}`"),
+    );
+}
+
+#[test]
 fn publication_step_gated_on_anything_but_the_tag_is_refused() {
     let source = replaced(
         &committed_workflow(),
@@ -759,8 +1098,8 @@ fn publication_step_gated_on_anything_but_the_tag_is_refused() {
 fn schedule_only_release_gate_is_refused() {
     let source = replaced(
         &committed_workflow(),
-        &format!("  programs-acceptance:\n    if: {RELEASE_CONDITION}\n"),
-        "  programs-acceptance:\n    if: github.event_name == 'schedule'\n",
+        &format!("  programs-acceptance:\n    name: Programs acceptance release gate\n    if: {RELEASE_CONDITION}\n"),
+        "  programs-acceptance:\n    name: Programs acceptance release gate\n    if: github.event_name == 'schedule'\n",
     );
     expect_workflow_refusal(
         &source,
@@ -772,8 +1111,8 @@ fn schedule_only_release_gate_is_refused() {
 fn release_gate_run_outside_the_gate_runner_is_refused() {
     let source = replaced(
         &committed_workflow(),
-        "scripts/ci/release-gate.sh --job agent-sanitizers --ordinal 2 -- make agent-test-sanitize",
-        "make agent-test-sanitize",
+        "    uses: ./.github/workflows/agent.yml\n    with:\n      lane: sanitizers",
+        "    runs-on: ubuntu-24.04\n    steps:\n      - name: Run sanitizer gate directly\n        run: make agent-test-sanitize",
     );
     expect_workflow_refusal(
         &source,

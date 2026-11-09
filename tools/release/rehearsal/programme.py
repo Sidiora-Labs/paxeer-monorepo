@@ -3082,6 +3082,10 @@ def check_plan_and_version(net):
                 raise CheckFailed("retired custody depositCount succeeded after merge")
             endpoint = urllib.parse.urlsplit(node.evm_url)
             root_url = urllib.parse.urlunsplit(endpoint._replace(path="/", query="", fragment=""))
+            require(
+                rpc(root_url, "eth_chainId", []) == "0x7d",
+                f"node {node.index} public JSON-RPC root requires chain id 0x7d",
+            )
             network = rpc(root_url, "px_getNetwork", [])
             require(
                 isinstance(network, dict) and bool(network.get("network_id"))

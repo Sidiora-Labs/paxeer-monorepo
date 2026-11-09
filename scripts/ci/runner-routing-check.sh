@@ -4,7 +4,8 @@ set -eu
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root"
 
-exec python3 - "$@" <<'PY'
+container_runtime_use() {
+    exec python3 - "$@" <<'PY'
 import glob
 import os
 import re
@@ -31,6 +32,7 @@ paxeer-docker-publish.yml       pax-images                       docker-action  
 paxeer-ecr.yml                  publisher                        ecr               ubuntu-24.04
 paxeer-go-test.yml              test                             docker-action     ubuntu-24.04
 paxeer-go-test.yml              coverage                         docker-action     ubuntu-24.04
+paxeer-go-test.yml              autobahn-integration             docker-command    ubuntu-24.04
 paxeer-hpx-registry.yml         release                          macos             macos-15
 paxeer-integration-test.yml     prepare-cluster                  docker-action     ubuntu-24.04
 paxeer-integration-test.yml     integration-tests                docker-action     ubuntu-24.04
@@ -74,7 +76,9 @@ REASONS = {
 CONTAINER_RUNTIME = re.compile(
     r"(?:^|[;&|(`])\s*(?:sudo\s+)?(?:docker|podman)\s"
     r"|scripts/explorer/lint-backend\.sh"
-    r"|services/explorer/deploy/tools/mix-in-builder\.sh",
+    r"|services/explorer/deploy/tools/mix-in-builder\.sh"
+    r"|(?:^|[;&|(`])\s*(?:sudo\s+)?make[ \t]+"
+    r"(?:[^\n;&|]*[ \t]+)?autobahn-integration-test(?=\s|$)",
     re.MULTILINE,
 )
 MATRIX_REFERENCE = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}")
@@ -233,3 +237,6 @@ if failures:
         print(failure, file=sys.stderr)
     sys.exit(1)
 PY
+}
+
+container_runtime_use "$@"

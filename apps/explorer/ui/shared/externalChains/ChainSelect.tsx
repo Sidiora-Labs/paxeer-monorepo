@@ -77,6 +77,7 @@ const ChainSelect = ({ loading, mode, chainsConfig, chainIds, withAllOption, ...
       collection={ collection }
       defaultValue={ allItems.length > 0 ? [ allItems[0].value ] : undefined }
       placeholder="Select chain"
+      triggerProps={{ 'aria-label': 'Chain' }}
       loading={ isInitialLoading }
       mode={ isMobile && !mode ? 'compact' : mode }
       w="fit-content"
