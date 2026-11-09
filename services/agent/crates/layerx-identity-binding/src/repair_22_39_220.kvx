@@ -1,0 +1,25 @@
+[meta]
+task = "22.39.220"
+decision = "3053"
+base_revision = "d231853743c82e8c3cb9d90f45e9eee7e331f914"
+scope = "services/agent/crates/layerx-identity-binding"
+inventory_method = "Source inspection; the allowed hf-build/hf-done gates and implementation-first order prohibit the separate unchanged-tree Clippy run requested by do_1. No baseline diagnostics are claimed."
+targets = "Library and library test harness; no separate test targets or declared task tests exist."
+
+[lint.1]
+file = "services/agent/crates/layerx-identity-binding/src/lib.rs"
+line = 148
+name = "clippy::cast_possible_truncation"
+source = "Source inspection, not an executed baseline diagnostic."
+observed = "The u32 response frame length is cast to usize, which may truncate on a target with 16-bit pointers."
+repair = "Use usize::try_from and propagate InvalidData through the existing binding response length error path; retain the 6..=MAX_FRAME bound."
+
+[qualification]
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --all-targets"
+verify_command = "test -s services/agent/crates/layerx-identity-binding/src/repair_22_39_220.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --no-deps --all-targets -- -D warnings"
+build_ref = "hf-build: /out/run/gates.jsonl build row for this candidate; /out/logs/build-2.log (build-1 preceded the source-line record correction)."
+verify_ref = "hf-done: /out/run/gates.jsonl verify row for this candidate; /out/logs/verify-1.log"
+verified_revision_ref = "revision field shared by the passing build and verify rows in /out/run/gates.jsonl; external references avoid changing the candidate after qualification."
+final_lint_count = 0
+count_condition = "Zero is qualified only when hf-done records exit 0 for this candidate; before that it is the required outcome. The gate ledger is authoritative for result and exact private log location."
+preserved = "Workspace lint levels, public signatures, assertions and all existing test targets."
