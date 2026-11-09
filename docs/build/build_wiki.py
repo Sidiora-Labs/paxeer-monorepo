@@ -29,7 +29,7 @@ NAV = [
     ("Sequencing", "Sequencing.md"),
     ("Finality", "Finality.md"),
     ("Programs", "Programs.md"),
-    ("LNI", "LNI.md"),
+    ("Public JSON-RPC", "PublicRpc.md"),
     ("Agent API", "AgentApi.md"),
     ("MCP", "Mcp.md"),
     ("Roadmap", "Roadmap.md"),

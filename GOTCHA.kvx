@@ -19715,3 +19715,18 @@ fix = "The projection covers only the reports of the eight participants of the c
 title = "The light muted label of the explorer misses the 3:1 contrast the design brief promises by three hundredths"
 symptom = "Issue 1716: LIGHT_ROLES.textMuted #8A91A0 of apps/explorer/toolkit/theme/foundations/palette.ts:10 against the light surface #F7F8FA gives 2.9769:1 while spec/layerx-merge/programme/docs/explorer-ui/design-brief.md:29 promises 3:1; the nearest value meeting the ratio on that surface is #8A90A0 (3.0045:1)"
 fix = "Task 22.39.281 darkens the label, keeps the surface and adds an unrounded contrast regression; decision 3118"
+
+[gotcha.3979]
+title = "The wave 6 aggregate gate stops at the platform sample dependencies because the sample installation of the qualification environment fails"
+symptom = "Task 17.5.7 attempt 7 at 631acc08d200: test_wave_6_gate_passes fails inside make platform-build-all after the release registry check with services/platform/Makefile.inc:60, run make platform-sample-install first; the qualification environment had run make platform-sample-install before the gate and that run failed at platform-install-local-artifacts (Makefile.inc:71, the JVM SDK install of gotcha 3980) after a .NET restore failure (gotcha 3981), so platform-sample-dependencies-ready found no Python environment"
+fix = "Task 22.39.287 restores the JVM SDK test compile and the qualification environment provisions the .NET SDK channel the project files target; decision 3123"
+
+[gotcha.3980]
+title = "The JVM SDK catalogue programs test still pins the transaction-shaped native preparation the schema regeneration replaced"
+symptom = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java:140 to :193 (nativePrepareReturnsEip1559Transaction) asserts the record components chainId, nonce, gas, to and data and calls those accessors on NativePrepareResultV1 and PrepareResponse, while the regeneration dd11131421 (task 22.39.237) gives NativePrepareResultV1 the components version, preparation_id, canonical_bytes, signing_preimage and approval_id (GeneratedSchema.java:553) and PrepareResponse the components preparation_ref, unsigned_canonical_bytes, signing_preimage, disclosure and expiry (:2943); mvn install of sdk/platform/jvm fails in testCompile with 60 errors, so the local JVM artifacts the platform samples need never install"
+fix = "Task 22.39.287 rewrites the case against the regenerated names (gotcha 3046)"
+
+[gotcha.3981]
+title = "The .NET SDK of the qualification environment cannot target the framework the platform SDK projects declare"
+symptom = "Task 17.5.7 attempt 7: dotnet restore of sdk/platform/dotnet/LayerX.Sdk.csproj fails with NETSDK1045, the current .NET SDK 8.0.427 does not support targeting .NET 10.0, while LayerX.Sdk.csproj:3 and tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj:5 declare net10.0; no task has declared the dotnet profile so far, so the gap surfaced only in the aggregate gate"
+fix = "The qualification environment installs the SDK channel the project files target before the platform sample installation; decision 3123"
