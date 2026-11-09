@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -134,16 +135,42 @@ func TestRepairM_1162_SealErrors(t *testing.T) {
 }
 
 func TestRepairM_1162_ConstructorErrors(t *testing.T) {
-	p := repairM1162Path(t)
+	previousGCPercent := debug.SetGCPercent(-1)
+	defer debug.SetGCPercent(previousGCPercent)
+
 	logger := slog.Default()
 	monitor := util.NewErrorMonitor(t.Context(), logger, nil)
-	for index := uint32(0); index < 32; index++ {
-		valuePath := filepath.Join(p.SegmentDirectory(), fmt.Sprintf("%d-0%s", index, ValuesFileExtension))
-		require.NoError(t, os.WriteFile(valuePath, []byte("existing"), 0600))
-		seg, err := CreateSegment(logger, monitor, index, []*SegmentPath{p}, false, 1, true)
-		require.Nil(t, seg)
-		require.ErrorContains(t, err, "already exists")
-		require.Zero(t, repairM1162DescriptorCount(t, p), "failed segment construction must release the key handle")
+	var index uint32
+	for _, conflict := range []struct {
+		shardingFactor uint8
+		shard          uint8
+	}{{1, 0}, {4, 0}, {4, 1}, {4, 3}} {
+		for _, durable := range []bool{false, true} {
+			for _, pathCount := range []int{1, 3} {
+				t.Run(fmt.Sprintf("shards_%d/conflict_%d/durable_%t/paths_%d", conflict.shardingFactor, conflict.shard, durable, pathCount), func(t *testing.T) {
+					paths := make([]*SegmentPath, pathCount)
+					for i := range paths {
+						paths[i] = repairM1162Path(t)
+					}
+					for attempt := 0; attempt < 32; attempt++ {
+						index++
+						p := paths[int(conflict.shard+1)%len(paths)]
+						valuePath := filepath.Join(p.SegmentDirectory(), fmt.Sprintf("%d-%d%s", index, conflict.shard, ValuesFileExtension))
+						existing := []byte(fmt.Sprintf("existing-%d", index))
+						require.NoError(t, os.WriteFile(valuePath, existing, 0600))
+						seg, err := CreateSegment(logger, monitor, index, paths, false, conflict.shardingFactor, durable)
+						require.Nil(t, seg)
+						require.EqualError(t, err, fmt.Sprintf("failed to open value file: value file %s already exists", valuePath))
+						for _, segmentPath := range paths {
+							require.Zero(t, repairM1162DescriptorCount(t, segmentPath), "failed segment construction must release every key and value handle in %s", segmentPath.SegmentDirectory())
+						}
+						actual, err := os.ReadFile(valuePath)
+						require.NoError(t, err)
+						require.Equal(t, existing, actual, "failed segment construction must preserve the conflicting file")
+					}
+				})
+			}
+		}
 	}
 }
 
