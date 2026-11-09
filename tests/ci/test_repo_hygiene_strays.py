@@ -5,6 +5,9 @@ from pathlib import Path
 import re
 import subprocess
 
+from test_tracked_file_size_budget import allowlist
+from test_web_asset_weight import LARGE_ASSET_ALLOWLIST
+
 
 ROOT = Path(__file__).resolve().parents[2]
 VENDORED_TREES = (
@@ -119,6 +122,19 @@ def test_no_tracked_git_bundles_or_patch_dirs():
     )
     assert not (ROOT / "apps/perps/public/model.gltf").exists(), (
         "The unreferenced perps model must remain removed"
+    )
+
+
+def test_removed_model_has_no_size_allowances(allowlist: dict[str, int]):
+    removed_model = "apps/perps/public/model.gltf"
+    assert not (ROOT / removed_model).exists(), (
+        "The unreferenced perps model must remain removed"
+    )
+    assert removed_model not in LARGE_ASSET_ALLOWLIST, (
+        "The removed perps model must have no asset weight allowance"
+    )
+    assert removed_model not in allowlist, (
+        "The removed perps model must have no tracked file size allowance"
     )
 
 
