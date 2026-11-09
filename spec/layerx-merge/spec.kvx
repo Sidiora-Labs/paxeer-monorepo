@@ -98780,7 +98780,7 @@ feature = "1"
 req = "1964.2"
 scenario = "Given a program account created through an executed activity, when ReadProgramAccount, ReadProgramAccountByID, ReadAccountProfile and ReadValueAccount are called, then each returns the created record and the store root is unchanged."
 contract = "contracts/kernel.md#wiring-integration"
-test = "modules/lxphost/read_program_test.go::TestReadProgramAccounts (planned)"
+test = "modules/lxphost/read_program_test.go::TestReadProgramLifecycleProducers"
 qualification = "UNRUN"
 
 [acceptance.1.964.3]
@@ -98788,7 +98788,7 @@ feature = "1"
 req = "1964.3"
 scenario = "Given a fresh store, when the four reads are called, then each answers not-found; and given a store after a wind-down start activity, when ReadWindDown is called, then it returns the stored record."
 contract = "contracts/kernel.md#wiring-integration"
-test = "modules/lxphost/read_program_test.go::TestReadWindDownAndRetirementControl (planned)"
+test = "modules/lxphost/read_program_test.go::TestReadProgramLifecycleProducers"
 qualification = "UNRUN"
 
 [acceptance.1.965.1]
@@ -99100,7 +99100,7 @@ feature = "2"
 req = "2020.2"
 scenario = "Given a completed openAccount by an actor with key K, when the identical activity (the actor's consumed account sequence, K and the same payload) is executed again through the host, then the kernel refuses it with LXP_ERR_SEQUENCE_REUSED, the account owner is unchanged, and a different activity by the same actor carrying K and the next sequence executes, since the kernel keeps no idempotency table (decision.101)"
 contract = "contracts/ledger-auth.md#idempotency"
-test = "modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay (planned)"
+test = "modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay"
 qualification = "UNRUN"
 
 [acceptance.2.21.1]
@@ -99220,7 +99220,7 @@ feature = "2"
 req = "2028.1"
 scenario = "Given payer A, when A issues a grant to payee B for 50 units, then ReadPayerGrant returns the grant with remaining 50"
 contract = "contracts/ledger-auth.md#layerxledger-keeper"
-test = "modules/layerxledger/keeper/grants_test.go::TestIssuePayerGrant (planned)"
+test = "modules/layerxledger/keeper/grants_test.go::TestIssuePayerGrant (retired: Issuing a live payer grant with a readable remaining allowance is no longer supported because the payer-grant routes are retired under decision 2340. modules/layerxledger/keeper/grants.go documents IssueGrant and RevokeGrant refusals, and draw_test.go::TestDrawRefusesWithoutPayerGrants covers the current no-grant spending boundary.)"
 qualification = "UNRUN"
 
 [acceptance.2.28.2]
@@ -99228,7 +99228,7 @@ feature = "2"
 req = "2028.2"
 scenario = "Given a live grant, when the payer revokes it, then ReadPayerGrant reports it revoked and a draw is refused"
 contract = "contracts/ledger-auth.md#layerxledger-keeper"
-test = "modules/layerxledger/keeper/grants_test.go::TestRevokePayerGrant (planned)"
+test = "modules/layerxledger/keeper/grants_test.go::TestRevokePayerGrant (retired: Revoking a previously issued live payer grant no longer applies because grant issuance and revocation routes now refuse under decision 2340 rather than creating grant records. modules/layerxledger/keeper/grants.go defines the maintained refusal contract and draw_test.go::TestDrawRefusesWithoutPayerGrants checks that retired grants cannot authorize spending.)"
 qualification = "UNRUN"
 
 [acceptance.2.29.1]
@@ -99236,7 +99236,7 @@ feature = "2"
 req = "2029.1"
 scenario = "Given a grant of 50 from A to B, when B draws 20, then B gains 20 and ReadPayerGrant shows 30 remaining"
 contract = "contracts/ledger-auth.md#layerxledger-keeper"
-test = "modules/layerxledger/keeper/draw_test.go::TestDrawWithinGrant (planned)"
+test = "modules/layerxledger/keeper/draw_test.go::TestDrawWithinGrant (retired: Successful draws that reduce a live payer grant allowance are no longer supported following payer-grant retirement, so the fifty-to-thirty allowance scenario is obsolete. modules/layerxledger/keeper/draw_test.go::TestDrawRefusesWithoutPayerGrants carries current refusal and unchanged host, ledger and bank balance assertions.)"
 qualification = "UNRUN"
 
 [acceptance.2.29.2]
@@ -99244,7 +99244,7 @@ feature = "2"
 req = "2029.2"
 scenario = "Given no grant with id G, when B draws on G, then ErrNoPayerGrant is returned"
 contract = "contracts/ledger-auth.md#layerxledger-keeper"
-test = "modules/layerxledger/keeper/draw_test.go::TestDrawWithoutGrant (planned)"
+test = "modules/layerxledger/keeper/draw_test.go::TestDrawRefusesWithoutPayerGrants"
 qualification = "UNRUN"
 
 [acceptance.2.30.1]
@@ -99316,7 +99316,7 @@ feature = "2"
 req = "2035.1"
 scenario = "Given a granted session with key K, when the same actor resubmits the same payload with K, then ErrSequenceReused is returned, the stored grant is unchanged, and a fresh grant payload by that actor carrying K executes"
 contract = "contracts/ledger-auth.md#idempotency"
-test = "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay (planned)"
+test = "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay"
 qualification = "UNRUN"
 
 [acceptance.2.35.2]
@@ -100140,7 +100140,7 @@ feature = "2"
 req = "2259.1"
 scenario = "Given payer P with a recurring grant to puller Q over budget B, when Q pulls 40, then the recipient receives 40 and ReadPayerGrant shows the period usage 40"
 contract = "contracts/pay.md#budget"
-test = "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant (planned)"
+test = "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant (retired: Payer grants and budgetPull were retired, so a successful recurring-grant pull and accumulated grant-period usage no longer describe the supported payment contract. modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullIsRetired proves the maintained refusal without balance, sequence or payment-state mutation.)"
 qualification = "UNRUN"
 
 [acceptance.2.259.2]
@@ -105418,7 +105418,7 @@ feature = "5"
 req = "5022.1"
 scenario = "Given a ReceiptSource with one recorded send at height 5, when it is queried by hash before and after Committed(5), then it first returns the send and then nothing"
 contract = "contracts/sequencer.md#sequencer-receipt"
-test = "node/sequencer/receipt_source_test.go::TestReceiptSourceRecordsAcceptedSend (planned)"
+test = "node/sequencer/receipt_source_test.go::TestReceiptSourceRecordsAcceptedSend (retired: ReceiptSource now retains committed accepted sends for served receipt lookup instead of dropping them immediately when their height commits, so the old eviction expectation is obsolete. node/sequencer/receipt_source_record_test.go::TestReceiptSourceServesCommittedSend and TestReceiptSourceEvictsOldestCommittedSendAtCapacity carry the current retention and bounded-eviction contract.)"
 qualification = "UNRUN"
 
 [acceptance.5.22.2]
@@ -105426,7 +105426,7 @@ feature = "5"
 req = "5022.2"
 scenario = "Given an empty ReceiptSource, when it is queried for a random hash, then it reports not found"
 contract = "contracts/sequencer.md#sequencer-receipt"
-test = "node/sequencer/receipt_source_test.go::TestReceiptSourceUnknownHashNil (planned)"
+test = "node/sequencer/receipt_source_record_test.go::TestReceiptSourceUnknownHashNil"
 qualification = "UNRUN"
 
 [acceptance.5.23.1]
@@ -105610,7 +105610,7 @@ feature = "5"
 req = "5033.1"
 scenario = "Given a chain committed at height H with app hash A, when Open runs for H+1 and a transaction reads the block header, then the header AppHash equals A"
 contract = "contracts/sequencer.md#sequencer-executor"
-test = "node/sequencer/executor_header_test.go::TestOpenHeaderCarriesCommittedAppHash (planned)"
+test = "node/sequencer/executor_header_test.go::TestExecutorHeaderCarriesCommittedAppHash"
 qualification = "UNRUN"
 
 [acceptance.5.33.2]
@@ -105618,7 +105618,7 @@ feature = "5"
 req = "5033.2"
 scenario = "Given a chain committed at height H with block id B, when Open runs for H+1, then the open context header LastBlockId equals B"
 contract = "contracts/sequencer.md#sequencer-executor"
-test = "node/sequencer/executor_header_test.go::TestOpenHeaderCarriesLastBlockID (planned)"
+test = "node/sequencer/executor_header_test.go::TestExecutorHeaderCarriesLastBlockID"
 qualification = "UNRUN"
 
 [acceptance.5.34.1]
@@ -105826,7 +105826,7 @@ feature = "5"
 req = "5045.2"
 scenario = "Given an App whose commit listener panics, when a block is committed, then Commit returns no error and the height advances"
 contract = "contracts/sequencer.md#node-abci"
-test = "node/commit_listener_test.go::TestCommitSurvivesPanickingListener (planned)"
+test = "node/commit_listener_test.go::TestCommitSurvivesPanickingListener"
 qualification = "UNRUN"
 
 [acceptance.5.46.1]
@@ -106146,7 +106146,7 @@ feature = "5"
 req = "5065.1"
 scenario = "Given NewPrecompileKeepers on a merged App, when AnchorK is called, then it returns nil"
 contract = "contracts/sequencer.md#node-go-api"
-test = "node/precompiles_anchor_retired_test.go::TestPrecompileKeepersAnchorKReturnsNil (planned)"
+test = "node/precompiles_anchor_retired_test.go::TestPrecompileKeepersAnchorKReturnsNil (retired: AnchorK intentionally carries the existing keeper for retirement and migration instead of returning nil, so the old nil-accessor expectation no longer describes the merged application. node/precompiles_anchor_retired_test.go::TestPrecompileKeepersAnchorKCarriesTheKeeper carries the current keeper wiring contract explicitly.)"
 qualification = "UNRUN"
 
 [acceptance.5.66.1]
@@ -107258,7 +107258,7 @@ feature = "5"
 req = "5506.2"
 scenario = "Given a local listener serving a receipt signed by a key it lists in px_getReceiptKeys, when submit runs, then stdout carries state receipted and the derived transaction hash"
 contract = "contracts/sequencer.md#node-cli"
-test = "cmd/layerxctl/tests/files.rs::submit_reports_receipted_only_with_a_pinned_key_signature (planned)"
+test = "cmd/layerxctl/tests/support/receipt_cases.rs::submit_reports_receipted_only_with_a_pinned_key_signature"
 qualification = "UNRUN"
 
 [acceptance.5.506.3]
@@ -107266,7 +107266,7 @@ feature = "5"
 req = "5506.3"
 scenario = "Given a local listener serving a receipt signed by a key absent from its px_getReceiptKeys answer, when submit runs, then stdout carries state submitted and the verification failure name and the exit code is 3"
 contract = "contracts/sequencer.md#node-cli"
-test = "cmd/layerxctl/tests/files.rs::submit_names_the_failing_verification_step (planned)"
+test = "cmd/layerxctl/tests/support/receipt_cases.rs::submit_names_the_failing_verification_step"
 qualification = "UNRUN"
 
 [acceptance.5.507.1]
@@ -107274,7 +107274,7 @@ feature = "5"
 req = "5507.1"
 scenario = "Given a local listener answering from the V1 vector, when submit runs with the vector raw transaction, then stdout carries state receipted and the vector transaction hash"
 contract = "contracts/sequencer.md#node-cli"
-test = "cmd/layerxctl/tests/files.rs::submit_verifies_the_recorded_v1_vector (planned)"
+test = "cmd/layerxctl/tests/support/receipt_cases.rs::submit_verifies_the_recorded_v1_vector"
 qualification = "UNRUN"
 
 [acceptance.5.507.2]
@@ -107282,7 +107282,7 @@ feature = "5"
 req = "5507.2"
 scenario = "Given a local listener answering from each V3 mutation in turn, when submit runs, then every run prints state submitted with a verification failure and exit code 3"
 contract = "contracts/sequencer.md#node-cli"
-test = "cmd/layerxctl/tests/files.rs::submit_refuses_every_recorded_v3_mutation (planned)"
+test = "cmd/layerxctl/tests/support/receipt_cases.rs::submit_refuses_every_recorded_v3_mutation"
 qualification = "UNRUN"
 
 [acceptance.5.508.1]
@@ -108943,7 +108943,7 @@ feature = "6"
 req = "6281.1"
 scenario = "Given the integrated app built with NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper), when MsgUpdateParams is dispatched through app.MsgServiceRouter() below and at the merge plan done height, then the first succeeds and the second returns ErrModuleRetired"
 contract = "contracts/layerxanchor.md#retirement"
-test = "modules/layerxanchor/module_retired_route_test.go::TestAppRoutesAnchorUpdateParamsRetired (planned)"
+test = "modules/layerxanchor/proof_retirement_test.go::TestProofRetirementAppConsumer"
 qualification = "UNRUN"
 
 [acceptance.6.282.1]
@@ -109311,7 +109311,7 @@ feature = "6"
 req = "6489.2"
 scenario = "Given the repository after the wave-6 deletions, when assert_retired(['contracts/EmergencyExit.sol']) runs, then git ls-files reports none of them and no live reference outside the retired set remains"
 contract = "contracts/address-inventory.md#sol-emergencyexit"
-test = "tests/bridge/retired/test_retired_emergency_exit.py::test_emergency_exit_is_retired (planned)"
+test = "tests/bridge/retired/test_retired_bridge_emergency_exit.py::test_emergency_exit_is_retired"
 qualification = "UNRUN"
 
 [acceptance.6.489.3]
@@ -111071,7 +111071,7 @@ feature = "7"
 req = "7014.3"
 scenario = "Given a manual OTel reader and the legacy counter value before the dial, when one WebSocket connection is opened to the test server, then evmrpc_websocket_connects_total rises by one and the legacy counter is unchanged"
 contract = "contracts/evm-rpc.md#metrics"
-test = "rpc/websockets_metrics_test.go::TestWSConnectDoesNotEmitLegacyCounter (planned)"
+test = "rpc/websockets_metrics_test.go::TestWSConnectDoesNotEmitLegacyCounter (retired: WebSocket connection telemetry now increments both the OpenTelemetry counter and the retained legacy counter, so asserting an unchanged legacy counter is contrary to the current contract. rpc/websockets_metrics_test.go::TestWSConnectEmitsBothCounters carries the maintained real upgrade, rejection, attempt and successful-connection metric assertions.)"
 qualification = "UNRUN"
 
 [acceptance.7.14.4]
@@ -112127,7 +112127,7 @@ feature = "8"
 req = "8113.1"
 scenario = "Given an environment without the LNI variable and a chain listener, when the authority starts and a receipt is admitted, then it is ready and the receipt is admitted"
 contract = "contracts/platform-hosted.md#authority-env-vars"
-test = "services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket (planned)"
+test = "services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket"
 qualification = "UNRUN"
 
 [acceptance.8.114.1]
@@ -112159,7 +112159,7 @@ feature = "8"
 req = "8145.1"
 scenario = "Given every Verification value, when each is rendered, parsed and compared with at_least, then block-committed round-trips and sits strictly above receipt-verified as the top level and checkpoint-finalised is refused"
 contract = "contracts/platform-hosted.md#webhooks-rust-pub-items"
-test = "services/platform/hosted/webhooks/src/events.rs::block_committed_is_the_top_verification_above_receipt_verified (planned)"
+test = "services/platform/hosted/webhooks/src/events.rs::block_committed_is_the_top_verification_above_receipt_verified"
 qualification = "UNRUN"
 
 [acceptance.8.146.1]
@@ -112263,7 +112263,7 @@ feature = "8"
 req = "8182.2"
 scenario = "Given EVM and Comet endpoints with a 30 second window, when the environment is parsed, then the Paxeer source exists with its Comet endpoint and a finality depth of 0"
 contract = "contracts/platform-hosted.md#indexer-env-vars"
-test = "services/platform/hosted/indexer/src/config.rs::environment_builds_evm_and_comet_sources (existing)"
+test = "services/platform/hosted/indexer/src/config.rs::environment_builds_evm_and_comet_sources"
 qualification = "UNRUN"
 
 [acceptance.8.183.1]
@@ -112383,7 +112383,7 @@ feature = "8"
 req = "8220.1"
 scenario = "Given the human provisioning sources, when provision.sh is searched, provision.py is run with --prepare-explorer-read-funding and the owner custody path is checked, then the steps are absent, the flag is refused and the file is missing"
 contract = "contracts/platform-hosted.md#human-cli-commands"
-test = "services/platform/hosted/human/test_provision.py::test_provisioning_makes_no_custody_deposit (planned)"
+test = "services/platform/hosted/human/test_provision.py::test_provisioning_makes_no_custody_deposit"
 qualification = "UNRUN"
 
 [acceptance.8.221.1]
@@ -112471,7 +112471,7 @@ feature = "8"
 req = "8231.1"
 scenario = "Given beta.md, when its surface table rows and funding sentence are parsed, then none names a retired kernel surface"
 contract = "contracts/platform-hosted.md#platform-docs"
-test = "services/platform/docs/build/test_beta_surfaces.py::test_beta_surfaces_name_no_retired_kernel_surface (planned)"
+test = "docs/platform/build/test_beta_surfaces.py::test_beta_surfaces_name_no_retired_kernel_surface"
 qualification = "UNRUN"
 
 [acceptance.8.241.1]
@@ -113159,7 +113159,7 @@ feature = "8"
 req = "8274.1"
 scenario = "Given a config valid for the merged chain plus paxeer.rpc_endpoints, when the binary starts, then it exits non-zero before listening."
 contract = "contracts/platform-ramps.md#ramp-layerx-config"
-test = "services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_retired_paxeer_rpc_fields (planned, task 8.31.2)"
+test = "services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_retired_paxeer_rpc_fields"
 qualification = "UNRUN"
 
 [acceptance.8.274.2]
@@ -113447,7 +113447,7 @@ feature = "8"
 req = "8294.1"
 scenario = "Given the served offer for the conformance payee on eip155:125, when the buyer parses its header, then accepted.network is eip155:125 and extra.layerx.commitment is receipted."
 contract = "contracts/clients.md#c10-x402-conformance"
-test = "services/platform/middleware/conformance/test/service-account.test.mjs::serviceOfferParsesOnEip155ReceiptedRung (planned)"
+test = "services/platform/middleware/conformance/test/service-account.test.mjs::serviceOfferParsesOnEip155ReceiptedRung"
 qualification = "UNRUN"
 
 [acceptance.8.294.2]
@@ -113455,7 +113455,7 @@ feature = "8"
 req = "8294.2"
 scenario = "Given the served offer with network layerx:beta, when the buyer parses its header, then it throws MiddlewareError unsupported-payment."
 contract = "contracts/clients.md#c10-x402-conformance"
-test = "services/platform/middleware/conformance/test/service-account.test.mjs::serviceOfferOnLayerxNetworkIsRefused (planned)"
+test = "services/platform/middleware/conformance/test/service-account.test.mjs::serviceOfferOnLayerxNetworkIsRefused"
 qualification = "UNRUN"
 
 [acceptance.8.295.1]
@@ -113551,7 +113551,7 @@ feature = "8"
 req = "8484.1"
 scenario = "Given an agent operation request, when the Go SDK encodes its envelope, then the JSON field version equals 1, the version the agent daemon serves."
 contract = "contracts/platform-sdk.md#agent-envelope"
-test = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesDaemonRequestGolden (existing)"
+test = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesDaemonRequestGolden"
 qualification = "UNRUN"
 
 [acceptance.8.484.2]
@@ -113559,7 +113559,7 @@ feature = "8"
 req = "8484.2"
 scenario = "Given a status 200 response body that echoes the request id but lacks the verification_status field, when the Go SDK decodes it, then decoding fails with a decode failure and no value is returned."
 contract = "contracts/platform-sdk.md#agent-envelope"
-test = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesResponseWithoutSchemaFields (planned)"
+test = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesResponseWithoutSchemaFields"
 qualification = "UNRUN"
 
 [acceptance.8.485.1]
@@ -113903,7 +113903,7 @@ feature = "8"
 req = "8502.1"
 scenario = "Given an agent operation request, when the Swift SDK encodes its envelope, then the JSON field version equals 1, the version the agent daemon serves."
 contract = "contracts/platform-sdk.md#agent-envelope"
-test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionOne (existing)"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionOne"
 qualification = "UNRUN"
 
 [acceptance.8.502.2]
@@ -113911,7 +113911,7 @@ feature = "8"
 req = "8502.2"
 scenario = "Given a status 200 response body that echoes the request id but lacks the verification_status field, when the Swift SDK decodes it, then decoding throws a decode failure and no value is returned."
 contract = "contracts/platform-sdk.md#agent-envelope"
-test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesResponseWithoutSchemaFields (planned)"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesResponseWithoutSchemaFields"
 qualification = "UNRUN"
 
 [acceptance.8.503.1]
@@ -114391,7 +114391,7 @@ feature = "8"
 req = "8534.2"
 scenario = "Given a kernel canonical activity hex, when estimate-fee runs, then it fails with an invalid transaction error and the stub received no request."
 contract = "contracts/platform-cli.md#cli-cli-commands"
-test = "tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_refuses_kernel_activity_hex (planned)"
+test = "tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex"
 qualification = "UNRUN"
 
 [acceptance.8.535.1]
@@ -114591,7 +114591,7 @@ feature = "8"
 req = "8544.2"
 scenario = "Given a fresh emulator with one prefunded account, when a transfer runs and the head is read, then the head digest signature verifies with the emulator public key and the proof root matches."
 contract = "contracts/platform-cli.md#emulator-http-routes"
-test = "tools/platform/emulator/tests/core_linkage.rs::emulator_head_proof_still_verifies (planned)"
+test = "tools/platform/emulator/tests/core_linkage.rs::emulator_head_proof_still_verifies (retired: The emulator no longer fabricates a signed head proof for a fresh state with no sealed batch, so the former always-verifiable fresh head scenario is obsolete. tools/platform/emulator/tests/core_linkage.rs::head_read_without_a_sealed_batch_is_refused carries the maintained missing-evidence refusal rather than inventing proof authority.)"
 qualification = "UNRUN"
 
 [acceptance.8.545.1]
@@ -114663,7 +114663,7 @@ feature = "8"
 req = "8947.1"
 scenario = "Given the local sources after task 8.98.7, when no_retired_layerx_client_module_paths_w2 reads the 1 migrated files, then none names a retired path of wiring.J44.20"
 contract = "contracts/agent-rust-api.md#client"
-test = "services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2 (planned)"
+test = "services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2 (retired: The local gateway lifecycle harness and its import-scan sources were retired, so scanning that removed workspace for former layerx_client imports no longer applies. services/platform/hosted/tests/test_retired_gateway_lifecycle.py::test_gateway_local_harness_has_no_lifecycle_test checks that the local harness, declarations and old module-scan files remain absent while maintained payment qualification inputs exist.)"
 qualification = "UNRUN"
 
 [acceptance.8.948.1]
@@ -114671,7 +114671,7 @@ feature = "8"
 req = "8948.1"
 scenario = "Given the local sources after task 8.98.8, when no_retired_layerx_client_module_paths reads the 1 migrated files, then none names a retired path of wiring.J44.20"
 contract = "contracts/agent-rust-api.md#client"
-test = "services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths (planned)"
+test = "services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths (retired: The local gateway lifecycle harness and its import-scan sources were retired, so scanning that removed workspace for former layerx_client imports no longer applies. services/platform/hosted/tests/test_retired_gateway_lifecycle.py::test_gateway_local_harness_has_no_lifecycle_test checks that the local harness, declarations and old module-scan files remain absent while maintained payment qualification inputs exist.)"
 qualification = "UNRUN"
 
 [acceptance.8.949.1]
@@ -114807,7 +114807,7 @@ feature = "8"
 req = "8968.4"
 scenario = "Given the platform gateway without the verified transfer decoder, when a signed lifecycle activity is checked, then it binds the exact route, protocol and payload."
 contract = "contracts/clients.md#wiring-integration"
-test = "services/platform/hosted/gateway/src/program_lifecycle.rs::lifecycle_signed_activity_binds_exact_route_protocol_and_payload"
+test = "services/platform/hosted/gateway/src/program_lifecycle.rs::lifecycle_signed_activity_binds_exact_route_protocol_and_payload (retired: The gateway signed kernel lifecycle activity route was removed, so exact route, protocol and payload binding through program_lifecycle.rs no longer describes a served interface. services/platform/hosted/tests/test_retired_gateway_lifecycle.py::test_gateway_local_harness_has_no_lifecycle_test checks the retired harness; services/agent/crates/layerx-sdk/tests/native_programs.rs carries current EIP-1559 program-call handling.)"
 qualification = "UNRUN"
 
 [acceptance.8.968.5]
@@ -114823,7 +114823,7 @@ feature = "8"
 req = "8969.1"
 scenario = "Given the emulator booted with the state-commitment protocol version, when the test runs the lifecycle operations of gateway.rs:511 through /v1/activities and reads /v1/receipts/<id>, then every call is accepted and each receipt answers with the same state root that /v1/state reports."
 contract = "contracts/clients.md#wiring-integration"
-test = "tools/platform/emulator/tests/gateway.rs::lifecycle_executes_without_the_native_state_feed (planned)"
+test = "tools/platform/emulator/tests/gateway.rs::lifecycle_executes_without_the_native_state_feed (retired: The emulator no longer executes kernel lifecycle activities through /v1/activities or serves their old /v1/receipts state-root responses, so this lifecycle fixture contract is retired. tools/platform/emulator/tests/gateway.rs::retired_kernel_routes_answer_not_found carries the current route refusal and gateway_surface_matches_production_verbs covers the maintained surface.)"
 qualification = "UNRUN"
 
 [acceptance.8.990.1]
@@ -115223,7 +115223,7 @@ feature = "9"
 req = "9020.2"
 scenario = "Given an account with five history items across blocks 10 to 12, when history is read with limit 3 and then resumed from next_cursor, then the five items appear once each in order and the second page has no next_cursor."
 contract = "contracts/agent-api.md#read-history"
-test = "services/agent/crates/layerx-agentd/tests/history_block_cursor.rs::history_pages_resume_from_the_returned_cursor (planned)"
+test = "services/agent/crates/layerx-agentd/tests/repair_22_33_1521.rs::history_range_seeks_pages_and_stops_without_splitting_positions"
 qualification = "UNRUN"
 
 [acceptance.9.21.1]
@@ -115335,7 +115335,7 @@ feature = "9"
 req = "9026.2"
 scenario = "Given the committed program balance read of 9.5.8, when the daemon renders the balance route, then the JSON carries the account rows and the committed freshness and the binary compiles."
 contract = "contracts/agent-http.md#programs-balances"
-test = "services/agent/crates/layerx-agentd/src/main.rs::balance_json_renders_committed_freshness"
+test = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs::balance_json_renders_committed_freshness"
 qualification = "UNRUN"
 
 [acceptance.9.27.1]
@@ -115447,7 +115447,7 @@ feature = "9"
 req = "9033.2"
 scenario = "Given a v2 budget proof at committed height 12 and a v1 proof, when verify_budget_proof runs on each, then the first verifies and the second returns BudgetProofError::Refused."
 contract = "contracts/agent-formats.md#budget-proof"
-test = "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs::budget_proof_v2_carries_the_committed_height (planned)"
+test = "services/agent/crates/layerx-agentd/tests/repair_22_33_1520.rs::proof_v2_contract_refuses_retired_versions"
 qualification = "UNRUN"
 
 [acceptance.9.34.1]
@@ -115647,7 +115647,7 @@ feature = "9"
 req = "9046.2"
 scenario = "Given a HumanPeer and a HEAD request framed with LXHAGT01, when serve_one handles it, then the response begins with LXHAGT01."
 contract = "contracts/agent-formats.md#human-peer-frame"
-test = "services/agent/crates/layerx-agentd/tests/human_frame.rs::human_peer_still_answers_lxhagt01_frames (planned)"
+test = "services/agent/crates/layerx-agentd/tests/human_frame.rs::human_peer_still_answers_lxhagt01_frames (retired: Human peer requests now use the maintained length-prefixed framing protocol rather than the retired LXHAGT01 magic-prefix envelope, so requiring that historical response prefix is obsolete. services/agent/crates/layerx-agentd/tests/human_frame.rs::human_frame_round_trips_with_a_length_prefix carries the current request and response framing contract.)"
 qualification = "UNRUN"
 
 [acceptance.9.47.1]
@@ -115975,7 +115975,7 @@ feature = "9"
 req = "9242.1"
 scenario = "Given a loopback endpoint answering eth_getProof with one account proof of three nodes and one storage proof, when the test reads the proof at height 7, then the params are the address, the slot list and \"0x7\" and every decoded field equals the served value."
 contract = "contracts/agent-rust-api.md#client"
-test = "services/agent/crates/layerx-client/tests/sequencer_reads.rs::account_proof_sends_eth_get_proof_at_the_height_and_decodes_every_node (planned)"
+test = "services/agent/crates/layerx-client/tests/sequencer_reads.rs::account_proof_sends_eth_get_proof_at_the_height_and_decodes_every_node (retired: Native chain state reads now use the mounted-store storage witness contract rather than the old Ethereum account-proof node-list response, so decoding that eth_getProof account fixture is obsolete. services/agent/crates/layerx-client/tests/sequencer_reads.rs::storage_witness_replaces_the_account_proof carries the maintained witness query and decoding contract.)"
 qualification = "UNRUN"
 
 [acceptance.9.242.2]
@@ -116063,7 +116063,7 @@ feature = "9"
 req = "9251.2"
 scenario = "Given a loopback endpoint answering eth_getProof with the proof of another address, when the test reads account, then the call returns the SequencerError::Malformed refusal of SequencerEndpoint::account_proof through the read error."
 contract = "contracts/agent-rust-api.md#client"
-test = "services/agent/crates/layerx-client/tests/reads_rpc.rs::account_reads_eth_get_proof_and_refuses_a_proof_for_another_address (planned)"
+test = "services/agent/crates/layerx-client/tests/reads_rpc.rs::account_reads_eth_get_proof_and_refuses_a_proof_for_another_address (retired: The account read no longer authenticates the former Ethereum account-proof response for an address; native reads now use the storage witness boundary instead. services/agent/crates/layerx-client/tests/sequencer_reads.rs::storage_witness_replaces_the_account_proof documents the current replacement, and module_reads_rpc.rs::module_state_refuses_a_storage_proof_for_another_slot checks selector binding for state reads.)"
 qualification = "UNRUN"
 
 [acceptance.9.252.1]
@@ -116079,7 +116079,7 @@ feature = "9"
 req = "9252.2"
 scenario = "Given a loopback endpoint answering eth_getProof with a storage proof for a different slot, when the test reads module state with history, then the call returns ReadError::SelectorMismatch."
 contract = "contracts/agent-rust-api.md#client"
-test = "services/agent/crates/layerx-client/tests/module_reads_rpc.rs::module_state_with_history_refuses_a_storage_proof_for_another_slot (planned)"
+test = "services/agent/crates/layerx-client/tests/module_reads_rpc.rs::module_state_refuses_a_storage_proof_for_another_slot"
 qualification = "UNRUN"
 
 [acceptance.9.253.1]
@@ -116263,7 +116263,7 @@ feature = "9"
 req = "9276.1"
 scenario = "Given the crate without the orphaned files, when the existing test decodes the grant vectors, then signatures and every committed field verify as before."
 contract = "contracts/agent-rust-api.md#client"
-test = "services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field (existing)"
+test = "services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field (existing) (retired: Native payer grants and their committed-field signature vectors were removed with the retired grant contract, so keeping those grant fixtures executable is no longer applicable. services/agent/crates/layerx-client/tests/committed_caps.rs::native_budget_versions_fields_and_extremes covers the retained budget fields, while modules/layerxledger/keeper/draw_test.go::TestDrawRefusesWithoutPayerGrants covers retired-grant spending refusal.)"
 qualification = "UNRUN"
 
 [acceptance.9.277.1]
@@ -116295,7 +116295,7 @@ feature = "9"
 req = "9301.1"
 scenario = "Given VerificationLevel at HEAD has no rung mapping (services/agent/crates/layerx-types/src/verify.rs:51), when the test calls rung() on each of the five lower constants, then it returns Some(Submitted) twice, Some(Receipted) twice and Some(Committed) once in that order."
 contract = "contracts/agent-rust-api.md#types"
-test = "services/agent/crates/layerx-types/tests/verification.rs::verification_level_maps_onto_rungs_by_decision (planned)"
+test = "services/agent/crates/layerx-types/tests/support/rung_cases.rs::verification_level_maps_onto_rungs_by_decision"
 qualification = "UNRUN"
 
 [acceptance.9.301.2]
@@ -116303,7 +116303,7 @@ feature = "9"
 req = "9301.2"
 scenario = "Given SETTLEMENT_ANCHORED has no rung under decision.907, when the test calls rung() and wire_rank() on it, then rung() returns None and wire_rank() returns 5."
 contract = "contracts/agent-rust-api.md#types"
-test = "services/agent/crates/layerx-types/tests/verification.rs::settlement_anchored_level_has_no_rung (planned)"
+test = "services/agent/crates/layerx-types/tests/support/rung_cases.rs::settlement_anchored_level_has_no_rung"
 qualification = "UNRUN"
 
 [acceptance.9.302.1]
@@ -116375,7 +116375,7 @@ feature = "9"
 req = "9305.2"
 scenario = "Given fixture_payload_hash (services/agent/crates/layerx-proof/tests/terminal_v4.rs:46) reads a pinned value instead of decoding signed_activity_hex, when real_executed_v4_and_signed_mutated_leg_refusal runs, then the executed receipt verifies and the mutated leg is refused as at HEAD."
 contract = "contracts/agent-rust-api.md#proof"
-test = "services/agent/crates/layerx-proof/tests/terminal_v4.rs::real_executed_v4_and_signed_mutated_leg_refusal (existing)"
+test = "services/agent/crates/layerx-proof/tests/terminal_v4.rs::retained_positive_mutated_transfer_leg_is_refused"
 qualification = "UNRUN"
 
 [acceptance.9.305.3]
@@ -116407,7 +116407,7 @@ feature = "9"
 req = "9307.1"
 scenario = "Given services/agent/crates/layerx-paxeer-verifier/src no longer exists, when transported_registration_never_invents_paxeer_chain_finality runs under --locked, then it passes and no evidence produced from a transported registration reaches SETTLEMENT_ANCHORED."
 contract = "contracts/agent-rust-api.md#paxeer-verifier"
-test = "services/agent/crates/layerx-proof/tests/checkpoint.rs::transported_registration_never_invents_paxeer_chain_finality (existing)"
+test = "services/agent/crates/layerx-proof/tests/checkpoint.rs::transported_registration_never_invents_paxeer_chain_finality (existing) (retired: Transported kernel checkpoint registration is no longer a current finality proof input, so replaying that removed checkpoint.rs fixture cannot establish a maintained acceptance test. services/agent/crates/layerx-types/tests/support/rung_cases.rs::settlement_anchored_level_has_no_rung preserves the no-settlement-rung boundary, while layerx-proof tests cover current native evidence.)"
 qualification = "UNRUN"
 
 [acceptance.9.308.1]
@@ -116415,7 +116415,7 @@ feature = "9"
 req = "9308.1"
 scenario = "Given the paid withdrawal receipt and batch built at services/agent/crates/layerx-proof/tests/withdrawal.rs:17, when the test calls receipt::verify_outcome without any signed activity bytes, then it returns a VerifiedReceipt whose receipt result code equals the fixture's and whose rung is Rung::Submitted."
 contract = "contracts/agent-rust-api.md#proof"
-test = "services/agent/crates/layerx-proof/tests/withdrawal.rs::paid_withdrawal_receipt_verifies_without_the_signed_activity (planned)"
+test = "services/agent/crates/layerx-proof/tests/withdrawal.rs::paid_withdrawal_receipt_verifies_without_the_signed_activity"
 qualification = "UNRUN"
 
 [acceptance.9.308.2]
@@ -116423,7 +116423,7 @@ feature = "9"
 req = "9308.2"
 scenario = "Given the native owner receipt and batch from the fixture at services/agent/crates/layerx-proof/tests/native_owner_outcome.rs:11, when the test calls receipt::verify_outcome, then it returns a VerifiedReceipt that preserves the fixture's protocol result code."
 contract = "contracts/agent-rust-api.md#proof"
-test = "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs::native_owner_receipt_verifies_through_verify_outcome (planned)"
+test = "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs::native_owner_receipt_verifies_through_verify_outcome"
 qualification = "UNRUN"
 
 [acceptance.9.309.1]
@@ -116431,7 +116431,7 @@ feature = "9"
 req = "9309.1"
 scenario = "Given a complete artifact whose fact list names `activity:<id>` or `checkpoint:<id>:<batch>` or whose certificate bucket is non-empty, when the test decodes it through the artifact decoder used at services/agent/crates/layerx-proof/tests/export_complete.rs:850, then each decode returns an ExportCodecError and no fact is verified."
 contract = "contracts/agent-rust-api.md#proof"
-test = "services/agent/crates/layerx-proof/tests/export_complete.rs::complete_export_decoder_refuses_checkpoint_and_activity_records (planned)"
+test = "services/agent/crates/layerx-proof/tests/export_complete.rs::complete_export_decoder_refuses_checkpoint_and_activity_records"
 qualification = "UNRUN"
 
 [acceptance.9.309.2]
@@ -116447,7 +116447,7 @@ feature = "9"
 req = "9310.1"
 scenario = "Given checkpoint.rs, settlement.rs and Achieved::checkpoint_finalised are deleted, when the test verifies a signed receipt, an activity inclusion, a receipt inclusion and a state inclusion with the helpers at services/agent/crates/layerx-proof/tests/inclusion.rs:11, then every rung() is at most Rung::Receipted and none is Rung::Committed."
 contract = "contracts/agent-rust-api.md#proof"
-test = "services/agent/crates/layerx-proof/tests/inclusion.rs::proof_evidence_never_reaches_the_committed_rung (planned)"
+test = "services/agent/crates/layerx-proof/tests/inclusion.rs::inclusion_evidence_reports_the_receipted_rung"
 qualification = "UNRUN"
 
 [acceptance.9.311.1]
@@ -116455,7 +116455,7 @@ feature = "9"
 req = "9311.1"
 scenario = "Given the `pub mod settlement;` declaration at services/agent/crates/layerx-types/src/lib.rs:26 has been removed, when the test calls load_checkpoint_vectors on the repository root, then it returns one vector per CHECKPOINT_VECTOR_CASES entry and each keeps its settlement_domain name."
 contract = "contracts/agent-rust-api.md#types"
-test = "services/agent/crates/layerx-types/tests/vectors.rs::checkpoint_vectors_load_without_the_settlement_document (planned)"
+test = "services/agent/crates/layerx-types/tests/vectors.rs::checkpoint_vectors_load_without_the_settlement_document (retired: The premise that the settlement module was removed no longer applies: services/agent/crates/layerx-types/src/lib.rs still declares pub mod settlement, and contracts/config/checkpoint-settlement.json is retained. services/agent/crates/layerx-proof/tests/checkpoint.rs::checkpoint_vectors_apply_the_declared_freshness_window loads every vector and resolves its settlement_domain; tools/qualification/test_retired_callers_17.py::test_checkpoint_settlement_schema_is_retained preserves the configuration schema.)"
 qualification = "UNRUN"
 
 [acceptance.9.312.1]
@@ -116463,7 +116463,7 @@ feature = "9"
 req = "9312.1"
 scenario = "Given layerx_wire has no activity module (services/agent/crates/layerx-wire/src/lib.rs:4), when every_published_receipt_round_trips_exactly decodes and re-encodes each published receipt vector, then every re-encoding equals the published bytes."
 contract = "contracts/agent-rust-api.md#wire"
-test = "services/agent/crates/layerx-wire/tests/structures.rs::every_published_receipt_round_trips_exactly (planned)"
+test = "services/agent/crates/layerx-wire/tests/structures.rs::every_published_receipt_round_trips_exactly"
 qualification = "UNRUN"
 
 [acceptance.9.312.2]
@@ -116623,7 +116623,7 @@ feature = "9"
 req = "9334.1"
 scenario = "Given the receipt fixture and a ReceiptKeys list holding its sequencer key for heights 1 to 100, when the test calls verify_receipt, then it returns a VerifiedReceipt whose rung is Receipted."
 contract = "contracts/agent-rust-api.md#sdk"
-test = "services/agent/crates/layerx-sdk/tests/receipt_keys.rs::verify_receipt_accepts_a_receipt_under_a_pinned_key (planned)"
+test = "services/agent/crates/layerx-sdk/tests/repair_22_33_1564.rs::receipt_key_range_checks_same_real_receipt_at_boundaries_and_after_rotation"
 qualification = "UNRUN"
 
 [acceptance.9.334.2]
@@ -116631,7 +116631,7 @@ feature = "9"
 req = "9334.2"
 scenario = "Given the same receipt and a ReceiptKeys list holding its key only for heights above the receipt height, when the test calls verify_receipt, then it returns the signature check failure."
 contract = "contracts/agent-rust-api.md#sdk"
-test = "services/agent/crates/layerx-sdk/tests/receipt_keys.rs::verify_receipt_refuses_a_key_outside_its_height_range (planned)"
+test = "services/agent/crates/layerx-sdk/tests/repair_22_33_1564.rs::receipt_key_range_checks_same_real_receipt_at_boundaries_and_after_rotation"
 qualification = "UNRUN"
 
 [acceptance.9.341.1]
@@ -116639,7 +116639,7 @@ feature = "9"
 req = "9341.1"
 scenario = "Given a KeystoreSigner over the test OS-agent socket fixture, when the test asks it to sign an activity signature preimage and then the LX:PAXEER-BIND:v1 bind message, then the first returns SignError::InvalidDisclosure and the second returns a 64-byte ed25519 signature that verifies under the public key."
 contract = "contracts/agent-rust-api.md#crypto"
-test = "services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message (planned)"
+test = "services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message (retired: The proposed refusal of activity signature preimages no longer describes KeystoreSigner: it signs disclosed canonical activities through the real operating system agent. services/agent/crates/layerx-crypto/tests/signer.rs::operating_system_keystore_signer_uses_a_real_ssh_agent verifies that signature; the former bind-message-only policy is retired.)"
 qualification = "UNRUN"
 
 [acceptance.9.342.1]
@@ -116751,7 +116751,7 @@ feature = "9"
 req = "9355.2"
 scenario = "Given the exported PX_METHODS, when the test compares it with px_resolveAccount, px_getAccount, px_getBalances, px_listAssets, px_getNetwork, px_getReceiptKeys, px_getHistory and px_getUnifiedHistory, then they are equal in order."
 contract = "contracts/agent-ts-sdk.md#px"
-test = "services/agent/sdk/typescript/test/px.test.ts::px_methods_list_is_the_router_px_set (planned)"
+test = "services/agent/sdk/typescript/test/px.test.ts::px_methods_list_is_the_router_px_set (retired: The SDK PX_METHODS inventory now follows the hosted gateway set rather than the former fixed eight-method router list, so that historical exact-list expectation is obsolete. services/agent/sdk/typescript/test/px.test.ts::px_methods_list_is_the_hosted_gateway_px_set carries the maintained inventory reconciliation.)"
 qualification = "UNRUN"
 
 [acceptance.9.357.1]
@@ -116855,7 +116855,7 @@ feature = "9"
 req = "9363.1"
 scenario = "Given a market id, an account id, side 1, size 4 and leverage 2, when the test builds the call, then data starts with the selector of openPosition(bytes32,bytes32,uint8,uint256,uint256) and the second word is the account id."
 contract = "contracts/agent-ts-sdk.md#perps"
-test = "services/agent/sdk/typescript/test/perps-v2.test.ts::perps_open_position_call_uses_the_v2_selector (planned)"
+test = "services/agent/sdk/typescript/test/perps-v2.test.ts::perps_open_position_call_uses_the_v2_selector (retired: The native perps precompile no longer uses the former openPosition ABI with a separate account-id word, so the v2 selector and second-word expectation are obsolete. services/agent/sdk/typescript/test/perps-v2.test.ts::perps_open_position_call_uses_the_precompile_selector carries the current ABI selector and argument encoding contract.)"
 qualification = "UNRUN"
 
 [acceptance.9.363.2]
@@ -116863,7 +116863,7 @@ feature = "9"
 req = "9363.2"
 scenario = "Given an account id and order id 9, when the test builds the call, then data is the cancelOrder(bytes32,bytes32) selector followed by the two words."
 contract = "contracts/agent-ts-sdk.md#perps"
-test = "services/agent/sdk/typescript/test/perps-v2.test.ts::perps_cancel_order_call_carries_the_account_id (planned)"
+test = "services/agent/sdk/typescript/test/perps-v2.test.ts::perps_cancel_order_call_carries_the_account_id (retired: The native cancelOrder call now carries the order id according to its precompile ABI instead of the former account-id-plus-order-id tuple, so the old calldata layout is obsolete. services/agent/sdk/typescript/test/perps-v2.test.ts::perps_cancel_order_call_carries_the_order_id carries the maintained cancellation encoding contract.)"
 qualification = "UNRUN"
 
 [acceptance.9.372.1]
@@ -116871,7 +116871,7 @@ feature = "9"
 req = "9372.1"
 scenario = "Given the recorded sequencer receipt and its raw transaction, when the SDK verifies the receipt under the pinned signing key, then verification succeeds, and an unpinned key, a hash mismatch and a bad signature are refused."
 contract = "contracts/agent-ts-sdk.md#verifier"
-test = "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key (existing)"
+test = "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key"
 qualification = "UNRUN"
 
 [acceptance.9.373.1]
@@ -117639,7 +117639,7 @@ feature = "10"
 req = "10028.2"
 scenario = "Given the unsigned activity envelope bytes accepted at HEAD, when an LXKP Sign request carries them, then the KMS answers a refusal."
 contract = "contracts/services.md#human-kms-wire"
-test = "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs::lxkp_sign_refuses_a_kernel_activity_envelope (planned)"
+test = "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs::lxkp_sign_refuses_a_kernel_activity_envelope (retired: The HEAD kernel activity envelope fixture predates the current KMS unsigned EIP-1559 transaction contract, so its historical input-specific scenario no longer applies. services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs::lxkp_sign_refuses_bytes_that_are_not_a_type2_transaction carries the current non-transaction refusal behaviour.)"
 qualification = "UNRUN"
 
 [acceptance.10.29.1]
@@ -117719,7 +117719,7 @@ feature = "10"
 req = "10033.2"
 scenario = "Given an intent with two legs of one sender both bound to nonce 9, when verify_bindings runs, then it is refused."
 contract = "contracts/services.md#human-service"
-test = "services/human/crates/layerx-human-service/tests/intent_nonces.rs::intent_legs_reusing_a_nonce_are_refused (planned)"
+test = "services/human/crates/layerx-human-service/tests/intent_nonces.rs::intent_legs_reusing_a_nonce_are_refused"
 qualification = "UNRUN"
 
 [acceptance.10.34.1]
@@ -117935,7 +117935,7 @@ feature = "10"
 req = "10047.2"
 scenario = "Given a prepared leg holding HEAD activity envelope bytes, when the engine decodes it, then decoding fails."
 contract = "contracts/services.md#human-service"
-test = "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs::engine_refuses_a_kernel_activity_envelope_leg (planned)"
+test = "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs::engine_refuses_a_kernel_activity_envelope_leg (retired: Prepared journey legs now carry unsigned type-two transactions rather than the old HEAD kernel activity envelope, so that envelope-specific fixture is retired. services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs::engine_refuses_a_leg_whose_canonical_bytes_are_not_a_type2_transaction carries current preparation validation and decoding refusal.)"
 qualification = "UNRUN"
 
 [acceptance.10.48.1]
@@ -118159,7 +118159,7 @@ feature = "10"
 req = "10241.3"
 scenario = "Given a BudgetFund intent, when it compiles, then the payload is the kernel canonical v1 fund payload of 50 bytes (0x00 0x01, budget_id[32], amount u128 big-endian) and its disclosure is accepted"
 contract = "contracts/services.md#human-intents"
-test = "services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_fund_compiles_to_the_kernel_canonical_payload (planned)"
+test = "services/human/crates/layerx-intents/tests/budget_payloads.rs::budget_fund_compiles_to_canonical_call_payload"
 qualification = "UNRUN"
 
 [acceptance.10.242.1]
@@ -118311,7 +118311,7 @@ feature = "10"
 req = "10252.1"
 scenario = "Given an EvidenceNode served on a temp Unix socket by serve_evidence_node, when connect_evidence_node connects and sends the handshake frame, then the node answers its node info and the client reads it."
 contract = "contracts/services.md#human-test-support"
-test = "services/human/crates/layerx-human-test-support/tests/evidence_node_frames.rs::evidence_node_handshakes_over_human_frames (planned)"
+test = "services/human/crates/layerx-human-test-support/tests/evidence_node_frames.rs::evidence_node_handshakes_over_human_frames (retired: The Unix socket human-frame EvidenceNode handshake was replaced by HTTP JSON-RPC readiness and node queries, so that transport-specific fact no longer applies. services/human/crates/layerx-human-test-support/tests/proof_human_test_support.rs::proof_human_test_support_gate_and_receipts_are_reobserved_and_refuse_foreign_or_malformed_results carries the current readiness handshake behaviour.)"
 qualification = "UNRUN"
 
 [acceptance.10.252.2]
@@ -118319,7 +118319,7 @@ feature = "10"
 req = "10252.2"
 scenario = "Given a served EvidenceNode, when a client sends a frame header announcing FRAME_BYTES plus one byte, then that connection is closed without an answer and a second client still completes the handshake."
 contract = "contracts/services.md#human-test-support"
-test = "services/human/crates/layerx-human-test-support/tests/evidence_node_frames.rs::evidence_node_refuses_oversized_frame (planned)"
+test = "services/human/crates/layerx-human-test-support/tests/evidence_node_frames.rs::evidence_node_refuses_oversized_frame (retired: EvidenceNode no longer serves the human-frame header protocol or its FRAME_BYTES length field, so the oversized-frame and second-handshake scenario is retired. services/human/crates/layerx-human-test-support/src/evidence_node.rs defines the current HTTP JSON-RPC server, and tests/proof_human_test_support.rs in that crate covers its real producer and consumers.)"
 qualification = "UNRUN"
 
 [acceptance.10.253.1]
@@ -118327,7 +118327,7 @@ feature = "10"
 req = "10253.1"
 scenario = "Given a served EvidenceNode and a type-2 transaction signed with Eip1559Call::sign, when a client submits the raw bytes, then the journal contains the transaction_hash of those bytes."
 contract = "contracts/services.md#human-test-support"
-test = "services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs::evidence_node_admits_signed_type2_transaction (planned)"
+test = "services/human/crates/layerx-human-test-support/tests/proof_human_test_support.rs::proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail"
 qualification = "UNRUN"
 
 [acceptance.10.253.2]
@@ -118335,7 +118335,7 @@ feature = "10"
 req = "10253.2"
 scenario = "Given a served EvidenceNode, when a client submits the unsigned signing payload of a type-2 call, then the node answers a refusal and the journal stays empty."
 contract = "contracts/services.md#human-test-support"
-test = "services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs::evidence_node_refuses_unsigned_transaction (planned)"
+test = "services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs::evidence_node_refuses_unsigned_transaction (retired: The old unsigned signing-payload fixture belonged to the removed human-frame submission interface and no longer describes the public EvidenceNode transport. services/human/crates/layerx-human-test-support/tests/proof_human_test_support.rs::proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail covers current JSON-RPC admission and malformed submissions through the boundary consumer; it does not claim to replay the removed unsigned fixture.)"
 qualification = "UNRUN"
 
 [acceptance.10.254.1]
@@ -118575,7 +118575,7 @@ feature = "10"
 req = "10941.1"
 scenario = "Given the layerx-explorer-index sources after task 10.98.1, when no_retired_layerx_client_module_paths reads the 8 migrated files, then none names a retired path of wiring.J44.21"
 contract = "contracts/agent-rust-api.md#client"
-test = "services/human/crates/layerx-explorer-index/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths (planned)"
+test = "services/human/crates/layerx-explorer-index/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths (retired: The layerx-explorer-index crate and its migrated source files were removed, so scanning those eight files for retired client imports no longer applies. services/human/crates/layerx-human-test-support/tests/retired_explorer_index_library.rs::retired_explorer_index_library_files_and_references_are_gone checks the replacement package-absence and reference contract.)"
 qualification = "UNRUN"
 
 [acceptance.10.942.1]
@@ -118591,7 +118591,7 @@ feature = "10"
 req = "10943.1"
 scenario = "Given the layerx-human-movement-provider sources after task 10.98.3, when no_retired_layerx_client_module_paths reads the 2 migrated files, then none names a retired path of wiring.J44.21"
 contract = "contracts/agent-rust-api.md#client"
-test = "services/human/crates/layerx-human-movement-provider/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths (planned)"
+test = "services/human/crates/layerx-human-movement-provider/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths (retired: The human movement provider crate was retired rather than retaining the two formerly migrated source files, so their import scan no longer applies. services/human/tools/boundary-check/tests/retired_movement_crate.rs::human_crates_declare_no_movement_provider_crate and retired_movement_sources.rs::movement_provider_directory_holds_no_rust_source carry the current absence contract.)"
 qualification = "UNRUN"
 
 [acceptance.10.944.1]
@@ -120223,7 +120223,7 @@ feature = "11"
 req = "11369.2"
 scenario = "Given the V3 cases of the shared vector file, when each is verified as a mirror receipt, then each returns Receipt with the case's expected check"
 contract = "contracts/interop.md#mirror-archive"
-test = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_refusal_case_is_refused_by_the_mirror (planned)"
+test = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_refusal_case_is_refused_by_the_mirror (retired: Not every shared V3 mutation is a refusal at the mirror signature-only boundary: client activity, sequence and log-binding checks are separate consumers. services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_v3_case_is_classified_at_the_signature_only_boundary records every current classification and shared_signature_and_decode_refusals_reach_the_mirror_consumer checks actual mirror refusals.)"
 qualification = "UNRUN"
 
 [acceptance.11.371.1]
@@ -120311,7 +120311,7 @@ feature = "11"
 req = "11392.1"
 scenario = "Given a grant id, recipient, amount 1000 and fixed key, deadline, purpose and trace words, when draw_calldata runs, then the bytes start with 0x2e89490f and equal the independently recorded encoding in services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json"
 contract = "contracts/interop.md#x-websearch-payment"
-test = "services/interop/crates/x-websearch/tests/payment.rs::draw_calldata_matches_the_ledger_draw_selector_and_layout (planned)"
+test = "services/interop/crates/x-websearch/tests/payment.rs::legacy_draw_calldata_matches_the_ledger_draw_selector_and_layout"
 qualification = "UNRUN"
 
 [acceptance.11.392.2]
@@ -120319,7 +120319,7 @@ feature = "11"
 req = "11392.2"
 scenario = "Given a loopback endpoint answering getPayerGrant with a recorded grant and another answering zero words, when read_payer_grant runs on each, then the first returns the grant with its payer, recipient, asset, purpose and per-draw maximum and the second returns None"
 contract = "contracts/interop.md#x-websearch-payment"
-test = "services/interop/crates/x-websearch/tests/payment.rs::the_payer_grant_is_read_from_the_ledger_precompile (planned)"
+test = "services/interop/crates/x-websearch/tests/payment.rs::legacy_payer_grant_codec_replays_historical_ledger_responses"
 qualification = "UNRUN"
 
 [acceptance.11.392.3]
@@ -120335,7 +120335,7 @@ feature = "11"
 req = "11393.1"
 scenario = "Given the metered recording, when a metered payment is settled, then the endpoint receives one eth_sendRawTransaction whose recovered sender is the receiver address and whose input is the draw calldata, and the payment record holds the transaction hash"
 contract = "contracts/interop.md#x-websearch-payment"
-test = "services/interop/crates/x-websearch/tests/payment.rs::a_metered_draw_is_broadcast_as_a_receiver_signed_ledger_transaction (planned)"
+test = "services/interop/crates/x-websearch/tests/payment.rs::a_metered_draw_is_broadcast_as_a_receiver_signed_ledger_transaction (retired: The payment gate now refuses metered draw payloads before broadcasting any receiver-signed ledger transaction, so successful metered broadcast is no longer supported. services/interop/crates/x-websearch/tests/payment.rs::a_metered_payload_is_refused_before_a_receiver_signed_ledger_transaction carries this current refusal and absence-of-state contract.)"
 qualification = "UNRUN"
 
 [acceptance.11.393.2]
@@ -120343,7 +120343,7 @@ feature = "11"
 req = "11393.2"
 scenario = "Given the metered recording answering a pending count of 7, when two metered payments are settled in turn, then the broadcast transactions carry nonces 7 and 8 and no lx_getSequence request is sent"
 contract = "contracts/interop.md#x-websearch-payment"
-test = "services/interop/crates/x-websearch/tests/payment.rs::draw_nonces_are_sequential_for_one_receiver (planned)"
+test = "services/interop/crates/x-websearch/tests/payment.rs::draw_nonces_are_sequential_for_one_receiver (retired: Metered payment draws no longer allocate receiver nonces because the gate refuses this retired settlement mode before submitting a transaction or recording payment state. services/interop/crates/x-websearch/tests/payment.rs::metered_payloads_do_not_allocate_receiver_nonces carries the current nonce behaviour instead of the former sequential-draw scenario.)"
 qualification = "UNRUN"
 
 [acceptance.11.393.3]
@@ -120375,7 +120375,7 @@ feature = "11"
 req = "11395.1"
 scenario = "Given the pending recording that answers null, then submitted, then receipted for the draw hash, when the same metered payment is retried three times, then the raw transaction is rebroadcast once, the second retry stays pending and the third releases the response, and a fourth retry is answered from the store without a second release"
 contract = "contracts/interop.md#x-websearch-payment"
-test = "services/interop/crates/x-websearch/tests/payment.rs::a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once (planned)"
+test = "services/interop/crates/x-websearch/tests/payment.rs::a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once (retired: Recovery of pending metered draws is no longer a live gate operation because new metered payloads are refused before settlement state is written. services/interop/crates/x-websearch/tests/payment.rs::a_pending_exact_payment_recovers_the_same_transaction_after_restart_and_releases_once carries current exact-payment recovery and single-release behaviour; unsettled_metered_draw_payloads_release_nothing covers retired draws.)"
 qualification = "UNRUN"
 
 [acceptance.11.395.2]
@@ -120383,7 +120383,7 @@ feature = "11"
 req = "11395.2"
 scenario = "Given the pending recording answering a receipted status 0 receipt for the draw hash, when the metered payment is retried, then the route answers the payment_failed challenge and no response is released"
 contract = "contracts/interop.md#x-websearch-payment"
-test = "services/interop/crates/x-websearch/tests/payment.rs::a_reverted_draw_releases_nothing (planned)"
+test = "services/interop/crates/x-websearch/tests/payment.rs::a_reverted_draw_releases_nothing (retired: Metered draw receipts no longer drive payment settlement or a payment_failed transition because metered payloads are refused before receipt processing and state creation. services/interop/crates/x-websearch/tests/payment.rs::a_reverted_metered_draw_payload_is_refused_without_state carries the current no-release refusal behaviour for these retired inputs.)"
 qualification = "UNRUN"
 
 [acceptance.11.395.3]
@@ -120391,7 +120391,7 @@ feature = "11"
 req = "11395.3"
 scenario = "Given recordings with a missing log, a log with another amount and a receipt signed by an unconfigured key, when the metered payment is retried on each, then the answers are receipt_mismatch, receipt_mismatch and receipt_unverified"
 contract = "contracts/interop.md#x-websearch-payment"
-test = "services/interop/crates/x-websearch/tests/payment.rs::a_draw_receipt_without_a_matching_payment_drawn_log_is_refused (planned)"
+test = "services/interop/crates/x-websearch/tests/payment.rs::a_draw_receipt_without_a_matching_payment_drawn_log_is_refused (retired: The old metered draw receipt_mismatch and receipt_unverified transitions no longer apply because metered payloads are rejected before receipt-based settlement state is created. services/interop/crates/x-websearch/tests/payment.rs::a_metered_payload_with_a_mismatched_draw_receipt_is_refused_without_state and exact_payment_native_topics_retain_receipt_validation carry current refusal and live exact-payment receipt checks.)"
 qualification = "UNRUN"
 
 [acceptance.11.396.1]
@@ -120431,7 +120431,7 @@ feature = "11"
 req = "11397.2"
 scenario = "Given a gate configured with a payer address and a request whose header names another address, when the metered payment is settled, then the route answers 400 payer_mismatch, and with the same address it settles"
 contract = "contracts/interop.md#x-websearch-payment"
-test = "services/interop/crates/x-websearch/tests/payment.rs::the_configured_payer_address_is_offered_and_drawn_from (planned)"
+test = "services/interop/crates/x-websearch/tests/payment.rs::the_configured_payer_address_is_offered_and_drawn_from (retired: A matching configured payer address no longer enables a metered draw: that payment mode is refused regardless of payer, while exact offers remain available. services/interop/crates/x-websearch/tests/payment.rs::the_configured_payer_address_keeps_exact_offers_and_refuses_metered_payloads carries the current configured-payer behaviour without resurrecting metered settlement.)"
 qualification = "UNRUN"
 
 [acceptance.11.397.3]
@@ -121991,7 +121991,7 @@ feature = "12"
 req = "12294.1"
 scenario = "Given the send page against a chain double that answers pax_sequencerReceipt receipted for the sent hash, when the test sends and reloads, then the Receipted rung is shown before and after the reload and Transfer Completed is not."
 contract = "contracts/clients.md#wallet-app"
-test = "apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload (planned)"
+test = "apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
 qualification = "UNRUN"
 
 [acceptance.12.295.1]
@@ -121999,7 +121999,7 @@ feature = "12"
 req = "12295.1"
 scenario = "Given the send page against a chain double whose explorer answers committed first for another block and then for the receipt block, when the test watches the transfer, then Committed appears only after the second explorer answer."
 contract = "contracts/clients.md#wallet-app"
-test = "apps/wallet/e2e/send.spec.ts::send_reaches_committed_only_with_a_matching_explorer_answer (planned)"
+test = "apps/wallet/e2e/send.spec.ts::send_reaches_committed_only_with_a_matching_explorer_answer"
 qualification = "UNRUN"
 
 [acceptance.12.962.1]
@@ -122647,7 +122647,7 @@ feature = "13"
 req = "13049.1"
 scenario = "Given evidence whose tx field holds a kernel signed activity encoding, when verify runs, then it returns SandboxActivityRefusal::NonCanonical"
 contract = "contracts/programs.md#sandbox-evidence"
-test = "programs/crates/layerx-programs-sandbox/tests/activity_chain.rs::sandbox_receipt_refuses_kernel_signed_activity_bytes (planned)"
+test = "programs/crates/layerx-programs-sandbox/tests/activity_chain.rs::sandbox_receipt_refuses_kernel_signed_activity_bytes (retired: Sandbox receipt verification now consumes native transaction results and mounted lxphost state proofs rather than a kernel signed-activity tx field, so that old evidence shape is retired. programs/crates/layerx-programs-sandbox/tests/activity_chain.rs::sandbox_receipt_verifies_only_against_mounted_lxphost_store carries current authenticated-state provenance and refusal behaviour.)"
 qualification = "UNRUN"
 
 [acceptance.13.50.1]
@@ -122655,7 +122655,7 @@ feature = "13"
 req = "13050.1"
 scenario = "Given lease evidence whose commitment header holds a kernel batch header encoding, when verify_call runs, then it returns LeaseRefusal::InvalidCanonicalEvidence"
 contract = "contracts/programs.md#sandbox-evidence"
-test = "programs/crates/layerx-programs-sandbox/tests/lease_chain.rs::lease_transition_refuses_kernel_batch_header_evidence (planned)"
+test = "programs/crates/layerx-programs-sandbox/tests/lease_chain.rs::lease_transition_refuses_kernel_batch_header_evidence (retired: Lease transitions now verify native proven lease records against mounted lxphost state instead of the former kernel batch-header commitment encoding, so that input-specific refusal is obsolete. programs/crates/layerx-programs-sandbox/tests/lease_chain.rs::lease_transition_verifies_only_against_mounted_lxphost_store carries the current provenance and foreign-store refusal contract.)"
 qualification = "UNRUN"
 
 [acceptance.13.51.1]
@@ -122815,7 +122815,7 @@ feature = "13"
 req = "13241.2"
 scenario = "Given the parsed ABI, when the test lists Methods, then there are exactly 35, deploy has 7 inputs with selector bde3ff66, and the last input of call, simulateCall, upgrade and sandboxExecute is named feeLimit with type uint128"
 contract = "contracts/programs.md#layerxprograms-0x101d-events"
-test = "precompiles/layerxprograms/abi_test.go::TestProgramsABIKeepsThirtyFiveMethods (planned)"
+test = "precompiles/layerxprograms/abi_test.go::TestProgramsABIKeepsThirtyFiveMethods (retired: The programs ABI now declares thirty-six methods rather than thirty-five, so the historical fixed method count is obsolete and cannot remain an acceptance fact. precompiles/layerxprograms/abi_test.go::TestProgramsABIKeepsThirtySixMethods carries the current method count, deployment selector and argument layout checks.)"
 qualification = "UNRUN"
 
 [acceptance.13.242.1]
@@ -126729,7 +126729,7 @@ feature = "15"
 req = "15247.1"
 scenario = "Given consensus/Makefile without the targets build-docs, build-docker, build-docker-localnode, build_c-amazonlinux, localnet-start, localnet-stop (planned), when the test runs make -n -C consensus <target> for each of them, then each run exits non-zero with No rule to make target and make -n -C consensus build still exits 0"
 contract = "contracts/consensus-fork.md#make-targets"
-test = "consensus/test/maketargets/consensus_makefile_test.go::TestMakeRetiredDockerTargets (planned)"
+test = "consensus/test/maketargets/consensus_makefile_test.go::TestMakeRetiredDockerTargets"
 qualification = "UNRUN"
 
 [acceptance.15.248.1]
@@ -126737,7 +126737,7 @@ feature = "15"
 req = "15248.1"
 scenario = "Given consensus/Makefile without the targets dist, go-mod-cache, go.sum, draw_deps, get_deps_bin_size, build-reproducible (planned), when the test runs make -n -C consensus <target> for each of them, then each run exits non-zero with No rule to make target and make -n -C consensus build still exits 0"
 contract = "contracts/consensus-fork.md#make-targets"
-test = "consensus/test/maketargets/consensus_makefile_test.go::TestMakeRetiredDistributionTargets (planned)"
+test = "consensus/test/maketargets/consensus_makefile_test.go::TestMakeRetiredDistributionTargets"
 qualification = "UNRUN"
 
 [acceptance.15.249.1]
@@ -127049,7 +127049,7 @@ feature = "16"
 req = "16001.1"
 scenario = "Given the real Makefile at HEAD, when run_gate.py --wave 0 --log-dir <tmp> -- make -n build runs, then it exits 0 and prints one evidence line naming the revision, command, exit 0 and an existing log path"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_run_gate.py::RunGateTest.test_records_evidence_line_for_passing_command (planned)"
+test = "scripts/gates/test_run_gate.py::test_records_evidence_line_for_passing_command"
 qualification = "UNRUN"
 
 [acceptance.16.1.2]
@@ -127057,7 +127057,7 @@ feature = "16"
 req = "16001.2"
 scenario = "Given a command make no-such-target that fails with exit 2, when run_gate.py runs it, then run_gate.py exits 2 and its evidence line reads exit=2"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_run_gate.py::RunGateTest.test_nonzero_exit_is_recorded_and_returned (planned)"
+test = "scripts/gates/test_run_gate.py::test_nonzero_exit_is_recorded_and_returned"
 qualification = "UNRUN"
 
 [acceptance.16.2.1]
@@ -127065,7 +127065,7 @@ feature = "16"
 req = "16002.1"
 scenario = "Given the Makefile at HEAD, when scripts/gates/wave-0.sh --list runs and make -n is run for each listed make target, then the list equals the frozen command list and every make -n exits 0"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_wave_0.py::Wave0GateTest.test_list_names_runnable_commands (planned)"
+test = "scripts/gates/test_wave_0.py::test_list_names_runnable_commands"
 qualification = "UNRUN"
 
 [acceptance.16.3.1]
@@ -127073,7 +127073,7 @@ feature = "16"
 req = "16003.1"
 scenario = "Given the Makefile at HEAD, when scripts/gates/wave-1.sh --list runs and make -n is run for each listed make target, then the list equals the frozen command list and every make -n exits 0"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_wave_1.py::Wave1GateTest.test_list_names_runnable_commands (planned)"
+test = "scripts/gates/test_wave_1.py::test_list_names_runnable_commands"
 qualification = "UNRUN"
 
 [acceptance.16.4.1]
@@ -127081,7 +127081,7 @@ feature = "16"
 req = "16004.1"
 scenario = "Given the Makefile at HEAD, when scripts/gates/wave-2.sh --list runs and make -n is run for each listed make target, then the list equals the frozen command list and every make -n exits 0"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_wave_2.py::Wave2GateTest.test_list_names_runnable_commands (planned)"
+test = "scripts/gates/test_wave_2.py::test_list_names_runnable_commands"
 qualification = "UNRUN"
 
 [acceptance.16.5.1]
@@ -127089,7 +127089,7 @@ feature = "16"
 req = "16005.1"
 scenario = "Given the Makefile at HEAD, when scripts/gates/wave-3.sh --list runs and make -n is run for each listed make target, then the list equals the frozen command list and every make -n exits 0"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_wave_3.py::Wave3GateTest.test_list_names_runnable_commands (planned)"
+test = "scripts/gates/test_wave_3.py::test_list_names_runnable_commands"
 qualification = "UNRUN"
 
 [acceptance.16.6.1]
@@ -127097,7 +127097,7 @@ feature = "16"
 req = "16006.1"
 scenario = "Given the Makefile at HEAD, when scripts/gates/wave-4.sh --list runs and make -n is run for each listed make target, then the list equals the frozen command list and every make -n exits 0"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_wave_4.py::Wave4GateTest.test_list_names_runnable_commands (planned)"
+test = "scripts/gates/test_wave_4.py::test_list_names_runnable_commands"
 qualification = "UNRUN"
 
 [acceptance.16.7.1]
@@ -127105,7 +127105,7 @@ feature = "16"
 req = "16007.1"
 scenario = "Given the Makefile at HEAD, when scripts/gates/wave-5.sh --list runs and make -n is run for each listed make target, then the list equals the frozen command list and every make -n exits 0"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_wave_5.py::Wave5GateTest.test_list_names_runnable_commands (planned)"
+test = "scripts/gates/test_wave_5.py::test_list_names_runnable_commands"
 qualification = "UNRUN"
 
 [acceptance.16.8.1]
@@ -127113,7 +127113,7 @@ feature = "16"
 req = "16008.1"
 scenario = "Given the Makefile at HEAD, when scripts/gates/wave-6.sh --list runs and make -n is run for each listed make target, then the list equals the frozen command list and every make -n exits 0"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_wave_6.py::Wave6GateTest.test_list_names_runnable_commands (planned)"
+test = "scripts/gates/test_wave_6.py::test_list_names_runnable_commands"
 qualification = "UNRUN"
 
 [acceptance.16.9.1]
@@ -127121,7 +127121,7 @@ feature = "16"
 req = "16009.1"
 scenario = "Given the Makefile at HEAD, when scripts/gates/wave-programme.sh --list runs and make -n is run for each listed make target, then the list equals the frozen command list and every make -n exits 0"
 contract = "contracts/tools-ops.md#wave-gates"
-test = "scripts/gates/test_wave_programme.py::WaveProgrammeGateTest.test_list_names_runnable_commands (planned)"
+test = "scripts/gates/test_wave_programme.py::test_list_names_runnable_commands"
 qualification = "UNRUN"
 
 [acceptance.16.10.1]
@@ -127129,7 +127129,7 @@ feature = "16"
 req = "16010.1"
 scenario = "Given the member rules at Makefile:910-978, when make -n test-exchange-native runs, then it exits 0 and prints the run lines of all seven member test binaries"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_exchange_native.py::ExchangeNativeAggregateTest.test_aggregate_runs_every_member (planned)"
+test = "tools/ci/tests/test_makefile_exchange_native.py::test_aggregate_runs_every_member"
 qualification = "UNRUN"
 
 [acceptance.16.11.1]
@@ -127137,7 +127137,7 @@ feature = "16"
 req = "16011.1"
 scenario = "Given the retired kernel library targets at Makefile:381-900 and :2189, when make -n runs each retired target name, then make exits 2 and reports no rule for each"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest.test_retired_targets_have_no_rule (planned)"
+test = "tools/ci/tests/test_makefile_wave1.py::test_retired_targets_have_no_rule"
 qualification = "UNRUN"
 
 [acceptance.16.11.2]
@@ -127145,7 +127145,7 @@ feature = "16"
 req = "16011.2"
 scenario = "Given the aggregates at Makefile:292, :3276 and :1713 and the kept oracle rules at Makefile:832-865, when make -n runs them with test-journal, then it exits 0 and no printed recipe names a retired kernel library object"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest.test_aggregates_dry_run_clean (planned)"
+test = "tools/ci/tests/test_makefile_wave1.py::test_aggregates_dry_run_clean"
 qualification = "UNRUN"
 
 [acceptance.16.12.1]
@@ -127153,7 +127153,7 @@ feature = "16"
 req = "16012.1"
 scenario = "Given the DA, replica, batch seal, gateway receive and guarantor kernel test rules at Makefile:1008-1180 and :1365-1373, when make -n runs each retired target, then make exits 2 for each"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest.test_retired_targets_have_no_rule (planned)"
+test = "tools/ci/tests/test_makefile_wave2.py::test_retired_targets_have_no_rule"
 qualification = "UNRUN"
 
 [acceptance.16.12.2]
@@ -127161,7 +127161,7 @@ feature = "16"
 req = "16012.2"
 scenario = "Given the aggregates at Makefile:292, :1034 and :1255 and the module registry rule at Makefile:4180, when make -n test core-test-all test-wave-10 test-wave-12 layerx-module-registry runs, then it exits 0 and no recipe names a retired object or node.c"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest.test_aggregates_dry_run_clean (planned)"
+test = "tools/ci/tests/test_makefile_wave2.py::test_aggregates_dry_run_clean"
 qualification = "UNRUN"
 
 [acceptance.16.13.1]
@@ -127169,7 +127169,7 @@ feature = "16"
 req = "16013.1"
 scenario = "Given the agent LNI and wire rules at Makefile:2696-2746 and :3056-3064, when make -n runs each retired target, then make exits 2 for each and the wire harness variable is gone"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave3.py::MakefileWaveThreeTest.test_retired_targets_have_no_rule (planned)"
+test = "tools/ci/tests/test_makefile_wave3.py::test_retired_targets_have_no_rule"
 qualification = "UNRUN"
 
 [acceptance.16.13.2]
@@ -127177,7 +127177,7 @@ feature = "16"
 req = "16013.2"
 scenario = "Given the agent and programs aggregates at Makefile:2558, :3676 and :3697 and the genesis module table rule at Makefile:1559, when make -n runs them with the boundary gate, then it exits 0, the module table links the shared harness and no recipe names the wire codec, the LNI preparation state or the fee-governance program"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave3.py::MakefileWaveThreeTest.test_aggregates_dry_run_clean (planned)"
+test = "tools/ci/tests/test_makefile_wave3.py::test_aggregates_dry_run_clean"
 qualification = "UNRUN"
 
 [acceptance.16.14.1]
@@ -127185,7 +127185,7 @@ feature = "16"
 req = "16014.1"
 scenario = "Given the daemon LNI test rules at Makefile:1476-1488 and :3959-3995 and the contracts stamp at Makefile:1266-1270, when make -n runs each retired target, then make exits 2 for each"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave4.py::MakefileWaveFourTest.test_retired_targets_have_no_rule (planned)"
+test = "tools/ci/tests/test_makefile_wave4.py::test_retired_targets_have_no_rule"
 qualification = "UNRUN"
 
 [acceptance.16.14.2]
@@ -127193,7 +127193,7 @@ feature = "16"
 req = "16014.2"
 scenario = "Given test-paxeer-bond at Makefile:1281 and the genesis builder rule at Makefile:1571, when make -n runs them with test and core-test-all, then it exits 0, the builder links the shared harness and no recipe compiles a retired root contract or a layerxd LNI source"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave4.py::MakefileWaveFourTest.test_aggregates_dry_run_clean (planned)"
+test = "tools/ci/tests/test_makefile_wave4.py::test_aggregates_dry_run_clean"
 qualification = "UNRUN"
 
 [acceptance.16.15.1]
@@ -127201,7 +127201,7 @@ feature = "16"
 req = "16015.1"
 scenario = "Given the batch WAL, finality, custody-proof, credit and Paxeer membership rules at Makefile:1964-2106, :3915-3956 and :4191-4221, when make -n runs each retired target, then make exits 2 for each"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave5.py::MakefileWaveFiveTest.test_retired_targets_have_no_rule (planned)"
+test = "tools/ci/tests/test_makefile_wave5.py::test_retired_targets_have_no_rule"
 qualification = "UNRUN"
 
 [acceptance.16.15.2]
@@ -127209,7 +127209,7 @@ feature = "16"
 req = "16015.2"
 scenario = "Given the human, withdrawal-proof and paxd-domain rules at Makefile:2294-2398, :4172 and :3154, when make -n runs them with test and core-test-all, then it exits 0 and no recipe names a retired custody, credit, batch WAL, finality or anchor artifact"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave5.py::MakefileWaveFiveTest.test_aggregates_dry_run_clean (planned)"
+test = "tools/ci/tests/test_makefile_wave5.py::test_aggregates_dry_run_clean"
 qualification = "UNRUN"
 
 [acceptance.16.16.1]
@@ -127217,7 +127217,7 @@ feature = "16"
 req = "16016.1"
 scenario = "Given the layerxd, guarantor, handover, verify, daemon and retired kernel test rules at Makefile:992-1289, :1400-1590 and :3812-4299, when make -n runs each retired target, then make exits 2 for each and the LNI parity script is gone"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave6.py::MakefileWaveSixTest.test_retired_targets_have_no_rule (planned)"
+test = "tools/ci/tests/test_makefile_wave6.py::test_retired_targets_have_no_rule"
 qualification = "UNRUN"
 
 [acceptance.16.16.2]
@@ -127225,7 +127225,7 @@ feature = "16"
 req = "16016.2"
 scenario = "Given the aggregates at Makefile:211, :292, :3276, :3294 and :4014, when make -n runs them with human-test and the new test-tests-python target, then it exits 0 and no recipe names a retired daemon tree or the movement provider"
 contract = "contracts/tools-ops.md#makefile-graph"
-test = "tools/ci/tests/test_makefile_wave6.py::MakefileWaveSixTest.test_aggregates_dry_run_clean (planned)"
+test = "tools/ci/tests/test_makefile_wave6.py::test_aggregates_dry_run_clean"
 qualification = "UNRUN"
 
 [acceptance.16.17.1]
@@ -127233,7 +127233,7 @@ feature = "16"
 req = "16017.1"
 scenario = "Given docker/relay-archive and docker/intent-ingester deleted, when tools/containers/check.sh runs over the whole layout, then it exits 0 and no tracked file names a deleted Dockerfile"
 contract = "contracts/tools-ops.md#container-images"
-test = "tools/containers/test_retired_images.py::RetiredImagesTest.test_container_layout_passes_without_retired_images (planned)"
+test = "tools/containers/test_retired_images.py::test_container_layout_passes_without_retired_images"
 qualification = "UNRUN"
 
 [acceptance.16.18.1]
@@ -127241,7 +127241,7 @@ feature = "16"
 req = "16018.1"
 scenario = "Given docker/kernel/Dockerfile without the layerxd, guarantor, handover, archive codec and custody-proof stages, when tools/containers/check.sh kernel runs, then it exits 0"
 contract = "contracts/tools-ops.md#container-images"
-test = "tools/containers/test_kernel_image.py::KernelImageTest.test_kernel_dockerfile_passes_build_check (planned)"
+test = "tools/containers/test_kernel_image.py::test_kernel_dockerfile_passes_build_check"
 qualification = "UNRUN"
 
 [acceptance.16.19.1]
@@ -127249,7 +127249,7 @@ feature = "16"
 req = "16019.1"
 scenario = "Given docker/kernel/init.sh with the guarantor, layerxd, layerxd-authority and relay-archive services removed, when bash -n and tools/paxeer-x/tests/retired_callers_test.py --component guarantor-runtime --component lni run over the three kernel box files, then both exit 0"
 contract = "contracts/tools-ops.md#container-images"
-test = "tools/containers/test_kernel_init.py::KernelInitTest.test_init_lists_no_retired_service (planned)"
+test = "tools/containers/test_kernel_init.py::test_init_lists_no_retired_service"
 qualification = "UNRUN"
 
 [acceptance.16.20.1]
@@ -127257,7 +127257,7 @@ feature = "16"
 req = "16020.1"
 scenario = "Given docker/platform-node deleted and unregistered, when tools/containers/check.sh platform-node runs, then it exits 2 as an unknown service"
 contract = "contracts/tools-ops.md#container-images"
-test = "tools/containers/test_platform_node_retired.py::PlatformNodeRetiredTest.test_check_refuses_retired_service_name (planned)"
+test = "tools/containers/test_platform_node_retired.py::test_check_refuses_retired_service_name"
 qualification = "UNRUN"
 
 [acceptance.16.21.1]
@@ -127265,7 +127265,7 @@ feature = "16"
 req = "16021.1"
 scenario = "Given the layerx and paxd-node Dockerfiles without the checkpoint settlement copy, when tools/containers/check.sh layerx paxeer runs, then it exits 0"
 contract = "contracts/tools-ops.md#container-images"
-test = "tools/containers/test_paxd_images.py::PaxdImagesTest.test_layerx_and_paxeer_images_pass_build_check (planned)"
+test = "tools/containers/test_paxd_images.py::test_layerx_and_paxeer_images_pass_build_check"
 qualification = "UNRUN"
 
 [acceptance.16.22.1]
@@ -127273,7 +127273,7 @@ feature = "16"
 req = "16022.1"
 scenario = "Given xweb-test.yml without the kernel web job and path filters, when the retired-callers scanner runs on it with component kernel-web, then it exits 0 with no finding"
 contract = "contracts/tools-ops.md#ci-workflows"
-test = "tools/ci/tests/test_xweb_workflow.py::XwebWorkflowTest.test_workflow_has_no_kernel_web_job (planned)"
+test = "tools/ci/tests/test_xweb_workflow.py::test_workflow_has_no_kernel_web_job"
 qualification = "UNRUN"
 
 [acceptance.16.23.1]
@@ -127281,7 +127281,7 @@ feature = "16"
 req = "16023.1"
 scenario = "Given the three CI files without the layerx-wire crate, when the scanner runs with component wire-codec on them, then it exits 0 with no finding"
 contract = "contracts/tools-ops.md#ci-workflows"
-test = "tools/ci/tests/test_wire_codec_ci.py::WireCodecCiTest.test_ci_names_no_wire_crate (planned)"
+test = "tools/ci/tests/test_wire_codec_ci.py::test_ci_names_no_wire_crate"
 qualification = "UNRUN"
 
 [acceptance.16.24.1]
@@ -127289,7 +127289,7 @@ feature = "16"
 req = "16024.1"
 scenario = "Given human.yml without layerxd and sign-credit, when the scanner runs on it, then it exits 0 with no finding"
 contract = "contracts/tools-ops.md#ci-workflows"
-test = "tools/ci/tests/test_human_workflow.py::HumanWorkflowTest.test_workflow_builds_no_retired_binary (planned)"
+test = "tools/ci/tests/test_human_workflow.py::test_workflow_builds_no_retired_binary"
 qualification = "UNRUN"
 
 [acceptance.16.25.1]
@@ -127297,7 +127297,7 @@ feature = "16"
 req = "16025.1"
 scenario = "Given node-build.yml testing only ./node/..., when the scanner runs on it with component custody-deposit, then it exits 0 with no finding"
 contract = "contracts/tools-ops.md#ci-workflows"
-test = "tools/ci/tests/test_node_build_workflow.py::NodeBuildWorkflowTest.test_workflow_tests_no_custody_module (planned)"
+test = "tools/ci/tests/test_node_build_workflow.py::test_workflow_tests_no_custody_module"
 qualification = "UNRUN"
 
 [acceptance.16.26.1]
@@ -127305,7 +127305,7 @@ feature = "16"
 req = "16026.1"
 scenario = "Given spec/layerx-merge/qualification.kvx at HEAD, when beta-ledger-check.sh and beta-report.sh --check run without a ledger flag, then both exit 0 and read the layerx-merge ledger"
 contract = "contracts/tools-ops.md#ci-scripts"
-test = "tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest.test_ledger_check_reads_layerx_merge_ledger (planned)"
+test = "tools/ci/tests/test_beta_ledger_paths.py::test_ledger_check_reads_layerx_merge_ledger"
 qualification = "UNRUN"
 
 [acceptance.16.27.1]
@@ -127313,7 +127313,7 @@ feature = "16"
 req = "16027.1"
 scenario = "Given xweb-workflow-check.sh without retired or missing paths, when it runs from the repository root, then it exits 0"
 contract = "contracts/tools-ops.md#ci-scripts"
-test = "tools/ci/tests/test_xweb_workflow_check.py::XwebWorkflowCheckTest.test_check_passes_against_head_tree (planned)"
+test = "tools/ci/tests/test_xweb_workflow_check.py::test_check_passes_against_head_tree"
 qualification = "UNRUN"
 
 [acceptance.16.28.1]
@@ -127321,7 +127321,7 @@ feature = "16"
 req = "16028.1"
 scenario = "Given the state surface list without the retired root contracts, when solidity-state-surface.sh runs, then it exits 0"
 contract = "contracts/tools-ops.md#ci-scripts"
-test = "tools/ci/tests/test_solidity_state_surface.py::SolidityStateSurfaceTest.test_surface_check_passes_on_kept_contracts (planned)"
+test = "tools/ci/tests/test_solidity_state_surface.py::test_surface_check_passes_on_kept_contracts"
 qualification = "UNRUN"
 
 [acceptance.16.29.1]
@@ -127329,7 +127329,7 @@ feature = "16"
 req = "16029.1"
 scenario = "Given check-live.sh with the lx_ probes replaced, when the scanner runs on it and the script runs without a mode, then the scanner exits 0 and the script exits 2 with its usage"
 contract = "contracts/tools-ops.md#ci-scripts"
-test = "tools/ci/tests/test_wallet_check_live.py::WalletCheckLiveTest.test_check_live_names_no_lx_method (planned)"
+test = "tools/ci/tests/test_wallet_check_live.py::test_check_live_names_no_lx_method"
 qualification = "UNRUN"
 
 [acceptance.16.30.1]
@@ -127337,7 +127337,7 @@ feature = "16"
 req = "16030.1"
 scenario = "Given the producer without its LNI step, when the scanner runs with component lni and the producer runs with --help, then both exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/ci/tests/test_program_http_producer.py::ProgramHttpProducerTest.test_producer_uses_no_lni (planned)"
+test = "tools/ci/tests/test_program_http_producer.py::test_producer_uses_no_lni"
 qualification = "UNRUN"
 
 [acceptance.16.31.1]
@@ -127345,7 +127345,7 @@ feature = "16"
 req = "16031.1"
 scenario = "Given the beta deploy script deleted, when make -n workspace-build and the scanner over scripts run, then both exit 0"
 contract = "contracts/tools-ops.md#foundry-profile"
-test = "tools/ci/tests/test_beta_deploy_retired.py::BetaDeployRetiredTest.test_root_forge_build_without_beta_script (planned)"
+test = "tools/ci/tests/test_beta_deploy_retired.py::test_root_forge_build_without_beta_script"
 qualification = "UNRUN"
 
 [acceptance.16.32.1]
@@ -127353,7 +127353,7 @@ feature = "16"
 req = "16032.1"
 scenario = "Given docs-names.sh pointing at spec/layerx-merge/spec.kvx, when it runs from the repository root, then it exits 0"
 contract = "contracts/tools-ops.md#bringup"
-test = "tools/bringup/tests/test_spec_paths.py::BringupSpecPathsTest.test_docs_names_reads_existing_spec (planned)"
+test = "tools/bringup/tests/test_spec_paths.py::test_docs_names_reads_existing_spec"
 qualification = "UNRUN"
 
 [acceptance.16.33.1]
@@ -127361,7 +127361,7 @@ feature = "16"
 req = "16033.1"
 scenario = "Given the four bring-up scripts without guarantor, custody-proof and replica steps, when the scanner runs on them and ca.sh services runs, then both exit 0"
 contract = "contracts/tools-ops.md#bringup"
-test = "tools/bringup/tests/test_kernel_genesis_retired.py::KernelGenesisRetiredTest.test_bringup_names_no_guarantor_or_custody_proof (planned)"
+test = "tools/bringup/tests/test_kernel_genesis_retired.py::test_bringup_names_no_guarantor_or_custody_proof"
 qualification = "UNRUN"
 
 [acceptance.16.34.1]
@@ -127369,7 +127369,7 @@ feature = "16"
 req = "16034.1"
 scenario = "Given the bring-up tests without retired daemon and custody-proof checks, when the scanner and foundation-artifacts.py run, then both exit 0"
 contract = "contracts/tools-ops.md#bringup"
-test = "tools/bringup/tests/test_bringup_fixtures_retired.py::BringupFixturesRetiredTest.test_fixtures_name_no_retired_daemon (planned)"
+test = "tools/bringup/tests/test_bringup_fixtures_retired.py::test_fixtures_name_no_retired_daemon"
 qualification = "UNRUN"
 
 [acceptance.16.35.1]
@@ -127377,7 +127377,7 @@ feature = "16"
 req = "16035.1"
 scenario = "Given xweb-config.sh with the lx_ methods replaced, when render serve runs into a temporary directory, then it exits 0 and no rendered file contains lx_"
 contract = "contracts/tools-ops.md#bringup"
-test = "tools/bringup/tests/test_xweb_config.py::XwebConfigTest.test_render_emits_no_lx_route (planned)"
+test = "tools/bringup/tests/test_xweb_config.py::test_render_emits_no_lx_route"
 qualification = "UNRUN"
 
 [acceptance.16.36.1]
@@ -127385,7 +127385,7 @@ feature = "16"
 req = "16036.1"
 scenario = "Given gate 2.2 deleted and gate 24.14 without the layerxd pathspec and runtime-fixture steps, when the scanner runs on gate 24.14, then it exits 0 with no finding, bash -n accepts gate 24.14 and gate 2.2 is absent"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_gates_guarantor_retired.py::GatesGuarantorRetiredTest.test_gates_name_no_retired_daemon (planned)"
+test = "tools/paxeer-x/tests/test_gates_guarantor_retired.py::test_gates_name_no_retired_daemon"
 qualification = "UNRUN"
 
 [acceptance.16.37.1]
@@ -127393,7 +127393,7 @@ feature = "16"
 req = "16037.1"
 scenario = "Given the three gates and the build fragment without layerxd and replica steps, when the scanner runs on them, then it exits 0 with no finding"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_gates_layerxd_retired.py::GatesLayerxdRetiredTest.test_gates_name_no_layerxd_or_replica (planned)"
+test = "tools/paxeer-x/tests/test_gates_layerxd_retired.py::test_gates_name_no_layerxd_or_replica"
 qualification = "UNRUN"
 
 [acceptance.16.38.1]
@@ -127401,7 +127401,7 @@ feature = "16"
 req = "16038.1"
 scenario = "Given gates 24.16 and 5.1 without the root contracts and credit drivers, when the scanner runs on them, then it exits 0 with no finding"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_gates_custody_retired.py::GatesCustodyRetiredTest.test_gates_name_no_root_contract_or_credit (planned)"
+test = "tools/paxeer-x/tests/test_gates_custody_retired.py::test_gates_name_no_root_contract_or_credit"
 qualification = "UNRUN"
 
 [acceptance.16.39.1]
@@ -127409,7 +127409,7 @@ feature = "16"
 req = "16039.1"
 scenario = "Given gate 103.6.11 without the layerx-wire entries and the fee-governance native test and producer without the relay case, when the test runs, then the scanner exits 0 on gate 103.6.11 and neither file names LX_PROGRAMS_FEE_GOVERNANCE or native_signed_governance_producer_consumer"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_gates_wire_fee_retired.py::GatesWireFeeRetiredTest.test_gates_name_no_wire_codec_or_fee_relay (planned)"
+test = "tools/paxeer-x/tests/test_gates_wire_fee_retired.py::test_gates_name_no_wire_codec_or_fee_relay"
 qualification = "UNRUN"
 
 [acceptance.16.40.1]
@@ -127417,7 +127417,7 @@ feature = "16"
 req = "16040.1"
 scenario = "Given the governance templates without the exchange, custody and anchor proposals, when tools/paxeer-x/gov/test.sh runs, then it exits 0 and no rendered proposal names a retired message"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_gov_templates.py::GovTemplatesTest.test_gov_suite_passes_without_retired_templates (planned)"
+test = "tools/paxeer-x/tests/test_gov_templates.py::test_gov_suite_passes_without_retired_templates"
 qualification = "UNRUN"
 
 [acceptance.16.41.1]
@@ -127425,7 +127425,7 @@ feature = "16"
 req = "16041.1"
 scenario = "Given the registry listing every gate, when verify-task.sh runs with an unknown selector, then it exits 2 as a usage refusal and every gate file has a registry section"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_gate_registry.py::GateRegistryTest.test_every_gate_is_registered_and_dispatches (planned)"
+test = "tools/paxeer-x/tests/test_gate_registry.py::test_every_gate_is_registered_and_dispatches"
 qualification = "UNRUN"
 
 [acceptance.16.42.1]
@@ -127433,7 +127433,7 @@ feature = "16"
 req = "16042.1"
 scenario = "Given spec/layerx-merge/spec.kvx with 36 service blocks, when candidate.catalogue(ROOT / SERVICE_CATALOGUE) runs, then it returns 36 services each with purpose, route and dependencies"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_service_catalogue.py::ServiceCatalogueTest.test_catalogue_reads_layerx_merge_services (planned)"
+test = "tools/paxeer-x/tests/test_service_catalogue.py::test_catalogue_reads_layerx_merge_services"
 qualification = "UNRUN"
 
 [acceptance.16.43.1]
@@ -127441,7 +127441,7 @@ feature = "16"
 req = "16043.1"
 scenario = "Given the route catalogue without lx_ records, when it is loaded, then no rpc_records method starts with lx_ and the schema is unchanged"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_route_catalogue_lx.py::RouteCatalogueLxTest.test_catalogue_lists_no_lx_method (planned)"
+test = "tools/paxeer-x/tests/test_route_catalogue_lx.py::test_catalogue_lists_no_lx_method"
 qualification = "UNRUN"
 
 [acceptance.16.44.1]
@@ -127449,7 +127449,7 @@ feature = "16"
 req = "16044.1"
 scenario = "Given the catalogue listing the deleted daemon trees, when the scanner runs with --self-test and then with --deleted for those components, then both exit 0"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid (planned)"
+test = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid (retired: The historical requirement that every deleted-tree catalogue path be absent no longer applies to the whole current tree: tests/daemon is retained. tools/paxeer-x/tests/test_retired_catalogue_deleted.py::test_catalogue_valid_and_self_test_passes now checks the scanner self-test and catalogue membership rather than asserting wholesale directory deletion; the former absence selector is retired.)"
 qualification = "UNRUN"
 
 [acceptance.16.45.1]
@@ -127457,7 +127457,7 @@ feature = "16"
 req = "16045.1"
 scenario = "Given the producers repointed to SERVICE_CATALOGUE, when each is loaded and run with --help, then each builds an existing catalogue path and exits 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_service_catalogue_1.py::ServiceCatalogueReaders1Test.test_producers_load_existing_catalogue (planned)"
+test = "tools/qualification/test_service_catalogue_1.py::test_producers_load_existing_catalogue"
 qualification = "UNRUN"
 
 [acceptance.16.46.1]
@@ -127465,7 +127465,7 @@ feature = "16"
 req = "16046.1"
 scenario = "Given the producers repointed to SERVICE_CATALOGUE, when each is loaded and run with --help, then each builds an existing catalogue path and exits 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_service_catalogue_2.py::ServiceCatalogueReaders2Test.test_producers_load_existing_catalogue (planned)"
+test = "tools/qualification/test_service_catalogue_2.py::test_producers_load_existing_catalogue"
 qualification = "UNRUN"
 
 [acceptance.16.47.1]
@@ -127473,7 +127473,7 @@ feature = "16"
 req = "16047.1"
 scenario = "Given the producers repointed to SERVICE_CATALOGUE, when each is loaded and run with --help, then each builds an existing catalogue path and exits 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_service_catalogue_3.py::ServiceCatalogueReaders3Test.test_producers_load_existing_catalogue (planned)"
+test = "tools/qualification/test_service_catalogue_3.py::test_producers_load_existing_catalogue"
 qualification = "UNRUN"
 
 [acceptance.16.48.1]
@@ -127481,7 +127481,7 @@ feature = "16"
 req = "16048.1"
 scenario = "Given tools/qualification/paxeer-x/arbiter-admission.py, tools/qualification/paxeer-x/arbiter-native-authority.py, tools/qualification/paxeer-x/arbiter-prestate-transport.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_1.py::RetiredCallers1Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_1.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.49.1]
@@ -127489,7 +127489,7 @@ feature = "16"
 req = "16049.1"
 scenario = "Given tools/qualification/paxeer-x/arbiter_prestate.py, tools/qualification/paxeer-x/asset-execution-prestate.py, tools/qualification/paxeer-x/asset-inventory.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_2.py::RetiredCallers2Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_2.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.50.1]
@@ -127497,7 +127497,7 @@ feature = "16"
 req = "16050.1"
 scenario = "Given tools/qualification/paxeer-x/authenticated-replay-step.py, tools/qualification/paxeer-x/market-sandbox-capture.py, tools/qualification/paxeer-x/market-sandbox-profile.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_3.py::RetiredCallers3Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_3.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.51.1]
@@ -127505,7 +127505,7 @@ feature = "16"
 req = "16051.1"
 scenario = "Given tools/qualification/paxeer-x/program-replay-record.py, tools/qualification/paxeer-x/replay-authority.py, tools/qualification/paxeer-x/replay-catalogue.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_4.py::RetiredCallers4Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_4.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.52.1]
@@ -127513,7 +127513,7 @@ feature = "16"
 req = "16052.1"
 scenario = "Given tools/qualification/paxeer-x/native-programs-link.py, tools/qualification/paxeer-x/build-caps-discovery.sh without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_5.py::RetiredCallers5Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_5.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.53.1]
@@ -127521,7 +127521,7 @@ feature = "16"
 req = "16053.1"
 scenario = "Given tools/qualification/paxeer-x/interop-archive-contract.py, tools/qualification/paxeer-x/fixtures/caps_fixture.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_6.py::RetiredCallers6Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_6.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.54.1]
@@ -127529,7 +127529,7 @@ feature = "16"
 req = "16054.1"
 scenario = "Given tools/qualification/paxeer-x/authority-evidence-read.py, tools/qualification/paxeer-x/router-complete-readiness.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_7.py::RetiredCallers7Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_7.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.55.1]
@@ -127537,7 +127537,7 @@ feature = "16"
 req = "16055.1"
 scenario = "Given tools/qualification/paxeer-x/storage-recovery-producer.py, tools/qualification/paxeer-x/explorer-receipt-reader.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_8.py::RetiredCallers8Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_8.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.56.1]
@@ -127545,7 +127545,7 @@ feature = "16"
 req = "16056.1"
 scenario = "Given tools/qualification/paxeer-x/agent_operation_envelope.py, tools/qualification/paxeer-x/event-delivery-contract.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_9.py::RetiredCallers9Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_9.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.57.1]
@@ -127553,7 +127553,7 @@ feature = "16"
 req = "16057.1"
 scenario = "Given tools/qualification/paxeer-x/fixtures/xweb_fixture.py, tools/qualification/paxeer-x/programs_all_form_validation.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_10.py::RetiredCallers10Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_10.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.58.1]
@@ -127561,7 +127561,7 @@ feature = "16"
 req = "16058.1"
 scenario = "Given tools/qualification/paxeer-x/programs_accounts_winddown.py, tools/qualification/paxeer-x/movement-custody-profile.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_11.py::RetiredCallers11Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_11.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.59.1]
@@ -127569,7 +127569,7 @@ feature = "16"
 req = "16059.1"
 scenario = "Given tools/qualification/paxeer-x/custody_governance.py, tools/qualification/paxeer-x/caps-codecs.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_12.py::RetiredCallers12Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_12.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.60.1]
@@ -127577,7 +127577,7 @@ feature = "16"
 req = "16060.1"
 scenario = "Given tools/qualification/paxeer-x/budget-proof-intake.py, tools/qualification/paxeer-x/human-approval-admission.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_13.py::RetiredCallers13Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_13.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.61.1]
@@ -127585,7 +127585,7 @@ feature = "16"
 req = "16061.1"
 scenario = "Given tools/qualification/paxeer-x/native_send_profile.py, tools/qualification/paxeer-x/programs_source_abi.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_14.py::RetiredCallers14Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_14.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.62.1]
@@ -127593,7 +127593,7 @@ feature = "16"
 req = "16062.1"
 scenario = "Given tools/qualification/paxeer-x/registry-contract.py, tools/qualification/beta_driver.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_15.py::RetiredCallers15Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_15.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.63.1]
@@ -127601,7 +127601,7 @@ feature = "16"
 req = "16063.1"
 scenario = "Given tools/qualification/paxeer-x/agent_http_bounds.py, tools/qualification/paxeer-x/agent_tenant_readiness.py, tools/qualification/paxeer-x/mcp_web_payer.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_16.py::RetiredCallers16Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_16.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.64.1]
@@ -127609,7 +127609,7 @@ feature = "16"
 req = "16064.1"
 scenario = "Given tools/qualification/paxeer-x/program_balance_read.py, tools/qualification/paxeer-x/program_cache_native_equivalence.py, tools/qualification/paxeer-x/program_market_attestation.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_17.py::RetiredCallers17Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_17.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.65.1]
@@ -127617,7 +127617,7 @@ feature = "16"
 req = "16065.1"
 scenario = "Given tools/qualification/paxeer-x/program_spend_composition.py, tools/qualification/paxeer-x/program_transfer_authority.py, tools/qualification/paxeer-x/wallet-402-caps.py without retired construct references, when the scanner runs on them and each Python producer runs with --help, then all exit 0"
 contract = "contracts/tools-ops.md#qualification-harness"
-test = "tools/qualification/test_retired_callers_18.py::RetiredCallers18Test.test_producers_name_no_retired_construct (planned)"
+test = "tools/qualification/test_retired_callers_18.py::test_producers_name_no_retired_construct"
 qualification = "UNRUN"
 
 [acceptance.16.66.1]
@@ -127633,7 +127633,7 @@ feature = "16"
 req = "16067.1"
 scenario = "Given ci.yml with the loadtest job on the routed runner, when the workflow is parsed and the runner routing check runs, then the job runs exactly the two loadtest commands and the check exits 0"
 contract = "contracts/tools-ops.md#ci-workflows"
-test = "tools/ci/tests/test_ci_loadtest_job.py::CiLoadtestJobTest.test_root_workflow_runs_loadtest_module (planned)"
+test = "tools/ci/tests/test_ci_loadtest_job.py::test_root_workflow_runs_loadtest_module"
 qualification = "UNRUN"
 
 [acceptance.16.68.1]
@@ -127641,7 +127641,7 @@ feature = "16"
 req = "16068.1"
 scenario = "Given the Makefile without the replay golden targets and CI without the replay-matrix job, when the core gate inventory check and the runner routing check run, then both exit 0"
 contract = "contracts/tools-ops.md#ci-workflows"
-test = "tools/ci/tests/test_replay_golden_ci.py::ReplayGoldenCiTest.test_core_gates_and_routing_pass_without_replay_golden (planned)"
+test = "tools/ci/tests/test_replay_golden_ci.py::test_core_gates_and_routing_pass_without_replay_golden"
 qualification = "UNRUN"
 
 [acceptance.16.69.1]
@@ -127649,7 +127649,7 @@ feature = "16"
 req = "16069.1"
 scenario = "Given the human service image without the movement role and binary, when the entrypoint runs with role movement and check.sh runs on human-service, then the entrypoint exits 64 and check.sh exits 0"
 contract = "contracts/tools-ops.md#container-images"
-test = "tools/containers/test_human_service_image.py::HumanServiceImageTest.test_movement_role_refused_and_image_checks (planned)"
+test = "tools/containers/test_human_service_image.py::test_movement_role_refused_and_image_checks"
 qualification = "UNRUN"
 
 [acceptance.16.70.1]
@@ -127657,7 +127657,7 @@ feature = "16"
 req = "16070.1"
 scenario = "Given the gates without the versioned boundary gate and the hosted fixture checks, when verify-task.sh runs selector 0.5 and bash -n runs on gate 104.17.4, then verify-task.sh exits 2 as a usage refusal and bash -n exits 0"
 contract = "contracts/tools-ops.md#paxeer-x-gates"
-test = "tools/paxeer-x/tests/test_gates_deleted_sources.py::GatesDeletedSourcesTest.test_gates_name_no_deleted_source (planned)"
+test = "tools/paxeer-x/tests/test_gates_deleted_sources.py::test_gates_name_no_deleted_source"
 qualification = "UNRUN"
 
 [acceptance.16.241.1]
@@ -128401,7 +128401,7 @@ feature = "16"
 req = "16966.4"
 scenario = "Given the wave-6 tree, when the test checks the three paths and runs make -n build test, then all are absent and make exits 0."
 contract = "contracts/tools-ops.md#wiring-integration"
-test = "tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent (planned)"
+test = "tests/bridge/retired/test_retired_credit_qualification.py::test_credit_qualification_is_retired"
 qualification = "UNRUN"
 
 [acceptance.16.967.1]
@@ -128409,7 +128409,7 @@ feature = "16"
 req = "16967.1"
 scenario = "Given the wave-6 tree, when the test checks docker/relay-archive, then it does not exist."
 contract = "contracts/tools-ops.md#wiring-integration"
-test = "tests/ci/test_requested_retirements_absent.py::test_relay_archive_image_absent (planned)"
+test = "tests/ci/test_retired_requested_retirements_absent.py::test_relay_archive_image_absent"
 qualification = "UNRUN"
 
 [acceptance.16.967.2]
@@ -128417,7 +128417,7 @@ feature = "16"
 req = "16967.2"
 scenario = "Given the wave-6 tree, when the test checks tests/relay-archive, then it does not exist."
 contract = "contracts/tools-ops.md#wiring-integration"
-test = "tests/ci/test_requested_retirements_absent.py::test_relay_archive_tests_absent (planned)"
+test = "tests/ci/test_retired_requested_retirements_absent.py::test_relay_archive_tests_absent"
 qualification = "UNRUN"
 
 [acceptance.16.967.3]
@@ -128425,7 +128425,7 @@ feature = "16"
 req = "16967.3"
 scenario = "Given the wave-6 tree, when the test greps tests/solidity for both import paths, then none occurs and ContractIntegration.t.sol, ContractExecutionSafety.t.sol and CheckpointChallengeManager.t.sol are absent."
 contract = "contracts/tools-ops.md#wiring-integration"
-test = "tests/ci/test_requested_retirements_absent.py::test_security_storage_suites_absent (planned)"
+test = "tests/ci/test_retired_requested_retirements_absent.py::test_security_storage_suites_absent"
 qualification = "UNRUN"
 
 [acceptance.16.967.4]
@@ -128433,7 +128433,7 @@ feature = "16"
 req = "16967.4"
 scenario = "Given the wave-6 tree, when the test checks both paths, then neither exists."
 contract = "contracts/tools-ops.md#wiring-integration"
-test = "tests/ci/test_requested_retirements_absent.py::test_nullifier_registry_suites_absent (planned)"
+test = "tests/ci/test_retired_requested_retirements_absent.py::test_nullifier_registry_suites_absent"
 qualification = "UNRUN"
 
 [acceptance.16.967.5]
@@ -128441,7 +128441,7 @@ feature = "16"
 req = "16967.5"
 scenario = "Given the wave-6 tree, when the test checks the path and greps scripts/ for WithdrawalNullifierRegistry, then neither remains."
 contract = "contracts/tools-ops.md#wiring-integration"
-test = "tests/ci/test_requested_retirements_absent.py::test_beta_deploy_script_absent (planned)"
+test = "tests/ci/test_retired_requested_retirements_absent.py::test_beta_deploy_script_absent"
 qualification = "UNRUN"
 
 [acceptance.16.967.6]
@@ -128449,7 +128449,7 @@ feature = "16"
 req = "16967.6"
 scenario = "Given the wave-6 tree, when the test reads the contracts list of the script, then WithdrawalNullifierRegistry is absent."
 contract = "contracts/tools-ops.md#wiring-integration"
-test = "tests/ci/test_requested_retirements_absent.py::test_state_surface_names_no_nullifier_registry (planned)"
+test = "tests/ci/test_retired_requested_retirements_absent.py::test_state_surface_names_no_nullifier_registry"
 qualification = "UNRUN"
 
 [acceptance.16.968.1]
@@ -128753,7 +128753,7 @@ feature = "16"
 req = "16984.2"
 scenario = "Given the edited rule, when the test builds and runs build/tests/programs_parallel_differential, then neither the prerequisites nor the compile line name lxp_daemon_batch_wal.c and the binary exits 0."
 contract = "contracts/tools-ops.md#wiring-integration"
-test = "tests/ci/test_retired_make_rules.py::test_parallel_differential_links_without_batch_wal (planned)"
+test = "tests/ci/test_retired_make_rules.py::test_parallel_differential_links_without_batch_wal"
 qualification = "UNRUN"
 
 [acceptance.16.984.3]
@@ -128897,7 +128897,7 @@ feature = "17"
 req = "17006.3"
 scenario = "Given a wave script whose first step exits nonzero, when the runner records that step's evidence line, then the wave log also carries the tail of the step's log and the per-step logs sit under logs/waves/<n>."
 contract = "contracts/programme.md#programme"
-test = "scripts/gates/test_run_gate.py::RunGateTest.test_echoes_failing_step_log_tail"
+test = "scripts/gates/test_run_gate.py::test_echoes_failing_step_log_tail"
 qualification = "UNRUN"
 
 [acceptance.17.7.1]
@@ -319956,7 +319956,7 @@ feature = "18"
 req = "18890.1"
 scenario = "Given the four payments and porting pages, when a developer follows the LXT-20 section, then the pages name the in-tree token-lxt20 and payments-merchant examples and the pay5 replay command and contain no 'not in this tree' disclaimer"
 contract = "contracts/programs.md#sdk-examples"
-test = "docs/wiki/Porting.md::lxt20-in-tree"
+test = "docs/wiki/Porting.md::lxt20-in-tree (retired: The lxt20-in-tree selector was a manual documentation review label, not a declared test, and cannot remain an executable parity obligation. docs/wiki/Porting.md still documents programs/sdk/rust/examples/token-lxt20 and the payment examples; this retirement concerns the synthetic selector and does not claim automated coverage of those pages.)"
 qualification = "UNRUN"
 
 [task.18.924.1]
@@ -321122,7 +321122,7 @@ feature = "18"
 req = "18764.1"
 scenario = "Given a bond whose custodiedValue is V, when the vault calls syncCustodiedValue(V), then the call succeeds, custodiedValue stays V, membershipVersion is unchanged and no CustodiedValueSynchronized event is emitted"
 contract = "contracts/address-inventory.md#sol-guarantorbond"
-test = "tests/solidity/GuarantorBond.t.sol::testSyncCustodiedValueUnchangedIsNoOp"
+test = "tests/solidity/GuarantorBond.t.sol::testSyncCustodiedValueUnchangedIsNoOp (retired: Guarantor bond custody synchronization was retired with the Solidity checkpoint and storage suites, so an unchanged custodied-value synchronization event scenario no longer applies. tests/ci/test_retired_solidity_checkpoint.py::test_checkpoint_and_library_suites_retired carries the current absence and reference contract for GuarantorBond.t.sol and its related suites.)"
 qualification = "UNRUN"
 
 [task.18.800.1]
@@ -321253,7 +321253,7 @@ feature = "18"
 req = "18877.1"
 scenario = "Given a watermark W and a scanned row re-inserted at a height below W, when compact_scanned_blocks runs, then no scanned row at or below W remains and failed or unavailable rows are kept"
 contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
-test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::scanned watermark compaction deletes scanned rows re-inserted at or below the watermark"
+test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::compaction deletes scanned rows re-inserted at or below the watermark"
 qualification = "UNRUN"
 
 [acceptance.18.877.2]
@@ -321261,7 +321261,7 @@ feature = "18"
 req = "18877.2"
 scenario = "Given a market whose only observation is 40 days old and a retention of 30 days, when delete_expired_updates runs, then that submission is kept and latest_per_market returns its observation"
 contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
-test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::delete_expired_updates/2 retention keeps the newest submission of every market"
+test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::retention keeps the newest submission of every market"
 qualification = "UNRUN"
 
 [task.18.926.1]
@@ -321528,7 +321528,7 @@ feature = "18"
 req = "18765.1"
 scenario = "Given a certified liability report equal to the vault balance, when one extra token unit is transferred directly to LayerXVault and reconcile runs, then it succeeds and surplus for the asset is 1"
 contract = "contracts/address-inventory.md#0x1013-layerxcustody"
-test = "tests/solidity/ContractIntegration.t.sol::test_ReserveReconciliationRecordsUnsolicitedSurplus"
+test = "tests/solidity/ContractIntegration.t.sol::test_ReserveReconciliationRecordsUnsolicitedSurplus (retired: The Solidity vault reserve-reconciliation suite was removed with the retired custody checkpoint system, so recording unsolicited token surplus in that vault is no longer a live acceptance fact. tests/ci/test_retired_requested_retirements_absent.py::test_security_storage_suites_absent and tests/ci/test_retired_solidity_checkpoint.py::test_checkpoint_and_library_suites_retired carry current suite-absence coverage.)"
 qualification = "UNRUN"
 
 [task.18.783.1]
@@ -321571,7 +321571,7 @@ feature = "18"
 req = "18783.1"
 scenario = "Given the gateway openrpc.json publishing px_getHistory, px_getUnifiedHistory and the other px_ reads, when the three public RPC pages are read, then each lists every one of them in its method table"
 contract = "contracts/platform-gateway.md#gateway-jsonrpc-methods"
-test = "docs/wiki/PublicRpc.md::px_method_rows"
+test = "docs/wiki/PublicRpc.md::px_method_rows (retired: The px_method_rows selector was a manual comparison of public RPC prose with the gateway method inventory, not a declared test. That editorial marker is retired from executable parity; docs/wiki/PublicRpc.md remains documentation, and no existing test was found that asserts every method row across all three pages.)"
 qualification = "UNRUN"
 
 [task.18.801.1]
@@ -321753,7 +321753,7 @@ feature = "18"
 req = "18830.1"
 scenario = "Given a queued forced exit for an account and asset, when it is cancelled, then the keyed exited total is zero and a new forced exit at the exit batch queues the full proven balance"
 contract = "contracts/address-inventory.md#0x1013-layerxcustody"
-test = "modules/layerxcustody/keeper/keeper_test.go::TestForcedExitTotalExcludesCancelledExit"
+test = "modules/layerxcustody/keeper/keeper_test.go::TestForcedExitTotalExcludesCancelledExit (retired: Queueing and cancelling new forced exits no longer applies after custody retirement, so recomputing an exited total for a subsequent forced exit is obsolete. modules/layerxcustody/keeper/retire_claims_test.go::TestForcedExitIsRefusedFromTheMergePlanHeight and release_test.go::TestReleaseRetiredCancelsPendingClaims carry the maintained refusal and migration behaviour.)"
 qualification = "UNRUN"
 
 [task.18.861.1]
@@ -322620,7 +322620,7 @@ feature = "18"
 req = "181022.1"
 scenario = "Given the programs refusal corpus re-pinned to height 42 batch IDs with valid signatures preserved and the flipped signature kept invalid, when each vector is verified with height-ranged keys, then each fails at its expected_check"
 contract = "contracts/agent-rust-api.md#sdk"
-test = "services/agent/crates/layerx-sdk/tests/receipt_fixture.rs::programs_refusal_vectors_expose_the_shared_taxonomy"
+test = "services/agent/crates/layerx-sdk/tests/receipt_fixture.rs::programs_refusal_vectors_expose_the_shared_taxonomy (retired: The former SDK receipt fixture corpus and its re-pinned kernel batch identifiers were removed with the old programs receipt boundary, so that fixture-specific taxonomy obligation no longer applies. services/agent/crates/layerx-sdk/tests/repair_22_31_190.rs::finding_018_real_sequencer_receipt_requires_height_pins_and_programs_identity carries current signed programs receipt binding and refusal behaviour.)"
 qualification = "UNRUN"
 
 [task.18.694.1]
@@ -324649,7 +324649,7 @@ feature = "18"
 req = "18869.1"
 scenario = "Given the paxd-node Dockerfile, when it is built and dpkg -s libssl3t64 runs in the image, then the package is installed from an explicit apt-get line on the 24.04 base digest"
 contract = "contracts/tools-ops.md#container-images"
-test = "docker/paxeer/Dockerfile.paxd-node::paxd_node_runtime_has_libssl3t64"
+test = "docker/paxeer/Dockerfile.paxd-node::paxd_node_runtime_has_libssl3t64 (retired: The paxd_node_runtime_has_libssl3t64 selector was an image inspection label, not a test declared in the Dockerfile. docker/paxeer/Dockerfile.paxd-node explicitly installs libssl3t64 on Ubuntu 24.04; the manual dpkg inspection remains an image qualification obligation and this synthetic selector supplies no executable evidence for it.)"
 qualification = "UNRUN"
 
 [acceptance.18.869.2]
@@ -324657,7 +324657,7 @@ feature = "18"
 req = "18869.2"
 scenario = "Given the layerx Dockerfile and its dockerignore, when docker build -f docker/layerx/Dockerfile . runs from the repository root, then every stage including the native kernel and programs libraries completes"
 contract = "contracts/tools-ops.md#container-images"
-test = "docker/paxeer/Dockerfile.paxd-node::paxd_node_runtime_has_libssl3t64"
+test = "docker/paxeer/Dockerfile.paxd-node::paxd_node_runtime_has_libssl3t64 (retired: This entry incorrectly reused a paxd-node package inspection label for a different image build and never named a test. tools/containers/test_paxd_images.py::test_layerx_and_paxeer_images_pass_build_check covers current recipe checks, while a complete docker/layerx/Dockerfile build remains image qualification rather than this retired synthetic selector.)"
 qualification = "UNRUN"
 
 [task.18.883.1]
@@ -324744,7 +324744,7 @@ feature = "18"
 req = "18915.1"
 scenario = "Given an integrator reading the custody section of either page while a forced exit is queued, when they build a forced-exit witness or attempt a deposit, then the page tells them to prove against the exit checkpoint batch and that deposits are refused"
 contract = "contracts/address-inventory.md#0x1013-layerxcustody"
-test = "docs/wiki/UnifiedNetwork.md::exit_checkpoint_documented"
+test = "docs/wiki/UnifiedNetwork.md::exit_checkpoint_documented (retired: The exit_checkpoint_documented selector was a manual prose review of the former kernel custody forced-exit protocol, not a declared test. The merged network retires that custody movement path; modules/layerxcustody/keeper/keeper_test.go retains explicit refusal and migration coverage instead of treating the historical documentation marker as executable evidence.)"
 qualification = "UNRUN"
 
 [task.18.957.1]
@@ -324787,7 +324787,7 @@ feature = "18"
 req = "18957.1"
 scenario = "Given the seven translated READMEs, when a reader looks up 0x1015 in the module paragraph or the diagram, then each names the perps precompile served from v6.12.0 and none labels 0x1015 layerxExchange"
 contract = "contracts/markets.md#perps-0x1015"
-test = "docs/readme/README.es.md::perps_at_0x1015"
+test = "docs/readme/README.es.md::perps_at_0x1015 (retired: The perps_at_0x1015 selector was an editorial label in a translated README and never identified an executable test. Current address and generated inventory coverage lives in precompiles/perps/address_test.go::TestPerpsAddressIsLiteral1015 and spec/layerx-merge/programme/tests/test_system_docs.py::test_precompile_summary_lists_venues; the old translation review marker is retired without claiming those tests inspect translations.)"
 qualification = "UNRUN"
 
 [task.18.978.1]
@@ -325052,7 +325052,7 @@ feature = "18"
 req = "18771.1"
 scenario = "Given a node that answers getMarginMode at 0x1015 and isPaused at 0x1016 with one word and answers eth_getCode with 0x at both, when the capability probe runs, then exchange and bridge read live, and given both view calls revert, then both read absent"
 contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
-test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs::reads exchange and bridge as live when their view calls answer one word and absent when they revert"
+test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs::reads native surfaces as live when their view calls answer one word and absent when they revert"
 qualification = "UNRUN"
 
 [task.18.789.1]
@@ -329746,7 +329746,7 @@ feature = "20"
 req = "20009.1"
 scenario = "Given the vector file, when the Swift encoder runs the example calls, then every selector, calldata, topic and decoded tuple matches byte for byte"
 contract = "spec/layerx-merge/contracts/virtual-chains.md#sdk"
-test = "sdk/platform/swift/Tests/LayerXSdkTests/ChainsTests.swift::testChainsVectorsMatchAndRoundTrip (planned)"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift::testChainsVectorsMatchAndRoundTrip"
 qualification = "UNRUN"
 
 [acceptance.20.9.5.1]
@@ -329826,7 +329826,7 @@ feature = "20"
 req = "20008.1"
 scenario = "Given the precompile parameters and a draft, when the domain computes the cost and decodes the creation log, then bad names and oversized tiers are refused, the total value equals bond plus fee and the wallet parameter names the chain's RPC path"
 contract = "spec/layerx-merge/contracts/virtual-chains.md#launch"
-test = "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs::chain_domain_validates_names_tiers_cost_and_wallet_params (planned)"
+test = "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts::chain_domain_validates_names_tiers_cost_and_wallet_params"
 qualification = "UNRUN"
 
 [acceptance.20.6.2.1]
@@ -330290,7 +330290,7 @@ feature = "6"
 req = "6498.1"
 scenario = "Given the Makefile, when it is scanned for the movement-proof target, its variable and the owner custody script, then no line matches and make parses the file."
 contract = "contracts/services.md#human-tools"
-test = "make -n -s human-check"
+test = "Makefile::human-check"
 qualification = "UNRUN"
 
 [acceptance.10.1.10.1]
@@ -330298,7 +330298,7 @@ feature = "10"
 req = "10069.1"
 scenario = "Given the KMS test tree and the identity provider, when they are scanned for SystemTime::now and Instant::now, then no line matches and every test target compiles."
 contract = "contracts/services.md#human-service"
-test = "cargo test -p layerx-human-kms -p layerx-human-identity-provider --no-run"
+test = "services/human/Cargo.toml::crates/layerx-human-kms"
 qualification = "UNRUN"
 
 [acceptance.10.1.9.1]
@@ -330306,7 +330306,7 @@ feature = "10"
 req = "10068.1"
 scenario = "Given the human service test tree, when it is scanned for SystemTime::now and Instant::now, then no line matches and every test target compiles."
 contract = "contracts/services.md#human-service"
-test = "cargo test -p layerx-human-service --no-run"
+test = "services/human/Cargo.toml::crates/layerx-human-service"
 qualification = "UNRUN"
 
 [acceptance.10.1.8.1]
@@ -330314,7 +330314,7 @@ feature = "10"
 req = "10067.1"
 scenario = "Given StepClock, when it is sampled twice, then the readings share the generation and differ by one millisecond, and the ported fixtures compile without an ambient clock read."
 contract = "contracts/services.md#human-service"
-test = "services/human/crates/layerx-human-test-support/src/lib.rs::step_clock_advances_one_millisecond_per_sample (planned)"
+test = "services/human/crates/layerx-human-test-support/src/lib.rs::step_clock_advances_one_millisecond_per_sample"
 qualification = "UNRUN"
 
 [acceptance.10.1.7.1]
@@ -330322,7 +330322,7 @@ feature = "10"
 req = "10066.1"
 scenario = "Given the custody and KMS gateway sources, when they are scanned for SystemTime::now and Instant::now, then no line matches and every binary of the crate builds."
 contract = "contracts/services.md#human-service"
-test = "cargo build -p layerx-human-service --bins"
+test = "services/human/crates/layerx-human-service/Cargo.toml::layerx-human-service"
 qualification = "UNRUN"
 
 [acceptance.10.1.6.1]
@@ -330338,7 +330338,7 @@ feature = "10"
 req = "10064.1"
 scenario = "Given a source file whose only occurrence of a private node path token sits inside an identifier, when human_boundary_policy runs over its tree, then it reports no violation, and a quoted 'snapshot.bin' literal still fails."
 contract = "contracts/services.md#human-tools"
-test = "services/human/tools/boundary-check/tests/fixtures.rs::identifier_containing_a_private_path_token_passes (planned)"
+test = "services/human/tools/boundary-check/tests/fixtures.rs::identifier_containing_a_private_path_token_passes"
 qualification = "UNRUN"
 
 [acceptance.10.99.2]
@@ -330346,7 +330346,7 @@ feature = "19"
 req = "10992.1"
 scenario = "Given main after 2455fbc51 removed the native owner outcome verifier from layerx-proof, when layerx-human-service is built under --locked, then it compiles, production_components.rs names neither verify_native_owner_outcome nor NativeOwnerOutcomeContext, and the budget defund and EVM intent paths still bind their receipts through protocol_evidence and verify them through verify_outcome or finalization_evidence."
 contract = "contracts/agent-rust-api.md#receipt-verify-outcome"
-test = "cargo check --locked of layerx-human-service plus the identifier grep of task 10.99.2 (its verify_cmd)"
+test = "services/human/crates/layerx-human-service/Cargo.toml::layerx-human-service"
 qualification = "UNRUN"
 
 [acceptance.8.52.1]
@@ -330354,7 +330354,7 @@ feature = "19"
 req = "85201.1"
 scenario = "Given main after a47a944f9 deleted the Paxeer client crate manifest, when the platform workspace metadata is read under --locked and the boundary crate is built with its test targets, then both succeed and neither platform manifest nor the boundary's real-chain test names layerx-paxeer-client."
 contract = "contracts/platform.md#paxeer-boundary"
-test = "cargo metadata --locked over services/platform plus the manifest grep of task 8.52.1 (its verify_cmd)"
+test = "services/platform/Cargo.toml::[workspace]"
 qualification = "UNRUN"
 
 [acceptance.13.8.4]
@@ -330370,7 +330370,7 @@ feature = "19"
 req = "13083.1"
 scenario = "Given main after 68a345924 dropped layerx-proof and layerx-wire from the programs registry manifest, when cargo metadata --locked runs over each of the seventeen workspaces whose lock resolves layerx-programs-registry, then every run passes and no lock lists the two crates under the registry's dependency rows or moves any other package version."
 contract = "contracts/programs.md#chain-proof"
-test = "cargo metadata --locked over the seventeen workspaces named in task 13.8.3 (its verify_cmd)"
+test = "services/platform/Cargo.toml::[workspace]"
 qualification = "UNRUN"
 
 [acceptance.9.25.20]
@@ -330442,7 +330442,7 @@ feature = "6"
 req = "5103.1"
 scenario = "Given the custody keeper test package at main, when go test runs the whole package, then every test passes and no test observes a retirement another test wrote."
 contract = "contracts/anchor.md#checkpoints"
-test = "modules/layerxcustody/keeper/keeper_test.go::TestWithdrawalPaysOnceAndReplayIsRefused"
+test = "modules/layerxcustody/keeper/keeper_test.go::TestWithdrawalPaysOnceAndReplayIsRefused (retired: The paid-withdrawal replay selector no longer exists because custody claims are retired at the merge boundary rather than paying new withdrawals through the former checkpoint protocol. modules/layerxcustody/keeper/retire_claims_test.go::TestWithdrawalIsRefusedFromTheMergePlanHeight carries current withdrawal refusal, and keeper_test.go uses isolated custody test contexts for the retained package tests.)"
 qualification = "UNRUN"
 
 [acceptance.10.2.11]
@@ -330466,7 +330466,7 @@ feature = "8"
 req = "5100.1"
 scenario = "Given the platform CLI at main, when its estimate-fee tests build and run, then the target compiles and every test of the file passes."
 contract = "contracts/platform-cli.md#estimate-fee"
-test = "tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_refuses_kernel_activity_hex"
+test = "tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex"
 qualification = "UNRUN"
 
 [acceptance.8.94.9]
@@ -330981,7 +330981,7 @@ feature = "18"
 req = "18939.1"
 scenario = "Given the wiki, when an integrator reads the 0x1015 section, then it names the perps precompile ABI and says layerxexchange is retired, and Spot.md no longer points 0x1015 at layerxexchange"
 contract = "contracts/markets.md#perps-0x1015"
-test = "docs/wiki/UnifiedNetwork.md::PerpsSection"
+test = "docs/wiki/UnifiedNetwork.md::PerpsSection (retired: The PerpsSection selector was an editorial label for a wiki section, not a declared test. Current generated precompile inventory coverage is spec/layerx-merge/programme/tests/test_system_docs.py::test_precompile_summary_lists_venues, and precompiles/perps/abi_test.go::TestABIGoldenFile checks the ABI; neither turns the retired wiki review label into an executable test.)"
 qualification = "UNRUN"
 
 [task.18.964.1]
@@ -331297,7 +331297,7 @@ feature = "18"
 req = "18791.1"
 scenario = "Given docs/wiki/Quickstart.md at HEAD, when its beta bring-up citations are read, then the port defaults cite beta-cluster.sh:229-231 and the flag parsing cites :3829, and neither :81-83 nor :1351-1358 remains"
 contract = "contracts/platform-hosted.md#platform-docs"
-test = "docs/wiki/Quickstart.md::bringup_citations_current"
+test = "docs/wiki/Quickstart.md::bringup_citations_current (retired: The bringup_citations_current selector represented a one-time manual correction of historical shell line numbers, not a declared test or enduring executable contract. tools/bringup/tests/test_spec_paths.py::test_docs_names_reads_existing_spec covers current bringup spec resolution; the old numbered citation review is retired and is not represented as passing test evidence.)"
 qualification = "UNRUN"
 
 [acceptance.18.791.2]
@@ -331305,7 +331305,7 @@ feature = "18"
 req = "18791.2"
 scenario = "Given README.md at HEAD, when its precompile inventory is read, then it lists layerxprograms at 0x101D and the 0x0901-0x0908 set as activating at v7.0"
 contract = "contracts/address-table.md"
-test = "README.md::merge_precompiles_listed"
+test = "README.md::merge_precompiles_listed (retired: The merge_precompiles_listed selector was a manual README inventory review label, not a test function. Current generated inventory coverage lives in tools/docs/gen/test_gen_system_docs_abis.py::test_generator_lists_nested_and_embedded_abis and spec/layerx-merge/programme/tests/test_system_docs.py::test_system_docs_are_current; the README activation wording remains editorial review material rather than an executable selector.)"
 qualification = "UNRUN"
 
 [task.18.809.1]
@@ -331443,7 +331443,7 @@ feature = "18"
 req = "18846.1"
 scenario = "Given docs/wiki/UnifiedNetwork.md at HEAD, when its Launchpad section is read, then every listed method and view exists in precompiles/launchpad/abi.json and quoteBuy, getReserves and the token, denom return are absent"
 contract = "contracts/launchpad.md#launchpad-precompile-0x1017"
-test = "docs/wiki/UnifiedNetwork.md::launchpad_section_matches_abi"
+test = "docs/wiki/UnifiedNetwork.md::launchpad_section_matches_abi (retired: The launchpad_section_matches_abi selector was a manual wiki comparison against the former Launchpad method surface, not a declared test. The current role-based ABI is covered by precompiles/launchpad/abi_test.go::TestRoleABIGolden and precompiles/launchpad/abi_direct_test.go::TestDirectABIFile; the historical section checklist no longer identifies a runnable parity test.)"
 qualification = "UNRUN"
 
 [task.18.874.1]
@@ -331486,7 +331486,7 @@ feature = "18"
 req = "18874.1"
 scenario = "Given a scanned-through watermark compacted to N2, when a stale pass writes N1 < N2 through advance_scanned_through, then scanned_through still returns N2 and the next compaction continues from N2+1"
 contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
-test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::scanned watermark a stale compaction write never moves the watermark back"
+test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::a stale compaction write never moves the watermark back"
 qualification = "UNRUN"
 
 [task.18.889.1]
@@ -331530,7 +331530,7 @@ feature = "18"
 req = "18889.1"
 scenario = "Given the three deployment pages at HEAD, when every cited path is resolved, then each exists, the webhooks pages name env-init.sh and the env-init targets, and no page names webhooks/fly.toml, fly-init.sh or dashboard/fly.toml"
 contract = "contracts/platform-hosted.md#platform-docs"
-test = "docs/wiki/HostedWebhooks.md::deployment_cites_existing_files"
+test = "docs/wiki/HostedWebhooks.md::deployment_cites_existing_files (retired: The deployment_cites_existing_files selector was a manual deployment documentation checklist, not a test declared in HostedWebhooks.md. It is retired as an executable selector; current deployment paths remain reviewable in docs/wiki/HostedWebhooks.md, and no existing test was found that resolves all citations in the three specified pages.)"
 qualification = "UNRUN"
 
 [task.18.919.1]
@@ -331712,7 +331712,7 @@ feature = "18"
 req = "181006.1"
 scenario = "Given the backend without Explorer.Chain.PaxeerX.CustodyEvent, when the two retained test files run, then they compile and the unified account schema and balance tests pass with custody rows seeded directly into lx_custody_events"
 contract = "contracts/explorer-http-api.md#v2-paxeer-x"
-test = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller_test.exs::GET /api/v2/addresses/:address_hash_param/unified reads bank and ERC-20 balances without adding custody or kernel balances"
+test = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller_test.exs::reads bank and ERC-20 balances without adding custody or kernel balances"
 qualification = "UNRUN"
 
 [task.18.1036.1]
@@ -334078,7 +334078,7 @@ feature = "18"
 req = "181358.1"
 scenario = "Given the Paxeer ingester source, when its module header is read, then it says custody deposits, releases and emergency exits record no transfer leg"
 contract = "contracts/platform-hosted.md#indexer-rust-pub-items"
-test = "services/platform/hosted/indexer/src/paxeer.rs::module-header"
+test = "services/platform/hosted/indexer/src/paxeer.rs::module-header (retired: The module-header selector was an editorial source-header review label rather than a declared test and supplies no executable parity evidence. services/platform/hosted/indexer/src/paxeer.rs still documents that custody deposits, releases and emergency exits record no transfer leg; this retirement concerns that synthetic review label only.)"
 qualification = "UNRUN"
 
 [task.18.1359.1]
@@ -380230,7 +380230,7 @@ qualification = "UNRUN"
 [acceptance.18.1065.2]
 scenario = "Given the attestor network started by the e2e harness, when gateway.e2e.test.ts loads src/env.ts, then the four wallet identity and custody inventory variables are set from the harness and env parsing succeeds."
 contract = "contracts/wallet.md#gateway"
-test = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+test = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts::reports every readiness component up"
 
 [acceptance.18.1065.3]
 feature = "18"
@@ -381333,7 +381333,7 @@ feature = "18"
 req = "181125.1"
 scenario = "Given an active SANDBOX_EXECUTE activity whose inner CALL token is the token held by the runtime, when host admission reads lifecycle section 8 with that call token, then it receives the 32-byte activity id instead of LXP_ERR_NON_CANONICAL, and an unrelated token is still refused."
 contract = "contracts/programs.md#market-guest"
-test = "lxp_test_sandbox_lifecycle::sandbox_execute_lifecycle_accepts_call_token"
+test = "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_execute_lifecycle_accepts_call_token"
 qualification = "UNRUN"
 
 [acceptance.18.1126.1]
@@ -381405,7 +381405,7 @@ feature = "18"
 req = "18745.1"
 scenario = "Given the wallet README and gateway sources at HEAD, when the retired setting names and depositUSDL are searched, then none is found"
 contract = "contracts/services.md#wallet-deploy-and-cutover"
-test = "services/wallet/README.md::retired-settings-grep (planned)"
+test = "services/wallet/README.md::retired-settings-grep (retired: The retired-settings-grep selector described a manual source and README search, not an executable test function. services/wallet/README.md and services/wallet/gateway/src/env.ts now describe the native wallet configuration; the old editorial search label is retired without claiming that a narrower environment test proves repository-wide absence.)"
 qualification = "UNRUN"
 
 [acceptance.18.752.1]
@@ -381885,7 +381885,7 @@ feature = "18"
 req = "181103.1"
 scenario = "Given GOTCHA.kvx at the fixed revision, when a reader follows gotcha 2021 for the programs release build in either image, then it directs them to re-include every public .der file of the vendored crates and contains no instruction forbidding re-includes beyond the ed25519-dalek fixtures"
 contract = "contracts/tools-ops.md#container-images"
-test = "GOTCHA.kvx::gotcha.2021 (planned)"
+test = "GOTCHA.kvx::[gotcha.2021]"
 qualification = "UNRUN"
 
 [acceptance.18.1108.1]
@@ -381981,7 +381981,7 @@ feature = "18"
 req = "18950.1"
 scenario = "Given the attestor security review, when its internal/policy fail-closed list is read, then it names delegate_not_allowed for an unlisted or unconfigured EIP-7702 delegate and the activation step that sets the paymaster"
 contract = "contracts/services.md#embedded-wallet-gateway"
-test = "grep -q 'delegate_not_allowed' services/wallet/docs/security-review.md"
+test = "docs/wallet/service/security-review.md::delegate_not_allowed"
 qualification = "UNRUN"
 
 [acceptance.18.961.1]
@@ -382021,7 +382021,7 @@ feature = "18"
 req = "181136.1"
 scenario = "Given the bridge app at main, when its typecheck script runs, then it generates the route types, compiles every source and spec without error, and the library specs pass unchanged in behaviour."
 contract = "contracts/bridge-client.md#components"
-test = "apps/bridge/package.json::typecheck (planned)"
+test = "apps/bridge/package.json::typecheck"
 qualification = "UNRUN"
 
 [acceptance.18.1137.1]
@@ -382214,7 +382214,7 @@ req = "181153.1"
 scenario = "Given layerx-mirror without SignedHeaderTrust, MirrorVerifier::from_source, BatchIncluded and StateProven, when layerx-explorer-index builds with its tests and runs its unit tests, then both complete with exit 0."
 contract = "contracts/services.md#human-service"
 qualification = "UNRUN"
-test = "services/human/crates/layerx-explorer-index/src/lib.rs (unit tests)"
+test = "services/human/crates/layerx-explorer-index/src/lib.rs (unit tests) (retired: The layerx-explorer-index library and its unit-test target were removed from the human workspace, so building that former consumer against retired mirror interfaces no longer applies. services/human/crates/layerx-human-test-support/tests/retired_explorer_index_library.rs::retired_explorer_index_library_files_and_references_are_gone carries the maintained library-absence, workspace-metadata and reference contract.)"
 
 [acceptance.18.1154.1]
 feature = "18"
@@ -382461,7 +382461,7 @@ feature = "18"
 req = "18766.1"
 scenario = "Given a Pending claim on batch 2 and an upheld challenge that invalidates batch 1, when cancelChallengedClaim runs for the batch 2 claim, then the claim is Cancelled, its nullifier is Cancelled and pendingAmount drops by its amount, while a claim on a canonical unchallenged checkpoint is still refused with ChallengedCheckpoint."
 contract = "contracts/address-inventory.md#sol-withdrawalclaims"
-test = "tests/solidity/ContractIntegration.t.sol::testClaimOnLaterBatchCancelsAfterEarlierInvalidation"
+test = "tests/solidity/ContractIntegration.t.sol::testClaimOnLaterBatchCancelsAfterEarlierInvalidation (retired: Pending Solidity vault claims and challenge-based checkpoint invalidation belong to the retired custody settlement system, so cancelling later-batch claims through that contract no longer applies. tests/ci/test_retired_solidity_checkpoint.py::test_checkpoint_and_library_suites_retired carries the current absence contract for ContractIntegration.t.sol and the challenge suites.)"
 qualification = "UNRUN"
 
 [acceptance.18.914.1]
@@ -382573,7 +382573,7 @@ feature = "18"
 req = "181203.1"
 scenario = "Given a verification backlog requesting SETTLEMENT_ANCHORED, when an operator retries verification, then the retry is refused with ProgressUnavailable and is never reported as reached at the committed rung, while a CHECKPOINT_FINALISED backlog waits for Rung::Committed."
 contract = "contracts/agent-observability.md#verificationlevel"
-test = "services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs::settlement_anchored_retry_is_refused (planned)"
+test = "services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs::retired_settlement_retry_is_refused"
 qualification = "UNRUN"
 
 [acceptance.18.1204.1]
@@ -382637,7 +382637,7 @@ feature = "18"
 req = "181221.2"
 scenario = "Given a served receipt at SETTLEMENT_ANCHORED, when the receipt lookup encodes its rung, then the encoder refuses it with HumanOperationError::Refused."
 contract = "contracts/agent-human-peer.md#receipt-lookup"
-test = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs::receipt_rung_wire_tests::settlement_anchored_receipt_level_is_refused"
+test = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs::legacy_receipt_levels_decode_as_committed"
 qualification = "UNRUN"
 
 [acceptance.18.1222.1]
@@ -382829,7 +382829,7 @@ feature = "18"
 req = "181043.1"
 scenario = "Given an HTTP listener with eth_chainId denied, when a batch of eth_chainId and eth_blockNumber is posted, then the answer is an array whose first member is the -32601 error for eth_chainId and whose second member carries the block number, matching the WebSocket answer."
 contract = "contracts/evm-rpc.md#ws-transport"
-test = "core/deps/geth/rpc/deny_list_batch_test.go::TestHTTPAppliesDenyListMixedBatches"
+test = "rpc/http_ws_parity_test.go::TestHTTPAppliesDenyListMixedBatches"
 qualification = "UNRUN"
 
 [acceptance.18.1209.1]
@@ -394911,7 +394911,7 @@ feature = "18"
 req = "181297.1"
 scenario = "Given a crate's dependency list changed, when any workspace that pins that crate by path is built with --locked, then its lock file already agrees with the manifests and cargo proceeds to compile."
 contract = "contracts/platform-hosted.md#agentd-cli-commands"
-test = "cargo metadata --locked in the eight workspaces"
+test = "services/platform/Cargo.toml::[workspace]"
 qualification = "UNRUN"
 
 
@@ -395925,7 +395925,7 @@ feature = "18"
 req = "181265.1"
 scenario = "Given the CLI estimate-fee command requires --from and an unsigned transaction hex, when a reader follows the README, payments and CLI reference pages, then every example and table row passes --from with an unsigned transaction and none mentions canonical activity bytes or lx_estimateFee"
 contract = "contracts/platform-cli.md#cli-cli-commands"
-test = "docs/wiki/Cli.md::wallet-estimate-fee"
+test = "docs/wiki/Cli.md::wallet-estimate-fee (retired: The wallet-estimate-fee selector was a CLI documentation review label, not a declared test in Cli.md. Current command behavior is covered by tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_sends_the_intended_sender and estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex; the synthetic prose selector is retired without claiming those tests inspect every documentation example.)"
 qualification = "UNRUN"
 
 [task.18.1259.1]
@@ -395970,7 +395970,7 @@ feature = "18"
 req = "181259.1"
 scenario = "Given activity.submit takes one signed EIP-1559 raw_transaction and sends it to /rpc, when a reader follows the quickstart, running-an-agent and CLI pages, then each describes that single argument and the eth_sendRawTransaction send and none cites the /v1/activities JSON body or the seven-argument form"
 contract = "contracts/agent-mcp.md#activity-submit"
-test = "docs/wiki/Quickstart.md::activity-submit"
+test = "docs/wiki/Quickstart.md::activity-submit (retired: The activity-submit selector was an editorial quickstart label, not a declared test. Current submission behavior is covered by services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs::activity_submit_validates_a_real_signed_eip1559_transaction; the historical documentation checklist is retired as executable parity and no automated assertion about all three prose pages is implied.)"
 qualification = "UNRUN"
 
 [task.18.835.1]
@@ -396058,7 +396058,7 @@ feature = "18"
 req = "18893.1"
 scenario = "Given a custody checkpoint finalized at genesis time and no declared emergency, when the block time reaches genesis plus DefaultLivenessBoundSeconds and a forced exit is executed, then ExitEligible stays true after a newer checkpoint is finalized, and withdrawals from the later batch are refused ErrExitFrozen and deposits ErrDepositFrozen"
 contract = "contracts/address-inventory.md#0x1013-layerxcustody"
-test = "modules/layerxcustody/keeper/keeper_test.go::TestForcedExitAfterLivenessLapseFreezesWithdrawalsWithoutEmergency"
+test = "modules/layerxcustody/keeper/keeper_test.go::TestForcedExitAfterLivenessLapseFreezesWithdrawalsWithoutEmergency (retired: Custody withdrawals and forced exits are refused from the merge height rather than authorized by the former checkpoint liveness-lapse protocol, so this post-lapse payout scenario is obsolete. modules/layerxcustody/keeper/retire_claims_test.go::TestWithdrawalIsRefusedFromTheMergePlanHeight and TestForcedExitIsRefusedFromTheMergePlanHeight carry the current movement refusals.)"
 qualification = "UNRUN"
 
 [acceptance.18.893.2]
@@ -396066,7 +396066,7 @@ feature = "18"
 req = "18893.2"
 scenario = "Given a forced exit paid after a liveness lapse, when the authority calls CancelClaim on it, then the call is refused ErrClaimNotPending and ExitCheckpoint still reports the exit batch"
 contract = "contracts/address-inventory.md#0x1013-layerxcustody"
-test = "modules/layerxcustody/keeper/keeper_test.go::TestForcedExitAfterLivenessLapseFreezesWithdrawalsWithoutEmergency"
+test = "modules/layerxcustody/keeper/keeper_test.go::TestForcedExitAfterLivenessLapseFreezesWithdrawalsWithoutEmergency (retired: A newly paid liveness-lapse forced exit and its later cancellation are no longer reachable after retirement of custody claims and forced exits at merge. modules/layerxcustody/keeper/retire_claims_test.go::TestCancelClaimIsRefusedFromTheMergePlanHeight and TestForcedExitIsRefusedFromTheMergePlanHeight carry the current cancellation and exit refusal contract.)"
 qualification = "UNRUN"
 
 [task.18.918.1]
@@ -396309,7 +396309,7 @@ feature = "18"
 req = "181232.1"
 scenario = "Given SECURITY.md after the change, when it is searched, then it contains the four reward tier lines and security@paxeer.app and no sentence saying there is no bug bounty"
 contract = "contracts/programme.md#programme"
-test = "SECURITY.md::bug_bounty_section"
+test = "SECURITY.md::bug_bounty_section (retired: The bug_bounty_section selector was a manual SECURITY.md content review, not a declared test. The policy still publishes bounty tiers and the reporting contact, but the synthetic section label is retired from executable parity; no existing test was found that asserts the complete policy wording.)"
 qualification = "UNRUN"
 
 
