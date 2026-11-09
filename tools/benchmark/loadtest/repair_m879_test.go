@@ -155,74 +155,34 @@ func (p *m879Transcript) done() {
 
 func m879WasmSteps(t *testing.T, options operations.WasmDeployment) []m879CommandStep {
 	t.Helper()
-	steps := []m879CommandStep{}
-	names := []string{"jupiter", "mars", "saturn", "venus"}
-	ids, addresses := map[string]string{}, map[string]string{}
-	for i, name := range names {
-		root := filepath.Join(options.Root, name)
-		steps = append(steps, m879CommandStep{args: []string{"cargo", "build", "--manifest-path", filepath.Join(root, "Cargo.toml")}}, m879CommandStep{args: []string{"docker", "run", "--rm", "-v", root + ":/code", "--mount", "type=volume,source=" + name + "_cache,target=/code/target", "--mount", "type=volume,source=registry_cache,target=/usr/local/cargo/registry", "cosmwasm/rust-optimizer:0.12.5"}})
-		ids[name] = fmt.Sprint(i + 1)
-		addresses[name] = sdk.AccAddress(bytes.Repeat([]byte{byte(i + 1)}, 20)).String()
+	steps := []m879CommandStep{
+		{args: []string{options.Paxd, "tx", "wasm", "store", "--help"}, raw: []byte("store [wasm file]")},
+		{args: []string{options.Paxd, "tx", "wasm", "instantiate", "--help"}, raw: []byte("instantiate [code_id_int64]")},
 	}
 	tx := func(raw []byte, args ...string) {
-		argv := append([]string{options.Paxd, "tx"}, args...)
-		argv = append(argv, "-y", "--from="+options.Key, "--chain-id="+options.Chain)
-		if args[0] == "wasm" {
-			argv = append(argv, "--gas=5000000", "--fees=1000000uhpx")
-		}
-		if args[0] == "dex" {
-			argv = append(argv, "--gas=500000", "--fees=10000000uhpx")
-		}
-		argv = append(argv, "--broadcast-mode=block", "--output=json")
+		argv := append([]string{options.Paxd, "tx", "wasm"}, args...)
+		argv = append(argv, "-y", "--from="+options.Key, "--chain-id="+options.Chain,
+			"--gas=5000000", "--fees=1000000uhpx", "--broadcast-mode=block", "--output=json")
 		steps = append(steps, m879CommandStep{args: argv, raw: raw})
 	}
-	success := m879Response(t, 0, "message", "action", "ok", false)
-	for _, name := range names {
-		tx(m879Response(t, 0, "store_code", "code_id", ids[name], true), "wasm", "store", filepath.Join(options.Root, name, "artifacts", name+".wasm"))
+	for i := 1; i <= 2; i++ {
+		tx(m879Response(t, 0, "store_code", "code_id", fmt.Sprint(i), true), "store", filepath.Join(options.Root, "contracts", "wasm", "cw20_base.wasm"))
 	}
-	validator := sdk.ValAddress(bytes.Repeat([]byte{9}, 20)).String()
-	steps = append(steps, m879CommandStep{args: []string{options.Paxd, "keys", "show", "node_admin", "--bech=val", "--output=json"}, raw: m879JSON(t, map[string]string{"address": validator})})
-	tx(success, "staking", "delegate", validator, "1000000000uhpx")
-	for _, name := range []string{"mars", "saturn", "venus", "jupiter"} {
-		msg := "{}"
-		if name == "jupiter" {
-			msg = string(m879JSON(t, map[string]string{"mars_address": addresses["mars"]}))
-		}
-		tx(m879Response(t, 0, "instantiate", "_contract_address", addresses[name], false), "wasm", "instantiate", ids[name], msg, "--no-admin", "--label=dex")
+	for i := 1; i <= 2; i++ {
+		address := sdk.AccAddress(bytes.Repeat([]byte{byte(i)}, 20)).String()
+		msg := `{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}`
+		tx(m879Response(t, 0, "instantiate", "_contract_address", address, false), "instantiate", fmt.Sprint(i), msg, "--no-admin", "--label=cw20-loadtest")
 	}
-	for _, name := range []string{"mars", "saturn", "venus", "jupiter"} {
-		args := []string{"dex", "register-contract", addresses[name], ids[name], "false", "true"}
-		if name == "saturn" || name == "jupiter" {
-			args = append(args, addresses["mars"])
-		}
-		tx(success, args...)
-	}
-	for _, name := range names {
-		name := name
-		steps = append(steps, m879CommandStep{raw: success, check: func(cmd operations.Command) {
-			if len(cmd.Args) != 12 || cmd.Args[0] != options.Paxd || !reflect.DeepEqual(cmd.Args[1:4], []string{"tx", "dex", "register-pairs"}) {
-				t.Fatalf("bad pair argv: %q", cmd.Args)
-			}
-			var pair struct {
-				Items []struct {
-					Address string `json:"contract_addr"`
-				} `json:"batch_contract_pair"`
-			}
-			if err := json.Unmarshal(m879Read(t, cmd.Args[4]), &pair); err != nil {
-				t.Fatal(err)
-			}
-			if len(pair.Items) != 1 || pair.Items[0].Address != addresses[name] {
-				t.Fatal("wrong pair payload")
-			}
-		}})
-	}
-	tx(success, "staking", "unbond", validator, "1000000000uhpx")
 	return steps
 }
 
 func TestRepairM_879_WasmDeployment(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "checkout with spaces", "contracts")
-	if err := os.MkdirAll(root, 0700); err != nil {
+	root := filepath.Join(t.TempDir(), "checkout with spaces")
+	artifact := filepath.Join(root, "contracts", "wasm", "cw20_base.wasm")
+	if err := os.MkdirAll(filepath.Dir(artifact), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(artifact, m879Read(t, "../../../contracts/wasm/cw20_base.wasm"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	options := operations.WasmDeployment{Root: root, Paxd: "/binary with spaces/paxd", Key: "admin key", Chain: "benchmark-chain"}
@@ -234,7 +194,7 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 	}
 	peer.done()
 	want := ""
-	for i := 1; i <= 4; i++ {
+	for i := 1; i <= 2; i++ {
 		want += sdk.AccAddress(bytes.Repeat([]byte{byte(i)}, 20)).String() + "\n"
 	}
 	if output.String() != want {
@@ -246,12 +206,19 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 			prefix[index].err = errors.New("recorded command failure")
 			peer := &m879Transcript{t: t, steps: prefix}
 			var output bytes.Buffer
-			if operations.DeployWasm(context.Background(), peer, options, &output) == nil || output.Len() != 0 {
+			err := operations.DeployWasm(context.Background(), peer, options, &output)
+			if err == nil || output.Len() != 0 {
 				t.Fatal("failed deployment published output")
+			}
+			if index >= 2 {
+				var partial *operations.WasmDeploymentError
+				if !errors.As(err, &partial) || !partial.Uncertain || len(partial.CodeIDs) != min(index-2, 2) || len(partial.Addresses) != max(index-4, 0) {
+					t.Fatalf("lost recovery: %v", err)
+				}
 			}
 			peer.done()
 		})
-		if len(steps[index].args) > 1 && steps[index].args[1] == "tx" || steps[index].check != nil {
+		if index >= 2 {
 			t.Run(fmt.Sprintf("refused-transaction-%d", index), func(t *testing.T) {
 				prefix := append([]m879CommandStep(nil), steps[:index+1]...)
 				prefix[index].raw = m879Response(t, 7, "message", "action", "refused", false)
@@ -263,7 +230,7 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 			})
 		}
 	}
-	for _, index := range []int{8, 14} {
+	for _, index := range []int{2, 3, 4, 5} {
 		prefix := append([]m879CommandStep(nil), steps[:index+1]...)
 		prefix[index].raw = m879Response(t, 0, "store_code", "code_id", "-1", true)
 		peer := &m879Transcript{t: t, steps: prefix}

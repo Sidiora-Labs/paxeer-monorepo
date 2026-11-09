@@ -50,7 +50,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
         </TableCell>
       ) }
       <TableCell >
-        <Flex columnGap={ 2 } alignItems="center" mb={ 2 }>
+        <Flex columnGap={ 2 } alignItems="center" mb={ 0 }>
           { data.celo?.l1_era_finalized_epoch_number && (
             <Tooltip content={ `Finalized epoch #${ data.celo.l1_era_finalized_epoch_number }` }>
               <IconSvg name="checkered_flag" boxSize={ 5 } p="1px" isLoading={ isLoading } flexShrink={ 0 }/>
@@ -79,7 +79,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
           display="inline-block"
         />
       </TableCell>
-      <TableCell >
+      <TableCell isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">
           { data.size?.toLocaleString() || 'N/A' }
         </Skeleton>
@@ -106,9 +106,9 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
           </Skeleton>
         ) : data.transactions_count }
       </TableCell>
-      <TableCell >
+      <TableCell isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">{ BigNumber(data.gas_used || 0).toFormat() }</Skeleton>
-        <Flex mt={ 2 }>
+        <Flex mt={ 0 } justifyContent="flex-end">
           <BlockGasUsed
             gasUsed={ data.gas_used || undefined }
             gasLimit={ data.gas_limit }
@@ -118,12 +118,12 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
         </Flex>
       </TableCell>
       { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward && (
-        <TableCell >
+        <TableCell isNumeric>
           <SimpleValue value={ totalReward } loading={ isLoading }/>
         </TableCell>
       ) }
       { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees && (
-        <TableCell >
+        <TableCell isNumeric>
           <NativeCoinValue
             { ...getBlockNativeValueProps(currency, data.burnt_fees) }
             amount={ data.burnt_fees }
@@ -131,9 +131,10 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
             startElement={ <IconSvg name="flame" mr={ 2 } boxSize={ 5 } color="text.secondary" isLoading={ isLoading }/> }
             loading={ isLoading }
             display="flex"
+            justifyContent="flex-end"
           />
           <Tooltip content="Burnt fees / Txn fees * 100%" disabled={ isLoading }>
-            <Utilization mt={ 2 } w="min-content" value={ burntFees.div(txFees).toNumber() } isLoading={ isLoading }/>
+            <Utilization mt={ 0 } w="min-content" value={ burntFees.div(txFees).toNumber() } isLoading={ isLoading }/>
           </Tooltip>
         </TableCell>
       ) }

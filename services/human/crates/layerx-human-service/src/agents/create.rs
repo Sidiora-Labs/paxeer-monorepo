@@ -601,7 +601,7 @@ impl ProtocolEvidence {
                 .map_err(|_| AgentFailure::Refused("invalid signed lifecycle transaction"))?;
         let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
             .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction signature"))?;
-        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, sender)
+        let disclosure = layerx_crypto::payments::bind_call(&call, sender)
             .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction disclosure"))?;
         let mut authority = [0; 32];
         authority[12..].copy_from_slice(&sender);
@@ -742,7 +742,12 @@ impl ProtocolEvidence {
                 grant.registration_payload,
                 layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             ),
-            Some(layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }) => {
+            Some(
+                layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::ProgramDeploy { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::ProgramUpgrade { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::ProgramWindDown { .. },
+            ) => {
                 return Err(AgentFailure::Refused(
                     "invalid lifecycle transaction method",
                 ))
@@ -761,6 +766,11 @@ impl ProtocolEvidence {
             Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer { .. }) => {
                 return Err(AgentFailure::Refused(
                     "lifecycle transaction is a pointer transfer",
+                ))
+            }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::BindLayerX { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "lifecycle transaction is a bind registration",
                 ))
             }
             None => {

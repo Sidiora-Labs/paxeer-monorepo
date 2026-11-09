@@ -2,6 +2,7 @@ use super::{
     json_response, media_type_is, response, Config, IncomingRequest, KernelBackend,
     OutgoingResponse,
 };
+use layerx_platform_gateway::evm;
 use serde_json::{json, Value};
 
 pub(super) fn error(id: &Value, code: i32, message: &str) -> Value {
@@ -31,7 +32,10 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
     }
     let id = value.get("id").cloned().unwrap_or(Value::Null);
     let method = value["method"].as_str()?;
-    if method.starts_with("lx_") {
+    if !method.starts_with("px_")
+        && !evm::is_evm_namespace(method)
+        && method != "pax_sequencerReceipt"
+    {
         return value
             .get("id")
             .map(|_| error(&id, -32601, "Method not found"));
@@ -70,7 +74,7 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
 }
 
 pub(super) fn route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
-    if request.path == "/rpc/schema" {
+    if request.path == "/openrpc.json" {
         return if request.method == "GET" {
             OutgoingResponse {
                 content_type: "application/json".to_owned(),
@@ -82,6 +86,9 @@ pub(super) fn route(config: &Config, request: &IncomingRequest) -> OutgoingRespo
         } else {
             response(405, "method_not_allowed", None)
         };
+    }
+    if request.path != "/" {
+        return response(404, "not_found", None);
     }
     if request.method != "POST" {
         return response(405, "method_not_allowed", None);
@@ -175,7 +182,7 @@ mod tests {
         };
         let request = IncomingRequest {
             method: "POST".into(),
-            path: "/rpc".into(),
+            path: "/".into(),
             headers: BTreeMap::from([("content-type".into(), "application/json".into())]),
             body: Vec::new(),
         };

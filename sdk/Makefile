@@ -163,8 +163,8 @@ clean:
 ###############################################################################
 
 update-swagger-docs: statik
-	$(BINDIR)/statik -src=client/docs/swagger-ui -dest=client/docs -f -m
-	@if git diff --quiet HEAD -- client/docs/statik; then \
+	STATIK="$(STATIK)" sh ./scripts/update-swagger-ui-statik.sh
+	@if git diff --quiet HEAD -- ../docs/swagger/statik.go client/docs/statik; then \
 		echo "\033[92mSwagger docs are in sync\033[0m"; \
 	else \
 		echo "\033[91mSwagger docs are out of sync!!!\033[0m" >&2; \

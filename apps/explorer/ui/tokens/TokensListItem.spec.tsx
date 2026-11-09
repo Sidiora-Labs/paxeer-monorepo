@@ -2,7 +2,6 @@
 
 import React from 'react';
 
-import { currencyUnits } from 'lib/units';
 import * as tokenMock from 'mocks/tokens/tokenInfo';
 import { render } from 'ui/shared/layout/testWrapper';
 import { describe, expect, it, vi } from 'vitest';
@@ -14,10 +13,9 @@ import { TOKEN_VALUE_PLACEHOLDER } from './TokensTableItem';
 
 const FIELDS = [
   'Price',
-  'Change (%)',
-  'Volume (24H)',
-  'Circulating market cap',
-  'Onchain market cap',
+  'Change 24h',
+  'Market cap',
+  'Volume 24h',
   'Holders',
 ];
 
@@ -40,13 +38,13 @@ describe('TokensListItem', () => {
     const { container } = render(<TokensListItem token={ tokenMock.tokenInfo } index={ 0 } page={ 1 } coinPrice="1.5"/>);
 
     expect(container.querySelector('[data-token-field="Price"]')?.textContent)
-      .toBe(`Price$2.01011.340067 ${ currencyUnits.ether }`);
-    expect(container.querySelector('[data-token-field="Change (%)"]')?.textContent)
-      .toBe(`Change (%)${ TOKEN_VALUE_PLACEHOLDER }`);
-    expect(container.querySelector('[data-token-field="Volume (24H)"]')?.textContent)
-      .toBe(`Volume (24H)${ TOKEN_VALUE_PLACEHOLDER }`);
-    expect(container.querySelector('[data-token-field="Circulating market cap"]')?.textContent)
-      .toBe('Circulating market cap$117,629,601.62');
+      .toBe('Price$2.0101');
+    expect(container.querySelector('[data-token-field="Change 24h"]')?.textContent)
+      .toBe(`Change 24h${ TOKEN_VALUE_PLACEHOLDER }`);
+    expect(container.querySelector('[data-token-field="Volume 24h"]')?.textContent)
+      .toBe(`Volume 24h${ TOKEN_VALUE_PLACEHOLDER }`);
+    expect(container.querySelector('[data-token-field="Market cap"]')?.textContent)
+      .toBe('Market cap$117,629,601.62');
     expect(container.querySelector('[data-token-field="Holders"]')?.textContent).toBe('Holders46,554');
   });
 });

@@ -1,0 +1,7 @@
+[issue.1722]
+number = 1722
+title = "Frame settlement receipts in the retained sandbox integration test"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 51b87e5bd4001477900dc891076dc3a5da4be529 computes the canonical-body SHA-256 digest and appends it with the supported helper at programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs:979-982, passes the resulting frame to both positive attachments at programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs:994 and programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs:1023, and retains restart, authentication, canonical equality, malformed-input and duplicate-wrapper assertions at programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs:995-1032."
+close_comment = "Both positive settlement attachments now use canonical receipt bytes followed by their SHA-256 digest through the supported frame helper. The retained integration test preserves restart, canonical equality, authentication, malformed-input and duplicate-wrapper checks."

@@ -10,9 +10,9 @@ US$100,000 in any rolling 12-month period or in any single calendar month, or
 Liquidity Under Control exceeding US$10,000,000). This summary is for convenience
 only.
 
-The full license text is included in the `contracts/` workspace:
-
-- `contracts/LICENSE` — complete Paxlabs HyperPax-OS-Protocol License.
+The repository-wide Apache-2.0 license text is in `../../LICENSE`.
+The launchpad-specific notice and non-binding summary above do not reproduce
+the complete Paxlabs HyperPax-OS-Protocol License terms.
 
 The Solidity smart contracts in this repository are licensed under the Paxlabs
 HyperPax-OS-Protocol License. The Go backend and other supporting files are

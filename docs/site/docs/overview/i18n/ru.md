@@ -2,7 +2,7 @@
 
 Paxeer X Network объединяет платежи, исполнение программ и операции автономных агентов в одной сети.
 
-[English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · Русский · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
+[English](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · Русский · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
 
 ## Что такое LayerX Network
 
@@ -10,7 +10,7 @@ LayerX — ядро, встроенное в Paxeer X Network. Узел `paxd` �
 
 Хост `modules/lxphost` связывает ядро C17 и среду исполнения программ Rust с узлом Go. `node/app.go` регистрирует нативные модули и проверяет порядок транзакций в предложениях блоков. Сохранённое состояние цепочки определяет балансы, полномочия, платежи и программы. Подцепочки — это домены арендаторов: пространства имён в базе данных, которые создаются без инфраструктуры новой сети.
 
-Монорепозиторий Sidiora Labs содержит узел, ядро, контракты, сервисы, приложения и SDK. Спецификация интеграции находится в [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx).
+Монорепозиторий Sidiora Labs содержит узел, ядро, контракты, сервисы, приложения и SDK. Спецификация интеграции находится в [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/spec/layerx-merge/spec.kvx).
 
 ### Модули и прекомпилированные контракты
 
@@ -53,7 +53,7 @@ jq -n --arg hash "${TX_HASH:?}" \
 
 Ответ `result: null` означает, что узел пока не предоставляет квитанцию для этого хеша. В полученной квитанции проверьте `transactionHash`, `blockHash`, `blockNumber` и `status`: `0x1` означает успешное исполнение, `0x0` — неудачное. Окончательность определяется фиксацией блока BFT-консенсусом. При тайм-ауте отправки сначала запросите исходный хеш, прежде чем повторять операцию.
 
-Настройте несколько узлов и сравнивайте `eth_blockNumber`: их высоты могут различаться. Публичные пространства имён — `debug`, `echo`, `eth`, `net`, `pax`, `test` и `txpool`; доступность зависит от конфигурации узла. Методы `px_` принадлежат размещённому сервису шлюза, контракт которого описан в `services/platform/hosted/gateway/openrpc.json`; перед использованием см. [JSON-RPC шлюза](../../platform/gateway-rpc.md).
+Настройте несколько узлов и сравнивайте `eth_blockNumber`: их высоты могут различаться. Публичные пространства имён — `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` и `txpool`; доступность зависит от конфигурации узла. Пространство имён `px` отвечает из состояния узла; `px_register` и `px_requestFunds` — операции размещённых сервисов, контракт которых описан в `services/platform/hosted/gateway/openrpc.json`; см. [JSON-RPC шлюза](../../platform/gateway-rpc.md).
 
 ## Сборка из исходников
 
@@ -90,7 +90,7 @@ make paxd-build
 - [Публичные адреса JSON-RPC](../../reference/public-rpc.md)
 - [Структура монорепозитория](../monorepo.md)
 - [Квалификационные проверки](../../operators/qualification.md)
-- [Спецификации](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
+- [Спецификации](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/)
 
 ## SDK и интеграции
 
@@ -108,14 +108,14 @@ make paxd-build
 
 ## Участие
 
-Прочитайте [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md) перед открытием pull request. Изменения протокола начинаются в `spec/`. Не раскрывайте предполагаемую уязвимость в публичном issue; следуйте [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md).
+Прочитайте [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md) перед открытием pull request. Изменения протокола начинаются в `spec/`. Не раскрывайте предполагаемую уязвимость в публичном issue; следуйте [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md).
 
 ## Безопасность
 
-Сообщайте об уязвимостях через приватные отчёты GitHub, как описано в [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md).
+Сообщайте об уязвимостях через приватные отчёты GitHub, как описано в [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md).
 
 ## Лицензия
 
-Лицензировано на условиях Apache License, Version 2.0. См. [`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) и [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE).
+Лицензировано на условиях Apache License, Version 2.0. См. [`LICENSE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE) и [`NOTICE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/NOTICE).
 
 Paxeer X Network разрабатывается Sidiora Labs.

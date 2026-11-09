@@ -35,11 +35,14 @@
     "test:pw:ci": "yarn test:pw --project=$PW_PROJECT",
     "test:pw:detect-affected": "node ./deploy/tools/affected-tests/index.js",
     "test:vitest": "vitest",
+    "test:vitest:ci": "vitest run",
     "test:telemetry": "vitest run instrumentation.node.spec.ts repair-22-33-423.spec.ts",
+    "test:archive-receipts": "vitest run types/api/repair-22-33-517.spec.ts",
+    "test:fetch-boundary": "vitest run nextjs/utils/repair-22-33-543.spec.ts repair-22-31-512.spec.ts",
     "favicon:generate:dev": "./tools/scripts/favicon-generator.dev.sh",
     "og-image:generate:dev": "./tools/scripts/og-image-generator.dev.sh",
     "sitemap:generate:dev": "./tools/scripts/sitemap-generator.dev.sh",
-    "monitoring:prometheus:local": "docker run --name blockscout_prometheus -d -p 127.0.0.1:9090:9090 -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus",
+    "monitoring:prometheus:local": "docker run --name blockscout_prometheus --add-host=host.docker.internal:host-gateway -d -p 127.0.0.1:9090:9090 -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus",
     "monitoring:grafana:local": "docker run -d -p 4000:3000 --name=blockscout_grafana --user $(id -u) --volume $(pwd)/grafana:/var/lib/grafana grafana/grafana-enterprise",
     "postinstall": "chakra typegen ./toolkit/theme/theme.ts"
   },
@@ -203,7 +206,8 @@
     "vite-tsconfig-paths": "5.1.4",
     "vitest": "4.1.11",
     "vitest-fetch-mock": "0.4.5",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "yaml": "2.8.3"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": "eslint --cache --fix"
@@ -288,5 +292,26 @@
     "yaml": "2.8.3",
     "zod": "4.6.6"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "repair-22.33.516": {
+    "audit": "22.30.152",
+    "baselineRevision": "405daeab1534db56bb666586e813074fc668655a",
+    "baselineVerification": "Carried attempt 1 verification failed essentialChainsMatchServerAndBrowser (undefined server config) and essentialChainsReachWagmiTransports (server ids [1], browser ids [125,1]); not rerun unchanged because qualification must follow complete implementation through hf-build and hf-done.",
+    "findings": {
+      "metrics-edges": {
+        "test": "metricsEdgesReachFrontendExporter",
+        "repair": "Scrape the explorer base path and resolve the Docker host gateway in the local deployment.",
+        "status": "Registry wiring remains outside scope."
+      },
+      "essential-chains": {
+        "tests": ["essentialChainsStartupLoadsNodeCache", "essentialChainsStartupRejectsMissingConfig", "essentialChainsMatchServerAndBrowser", "essentialChainsReachWagmiTransports"],
+        "repair": "Await required configuration loading when instrumentation imports startup.node.ts and return the Node cache from the shared server accessor; prove server/browser chain ids [125,1] and RPC transports for both chains without changing wagmi configuration.",
+        "status": "Server accessor and startup wiring implemented; loader type correction remains outside scope."
+      }
+    },
+    "wiringRequests": [
+      "Domain 14: apps/explorer/configs/essential-dapps-chains/config.nodejs.ts must type its cache and loader as { chains: Array<EssentialDappsChainConfig> } instead of MultichainConfig.",
+      "Domains 14/16: spec/layerx-merge/interfaces.kvx and spec/layerx-merge/programme/audit/packages/22.30.152.kvx must associate explorer scrape consumers with their frontend/backend exporters; keep benchmark, loadtest and hosted exporters with their actual consumers."
+    ]
+  }
 }

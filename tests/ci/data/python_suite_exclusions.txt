@@ -1,0 +1,101 @@
+# Exact tracked Python test directory or file | reason. No glob exclusions.
+# Runtime suites in test-python-suites are never excluded here.
+# scripts/ci has no tracked Python tests since 995a25e5af; its stale row was retired.
+# Task 22.39.134 retains that retirement from 767e5757f2c3a5a38e354044c494f2ea158f01ec.
+apps/launchpad/qualification/account-ui | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
+apps/launchpad/qualification/mobile | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
+apps/launchpad/web/src/core/wallet-sdk/test-fixtures | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
+apps/launchpad/web/src/widgets/create | Launchpad application qualification uses its own release input schemas and application artifacts; the runtime Python job does not build the launchpad workspace.
+cmd/retirement | Kernel command retirement policy belongs to the separate kernel retirement gate; these source absence checks are outside the retained command suites.
+core/deps/geth/crypto/secp256k1/libsecp256k1/tools | Vendored secp256k1 source generators belong to the upstream geth native build and require its generated preprocessor inputs, rather than repository pytest discovery.
+deploy/launchpad/production/bootstrap | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/production/observability | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/production/observability/phase2/tests | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/production/observability/tests | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/production/recovery | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/production/recovery/phase2 | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/production/recovery/phase4 | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/production/topology/phase2/tests | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+deploy/launchpad/production/topology/tests | Launchpad deployment qualification owns the production topology, observability and recovery contracts and their isolated module imports; these run in the launchpad release environment.
+docs/platform/build | Documentation source contracts belong to the documentation build qualification inventory; the runtime Python job does not qualify generated documentation artifacts.
+layerxproof/retired | Retired proof-package absence checks belong to the kernel retirement gate, separately from retained daemon and hosted runtime qualification.
+programs/fixtures | Program fixture qualification requires its own Cargo workspace and generated guest fixture artifacts; the native command build does not produce that fixture corpus.
+programs/fixtures/pay5 | Payment fixture qualification invokes the pay5 fixture producers and their release inputs; those producers belong to the separate programs qualification gate.
+scripts | Release operator scripts have isolated qualification inventories and source-bound release inputs; they are outside the retained command and hosted suite target (the retired scripts/ci directory has no Python tests).
+scripts/gates | Qualification gate self-tests exercise separate Git repositories and wave evidence lifecycle contracts; they belong to the qualification tooling gate rather than runtime suites.
+scripts/qualification/paxeer-x | Native migration script qualification belongs to the release evidence producer environment with its own committed migration inputs and SDK contract qualification.
+scripts/replica | Replica bootstrap qualification owns the state-sync and snapshot producer contracts; it is separate from the retained daemon client qualification target.
+sdk/chainflow/python/tests | Chainflow requires its declared httpx and websockets package environment and stream qualification; those dependencies are absent from the runtime Python job.
+sdk/contrib/migrate | The imported SDK migration utility has its own migration fixture contract and package lifecycle, outside retained command and hosted runtime qualification.
+sdk/integrations/fastapi/examples | FastAPI integration needs its FastAPI and httpx extras plus the Node integration consumer; task 22.39.78 owns provisioning and wiring that environment.
+sdk/integrations/fastapi/layerx_fastapi | FastAPI integration needs its FastAPI and httpx extras plus the Node integration consumer; task 22.39.78 owns provisioning and wiring that environment.
+sdk/integrations/fastapi/tests | FastAPI integration needs its FastAPI and httpx extras plus the Node integration consumer; task 22.39.78 owns provisioning and wiring that environment.
+sdk/launchpad/packages/sdk/scripts | Launchpad SDK qualification needs the launchpad generator inputs and built package artifacts; the runtime Python job does not build that workspace.
+sdk/launchpad/packages/sdk/test | Launchpad SDK qualification needs the launchpad generator inputs and built package artifacts; the runtime Python job does not build that workspace.
+sdk/launchpad/protocol/bootstrap | Launchpad SDK qualification needs the launchpad generator inputs and built package artifacts; the runtime Python job does not build that workspace.
+sdk/launchpad/protocol/generator-inputs | Launchpad SDK qualification needs the launchpad generator inputs and built package artifacts; the runtime Python job does not build that workspace.
+sdk/platform/generators/tests | SDK generator qualification requires the platform generator toolchain and generated multi-language outputs; it belongs to the platform SDK qualification gate.
+sdk/platform/jvm | JVM source contract qualification belongs to the Java and Maven SDK build; the runtime Python job does not install that toolchain.
+services/agent/sdk/python/tests | The complete agent SDK suite requires its generator and SDK qualification environment; task 22.39.73 owns its dedicated workflow runner.
+services/agent/tests/retired | Agent retirement source contracts belong to the agent workspace qualification inventory; this target qualifies the retained hosted runtime suites.
+services/agent/tools | Real-node runner policy tests require the agent build ownership and native daemon environment; these belong to the agent qualification job.
+services/explorer/deploy/tools | Explorer deployment and publication contracts belong to the explorer build environment and its generated API artifacts, separately from retained boundary client tests.
+services/explorer/tests | Explorer deployment and publication contracts belong to the explorer build environment and its generated API artifacts, separately from retained boundary client tests.
+services/interop/deploy/gateway/tests | Interop deployment contracts require their isolated gateway, mirror and search-front qualification environments; those deployments are not provisioned by this Python job.
+services/interop/deploy/mirror/tests | Interop deployment contracts require their isolated gateway, mirror and search-front qualification environments; those deployments are not provisioned by this Python job.
+services/interop/deploy/search-front/tests | Interop deployment contracts require their isolated gateway, mirror and search-front qualification environments; those deployments are not provisioned by this Python job.
+services/interop/deploy/tests | Interop deployment contracts require their isolated gateway, mirror and search-front qualification environments; those deployments are not provisioned by this Python job.
+services/interop/deploy/x-websearch/tests | Interop deployment contracts require their isolated gateway, mirror and search-front qualification environments; those deployments are not provisioned by this Python job.
+services/launchpad/pnl-tracker/internal/production/l18 | Launchpad production service qualification owns isolated policy, supply-chain and measurement inputs and module environments; this job does not provision the launchpad release environment.
+services/launchpad/security/policy | Launchpad production service qualification owns isolated policy, supply-chain and measurement inputs and module environments; this job does not provision the launchpad release environment.
+services/launchpad/security/supplychain | Launchpad production service qualification owns isolated policy, supply-chain and measurement inputs and module environments; this job does not provision the launchpad release environment.
+services/platform/hosted/human | Human provisioning requires the built native identity provider and authority qualification environment; its existing human-test-hosted-provisioning runner owns those prerequisites.
+services/platform/middleware/conformance/pay6 | Middleware Python conformance needs the separately built integration environment and package test prerequisites; task 22.39.78 owns its workflow runner.
+services/platform/middleware/examples | Middleware Python conformance needs the separately built integration environment and package test prerequisites; task 22.39.78 owns its workflow runner.
+spec/layerx-merge/programme/tests | Programme tests qualify the full spec graph, audit evidence and dispatcher lifecycle; they belong to programme tooling qualification rather than runtime Python suites.
+tests/agent/sdk/python | The complete agent SDK suite requires its anvil and SDK qualification environment; task 22.39.73 owns provisioning and running both SDK trees.
+tests/bridge/retired | Historical bridge retirement checks own their separate kernel-retirement catalogue and fixture contract; the retained runtime suites do not qualify that historical inventory.
+tools/benchmark | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/benchmark/loadtest/contracts/evm | EVM workload qualification runs offline Forge against generated workload contracts and pinned libraries; the Python job does not install Foundry or those artifacts.
+tools/benchmark/loadtest/scripts | Load-test script qualification requires requests and its benchmark metrics environment; those dependencies belong to the separate load-test qualification job.
+tools/bringup/tests | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/ci/tests | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/containers | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/deploy/tests | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/deps/tests | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/docs/gen | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/hyperfide/.agents/skills/verify-hyperfide/scripts | Vendored Hyperfide tests require its own built CLI, source-control harness and isolated repository fixtures; the runtime Python job does not install that upstream test environment.
+tools/hyperfide/tests/hyperfide | Vendored Hyperfide tests require its own built CLI, source-control harness and isolated repository fixtures; the runtime Python job does not install that upstream test environment.
+tools/hyperfide/tests/hyperfide/cases/source_control | Vendored Hyperfide tests require its own built CLI, source-control harness and isolated repository fixtures; the runtime Python job does not install that upstream test environment.
+tools/hyperfide/tests/hyperfide/source-control | Vendored Hyperfide tests require its own built CLI, source-control harness and isolated repository fixtures; the runtime Python job does not install that upstream test environment.
+tools/hyperfide/tests/hyperfide/source-control/full_case | Vendored Hyperfide tests require its own built CLI, source-control harness and isolated repository fixtures; the runtime Python job does not install that upstream test environment.
+tools/jev/checks | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/jev/tests | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/launchpad | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/launchpad/cache | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/delivery | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/bootstrap | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/bootstrap/build | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/bootstrap/resources | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/bootstrap/security | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/bootstrap/snapshot | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/bootstrap/tests | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/charts-engine | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/dispatcher/tests | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/feature-acceptance/tests | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/integration | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/interfaces | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/load | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/launchpad/production/tests | Launchpad tooling qualification owns its build, dispatcher, release and production interface environments; the runtime Python job does not install the launchpad release toolchains.
+tools/paxeer-x/sid-snapshot | Snapshot migration qualification requires its SID snapshot producer and Go migration toolchain; this Python job does not provision those release artifacts.
+tools/paxeer-x/tests | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/qualification | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/qualification/audit_repairs | Release and audit qualification tooling owns its retained evidence inventories, native node binaries and gate lifecycle; those inputs are outside this runtime suite environment.
+tools/qualification/localnode/tests | The local-node fixture suite starts a built Paxeer node and requires its native Go daemon and runtime toolchain, absent from the runtime Python job.
+tools/qualification/paxeer-x | Release and audit qualification tooling owns its retained evidence inventories, native node binaries and gate lifecycle; those inputs are outside this runtime suite environment.
+tools/qualification/paxeer-x/tests | Release and audit qualification tooling owns its retained evidence inventories, native node binaries and gate lifecycle; those inputs are outside this runtime suite environment.
+tools/qualification/tests | Release and audit qualification tooling owns its retained evidence inventories, native node binaries and gate lifecycle; those inputs are outside this runtime suite environment.
+tools/release/rehearsal | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/release/tests | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/rollout/tests | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.
+tools/spec | Tooling Python suites have separate compiler, container and release harness prerequisites; task 22.39.84 owns their dedicated test-tools-python target and workflow runner.

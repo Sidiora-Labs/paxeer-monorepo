@@ -1,0 +1,7 @@
+[issue.1710]
+number = 1710
+title = "Receipt vector refresher rejects the second V2 producer case"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit 3740acfa3e25ea3b4aa157330f14dc50a37b0c47 fixes the historical failure recorded at rpc/repair_22_31_491.kvx:33: sdk/platform/conformance/fixtures/refresh_receipt_vectors.py:168 now requires two V2 cases, :172 rejects missing or duplicate IDs, :181 preserves raw producer case bytes, :188 refreshes V3 source provenance, and :200 through :231 continue through the documented V4, V5 and Go checkpoint writes, while sdk/platform/go/conformance_vectors_test.go:176 requires both V2 cases, :216 compares them with the producer, :367 and :403 require byte-identical portable re-export and reconstruction, and daemon/committed-fixture/vector_v4_test.go:395 checks both source digests."
+close_comment = "The receipt-vector refresher now accepts and preserves both V2 producer cases while retaining missing-case and duplicate-ID validation. The documented refresh includes V4, V5 and the Go checkpoint, with source provenance checks and byte-identical portable export checks retained."

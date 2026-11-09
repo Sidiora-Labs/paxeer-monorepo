@@ -4,6 +4,7 @@ import React from 'react';
 
 import type { PaxeerXArchiveReceiptsItem } from 'types/api/paxeerXArchive';
 
+import { PAXEER_X_KERNEL_RECEIPTS_ITEM, PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
 import { TableBody, TableRoot } from 'toolkit/chakra/table';
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,12 +14,13 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 
 import PaxeerXReceiptsTableItem from './PaxeerXReceiptsTableItem';
 
-const receipt: PaxeerXArchiveReceiptsItem = {
+const receipt = {
+  ...PAXEER_X_RECEIPTS_ITEM,
   id: '0x1a2b3c4d5e6f7081928374655647382910ffeeddccbbaa99887766554433221100',
   account: '0x0000000000000000000000000000000000000000000000000000000000000000',
   frozen: true,
   block_number: 8341004,
-};
+} satisfies PaxeerXArchiveReceiptsItem;
 
 const renderItem = (item: PaxeerXArchiveReceiptsItem = receipt) => render(
   <TableRoot variant="scan">
@@ -46,7 +48,7 @@ describe('PaxeerXReceiptsTableItem', () => {
     fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
   });
 
-  it(receipts_table_item_has_no_rung_badge.name, receipts_table_item_has_no_rung_badge);
+  it('receipts_table_item_has_no_rung_badge', receipts_table_item_has_no_rung_badge);
 
   it('marks the row with the receipt it carries and links it to its page', () => {
     const { container } = renderItem();
@@ -70,6 +72,13 @@ describe('PaxeerXReceiptsTableItem', () => {
 
     expect(cells).toHaveLength(3);
     expect(cells[2]?.textContent).toBe(String(receipt.block_number));
+  });
+
+  it('renders a kernel receipt block as pending without a block link', () => {
+    const { container } = renderItem(PAXEER_X_KERNEL_RECEIPTS_ITEM);
+
+    expect(container.querySelectorAll('td')[2]?.textContent).toBe('Pending');
+    expect(container.querySelector('a[href^="/block/"]')).toBeNull();
   });
 
   it('marks an account the receipt log does not carry', () => {

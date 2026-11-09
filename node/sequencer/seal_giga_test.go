@@ -43,6 +43,7 @@ func TestSealBatchEqualsGigaProcessBlock(t *testing.T) {
 		return w
 	}
 	primary, replay := newApp(), newApp()
+	require.NotNil(t, primary.App.GigaEvmKeeper.EvmoneVM)
 	tmtypes.SkipLastResultsHashValidation.Store(previousSkipResultsHash)
 	primary.App.GigaExecutorEnabled = false
 	require.True(t, replay.App.GigaExecutorEnabled)

@@ -9,7 +9,8 @@ mod support;
 
 use layerx_crypto::ed25519;
 use layerx_crypto::signer::{
-    sign_disclosed, BindSigner, DidSignature, KeystoreSigner, LocalSigner, SignError, Signer,
+    sign_disclosed_call, BindSigner, DidSignature, KeystoreSigner, LocalSigner, SignError, Signer,
+    SigningRequest,
 };
 use layerx_crypto::SignatureMessage;
 use layerx_wire::hash::Domain;
@@ -58,14 +59,15 @@ fn local_signer_is_object_safe_and_never_renders_key_material() {
         ),
         Ok(())
     );
-    let old = support::signing::old_envelope(signer.public_key());
+    let produced = support::send_call(25, 7);
+    let canonical = produced.call.encode_unsigned();
+    let activity =
+        SignatureMessage::new(Domain::SignaturePreimage, PROTOCOL_VERSION, 17, &canonical)
+            .expect("activity domain");
+    let request =
+        SigningRequest::new(activity, &produced.disclosure).expect("validated audit request");
     assert_eq!(
-        ready(sign_disclosed(
-            signer.as_ref(),
-            &old.canonical,
-            &old.disclosure,
-            &old.registry
-        )),
+        ready(signer.sign(request)),
         Err(SignError::InvalidDisclosure)
     );
     let panic = std::panic::catch_unwind(|| panic!("{rendered}"));
@@ -174,10 +176,11 @@ fn public_key(path: &std::path::Path) -> [u8; 32] {
 }
 
 #[cfg(unix)]
-#[test]
-fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
-    let directory =
-        std::env::temp_dir().join(format!("layerx-keystore-signer-{}", std::process::id()));
+fn keystore_fixture(label: &str) -> (AgentFixture, KeystoreSigner) {
+    let directory = std::env::temp_dir().join(format!(
+        "layerx-keystore-signer-{label}-{}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&directory);
     assert!(std::fs::create_dir(&directory).is_ok());
     let key_path = directory.join("identity");
@@ -217,23 +220,15 @@ fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
     let Ok(signer) = KeystoreSigner::new(&socket_path, public_key) else {
         panic!("real external key was rejected");
     };
+    (fixture, signer)
+}
+
+#[cfg(unix)]
+#[test]
+fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
+    let (fixture, signer) = keystore_fixture("payer");
+    let public_key = signer.public_key();
     assert_eq!(format!("{signer:?}"), "KeystoreSigner([external key])");
-    let old = support::signing::old_envelope(public_key);
-    for candidate in [
-        &signer,
-        &KeystoreSigner::new(fixture.directory.join("unavailable.sock"), public_key)
-            .expect("public key"),
-    ] {
-        assert_eq!(
-            ready(sign_disclosed(
-                candidate,
-                &old.canonical,
-                &old.disclosure,
-                &old.registry
-            )),
-            Err(SignError::InvalidDisclosure)
-        );
-    }
     let debit = support::debit(25);
     let canonical = debit.authorization_message().expect("native payer message");
     let request = debit
@@ -256,4 +251,54 @@ fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
     let signature = ready(signer.sign_bind(&binding)).expect("real SSH-agent bind signature");
     assert_eq!(binding.verify(&public_key, signature.as_bytes()), Ok(()));
     drop(fixture);
+}
+
+#[cfg(unix)]
+#[test]
+fn keystore_signer_refuses_activity_preimages_and_signs_the_bind_message() {
+    let (fixture, signer) = keystore_fixture("activity-refusal");
+    let produced = support::send_call(25, 7);
+    let canonical = produced.call.encode_unsigned();
+    let activity =
+        SignatureMessage::new(Domain::SignaturePreimage, PROTOCOL_VERSION, 17, &canonical)
+            .expect("activity signature preimage domain");
+    let request =
+        SigningRequest::new(activity, &produced.disclosure).expect("validated disclosure");
+    assert_eq!(
+        request.message().expect("activity preimage").digest(),
+        activity.digest()
+    );
+    let unavailable = KeystoreSigner::new(
+        fixture.directory.join("unavailable.sock"),
+        signer.public_key(),
+    )
+    .expect("public identity");
+    for candidate in [&signer, &unavailable] {
+        assert_eq!(
+            ready(candidate.sign(request)),
+            Err(SignError::InvalidDisclosure)
+        );
+        assert_eq!(
+            ready(candidate.sign_bind_bytes(&support::archived_send(25))),
+            Err(SignError::InvalidDisclosure)
+        );
+    }
+    let binding = support::signing::binding();
+    let signature =
+        ready(signer.sign_bind(&binding)).expect("bind consent through real SSH socket");
+    assert_eq!(
+        binding.verify(&signer.public_key(), signature.as_bytes()),
+        Ok(())
+    );
+    let transaction_signature = ready(sign_disclosed_call(
+        &support::evm_signer(),
+        &produced.call,
+        &produced.disclosure,
+        support::call_options(7).from,
+    ))
+    .expect("disclosed type-2 transaction");
+    assert_eq!(
+        layerx_crypto::evm_transaction::recover_sender(&produced.call, &transaction_signature),
+        Ok(support::call_options(7).from)
+    );
 }

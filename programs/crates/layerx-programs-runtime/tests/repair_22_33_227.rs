@@ -127,9 +127,9 @@ fn guest() -> Vec<u8> {
 
 fn instance(cpu: u64) -> ProgramInstance {
     let module = WasmEngine::declared()
-        .unwrap()
+        .unwrap_or_else(|error| panic!("engine: {error:?}"))
         .validate_v2(&guest())
-        .unwrap();
+        .unwrap_or_else(|error| panic!("repair guest validation: {error:?}"));
     let budget = ResourceBudget::new_complete(
         cpu,
         MEMORY_BYTES as u64,
@@ -141,18 +141,20 @@ fn instance(cpu: u64) -> ProgramInstance {
     );
     let abi = Abi::new(
         rt::ABI_V2_VERSION,
-        ProgramId::new([0x41; 32]).unwrap(),
+        ProgramId::new([0x41; 32]).unwrap_or_else(|error| panic!("repair program ID: {error:?}")),
         AuthorizationContext::new(
-            PrincipalId::new([0x42; 32]).unwrap(),
-            CapabilitySet::new([Capability::StorageWrite]).unwrap(),
+            PrincipalId::new([0x42; 32])
+                .unwrap_or_else(|error| panic!("repair principal ID: {error:?}")),
+            CapabilitySet::new([Capability::StorageWrite])
+                .unwrap_or_else(|error| panic!("storage-write capability set: {error:?}")),
         ),
         Storage::new(),
         &UnavailableReceiptOracle,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("repair ABI: {error:?}"));
     let mut instance = module
         .instantiate_sandbox(Meter::new(budget, FeeSchedule::declared()), abi)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("repair sandbox instantiation: {error:?}"));
     assert_eq!(
         call(&mut instance, "load", &[OUTPUT]),
         i32::from_le_bytes([0xa5; 4])
@@ -162,7 +164,9 @@ fn instance(cpu: u64) -> ProgramInstance {
 
 fn call(instance: &mut ProgramInstance, name: &str, args: &[i32]) -> i32 {
     let args: Vec<_> = args.iter().copied().map(WasmValue::I32).collect();
-    let result = instance.call(name, &args).unwrap();
+    let result = instance
+        .call(name, &args)
+        .unwrap_or_else(|error| panic!("guest call {name} with {args:?}: {error:?}"));
     match result.as_slice() {
         [WasmValue::I32(value)] => *value,
         other => panic!("unexpected guest result: {other:?}"),
@@ -173,7 +177,10 @@ fn observed_call(instance: &mut ProgramInstance, name: &str, args: &[i32]) -> (i
     let before = instance.meter().cpu_total();
     LARGEST_ALLOCATION.with(|slot| slot.set(Some(0)));
     let result = call(instance, name, args);
-    let largest = LARGEST_ALLOCATION.with(|slot| slot.replace(None).unwrap());
+    let largest = LARGEST_ALLOCATION.with(|slot| {
+        slot.replace(None)
+            .unwrap_or_else(|| panic!("allocation observer missing after guest call {name}"))
+    });
     (result, largest, instance.meter().cpu_total() - before)
 }
 
@@ -182,7 +189,10 @@ fn assert_output(instance: &mut ProgramInstance, expected: &[u8]) {
     for (index, word) in expected.chunks_exact(4).enumerate() {
         assert_eq!(
             call(instance, "load", &[OUTPUT + (index as i32) * 4]),
-            i32::from_le_bytes(word.try_into().unwrap()),
+            i32::from_le_bytes(
+                word.try_into()
+                    .unwrap_or_else(|error| panic!("digest word {index} conversion: {error:?}"))
+            ),
             "digest word {index}"
         );
     }
@@ -200,12 +210,19 @@ fn assert_preflight_rejection(instance: &mut ProgramInstance, args: &[i32], expe
 }
 
 fn stored_value(instance: &ProgramInstance) -> Option<Vec<u8>> {
-    let mut storage = instance.storage_snapshot().unwrap();
+    let mut storage = instance
+        .storage_snapshot()
+        .unwrap_or_else(|| panic!("repair storage snapshot missing"));
     let namespace = rt::StorageNamespace::principal(
-        ProgramId::new([0x41; 32]).unwrap(),
-        PrincipalId::new([0x42; 32]).unwrap(),
+        ProgramId::new([0x41; 32])
+            .unwrap_or_else(|error| panic!("storage namespace program ID: {error:?}")),
+        PrincipalId::new([0x42; 32])
+            .unwrap_or_else(|error| panic!("storage namespace principal ID: {error:?}")),
     );
-    storage.transaction(namespace).read(b"a").unwrap()
+    storage
+        .transaction(namespace)
+        .read(b"a")
+        .unwrap_or_else(|error| panic!("stored value read: {error:?}"))
 }
 
 #[test]
@@ -283,11 +300,19 @@ fn hash_preflight_valid_vectors_and_ceiling() {
         let (status, _, empty_fuel) =
             observed_call(&mut instance, "hash", &[id, MEMORY_BYTES, 0, OUTPUT]);
         assert_eq!(status, 0);
-        assert_output(&mut instance, &rt::hash_bytes(algorithm, b"").unwrap());
+        assert_output(
+            &mut instance,
+            &rt::hash_bytes(algorithm, b"")
+                .unwrap_or_else(|error| panic!("algorithm {id} empty digest: {error:?}")),
+        );
         let (status, _, abc_fuel) = observed_call(&mut instance, "hash", &[id, 0, 3, OUTPUT]);
         assert_eq!(status, 0);
         assert_eq!(abc_fuel - empty_fuel, 3 * algorithm.fuel_per_byte());
-        assert_output(&mut instance, &hex::decode(abc).unwrap());
+        assert_output(
+            &mut instance,
+            &hex::decode(abc)
+                .unwrap_or_else(|error| panic!("algorithm {id} abc digest vector: {error:?}")),
+        );
 
         let mut input = vec![0; HASH_LIMIT as usize];
         input[..3].copy_from_slice(b"abc");
@@ -302,7 +327,11 @@ fn hash_preflight_valid_vectors_and_ceiling() {
             fuel - empty_fuel,
             HASH_LIMIT as u64 * algorithm.fuel_per_byte()
         );
-        assert_output(&mut instance, &rt::hash_bytes(algorithm, &input).unwrap());
+        assert_output(
+            &mut instance,
+            &rt::hash_bytes(algorithm, &input)
+                .unwrap_or_else(|error| panic!("algorithm {id} ceiling digest: {error:?}")),
+        );
     }
 }
 
@@ -318,7 +347,14 @@ fn guest_read_invalid_large_ranges_do_not_allocate() {
                 largest < 65_536,
                 "invalid read of {length} bytes allocated {largest}"
             );
-            assert_eq!(instance.meter().finish().unwrap().storage_write_bytes, 0);
+            assert_eq!(
+                instance
+                    .meter()
+                    .finish()
+                    .unwrap_or_else(|error| panic!("rejected storage write metering: {error:?}"))
+                    .storage_write_bytes,
+                0
+            );
             assert_eq!(stored_value(&instance), None);
         }
     }
@@ -341,7 +377,10 @@ fn guest_read_valid_range_still_reaches_storage() {
     let mut instance = instance(10_000_000);
     assert_eq!(call(&mut instance, "store", &[0, 1, 0, 3]), 0);
     assert_eq!(stored_value(&instance), Some(b"abc".to_vec()));
-    let usage = instance.meter().finish().unwrap();
+    let usage = instance
+        .meter()
+        .finish()
+        .unwrap_or_else(|error| panic!("valid storage write metering: {error:?}"));
     assert!(usage.storage_write_bytes >= 3);
     assert_eq!(
         call(&mut instance, "store", &[0, 1, MEMORY_BYTES - 3, 3]),

@@ -1,0 +1,7 @@
+[issue.1841]
+number = 1841
+title = "[Coherence] The commit claims it documents the hosted URL option in the CLI README, but the README is unchanged and no example carries --gateway-rpc"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit a08a60044bf3f1a66189338037862089c11b31f0 updated tools/platform/cli/README.md:54 to explain the node/hosted URL split, added --gateway-rpc to all six write examples at tools/platform/cli/README.md:219 and both balance examples at tools/platform/cli/README.md:330, and documented token info/list using the hosted --rpc URL at tools/platform/cli/README.md:325 as implemented by tools/platform/cli/src/wallet.rs:815, with the documented reads and writes exercised by tools/platform/cli/tests/repair_22_33_1499.rs:397 and tools/platform/cli/tests/repair_22_33_1499.rs:666."
+close_comment = "The CLI README now includes --gateway-rpc in both wallet balance examples and all six account-write examples, and explains the node and hosted URL split. Token info and list explicitly use the hosted service URL through --rpc, matching their supported options."

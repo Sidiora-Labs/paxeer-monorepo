@@ -1,7 +1,14 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "layerx/lx_escrow.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_receipt.h"
 #include "layerx/lxp_state.h"
+#include "layerx/lxp_snapshot.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "../../src/modules/escrow/lx_escrow_internal.h"
 
 #include <string.h>
@@ -145,6 +152,8 @@ int main(void)
         lxp_ledger_bootstrap_balance(escrow_account, asset.asset_id,
                                      (lxp_u128){ 0U, 100U }, 0U) != LXP_OK ||
         lxp_state_store_init(&state, 0U) != LXP_OK ||
+        lxp_state_store_bind_accounts(&state, &accounts) != LXP_OK ||
+        lxp_state_store_require_account_root(&state) != LXP_OK ||
         lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) != LXP_OK ||
         lxp_kernel_register_module(&kernel, lx_escrow_module_iface()) != LXP_OK ||
         lxp_kernel_set_capabilities(&kernel, NULL, apply_capability) != LXP_OK ||
@@ -363,37 +372,76 @@ int main(void)
                             100000U, &arena, true) != LXP_OK ||
         lxp_module_ctx_bind_effects(&ctx, &effects) != LXP_OK)
         return 1;
-    /* Restart: the committed state store and the committed module state
-     * table are restored into a fresh kernel; the context commitment and
-     * original receipt survive. */
+    /* escrow-restart-copy: complete durable snapshot, with no resident consumer
+     * accounts or private KV table carried across the restart. */
     {
-        static lxp_module_kv_entry saved_kv[LXP_KERNEL_MAX_MODULE_KV];
-        size_t saved_kv_count = kernel.module_kv_count;
-        lxp_state_snapshot *snapshot = NULL;
-        if (saved_kv_count == 0U || saved_kv_count > LXP_KERNEL_MAX_MODULE_KV)
+        static uint8_t snapshot_bytes[1048576];
+        static uint8_t loaded_bytes[1048576];
+        lxp_snapshot_manifest_record manifest, loaded_manifest;
+        lxp_byte_span snapshot, loaded;
+        lxp_arena snapshot_arena;
+        uint8_t root[32], restored_root[32], ids[4][32];
+        lx_account **rebound[] = {&owner, &escrow_account, &beneficiary, &second_escrow};
+        char directory[] = "/tmp/lx-escrow-capture-XXXXXX";
+        char path[128];
+        for (size_t i = 0U; i < 4U; ++i)
+            (void)memcpy(ids[i], (*rebound[i])->id, 32U);
+        while (state.next_sequence <= ctx.global_sequence) {
+            if (lxp_state_journal_open(&state, state.next_sequence, &journal) != LXP_OK ||
+                lxp_state_journal_commit(&journal) != LXP_OK) return 1;
+        }
+        if (lxp_state_root(&kernel, root) != LXP_OK ||
+            lxp_arena_init(&snapshot_arena, snapshot_bytes, sizeof(snapshot_bytes)) != LXP_OK ||
+            lxp_snapshot_write(&kernel, state.next_sequence - 1U,
+                               &snapshot_arena, &snapshot) != LXP_OK ||
+            lxp_snapshot_manifest_build(snapshot.bytes, snapshot.length,
+                state.next_sequence - 1U, root, kernel.current_state_root, &manifest) != LXP_OK ||
+            mkdtemp(directory) == NULL ||
+            lxp_snapshot_store_write(directory, &manifest, snapshot.bytes, snapshot.length) != LXP_OK)
             return 1;
-        (void)memcpy(saved_kv, kernel.module_kv,
-                     saved_kv_count * sizeof(saved_kv[0]));
-        if (lxp_state_snapshot_create(&state, &snapshot) != LXP_OK ||
-            lxp_state_store_destroy(&state) != LXP_OK ||
+        int path_length = snprintf(path, sizeof(path), "%s/%020llu.lxs", directory,
+                                   (unsigned long long)manifest.global_sequence);
+        if (path_length <= 0 || (size_t)path_length >= sizeof(path) ||
+            lxp_state_store_destroy(&state) != LXP_OK) return 1;
+        lx_account_registry_release(&accounts);
+        (void)memset(&kernel, 0, sizeof(kernel));
+        (void)memset(&journal, 0, sizeof(journal));
+        (void)memset(&ctx, 0, sizeof(ctx));
+        (void)memset(&runtime, 0, sizeof(runtime));
+        (void)memset(&assets, 0, sizeof(assets));
+        owner = escrow_account = beneficiary = second_escrow = NULL;
+        request.owner_account = request.escrow_account = request.beneficiary_account = NULL;
+        if (lx_account_registry_init(&accounts) != LXP_OK ||
+            lx_asset_registry_init(&assets, 0U) != LXP_OK ||
+            lx_asset_register(&assets, &asset, 0U, (lxp_u128){0U, 0U}) != LXP_OK ||
             lxp_state_store_init(&state, 0U) != LXP_OK ||
-            lxp_state_snapshot_restore(snapshot, &state) != LXP_OK)
-            return 1;
-        lxp_state_snapshot_destroy(snapshot);
-        if (lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) !=
-                LXP_OK ||
-            lxp_kernel_register_module(&kernel, lx_escrow_module_iface()) !=
-                LXP_OK ||
-            lxp_kernel_set_capabilities(&kernel, NULL, apply_capability) !=
-                LXP_OK ||
-            lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ESCROW,
-                                           &runtime) != LXP_OK ||
-            kernel.module_kv_count != 0U)
-            return 1;
-        (void)memcpy(kernel.module_kv, saved_kv,
-                     saved_kv_count * sizeof(saved_kv[0]));
-        kernel.module_kv_count = saved_kv_count;
-        if (lxp_effect_buffer_init(&effects) != LXP_OK ||
+            lxp_state_store_bind_accounts(&state, &accounts) != LXP_OK ||
+            lxp_state_store_require_account_root(&state) != LXP_OK ||
+            lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) != LXP_OK ||
+            lxp_kernel_register_module(&kernel, lx_escrow_module_iface()) != LXP_OK ||
+            lxp_kernel_set_capabilities(&kernel, NULL, apply_capability) != LXP_OK ||
+            lxp_arena_init(&snapshot_arena, loaded_bytes, sizeof(loaded_bytes)) != LXP_OK ||
+            lxp_snapshot_store_read(path, &snapshot_arena, &loaded_manifest, &loaded) != LXP_OK ||
+            lxp_snapshot_load(loaded.bytes, loaded.length, &loaded_manifest, &kernel) != LXP_OK ||
+            lxp_snapshot_verify_root(&kernel, &loaded_manifest) != LXP_OK ||
+            lxp_state_root(&kernel, restored_root) != LXP_OK ||
+            memcmp(root, restored_root, 32U) != 0) return 1;
+        for (size_t i = 0U; i < 4U; ++i) {
+            size_t slot;
+            if (lx_account_registry_index_lookup(&accounts, ids[i], &slot) != LXP_OK)
+                return 1;
+            *rebound[i] = &accounts.accounts[slot];
+        }
+        runtime.accounts = &accounts;
+        runtime.assets = &assets;
+        request.owner_account = owner;
+        request.escrow_account = escrow_account;
+        request.beneficiary_account = beneficiary;
+        request.asset = &assets.assets[0];
+        if (unlink(path) != 0 || rmdir(directory) != 0 ||
+            lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ESCROW, &runtime) != LXP_OK ||
+            lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK ||
+            lxp_effect_buffer_init(&effects) != LXP_OK ||
             lxp_module_ctx_init(&ctx, &kernel, LXP_MODULE_ESCROW, 500U, 0U,
                                 1U, 100000U, &arena, true) != LXP_OK ||
             lxp_module_ctx_bind_effects(&ctx, &effects) != LXP_OK)
@@ -415,6 +463,9 @@ int main(void)
             lx_escrow_lookup(&ctx, record.escrow_id, &stored) != LXP_OK ||
             stored.captured_amount.lo != 30U ||
             stored.state != LX_ESCROW_STATE_PARTIALLY_CAPTURED ||
+            lxp_state_root(&kernel, restored_root) != LXP_OK ||
+            memcmp(root, restored_root, 32U) != 0 ||
+            owner->balance.lo != 0U || second_escrow->balance.lo != 100U ||
             lxp_module_ctx_commit(&ctx) != LXP_OK)
             return 1;
     }

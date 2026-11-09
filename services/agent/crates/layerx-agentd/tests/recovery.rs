@@ -1,3 +1,4 @@
+// Receipt views and their signed paymentDenom binding come from support::sequencer_receipt.
 mod support;
 
 use layerx_agentd::budget::{
@@ -328,4 +329,79 @@ fn queued_record_without_origin_is_restored_but_never_offered_for_transmission()
         exact.as_slice()
     );
     let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn restarted_resolution_refuses_missing_and_changed_payment_denomination_without_delivery() {
+    for denomination in [None, Some("uatom")] {
+        let root = directory("denomination-refusal");
+        let mut before = Store::open(&root).expect("store");
+        let mut outbox = Outbox::default();
+        let (hash, exact) = enqueue(&mut outbox, &mut before, 9);
+        transition(&mut outbox, &mut before, hash, SubmissionState::Submitted);
+        transition(&mut outbox, &mut before, hash, SubmissionState::Unknown);
+        drop(outbox);
+        drop(before);
+        let mut reopened = Store::open(&root).expect("reopen");
+        let mut recovered = recover(&mut reopened, &tenant(), &recovery_inputs(&[], &[], &[]))
+            .expect("recovered outbox");
+        let (mut view, key) = sequencer_receipt(&exact, true);
+        match denomination {
+            None => {
+                view.as_object_mut()
+                    .expect("receipt object")
+                    .remove("paymentDenom");
+            }
+            Some(value) => view["paymentDenom"] = json!(value),
+        }
+        let (mut endpoint, server) = serve(vec![(
+            "pax_sequencerReceipt",
+            json!([rpc_hex(&hash)]),
+            Some(view),
+        )]);
+        let result = resolve_unknown(
+            &mut recovered.outbox,
+            &mut reopened,
+            hash,
+            10000,
+            &[key],
+            &mut endpoint,
+        )
+        .expect("resolution observation");
+        assert_eq!(result.state, SubmissionState::Unknown);
+        assert_eq!(
+            result.observation,
+            layerx_agentd::outbox::ResolutionObservation::UnverifiedReceipt
+        );
+        assert_eq!(
+            result.resend,
+            layerx_agentd::outbox::ResendObservation::NotWarranted
+        );
+        let traffic = server.join().expect("receipt server");
+        assert_eq!(traffic.lookups, 1);
+        assert_eq!(traffic.resends, 0);
+        assert_eq!(
+            recovered
+                .outbox
+                .exact_signed_bytes(hash)
+                .expect("retained exact bytes"),
+            exact
+        );
+        assert_eq!(
+            reopened
+                .list_object_ids(&tenant(), ObjectKind::Receipt)
+                .len(),
+            0
+        );
+        drop(reopened);
+        let mut reopened = Store::open(&root).expect("second reopen");
+        let recovered = recover(&mut reopened, &tenant(), &recovery_inputs(&[], &[], &[]))
+            .expect("still unknown");
+        assert_eq!(
+            recovered.outbox.status(hash).expect("status").state,
+            SubmissionState::Unknown
+        );
+        drop(reopened);
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
 }

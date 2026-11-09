@@ -32,4 +32,4 @@ The former runtime, forwarding and state-archive HTTP endpoints are retired. Pub
 
 ## Relay archive JSON-RPC methods
 
-The old relay/archive method registrations are retired. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`; hosted `px_` methods belong to the [gateway contract](platform-gateway.md). For protobuf query and transaction services, use [the protobuf API contract](proto-api.md). `node.hyperpaxeer.com` is the library mirror, not an RPC endpoint or history service.
+The old relay/archive method registrations are retired. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`; hosted `px_` methods belong to the [gateway contract](platform-gateway.md). For protobuf query and transaction services, use [the protobuf API contract](proto-api.md). `node.hyperpaxeer.com` is the library mirror, not an RPC endpoint or history service.

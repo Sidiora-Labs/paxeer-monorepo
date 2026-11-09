@@ -3,21 +3,24 @@ import { createElement } from 'react';
 import { expect, test } from 'vitest';
 import {
   bridge,
-  decodeSequencerReceipt,
   exchange,
-  readReceiptKeyPins,
   readSequencerReceipt,
+  requireAuthenticatedReceipt,
   sendModuleTransactionReceipted,
   type ModuleTransaction,
 } from '@paxeer/wallet';
-import { PERPS_PRECOMPILE, abiSelector, encodeAbiCall } from '@sidiora/layerx-sdk';
-import { verifySequencerReceipt } from '@sidiora/layerx-sdk/browser';
-import { bytesToHex, hexToBytes, keccak256, parseTransaction, toHex } from 'viem';
+import {
+  PERPS_PRECOMPILE,
+  XWEB_PRECOMPILE,
+  abiSelector,
+  encodeAbiCall,
+} from '@sidiora/layerx-sdk/browser';
+import { keccak256, parseTransaction } from 'viem';
 import { mount } from '@/account/test/render';
 import { ExchangeView, USDL } from './ExchangeView';
 import { SentResult } from './Surface';
 import { WebDataView } from './WebDataView';
-import { readGrantCaps, surfaceReceipt, useWebDataCaps, type SentTransaction } from './useSurface';
+import { readGrantCaps, surfaceReceipt, useWebDataCaps } from './useSurface';
 import {
   buildPerpsPosition,
   perpsCollateralApproval,
@@ -26,7 +29,7 @@ import {
 } from './perpsCollateral';
 import { proveBridgeRung } from './test/bridgeRung';
 import { SurfaceChain, click, mountSurface, radio, text, typeInto, until } from './test/chain';
-import { FLOOR, GrantChain, OWNED_GRANT } from './test/grants';
+import { DID, GrantChain, HEAD } from './test/grants';
 import { PerpsConfiguration } from './test/perpsConfiguration';
 import { RecordedBridgeChain } from './test/recordedReceipts';
 
@@ -77,19 +80,12 @@ async function rung_not_rendered_distinguishes_authenticated_committed_outcomes(
     await receiptedRendered.unmount();
   }
   const chain = new RecordedBridgeChain('committed-payExact');
-  // This committed recording belongs to the conformance network (713714).
-  // Authenticate its captured pair with the chain-independent SDK codecs before
-  // supplying the result model to the shared renderer. The V1 case above also
-  // exercises the wallet's chain-125 authenticator and surfaceReceipt adapter.
-  const pins = await readReceiptKeyPins((method, params) => chain.request({ method, params }));
-  const receipt = decodeSequencerReceipt(
-    await chain.request({
-      method: 'pax_sequencerReceipt',
-      params: [chain.recording.receiptJson.txHash],
-    }),
-    chain.recording.receiptJson.txHash,
-    pins
+  const receipt = await readSequencerReceipt(
+    (method, params) => chain.request({ method, params }),
+    chain.recording.receiptJson.txHash
   );
+  if (receipt === null) throw new Error('Missing recorded committed receipt');
+  requireAuthenticatedReceipt(receipt);
   expect(receipt.rung).toBe('committed');
   if (receipt.rung !== 'committed' || !receipt.receipt || !receipt.logs)
     throw new Error('Missing recorded committed receipt');
@@ -99,32 +95,20 @@ async function rung_not_rendered_distinguishes_authenticated_committed_outcomes(
       params: [receipt.txHash],
     })
   ).toBe(chain.recording.rawTransaction);
-  const authenticated = await verifySequencerReceipt(
-    hexToBytes(receipt.receipt),
-    hexToBytes(chain.recording.rawTransaction),
-    pins.map((pin) => ({
-      keyId: hexToBytes(pin.keyId),
-      publicKey: hexToBytes(pin.publicKey),
-      first_height: pin.firstHeight,
-      last_height: pin.lastHeight,
-    }))
-  );
-  expect(authenticated.level).toBe('sequencer-signed');
-  expect(bytesToHex(authenticated.receipt.activityId)).toBe(receipt.txHash);
-  expect(bytesToHex(authenticated.canonicalBytes)).toBe(receipt.receipt);
-  expect(authenticated.height).toBe(BigInt(receipt.height!));
-  expect(parseTransaction(chain.recording.rawTransaction).chainId).toBe(713714);
+  expect(keccak256(chain.recording.rawTransaction)).toBe(receipt.txHash);
+  expect(receipt.authentication.level).toBe('sequencer-signed');
+  expect(receipt.authentication.rawTransaction).toBe(chain.recording.rawTransaction);
+  expect(receipt.authentication.keyId).toBe(chain.recording.pinnedKey.keyId);
+  expect(receipt.receipt).toBe(chain.recording.receiptJson.receipt);
+  expect(receipt.height).toBe(chain.recording.receiptJson.height);
+  expect(receipt.authentication.height).toBe(BigInt(receipt.height!));
+  expect(parseTransaction(chain.recording.rawTransaction).chainId).toBe(125);
+  expect(parseTransaction(chain.recording.rawTransaction).type).toBe('eip1559');
   expect(receipt.status).toBe('0x1');
   expect(receipt.blockHash).toBe(chain.recording.receiptJson.blockHash);
-  const module = bridge(chain);
-  const sent: SentTransaction = {
-    hash: receipt.txHash,
-    rung: receipt.rung,
-    status: receipt.status === '0x1' ? 'confirmed' : 'reverted',
-    events: receipt.logs
-      .filter((log) => log.address.toLowerCase() === module.address.toLowerCase())
-      .map((log) => module.decodeEvent(log)),
-  };
+  expect(receipt.blockNumber).toBe(chain.recording.receiptJson.blockNumber);
+  expect(BigInt(receipt.blockNumber)).toBeGreaterThanOrEqual(BigInt(receipt.height));
+  const sent = surfaceReceipt(receipt, bridge(chain));
   const state = {
     sending: false,
     approving: false,
@@ -384,31 +368,40 @@ function GrantSurface() {
 
 async function empty_lagging_index_test_stays_incomplete_until_the_issued_grant_is_discovered() {
   const chain = new GrantChain();
-  chain.issued = [{ ...OWNED_GRANT, block: FLOOR + 41n }];
-  let caughtUp = false;
-  chain.holderRecords = () => ({
-    items: caughtUp
-      ? [{ kind: 'grant', holder: chain.address, record_id: OWNED_GRANT.grantId.slice(2) }]
-      : [],
-    next_cursor: null,
-    indexedHeight: Number(FLOOR + (caughtUp ? 42n : 40n)),
-    chainHeight: Number(FLOOR + 42n),
+  chain.xwebFee = 123n;
+  const expected = {
+    state: 'retired',
+    reason:
+      'Payer grants are retired. Web requests are available and pay 123 wei as transaction value.',
+    payment: { model: 'request-value', available: true, fee: 123n, payerGrants: 'retired' },
+    did: DID,
+    network_id: 125,
+    observation: {
+      rung: 'committed',
+      block_number: BigInt(HEAD.number).toString(),
+      state_root: HEAD.stateRoot.slice(2),
+    },
+  };
+  expect(await readGrantCaps(chain, chain.address)).toEqual(expected);
+  expect(chain.calls).toContainEqual({
+    to: XWEB_PRECOMPILE.toLowerCase(),
+    data: abiSelector('getParams()'),
   });
+  expect(chain.callBlocks.length).toBeGreaterThan(0);
+  expect(chain.callBlocks.every((block) => block === HEAD.number)).toBe(true);
   const mounted = await mountSurface(chain, createElement(GrantSurface));
   try {
     await until(
-      () => mounted.container.querySelector('[data-caps-state="incomplete"]') !== null,
-      'incomplete discovery'
+      () => mounted.container.querySelector('[data-caps-state="retired"]') !== null,
+      'retired payer grants'
     );
+    expect(mounted.container.textContent).toContain(expected.reason);
     expect(mounted.container.querySelector('[data-role="caps-empty"]')).toBeNull();
-    expect(mounted.container.querySelector('[data-role="caps-observation"]')).toBeNull();
-    expect(text(mounted.container, '[data-role="caps-discovery"]')).toContain(
-      `required finalized height ${FLOOR + 42n}`
-    );
-    expect(mounted.container.textContent).toContain(
-      'Grant discovery has not covered the finalized block.'
-    );
-    caughtUp = true;
+    expect(mounted.container.querySelector('[data-role="caps-discovery"]')).toBeNull();
+    expect(mounted.container.querySelector('[data-grant]')).toBeNull();
+    chain.xwebAvailable = false;
+    chain.xwebFee = 456n;
+    const pausedReason = 'Payer grants are retired. Web requests are currently paused.';
     await click(
       Array.from(mounted.container.querySelectorAll('button')).find(
         (button) => button.textContent === 'Refresh caps'
@@ -416,19 +409,17 @@ async function empty_lagging_index_test_stays_incomplete_until_the_issued_grant_
       'refresh caps'
     );
     await until(
-      () => mounted.container.querySelector('[data-caps-state="ready"]') !== null,
-      'grant after index catch-up'
+      () => mounted.container.textContent?.includes(pausedReason) === true,
+      'paused payment after refresh'
     );
-    expect(mounted.container.querySelectorAll('[data-grant]')).toHaveLength(1);
-    expect(
-      mounted.container.querySelector(`[data-grant="${OWNED_GRANT.grantId.slice(2)}"]`)
-    ).not.toBeNull();
-    expect(text(mounted.container, '[data-role="caps-observation"]')).toBe(
-      `committed · block ${FLOOR + 42n}`
-    );
+    expect(mounted.container.querySelector('[data-caps-state="retired"]')).not.toBeNull();
+    expect(await readGrantCaps(chain, chain.address)).toEqual({
+      ...expected,
+      reason: pausedReason,
+      payment: { model: 'request-value', available: false, fee: 456n, payerGrants: 'retired' },
+    });
+    expect(chain.holderQueries).toEqual([]);
     expect(chain.methods).not.toContain('eth_getLogs');
-    expect(chain.grantCallBlocks.length).toBeGreaterThanOrEqual(5);
-    expect(chain.grantCallBlocks.every((block) => block === toHex(FLOOR + 42n))).toBe(true);
   } finally {
     await mounted.unmount();
   }
@@ -441,34 +432,41 @@ test(
 
 async function incomplete_grant_discovery_requires_coverage_on_every_page_and_refuses_unknown_heights() {
   const chain = new GrantChain();
-  chain.issued = [OWNED_GRANT];
-  const cursor = '00000000000000070000000000000000';
-  for (const indexedHeight of [null, Number(FLOOR + 40n)]) {
-    chain.holderRecords = (params) => ({
-      items:
-        params[2] === null
-          ? [{ kind: 'grant', holder: chain.address, record_id: OWNED_GRANT.grantId.slice(2) }]
-          : [],
-      next_cursor: params[2] === null ? cursor : null,
-      indexedHeight: params[2] === null ? Number(FLOOR + 42n) : indexedHeight,
-      chainHeight: Number(FLOOR + 50n),
-    });
+  for (const available of [true, false]) {
+    chain.xwebAvailable = available;
+    chain.xwebFee = 2n ** 200n + 17n;
     expect(await readGrantCaps(chain, chain.address)).toEqual({
-      state: 'incomplete',
-      reason: 'Grant discovery has not covered the finalized block.',
-      indexedHeight: indexedHeight?.toString() ?? null,
-      finalizedHeight: (FLOOR + 42n).toString(),
+      state: 'retired',
+      reason: available
+        ? `Payer grants are retired. Web requests are available and pay ${chain.xwebFee} wei as transaction value.`
+        : 'Payer grants are retired. Web requests are currently paused.',
+      payment: {
+        model: 'request-value',
+        available,
+        fee: chain.xwebFee,
+        payerGrants: 'retired',
+      },
+      did: DID,
+      network_id: 125,
+      observation: {
+        rung: 'committed',
+        block_number: BigInt(HEAD.number).toString(),
+        state_root: HEAD.stateRoot.slice(2),
+      },
     });
   }
+  expect(chain.blockQueries).toEqual(['finalized', 'finalized']);
+  expect(chain.callBlocks.length).toBeGreaterThan(0);
+  expect(chain.callBlocks.every((block) => block === HEAD.number)).toBe(true);
+  expect(chain.calls.filter((call) => call.data === abiSelector('getParams()'))).toEqual([
+    { to: XWEB_PRECOMPILE.toLowerCase(), data: abiSelector('getParams()') },
+    { to: XWEB_PRECOMPILE.toLowerCase(), data: abiSelector('getParams()') },
+  ]);
+  expect(chain.holderQueries).toEqual([]);
   expect(chain.methods).not.toContain('eth_getLogs');
   expect(
     chain.calls.some((call) => call.data.startsWith(abiSelector('getPayerGrant(bytes32)')))
   ).toBe(false);
-  chain.holderRecords = () => ({ items: [], next_cursor: null, chainHeight: Number(FLOOR + 42n) });
-  await expect(readGrantCaps(chain, chain.address)).rejects.toMatchObject({
-    code: 'invalid_answer',
-    field: 'px_listHolderRecords.indexedHeight',
-  });
 }
 
 test(
@@ -478,32 +476,38 @@ test(
 
 async function budgets_not_discovered_is_exposed_separately_from_verified_grant_absence() {
   const chain = new GrantChain();
-  chain.holderRecords = () => ({
-    items: [],
-    next_cursor: null,
-    indexedHeight: Number(FLOOR + 42n),
-    chainHeight: Number(FLOOR + 42n),
-  });
   const caps = await readGrantCaps(chain, chain.address);
-  expect(caps.state).toBe('empty');
-  if (caps.state !== 'empty') throw new Error('Expected verified grant absence');
-  expect(caps.budgetAvailability).toBe('unavailable');
-  expect(caps.grants).toEqual([]);
+  expect(caps).toEqual({
+    state: 'retired',
+    reason:
+      'Payer grants are retired. Web requests are available and pay 0 wei as transaction value.',
+    payment: { model: 'request-value', available: true, fee: 0n, payerGrants: 'retired' },
+    did: DID,
+    network_id: 125,
+    observation: {
+      rung: 'committed',
+      block_number: BigInt(HEAD.number).toString(),
+      state_root: HEAD.stateRoot.slice(2),
+    },
+  });
   const mounted = await mountSurface(chain, createElement(GrantSurface));
   try {
     await until(
-      () => mounted.container.querySelector('[data-caps-state="empty"]') !== null,
-      'verified grant absence'
+      () => mounted.container.querySelector('[data-caps-state="retired"]') !== null,
+      'retired grants with default payment availability'
     );
     expect(text(mounted.container, '[data-role="budgets-unavailable"]')).toBe(
       'Budget discovery is unavailable. Budget balances have not been read.'
     );
-    expect(text(mounted.container, '[data-role="caps-empty"]')).toBe(
-      'No grants at this verified observation.'
+    expect(mounted.container.textContent).toContain(
+      'Payer grants are retired. Web requests are available and pay 0 wei as transaction value.'
     );
-    expect(mounted.container.textContent).not.toContain('No budgets or grants');
+    expect(mounted.container.querySelector('[data-role="caps-empty"]')).toBeNull();
+    expect(mounted.container.querySelector('[data-role="caps-discovery"]')).toBeNull();
     expect(mounted.container.querySelector('[data-budget]')).toBeNull();
-    expect(chain.holderQueries.every((params) => params[1] === 'grant')).toBe(true);
+    expect(mounted.container.querySelector('[data-grant]')).toBeNull();
+    expect(chain.holderQueries).toEqual([]);
+    expect(chain.methods).not.toContain('eth_getLogs');
   } finally {
     await mounted.unmount();
   }

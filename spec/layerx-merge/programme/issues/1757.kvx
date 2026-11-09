@@ -1,0 +1,48 @@
+[issue.1757]
+number = 1757
+title = "[Coherence] Two targets with observed assertion failures are counted as not_run instead of failed, so the header undercounts failures"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/sweeps/rust-test-agent.kvx:7 reports four failures and four unknowns under the policy at :10, although the layerx-agentd and layerx-sdk blocks at :84 and :96 retain assertion failures at :91 and :105, contradicting decision 2509 at spec/layerx-merge/spec.kvx:8169 and the closure requirements at :205837 and :205838."
+close_comment = "The agent test inventory counts two targets with recorded assertion failures as unknown. Both targets must be counted as failed, giving six failed targets and two unknown targets while retaining the timeout evidence."
+
+[task.18.1757.1]
+title = "Issue #1757: Count recorded assertion failures in the agent test inventory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181757.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/sweeps/rust-test-agent.kvx:84 and :96 to classify layerx-agentd and layerx-sdk as failed, update targets_failed and targets_not_run at :7 and :8 to six and two, and revise the policy at :10 so an observed assertion failure takes precedence over an incomplete command; retain the recorded revision, commands, exit code 124, logs, unfinished details, historical first-failure observations and assumptions, as required by decision 2509 at spec/layerx-merge/spec.kvx:8169."
+do_2 = "Use the focused grep assertions to check totals of eleven targets, three passed, six failed and two not_run, and require both named target blocks to retain exit code 124, their recorded first failing test and a nonempty assumption while carrying result failed; leave the other target records intact."
+symbols = []
+touches = ["spec/layerx-merge/programme/sweeps/rust-test-agent.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Pzq '(?s)\\A(?=.*\\ntargets_total = 11\\n)(?=.*\\ntargets_passed = 3\\n)(?=.*\\ntargets_failed = 6\\n)(?=.*\\ntargets_not_run = 2\\n)(?=.*\\[target\\.rust-test-agent\\.8\\]\\ntarget = \\x22layerx-agentd\\x22\\nresult = \\x22failed\\x22\\nexit_code = 124\\n(?:(?!\\n\\[).)*\\nobserved = \\x22[^\\n]* failed middleware_observation_transcripts_are_produced_by_dispatch[^\\n]+\\nassumption = \\x22[^\\n]+)(?=.*\\[target\\.rust-test-agent\\.9\\]\\ntarget = \\x22layerx-sdk\\x22\\nresult = \\x22failed\\x22\\nexit_code = 124\\n(?:(?!\\n\\[).)*\\nobserved = \\x22[^\\n]* failed native_send_authenticated_envelope_binds_full_session[^\\n]+\\nassumption = \\x22[^\\n]+)' spec/layerx-merge/programme/sweeps/rust-test-agent.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181757]
+title = "Known assertion failures remain visible in the agent test inventory"
+ac_1 = "Given the observed assertion failures at spec/layerx-merge/programme/sweeps/rust-test-agent.kvx:91 and :105, when the inventory classifies those targets, then both are failed despite timeout exit 124 and the header at :5 records eleven total, three passed, six failed and two not_run while preserving the original observations and assumptions."
+
+[acceptance.18.1757.1]
+feature = "18"
+req = "181757.1"
+scenario = "Given two timed-out targets with recorded assertion failures, when the agent test inventory is classified, then layerx-agentd and layerx-sdk are failed, six targets are failed and two remain not_run, with the original timeout and first-failure evidence retained."
+contract = "contracts/programme.md#programme-artifacts"
+test = "spec/layerx-merge/programme/sweeps/rust-test-agent.kvx::grep assertions for known failures and header counts (planned)"
+qualification = "UNRUN"

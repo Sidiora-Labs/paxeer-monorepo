@@ -6,7 +6,7 @@ standalone Next.js image from the application directory, passes server-only
 configuration to `app`, and connects `app` and `nginx` on one private bridge.
 The supported procedure below uses this Compose file throughout.
 
-See the [data API guide](../data_api.md) for the application gateway protocol,
+See the [data API guide](../../../docs/perps/data-api.md) for the application gateway protocol,
 [settings guide](../src/app/modals/SettingsModal.md) for UI preferences, and
 [component guide](../src/components/paxeer/README.md) for live widget integration.
 
@@ -55,10 +55,12 @@ The nginx service publishes ports 80 and 443. It reaches the frontend using
 The bridge allows outbound access to the data gateway and candle feed.
 nginx waits for the app's image health check on initial startup. After an app
 recreation, nginx must resolve its new address. In the operator-supplied TLS
-server's `location /`, use Docker DNS and a variable upstream, for example:
+server's `location /`, use the DNS resolver reachable from nginx and a variable
+upstream. The documentation address below must be replaced with your resolver
+(for Docker, read the nameserver from the nginx container's `/etc/resolv.conf`):
 
 ```nginx
-resolver 127.0.0.11 valid=5s ipv6=off;
+resolver 192.0.2.53 valid=5s ipv6=off;
 set $perps_upstream app:3000;
 proxy_pass http://$perps_upstream;
 proxy_set_header Host $host;
@@ -313,7 +315,7 @@ With an unset `MARKET_PROXY_ORIGIN`, the route returns HTTP 503 with
 origin can throw when the route module loads. Fix the origin format and
 replace the container with the corrected environment. HTTP 504 means the
 upstream timed out; HTTP 502 means it was unreachable. See the
-[API guide](../data_api.md) for the chart/data-gateway distinction.
+[API guide](../../../docs/perps/data-api.md) for the chart/data-gateway distinction.
 
 ### Embedded-wallet sign-in is missing
 

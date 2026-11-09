@@ -1,0 +1,258 @@
+[repair]
+task = "22.31.217"
+audit = "22.30.92"
+acceptance = "22998.1"
+status = "implemented_pending_qualification"
+evidence = "The bounded hf-build/hf-done ledger records the candidate revision, exact command, exit code and private log. No successful verification is claimed before those gates pass."
+baseline = "The supplied attempt-1 evidence at ae38baaeab2af82b6d689c2a7d8a50d2ca885708 reports all ten declared integration tests failing (zero passed): create/fund fail native preparation, the remaining cases lack producer captures. This continuation preserves those assertions. No extra baseline gate was run because the explicit gate order permits verification only through hf-done after implementation."
+integration_inputs = "Tests load tests/fixtures/repair_22_31_217/corpus.json directly. Native codec captures, checkpoint transcript, high-counter export and ABI peer vectors are committed beside it. A loopback replay server starts and stops in process; EIP-1559 signatures, budget validation, fee reservation and Store recovery use production code. No runtime variable, credential, external endpoint or subprocess is read."
+
+[finding.create_source_nonce]
+test = "repair_create_source_nonce_first_use_prepares_submits_and_confirms"
+repair = "Accept zero and reject the reserved maximum; bind source ownership and exact nextSequence at the retained preparation checkpoint via pipeline_at before native submission; reject reserved maximum and invalid sources in both the request producer and signed-byte consumer."
+status = "awaiting_gate_and_external_wiring"
+
+[finding.fund_source_nonce]
+test = "repair_fund_source_nonce_zero_and_above_height_confirm"
+repair = "Treat the native third word as a source nonce, independent of height, and authenticate source ownership and nextSequence before submission. Compatibility field names expose unit-correct sequence accessors."
+status = "awaiting_gate_and_external_wiring"
+
+[finding.revoke_counter]
+test = "repair_revoke_counter_above_height_confirms"
+repair = "Retain strict increase over the prior record and exact event/state matching without a block-height ceiling."
+status = "awaiting_gate_and_external_wiring"
+
+[finding.proof_revocation_counter]
+test = "repair_proof_revocation_counter_exports_and_verifies"
+repair = "Retain nonzero counter and exact authenticated getBudget/export binding without a height ceiling."
+status = "awaiting_gate_and_external_wiring"
+
+[finding.execution_account_exists]
+test = "repair_execution_account_exists_funded_unfrozen_wind_down"
+repair = "Decode balance/existence separately and require independently verified account status matching the held height, root, account kind, authority, asset and balance; never invent an unfrozen status."
+status = "awaiting_gate_and_external_wiring"
+
+[finding.fee_payer_denom]
+test = "repair_fee_payer_denom_selects_two_real_preferences_and_reservations"
+repair = "Read getFeeDenom for the disclosed authenticated sender and bind its DID/address join and fee metadata to the source checkpoint."
+status = "awaiting_gate_and_external_wiring"
+
+[finding.lifecycle_native_envelope]
+test = "repair_lifecycle_native_envelope_deploy_upgrade_wind_down_and_restart"
+repair = "Validate signed EIP-1559 bytes, recovered sender, transaction hash and bound disclosure; derive lifecycle operations from that disclosure and consume the authenticated receipt while preserving prestate and debit checks."
+status = "awaiting_gate_and_external_wiring"
+
+[finding.settlement_native_envelope]
+test = "repair_settlement_native_envelope_program_receipt_and_restart; repair_settlement_native_envelope_effect_receipt_and_restart"
+repair = "Consume native call-bound disclosures and already-authenticated receipt evidence; independently authenticate supplied program terminal/call-graph artifacts and preserve reservation identity, occupancy and debit bounds."
+status = "awaiting_gate_and_external_wiring"
+
+[finding.sources_native_envelope]
+test = "repair_sources_native_envelope_allocates_and_restores_real_preparation"
+repair = "Bind the retained carrier through its SigningPreparation instead of decoding wire envelope bytes as an EIP-1559 transaction; validate disclosure and signing digests, payload, payload hash and owner authority consistency. restore_native_preparation produces the approval path's restore_canonical wire carrier."
+status = "awaiting_gate_and_external_wiring"
+
+[wiring]
+crypto = "Domain 9, services/agent/crates/layerx-crypto/src/disclosure/call.rs: accept native create source nonce zero and add deployed native fund/revoke and deploy/upgrade/wind-down ABI disclosure producers."
+authority = "Domain 8, services/platform/hosted/authority/src/human/budget_state and services/platform/hosted/authority/tests/budget_proof_exports.rs: export and test monotonic revocation counters independently of height."
+preparation = "Domain 9, services/agent/crates/layerx-agentd/src/prepare: retain and restore native call-bound preparations and approval carriers; supply the held source checkpoint/nonce to BudgetRequest::pipeline_at instead of using a fresh head during admission."
+effects = "Domain 9, services/agent/crates/layerx-agentd/src/capability/effects.rs: validate Source::Call through the native disclosure codec instead of Disclosure::reencode before deriving program and native-effect plans."
+program_artifacts = "Domain 9, services/agent/crates/layerx-agentd/src/ops/program.rs: acquire native transaction terminal/call-graph artifacts for verify_native_program_debit_settlement without decoding signed kernel activities."
+account_status = "Domain 9, services/agent/crates/layerx-agentd/src/human_runtime.rs and src/read: acquire authoritative frozen-state proofs at the receipt prestate checkpoint and pass them to committed_execution_state_with_account_proofs; the current ABI supplies existence only."
+fee_preparation = "Domain 9, services/agent/crates/layerx-agentd/src/human_runtime.rs: pass the authenticated sender/actual fee payer to native_fee_policy_for during preparation and presentation, replacing default-denomination reads."
+integration = "Domain 9, services/agent/crates/layerx-crypto/src/disclosure/call.rs and services/agent/crates/layerx-agentd/src/capability/effects.rs: enable native preparation and source allocation so the still-mandatory native execution and settlement success paths can emit their bound receipts and artifacts; never bypass these admission checks to invent an execution fixture."
+
+[gotchas]
+scope = "Root GOTCHA.kvx and spec records are outside the user-authorized scope; this in-scope record carries task findings and wiring requests."
+account_abi = "getValueAccount's second word is existence; existing callers have no authoritative frozen-state field and must fail explicitly when separate proof is unavailable."
+native_producer = "Shared native disclosure binding rejects first-use zero nonce before budget admission and lacks several deployed methods; budget-only edits cannot repair that producer."
+recovery = "Legacy shared durable preparation restoration still validates kernel envelope bytes; native budget validation alone cannot qualify the complete restart path."
+
+[qualification.build_1]
+revision = "2e463a2be90227a14312d568adc8dba53877c8bc"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Five integration-harness call sites used Clone on SequencerEndpoint, which intentionally does not implement Clone."
+repair = "Open independent clients to the same real loopback node; retain every assertion and real producer/consumer path."
+
+[continuation.codec_coverage]
+create = "repair_create_native_source_nonce_round_trips_signed_codec_and_rejects_maximum drives BudgetRequest -> deployed ABI encoder -> production EIP-1559 signer -> budget identity consumer for zero, above-height and maximum-minus-one nonces; rejects maximum, missing source and self-source."
+mutation = "repair_fund_and_revoke_signed_codecs_preserve_nonce_and_counter_units drives the real ABI and signed transaction codecs into budget mutation identity; asserts zero/high nonces, reserved-maximum refusal, high revocation counters and strict monotonic rejection."
+restoration = "repair_native_carrier_validates_real_preparation_and_restores_after_store_restart drives a supported real prepare_bound -> verify_before_submit -> budget native binding -> Store close/reopen -> budget restoration path; checks exact recovered bytes and disclosure and rejects seven retained-field substitutions and a different real carrier payload. This supplements rather than replaces the full allocation and settlement assertions."
+limits = "Codec coverage does not establish native precompile confirmation, fee selection, committed proof export or settlement. The ten original success tests remain mandatory; their failures cannot be turned into expected errors or skipped to qualify."
+
+[continuation.gotchas]
+shared_producer = "The unchanged layerx-crypto disclosure/call.rs producer rejects zero source nonce and lacks budgetFundNative, budgetRevoke and native program lifecycle method binding; verify_before_submit invokes this producer before issuing its opaque VerifiedSubmission. Budget code cannot bypass that validation."
+inputs = "The inherited full integration harness requires an unavailable external corpus and loopback node. No real producer captures for these operations are committed in the checkout; synthesizing chain replies or receipts would violate the task's path proof rule."
+carrier = "The previous native carrier checked envelope scalar fields but did not compare the retained payload/hash with the native disclosure; the continuation binds both through the real semantic encoder."
+checkpoint = "The previous pipeline authenticated source nonces at the latest head, losing the caller's preparation coordinate; pipeline_at retains the supplied checkpoint and validates it against the head before submission."
+
+[continuation.fixture_corpus]
+path = "services/agent/crates/layerx-agentd/tests/fixtures/repair_22_31_217"
+producer_inputs = "Five unchanged native program C-codec conformance captures and the native budget-record vector are copied from their committed producers; each program capture retains its provenance. The existing signed checkpoint transcript is retained. The counter-1000 peer export changes the counter word and recomputes its receipt/evidence hashes while preserving the exact block coordinate. These are peer fixtures, not a claimed live node execution."
+source_authentication = "repair_native_source_nonce_authenticates_owner_and_checkpoint drives the production signer, RPC client, committed checkpoint acquisition, sender/DID/account-owner join and exact nonce reader for zero and nonce 1000 at height 8, rejecting a substituted nonce and the reserved maximum."
+fee_reservation = "repair_fee_payer_preferences_bind_metadata_and_durable_fee_holds reads two senders' committed preferences and metadata through the production RPC client, checks the authenticated inventory, reserves each fee in its selected denomination with the production limiter, closes/reopens Store and decodes the identical durable hold."
+malformed = "repair_recorded_malformed_payload_refusal_is_explicit asserts the exact production PrepareError::Disclosure(DisclosureError::MalformedPayload) on the recorded first-use zero-nonce input while preserving the separate mandatory preparation/submission/confirmation success assertion."
+assertions = "All thirteen inherited tests remain declared, executable and mandatory. No success assertion is changed into an expected error; additional source-allocation admission assertions ensure a refused preparation never acquires invented execution evidence."
+
+[continuation.external_interfaces]
+shared_disclosure = "services/agent/crates/layerx-crypto/src/disclosure/call.rs rejects native create nonce zero and has no native fund/revoke or deploy/upgrade/wind-down construct variants; this out-of-path interface is left intact and named in wiring.crypto."
+shared_effects = "services/agent/crates/layerx-agentd/src/capability/effects.rs calls Disclosure::reencode on native Source::Call, which explicitly refuses that source kind; this out-of-path interface is left intact and named in wiring.effects."
+account_contract = "The base tree precompiles/layerxprograms/abi.json now declares getValueAccount's second output frozen and view_accounts.go returns account.Frozen after task 22.31.251, contradicting this task's specified exists contract; the task's exists and separate-status-proof assertions are preserved pending resolution by the programs owning domain."
+
+[continuation.fixture_gotchas]
+exit_shape = "The committed native-program-wind-down-exit-v4.json capture is exitValue(bytes32,bytes32), not the bounded-exit three-word ABI; replay must preserve the exact captured selector and arguments."
+zero_identity = "A bare native burn disclosure has an all-zero semantic idempotency key; durable fee holds use the production preparation digest as their reservation identity, as the budget settlement path requires."
+
+[continuation.baseline_attempt_2]
+revision = "06a0d56c0a8a69dc081f5286723d6150eb84dd69"
+command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_217"
+exit = 101
+observed = "Supplied attempt-2 ledger: 3 passed and 10 failed, with the ten mandatory success tests blocked by native disclosure preparation and the environment-bound corpus; no new baseline verification is authorized before hf-build and hf-done."
+
+[continuation.qualification_policy]
+status = "pending_bounded_gates"
+limits = "The inherited production repairs and mandatory success assertions remain intact; missing out-of-path disclosure/effects interfaces and the getValueAccount contract contradiction cannot be bypassed, weakened or repaired outside this task scope. Qualification is claimed only if hf-done passes."
+
+
+[attempt_7]
+baseline = "Supplied attempt-6 revision 817473b0e734068dd60976e352614f2a965cd994: verify exited 101, 6 passed and 10 failed; gotcha 3210 and decision 2644 identify binder, Snapshot, retired-export-rank and absent-receipt failures. No extra baseline gate was run."
+evidence = "The final hf-build and hf-done records in /out/run/gates.jsonl and /out/logs/build-*.log or /out/logs/verify-*.log name the exact candidate revision and outcome. This record is written before qualification and is not amended after the final gates."
+mutation = "verify_committed_budget_mutation is the same confirmation consumer called by confirm_budget_mutation after admission. Tests feed signed deployed ABI through production decoding, loopback receipt/state/balance transport and that consumer while asserting the unsupported binder refusal separately. The peer's canonical module-12 receipt codec signs the actual transaction hash and log effects and self-checks them with verify_sequencer_signature and verify_logs; it makes no claim to execute a live precompile."
+lifecycle = "verify_native_lifecycle_binding compares signed deploy/upgrade/deprecate/exit calldata to typed native semantics from the committed C producer vectors, validates signatures and transaction constraints, and is called by both lifecycle settlement readers. repair_unsupported_binder_methods_preserve_real_native_lifecycle_binding proves each binding and Store restart plus payload and chain-id substitutions without inventing a VerifiedSubmission for unsupported methods. The inherited full lifecycle settlement success assertions remain mandatory."
+proof = "budget-proof-counter-1000.json now carries current COMMITTED rank 6; rank 4 was refused by budget_verification_level in budget_proof.rs:21 before any revocation-counter check. The test retains the original rank-4 refusal, authenticates the signed checkpoint and exact getBudget reply with counter 1000 at height 8, and rejects an independently substituted counter."
+no_receipt = "Decision 2644 explicitly permits the no-receipt refusal path for program_settlement: read_native_execution_observation validates the native preparation and exact submission, reads the loopback node's unknown transaction result and returns Receipt. The test reopens Store, restores the real native preparation and proves the unknown signed transaction remains retained and still cannot settle; no execution receipt is invented. This is refusal evidence, not successful program settlement evidence."
+source = "repair_source_checkpoint_identifies_retired_caps_level proves nonzero now, actor/caps identity, nonzero root, matching preparation/global/head/batch coordinates and node height; only the current-evidence-strength predicate cannot be satisfied because CommittedCaps::level at src/read/committed.rs:166 always returns retired rank 4 and VerificationLevel::compare refuses retired labels. Both the source success assertions and the current-evidence check stay intact."
+
+[attempt_7.wiring]
+disclosure = "Domain 9, services/agent/crates/layerx-crypto/src/disclosure/call.rs: accept zero native create nonce and add budgetFundNative, budgetRevoke, deploy, upgrade, deprecate and exitValue constructors to the native disclosure binder; no opaque VerifiedSubmission can be fabricated inside budget."
+committed_caps = "Domain 9, services/agent/crates/layerx-agentd/src/read/committed.rs: issue the proof-owned current verification achievement for CommittedCaps and CommittedCall instead of retired CHECKPOINT_FINALISED; fixtures cannot alter the private CommittedCaps type or its unconditional level method."
+
+[attempt_7.gotchas]
+retired_rank = "The high-counter export's verification rank was inherited as 4; current budget proof validation requires 6, independently of the counter's units."
+immutable_caps = "A valid signed checkpoint and matching node answers do not change CommittedCaps::level; accepting that retired rank in budget would disable an existing evidence check and is forbidden."
+producer_coverage = "The supported-method table includes budgetCreateNative but its source_sequence == 0 branch still refuses the first-use case; matching table membership is insufficient to manufacture a verified preparation."
+peer_evidence = "Native program captures explicitly say no execution claim and carry neither receipts nor account-status proofs nor retained approval stores; codec/restart proofs are distinguished from full execution/settlement qualification."
+path_lookup = "The budget accounting implementation is reconcile.rs via the module path attribute; sign verification is sign_verify.rs and EVM preparation is prepare/mod.rs, not sign/mod.rs or prepare/evm.rs."
+
+[attempt_8]
+baseline = "The supplied attempt-7 outcome is 12 passed and 6 failed; the new attempt starts with no entries in /out/run/gates.jsonl. The inherited implementation, all eighteen tests and every mandatory success assertion remain in place."
+call_constraints = "Case::transaction and the recorded binder-refusal tests assert chain ID 125, nonzero gas and priority fee at or below maximum before admission. prepare_as already passes 125, 100000, 1 and 3. Its failure now names finish_call -> disclose::bind -> disclosure::call::bind_call and prints the originating error."
+disclosure_control = "repair_recorded_malformed_payload_refusal_is_explicit additionally binds the identical create call with only source nonce changed to one, checks the source account/nonce and bound signing digest, and separately proves rejection of zero chain ID, zero gas and excessive priority fee. The mandatory zero-nonce preparation success assertion is preserved."
+snapshot_constraints = "Each failing native source success case now reads the actual loopback head, held header and state root and asserts nonzero height, head >= height, matching header number, nonzero hash/root and identical rereads before source admission. A remaining refusal prints ProgramSourceError and actual/required verification levels."
+scope_contradiction = "On the supplied base, disclosure/call.rs:691 still rejects source_sequence == 0 after disclose::bind has accepted the transaction limits; read/committed.rs:167 still returns CHECKPOINT_FINALISED. Both out-of-path checks stay intact; existing attempt_7.wiring names their owners. Fixture edits cannot change these production predicates."
+evidence = "The final build and verify rows of /out/run/gates.jsonl, with their private /out/logs/build-*.log and /out/logs/verify-*.log paths, are the qualification record by reference: each carries exact revision, command and exit. No source or record is changed after the final hf-build/hf-done pair. Qualification is not claimed unless hf-done passes."
+
+[attempt_9]
+baseline = "The supplied attempt-8 result is 12 passed and 6 failed. This tree includes decision 2694: CommittedCaps::level returns COMMITTED; source fixtures are unchanged until a new refusing predicate is observed."
+create_probe = "Direct disclosure::call::bind_call on budgetCreateNative's production-encoded 14-word corpus refuses MalformedPayload; changing only word 13 (sourceSequence) from zero to one succeeds. word(13) and uint::<8> decode canonical zero correctly: the refusing helper is decode_method's explicit budget.source_sequence == 0 predicate at call.rs:691, not word/uint/dynamic/tail. This is a producer-to-consumer semantic defect; the budget consumer and authenticated source reader accept zero. Per do_24 this case asserts that refusal without claiming submission or confirmation."
+lifecycle = "Unsupported deploy/upgrade/deprecate/exitValue constructs first drive verify_native_lifecycle_binding directly with signed EIP-1559 producer bytes and C-codec payloads, then the same signed-transaction execution observation reader used by native settlement; no opaque VerifiedSubmission is fabricated. The supplied captures contain no execution receipt, account-status proofs or retained approval store; full settlement success assertions remain intact and cannot be fulfilled by inventing that evidence."
+checkpoint = "The inherited diagnostic case now requires current COMMITTED capabilities and successful source admission, retaining the separate zero-time Snapshot refusal; it no longer asserts the retired label fixed by 22.31.560."
+evidence = "Final hf-build, dependent-crate and hf-done rows in /out/run/gates.jsonl name exact revision, command, exit and private log path. No source or task record changes follow the final build/verify pair."
+
+[attempt_9.wiring]
+create = "Domain 9, services/agent/crates/layerx-crypto/src/disclosure/call.rs: decode_method must accept zero sourceSequence at native-create word 13 and reserve u64::MAX, matching BudgetRequest and the deployed producer; this task cannot change the shared binder."
+
+[attempt_9.build_repair]
+revision = "769fabb329052dc0549794082a3b8dbff822d07b"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "New direct create probe passed &Vec<u8> instead of &[u8] to the generic BudgetIdentitySource consumer; repair supplies signed.as_slice(), preserving the exact bytes and assertions."
+
+[attempt_9.verify_repair]
+revision = "164006ed02f3af7fd0a3ee1fff497fb8cd1b2315"
+command = "cg spec done 22.31.217 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "12 passed, 6 failed: source cases now refuse SourceOwnership rather than Snapshot; direct deploy/exit settlement observations refuse Receipt because the supplied producer captures contain no execution evidence."
+source_predicate = "program_sources.rs:639 compares the burn Destruction.account to principal_source from authenticated inventory. The corpus used repeated-06 bytes; inventory's AccountId::for_asset main is 65d00f9301b32ef5df513f79e8fd673995c0fab3eabf78f30122d36c2f5d4d39. Correct only that argument for the four burn cases and retain the old argument as an exact SourceOwnership negative control. No checkpoint or fee snapshot fixture changes."
+reservation = "Case::reservation now drives sources.budget_allocations -> BudgetLimiter::stage_program_allocation -> reservation.encode -> Store close/reopen -> reservation.decode in process, binding source, denomination, actor, root, sequence and preparation digest; no absent reservation fixture or hand-built reservation substitutes for the production producer. Fee and source success assertions remain intact."
+remaining_evidence = "Full lifecycle and native-effect settlement success still requires execution receipt, account-status proofs and retained approval/store records absent from the committed corpus. These success checks are preserved, not changed to expected refusal; the producer captures explicitly make no execution claim."
+
+[attempt_9.wiring.execution_evidence]
+request = "Domain 9, services/agent/crates/layerx-crypto/src/disclosure/call.rs and services/agent/crates/layerx-agentd/src/approval: supply supported native lifecycle disclosure/approval producers and their execution receipts, prestate account-status proofs and durable carrier records for the committed corpus so full lifecycle/native-effect settlement can run without fabricated evidence."
+
+
+[attempt_10]
+baseline = "Attempt 9 is retained from 9303d75302808e2710a4d0b3a72aa09a880866cd; the supplied verify result was 12 passed and 6 failed. This attempt starts with an empty gate ledger and preserves all eighteen test functions and their success checks."
+enrolment = "Case::reservation uses install_enrolment_limits, the protected config loader producing enrolment::VerifiedProgramBudgetDenominations, and install_program_enrolment_denominations. Allocations use the installed durable limit identity; both real payer preferences retain their exact source/asset binding through limiter allocation, reservation encoding and Store reopen. No integration test calls the private binder."
+observation = "node_receipt emits the node module-12 signed receipt layout with operation equal to the signed transaction type, zero native value (the production Eip1559Call value), recovered sender, exact recipient and nonce, transaction hash, summary and log commitments. The lifecycle peers serve the Receipted rung; the standalone lifecycle binding test reads all four observations through the production transport and consumer. Mutation peers retain their Committed rung and unchanged event checks."
+retained_checks = "Full lifecycle assertions continue to require native settlement, authenticated account status, retained approval identity and recovery. prepare::verify_call_binding and approval::call_bound::RetainedNativeCall::restore call the shared disclosure binder, whose supported-method table excludes these four constructs. No VerifiedSubmission or approval carrier is fabricated to bypass that admission condition."
+evidence = "The final matching candidate rows in /out/run/gates.jsonl are the qualification record by reference, including exact revision, command, exit and /out/logs/build-*.log or /out/logs/verify-*.log. This record is written before gates; completion is claimed only if hf-done passes and no edits follow the final build/verify pair."
+
+
+[attempt_10.allocation_repair]
+revision = "e76b92387b1a7332c55f472725072276a75e9384"
+command = "cg spec done 22.31.217 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 15 dependent crates passed; 13 tests passed, five failed. allocation_charges refused the native burn principal row because its destination was None, while every non-fee allocation requires the exact nonzero debit destination."
+repair = "read_native_effect_budget_sources now derives the burn destination with asset_issuance_account_id, matching the keeper Burn producer's transfer back to issuance (modules/layerxledger/keeper/supply_test.go:154), while preserving all allocation checks. The source-allocation test asserts that exact destination and amount before durable restoration."
+
+
+[attempt_11]
+baseline = "The supplied attempt-10 outcome was 15 passed and 3 failed. The initial working tree and empty current gate ledger were inspected; no baseline verification was repeated. The base includes the lifecycle disclosure producer from 22.31.585."
+lifecycle = "verify_native_lifecycle_binding now reuses bind_call's disclosed deploy, upgrade and wind-down values. Native preparation, signature verification, held source resolution, public enrolment denomination installation, hold_call/decide_call/queue_call and the real outbox produce the settlement inputs; the loopback peer serves signed module-12 receipts and precompile logs. The budget native settlement reader validates the current call-bound approval format instead of sending it through the retired DurablePreparation codec."
+wind_down = "The full exit success case derives its account from the production program-account derivation and seed, encodes its NativeProgramWindDown input, verifies a nested account/account-tree/universal-root proof and signed header through layerx_proof, and serves that exact root under a signed committed checkpoint. Existence and unfrozen status are asserted separately; removing the proof refuses settlement. The original C conformance captures remain unchanged and are exercised by the standalone binding test."
+burn = "native-burn-v1.json and corpus.cases.native_effect_settlement name the burn capture and store producer path. configure serves a module-12 receipt (type 2, zero native value, exact nonce/from/to/hash) with the ledger Transfer event of kind 11; retain runs the real preparation/source/allocator/enrolment/approval/outbox path and submits the exact signed transaction to the loopback peer. The success case settles principal 7 plus fee 100000, closes/reopens Store and reproduces the same debit witness; altered preparation and precompile log bytes refuse."
+refusal_repair = "The old settlement entry required module 1 and kernel transfer legs, omitted Destruction entirely and restored call-bound approval records through a legacy carrier API that explicitly refuses them. native_settlement consumes the current approval producer, authenticates receipts against its retained receipt-key ranges and verifies the precompile logs, held fee preference/root, exact signed bytes and reservation/debit identity. No success assertion is replaced by a refusal."
+evidence = "The final matching rows in /out/run/gates.jsonl are the evidence record by reference: exact candidate revision, command, exit and private /out/logs/build-*.log or /out/logs/verify-*.log. hf-build also records its configured dependent-crate qualification. No source or task-record change follows the final hf-build/hf-done pair."
+
+[attempt_11.wiring]
+runtime = "Domain 9, services/agent/crates/layerx-agentd/src/human_runtime.rs: route call-bound lifecycle/effect approvals to budget::native_settlement::read_retained_native_call_debit_settlement with the authenticated HumanPeer and, for lifecycle, committed_native_execution_state_with_account_proofs; legacy retained-envelope readers retain their legacy evidence requirements."
+
+[attempt_11.build_repair]
+revision = "33308108e05acc0d48b264ecada8dca639746022"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The daemon library cannot resolve the integration-test-only hex crate; native fee denomination decoding now uses the existing production layerx_programs::hex decoder without changing validation."
+
+[attempt_11.verify_repair]
+revision = "aa510a73facd13942a29e21398b72b7e26ef96c5"
+command = "cg spec done 22.31.217 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "15 passed, 3 failed: sequencer_logs::decode_summary_body refuses the fixture's 71-byte layerx asset denomination at its unchanged 64-byte bound; state::verify_nested_account authenticates its snapshot receipt through the historical kernel-key API, which refuses module 12."
+repair = "The execution peer now serves its supported native bank denomination uhpx, its exact production keccak asset ID and metadata/preference RPCs, preserving the separate two-token preference tests; the independently signed nested-account snapshot uses its kernel receipt format, while transaction settlement retains module 12 and the exact precompile logs. No decoder bound, receipt signature or success assertion is relaxed."
+
+[attempt_12]
+baseline_revision = "64151e1c858fb4a7cbc9dfd12c0b4404befa9949"
+baseline_build = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests; exit 0; /out/logs/build-1.log"
+baseline_verify = "cg spec done 22.31.217 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log; 15 passed and 3 failed"
+observed = "The unchanged attempt-11 final repairs pass canonical summary and nested-account signature verification; lifecycle, wind-down exit and burn instead reach native_settlement::execution's Receipt refusal because it requires receipt protocol version 3 while the module-12 sequencer producer and sequencer_logs verifier require PROTOCOL_VERSION 2."
+repair = "Bind native settlement to the exact sequencer receipt PROTOCOL_VERSION, retaining all signature, transaction, block, summary, log, source, reservation and debit checks. The real fixture receipt producer explicitly asserts version 2 before all eighteen mandatory tests run."
+evidence = "The final matching hf-build and hf-done rows in /out/run/gates.jsonl record the verified revision, command, exit and private log by reference. No source or task record changes follow the final build/verify pair; qualification requires hf-done to pass."
+
+[repair_22_39_128]
+basis = "Continue attempt 2 at 29b48212d94c58284ac99a5120a15e6a06c3de51; gotcha 3518 and decisions 2771, 2834 and 2846. The prior build refused two old-arity source-reader calls in repair_22_33_1520.rs; no current baseline gate was rerun."
+binding = "All three budget source readers require the retained SigningPreparation. Native runtime admission supplies the cached transaction under the selected preparation identity; retained settlement fixtures construct that transaction before source validation. The two historical fee preference calls pass the same preparation used to construct their carrier, including the stale-head refusal."
+proof = "repair_wire_carrier_binds_the_retained_signing_preparation_after_restart restores a real unsigned wire envelope, retains and reopens the signing preparation under the same identity, requires source selection success and rejects absent or substituted signing inputs, disclosure digests, signing hashes, authority and carrier bytes. Existing settlement and source success assertions remain mandatory."
+evidence = "Resolve the exact verified revision, command, exit and private log from the final matching build and verify rows in /out/run/gates.jsonl for task 22.39.128. hf-build runs the declared cargo build; hf-done runs cg spec done with repair_22_31_217 and human_runtime::retained_settlement_tests. This record precedes qualification and claims no unrun result."
+
+[repair_22_39_128.attempt_4]
+diagnostic = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_217 repair_proof_revocation_counter_exports_and_verifies -- --nocapture; exit 101; /tmp/22.39.128-proof-diagnostic.log; unchanged carried implementation on base 708e71968aabc7a6db61e50936c7cb0153c422f8."
+observed = "The preserved assertion at line 1433 reports BudgetProofError::Refused. verify_budget_proof delegates directly to verify_native_budget_proof, which never calls native_binding or the source readers; this export already has no retained-preparation binding step to skip."
+refusal_site = "budget_proof.rs::authenticated_owner_address requests accountOwner(bytes32) for the export's repeated-02 owner account. checkpoint-answers.json contains no such RPC answer, and add_account_and_fee_answers supplies only the derived main, repeated-05 and repeated-08 accounts. The missing committed RPC maps to BudgetProofError::Refused before the account-join comparison."
+assumption = "This is a pre-existing proof-authentication/transcript conflict outside the native-preparation binding path. The proof verifier is outside scope, and the recorded case, test and assertion must remain unchanged; no authentication check or native binding check is bypassed."
+evidence = "The final same-candidate hf-build and hf-done rows in /out/run/gates.jsonl record the exact revision, command, exit and private log by reference, including this diagnosis. The retained settlement library suite runs only if the preceding integration suite passes, as required by the unchanged verify_cmd."
+
+[repair_22_39_128.attempt_5]
+basis = "Decision 2855 and gotcha 3532 authorize extending only the RPC answer helper while preserving the inherited signing binding, recorded corpus, export bytes, proof verifier and mandatory assertions."
+implementation = "add_account_and_fee_answers reads each case's proof export when present, binds its account join to the case DID and identity key, and answers getEvmAddrByLayerX, getUnifiedAccount and accountOwner at the checkpoint with that recorded owner address and account. Native preparation cases retain their signing-key address and derived main account; unified replies use the producer's dynamic tuple layout."
+evidence = "The final matching hf-build and hf-done rows for task 22.39.128 in /out/run/gates.jsonl name the exact candidate revision, commands, exit codes and private logs by reference. The declared verify_cmd runs all repair_22_31_217 cases followed by human_runtime::retained_settlement_tests. Qualification is claimed only on a passing hf-done, and no task file changes follow the final build/verify pair."
+
+[repair_22_39_128.attempt_7]
+basis = "Continue attempt 6 at e49db43c7aa431bbb12c55ff717764a21acb7f95 under gotcha 3557 and decisions 2771, 2834, 2855 and 2800; the inherited binding, test helpers and paymentDenom fixture repair remain."
+producer = "human_runtime.rs:23882, retained_settlement_tests::terminal, now writes Sha256::digest(b\"usid\") for the asset word. The receipt fixture supplies paymentDenom usid; approval/call_bound.rs:234 compares the fee charge asset with Sha256::digest(summary.fee_denom().as_bytes()) using the same digest type. ASSET, all other words, assertions and verifier predicates remain unchanged."
+evidence = "The final matching hf-build and hf-done rows for task 22.39.128 in /out/run/gates.jsonl supply the exact revision, command, exit code and private log by reference. hf-done must pass the complete declared verification and graph checks before qualification is claimed; no task file changes follow the final build/verify pair."
+
+[repair_22_39_128.attempt_7.authorization_repair]
+revision = "8cc639c2bcce3beb9702a4e1348e0e903be03f57"
+command = "cg spec done 22.39.128 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build and all nineteen integration tests passed; retained settlement refused BatchIdentity because terminal's AuthorizedBatch still named the zero asset while its receipt now names the usid digest, violating protocol_evidence.rs::VerifiedReceiptEvidence::verify_authorized's exact asset comparison."
+repair = "The fixture's AuthorizedBatch now names the same Sha256::digest(b\"usid\") asset as its receipt producer; no other receipt word, verifier predicate, ASSET constant or assertion changes. Final matching build and verify ledger rows supply the repaired candidate evidence by reference."

@@ -15,8 +15,8 @@ use layerx_types::intent::{CapabilityRequest, ProgramCall, ProgramCallOutcome};
 use layerx_types::payload::{ModuleId, ModuleRegistry};
 use layerx_types::program_call::NativeProgramCall;
 use layerx_types::result::ResultCode;
-use layerx_wire::activity::decode_signed;
-use layerx_wire::hash::activity_id;
+use layerx_wire::historical::activity::decode_signed;
+use layerx_wire::historical::hash::activity_id;
 use sha2::{Digest as _, Sha256};
 
 const SIMULATION_EVIDENCE_DOMAIN: &[u8] = b"LayerX/agent/program-simulation-evidence/v1\0";
@@ -681,7 +681,7 @@ impl<T> ReceiptVerifiedProgramSimulator<T> {
                 sequencer_public_key: self.simulation_public_key,
                 previous_state_root: self.trusted_previous_state_root,
                 activity_id: expected,
-                payload_hash: layerx_wire::hash::payload_hash(&activity)
+                payload_hash: layerx_wire::historical::hash::payload_hash(&activity)
                     .map_err(|_| ProgramOperationError::InvalidRequest)?,
                 program_id: self.expected_program.bytes(),
                 guest_abi_version: self.expected_abi_version,
@@ -929,7 +929,7 @@ impl ProgramOperations {
             &AuthorizedProgramExecutionExpectation {
                 authority,
                 activity_id,
-                payload_hash: layerx_wire::hash::payload_hash(&activity)
+                payload_hash: layerx_wire::historical::hash::payload_hash(&activity)
                     .map_err(|_| ProgramOperationError::InvalidRequest)?,
                 program_id,
                 guest_abi_version,
@@ -1319,7 +1319,7 @@ fn validate_lifecycle_activity(
         || activity.activity_type().ordinal() != ordinal
         || activity.payload() != payload
         || activity.payload_hash()
-            != layerx_wire::hash::payload_hash(&activity)
+            != layerx_wire::historical::hash::payload_hash(&activity)
                 .map_err(|_| ProgramOperationError::InvalidRequest)?
     {
         return Err(ProgramOperationError::InvalidRequest);
@@ -2471,13 +2471,103 @@ mod evm_program_tests {
     }
 
     fn executed_receipt(raw: &[u8], sender: &[u8; 20], success: bool, committed: bool) -> Value {
+        use ed25519_dalek::{Signer as _, SigningKey};
+        use layerx_wire::encode::Encoder;
+
+        let tx_hash = layerx_crypto::evm_transaction::transaction_hash(raw);
+        let to = crate::prepare::evm::PrecompileTarget::Programs.address();
+        let vm_error = if success { "" } else { "execution reverted" };
+        let signer = SigningKey::from_bytes(&[2; 32]);
+        let encode = |signature: Option<[u8; 64]>| {
+            let mut summary = Encoder::new(256);
+            summary.u64(21_000).unwrap();
+            summary.u64(21_000).unwrap();
+            summary.u64(1).unwrap();
+            summary.u32(0).unwrap();
+            summary.fixed(&[0; 20]).unwrap();
+            summary.fixed(&[0; 20]).unwrap();
+            summary.fixed(&Sha256::digest(vm_error.as_bytes())).unwrap();
+            summary.u32(2).unwrap();
+            summary.u32(0).unwrap();
+            summary.u8(4).unwrap();
+            summary.fixed(b"upax").unwrap();
+            let previous = [4; 32];
+            let resulting = Sha256::digest(
+                [
+                    b"PAXEER/v1/sequence\0".as_slice(),
+                    &previous,
+                    &42_u64.to_be_bytes(),
+                    &tx_hash,
+                ]
+                .concat(),
+            );
+            let mut height = [0; 32];
+            height[24..].copy_from_slice(&7_u64.to_be_bytes());
+            let mut from = [0; 32];
+            from[12..].copy_from_slice(sender);
+            let mut destination = [0; 32];
+            destination[12..].copy_from_slice(&to);
+            let mut encoder = Encoder::new(4096);
+            encoder.structure_header_version(0x5201, 3).unwrap();
+            encoder.u16(3).unwrap();
+            encoder.bytes(&tx_hash, 32).unwrap();
+            encoder.u64(42).unwrap();
+            encoder.bytes(&previous, 32).unwrap();
+            encoder.bytes(&resulting, 32).unwrap();
+            encoder.bytes(&Sha256::digest([0xaa, 0xbb]), 32).unwrap();
+            encoder.i32(i32::from(!success)).unwrap();
+            encoder.sequence_length(1, 512).unwrap();
+            encoder.u16(12).unwrap();
+            encoder.u16(0).unwrap();
+            encoder.u16(0).unwrap();
+            encoder.u8(1).unwrap();
+            encoder.u8(0).unwrap();
+            encoder.bytes(&[0; 32], 32).unwrap();
+            encoder.bytes(&summary.finish(), 256).unwrap();
+            encoder.u128(21_000).unwrap();
+            encoder.bytes(&height, 32).unwrap();
+            encoder.u16(12).unwrap();
+            encoder.u32(1).unwrap();
+            encoder.u32(0).unwrap();
+            encoder.u8(2).unwrap();
+            encoder.bytes(&Sha256::digest(b"upax"), 32).unwrap();
+            encoder.u128(1).unwrap();
+            encoder.bytes(&from, 32).unwrap();
+            encoder.u128(21_002).unwrap();
+            encoder.u128(if success { 1 } else { 2 }).unwrap();
+            encoder.u64(7).unwrap();
+            encoder.bytes(&destination, 32).unwrap();
+            encoder.u128(0).unwrap();
+            encoder.u128(u128::from(success)).unwrap();
+            encoder.bytes(&[0; 32], 32).unwrap();
+            encoder.bytes(&[0; 32], 32).unwrap();
+            encoder.bytes(&[1; 32], 32).unwrap();
+            encoder.u64(100).unwrap();
+            encoder.u8(u8::from(signature.is_some())).unwrap();
+            if let Some(signature) = signature {
+                encoder.bytes(&signature, 64).unwrap();
+            }
+            encoder.finish()
+        };
+        let unsigned = encode(None);
+        let signature = signer
+            .sign(&layerx_wire::hash::receipt_digest(&unsigned).unwrap())
+            .to_bytes();
+        let bytes = encode(Some(signature));
+        let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
+            [1; 32],
+            signer.verifying_key().to_bytes(),
+            7,
+            7,
+        );
+        layerx_proof::receipt::verify_sequencer_signature(&bytes, &[authorization]).unwrap();
         let mut value = json!({"rung":"receipted", "txHash":hex(&layerx_crypto::evm_transaction::transaction_hash(raw)),
             "nonce":"0x7", "seq":"0x2a", "height":"0x7", "index":"0x0", "timestamp":"0x64",
             "status":if success {"0x1"} else {"0x0"}, "returnData":"0xaabb", "logs":[],
-            "gasUsed":"0x5208", "cumulativeGasUsed":"0x5208", "effectiveGasPrice":"0x1", "feeDenom":"upax", "feeAmount":"0x5208",
+            "gasUsed":"0x5208", "cumulativeGasUsed":"0x5208", "effectiveGasPrice":"0x1", "feeDenom":"upax", "paymentDenom":"upax", "feeAmount":"0x5208",
             "sponsor":hex(&[0;20]), "from":hex(sender), "to":hex(&crate::prepare::evm::PrecompileTarget::Programs.address()),
             "contractAddress":hex(&[0;20]), "vmError":if success {""} else {"execution reverted"},
-            "keyId":hex(&[1;32]), "receipt":"0x01", "signingKey":hex(&[2;32])});
+            "keyId":hex(&[1;32]), "receipt":hex(&bytes), "signingKey":hex(signer.verifying_key().as_bytes())});
         if committed {
             value["rung"] = json!("committed");
             value["blockNumber"] = json!("0x7");
@@ -2536,6 +2626,12 @@ mod evm_program_tests {
             );
             assert_eq!(execution.tx_hash, hash);
             assert_eq!(execution.from, sender);
+            assert_eq!(execution.payment_denom, "upax");
+            let receipt = layerx_wire::receipt::decode(&execution.receipt).unwrap();
+            let protocol = receipt.protocol().unwrap();
+            assert_eq!(protocol.activity_id(), hash);
+            assert_eq!(protocol.result_code(), i32::from(!success));
+            assert_eq!(protocol.asset(), <[u8; 32]>::from(Sha256::digest(b"upax")));
             let requests = server.join().unwrap();
             assert_eq!(requests[0]["params"], json!([hex(&raw)]));
             assert_eq!(requests[1]["params"], json!([hex(&hash)]));

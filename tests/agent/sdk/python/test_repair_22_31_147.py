@@ -5,7 +5,6 @@ no successful draw receipt is accepted or invented here.
 """
 from __future__ import annotations
 
-import base64
 import copy
 import json
 from pathlib import Path
@@ -54,7 +53,8 @@ from layerx_sdk.x402_http import (
     BuyerMiddleware, ConfiguredReceiptAuthority, FulfillmentStore, PaymentEvidence, SellerMiddleware,
     decode_header, encode_header,
 )
-from layerx_sdk.x402_rpc import PaymentRpc, decode_receipt_keys, verify_rpc_payment
+from layerx_sdk.x402_rpc import HostedGatewayRpc, PaymentRpc, decode_receipt_keys, verify_rpc_payment
+from payment_receipt_evidence import payment_terms as sequencer_payment_terms
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = ROOT / "services/agent/sdk/python/layerx_sdk"
@@ -78,9 +78,7 @@ def pin(vector=PAYMENT):
 
 def payment_terms(vector=PAYMENT):
     log = vector["receiptJson"]["logs"][0]
-    data = raw(log["data"])
-    return dict(amount=str(int.from_bytes(data[32:], "big")), asset=data[:32].hex(),
-                pay_to=raw(log["topics"][3]).hex(), payer=raw(log["topics"][2]).hex())
+    return {**sequencer_payment_terms(vector), "ledger_payer": raw(log["topics"][2]).hex()}
 
 
 @contextmanager
@@ -307,11 +305,21 @@ def test_lifecycle_transaction_binding_and_retained_http_bytes(tmp_path):
     ]
     received = []
     def dispatch(method, path, headers, body):
-        assert method == "POST" and headers["Content-Type"] == "application/octet-stream"
+        assert method == "POST" and path == "/"
+        assert headers["Content-Type"] == "application/json"
+        request = json.loads(body)
+        assert set(request) == {"jsonrpc", "id", "method", "params"}
+        assert request["jsonrpc"] == "2.0"
+        assert isinstance(request["id"], int)
+        assert request["method"] == "eth_sendRawTransaction"
+        assert request["params"] == ["0x" + canonical.hex()]
+        transaction = raw(request["params"][0])
         key = headers["Idempotency-Key"]
-        assert key == keccak256(body).hex()
-        received.append(body)
-        return 202, {"Content-Type":"application/json"}, {"state":"unknown", "activity_id":key, "retry":"after", "retry_after_seconds":2}
+        assert key == keccak256(transaction).hex() == identity
+        received.append(transaction)
+        return 200, {"Content-Type":"application/json"}, {
+            "jsonrpc": "2.0", "id": request["id"], "result": "0x" + key,
+        }
     with http_server(dispatch) as endpoint:
         transport = AgentHttpTransport(endpoint)
         for ordinal, value, name, kinds, values in cases:
@@ -327,40 +335,54 @@ def test_lifecycle_transaction_binding_and_retained_http_bytes(tmp_path):
             assert restored == bound
             operation = {1:"program.deploy", 2:"program.upgrade", 7:"program.wind-down"}[ordinal]
             result = transport.call("agent", operation, {"signed_activity":canonical.hex()}, identity)
-            assert result["state"] == "unknown" and received[-1] == canonical
+            assert result == {
+                "state": "submitted", "activity_id": identity,
+                "idempotency_key": identity, "retained_signed_activity": canonical.hex(),
+            }
+            assert received[-1] == canonical == retained.read_bytes()
+            assert raw(result["retained_signed_activity"]) == restored.canonical_bytes
             wrong, _ = sign_transaction(encode_call(name, kinds, values), chain=126)
             with pytest.raises(ValueError):
                 NativeProgramLifecycleRequest(ordinal, value.encode(), wrong)
+    assert len(received) == len(cases)
 
 
 def required_payment(commitment="receipted"):
     terms = payment_terms()
     return {"x402Version":2, "resource":{"url":"https://seller.example/resource"}, "accepts":[{
-        "scheme":"exact", "network":"layerx:125", "amount":terms["amount"], "asset":terms["asset"], "payTo":terms["pay_to"],
-        "maxTimeoutSeconds":30, "extra":{"layerx":{"commitment":commitment, "payer":terms["payer"]}}
+        "scheme":"exact", "network":"eip155:125", "amount":terms["amount"], "asset":terms["asset"], "payTo":terms["pay_to"],
+        "maxTimeoutSeconds":30, "extra":{"layerx":{"commitment":commitment, "payer":terms["ledger_payer"]}}
     }]}
 
 
-def receipt_header(required):
-    canonical = raw(PAYMENT["signedReceipt"])
+def receipt_header(required, verification_level="receipted"):
+    key = PAYMENT["pinnedKey"]
     return encode_header({"x402Version":2, "resource":required["resource"], "accepted":required["accepts"][0],
-        "payload":{"receipt":base64.b64encode(canonical).decode(), "receiptDigest":sha256(b"LXP/v1/merkle-leaf\0"+canonical).hexdigest(), "verificationLevel":"sequencer-signed"}})
+        "payload":{"format":"layerx-receipt-proof-v2", "verificationLevel":verification_level,
+                   "rawTransaction":PAYMENT["rawTransaction"], "signedReceipt":PAYMENT["signedReceipt"],
+                   "receiptDigest":PAYMENT["receiptDigest"],
+                   "receiptKey":{**key, "firstHeight":hex(key["firstHeight"]), "lastHeight":hex(key["lastHeight"])}}})
 
 
-def test_buyer_send_contract_and_restart_recovery(tmp_path):
+@pytest.mark.parametrize("rpc_path", ("", "/"))
+def test_buyer_send_contract_and_restart_recovery(tmp_path, rpc_path):
     submissions, lookups = [], []
     state = {"pending":True}
     transaction = raw(PAYMENT["rawTransaction"])
     canonical = raw(PAYMENT["signedReceipt"])
     required = required_payment()
     def dispatch(method, path, headers, body):
-        assert method == "POST" and path == "/rpc"
+        assert method == "POST"
+        assert headers["Content-Type"] == "application/json"
         request = json.loads(body)
+        assert request["jsonrpc"] == "2.0"
+        assert path == ("/rpc" if request["method"].startswith("px_") else "/")
         if request["method"] == "eth_sendRawTransaction":
             assert request["params"] == [PAYMENT["rawTransaction"]]
             submissions.append(request)
             result = PAYMENT["receiptJson"]["txHash"]
         elif request["method"] == "pax_sequencerReceipt":
+            assert request["params"] == [PAYMENT["receiptJson"]["txHash"]]
             lookups.append(request)
             result = None if state["pending"] else PAYMENT["receiptJson"]
         elif request["method"] == "px_getReceiptKeys":
@@ -369,16 +391,16 @@ def test_buyer_send_contract_and_restart_recovery(tmp_path):
             raise AssertionError(request)
         return 200, {"Content-Type":"application/json"}, {"jsonrpc":"2.0", "id":request["id"], "result":result}
     with http_server(dispatch) as endpoint:
-        rpc = PaymentRpc(endpoint+"/rpc")
-        keys = rpc.receipt_keys()
+        rpc = PaymentRpc(endpoint + rpc_path)
+        keys = HostedGatewayRpc(endpoint + "/rpc").receipt_keys()
         authority = ConfiguredReceiptAuthority(transaction)
         path = tmp_path / "buyer.sqlite"
-        buyer = BuyerMiddleware(rpc, keys, authority, [("exact","layerx:125")], journal_path=path)
+        buyer = BuyerMiddleware(rpc, keys, authority, [("exact","eip155:125")], journal_path=path)
         args = encode_header(required), PAYMENT["rawTransaction"], PAYMENT["receiptJson"]["txHash"], "0x"+payment_terms()["payer"]
         assert buyer.prepare(*args) is None
         buyer._submissions.close()
         state["pending"] = False
-        recovered = BuyerMiddleware(rpc, keys, authority, [("exact","layerx:125")], journal_path=path)
+        recovered = BuyerMiddleware(rpc, keys, authority, [("exact","eip155:125")], journal_path=path)
         header = recovered.prepare(*args)
         assert decode_header(header)["payload"] == decode_header(receipt_header(required))["payload"]
         assert len(submissions) == 1 and len(lookups) == 2
@@ -403,8 +425,10 @@ def test_seller_commitment_downgrade_and_verified_landing(tmp_path, commit_produ
     def release():
         released.append(True)
         return b"committed resource"
-    with pytest.raises(PlatformSdkError):
+    with pytest.raises(ValueError, match="^commitment-mismatch$"):
         seller.handle("buyer", receipt_header(required), release)
+    with pytest.raises(PlatformSdkError):
+        seller.handle("buyer", receipt_header(required, "committed"), release)
     assert released == []
     produced = commit_producer(transaction, 1200)
     evidence = PaymentEvidence(canonical, transaction, finality_bundle(produced))
@@ -412,7 +436,7 @@ def test_seller_commitment_downgrade_and_verified_landing(tmp_path, commit_produ
         assert receipt == canonical and offer == required["accepts"][0]
         return evidence
     seller = SellerMiddleware(required, [pin()], authority, FulfillmentStore(path))
-    assert seller.handle("buyer", receipt_header(required), release)[0] == 200
+    assert seller.handle("buyer", receipt_header(required, "committed"), release)[0] == 200
     assert released == [True]
     for field in ("data_hash", "app_hash"):
         bad = copy.deepcopy(evidence.finality[1])
@@ -421,20 +445,28 @@ def test_seller_commitment_downgrade_and_verified_landing(tmp_path, commit_produ
         def bad_authority(receipt, offer):
             return refused
         with pytest.raises(Exception):
-            SellerMiddleware(required, [pin()], bad_authority, FulfillmentStore(tmp_path/(field+".sqlite"))).handle("buyer", receipt_header(required), release)
+            SellerMiddleware(required, [pin()], bad_authority, FulfillmentStore(tmp_path/(field+".sqlite"))).handle("buyer", receipt_header(required, "committed"), release)
     assert released == [True]
 
 
-def test_empty_receipt_keys_and_rotated_node_responses():
+@pytest.mark.parametrize("rpc_path", ("", "/"))
+def test_empty_receipt_keys_and_rotated_node_responses(rpc_path):
     rotated = rotated_receipt_key()
     rotated_json = {"keyId":"0x"+rotated.key_id.hex(),"publicKey":"0x"+rotated.public_key.hex(),"firstHeight":rotated.first_height,"lastHeight":rotated.last_height}
     responses = [{"keys":[]}, {"keys":[PAYMENT["pinnedKey"]]}, {"keys":[PAYMENT["pinnedKey"],rotated_json]}, {"keys":[{**PAYMENT["pinnedKey"], "firstHeight":1001}, PAYMENT["pinnedKey"]]}]
     def dispatch(method, path, headers, body):
+        assert method == "POST" and path == "/rpc"
+        assert headers["Content-Type"] == "application/json"
         request = json.loads(body)
+        assert request["jsonrpc"] == "2.0"
         assert request["method"] == "px_getReceiptKeys" and request["params"] == []
         return 200, {"Content-Type":"application/json"}, {"jsonrpc":"2.0","id":request["id"],"result":responses.pop(0)}
     with http_server(dispatch) as endpoint:
-        rpc = PaymentRpc(endpoint+"/rpc")
+        node = PaymentRpc(endpoint + rpc_path)
+        with pytest.raises(ValueError, match="^invalid-node-method$"):
+            node.call("px_getReceiptKeys", [])
+        assert node._id == 0 and len(responses) == 4
+        rpc = HostedGatewayRpc(endpoint + "/rpc")
         assert rpc.receipt_keys() == ()
         with pytest.raises(SequencerReceiptVerificationError) as raised:
             verify_payment_receipt(raw(PAYMENT["signedReceipt"]), raw(PAYMENT["rawTransaction"]), (), **payment_terms())
@@ -450,7 +482,7 @@ def test_empty_receipt_keys_and_rotated_node_responses():
 
 def test_web_search_payment_binding_uses_ledger_event():
     terms = payment_terms()
-    offer = WebSearchOffer("exact", "eip155:125", terms["amount"], terms["asset"], terms["pay_to"], 30, "USDC", "agent:did:layerx:seller:main", terms["payer"])
+    offer = WebSearchOffer("exact", "eip155:125", terms["amount"], terms["asset"], terms["pay_to"], 30, "USDC", "agent:did:layerx:seller:main", terms["ledger_payer"])
     verified = verify_web_payment(raw(PAYMENT["signedReceipt"]), raw(PAYMENT["rawTransaction"]), offer, (pin(),))
     assert verified.receipt.activity_id == raw(PAYMENT["receiptJson"]["txHash"])
     transfer = next(value for value in VECTORS["cases"] if value["id"] == "V1-pax-transfer")
@@ -576,7 +608,7 @@ def test_grant_receipt_kind_from_recorded_server_producer(tmp_path):
     assert verify_payment_receipt(receipt, transaction, [pin()], **terms).receipt.activity_id == raw(PAYMENT["receiptJson"]["txHash"])
     for scheme in ("metered", "subscription"):
         offer = WebSearchOffer(scheme, "eip155:125", terms["amount"], terms["asset"], terms["pay_to"],
-                               60, "SID", "agent:did:layerx:seller:main", terms["payer"], binding.purpose_hash)
+                               60, "SID", "agent:did:layerx:seller:main", terms["ledger_payer"], binding.purpose_hash)
         with pytest.raises(WebSearchError) as failure:
             verify_web_payment(receipt, transaction, offer, (pin(),), draw_terms=binding)
         assert isinstance(failure.value.__cause__, RevertReasonError)
@@ -645,7 +677,8 @@ def test_draw_abi_decoder_and_binding_fields():
                            raw(vector["purpose"]), raw(vector["trace"]))
 
 
-def test_draw_send_contract_and_restart_recovery(tmp_path):
+@pytest.mark.parametrize("rpc_path", ("", "/"))
+def test_draw_send_contract_and_restart_recovery(tmp_path, rpc_path):
     wire, body, offer = _grant_inputs(PAYMENT)
     receive = decode_receive(wire)
     grant = receive["payer_grant"]
@@ -658,7 +691,9 @@ def test_draw_send_contract_and_restart_recovery(tmp_path):
     submissions, lookups = [], []
     def dispatch(method, path, headers, body):
         request = json.loads(body)
-        assert method == "POST" and path == "/rpc"
+        assert method == "POST" and path == "/"
+        assert headers["Content-Type"] == "application/json"
+        assert request["jsonrpc"] == "2.0"
         assert request["method"] == "eth_sendRawTransaction"
         assert request["params"] == ["0x" + canonical.hex()]
         decoded, signature = decode_signed(raw(request["params"][0]))
@@ -668,7 +703,7 @@ def test_draw_send_contract_and_restart_recovery(tmp_path):
         return 200, {"Content-Type": "application/json"}, {"jsonrpc": "2.0", "id": request["id"],
             "error": {"code": 3, "message": "execution reverted", "data": "0x" + reason.hex()}}
     with http_server(dispatch) as endpoint:
-        rpc = PaymentRpc(endpoint + "/rpc")
+        rpc = PaymentRpc(endpoint + rpc_path)
         # The real RPC send contract preserves the producer's typed refusal.
         with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT"):
             rpc.send("0x" + canonical.hex())
@@ -692,7 +727,8 @@ def test_draw_send_contract_and_restart_recovery(tmp_path):
 
 @pytest.mark.parametrize("currency",("SID","PAX","USDC","USDL"))
 @pytest.mark.parametrize("registered_did", (False, True))
-def test_web_search_payer_header_and_ledger_accounts(currency, registered_did):
+@pytest.mark.parametrize("rpc_path", ("", "/"))
+def test_web_search_payer_header_and_ledger_accounts(currency, registered_did, rpc_path):
     exchange = json.loads((WEB_FIXTURES/"client-exchange.json").read_text())["exchange"]
     gateway = json.loads((WEB_FIXTURES/"gateway/metered.json").read_text())
     challenge = exchange[0]["response"]
@@ -715,7 +751,10 @@ def test_web_search_payer_header_and_ledger_accounts(currency, registered_did):
             assert target == "/search?q=paxeer"
             return WebSearchMeteredPayment(raw(grant["canonical"]),"27"*32)
     def rpc_dispatch(method,path,headers,body):
+        assert method == "POST" and path == "/"
+        assert headers["Content-Type"] == "application/json"
         request = json.loads(body)
+        assert request["jsonrpc"] == "2.0"
         assert request["method"] == "eth_call" and request["params"][1] == "pending"
         call = request["params"][0]
         if call["data"] == layerx_did_call(address):
@@ -747,7 +786,7 @@ def test_web_search_payer_header_and_ledger_accounts(currency, registered_did):
     with http_server(rpc_dispatch) as rpc_endpoint,http_server(dispatch) as endpoint:
         assets = {offer["extra"]["layerx"]["currency"]:WebSearchAssetTerms(offer["asset"],int(offer["amount"])) for offer in required["accepts"]}
         client = WebSearchClient(endpoint,"eip155:125",assets["PAX"].asset_id,assets,Wallet(),(),now=lambda:1,
-                                 payer_rpc=PaymentRpc(rpc_endpoint+"/rpc"),payer_address=address)
+                                 payer_rpc=PaymentRpc(rpc_endpoint + rpc_path),payer_address=address)
         with pytest.raises(WebSearchError) as raised:
             client.search("paxeer")
         assert raised.value.code == "payment-refused:payer_mismatch" and raised.value.status == 400

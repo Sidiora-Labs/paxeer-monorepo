@@ -19,7 +19,7 @@ export interface ChartSelectionXProps {
 }
 
 export const ChartSelectionX = React.memo(({ anchorEl, height, scale, data, onSelect }: ChartSelectionXProps) => {
-  const [ borderColor ] = useToken('colors', 'blue.200');
+  const [ borderColor, selectionColor ] = useToken('colors', [ 'accent', 'accent.soft' ]);
 
   const ref = React.useRef(null);
   const isActive = React.useRef(false);
@@ -137,7 +137,7 @@ export const ChartSelectionX = React.memo(({ anchorEl, height, scale, data, onSe
 
   return (
     <g className="ChartSelectionX" ref={ ref } opacity={ 0 }>
-      <rect className="ChartSelectionX__rect" width={ 0 } height={ height } fill="rgba(66, 153, 225, 0.1)"/>
+      <rect className="ChartSelectionX__rect" width={ 0 } height={ height } fill={ selectionColor }/>
       <line className="ChartSelectionX__line ChartSelectionX__line_left" x1={ 0 } x2={ 0 } y1={ 0 } y2={ height } stroke={ borderColor }/>
       <line className="ChartSelectionX__line ChartSelectionX__line_right" x1={ 0 } x2={ 0 } y1={ 0 } y2={ height } stroke={ borderColor }/>
     </g>

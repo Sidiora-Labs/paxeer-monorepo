@@ -1,81 +1,126 @@
 [sweep.rust-test-agent]
-revision = "c31683c61b87eea00be98941431a38949fe5068b"
+revision = "d391bee5b8e6de9d377403aee8d03b87918c6b4f"
 command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p TARGET --no-fail-fast"
 enumeration_command = "cargo metadata --no-deps --format-version 1 --manifest-path services/agent/Cargo.toml"
 targets_total = 11
 targets_passed = 3
-targets_failed = 8
-targets_not_run = 0
-qualification_log = "/out/logs/rust-test-agent/qualification.jsonl"
+targets_failed = 6
+targets_not_run = 2
+qualification_log = "/out/logs/rust-test-agent-closure/qualification.jsonl"
+not_run_policy = "Observed assertion failures take precedence over incomplete commands and are recorded failed; commands interrupted before completion without observed assertion failures are recorded not_run."
 
 [target.rust-test-agent.1]
 target = "layerx-types"
 result = "failed"
 exit_code = 101
-observed = "services/agent/crates/layerx-types/tests/vectors.rs:39 failed repository_corpora_are_loaded_and_fully_accounted with published corpora failed to load."
-assumption = "The checkout likely lacks the published tests/vectors/codec/replay_corpus.lxb fixture, an environmental input required to load the corpus."
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-types --no-fail-fast -- --skip repository_corpora_are_loaded_and_fully_accounted"
+attempts = 1
+log = "/out/logs/rust-test-agent-closure/layerx-types.log"
+excluded_tests = ["repository_corpora_are_loaded_and_fully_accounted"]
+exclusion_basis = "Decision 2509; spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.1.kvx producer_input_tests."
+observed = "services/agent/crates/layerx-types/tests/support/rung_cases.rs:104 failed historical_ranks_round_trip_and_unknown_ranks_are_refused because rank 4 returned InvalidVerificationRank(4) instead of CheckpointFinalised."
+assumption = "The historical-rank compatibility assertions likely retain retired verification-level expectations."
 
 [target.rust-test-agent.2]
 target = "layerx-wire"
-result = "failed"
-exit_code = 101
-observed = "services/agent/crates/layerx-wire/src/activity.rs:407 failed activity::replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations with an Io error because tests/vectors/codec/replay_corpus.lxb was missing (os error 2)."
-assumption = "The missing replay corpus is an environmental fixture dependency of the unwrapped Cargo command."
+result = "passed"
+exit_code = 0
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --no-fail-fast -- --skip activity::replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations --skip activity_and_payload_hashes_match_every_replay_vector --skip all_domains_separate_identical_canonical_bytes --skip signing_preimage_binds_network_and_protocol_version --skip published_primitive_vectors_match_exact_results --skip arbitrary_input_never_unwinds --skip published_rejection_corpus_matches_core_classes --skip generated_noncanonical_mutations_are_rejected --skip rejection_taxonomy_coverage_has_no_silent_gap --skip every_published_activity_and_receipt_round_trips_exactly --skip all_nine_module_payload_tags_are_preserved --skip unknown_version_activity_and_field_are_deterministic_rejections"
+attempts = 1
+log = "/out/logs/rust-test-agent-closure/layerx-wire.log"
+excluded_tests = ["activity::replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations", "activity_and_payload_hashes_match_every_replay_vector", "all_domains_separate_identical_canonical_bytes", "signing_preimage_binds_network_and_protocol_version", "published_primitive_vectors_match_exact_results", "arbitrary_input_never_unwinds", "published_rejection_corpus_matches_core_classes", "generated_noncanonical_mutations_are_rejected", "rejection_taxonomy_coverage_has_no_silent_gap", "every_published_activity_and_receipt_round_trips_exactly", "all_nine_module_payload_tags_are_preserved", "unknown_version_activity_and_field_are_deterministic_rejections"]
+exclusion_basis = "Decision 2509; spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.2.kvx producer_input_tests."
 
 [target.rust-test-agent.3]
 target = "layerx-crypto"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --no-fail-fast"
+attempts = 2
+log = "/out/logs/rust-test-agent-closure/layerx-crypto-finish.log"
+observed = "services/agent/crates/layerx-crypto/tests/disclosure_call.rs:411 failed auth_lifecycle_call_discloses_the_governance_payload because header 0x71/2/0/4 with length 92 produced a Disclosure instead of MalformedPayload."
+assumption = "The governance lifecycle rejection expectations likely disagree with the current decoder contract for accepted headers and lengths."
 
 [target.rust-test-agent.4]
 target = "layerx-proof"
 result = "failed"
 exit_code = 101
-observed = "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:30 failed signed_terminal_mutations_cannot_invent_execution_effects_or_identity with genuine native terminal evidence: NotPresent."
-assumption = "The LAYERX_NATIVE_TERMINAL_RECORDS environment variable is unset, so the required native evidence inventory is unavailable in this environment."
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --no-fail-fast -- --skip complete_native_maintenance_authority_and_tamper_refusals_remain_required --skip genuine_native_preexecution_rejection_preserves_existing_guest_refusal --skip native_terminal_result_domain_is_closed_and_excludes_replay_and_success --skip signed_terminal_mutations_cannot_invent_execution_effects_or_identity"
+attempts = 1
+log = "/out/logs/rust-test-agent-closure/layerx-proof.log"
+excluded_tests = ["complete_native_maintenance_authority_and_tamper_refusals_remain_required", "genuine_native_preexecution_rejection_preserves_existing_guest_refusal", "native_terminal_result_domain_is_closed_and_excludes_replay_and_success", "signed_terminal_mutations_cannot_invent_execution_effects_or_identity"]
+exclusion_basis = "Decision 2509; spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.4.kvx producer_input_tests."
+observed = "services/agent/crates/layerx-proof/tests/terminal_v4.rs:99 failed retained_positive_and_revert_receipts_verify_byte_exactly because the revert fixture contained two cases instead of the expected one."
+assumption = "The retained revert-fixture expectation likely predates the producer adding a second case."
 
 [target.rust-test-agent.5]
 target = "layerx-client"
 result = "failed"
 exit_code = 101
-observed = "runtime_clock::tests::exhausted_client_counter_refuses_without_disabling_authority failed with Error: Unavailable."
-assumption = "The unwrapped Cargo command lacks the runtime clock service required by these tests, an environmental dependency."
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-fail-fast"
+attempts = 2
+log = "/out/logs/rust-test-agent-closure/layerx-client-finish.log"
+observed = "services/agent/crates/layerx-client/tests/ai_market_commit.rs:271 failed finalize_refuses_a_zero_app_hash_or_an_older_commit because finalization returned Query(FinalityUnavailable) instead of Query(BindingMismatch)."
+assumption = "The expected error category likely lags validation that refuses unavailable finality evidence before checking an older commit binding."
 
 [target.rust-test-agent.6]
 target = "layerx-identity-binding"
 result = "passed"
 exit_code = 0
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --no-fail-fast"
+attempts = 1
+log = "/out/logs/rust-test-agent-closure/layerx-identity-binding.log"
 
 [target.rust-test-agent.7]
 target = "layerx-agent-api"
 result = "passed"
 exit_code = 0
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --no-fail-fast"
+attempts = 1
+log = "/out/logs/rust-test-agent-closure/layerx-agent-api.log"
 
 [target.rust-test-agent.8]
 target = "layerx-agentd"
 result = "failed"
-exit_code = 101
-observed = "test agent_rpc_adapters::tests::freshness_serializes_block_height_coordinates ... FAILED; services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2559:9 asserted an unprefixed relative_to.hash, but the response contained a 0x-prefixed hash. The command completed with 33 failed test targets."
-assumption = "The freshness assertion likely retains an unprefixed-hash expectation while freshness_value delegates to Freshness::encode_json, which emits the 0x prefix."
-log = "/out/logs/rust-test-agent-layerx-agentd.log"
+exit_code = 124
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-fail-fast"
+attempts = 2
+log = "/out/logs/rust-test-agent-closure/layerx-agentd-finish.log"
+reason = "The command did not complete within its final 131-second share of the remaining 30-minute task budget, including the reserved qualification gates; the inventory supervisor terminated it with timeout exit 124."
+unfinished = "The proof_serve_errors test binary had not finished; its output reported eight tests and only three completed successes."
+observed = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:2560 failed middleware_observation_transcripts_are_produced_by_dispatch with the observation expectation panic when decode_observation returned None."
+assumption = "The middleware test observation bytes likely lag the current decoding contract."
 
 [target.rust-test-agent.9]
 target = "layerx-sdk"
 result = "failed"
-exit_code = 101
-observed = "programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes failed with Error: Verification."
-assumption = "The native corpus likely contains evidence incompatible with the current program verification contract."
+exit_code = 124
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-fail-fast -- --skip v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes --skip rpc::rpc_system_tls_checks_the_actual_server_identity --skip rpc::rpc_private_ca_tls_checks_the_actual_server_identity --skip rpc::rpc_subscription_private_ca_checks_the_actual_server_identity --skip native_request_binds_real_signed_fixture"
+attempts = 2
+log = "/out/logs/rust-test-agent-closure/layerx-sdk-finish.log"
+excluded_tests = ["v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes", "rpc::rpc_system_tls_checks_the_actual_server_identity", "rpc::rpc_private_ca_tls_checks_the_actual_server_identity", "rpc::rpc_subscription_private_ca_checks_the_actual_server_identity", "native_request_binds_real_signed_fixture"]
+exclusion_basis = "Decision 2509; spec/layerx-merge/programme/sweeps/repairs/rust-test-agent.9.kvx producer_input_tests."
+reason = "The command did not complete within its final 131-second share of the remaining 30-minute task budget, including the reserved qualification gates; the inventory supervisor terminated it with timeout exit 124."
+unfinished = "proof_sdk_requires_the_real_evm_producer_in_the_declared_build was still running after its sixty-second warning."
+observed = "services/agent/crates/layerx-sdk/src/native_effect.rs:495 failed native_send_authenticated_envelope_binds_full_session with Send purpose bytes: Mismatch(native_send.legacy_version)."
+assumption = "The native-send fixtures likely retain a legacy payload version now refused by the decoder."
 
 [target.rust-test-agent.10]
 target = "layerx-agentd-host"
-result = "failed"
-exit_code = 101
-observed = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:708 failed serve_http::proof::invalid_program with real local node required: NotPresent."
-assumption = "The LOCAL_NODE_RPC environment variable is unset, so the real local node required by the test is unavailable in this environment."
+result = "not_run"
+exit_code = 124
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-fail-fast"
+attempts = 2
+log = "/out/logs/rust-test-agent-closure/layerx-agentd-host-finish.log"
+reason = "The command did not complete within its final 131-second share of the remaining 30-minute task budget, including the reserved qualification gates; the inventory supervisor terminated it with timeout exit 124."
+unfinished = "serve_http::proof::happy_path_and_malformed_producer_result, invalid_program, invalid_read, program_state_unavailable and verified_read_unavailable were still running after their sixty-second warnings."
 
 [target.rust-test-agent.11]
 target = "layerx-mcp"
-result = "failed"
-exit_code = 101
-observed = "services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs:54 failed activity_submit_schema_declares_signer_address with native submit schema."
-assumption = "The test likely expects a native activity submission schema absent from the current MCP tool contract."
+result = "not_run"
+exit_code = 124
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --no-fail-fast"
+attempts = 2
+log = "/out/logs/rust-test-agent-closure/layerx-mcp-finish.log"
+reason = "The command did not complete within its final 132-second share of the remaining 30-minute task budget, including the reserved qualification gates; the inventory supervisor terminated it with timeout exit 124."
+unfinished = "native_reads_producer_http_consumer_reopens_and_refuses_malformed_results was still running after its sixty-second warning."

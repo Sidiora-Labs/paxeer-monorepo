@@ -6,7 +6,7 @@ usage() {
 usage: tools/ci/beta-report.sh [--ledger PATH] [--check]
 
 Reads the Paxeer X Network mainnet-beta evidence ledger
-(spec/layerx-merge/qualification.kvx by default) and nothing else.
+(spec/layerx-beta/qualification.kvx by default) and nothing else.
 
   --check        validate the ledger shape only and print a one-line summary;
                  needs no CI inputs, network or build output
@@ -42,7 +42,7 @@ while [ "$#" -gt 0 ]; do
         ;;
     esac
 done
-ledger=${ledger:-$root/spec/layerx-merge/qualification.kvx}
+ledger=${ledger:-$root/spec/layerx-beta/qualification.kvx}
 command -v python3 >/dev/null 2>&1 || { echo "beta-report: python3 is required" >&2; exit 2; }
 [ -f "$ledger" ] || { echo "beta-report: ledger not found: $ledger" >&2; exit 2; }
 
@@ -55,6 +55,7 @@ from datetime import datetime
 mode, path = sys.argv[1], sys.argv[2]
 
 KEYS = {
+    "meta": ["name", "kind", "version", "record_kinds"],
     "gate": ["task", "reqs", "revision", "command", "environment", "started_at", "outcome", "evidence", "note"],
     "observation": ["task", "file", "symbol", "observed", "assumption", "severity"],
     "finding": ["task", "file", "symbol", "observed", "assumption", "severity"],
@@ -86,9 +87,15 @@ for lineno, raw in enumerate(lines, 1):
     if not line or line.startswith("#"):
         continue
     if line.startswith("["):
+        if line == "[meta]":
+            if any(r["name"] == "meta" for r in records):
+                fail(lineno, "duplicate meta block")
+            current = {"name": "meta", "kind": "meta", "line": lineno, "values": {}}
+            records.append(current)
+            continue
         match = HEADER.match(line) or FINDING_HEADER.match(line)
         if not match or not TASK.match(match.group(2)):
-            fail(lineno, f"record header {line!r} is not a gate, observation or layerx-merge finding")
+            fail(lineno, f"record header {line!r} is not meta, a gate, observation or layerx-merge finding")
             current = None
             continue
         name = line[1:-1]
@@ -135,8 +142,14 @@ for record in records:
     if extra:
         fail(lineno, f"{name}: keys not allowed on a {kind} record: {', '.join(extra)}")
     for key in expected:
-        if key in values and isinstance(values[key], list) != (key == "reqs"):
+        if key in values and isinstance(values[key], list) != (key in ("reqs", "record_kinds")):
             fail(lineno, f"{name}.{key}: wrong value type")
+    if kind == "meta":
+        if values.get("kind") != "beta-qualification-ledger":
+            fail(lineno, "meta.kind: expected beta-qualification-ledger")
+        if values.get("record_kinds") != ["gate", "observation"]:
+            fail(lineno, "meta.record_kinds: expected gate and observation, in that order")
+        continue
     if values.get("task") is not None and values.get("task") != record["task"]:
         fail(lineno, f"{name}: task key {values.get('task')!r} does not match the record name")
     if kind in ("observation", "finding"):
@@ -179,7 +192,7 @@ summary = (
     f"beta-report: {decision}; {len(gates)} gate records ({count(gates, 'outcome', OUTCOMES)}); "
     f"{len(observations)} observations ({count(observations, 'severity', SEVERITIES)}); "
     f"{len(findings)} findings ({count(findings, 'severity', SEVERITIES)}); "
-    f"candidate {candidate or 'undeclared'}"
+    f"candidate {candidate or 'undeclared'}; ledger {path}"
 )
 
 if mode == "check":
@@ -190,7 +203,7 @@ cell = lambda text: text.replace("|", "\\|").replace("\n", " ")
 out = [
     "# Paxeer X Network mainnet-beta go/no-go report",
     "",
-    f"Rendered by `tools/ci/beta-report.sh` from `spec/layerx-merge/qualification.kvx` gate records only.",
+    f"Rendered by `tools/ci/beta-report.sh` from `{cell(path)}` gate records only.",
     "",
     f"Decision: **{decision}**",
     "",

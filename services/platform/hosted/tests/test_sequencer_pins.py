@@ -11,6 +11,7 @@ import pytest
 DIRECTORY = Path(__file__).resolve().parent
 DOMAIN = b"LayerX/sequencer-trust-history/v1\0"
 SPEC = importlib.util.spec_from_file_location("sequencer_pins", DIRECTORY / "sequencer-pins.py")
+assert SPEC is not None and SPEC.loader is not None
 PINS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PINS)
 
@@ -157,6 +158,8 @@ def test_native_gateway_manifest_rotation_reopen_and_height_refusals(tmp_path, n
     manifests = tmp_path / "manifests"
     manifests.mkdir()
     (manifests / "gateway.yaml").write_text((DIRECTORY.parent / "gateway/deployment.yaml").read_text())
+    (manifests / 'developer.yaml').write_text(
+        (DIRECTORY.parent / 'webhooks/deployment.yaml').read_text())
     PINS.manifests(manifests)
     documents = list(yaml.safe_load_all((manifests / "gateway.yaml").read_text()))
     pod = next(document for document in documents if document["kind"] == "Deployment"

@@ -1,0 +1,7 @@
+[issue.1735]
+number = 1735
+title = "[Coherence] 22.31.547 attempt 4 adds a layerx-agentd test file to its touches and tells the attempt to edit it, while do_3 still forbids changes under layerx-agentd and planned_paths leaves that crate out"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "spec-edit"
+evidence = "Task 22.31.547 is done at spec/layerx-merge/spec.kvx:190395, so its do_3 prohibition at spec/layerx-merge/spec.kvx:190404 must exempt services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs and planned_paths at spec/layerx-merge/spec.kvx:190408 must include that file, matching touches at spec/layerx-merge/spec.kvx:190406, do_6 at spec/layerx-merge/spec.kvx:190424, the explicit fixture exception at spec/layerx-merge/spec.kvx:190428 and the fixture changes landed in commit c59eebe59b00e0fb5979c34c767379276680606f, including request_with_payload_expiry at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:783."
+close_comment = "The SDK NativeSendPurposeV2 migration includes the shared daemon preview fixture. Update the completed task's do_3 and planned_paths to permit that test file while preserving the prohibition on other daemon and agent API changes."

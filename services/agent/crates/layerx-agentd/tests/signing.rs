@@ -1,14 +1,19 @@
 #[path = "support/send_authorization.rs"]
 mod send_authorization;
 
+use std::fs;
 use std::future::Future;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::path::PathBuf;
 use std::pin::pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
 use k256::ecdsa::SigningKey;
-use layerx_agentd::sign::SigningPreparation;
+use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::sign::{external, self_sign, ProvisionedSessionKey, SigningError, SigningMode};
+use layerx_agentd::sign::{validate_issued_session, SigningPreparation};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::secp256k1::evm_address;
@@ -104,8 +109,9 @@ fn send_payload() -> Vec<u8> {
 }
 
 fn issued(seed: [u8; 32], permitted: ActivityType, expires_at: u64) -> IssuedSessionKey {
-    let public_key = LocalSigner::new(seed).public_key();
-    issue_session_key(&SessionKeyRequest {
+    let mut public_key = [0; 32];
+    public_key[12..].copy_from_slice(&session_address(seed));
+    let grant = issue_session_key(&SessionKeyRequest {
         fee_budget: None,
         purpose: layerx_crypto::session::SessionPurpose::Activity,
         grantor: [1; 32],
@@ -115,7 +121,60 @@ fn issued(seed: [u8; 32], permitted: ActivityType, expires_at: u64) -> IssuedSes
         permitted_activity_types: vec![permitted],
         revocation_sequence: Some(5),
     })
-    .unwrap_or_else(|error| panic!("issue session key: {error:?}"))
+    .unwrap_or_else(|error| panic!("issue session key: {error:?}"));
+    let decoded = validate_issued_session(
+        &grant.registration_payload,
+        [1; 32],
+        public_key,
+        900,
+        expires_at,
+        5,
+        &[permitted.ordinal()],
+    )
+    .unwrap_or_else(|error| panic!("validate auth grant: {error:?}"));
+    assert_eq!(decoded, grant);
+    assert_eq!(decoded.permitted_activity_types, vec![permitted]);
+    decoded
+}
+
+static NEXT_REGISTRY: AtomicU64 = AtomicU64::new(1);
+
+struct RegistryDirectory(PathBuf);
+
+impl RegistryDirectory {
+    fn new() -> Self {
+        let path = std::env::temp_dir().join(format!(
+            "layerx-signing-registry-{}-{}",
+            std::process::id(),
+            NEXT_REGISTRY.fetch_add(1, Ordering::Relaxed),
+        ));
+        fs::create_dir(&path).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        Self(path)
+    }
+
+    fn open(&self) -> SessionKeyRegistry {
+        SessionKeyRegistry::open(
+            self.0.clone(),
+            vec![0x61; 32],
+            17,
+            fs::metadata(&self.0).unwrap().uid(),
+        )
+        .unwrap_or_else(|error| panic!("registry: {error:?}"))
+    }
+
+    fn provision(&self, seed: [u8; 32], issued: &IssuedSessionKey) -> ProvisionedSessionKey {
+        let registry = self.open();
+        registry.provision(issued.grant_id, &seed, issued).unwrap();
+        drop(registry);
+        self.open().load(issued.grant_id, issued.clone()).unwrap()
+    }
+}
+
+impl Drop for RegistryDirectory {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.0).unwrap();
+    }
 }
 
 fn session_address(seed: [u8; 32]) -> [u8; 20] {
@@ -166,7 +225,7 @@ fn external_signing_is_the_key_free_default() {
     );
     assert_eq!(package.signing_preimage, prepared.transaction.signing_hash);
     assert_eq!(
-        package.disclosure_digest.0,
+        package.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
 }
@@ -182,8 +241,8 @@ fn unprovisioned_scope_exceeding_and_expired_self_signing_are_refused() {
 
     let other_issued = issued(seed, other_type(), 1_100);
     let other_prepared = prepared();
-    let other = ProvisionedSessionKey::new(seed, other_issued)
-        .unwrap_or_else(|error| panic!("provision: {error:?}"));
+    let other_directory = RegistryDirectory::new();
+    let other = other_directory.provision(seed, &other_issued);
     assert_eq!(
         ready(self_sign(
             Some(&other),
@@ -197,8 +256,8 @@ fn unprovisioned_scope_exceeding_and_expired_self_signing_are_refused() {
 
     let expired_issued = issued(seed, send_type(), 999);
     let expired_prepared = prepared();
-    let expired = ProvisionedSessionKey::new(seed, expired_issued)
-        .unwrap_or_else(|error| panic!("provision: {error:?}"));
+    let expired_directory = RegistryDirectory::new();
+    let expired = expired_directory.provision(seed, &expired_issued);
     assert_eq!(
         ready(self_sign(
             Some(&expired),
@@ -216,8 +275,9 @@ fn session_key_self_signing_is_distinct_and_audited() {
     let seed = [0xa5; 32];
     let issued = issued(seed, send_type(), 1_100);
     let prepared = prepared();
-    let provisioned = ProvisionedSessionKey::new(seed, issued)
-        .unwrap_or_else(|error| panic!("provision: {error:?}"));
+    let directory = RegistryDirectory::new();
+    let provisioned = directory.provision(seed, &issued);
+    assert_eq!(provisioned.evm_address(), session_address(seed));
     let signed = ready(self_sign(
         Some(&provisioned),
         &prepared,
@@ -229,8 +289,13 @@ fn session_key_self_signing_is_distinct_and_audited() {
     assert_eq!(signed.mode, SigningMode::ProtocolSessionKey);
     assert_eq!(signed.audit.mode, SigningMode::ProtocolSessionKey);
     assert_eq!(signed.audit.activity_type, send_type());
+    assert_eq!(signed.audit.session_public_key, issued.session_public_key);
+    assert_eq!(signed.audit.authority_bytes, issued.authority.as_bytes());
+    assert_eq!(signed.audit.expires_at, issued.expires_at);
+    assert_eq!(signed.audit.revocation_sequence, issued.revocation_sequence);
+    assert_eq!(issued.permitted_activity_types, vec![send_type()]);
     assert_eq!(
-        signed.audit.disclosure_digest.0,
+        signed.audit.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
     assert_eq!(
@@ -273,4 +338,41 @@ fn authentication_only_sessions_cannot_be_imported_as_native_signers() {
         ProvisionedSessionKey::new(seed, authentication),
         Err(SigningError::InvalidProvisioning)
     ));
+}
+
+#[test]
+fn durable_revocation_refuses_loaded_signers_and_survives_reopen() {
+    let seed = [0xa5; 32];
+    let issued = issued(seed, send_type(), 1_100);
+    let directory = RegistryDirectory::new();
+    let loaded = directory.provision(seed, &issued);
+    let prepared = prepared();
+    assert_eq!(
+        ready(self_sign(Some(&loaded), &prepared, &registry(), 1_000, 6)),
+        Err(SigningError::Revoked)
+    );
+    assert!(ready(self_sign(Some(&loaded), &prepared, &registry(), 1_000, 5)).is_ok());
+    let registry_store = directory.open();
+    registry_store.revoke(issued.grant_id).unwrap();
+    assert_eq!(
+        ready(self_sign(Some(&loaded), &prepared, &registry(), 1_000, 5)),
+        Err(SigningError::Revoked)
+    );
+    drop(registry_store);
+    let reopened = directory.open();
+    assert!(reopened.load(issued.grant_id, issued.clone()).is_err());
+    assert!(reopened.provision(issued.grant_id, &seed, &issued).is_err());
+    assert_eq!(
+        ready(self_sign(Some(&loaded), &prepared, &registry(), 1_000, 5)),
+        Err(SigningError::Revoked)
+    );
+    assert_eq!(
+        fs::read(
+            directory
+                .0
+                .join(format!("{}.revoked", hex::encode(issued.grant_id)))
+        )
+        .unwrap(),
+        b"LXSRV1"
+    );
 }

@@ -19,6 +19,101 @@ use crate::store::TenantId;
 const MAX_CONFIG_BYTES: usize = 65_536;
 const MAX_LINE_BYTES: usize = 4_096;
 
+#[path = "human_owner_mode.rs"]
+pub mod agent_mode;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InferenceConfig {
+    pub signal_listen: std::net::SocketAddr,
+    pub serve_listen: std::net::SocketAddr,
+    pub model_digest: [u8; 32],
+    pub runtime_digest: [u8; 32],
+    pub room_profile: PathBuf,
+}
+
+impl InferenceConfig {
+    pub fn from_environment() -> Result<Self, String> {
+        let mut values = BTreeMap::new();
+        for name in [
+            "LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN",
+            "LAYERX_AGENT_INFERENCE_SERVE_LISTEN",
+            "LAYERX_AGENT_INFERENCE_MODEL_DIGEST",
+            "LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST",
+            "LAYERX_AGENT_INFERENCE_ROOM_PROFILE",
+        ] {
+            match std::env::var(name) {
+                Ok(value) => {
+                    values.insert(name.to_owned(), value);
+                }
+                Err(std::env::VarError::NotPresent) => {}
+                Err(std::env::VarError::NotUnicode(_)) => {
+                    return Err(format!("{name} is not UTF-8"))
+                }
+            }
+        }
+        Self::from_values(&values)
+    }
+
+    pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self, String> {
+        let required = |name: &str| {
+            values
+                .get(name)
+                .filter(|value| !value.is_empty() && value.trim() == value.as_str())
+                .ok_or_else(|| format!("{name} is required and must be nonblank"))
+        };
+        let digest = |name: &str| {
+            let bytes = layerx_programs::hex::decode_digest(required(name)?)
+                .map_err(|_| format!("{name} must be a 32-byte hexadecimal digest"))?;
+            if bytes == [0; 32] {
+                return Err(format!("{name} must be nonzero"));
+            }
+            Ok(bytes)
+        };
+        let listen = |name: &str, default: &str| {
+            values
+                .get(name)
+                .map_or(default, String::as_str)
+                .parse::<std::net::SocketAddr>()
+                .map_err(|_| format!("{name} must be a socket address"))
+        };
+        let model_digest = digest("LAYERX_AGENT_INFERENCE_MODEL_DIGEST")?;
+        let runtime_digest = digest("LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST")?;
+        let room_profile = PathBuf::from(required("LAYERX_AGENT_INFERENCE_ROOM_PROFILE")?);
+        let signal_listen = listen("LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN", "127.0.0.1:8790")?;
+        let serve_listen = listen("LAYERX_AGENT_INFERENCE_SERVE_LISTEN", "127.0.0.1:8791")?;
+        if signal_listen == serve_listen && signal_listen.port() != 0 {
+            return Err("inference listeners must use different addresses".to_owned());
+        }
+        Ok(Self {
+            signal_listen,
+            serve_listen,
+            model_digest,
+            runtime_digest,
+            room_profile,
+        })
+    }
+
+    pub fn load_room_profile(&self) -> Result<Vec<u8>, String> {
+        let file = File::open(&self.room_profile)
+            .map_err(|_| "inference room profile is unreadable".to_owned())?;
+        if !file
+            .metadata()
+            .map_err(|error| error.to_string())?
+            .is_file()
+        {
+            return Err("inference room profile must be a regular file".to_owned());
+        }
+        let mut bytes = Vec::new();
+        file.take(MAX_CONFIG_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "inference room profile is unreadable".to_owned())?;
+        if bytes.is_empty() || bytes.len() > MAX_CONFIG_BYTES {
+            return Err("inference room profile is empty or too large".to_owned());
+        }
+        Ok(bytes)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RequiredSetting {
     pub file_key: &'static str,
@@ -72,6 +167,9 @@ pub enum ReceiptKeySource {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StartupConfig {
     pub network_id: u32,
+    /// Set `node_endpoint` / `LAYERX_NODE_ENDPOINT` to the node root. The documented
+    /// mainnet default is https://api1.mainnet-beta.paxeer.network/ (api2 through
+    /// api14 are alternatives). Explicit configuration remains required.
     pub node_endpoint: String,
     pub expected_chain_id: u64,
     pub tenants: BTreeSet<TenantId>,
@@ -79,6 +177,29 @@ pub struct StartupConfig {
     pub signer_configurations: BTreeMap<TenantId, PathBuf>,
     pub verification_defaults: BTreeMap<TenantId, VerificationLevel>,
     pub receipt_key_source: ReceiptKeySource,
+}
+
+impl StartupConfig {
+    /// Connects the existing node setting and checks the configured EVM identity.
+    pub fn connect_node(
+        &self,
+        trust_anchors: &[&[u8]],
+    ) -> Result<layerx_client::sequencer::SequencerEndpoint, layerx_client::sequencer::SequencerError>
+    {
+        use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
+        let node = SequencerEndpoint::new_node(&self.node_endpoint, trust_anchors)?;
+        if node.chain_id()? != self.expected_chain_id {
+            return Err(SequencerError::Endpoint);
+        }
+        Ok(node)
+    }
+
+    pub fn connect_px(
+        &self,
+        trust_anchors: &[&[u8]],
+    ) -> Result<layerx_client::px::PxEndpoint, layerx_client::sequencer::SequencerError> {
+        self.connect_node(trust_anchors).map(Into::into)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -503,8 +624,9 @@ fn parse_verification_defaults(
             "sequencer-signed" => VerificationLevel::SEQUENCER_SIGNED,
             "batch-included" => VerificationLevel::BATCH_INCLUDED,
             "state-proven" => VerificationLevel::STATE_PROVEN,
-            "checkpoint-finalised" => VerificationLevel::CHECKPOINT_FINALISED,
-            "settlement-anchored" => VerificationLevel::SETTLEMENT_ANCHORED,
+            "committed" | "checkpoint-finalised" | "settlement-anchored" => {
+                VerificationLevel::COMMITTED
+            }
             _ => return Err(error(setting, RejectionReason::InvalidVerificationLevel)),
         };
         levels.insert(tenant, level);
@@ -624,6 +746,20 @@ mod program_budget_configuration_tests {
 
     fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
         value.unwrap_or_else(|error| panic!("Program budget configuration: {error:?}"))
+    }
+
+    #[test]
+    fn committed_verification_default_accepts_current_and_legacy_names() {
+        let tenant = must(TenantId::new("committed-owner"));
+        let tenants = BTreeSet::from([tenant.clone()]);
+        for name in ["committed", "checkpoint-finalised", "settlement-anchored"] {
+            let levels = must(parse_verification_defaults(
+                &format!("committed-owner:{name}"),
+                &tenants,
+            ));
+            assert_eq!(levels[&tenant], VerificationLevel::COMMITTED);
+        }
+        assert!(parse_verification_defaults("committed-owner:unknown", &tenants).is_err());
     }
 
     #[test]

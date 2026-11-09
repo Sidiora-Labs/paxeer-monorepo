@@ -1,0 +1,7 @@
+[issue.1579]
+number = 1579
+title = "[P2] Refresh sponsored-status receipt fixtures for denomination fields"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "already-fixed"
+evidence = "Commit 10fe4690e566ca021ef39384ee723d119692ff1b repaired the sponsored-status test: services/agent/sdk/typescript/test/gas-station-pending.test.ts:308 loads the producer corpus, :449 supplies full receipted and committed views while retaining minimal submitted and malformed responses, and :461 asserts both returned denominations required by services/agent/sdk/typescript/src/gas-station.ts:707 and :813, using the receipt recorded at sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:227 with paymentDenom and feeDenom at :255 and :256."
+close_comment = "Sponsored-status tests now use producer-derived full receipts for receipted and committed responses and assert paymentDenom and feeDenom. Minimal submitted responses and malformed-response checks are preserved."

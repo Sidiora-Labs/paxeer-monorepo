@@ -1,0 +1,51 @@
+[issue.1772]
+number = 1772
+title = "[P2] Source Control cannot submit a successful host checkpoint"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The submit gate introduced by commit 12a2cd53683f87ee80ee4878b4ad7cbb320a99ff still requires matching evidence at tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx:89 and :609, but its host handler at :183 only displays the slice summary returned by tools/hyperfide/sdk/source-control/src/host/provider.ts:471, workspaceReceiptEvidence at tools/hyperfide/plugins/hyperfide-source-control/app.tsx:57 acknowledges only checkpoint actions, its evidence array starts empty at :131, and the browser fixture at tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs:140 supplies no assignments to exercise submission."
+close_comment = "A successful host checkpoint currently leaves Submit durable revision disabled because its acknowledged receipt never reaches the workspace evidence state, and reopening the workspace loses that evidence. The repair must carry and validate the checkpoint receipt through the host response and restore validated evidence when the workspace is reopened, while keeping unacknowledged edits ineligible for submission."
+
+[task.18.1772.1]
+title = "Issue #1772: Preserve acknowledged host checkpoints for submission and reopening"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181772.1"]
+capabilities = []
+interfaces = []
+do_1 = "Preserve the validated checkpoint result and its operation, scope, workspace, generation and revision identities in NativeSlicesProvider.finish at tools/hyperfide/sdk/source-control/src/host/provider.ts:446 instead of returning only detail at :471; retain it with the saved native state for recovery and return no invented acknowledgment for a no-change finish at :452, then carry a typed checkpoint acknowledgment through the native-only finishNative and nativeCheckpoint output schemas at tools/hyperfide/plugins/environment-slices/contract.ts:95 and :113 and both host checkpoint contracts at tools/hyperfide/plugins/hyperfide-source-control/contract.ts:236 and :268 without changing generic slice detail semantics."
+do_2 = "At tools/hyperfide/plugins/hyperfide-source-control/server.ts:173 validate and retain acknowledged host checkpoint evidence under its project and workspace identity; retain equivalent API checkpoint evidence in the execute handler at :260 and revalidate retained evidence against the authoritative workspace and original operation result on a workspace read so reopening can recover it without another mutation, rejecting missing, mismatched or stale operation, scope, workspace, generation and revision identities."
+do_3 = "Extend workspaceReceiptEvidence and SourcePanel at tools/hyperfide/plugins/hyperfide-source-control/app.tsx:49 and :131 to apply validated host acknowledgments and recovered workspace evidence through the same evidence reducer; connect WorkspaceDetail.hostAction at tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx:183 to that update and restore evidence when selecting or refreshing a checkpointed workspace, preserving the identity checks at tools/hyperfide/plugins/hyperfide-source-control/contract.ts:177 and the pending, dirty, revision and assignment checks at tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx:89 and :605."
+do_4 = "Add test_host_checkpoint_submission_and_reopen to tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py and a focused host-checkpoint mode to tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs that invokes a declared runHostCheckpointSubmissionAndReopen function in tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs:16; exercise the real NativeSlicesProvider producer through the environment and Source Control RPC schemas and handlers into SourcePanel with a real assigned workspace instead of the empty list at :140, asserting submission after a host file checkpoint and after restarting the panel and reopening the acknowledged workspace, including API checkpoint recovery, unchanged operation identity and no duplicate mutation."
+do_5 = "In the same focused regression assert that a slice summary alone, a workspace revision without its acknowledgment, stale evidence from another project or workspace or revision, dirty local edits and unresolved checkpoint outcomes never enable submission; keep the existing lost-acknowledgment reload assertions at tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs:603 and do not substitute hand-built receipts or mocked transports for the real checkpoint path, and select only this regression rather than the existing metrics, pagination, publication or viewport journeys."
+symbols = ["NativeSlicesProvider", "slicesHostContract", "slicesRpcContract", "sourceHostContract", "sourceContract", "sourcePlugin", "workspaceReceiptEvidence", "SourcePanel", "WorkspaceDetail", "test_host_checkpoint_submission_and_reopen", "runHostCheckpointSubmissionAndReopen"]
+touches = ["tools/hyperfide/sdk/source-control/src/host/provider.ts", "tools/hyperfide/plugins/environment-slices/contract.ts", "tools/hyperfide/plugins/hyperfide-source-control/contract.ts", "tools/hyperfide/plugins/hyperfide-source-control/server.ts", "tools/hyperfide/plugins/hyperfide-source-control/app.tsx", "tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx", "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py", "tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs"]
+tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen"]
+planned_paths = []
+build_cmd = "pnpm --dir tools/hyperfide/plugins/hyperfide-source-control run typecheck"
+verify_cmd = "python3 -m pytest tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen -q"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181772]
+title = "Acknowledged host checkpoints remain available for assignment submission after reopening"
+ac_1 = "Given a matching assigned workspace with no dirty or pending edit, a successful real host checkpoint must enable Submit durable revision with its acknowledged revision, and reopening the panel must revalidate and restore that revision for submission, repairing tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx:183 and tools/hyperfide/plugins/hyperfide-source-control/app.tsx:131 without weakening the checks at tools/hyperfide/plugins/hyperfide-source-control/contract.ts:177 or tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx:605; summaries, missing or mismatched acknowledgments, stale evidence, dirty edits and unresolved operations remain ineligible."
+
+[acceptance.18.1772.1]
+feature = "18"
+req = "181772.1"
+scenario = "Given an assigned file-backed workspace attached to its host, when a real host edit receives its matching checkpoint acknowledgment and the workspace is refreshed or reopened after a panel restart, then Submit durable revision enables and submits that exact revision, while missing, stale or mismatched evidence and dirty or unresolved edits keep submission disabled."
+contract = "contracts/tools-ops.md#wiring-integration"
+test = "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py::test_host_checkpoint_submission_and_reopen (planned)"
+qualification = "UNRUN"

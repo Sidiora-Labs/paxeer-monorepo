@@ -475,7 +475,8 @@ def test_kernel_backend_entrypoint_unit_and_environment_agree():
     source = (KERNEL / 'init.sh').read_text()
     assert 'set -euo pipefail' in source and 'umask 077' in source
     assert 'full|native)' in source
-    assert '[ "${LAYERX_NODE_NETWORK_ID:-125}" = 125 ] || {' in source
+    assert '[ "${LAYERX_NODE_EVM_CHAIN_ID-125}" = 125 ] &&' in source
+    assert '[ "${LAYERX_NODE_PAXEER_CHAIN_ID-125}" = 125 ] || {' in source
     assert 'node_home=${LAYERX_KERNEL_NODE_HOME:-/data/layerx/node}' in source
     command = shlex.split(source[source.index('exec setpriv'):].replace('\\\n', ' '))
     assert command == ['exec', 'setpriv', '--reuid=4020', '--regid=4020', '--clear-groups',
@@ -505,6 +506,7 @@ def test_kernel_backend_entrypoint_unit_and_environment_agree():
                        if line and not line.startswith('#'))
     assert environment['LAYERX_KERNEL_NODE_HOME'] == '/data/layerx/node'
     assert environment['LAYERX_NODE_NETWORK_ID'] == '125'
+    assert environment['LAYERX_NODE_EVM_CHAIN_ID'] == '125'
     assert environment['LAYERX_KERNEL_PROFILE'] == 'native'
     assert not any('TOKEN' in key or 'RPC_NAMES' in key for key in environment)
     assert all(not line or line.startswith('#') for line in (KERNEL / 'files.tsv').read_text().splitlines())

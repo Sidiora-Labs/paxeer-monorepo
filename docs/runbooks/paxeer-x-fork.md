@@ -13,7 +13,9 @@ node infrastructure. Use the public node JSON-RPC at the root HTTPS path:
 `https://api14.mainnet-beta.paxeer.network`, or
 `https://api-mainnet-beta.paxeer.network`. Compare heights across nodes before
 selecting a reference. `node.hyperpaxeer.com` is only the hpx library mirror, not an RPC endpoint.
-The hosted gateway's `px_` methods have their own contract in
+The `px` namespace is served at the node root from node state; only
+`px_register` and `px_requestFunds` are hosted operations. The gateway's
+methods have their own contract in
 [openrpc.json](../../services/platform/hosted/gateway/openrpc.json).
 
 The implementation authority is [node/upgrades.go](../../node/upgrades.go),

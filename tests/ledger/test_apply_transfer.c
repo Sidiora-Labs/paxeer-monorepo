@@ -1,6 +1,7 @@
 #include "test_values.h"
 
 #include "layerx/lxp_module.h"
+#include "layerx/lxp_snapshot.h"
 #include "layerx/lxp_transfer.h"
 
 #include <stdlib.h>
@@ -165,6 +166,100 @@ done:
     return failed;
 }
 
+static int historical_namespace_record_recovery(void)
+{
+    static const struct {
+        const char *name;
+        lx_account_kind kind;
+    } historical_vectors[] = {
+        { "system:paxeer-reserve", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE },
+        { "system:paxeer-reserve:pax", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE },
+        { "system:paxeer-reserve:sid", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE },
+        { "system:paxeer-reserve:usdc", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE },
+        { "system:paxeer-reserve:usdl", LX_ACCOUNT_SYSTEM_PAXEER_RESERVE },
+        { "system:paxeer-withdrawals", LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS }
+    };
+    enum { count = sizeof(historical_vectors) / sizeof(historical_vectors[0]) };
+    lx_account_registry registry;
+    uint8_t records[count][1024];
+    size_t lengths[count];
+    uint8_t root_before[32];
+    uint8_t root_after[32];
+    const uint8_t asset_id[32] = { 3U };
+    int failed = 1;
+
+    if (!TEST_EQ(lx_account_registry_init(&registry), LXP_OK)) return 1;
+    for (size_t i = 0U; i < count; ++i) {
+        const uint8_t *name = (const uint8_t *)historical_vectors[i].name;
+        size_t name_length = strlen(historical_vectors[i].name);
+        uint8_t id[32];
+        lx_account *account = NULL;
+
+        if (!TEST_EQ(lx_account_id_from_string(name, name_length, id), LXP_OK))
+            goto done;
+        if (!TEST_EQ(lx_account_registry_root(&registry, root_before), LXP_OK) ||
+            !TEST_EQ(lx_account_open(&registry, name, name_length, id, 7U,
+                LX_ACCOUNT_OPEN_CREDIT, NULL, &account),
+                LXP_ERR_UNAUTHORIZED_DEBIT) ||
+            !TEST_EQ(account == NULL, true) ||
+            !TEST_EQ(registry.count, i) ||
+            !TEST_EQ(lx_account_registry_root(&registry, root_after), LXP_OK) ||
+            !TEST_EQ(memcmp(root_before, root_after, 32U), 0) ||
+            !TEST_EQ(lx_account_open(&registry, name, name_length, id, 7U,
+                LX_ACCOUNT_OPEN_GENESIS, NULL, &account), LXP_OK) ||
+            !TEST_EQ(lxp_ledger_bootstrap_balance(account, asset_id,
+                (lxp_u128){ 1U, 17U + i }, 42U), LXP_OK)) goto done;
+        account->frozen = true;
+        account->has_open_reference = true;
+        if (!TEST_EQ(lx_account_validate_canonical(account), LXP_OK) ||
+            !TEST_EQ(lx_account_record_encode(account, records[i],
+                sizeof(records[i]), &lengths[i]), LXP_OK)) goto done;
+    }
+    if (!TEST_EQ(lx_account_registry_root(&registry, root_before), LXP_OK))
+        goto done;
+    lx_account_registry_release(&registry);
+    if (!TEST_EQ(lx_account_registry_init(&registry), LXP_OK)) return 1;
+    for (size_t i = 0U; i < count; ++i) {
+        const uint8_t *name = (const uint8_t *)historical_vectors[i].name;
+        size_t name_length = strlen(historical_vectors[i].name);
+        uint8_t id[32];
+        lx_account restored;
+        lx_account *account = NULL;
+        size_t slot;
+
+        if (!TEST_EQ(lx_account_id_from_string(name, name_length, id), LXP_OK))
+            goto done;
+        if (!TEST_EQ(lx_account_record_decode(records[i], lengths[i],
+                &restored), LXP_OK) ||
+            !TEST_EQ(lx_account_validate_canonical(&restored), LXP_OK) ||
+            !TEST_EQ(lx_account_registry_slot_insert(&registry, &restored,
+                &slot), LXP_OK) ||
+            !TEST_EQ(lx_account_lookup(&registry, name, name_length, id,
+                &account), LXP_OK) ||
+            !TEST_EQ(account == &registry.accounts[slot], true) ||
+            !TEST_EQ(account->kind, historical_vectors[i].kind) ||
+            !TEST_EQ(account->balance.hi, 1U) ||
+            !TEST_EQ(account->balance.lo, 17U + i) ||
+            !TEST_EQ(account->next_sequence, 42U) ||
+            !TEST_EQ(account->created_at_sequence, 7U) ||
+            !TEST_EQ(account->has_asset, true) ||
+            !TEST_EQ(memcmp(account->asset_id, asset_id, 32U), 0) ||
+            !TEST_EQ(account->frozen, true) ||
+            !TEST_EQ(account->has_open_reference, true) ||
+            !TEST_EQ(lx_account_open(&registry, name, name_length, id, 99U,
+                LX_ACCOUNT_OPEN_CREDIT, NULL, &account), LXP_OK) ||
+            !TEST_EQ(account == &registry.accounts[slot], true)) goto done;
+    }
+    if (!TEST_EQ(registry.count, count) ||
+        !TEST_EQ(lx_account_registry_index_validate(&registry), LXP_OK) ||
+        !TEST_EQ(lx_account_registry_root(&registry, root_after), LXP_OK) ||
+        !TEST_EQ(memcmp(root_before, root_after, 32U), 0)) goto done;
+    failed = 0;
+done:
+    lx_account_registry_release(&registry);
+    return failed;
+}
+
 int main(void)
 {
     lx_account_registry registry;
@@ -182,6 +277,7 @@ int main(void)
     lxp_transfer_result result;
     lxp_u128 maximum = { UINT64_MAX, UINT64_MAX };
 
+    if (historical_namespace_record_recovery() != 0) return 1;
     if (!TEST_EQ(lx_account_registry_init(&registry), LXP_OK) ||
         !TEST_EQ(lx_account_id_from_string((const uint8_t *)from_name, strlen(from_name),
                                   from_id), LXP_OK) ||

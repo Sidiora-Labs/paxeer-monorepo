@@ -1,0 +1,48 @@
+[issue.1675]
+number = 1675
+title = "[Coherence] When a balance read fails, the top bar stays on \"Resolving vault…\" and the Deposit and Withdraw buttons are gone"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "apps/perps/src/page-modules/portfolio/index.tsx:97 requires both balance reads to be ready and passes that result to the top bar at line 137, apps/perps/src/widgets/portfolio/PortfolioTopBar.tsx:64 renders Resolving vault instead of actions for every unresolved result, and apps/perps/src/page-modules/portfolio/PortfolioBalanceBoundary.tsx:13 hides the overview actions on errors, so the failure introduced by commit 4473966cee3761b12f6ab909650f7814b16e11a3 remains present."
+close_comment = "A failed account or wallet balance read leaves the Portfolio header showing Resolving vault and hides Deposit and Withdraw. The repair will show an explicit balance error with a working retry action and restore Deposit and Withdraw after successful reads."
+
+[task.18.1675.1]
+title = "Issue #1675: Show a retryable Portfolio header error when balance reads fail"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181675.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/perps/src/page-modules/portfolio/index.tsx:97 and apps/perps/src/page-modules/portfolio/index.tsx:133, pass both balance source statuses and retryBalances into PortfolioTopBar; extend PortfolioTopBarProps at apps/perps/src/widgets/portfolio/PortfolioTopBar.tsx:28 and the rendering at line 64 so either failed source produces an explicit balance-error alert with Retry balances bound to the same retry as the overview boundary at apps/perps/src/page-modules/portfolio/PortfolioBalanceBoundary.tsx:32, reserving Resolving vault for pending reads, disabling retry while either read is pending, and preserving the successful Deposit and Withdraw actions and disconnected Connect wallet action without inventing balance values."
+do_2 = "Extend the existing reader and JSON-RPC transport coverage at apps/perps/tests/repair-22-33-578.test.ts:134 with a declared portfolioTopBarBalanceFailureAndRetry function registered with test(portfolioTopBarBalanceFailureAndRetry) and the existing worker dispatcher: drive the real PortfolioBalanceReader through account-only, wallet-only and combined failures, render the real PortfolioTopBar from each emitted snapshot using the production prop mapping, assert an error rather than Resolving vault after failure, invoke its rendered retry callback and assert both reads occur, pending state renders during retry, repeated failure remains retryable, successful retry restores both actions, and disconnected state offers Connect wallet; prove PortfolioPage passes both statuses and retryBalances to the header."
+symbols = ["PortfolioPage", "PortfolioTopBarProps", "PortfolioTopBar", "portfolioTopBarBalanceFailureAndRetry"]
+touches = ["apps/perps/src/page-modules/portfolio/index.tsx", "apps/perps/src/widgets/portfolio/PortfolioTopBar.tsx", "apps/perps/tests/repair-22-33-578.test.ts"]
+tests = ["apps/perps/tests/repair-22-33-578.test.ts::portfolioTopBarBalanceFailureAndRetry"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "cd apps/perps && node --test --import tsx --test-name-pattern '^portfolioTopBarBalanceFailureAndRetry$' tests/repair-22-33-578.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181675]
+title = "Portfolio balance errors have an explicit retryable header state"
+ac_1 = "Given a connected Portfolio with an account or wallet read failure, the header at apps/perps/src/widgets/portfolio/PortfolioTopBar.tsx:64 shows a balance-error alert and Retry balances rather than Resolving vault, the retry invokes the reader exposed at apps/perps/src/page-modules/portfolio/balances.ts:95, and successful retry restores Deposit and Withdraw while pending and disconnected states retain their appropriate controls."
+
+[acceptance.18.1675.1]
+feature = "18"
+req = "181675.1"
+scenario = "Given a connected Portfolio whose account read, wallet read or both fail, when the reads settle and the header retry is invoked, then an explicit balance error replaces the resolving message, retry refreshes both sources, another failure remains retryable, and success restores Deposit and Withdraw without fabricated balance values."
+contract = "contracts/perps-client.md#widgets"
+test = "apps/perps/tests/repair-22-33-578.test.ts::portfolioTopBarBalanceFailureAndRetry (planned)"
+qualification = "UNRUN"

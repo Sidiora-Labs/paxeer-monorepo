@@ -14,7 +14,7 @@ import {
   type ProviderListener,
   type SequencerReceiptAnswer,
 } from '@paxeer/wallet';
-import { LAUNCHPAD_PRECOMPILE, abiSelector } from '@sidiora/layerx-sdk';
+import { LAUNCHPAD_PRECOMPILE, XWEB_PRECOMPILE, abiSelector } from '@sidiora/layerx-sdk';
 import { custodyChoiceRepository } from '@/platform/storage/repositories';
 import { WalletProvider } from '@/wallet/WalletProvider';
 
@@ -83,6 +83,7 @@ const SET_FEE_DENOM = abiSelector('setFeeDenom(string)');
 const CLEAR_FEE_DENOM = abiSelector('clearFeeDenom()');
 const GET_FEE_DENOM = abiSelector('getFeeDenom(address)');
 const XWEB_FEE = abiSelector('fee()');
+const XWEB_PARAMS = abiSelector('getParams()');
 const USDL_ADDRESS = abiSelector('usdlAddress()');
 const CREATION_FEE = abiSelector('creationFee()');
 const TOKEN_ADDRESS = abiSelector('tokenAddress()');
@@ -107,6 +108,7 @@ export class SurfaceChain implements Eip1193Provider {
   readonly calls: Array<{ to: string; data: string }> = [];
   feeDenom = '';
   xwebFee = 0n;
+  xwebAvailable = true;
   launchpadUsdl = `0x${'a1'.repeat(20)}`;
   launchpadToken = `0x${'b2'.repeat(20)}`;
   launchpadCreationFee = 0n;
@@ -223,6 +225,8 @@ export class SurfaceChain implements Eip1193Provider {
   private answer(to: string, data: string): string {
     if (to === FEE_TOKEN_PRECOMPILE && data.startsWith(GET_FEE_DENOM))
       return abiString(this.feeDenom);
+    if (to === XWEB_PRECOMPILE.toLowerCase() && data === XWEB_PARAMS)
+      return `0x${word(this.xwebFee)}${word(0n)}${word(0n)}${word(0n)}${word(this.xwebAvailable ? 0n : 1n)}`;
     if (data === XWEB_FEE) return `0x${word(this.xwebFee)}`;
     if (to === LAUNCHPAD && data === USDL_ADDRESS) return `0x${word(BigInt(this.launchpadUsdl))}`;
     if (to === LAUNCHPAD && data === CREATION_FEE) return `0x${word(this.launchpadCreationFee)}`;

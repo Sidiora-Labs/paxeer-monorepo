@@ -1,0 +1,7 @@
+[issue.1780]
+number = 1780
+title = "[Coherence] The registry README still says a `fly.toml` deploys the registry on Fly.io, but no such file exists anywhere in the repository"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "services/platform/hosted/registry/README.md:16 directs deployment through deployment.yaml and the existing Dockerfile, with init.sh described at services/platform/hosted/registry/README.md:19, and commit 9fa6da7fbf8b971e630a4d25ef7214d8b9607d76 preserves the removal of the unsupported Fly.io claim from commits f4ede89734b1d23811768867eee5e2388448a41e and 4fd2a230b25455f21e54aa792d334c8d830ec8ae."
+close_comment = "The registry README now documents Kubernetes deployment through deployment.yaml and the existing Dockerfile and init.sh, and no longer claims that a registry fly.toml deploys the service on Fly.io."

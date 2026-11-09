@@ -5,11 +5,18 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      lane:
+        description: Release gate to run; an empty value runs the full workspace
+        type: string
+        required: false
+        default: ""
   schedule:
     - cron: "17 3 * * 1"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-agent-${{ inputs.lane }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -20,6 +27,7 @@ env:
 
 jobs:
   build-lint-test:
+    if: inputs.lane == ''
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
@@ -41,7 +49,7 @@ jobs:
           .lane-venv/bin/python -m pip install -r tests/bridge/requirements.txt
           echo "$PWD/.lane-venv/bin" >> "$GITHUB_PATH"
       - name: Install pinned settlement compiler
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -58,10 +66,81 @@ jobs:
             "GOMODCACHE=$(go env GOMODCACHE)" "GOPATH=$(go env GOPATH)" \
             "CARGO_TARGET_DIR=$PWD/.lane-target" \
             sh services/agent/tools/run-real-node-tests.sh test
+      - name: Test standalone agent crates
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/.lane-target
+          PAXD: ${{ github.workspace }}/build/paxd
+          LAYERX_TEST_NATIVE_BIN_DIR: ${{ github.workspace }}/build/bin
+          LAYERX_TEST_NATIVE_BUILD_DIR: ${{ github.workspace }}/build
+          LAYERX_PAXEER_BOUNDARY_BIN: ${{ github.workspace }}/.lane-target/debug/layerx-paxeer-boundary
+          LAYERX_RUNTIME_CLOCK_BIN: ${{ github.workspace }}/.lane-target/debug/layerx-runtime-clock
+          LAYERX_TEST_RUNTIME_CLOCK_BIN: ${{ github.workspace }}/.lane-target/debug/layerx-runtime-clock
+        run: |
+          for crate in tests/parity tests/qualify tests/boundary qualification/pay2 tests/isolation tools/sdk-gen tools/policy-harness tools/doc-check; do
+            sh tools/runtime/run-with-clock.sh cargo +1.91.1 test --locked --manifest-path "services/agent/$crate/Cargo.toml"
+          done
       - name: Audit advisories, licenses, sources, and bans
         run: cargo install cargo-deny --locked --version 0.19.0 && cargo deny --manifest-path services/agent/Cargo.toml check
 
+  sdk-python:
+    if: inputs.lane == ''
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+      - name: Install settlement test tools
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Install pinned Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Install Python SDK test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-venv
+          python3 -m venv .sdk-venv
+          .sdk-venv/bin/python -m pip install pytest cryptography PyYAML
+          echo "$PWD/.sdk-venv/bin" >> "$GITHUB_PATH"
+      - name: Check SDK suite wiring
+        run: python3 -m pytest -q tests/ci/test_agent_sdk_suites_wired.py
+      - name: Test both Python SDK trees
+        run: make agent-test-sdk-py
+
+  sdk-typescript:
+    if: inputs.lane == ''
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.22.0
+      - name: Install settlement test tools
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Install TypeScript SDK dependencies
+        working-directory: services/agent/sdk/typescript
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test TypeScript SDK suite
+        run: make agent-test-sdk-ts
+
   fuzz-smoke:
+    if: inputs.lane == ''
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
@@ -77,6 +156,7 @@ jobs:
         run: make agent-fuzz-wire
 
   adversarial:
+    if: inputs.lane == '' || inputs.lane == 'sanitizers'
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 120
     env:
@@ -90,6 +170,7 @@ jobs:
       - name: Install pinned Rust toolchain and fuzz runner
         run: >-
           rustup toolchain install 1.91.1 --profile minimal &&
+          rustup default 1.91.1 &&
           rustup toolchain install nightly-2025-11-10 --profile minimal --component rust-src &&
           cargo install cargo-fuzz --locked
       - name: Install settlement test tools
@@ -99,25 +180,67 @@ jobs:
       - name: Install native fixture dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3-venv
+          sudo apt-get install -y --no-install-recommends build-essential libssl-dev pkg-config python3-venv
           python3 -m venv .lane-venv
           .lane-venv/bin/python -m pip install -r tests/bridge/requirements.txt
           echo "$PWD/.lane-venv/bin" >> "$GITHUB_PATH"
       - name: Install pinned settlement compiler
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: false
       - name: Download declared settlement modules
         working-directory: .
         run: go mod download
-      - name: Run sanitizer variants
+      - name: Run the sanitizer variants
+        shell: bash
         run: |
+          set -euo pipefail
           sudo env "PATH=$PATH" "CARGO_HOME=$HOME/.cargo" "RUSTUP_HOME=$HOME/.rustup" \
             "GOMODCACHE=$(go env GOMODCACHE)" "GOPATH=$(go env GOPATH)" \
             "CARGO_TARGET_DIR=$PWD/.lane-target" \
             "CARGO_PROFILE_DEV_DEBUG=$CARGO_PROFILE_DEV_DEBUG" \
             "CARGO_PROFILE_TEST_DEBUG=$CARGO_PROFILE_TEST_DEBUG" \
-            sh services/agent/tools/run-real-node-tests.sh sanitizers
+            sh services/agent/tools/run-real-node-tests.sh prepare 2>&1 | tee "$RUNNER_TEMP/agent-sanitizers.log"
+          sudo env "PATH=$PATH" "CARGO_HOME=$HOME/.cargo" "RUSTUP_HOME=$HOME/.rustup" \
+            "GOMODCACHE=$(go env GOMODCACHE)" "GOPATH=$(go env GOPATH)" \
+            "CARGO_TARGET_DIR=$PWD/.lane-target" \
+            "CARGO_PROFILE_DEV_DEBUG=$CARGO_PROFILE_DEV_DEBUG" \
+            "CARGO_PROFILE_TEST_DEBUG=$CARGO_PROFILE_TEST_DEBUG" \
+            "LAYERX_TEST_NATIVE_BIN_DIR=$PWD/build/bin" \
+            make agent-test-sanitize 2>&1 | tee -a "$RUNNER_TEMP/agent-sanitizers.log"
+      - name: Retain the sanitizer gate log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: release-gate-agent-sanitizers
+          path: ${{ runner.temp }}/agent-sanitizers.log
+          if-no-files-found: error
+
+  fuzz-corpus:
+    if: inputs.lane == '' || inputs.lane == 'fuzz-corpus'
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 120
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain and fuzz runner
+        run: >-
+          rustup toolchain install 1.91.1 --profile minimal &&
+          rustup default 1.91.1 &&
+          rustup toolchain install nightly-2025-11-10 --profile minimal &&
+          cargo install cargo-fuzz --locked
       - name: Run committed fuzz corpus
-        run: make agent-fuzz-long
+        shell: bash
+        run: |
+          set -euo pipefail
+          make agent-fuzz-long 2>&1 | tee "$RUNNER_TEMP/agent-fuzz-corpus.log"
+      - name: Retain the fuzz gate log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: release-gate-agent-fuzz-corpus
+          path: ${{ runner.temp }}/agent-fuzz-corpus.log
+          if-no-files-found: error

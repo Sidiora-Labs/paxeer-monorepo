@@ -169,7 +169,7 @@ def test_root_retired_daemon_build_targets_produce_linked_paxd():
     assert "jq -er .version tools/release/version.json" in recipe
     assert "$(PAXEER_MAKE) build" in recipe
     dependencies, _ = make_target("Makefile", "paxd-native-libs")
-    assert dependencies == ["$(LIBRARY)", "programs-release-build"]
+    assert dependencies == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     _, recipe = make_target("chain.mk", "paxd-native-libs")
     assert "$(MAKE) -C $(PAXEER_PROJECT_HOME) -f Makefile paxd-native-libs" in recipe
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")

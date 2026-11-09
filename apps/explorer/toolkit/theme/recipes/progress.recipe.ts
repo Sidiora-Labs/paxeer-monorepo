@@ -71,10 +71,7 @@ export const recipe = defineSlotRecipe({
           backgroundImage: `linear-gradient(45deg, var(--stripe-color) 25%, transparent 25%, transparent 50%, var(--stripe-color) 50%, var(--stripe-color) 75%, transparent 75%, transparent)`,
           backgroundSize: `var(--stripe-size) var(--stripe-size)`,
           '--stripe-size': '1rem',
-          '--stripe-color': {
-            _light: 'rgba(255, 255, 255, 0.3)',
-            _dark: 'rgba(0, 0, 0, 0.3)',
-          },
+          '--stripe-color': '{colors.progress.stripe}',
         },
       },
     },

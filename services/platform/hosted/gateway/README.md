@@ -10,9 +10,10 @@ Public node JSON-RPC is served at the root of
 `https://api-mainnet-beta.paxeer.network/` and
 `https://api1.mainnet-beta.paxeer.network/` through
 `https://api14.mainnet-beta.paxeer.network/`, with EVM chain ID **125** (`0x7d`).
-Those nodes expose `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`
-namespaces. The gateway's `px_*` methods are a hosted contract; configuring a
-public node does not deploy those APIs. Mainnet-beta uses real value; obtain
+Those nodes expose `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`
+namespaces. The `px` namespace is served at the node root from node state;
+only `px_register` and `px_requestFunds` are hosted operations.
+Mainnet-beta uses real value; obtain
 hosted service coordinates, credentials and any allocation policy from its operator.
 
 ## Build and test
@@ -47,8 +48,9 @@ This example illustrates the encoding and does not promise a funded account.
 The **hosted gateway**, at the operator-provided origin, also accepts `POST /`.
 Its dispatcher is [src/rpc.rs](src/rpc.rs), reached through
 [src/main.rs](src/main.rs). The gateway-owned [OpenRPC contract](openrpc.json)
-declares the hosted `px_*` methods and `pax_sequencerReceipt`; it is not the
-node's complete RPC schema. Do not assume a public node implements `px_*`.
+declares the gateway's `px_*` methods and `pax_sequencerReceipt`; it is not the
+node's complete RPC schema. Public nodes serve the `px` namespace at `POST /`;
+use the hosted gateway for `px_register` and `px_requestFunds`.
 Use the checked-in contract; `/rpc/schema` is not a discovery endpoint.
 Hosted requests may be single objects or batches of 1..32 entries; notification-only requests
 produce HTTP 204. Malformed JSON answers `-32700`, invalid request envelopes
@@ -208,16 +210,16 @@ mapping is provisioned with the converted base64 array. Gateway-wide service
 mTLS also remains unset there: enabling it requires the Docker entrypoint to
 stage the two `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_*` files before dropping
 privileges. Existing event-producer mTLS uses its separate supported file
-variables. The repair record assigns both Docker changes to their owning task.
+variables. The Docker entrypoint must support staging both the converted
+receipt-key file and service identity files before those options can be enabled.
 
-Qualification for this repair executes the existing production provisioning,
-Secret serialization and manifest renderer, and checks source wiring into the
-Rust loader and key reader. It does not launch the Rust binary or certify a live cluster. The existing Kubernetes RPC list contains one
-controlled boundary URL while the current relay requires two to eight distinct
-URLs; reconciling the boundary topology and its prior one-path qualification is
-an external wiring request recorded in the repair ledger. Fresh and retained
-**material provisioning** are proven here; full deployment readiness also needs
-that RPC reconciliation and the operator's existing TLS/Redis/service secrets.
+The provisioning checks execute the existing production provisioning,
+Secret serialization and manifest renderer, and check source wiring into the
+Rust loader and key reader. They do not launch the Rust binary or certify a live
+cluster. The Kubernetes RPC list supplies eight public node root URLs; the relay
+requires two to eight distinct URLs. Full deployment readiness also requires
+testing the configured upstreams and supplying the operator's TLS, Redis and
+service secrets. Successful material provisioning alone does not establish it.
 
 ## Canonical module registry
 

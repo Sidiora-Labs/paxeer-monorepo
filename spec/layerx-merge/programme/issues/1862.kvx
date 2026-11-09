@@ -1,0 +1,7 @@
+[issue.1862]
+number = 1862
+title = "[Coherence] The follow-up task 22.39.93 tells the next change to empty tests/ci/data/key_material_baseline.txt, but this commit made the key-material test read tests/ci/data/key_material_fixture_paths.json instead"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "already-fixed"
+evidence = "Task 22.39.93 is done at spec/layerx-merge/spec.kvx:188479: commit 70fb314c8d1d803d66f09d441f798585c7936027 removed the JSON exceptions and created the empty text baseline, now enforced by tests/ci/test_key_material_only_in_fixtures.py:46 and tests/ci/test_key_material_only_in_fixtures.py:53, while commit d122f710b511777382d9b4592577822593fe327b rewrote all seven entries to tests/fixtures paths at tests/ci/data/key_material_fixture_paths.json:2 and added the tracked-fixture inventory checks at tests/ci/test_key_material_only_in_fixtures.py:58."
+close_comment = "The fixture cleanup is complete: misplaced key files are rejected without exceptions, and the empty text baseline is explicitly checked. The JSON file now inventories the seven relocated fixtures and verifies that each is tracked under tests/fixtures, so retaining those entries no longer causes the reported mismatch."

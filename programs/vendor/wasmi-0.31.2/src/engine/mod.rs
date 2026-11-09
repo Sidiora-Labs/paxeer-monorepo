@@ -132,30 +132,61 @@ impl Engine {
         pre: &crate::ExecutionReplaySnapshot,
     ) -> Result<crate::ExecutionStepOutcome, crate::ExecutionStepError> {
         use crate::{ExecutionStepError as E, ExecutionStepOutcome as O};
-        if !Engine::same(self, replay.store.engine()) { return Err(E::EngineMismatch); }
-        if self.config().get_consume_fuel() { return Err(E::FuelModeMismatch); }
+        if !Engine::same(self, replay.store.engine()) {
+            return Err(E::EngineMismatch);
+        }
+        if self.config().get_consume_fuel() {
+            return Err(E::FuelModeMismatch);
+        }
         let res = self.inner.res.read();
         let mut stack = Stack::new(self.config().stack_limits());
         let mut executor = EngineExecutor::new(&res, &mut stack);
         let maximum_bytes = replay.store.store.begin_execution_step(pre)?;
         executor.restore_replay_stack(&mut replay.store, replay.instance, pre)?;
-        replay.store.store.restore_execution_instance_states(replay.instance, &pre.snapshot.arbitration_instances, maximum_bytes)?;
+        replay.store.store.restore_execution_instance_states(
+            replay.instance,
+            &pre.snapshot.arbitration_instances,
+            maximum_bytes,
+        )?;
         let current = &pre.snapshot;
-        let restored = replay.store.store.inner.capture_execution_instance_states(replay.instance, maximum_bytes).map_err(E::Observer)?;
+        let restored = replay
+            .store
+            .store
+            .inner
+            .capture_execution_instance_states(replay.instance, maximum_bytes)
+            .map_err(E::Observer)?;
         let root = restored.first().ok_or(E::InstanceGraph)?;
-        let memory = root.memories.first().map_or(&[][..], |m| m.bytes.as_slice());
-        if root.memories.len() > 1 || memory != current.linear_memory || root.globals != current.globals { return Err(E::StateMismatch); }
+        let memory = root
+            .memories
+            .first()
+            .map_or(&[][..], |m| m.bytes.as_slice());
+        if root.memories.len() > 1
+            || memory != current.linear_memory
+            || root.globals != current.globals
+        {
+            return Err(E::StateMismatch);
+        }
         let execution = executor.execute_wasm_func(replay.store.as_context_mut());
         if let Some(trap) = replay.store.store.take_execution_trap_record() {
-            if execution.is_ok() { return Err(E::StateMismatch); }
+            if execution.is_ok() {
+                return Err(E::StateMismatch);
+            }
             return Ok(O::Trapped(trap));
         }
-        if let Some(error) = replay.store.store.execution_observer_error() { return Err(E::Observer(error)); }
-        if execution.is_err() { return Err(E::StateMismatch); }
+        if let Some(error) = replay.store.store.execution_observer_error() {
+            return Err(E::Observer(error));
+        }
+        if execution.is_err() {
+            return Err(E::StateMismatch);
+        }
         let mut transitions = replay.store.store.take_execution_replay_transitions();
-        if transitions.len() != 1 { return Err(E::StateMismatch); }
+        if transitions.len() != 1 {
+            return Err(E::StateMismatch);
+        }
         let transition = transitions.pop().ok_or(E::StateMismatch)?;
-        if transition.pre.as_ref() != pre { return Err(E::StateMismatch); }
+        if transition.pre.as_ref() != pre {
+            return Err(E::StateMismatch);
+        }
         if transition.post.snapshot.call_frames.is_empty() {
             Ok(O::Returned(transition))
         } else {
@@ -223,7 +254,11 @@ impl Engine {
     }
 
     pub(super) fn set_module_function_index(&self, func: CompiledFunc, index: u32) {
-        self.inner.res.write().code_map.set_module_function_index(func, index);
+        self.inner
+            .res
+            .write()
+            .code_map
+            .set_module_function_index(func, index);
     }
 
     /// Resolves the [`CompiledFunc`] to the underlying `wasmi` bytecode instructions.
@@ -774,69 +809,189 @@ impl<'engine> EngineExecutor<'engine> {
     }
 
     fn restore_replay_stack<T>(
-        &mut self, ctx: &mut StoreContextMut<'_, T>, instance: crate::Instance,
+        &mut self,
+        ctx: &mut StoreContextMut<'_, T>,
+        instance: crate::Instance,
         pre: &crate::ExecutionReplaySnapshot,
     ) -> Result<(), crate::ExecutionStepError> {
         use crate::ExecutionStepError as E;
         let state = &pre.snapshot;
-        if pre.frames.is_empty() || pre.frames.len() != state.call_frames.len() { return Err(E::StateMismatch); }
+        if pre.frames.is_empty() || pre.frames.len() != state.call_frames.len() {
+            return Err(E::StateMismatch);
+        }
         let mut required_capacity = state.value_stack.len();
         let mut frames = Vec::new();
         for (index, (replay, legacy)) in pre.frames.iter().zip(&state.call_frames).enumerate() {
-            let function = ctx.store.inner.resolve_instance(&instance).get_func(replay.module_function_index).ok_or(E::UnknownFunction)?;
-            let FuncEntity::Wasm(wasm) = ctx.store.inner.resolve_func(&function) else { return Err(E::UnknownFunction); };
-            if wasm.instance().as_inner() != instance.as_inner() { return Err(E::InstanceGraph); }
+            let function = ctx
+                .store
+                .inner
+                .resolve_instance(&instance)
+                .get_func(replay.module_function_index)
+                .ok_or(E::UnknownFunction)?;
+            let FuncEntity::Wasm(wasm) = ctx.store.inner.resolve_func(&function) else {
+                return Err(E::UnknownFunction);
+            };
+            if wasm.instance().as_inner() != instance.as_inner() {
+                return Err(E::InstanceGraph);
+            }
             let compiled = wasm.func_body();
-            if legacy.function_index != compiled.to_u32() { return Err(E::StateMismatch); }
+            if legacy.function_index != compiled.to_u32() {
+                return Err(E::StateMismatch);
+            }
             let header = self.res.code_map.header(compiled);
-            ctx.store.charge_execution_replay_work(u64::try_from(header.instruction_count()).map_err(|_| E::Bounds)?)?;
-            if header.module_function_index() != Some(replay.module_function_index) { return Err(E::UnknownFunction); }
+            ctx.store.charge_execution_replay_work(
+                u64::try_from(header.instruction_count()).map_err(|_| E::Bounds)?,
+            )?;
+            if header.module_function_index() != Some(replay.module_function_index) {
+                return Err(E::UnknownFunction);
+            }
             let base = usize::try_from(replay.value_base).map_err(|_| E::Bounds)?;
-            if index == 0 && base != 0 { return Err(E::StateMismatch); }
-            let locals_end = base.checked_add(header.local_types().len()).ok_or(E::Bounds)?;
-            let end = pre.frames.get(index + 1).map_or(Ok(state.value_stack.len()), |f| usize::try_from(f.value_base).map_err(|_| E::Bounds))?;
-            if locals_end > end || end > state.value_stack.len() { return Err(E::StateMismatch); }
-            let locals = state.value_stack.get(base..locals_end).ok_or(E::StateMismatch)?;
-            if locals != legacy.locals || locals.iter().zip(header.local_types()).any(|(value, ty)| value.value_type != *ty) { return Err(E::StateMismatch); }
+            if index == 0 && base != 0 {
+                return Err(E::StateMismatch);
+            }
+            let locals_end = base
+                .checked_add(header.local_types().len())
+                .ok_or(E::Bounds)?;
+            let end = pre
+                .frames
+                .get(index + 1)
+                .map_or(Ok(state.value_stack.len()), |f| {
+                    usize::try_from(f.value_base).map_err(|_| E::Bounds)
+                })?;
+            if locals_end > end || end > state.value_stack.len() {
+                return Err(E::StateMismatch);
+            }
+            let locals = state
+                .value_stack
+                .get(base..locals_end)
+                .ok_or(E::StateMismatch)?;
+            if locals != legacy.locals
+                || locals
+                    .iter()
+                    .zip(header.local_types())
+                    .any(|(value, ty)| value.value_type != *ty)
+            {
+                return Err(E::StateMismatch);
+            }
             let operands = &state.value_stack[locals_end..end];
-            if operands.len() != replay.operand_types.len() || operands.iter().zip(&replay.operand_types).any(|(v, ty)| v.value_type != *ty) { return Err(E::StateMismatch); }
+            if operands.len() != replay.operand_types.len()
+                || operands
+                    .iter()
+                    .zip(&replay.operand_types)
+                    .any(|(v, ty)| v.value_type != *ty)
+            {
+                return Err(E::StateMismatch);
+            }
             let active = index + 1 == pre.frames.len();
             let pc = if active {
-                if legacy.return_program_counter.is_some() { return Err(E::StateMismatch); }
+                if legacy.return_program_counter.is_some() {
+                    return Err(E::StateMismatch);
+                }
                 state.program_counter
-            } else { legacy.return_program_counter.ok_or(E::UnknownProgramCounter)? };
-            let observed = self.res.code_map.observe_ptr(compiled, pc).ok_or(E::UnknownProgramCounter)?;
-            if self.res.code_map.instruction_offset(compiled, observed) != Some(replay.instruction_offset) { return Err(E::UnknownProgramCounter); }
-            let metadata = self.res.code_map.metadata(observed).ok_or(E::UnknownProgramCounter)?;
-            if metadata.operand_types.get(..operands.len()) != Some(replay.operand_types.as_slice()) { return Err(E::StateMismatch); }
+            } else {
+                legacy
+                    .return_program_counter
+                    .ok_or(E::UnknownProgramCounter)?
+            };
+            let observed = self
+                .res
+                .code_map
+                .observe_ptr(compiled, pc)
+                .ok_or(E::UnknownProgramCounter)?;
+            if self.res.code_map.instruction_offset(compiled, observed)
+                != Some(replay.instruction_offset)
+            {
+                return Err(E::UnknownProgramCounter);
+            }
+            let metadata = self
+                .res
+                .code_map
+                .metadata(observed)
+                .ok_or(E::UnknownProgramCounter)?;
+            if metadata.operand_types.get(..operands.len()) != Some(replay.operand_types.as_slice())
+            {
+                return Err(E::StateMismatch);
+            }
             if !active {
                 let child = &pre.frames[index + 1];
-                let function = ctx.store.inner.resolve_instance(&instance).get_func(child.module_function_index).ok_or(E::UnknownFunction)?;
-                let FuncEntity::Wasm(child) = ctx.store.inner.resolve_func(&function) else { return Err(E::UnknownFunction); };
-                let results = self.res.func_types.resolve_func_type(child.ty_dedup()).results();
-                let pending_results = metadata.operand_types.get(operands.len()..).ok_or(E::StateMismatch)?;
-                if results.len() != pending_results.len() || results.iter().zip(pending_results).any(|(result, pending)| {
-                    !matches!((result, pending),
-                        (crate::core::ValueType::I32, crate::ExecutionValueType::I32)
-                        | (crate::core::ValueType::I64, crate::ExecutionValueType::I64))
-                }) { return Err(E::StateMismatch); }
+                let function = ctx
+                    .store
+                    .inner
+                    .resolve_instance(&instance)
+                    .get_func(child.module_function_index)
+                    .ok_or(E::UnknownFunction)?;
+                let FuncEntity::Wasm(child) = ctx.store.inner.resolve_func(&function) else {
+                    return Err(E::UnknownFunction);
+                };
+                let results = self
+                    .res
+                    .func_types
+                    .resolve_func_type(child.ty_dedup())
+                    .results();
+                let pending_results = metadata
+                    .operand_types
+                    .get(operands.len()..)
+                    .ok_or(E::StateMismatch)?;
+                if results.len() != pending_results.len()
+                    || results
+                        .iter()
+                        .zip(pending_results)
+                        .any(|(result, pending)| {
+                            !matches!(
+                                (result, pending),
+                                (crate::core::ValueType::I32, crate::ExecutionValueType::I32)
+                                    | (crate::core::ValueType::I64, crate::ExecutionValueType::I64)
+                            )
+                        })
+                {
+                    return Err(E::StateMismatch);
+                }
             }
-            if active && (metadata.operand_types.len() != operands.len() || metadata.canonical_instruction != state.canonical_instruction
-                || metadata.instruction_fuel != state.instruction_fuel || metadata.control_stack != state.control_stack) { return Err(E::StateMismatch); }
+            if active
+                && (metadata.operand_types.len() != operands.len()
+                    || metadata.canonical_instruction != state.canonical_instruction
+                    || metadata.instruction_fuel != state.instruction_fuel
+                    || metadata.control_stack != state.control_stack)
+            {
+                return Err(E::StateMismatch);
+            }
             let ip = if active {
                 let offset = replay.instruction_offset.checked_add(1).ok_or(E::Bounds)?;
-                self.res.code_map.instruction_ptr_at(compiled, offset).ok_or(E::UnknownProgramCounter)?
-            } else { observed };
+                self.res
+                    .code_map
+                    .instruction_ptr_at(compiled, offset)
+                    .ok_or(E::UnknownProgramCounter)?
+            } else {
+                observed
+            };
             let mut frame = FuncFrame::new(ip, &instance, compiled, base);
             frame.set_operand_types(replay.operand_types.clone());
             frames.push(frame);
-            required_capacity = required_capacity.max(base.checked_add(header.param_count()).and_then(|n| n.checked_add(header.max_stack_height())).ok_or(E::Bounds)?);
+            required_capacity = required_capacity.max(
+                base.checked_add(header.param_count())
+                    .and_then(|n| n.checked_add(header.max_stack_height()))
+                    .ok_or(E::Bounds)?,
+            );
         }
-        if state.value_stack.iter().any(|value| value.value_type == crate::ExecutionValueType::I32 && value.bits > u64::from(u32::MAX)) { return Err(E::StateMismatch); }
+        if state.value_stack.iter().any(|value| {
+            value.value_type == crate::ExecutionValueType::I32 && value.bits > u64::from(u32::MAX)
+        }) {
+            return Err(E::StateMismatch);
+        }
         self.stack.reset();
-        self.stack.values.reserve(required_capacity).map_err(|_| E::Bounds)?;
-        self.stack.values.extend(state.value_stack.iter().map(|value| UntypedValue::from(value.bits)));
-        for frame in frames { self.stack.frames.push(frame).map_err(|_| E::Bounds)?; }
+        self.stack
+            .values
+            .reserve(required_capacity)
+            .map_err(|_| E::Bounds)?;
+        self.stack.values.extend(
+            state
+                .value_stack
+                .iter()
+                .map(|value| UntypedValue::from(value.bits)),
+        );
+        for frame in frames {
+            self.stack.frames.push(frame).map_err(|_| E::Bounds)?;
+        }
         Ok(())
     }
 
@@ -893,7 +1048,7 @@ impl<'engine> EngineExecutor<'engine> {
                         .map_err(|_| TaggedTrap::Wasm(TrapCode::UnreachableCodeReached.into()))?;
                     if let Some(charge) = charge {
                         ctx.store
-                            .refresh_execution_supplement(charge)
+                            .refresh_execution_supplement(charge, terminal_instance)
                             .map_err(|_| {
                                 TaggedTrap::Wasm(TrapCode::UnreachableCodeReached.into())
                             })?;
@@ -905,9 +1060,11 @@ impl<'engine> EngineExecutor<'engine> {
                     return Ok(());
                 }
                 WasmOutcome::Observe(charge) => {
-                    if ctx.store.inner.replay_step_complete() { return Ok(()); }
+                    if ctx.store.inner.replay_step_complete() {
+                        return Ok(());
+                    }
                     ctx.store
-                        .refresh_execution_supplement(charge)
+                        .refresh_execution_supplement(charge, *cache.instance())
                         .map_err(|_| TaggedTrap::Wasm(TrapCode::UnreachableCodeReached.into()))?;
                     continue;
                 }
@@ -934,6 +1091,7 @@ impl<'engine> EngineExecutor<'engine> {
                         if let Err(trap) = result {
                             let _ = ctx.store.refresh_execution_supplement(
                                 crate::execution_trace::ObservationCharge::default(),
+                                instance,
                             );
                             ctx.store.inner.record_replay_trap(trap.trap_code(), true);
                             ctx.store.inner.refuse_trapped_transition();
@@ -948,6 +1106,7 @@ impl<'engine> EngineExecutor<'engine> {
                         if let Err(trap) = result {
                             let _ = ctx.store.refresh_execution_supplement(
                                 crate::execution_trace::ObservationCharge::default(),
+                                instance,
                             );
                             ctx.store.inner.record_replay_trap(trap.trap_code(), true);
                             ctx.store.inner.refuse_trapped_transition();
@@ -1007,7 +1166,9 @@ impl<'engine> EngineExecutor<'engine> {
 #[cfg(test)]
 mod replay_step_tests {
     use super::*;
-    use crate::{ExecutionReplayContext, ExecutionStepError, ExecutionStepOutcome, Linker, Module, Store};
+    use crate::{
+        ExecutionReplayContext, ExecutionStepError, ExecutionStepOutcome, Linker, Module, Store,
+    };
 
     fn leb(mut value: usize) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -1015,7 +1176,9 @@ mod replay_step_tests {
             let byte = (value & 127) as u8;
             value >>= 7;
             bytes.push(if value == 0 { byte } else { byte | 128 });
-            if value == 0 { return bytes; }
+            if value == 0 {
+                return bytes;
+            }
         }
     }
 
@@ -1048,14 +1211,233 @@ mod replay_step_tests {
     fn instantiate(engine: &Engine, module: &Module, replay: bool) -> (Store<()>, crate::Instance) {
         let mut store = Store::new(engine, ());
         if replay {
-            store.enable_execution_replay_observer_with_limits(128, 64 * 1024 * 1024, 64 * 1024 * 1024);
+            store.enable_execution_replay_observer_with_limits(
+                128,
+                64 * 1024 * 1024,
+                64 * 1024 * 1024,
+            );
         } else {
             store.enable_execution_observer_with_limits(1, 128, 64 * 1024 * 1024, 64 * 1024 * 1024);
         }
-        let instance = Linker::<()>::new(engine).instantiate(&mut store, module)
+        let instance = Linker::<()>::new(engine)
+            .instantiate(&mut store, module)
             .unwrap_or_else(|error| panic!("instantiate: {error}"))
-            .start(&mut store).unwrap_or_else(|error| panic!("start: {error}"));
+            .start(&mut store)
+            .unwrap_or_else(|error| panic!("start: {error}"));
         (store, instance)
+    }
+
+    fn issue_1773_unique_snapshots(store: &mut Store<()>) -> Vec<Arc<crate::ExecutionSnapshot>> {
+        let mut snapshots = Vec::new();
+        let mut retain = |snapshot: Arc<crate::ExecutionSnapshot>| {
+            if !snapshots.iter().any(|old| Arc::ptr_eq(old, &snapshot)) {
+                snapshots.push(snapshot);
+            }
+        };
+        for transition in store.take_execution_transitions() {
+            retain(transition.pre);
+            retain(transition.post);
+        }
+        for transition in store.take_execution_replay_transitions() {
+            retain(Arc::clone(&transition.pre.snapshot));
+            retain(Arc::clone(&transition.post.snapshot));
+        }
+        if let Some(trap) = store.take_execution_trap_record() {
+            retain(Arc::clone(&trap.pre.snapshot));
+        }
+        snapshots
+    }
+
+    fn issue_1773_accumulating_snapshots(replay: bool) {
+        use core::sync::atomic::AtomicUsize;
+        let prefixes: &[&[u8]] = &[
+            &[],
+            &[0x41, 0, 0x41, 42, 0x36, 2, 0],
+            &[0x41, 1, 0x40, 0, 0x1a],
+        ];
+        for (fixture, prefix) in prefixes.iter().enumerate() {
+            for work_limit in [false, true] {
+                let mut body = prefix.to_vec();
+                body.extend(core::iter::repeat_n(0x01, 40));
+                body.extend_from_slice(&[0x41, 7, 0x0b]);
+                let engine = Engine::default();
+                let bytes = module_bytes(&[&body], true);
+                let module = Module::new(&engine, &bytes[..]).unwrap();
+                let (mut store, instance) = instantiate(&engine, &module, replay);
+                let ceiling = 1_600_000;
+                let (maximum_bytes, maximum_work) = if work_limit {
+                    (u64::MAX, ceiling)
+                } else {
+                    (ceiling, u64::MAX)
+                };
+                if replay {
+                    store.enable_execution_replay_observer_with_limits(
+                        128,
+                        maximum_bytes,
+                        maximum_work,
+                    );
+                } else {
+                    store.enable_execution_observer_with_limits(
+                        1,
+                        128,
+                        maximum_bytes,
+                        maximum_work,
+                    );
+                }
+                let admissions = Arc::new(AtomicUsize::new(0));
+                let counter = Arc::clone(&admissions);
+                store.set_execution_supplement_with_retention(move |_, _, charge, _, _| {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    charge.memory_bytes = 4;
+                    charge.instance_state_bytes = 0;
+                    charge.arbitration_engine_canonical_bytes = 0;
+                    Ok(crate::ExecutionSupplement::default())
+                });
+                assert!(instance
+                    .get_typed_func::<(), i32>(&store, "run")
+                    .unwrap()
+                    .call(&mut store, ())
+                    .is_err());
+                assert_eq!(
+                    store.execution_observer_error(),
+                    Some(crate::ExecutionObserverError::SnapshotLimitExceeded)
+                );
+                let count = store.execution_observer_retained_snapshots().unwrap();
+                assert!(count >= 2 && count < 128);
+                assert_eq!(
+                    admissions.load(Ordering::SeqCst),
+                    count,
+                    "full allocation must be admitted before comparison capture or host query"
+                );
+                let snapshots = issue_1773_unique_snapshots(&mut store);
+                assert_eq!(snapshots.len(), count);
+                let retained = snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.retained_vec_bytes().unwrap())
+                    .sum::<u64>();
+                assert!(retained <= ceiling, "retained {retained} exceeds {ceiling}");
+                assert!(snapshots
+                    .iter()
+                    .all(|snapshot| snapshot.program_counter != u64::MAX));
+                if fixture == 1 {
+                    assert!(snapshots
+                        .iter()
+                        .any(|snapshot| snapshot.linear_memory[0] == 42));
+                }
+                if fixture == 2 {
+                    assert!(snapshots
+                        .iter()
+                        .any(|snapshot| snapshot.linear_memory.len() == 2 * 65536));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn issue_1773_full_snapshot_bytes_are_bounded_before_capture() {
+        issue_1773_accumulating_snapshots(false);
+
+        let engine = Engine::default();
+        let bytes = module_bytes(&[&[0x41, 7, 0x0b]], true);
+        let module = Module::new(&engine, &bytes[..]).unwrap();
+        let (mut store, instance) = instantiate(&engine, &module, false);
+        store.enable_execution_observer_with_limits(1, 128, 65536, u64::MAX);
+        assert!(instance
+            .get_typed_func::<(), i32>(&store, "run")
+            .unwrap()
+            .call(&mut store, ())
+            .is_err());
+        assert_eq!(store.execution_observer_retained_snapshots(), Some(0));
+        assert_eq!(
+            store.execution_observer_error(),
+            Some(crate::ExecutionObserverError::SnapshotLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn issue_1773_replay_and_terminal_snapshots_share_retention_bound() {
+        issue_1773_accumulating_snapshots(true);
+        let engine = Engine::default();
+        let bytes = module_bytes(&[&[0x41, 7, 0x0b]], true);
+        let module = Module::new(&engine, &bytes[..]).unwrap();
+        for replay in [false, true] {
+            for terminal_fits in [false, true] {
+                let ceiling = if terminal_fits { 512_000 } else { 300_000 };
+                let (mut store, instance) = instantiate(&engine, &module, replay);
+                if replay {
+                    store.enable_execution_replay_observer_with_limits(128, ceiling, u64::MAX);
+                } else {
+                    store.enable_execution_observer_with_limits(1, 128, ceiling, u64::MAX);
+                }
+                let result = instance
+                    .get_typed_func::<(), i32>(&store, "run")
+                    .unwrap()
+                    .call(&mut store, ());
+                if terminal_fits {
+                    assert_eq!(result.unwrap(), 7);
+                    assert_eq!(store.execution_observer_error(), None);
+                    assert_eq!(store.execution_observer_retained_snapshots(), Some(3));
+                } else {
+                    assert!(result.is_err());
+                    assert_eq!(
+                        store.execution_observer_error(),
+                        Some(crate::ExecutionObserverError::SnapshotLimitExceeded)
+                    );
+                    assert_eq!(store.execution_observer_retained_snapshots(), Some(2));
+                }
+                let snapshots = issue_1773_unique_snapshots(&mut store);
+                assert_eq!(snapshots.len(), if terminal_fits { 3 } else { 2 });
+                assert!(
+                    snapshots
+                        .iter()
+                        .map(|snapshot| snapshot.retained_vec_bytes().unwrap())
+                        .sum::<u64>()
+                        <= ceiling
+                );
+                assert_eq!(
+                    snapshots
+                        .iter()
+                        .any(|snapshot| snapshot.program_counter == u64::MAX),
+                    terminal_fits
+                );
+            }
+        }
+
+        let (mut recorded, instance) = instantiate(&engine, &module, true);
+        assert_eq!(
+            instance
+                .get_typed_func::<(), i32>(&recorded, "run")
+                .unwrap()
+                .call(&mut recorded, ())
+                .unwrap(),
+            7
+        );
+        for expected in recorded.take_execution_replay_transitions() {
+            let (mut restored, instance) = instantiate(&engine, &module, true);
+            restored.enable_execution_replay_observer_with_limits(2, 512_000, 1_500_000);
+            let actual = engine
+                .execute_step(
+                    ExecutionReplayContext::new(restored.as_context_mut(), instance),
+                    &expected.pre,
+                )
+                .unwrap();
+            let transition = match actual {
+                ExecutionStepOutcome::Boundary(transition)
+                | ExecutionStepOutcome::Returned(transition) => transition,
+                ExecutionStepOutcome::Trapped(trap) => panic!("unexpected trap: {trap:?}"),
+            };
+            assert_eq!(transition, expected);
+            assert_eq!(restored.execution_observer_retained_snapshots(), Some(2));
+            let snapshots = issue_1773_unique_snapshots(&mut restored);
+            assert_eq!(snapshots.len(), 2);
+            assert!(
+                snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.retained_vec_bytes().unwrap())
+                    .sum::<u64>()
+                    <= 512_000
+            );
+        }
     }
 
     #[test]
@@ -1063,37 +1445,47 @@ mod replay_step_tests {
         let fixtures = [
             module_bytes(&[&[0x41, 20, 0x41, 22, 0x6a, 0x0b]], false),
             module_bytes(&[&[0x10, 1, 0x0b], &[0x41, 42, 0x0b]], false),
-            module_bytes(&[&[
-                0x41, 0, 0x41, 41, 0x36, 2, 0,
-                0x41, 1, 0x40, 0, 0x1a,
-                0x41, 0, 0x28, 2, 0, 0x24, 0, 0x23, 0, 0x0b,
-            ]], true),
+            module_bytes(
+                &[&[
+                    0x41, 0, 0x41, 41, 0x36, 2, 0, 0x41, 1, 0x40, 0, 0x1a, 0x41, 0, 0x28, 2, 0,
+                    0x24, 0, 0x23, 0, 0x0b,
+                ]],
+                true,
+            ),
         ];
         for (index, bytes) in fixtures.iter().enumerate() {
             let engine = Engine::default();
-            let module = Module::new(&engine, &bytes[..]).unwrap_or_else(|error| panic!("module: {error}"));
+            let module =
+                Module::new(&engine, &bytes[..]).unwrap_or_else(|error| panic!("module: {error}"));
             let (mut recorded, instance) = instantiate(&engine, &module, true);
-            let result = instance.get_typed_func::<(), i32>(&recorded, "run")
+            let result = instance
+                .get_typed_func::<(), i32>(&recorded, "run")
                 .unwrap_or_else(|error| panic!("export: {error}"))
-                .call(&mut recorded, ()).unwrap_or_else(|error| panic!("call: {error}"));
+                .call(&mut recorded, ())
+                .unwrap_or_else(|error| panic!("call: {error}"));
             assert_eq!(result, if index == 2 { 41 } else { 42 });
             let transitions = recorded.take_execution_replay_transitions();
             assert!(!transitions.is_empty());
             let ordinary = recorded.take_execution_transitions();
             assert_eq!(ordinary.len(), transitions.len());
             let (mut legacy, legacy_instance) = instantiate(&engine, &module, false);
-            let legacy_result = legacy_instance.get_typed_func::<(), i32>(&legacy, "run")
+            let legacy_result = legacy_instance
+                .get_typed_func::<(), i32>(&legacy, "run")
                 .unwrap_or_else(|error| panic!("legacy export: {error}"))
-                .call(&mut legacy, ()).unwrap_or_else(|error| panic!("legacy call: {error}"));
+                .call(&mut legacy, ())
+                .unwrap_or_else(|error| panic!("legacy call: {error}"));
             assert_eq!(legacy_result, result);
             assert_eq!(legacy.take_execution_transitions(), ordinary);
             for transition in transitions {
                 let (mut restored, restored_instance) = instantiate(&engine, &module, true);
-                let context = ExecutionReplayContext::new(restored.as_context_mut(), restored_instance);
-                let outcome = engine.execute_step(context, &transition.pre)
+                let context =
+                    ExecutionReplayContext::new(restored.as_context_mut(), restored_instance);
+                let outcome = engine
+                    .execute_step(context, &transition.pre)
                     .unwrap_or_else(|error| panic!("step: {error:?}"));
                 let actual = match outcome {
-                    ExecutionStepOutcome::Boundary(value) | ExecutionStepOutcome::Returned(value) => value,
+                    ExecutionStepOutcome::Boundary(value)
+                    | ExecutionStepOutcome::Returned(value) => value,
                     ExecutionStepOutcome::Trapped(value) => panic!("unexpected trap: {value:?}"),
                 };
                 assert_eq!(actual, transition);
@@ -1105,47 +1497,98 @@ mod replay_step_tests {
     fn replay_reports_real_unreachable_without_relaxing_original_trap_refusal() {
         let engine = Engine::default();
         let bytes = module_bytes(&[&[0x00, 0x0b]], false);
-        let module = Module::new(&engine, &bytes[..]).unwrap_or_else(|error| panic!("module: {error}"));
+        let module =
+            Module::new(&engine, &bytes[..]).unwrap_or_else(|error| panic!("module: {error}"));
         let (mut store, instance) = instantiate(&engine, &module, true);
-        let trapped = instance.get_typed_func::<(), i32>(&store, "run")
-            .unwrap_or_else(|error| panic!("export: {error}")).call(&mut store, ());
+        let trapped = instance
+            .get_typed_func::<(), i32>(&store, "run")
+            .unwrap_or_else(|error| panic!("export: {error}"))
+            .call(&mut store, ());
         assert!(trapped.is_err());
-        assert_eq!(store.execution_observer_error(), Some(crate::ExecutionObserverError::UnsupportedState));
-        let record = store.take_execution_trap_record().unwrap_or_else(|| panic!("trap record missing"));
-        assert!(matches!(record.trap_code, Some(TrapCode::UnreachableCodeReached)));
+        assert_eq!(
+            store.execution_observer_error(),
+            Some(crate::ExecutionObserverError::UnsupportedState)
+        );
+        let record = store
+            .take_execution_trap_record()
+            .unwrap_or_else(|| panic!("trap record missing"));
+        assert!(matches!(
+            record.trap_code,
+            Some(TrapCode::UnreachableCodeReached)
+        ));
         assert!(!record.host_trap);
         let (mut replay, instance) = instantiate(&engine, &module, true);
-        assert_eq!(engine.execute_step(ExecutionReplayContext::new(replay.as_context_mut(), instance), &record.pre),
-            Ok(ExecutionStepOutcome::Trapped(record)));
+        assert_eq!(
+            engine.execute_step(
+                ExecutionReplayContext::new(replay.as_context_mut(), instance),
+                &record.pre
+            ),
+            Ok(ExecutionStepOutcome::Trapped(record))
+        );
     }
 
     #[test]
     fn replay_refuses_forged_instruction_frame_and_unmarked_context() {
         let engine = Engine::default();
         let bytes = module_bytes(&[&[0x41, 42, 0x0b]], false);
-        let module = Module::new(&engine, &bytes[..]).unwrap_or_else(|error| panic!("module: {error}"));
+        let module =
+            Module::new(&engine, &bytes[..]).unwrap_or_else(|error| panic!("module: {error}"));
         let (mut store, instance) = instantiate(&engine, &module, true);
-        instance.get_typed_func::<(), i32>(&store, "run")
-            .unwrap_or_else(|error| panic!("export: {error}")).call(&mut store, ())
+        instance
+            .get_typed_func::<(), i32>(&store, "run")
+            .unwrap_or_else(|error| panic!("export: {error}"))
+            .call(&mut store, ())
             .unwrap_or_else(|error| panic!("call: {error}"));
         let transitions = store.take_execution_replay_transitions();
         let pre = &transitions[0].pre;
         let (mut store, instance) = instantiate(&engine, &module, false);
-        assert_eq!(engine.execute_step(ExecutionReplayContext::new(store.as_context_mut(), instance), pre), Err(ExecutionStepError::ReplayContextRequired));
+        assert_eq!(
+            engine.execute_step(
+                ExecutionReplayContext::new(store.as_context_mut(), instance),
+                pre
+            ),
+            Err(ExecutionStepError::ReplayContextRequired)
+        );
         let mut forged = pre.as_ref().clone();
         Arc::make_mut(&mut forged.snapshot).canonical_instruction[0] ^= 1;
         let (mut store, instance) = instantiate(&engine, &module, true);
-        assert_eq!(engine.execute_step(ExecutionReplayContext::new(store.as_context_mut(), instance), &forged), Err(ExecutionStepError::StateMismatch));
+        assert_eq!(
+            engine.execute_step(
+                ExecutionReplayContext::new(store.as_context_mut(), instance),
+                &forged
+            ),
+            Err(ExecutionStepError::StateMismatch)
+        );
         let mut missing_host_context = pre.as_ref().clone();
-        Arc::make_mut(&mut missing_host_context.snapshot).supplement.authoritative_fuel = 1;
+        Arc::make_mut(&mut missing_host_context.snapshot)
+            .supplement
+            .authoritative_fuel = 1;
         let (mut store, instance) = instantiate(&engine, &module, true);
-        assert_eq!(engine.execute_step(ExecutionReplayContext::new(store.as_context_mut(), instance), &missing_host_context), Err(ExecutionStepError::ReplayContextRequired));
+        assert_eq!(
+            engine.execute_step(
+                ExecutionReplayContext::new(store.as_context_mut(), instance),
+                &missing_host_context
+            ),
+            Err(ExecutionStepError::ReplayContextRequired)
+        );
         let (mut store, instance) = instantiate(&engine, &module, true);
         store.enable_execution_replay_observer_with_limits(2, 1, 1);
-        assert_eq!(engine.execute_step(ExecutionReplayContext::new(store.as_context_mut(), instance), pre), Err(ExecutionStepError::Bounds));
+        assert_eq!(
+            engine.execute_step(
+                ExecutionReplayContext::new(store.as_context_mut(), instance),
+                pre
+            ),
+            Err(ExecutionStepError::Bounds)
+        );
         let mut forged = pre.as_ref().clone();
         forged.frames[0].instruction_offset = u32::MAX;
         let (mut store, instance) = instantiate(&engine, &module, true);
-        assert_eq!(engine.execute_step(ExecutionReplayContext::new(store.as_context_mut(), instance), &forged), Err(ExecutionStepError::UnknownProgramCounter));
+        assert_eq!(
+            engine.execute_step(
+                ExecutionReplayContext::new(store.as_context_mut(), instance),
+                &forged
+            ),
+            Err(ExecutionStepError::UnknownProgramCounter)
+        );
     }
 }

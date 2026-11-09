@@ -1,0 +1,216 @@
+[meta]
+task = "22.33.50"
+audit = "22.30.106"
+acceptance = "22998.1"
+status = "implemented_not_qualified"
+observed = "Attempt 11 preserves the installed managed agent, COMMITTED material, typed FinalizationEvidenceLookup refusal and unchanged-store assertion; the final transport assertion now requires the rung rank the producer carries. Qualification depends on the bounded gates."
+
+[finding.12]
+tests = ["finding12_recorded_paxd_receipt_transport_recovers_before_replay", "finding12_committed_label_requires_retained_consensus_evidence", "finding12_control_transport_preserves_checkpoint_verification"]
+path = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+closure = "Held: successful committed control journeys cannot be claimed from the available payment recording or the current production adapters."
+
+[baseline.previous_attempt]
+revision = "ea79d6c0e87370ab28e16b45ebbe998c4fd690b2"
+command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_50"
+exit = 101
+source = "Prior attempt output supplied with this task; no new verification run is claimed."
+failed = ["finding12_recorded_paxd_receipt_transport_recovers_before_replay", "finding12_control_transport_preserves_checkpoint_verification"]
+observed = "Both tests expected Some(Receipted) from stored receipt metadata but observed Some(Submitted); the consensus-evidence test passed."
+
+[qualification.previous_build]
+revision = "445699324c78d4a6d15f3d24a05ea9196e46985a"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Six E0308 errors in observed_balances_denom.rs at lines 33, 37, 46, 47, 51 and 55 compare or assign integers, u128 or Amount where the current interface requires Quantity."
+assumption = "This unchanged test is unrelated to finding 12; the task instruction to record unrelated failures without chasing or rerunning them applies."
+
+[repair.receipt_ingress]
+status = "Historical attempt-5 change, removed by the attempt-6 ruling; the current prerequisite maps noncommitted receipts to SEQUENCER_SIGNED."
+path = "services/agent/crates/layerx-agentd/src/receipt.rs::persist_authenticated_receipt"
+observed = "Authenticated node Receipted maps to BATCH_INCLUDED, whose current rung is Receipted; authenticated Committed maps to the current COMMITTED level rather than retired checkpoint finality. Submitted remains refused."
+recovery = "The existing atomic receipt transaction persists metadata together with the exact receipt and evidence; replay derives the level again from the authenticated receipt and preserves stronger existing evidence. Metadata, human-runtime and receipt-frame decoders retain current committed rank 6 across recovery and transport."
+tests = ["finding12_recorded_paxd_receipt_transport_recovers_before_replay", "finding12_control_transport_preserves_checkpoint_verification"]
+
+[wiring.control_finalization]
+status = "Historical request superseded by the landed committed-rung contract: FinalizationEvidence.verification carries committed rung rank 2, as required by managed_agent::valid_finalization_shape and the final test assertion."
+request = "Retired: no rung-to-VerificationLevel translation is required."
+
+[wiring.control_recordings]
+request = "Node/consensus domain: daemon/committed-fixture must retain genuine pause, resume, limit and archive transactions, signed receipts, pinned keys, committed headers, validator votes and inclusion proofs; committed-payExact must remain labeled as payment evidence."
+
+[notes]
+scope = "No spec or GOTCHA edits, unrelated test repairs, assertion changes, commits or pushes were made."
+verification = "The prior attempt never reached hf-done because hf-build failed. This attempt runs the bounded gates on the unchanged final candidate; their private ledger records its exact revision, command, exit and log. No passing gate or closure is claimed in advance."
+
+[continuation.attempt3]
+prerequisite = "22.31.443"
+revision = "d63838f85f7f1c366d7d801a2c7deeeabdff6e09"
+observed = "The prerequisite is merged at f2da78117f7004bb99513d1d95a755626434f232 and observed_balances_denom.rs uses Quantity constructors and production narrowing; the earlier six type errors are repaired outside this task."
+evidence = "hf-build and hf-done print the authoritative candidate revision, command, exit and private log; /out/run/gates.jsonl retains the gate ledger. Neither gate was run by hand."
+
+[repair.fixture_pair]
+observed = "verify-1 failed all three cases at the unchanged sourceSha256 assertion because the raw recording was extended after its conformance vector was recorded."
+raw_path = "services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/paxd-v4-committed.json"
+raw_source = "daemon/committed-fixture/vectors/vector-v4-committed.json at 75256e3897053527589ab3fc26ee00cee9eec532"
+normalized_path = "services/human/crates/layerx-human-service/tests/fixtures/repair_22_33_50/conformance-v4-committed.json"
+normalized_source = "services/interop/specs/conformance/committed/vector-v4-committed.json at 79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+assertions = "Both fixtures are exact committed producer bytes, retained together in scope. The original digest, receipt equality, signatures and consensus assertions remain unchanged; no evidence was reconstructed, relabeled or re-signed."
+
+[continuation.attempt4]
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+scope = "The direct task SCOPE and gate allowed list cover only services/human/Cargo.lock and services/human/crates/layerx-human-service/tests; the inherited production regressions and all fixture bytes are preserved."
+contradiction = "The continuation ruling locates receipt ingress in human-service/src, but the actual failing store_verified_if_absent call dispatches to layerx-agentd/src/human_runtime.rs and persists metadata in layerx-agentd/src/receipt.rs; the task graph additionally requires human-service/src to change although that directory is excluded from SCOPE."
+recovery = "finding12_recorded_paxd_receipt_transport_recovers_before_replay now also asserts the recovered agent metadata remains Receipted before transporting the retained consensus evidence to the reopened human consumer."
+qualification = "No passing gate or finding closure is claimed; hf-build and hf-done retain the exact final candidate revision, command, exit and private evidence location."
+
+[continuation.attempt5]
+base_revision = "0291453c06a5711b18485a7914b7e9eda09a12c6"
+scope = "The expanded scope authorizes the actual agent daemon receipt ingress; the prior scope contradiction no longer blocks this repair."
+assertions = "All three inherited test functions and their assertions remain unchanged. No constructed control transaction or commitment replaces the recorded payment evidence."
+rank_conflict = "The inherited report and control assertion require retired CHECKPOINT_FINALISED rank 4, but current VerificationLevel::rung returns None for that rank and managed_agent::valid_finalization_shape explicitly requires Committed rung rank 2 and rejects retired ranks 3, 4 and 5; restoring retired finality or weakening either check is forbidden."
+evidence = "The bounded hf-build and hf-done ledger provides the authoritative candidate revision, exact command, exit code and private log; no baseline or passing result is invented."
+
+[qualification.attempt5_initial]
+revision = "2d8dc512b59a6a0dff76350b607a48ba4b47ed77"
+command = "cg spec done 22.33.50 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 13 dependent-crate checks passed; the consensus-evidence test passed and both other tests passed their persisted and reopened Receipted assertions before panicking at line 297 on the retired report level's absent current rung."
+repair = "Construct the lookup frame with the receipt fact's rung, after verifying that fact against the retained consensus evidence; preserve the historical report level and every assertion without deriving current finality from a retired verification label."
+
+[continuation.attempt6]
+base_revision = "654b528269286297ea4770660fd7d395bedfa085"
+prerequisites = "22.31.539 ffbe7fe2422c9edb0a61a51556b24e20d7bc6338 and 22.31.540 3182ddd9478473fbb4316b6c7099e9049951bb7f are already ancestors of this base; no rebase is needed."
+resolution = "Kept current in human_receipt_frame.rs (two hunks), human_runtime.rs (one hunk) and receipt.rs (two hunks); these files now equal the base exactly, as do_11 requires."
+assertions = "All three inherited test functions, assertions, support decoder and both exact producer recordings remain unchanged."
+evidence = "Final bounded gate revision, command, exit and private log are the authoritative last entries in /out/run/gates.jsonl; no files are amended after the gates."
+
+[diagnostic.attempt6]
+revision = "Working tree over 654b528269286297ea4770660fd7d395bedfa085 after conflict resolution, before qualification."
+command = "RUST_BACKTRACE=1 cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_50 -- --exact finding12_control_transport_preserves_checkpoint_verification"
+exit = 101
+log = "/out/logs/attempt6-diagnostic.log"
+observed = "The single case fails in persist_recording with ReceiptStoreError::UnauthenticatedIngress before reaching either Human boundary or any CorruptResponse; no boundary frame appears in its backtrace."
+
+[conflict.attempt6_ingress]
+path = "services/agent/crates/layerx-agentd/src/receipt.rs:64"
+observed = "AuthenticatedTransactionReceipt::from_authenticated refuses a recorded covering_block without an authenticated committed_header; authenticate_recording supplies the exact signed receipt and no commitment-capable lookup context."
+constraint = "Do_11 removes this task's daemon changes and limits any remaining production repair to Human sources; neither that domain nor a Human decoder participates in the failing call. The authentication check is preserved."
+next_check = "Even past ingress, receipt.rs:699 maps a noncommitted receipt to SEQUENCER_SIGNED, whose rung is Submitted, contrary to the unchanged Receipted assertions at test lines 217 and 275."
+
+[conflict.attempt6_boundary]
+path = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2296"
+observed = "Static inspection identifies the prior CorruptResponse site: exchange requires LXHAGT02 and the matching trace, while the inherited loopback exchange helper writes human::encode_response's unwrapped LXHAGT01 bytes. The current diagnostic never reaches this check."
+constraint = "This checks response trace framing, not verification code or label; accepting an untraced response would disable a production check. The production peer human::serve_one_with already emits the required trace envelope."
+
+[conflict.attempt6_levels]
+path = "services/human/crates/layerx-human-service/src/activity/export.rs:1307"
+observed = "The landed 22.31.540 implementation emits COMMITTED rank 6 for verified committed evidence; the preserved report and material assertions require retired CHECKPOINT_FINALISED rank 4. The control assertion also compares committed rung rank 2 to verification rank 4."
+constraint = "Changing these assertions violates the explicit unchanged-assertions ruling; restoring the retired producer level or changing the managed consumer's rung domain would reverse the prerequisite contracts. Neither is done."
+
+[conflict.attempt6_graph]
+observed = "The touches list still includes agent sources, Human sources and observed_balances_denom.rs, although do_11 drops the daemon changes and the balance prerequisite already owns that test's repair."
+constraint = "No unrelated or cosmetic edit is added solely to manufacture a touched path; no spec or GOTCHA file is edited."
+
+[continuation.attempt7]
+base_revision = "3d1eff197f5a931feb5afc3e595d856f9f57e02b"
+implementation = "authenticate_recording now uses lookup_authenticated_with_commit; the loopback peer serves px_getCommit, px_getValidators and eth_getBlockByNumber from the retained producer recording, with exact request parameter assertions."
+recording = "positive.header and positive.header_signature remain byte-identical across the retained pair and are verified by EvidenceBundle before ingress; the current commit API additionally requires settlement.execution_header, execution_commit, validators and sequence_batch_proof, all already retained in that same recording."
+transport = "The peer projects recorded validator field names and decodes the retained signed legacy transaction into full-transaction JSON; the production client authenticates the Comet votes, verifies the recorded transaction-zero inclusion and sequence coverage, and checks the block hash. No signature, root or transaction is invented or relabeled."
+metadata = "services/agent/crates/layerx-agentd/src/receipt.rs:699 assigns VerificationLevel::COMMITTED for an authenticated Committed receipt; both initial and reopened metadata assertions therefore require Some(Rung::Committed). The protected checkpoint report/material and managed-consumer assertions stand unchanged."
+producer = "The UnauthenticatedIngress guard at receipt.rs:61-64 remains unchanged; no production source or prerequisite-owned balance test is edited."
+baseline = "Attempt-6 tree 68eb25c760dc already failed finding12_recorded_paxd_receipt_transport_recovers_before_replay and finding12_control_transport_preserves_checkpoint_verification with UnauthenticatedIngress, as supplied by the continuation ruling; no duplicate baseline or diagnostic gate runs."
+
+[qualification.attempt7]
+build_reference = "/out/run/gates.jsonl last kind=build entry, with its revision, exact cargo build command, exit and private log; populated by hf-build after implementation and formatting, including the bounded repair rerun."
+verify_reference = "/out/run/gates.jsonl last kind=verify entry, with its revision, exact cg spec done command, exit and private log; populated by hf-done on the same unchanged candidate after hf-build, including the bounded repair rerun."
+boundary = "Stop at the declared bounded result; the preserved attempt-6 checkpoint-level, trace-envelope and graph conflicts above are recorded external-contract boundaries, not permission to relax assertions or edit production contracts. No passing result is claimed before either gate runs, and no file is amended after the gates."
+
+[qualification.attempt7_initial]
+revision = "a11ec6618ec577fb2cb6bc29f856326849705653"
+command = "cg spec done 22.33.50 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed; the consensus test passed and the two transport cases failed the recorded batch leaf-hash assertion in the new adapter."
+repair = "The production verify_tx hashes the transaction before checking its simple proof; repackage that digest through the existing codec, retain raw batch bytes separately, and preserve the exact recorded leaf-hash equality and every protected assertion."
+
+[continuation.attempt8]
+base_revision = "1a48f8023ddc1ee5316f8ca606fcf0bbab921f3a"
+baseline = "Attempt-7 candidate 959a8f8113b8 failed the two transport cases at repair_22_33_50.rs:294 because the export achieved COMMITTED while the assertion expected CHECKPOINT_FINALISED; the consensus-evidence case passed, as supplied by the ruling. No duplicate baseline gate is run."
+correction = "retained_recording asserts achieved_levels equals the reopened receipt metadata verification level and explicitly asserts both are COMMITTED; all other assertions, authentication, support code and recording bytes remain unchanged."
+producer = "services/agent/crates/layerx-agentd/src/receipt.rs:699-700 assigns COMMITTED to authenticated Committed ingress; services/human/crates/layerx-human-service/src/activity/export.rs:1307 maps the retained Committed receipt to COMMITTED. These recordings contain no checkpoint record."
+scope = "No agent-daemon or other production source changes; the correction follows the exact producer evidence contract under do_13, gotcha 3541 and decision 2857."
+
+[qualification.attempt8]
+build_reference = "/out/run/gates.jsonl last kind=build entry supplies the exact candidate revision, cargo build command, exit and private log after implementation and formatting."
+verify_reference = "/out/run/gates.jsonl last kind=verify entry supplies the exact same-candidate revision, cg spec done command, exit and private log; hf-done runs the declared cargo test and graph checks."
+boundary = "No passing result or finding closure is claimed in advance. Preserve every other assertion and stop at the declared bounded gate result; no files are amended after the final gates."
+
+[continuation.attempt9]
+base_revision = "b62e2aa496e51a50f8c2ba12e20305df484e2a9f"
+baseline = "Attempt-8 candidate 6a0da097460a failed both transport cases with ReceiptStoreError::EvidenceVersion from evidence_inventory after persist_recording added a legacy record beside authenticated version-two evidence; the consensus case passed, as supplied by the ruling. No duplicate baseline gate is run."
+correction = "persist_recording no longer constructs RawReceiptEvidence or calls persist_evidence. retained_recording reads serve_evidence by transaction hash after reopening and asserts exact canonical bytes and Committed rung; the inventory still requires exactly one receipt with evidence and none without, using its version-two with_current_evidence collection. Every other assertion and both recording files remain unchanged."
+producer = "services/agent/crates/layerx-agentd/src/human_runtime.rs:1083-1101 dispatches authenticated ingress to persist_authenticated_receipt; receipt.rs:779 writes encode_transaction_evidence in the atomic receipt transaction, serve_evidence at receipt.rs:448 reads it, and evidence_inventory at receipt.rs:568-574 counts it in with_current_evidence. The legacy guard at receipt.rs:525 and all agent production sources remain unchanged."
+
+[qualification.attempt9]
+build_reference = "/out/run/gates.jsonl last kind=build entry supplies the exact candidate revision, cargo build command, exit and private log after implementation and formatting."
+verify_reference = "/out/run/gates.jsonl last kind=verify entry supplies the exact same-candidate revision, cg spec done command, exit and private log; hf-done runs the declared cargo test and graph checks."
+boundary = "No passing result or finding closure is claimed in advance. Stop at the declared bounded gate result, preserve the protected material and control assertions, and amend no files after final qualification."
+
+[qualification.attempt9_initial]
+revision = "5511f6bc443d998708221c4bfc280c01225702b7"
+command = "cg spec done 22.33.50 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed; consensus verification passed, both transport cases passed reopened version-two evidence and inventory assertions, then replay received CorruptResponse and the control case failed its generic Refused assertion."
+repair = "The loopback peer now returns the same LXHAGT02 trace envelope the request requires, following production human.rs:1992-1998; every request assertion, response encoder and protected material/control assertion remains unchanged."
+
+[conflict.attempt9_control_refusal]
+path = "services/agent/crates/layerx-agentd/src/managed_agent.rs:2039-2050"
+observed = "finalize_limit reaches validate_finalization_source and load_agent for the absent agt_recorded_controls, which returns HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::AgentLookup)); the preserved test requires the distinct generic HumanOperationError::Refused."
+constraint = "The attempt-9 ruling preserves every other assertion and all agent production sources. Mapping typed refusal to generic Refused would hide the real producer result; no such normalization or weakened assertion is introduced."
+
+[continuation.attempt10]
+base_revision = "fae0d0941041b5ce7f67c5893441daccfe68fba9"
+baseline = "Attempt-9 candidate 25a24db46b439d58676e672db44e5f371bfcffa8 failed the replay case in assert_material on CHECKPOINT_FINALISED versus COMMITTED and the control case on AgentLookup versus generic Refused; the consensus case passed, as supplied by the ruling. No duplicate baseline gate is run."
+material = "assert_material now requires VerificationLevel::COMMITTED, matching receipt.rs:699-700 and activity/export.rs:1307, as the attempt-8 ruling already requires for retained_recording."
+installation = "The control case constructs the aggregate through ManagedAgent::from_creation and persists it with managed_agent::publish_creation before reopening the store in the exchange. Creation derives its active budget from a valid digest-shaped seed; the aggregate and context are then published under the existing agt_recorded_controls case identifier. PAX, monthly_limit 100 and spent 0 satisfy the requested limit 500; timestamps precede finalization."
+scope = "Only the repair test and its record change in this continuation; no agent-daemon source changes, fixture substitutions, assertion weakening, spec edits, commits or pushes."
+
+[diagnostic.attempt10]
+revision = "Working tree over fae0d0941041b5ce7f67c5893441daccfe68fba9 after the material and installation corrections, before the typed-refusal assertion and qualification."
+command = "RUST_BACKTRACE=1 cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_50 -- --exact finding12_control_transport_preserves_checkpoint_verification"
+exit = 101
+log = "/out/logs/attempt10-diagnostic.log"
+observed = "The installed-agent case returns HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::FinalizationEvidenceLookup)); the test now asserts that exact typed variant instead of generic Refused, preserving the immediately following store-unchanged assertion."
+producer = "managed_agent.rs:2587-2594 maps serve_committed_evidence failure to FinalizationEvidenceLookup before validate_projected_effect at line 2830; receipt.rs:1301-1304 additionally requires native_commit_key, which the authenticated transaction ingress and the retained payment recording do not persist. No operation was accepted, and no claim of reaching OwnerOutboxRestore or proving successful controls is made."
+
+[conflict.attempt10_finalization_contract]
+observed = "The attempt-6 rank-domain conflict remains: FinalizationEvidence::from at managed_agent.rs:656-666 copies HumanFinalizationEvidence.rung, and valid_finalization_shape at line 3214 requires Committed rung rank 2; the preserved final control assertion instead compares that value to VerificationLevel::COMMITTED.wire_rank(), rank 6."
+constraint = "Do_15 permits the material correction, managed-agent setup and typed-refusal assertion, prohibits agent source edits and preserves the remaining assertions. No conversion that breaks the production rung contract or relaxation of the final assertion is introduced."
+request = "Agent domain: services/agent/crates/layerx-agentd/src/receipt.rs::serve_committed_evidence and managed_agent.rs::validate_finalization_source must reconcile authenticated committed transaction evidence with the native commit evidence now required before the payment-versus-budget binding checks."
+
+[qualification.attempt10]
+build_reference = "/out/run/gates.jsonl last kind=build entry supplies the final candidate revision, exact cargo build command, exit and private log after implementation and formatting."
+verify_reference = "/out/run/gates.jsonl last kind=verify entry supplies the same-candidate revision, exact cg spec done command, exit and private log; hf-done runs the declared cargo test and graph checks."
+boundary = "No passing result or finding closure is claimed in advance. Preserve the store-unchanged and remaining transport assertions; no files are amended after the final gates."
+
+[continuation.attempt11]
+base_revision = "61b1cd9c81e4070dc5dfccd4bb9255c602cfb066"
+baseline = "Carried attempt-10 candidate 3db4141c19ba passed the build and two cases; finding12_control_transport_preserves_checkpoint_verification failed at the final rank comparison, as supplied by the continuation ruling. No duplicate baseline or diagnostic gate is run."
+correction = "The final assertion compares consumed.verification with Rung::Committed.wire_rank(); its comment states the producer fact and the unused expected_level binding is removed. Every other assertion, recording, support path and production source remains unchanged."
+producer = "services/agent/crates/layerx-agentd/src/managed_agent.rs:656-666 copies HumanFinalizationEvidence.rung into FinalizationEvidence.verification; valid_finalization_shape at line 3214 requires Rung::Committed.wire_rank(), matching the request closure's evidence.rung assertion. This supersedes the historical rank-domain conflict and control_finalization wiring request."
+
+[finding.agent_native_commit_key]
+status = "open"
+owner_domain = "agent"
+path = "services/agent/crates/layerx-agentd/src/receipt.rs:1301-1304"
+observed = "serve_committed_evidence requires native_commit_key, which authenticated transaction ingress and the retained committed payment recording do not persist; the installed-agent test observes ManagedAgentCheck::FinalizationEvidenceLookup before payment-versus-budget binding checks and proves the store stays unchanged."
+request = "Agent domain: services/agent/crates/layerx-agentd/src/receipt.rs::serve_committed_evidence and managed_agent.rs::validate_finalization_source must reconcile retained authenticated committed transaction evidence with the required native commit evidence; this task makes no producer repair and claims no successful control finalization."
+
+[qualification.attempt11]
+build_reference = "/out/run/gates.jsonl last kind=build entry supplies the final candidate revision, exact cargo build command, exit and private log after implementation and formatting."
+verify_reference = "/out/run/gates.jsonl last kind=verify entry supplies the same-candidate revision, exact cg spec done command, exit and private log; hf-done runs the declared cargo test and graph checks."
+boundary = "No passing result is claimed in advance. Stop on hf-done passing or the bounded repair result; no files are amended after the final gates, and the agent native commit key finding stays open."

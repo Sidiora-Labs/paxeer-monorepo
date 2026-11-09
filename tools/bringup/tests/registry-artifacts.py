@@ -29,6 +29,11 @@ def sandbox(script):
 class RegistryArtifacts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        global MANIFEST
+        if MANIFEST is None:
+            configured = os.environ.get('PAXEER_X_REGISTRY_ARTIFACT_MANIFEST')
+            artifacts.require(configured, 'PAXEER_X_REGISTRY_ARTIFACT_MANIFEST is required without --manifest')
+            MANIFEST = str(Path(configured).resolve(strict=True))
         cls.manifest = artifacts.validate(MANIFEST)
         cls.evidence = Path(MANIFEST).parent / 'qualification'
         cls.evidence.mkdir(mode=0o700)
@@ -208,6 +213,67 @@ if(n<=0||n>65536)throw Error('inode bound');console.log('inode-refused '+n)}fina
         self.assertTrue(any(value > 1048576 for value in written), 'no actual I/O ceiling observed')
         (self.fixture / 'quota/slot-0/io-limit').unlink()
 
+    def test_22_completed_job_history_survives_cleanup_reload(self):
+        initial = artifacts.inspect(self.fixture)
+        expected_jobs = copy.deepcopy(initial['jobs'])
+        previous_containers = copy.deepcopy(initial['containers'])
+        results = []
+        for exit_code in (0, 7):
+            with self.subTest(exit_code=exit_code):
+                stdout = f'completed-job-{exit_code}-stdout'
+                stderr = f'completed-job-{exit_code}-stderr'
+                command = sandbox(f"console.log('{stdout}');console.error('{stderr}');"
+                                  f"setTimeout(()=>process.exit({exit_code}),300);")
+                result = artifacts.run_job(self.fixture, command, cpu=2000000, wall=3000)
+                self.assertEqual(set(result), {'exit_code', 'stdout', 'stderr', 'command',
+                                               'elapsed', 'observations', 'interrupted'})
+                self.assertEqual(result['exit_code'], exit_code, result['stderr'])
+                self.assertIn(stdout, result['stdout'])
+                self.assertIn(stderr, result['stderr'])
+                self.assertEqual(result['command'], command)
+                self.assertGreater(result['elapsed'], 0)
+                self.assertLess(result['elapsed'], 10)
+                self.assertTrue(result['observations'], 'no actual workload observed')
+                self.assertIs(result['interrupted'], False)
+                prior_jobs = copy.deepcopy(expected_jobs)
+                results.append(result)
+                expected_jobs.append(copy.deepcopy(result))
+                durable = json.loads((self.fixture / 'lifecycle.json').read_text())
+                inspected = artifacts.inspect(self.fixture)
+                for state in (durable, inspected):
+                    self.assertEqual(state['jobs'], expected_jobs)
+                    self.assertEqual(state['jobs'][:-1], prior_jobs)
+                    self.assertEqual(state['jobs'][:len(initial['jobs'])], initial['jobs'])
+                    for completed in results:
+                        self.assertEqual(state['jobs'].count(completed), 1)
+                    self.assertEqual(state['phase'], 'prepared')
+                    for key in ('id', 'owner_uid', 'mount'):
+                        self.assertEqual(state[key], initial[key])
+                    self.assertEqual(state['containers'][:-1], previous_containers)
+                    self.assertEqual(len(state['containers']), len(previous_containers) + 1)
+                    record = state['containers'][-1]
+                    self.assertTrue(record['name'].startswith('layerx-artifacts-' + initial['id'] + '-'))
+                    self.assertRegex(record['id'], r'^[0-9a-f]{64}$')
+                    self.assertIs(record['container_absent'], True)
+                    self.assertEqual(record['phase'], 'cleaned')
+                self.assertEqual(durable['containers'], inspected['containers'])
+                previous_containers = copy.deepcopy(inspected['containers'])
+
+        resumed = subprocess.run([sys.executable, str(PRODUCER), 'inspect', '--directory', str(self.fixture)],
+                                 check=True, capture_output=True, text=True, timeout=30)
+        recovered = json.loads(resumed.stdout)
+        self.assertEqual(recovered['jobs'], expected_jobs)
+        self.assertEqual(recovered['jobs'][:len(initial['jobs'])], initial['jobs'])
+        for completed in results:
+            self.assertEqual(recovered['jobs'].count(completed), 1)
+        self.assertEqual(recovered['phase'], 'prepared')
+        for key in ('id', 'owner_uid', 'mount'):
+            self.assertEqual(recovered[key], initial[key])
+        self.assertEqual(recovered['containers'], previous_containers)
+        for record in recovered['containers']:
+            self.assertIs(record['container_absent'], True)
+            self.assertEqual(record['phase'], 'cleaned')
+
     def test_98_created_resource_before_id_publication(self):
         # Forward to the actual local Docker engine. Hold its successful create
         # response so the real owner cannot publish the returned identifier.
@@ -353,4 +419,4 @@ if __name__ == '__main__':
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(RegistryArtifacts)
     result = unittest.TextTestRunner(verbosity=2, failfast=True).run(suite)
     print(f'PAXEER_X_GATE tests={result.testsRun} skipped={len(result.skipped)}', flush=True)
-    sys.exit(0 if result.wasSuccessful() and result.testsRun == 23 and not result.skipped else 1)
+    sys.exit(0 if result.wasSuccessful() and result.testsRun == 24 and not result.skipped else 1)

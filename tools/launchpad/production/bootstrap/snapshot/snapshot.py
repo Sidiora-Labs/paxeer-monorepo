@@ -16,6 +16,12 @@ GENERATED_OUTPUT_PATHS = frozenset({
     'apps/launchpad/web/build', 'apps/launchpad/web/dist', 'apps/launchpad/web/logs',
     'contracts/launchpad/coverage', 'contracts/launchpad/dist',
     'sdk/launchpad/packages/dist', 'sdk/launchpad/packages/sidiora-launchpad-v3/dist',
+    'sdk/launchpad/packages/sdk/dist', 'sdk/launchpad/packages/sdk-v2/dist',
+    'sdk/launchpad/packages/stats-sdk/dist', 'sdk/launchpad/packages/candles-sdk/dist',
+    'sdk/launchpad/packages/indexer-sdk/dist', 'sdk/launchpad/packages/metadata-sdk/dist',
+    'sdk/launchpad/packages/ranking-algo-sdk/dist', 'sdk/launchpad/packages/users-sdk/dist',
+    'sdk/launchpad/packages/production-contracts/dist',
+    'sdk/launchpad/packages/production-contracts-v2/dist',
 })
 SECRET_NAMES = frozenset({'id_rsa', 'id_ed25519', 'id_ecdsa', '.npmrc', '.pypirc', '.netrc', 'credentials.json', 'service-account.json'})
 SECRET_SUFFIXES = ('.pem', '.key', '.p12', '.pfx', '.keystore')
@@ -27,6 +33,8 @@ def excluded(parts):
     return (name in SECRET_NAMES or any(p in EXCLUDED_DIRS for p in parts)
             or any(relative == output or relative.startswith(output + '/')
                    for output in GENERATED_OUTPUT_PATHS)
+            or (parts[:3] == ('apps', 'launchpad', 'web')
+                and any(p in {'build', 'dist', 'logs'} for p in parts[3:]))
             or any(p in {'secrets', '.secrets', 'credentials'} for p in parts)
             or name == '.env' or name.startswith('.env.')
             or name.endswith(SECRET_SUFFIXES + ('.pyc', '.log', '.tsbuildinfo')))

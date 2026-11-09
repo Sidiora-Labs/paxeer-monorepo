@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "bridge-appenv-interface-proof",
   "private": true,
   "type": "module",

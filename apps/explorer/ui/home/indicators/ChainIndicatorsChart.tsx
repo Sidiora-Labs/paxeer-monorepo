@@ -4,7 +4,6 @@ import React from 'react';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Hint } from 'toolkit/components/Hint/Hint';
 import { mdash } from 'toolkit/utils/htmlEntities';
-import FallbackChart from 'ui/shared/fallbacks/FallbackChart';
 import IconSvg from 'ui/shared/IconSvg';
 
 import ChainIndicatorChartContainer from './ChainIndicatorChartContainer';
@@ -17,19 +16,11 @@ interface Props {
   chartQuery: UseFetchChartDataResult;
   title: string;
   hint?: string;
-  days?: number;
 }
 
-const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, chartQuery, title, hint, days }: Props) => {
+const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, chartQuery, title, hint }: Props) => {
   const isLoading = isLoadingProp || chartQuery.isPending;
-
-  const data = React.useMemo(() => {
-    if (!days) {
-      return chartQuery.data;
-    }
-
-    return chartQuery.data.map((item) => ({ ...item, items: item.items.slice(-days) }));
-  }, [ chartQuery.data, days ]);
+  const data = chartQuery.data;
 
   const valueTitleElement = (() => {
     if (value === undefined) {
@@ -41,10 +32,10 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
     }
 
     if (value.includes('N/A')) {
-      return <Text textStyle="heading.sm" opacity="control.disabled">{ mdash }</Text>;
+      return <Text textStyle="statValue" color="text.muted">{ mdash }</Text>;
     }
 
-    return <Text textStyle="heading.sm">{ value }</Text>;
+    return <Text textStyle="statValue">{ value }</Text>;
   })();
 
   const valueDiffElement = (() => {
@@ -63,7 +54,13 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
   })();
 
   if (chartQuery.isError) {
-    return <FallbackChart term={ title } h={{ base: '144px', lg: '184px' }}/>;
+    return (
+      <Flex flexDirection="column" gap={ 2 } color="text.muted" role="status">
+        <Text textStyle="label">{ title }</Text>
+        <Text textStyle="statValue">—</Text>
+        <Text textStyle="small">Network chart unavailable</Text>
+      </Flex>
+    );
   }
 
   return (
@@ -71,10 +68,7 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
       <Skeleton loading={ isLoading } display="flex" alignItems="center" w="fit-content" columnGap={ 1 }>
         <chakra.span
           data-title
-          textStyle="xs"
-          fontWeight="600"
-          letterSpacing="wide"
-          textTransform="uppercase"
+          textStyle="label"
           color="text.muted"
         >
           { title }
@@ -87,7 +81,7 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
           { valueDiffElement }
         </Flex>
       ) }
-      <Flex mt={ 2 } h={{ base: '96px', lg: '110px' }} alignItems="flex-start" flexGrow={ 1 }>
+      <Flex mt={ 2 } h={{ base: '160px', lg: '200px' }} alignItems="flex-start" flexGrow={ 1 }>
         <ChainIndicatorChartContainer data={ data } isError={ chartQuery.isError } isPending={ isLoading }/>
       </Flex>
     </Flex>

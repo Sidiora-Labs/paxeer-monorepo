@@ -57,15 +57,13 @@ use layerx_programs_runtime::{
     StorageNamespace, V2ActivityOutcome, V2AuthorizedExecutionRecord, ValidatedModule, WasmEngine,
     ABI_V5_VERSION, CALL_ENTRY_EXPORT,
 };
-use std::{
-    fmt::{self, Write as _},
-    fs,
-    path::Path,
-    process::Command,
-};
+use std::{fmt, fs, path::Path, path::PathBuf};
+
+#[path = "support/repair_478_fixture.rs"]
+mod repair_478_fixture;
 
 /// The Makefile's default guest chain domain, `PAXAI/host-boundary/chain-domain`.
-const CHAIN: [u8; 32] = *b"PAXAI/host-boundary/chain-domain";
+const CHAIN: [u8; 32] = layerx_programs_ai_market::MERGED_CHAIN_DOMAIN;
 const PROGRAM: [u8; 32] = [11; 32];
 const OWNER: [u8; 32] = [12; 32];
 const ASSET: [u8; 32] = [13; 32];
@@ -90,7 +88,7 @@ const LOW: u8 = 0x20;
 const HIGH: u8 = 0x21;
 const REVEALERS: [u8; 3] = [2, 3, 4];
 /// Every selector `dispatch::route` serves.
-const ROUTED: [Operation; 31] = [
+const ROUTED: [Operation; 32] = [
     dispatch::CREATE,
     dispatch::STAGE_POLICY,
     dispatch::CANCEL_POLICY,
@@ -122,6 +120,7 @@ const ROUTED: [Operation; 31] = [
     dispatch::CommitScore,
     dispatch::RevealScore,
     dispatch::SealEvidence,
+    dispatch::FUND,
 ];
 
 /// A failed journey step: an application refusal, a routed call that did not apply, or a
@@ -320,6 +319,7 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation: Vec<u8>,
     replay: ReplayTable,
     features: Vec<u8>,
 }
@@ -327,6 +327,8 @@ impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let (_, table) = layerx_programs_ai_market::reputation_transition::split_joint(admission)?;
+        let reputation = admission[..admission.len() - table.len()].to_vec();
         let (workers, region) = split_identity_section(identity)?;
         Ok(Self {
             revision: state.revision,
@@ -335,7 +337,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation,
             replay: state.control.replay,
             features: state.control.feature_bytes.to_vec(),
         })
@@ -355,15 +358,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let admission = [self.reputation.as_slice(), admission.as_slice()].concat();
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &admission],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &self.features,
@@ -558,35 +557,52 @@ fn manifest(
 /// The guest built as `make paxai-host-boundary-build` builds it, validated as ABI 5 under
 /// the genesis metering schedule.
 fn guest_module() -> Checked<ValidatedModule> {
-    let programs = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let target = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fuel-budget-guest");
-    let domain = CHAIN
-        .iter()
-        .try_fold(String::with_capacity(64), |mut hex, b| {
-            write!(hex, "{b:02x}").map(|()| hex)
-        })
-        .map_err(|error| Failure::Guest(format!("chain domain: {error}")))?;
-    let status = Command::new(env!("CARGO"))
-        .current_dir(&programs)
-        .env("PAXAI_CHAIN_DOMAIN", domain)
-        .env("CARGO_TARGET_DIR", &target)
-        .args([
-            "build",
-            "--locked",
-            "--release",
-            "--target",
-            "wasm32-unknown-unknown",
-            "-p",
-            "layerx-programs-ai-market",
-        ])
-        .status()
-        .map_err(|error| Failure::Guest(format!("guest build did not start: {error}")))?;
-    if !status.success() {
-        return Err(Failure::Guest(format!("guest build {status}")));
-    }
-    let wasm =
-        fs::read(target.join("wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm"))
-            .map_err(|error| Failure::Guest(format!("guest artifact: {error}")))?;
+    let manifest = std::env::var_os("PAXAI_HOST_BOUNDARY_MANIFEST").map_or_else(
+        || {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../build/paxai-host-boundary/manifest")
+        },
+        PathBuf::from,
+    );
+    let text = fs::read_to_string(&manifest).map_err(|error| {
+        Failure::Guest(format!(
+            "{}: {error}; run make paxai-host-boundary-build",
+            manifest.display()
+        ))
+    })?;
+    let lines: Vec<_> = text.lines().collect();
+    let [artifact, _harness, domain] = lines[..] else {
+        return Err(Failure::Guest(format!(
+            "{}: expected three manifest lines, found {}",
+            manifest.display(),
+            lines.len()
+        )));
+    };
+    let expected_domain: String = CHAIN.iter().map(|byte| format!("{byte:02x}")).collect();
+    assert_eq!(domain, expected_domain);
+    let artifact = PathBuf::from(artifact);
+    let artifact = if artifact.is_absolute() {
+        artifact
+    } else {
+        manifest
+            .parent()
+            .ok_or_else(|| Failure::Guest("manifest directory is absent".into()))?
+            .join(artifact)
+    };
+    let wasm = fs::read(&artifact).map_err(|error| {
+        Failure::Guest(format!(
+            "guest artifact {}: {error}; manifest {}",
+            artifact.display(),
+            manifest.display()
+        ))
+    })?;
+    // UPGRADE has the larger header (106 bytes); both activities retain the
+    // protocol's 524288-byte payload limit.
+    assert!(
+        wasm.len() + 106 <= 524_288,
+        "guest of {} bytes exceeds the deployment activity payload limit",
+        wasm.len()
+    );
     WasmEngine::declared()
         .map_err(|error| Failure::Guest(format!("engine: {error}")))?
         .validate_versioned_metered(ABI_V5_VERSION, &wasm, FuelSchedule::WASMI_0_31_2)
@@ -1617,9 +1633,51 @@ fn journey(module: ValidatedModule) -> Checked<Journey> {
     Ok(j)
 }
 
+fn committed_fund_row() -> Checked<Row> {
+    // Run the candidate guest over the exact state and kernel balance facts
+    // transported by the Go gate, independently of its terminal measurement.
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/repair-478");
+    let (fuel, verdict) = repair_478_fixture::execute_kernel_fund(&dir).map_err(Failure::Guest)?;
+    let kernel_fuel = measured_fund_cpu_fuel();
+    assert_eq!(fuel, kernel_fuel);
+    let current =
+        fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/repair-478/current"))
+            .map_err(|error| Failure::Guest(format!("committed Fund fixture: {error}")))?;
+    Ok(Row {
+        operation: dispatch::FUND,
+        height: repair_478_fixture::HEIGHT,
+        state: current.len(),
+        fuel,
+        verdict,
+    })
+}
+
+#[test]
+fn fund_fits_the_protocol_cpu_fuel_cap() -> Checked {
+    let row = committed_fund_row()?;
+    println!(
+        "{:<22} {:>6} {:>7} {:>10}  verdict (cap {DEFAULT_CPU_FUEL})",
+        "operation", "height", "state", "fuel"
+    );
+    println!(
+        "{:<22} {:>6} {:>7} {:>10}  {}",
+        row.operation.metadata().name,
+        row.height,
+        row.state,
+        row.fuel,
+        row.verdict
+            .as_ref()
+            .map_or_else(Clone::clone, |()| "ok".to_string())
+    );
+    assert!(row.fuel <= DEFAULT_CPU_FUEL);
+    assert_eq!(row.verdict, Ok(()));
+    Ok(())
+}
+
 #[test]
 fn every_routed_operation_fits_the_protocol_cpu_fuel_cap() -> Checked {
-    let journey = journey(guest_module()?)?;
+    let mut journey = journey(guest_module()?)?;
+    journey.rows.push(committed_fund_row()?);
     println!(
         "{:<22} {:>6} {:>7} {:>10}  verdict (cap {DEFAULT_CPU_FUEL})",
         "operation", "height", "state", "fuel"
@@ -1661,4 +1719,193 @@ fn every_routed_operation_fits_the_protocol_cpu_fuel_cap() -> Checked {
         .collect();
     assert_eq!(failed, Vec::<(&str, u64, &str)>::new());
     Ok(())
+}
+
+#[test]
+fn fund_joint_sections_match_the_carried_transition_and_replay() {
+    use layerx_programs_ai_market::{
+        epoch, rewards,
+        state::{decode_shared_state, Section},
+        MERGED_CHAIN_DOMAIN,
+    };
+    use repair_478_fixture::{fixture, HEIGHT, PROGRAM};
+    let owner = [12; 32];
+    let f = fixture(owner, [13; 32]).unwrap();
+    let ctx = CallContext {
+        chain: ChainDomain::new(MERGED_CHAIN_DOMAIN).unwrap(),
+        program: ProgramId::new(PROGRAM).unwrap(),
+        principal: PrincipalId::new(owner).unwrap(),
+        height: HEIGHT,
+    };
+    let envelope = codec::decode_envelope(&f.fund).unwrap();
+    let mut next = vec![0; MAX_STATE_BYTES];
+    let mut scratch = vec![0; rewards::SCRATCH_BYTES];
+    let mut carry = vec![0; epoch::CARRY_SCRATCH_BYTES];
+    let mut event = vec![0; MAX_EVENT_BYTES];
+    let (outcome, written) =
+        epoch::carry_reputation(&f.current, &mut next, &mut carry, |current, next| {
+            let outcome = rewards::apply(&ctx, &envelope, current, next, &mut scratch, &mut event)?;
+            let rewards::Outcome::Applied { state_len, .. } = outcome else {
+                panic!("first Fund must apply");
+            };
+            Ok((outcome, Some(state_len)))
+        })
+        .unwrap();
+    assert_eq!(&next[..written.unwrap()], f.next);
+    let rewards::Outcome::Applied {
+        event_len,
+        response,
+        ..
+    } = outcome
+    else {
+        panic!("first Fund must apply");
+    };
+    assert_eq!(&event[..event_len], f.event);
+    assert_eq!(
+        response.as_bytes(),
+        codec::decode_result(&f.result).unwrap().payload
+    );
+    let before = decode_shared_state(&f.current).unwrap();
+    let after = decode_shared_state(&f.next).unwrap();
+    let joint = Section::ReputationAdmission.index();
+    assert_eq!(&before.feature_sections[joint][..4], b"RP07");
+    for section in [
+        Section::IdentityRoster,
+        Section::CurrentReports,
+        Section::ReputationAdmission,
+    ] {
+        assert_eq!(
+            before.feature_sections[section.index()],
+            after.feature_sections[section.index()]
+        );
+    }
+    let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
+    let mut result = vec![0; MAX_RESULT_BYTES];
+    next.fill(0xa5);
+    let retry = dispatch::route(
+        &ctx,
+        &f.fund,
+        Some(&f.next),
+        Buffers {
+            next: &mut next,
+            scratch: &mut scratch,
+            event: &mut event,
+            result: &mut result,
+        },
+    )
+    .unwrap();
+    let Routed::Unchanged { result_len } = retry else {
+        panic!("Fund replay must return the retained result");
+    };
+    assert_eq!(
+        codec::decode_result(&result[..result_len])
+            .unwrap()
+            .revision,
+        after.revision
+    );
+    assert!(next.iter().all(|byte| *byte == 0xa5));
+
+    let mut corrupt_joint = before.feature_sections[joint].to_vec();
+    corrupt_joint[4] ^= 0x80;
+    let corrupt_state = before
+        .replace_section(Section::ReputationAdmission, &corrupt_joint)
+        .unwrap();
+    let mut corrupt = vec![0; MAX_STATE_BYTES];
+    let mut control = vec![0; Section::Control.payload_cap()];
+    let len = layerx_programs_ai_market::state::encode_shared_state(
+        &corrupt_state,
+        &mut corrupt,
+        &mut control,
+    )
+    .unwrap();
+    let refused = dispatch::route(
+        &ctx,
+        &f.fund,
+        Some(&corrupt[..len]),
+        Buffers {
+            next: &mut next,
+            scratch: &mut scratch,
+            event: &mut event,
+            result: &mut result,
+        },
+    )
+    .unwrap();
+    let Routed::Refused { result_len } = refused else {
+        panic!("Fund must validate the joint reputation region");
+    };
+    assert!(codec::decode_result(&result[..result_len])
+        .unwrap()
+        .error
+        .is_some());
+    assert!(next.iter().all(|byte| *byte == 0xa5));
+}
+
+#[test]
+fn fund_entry_gas_for_committed_receipt_fixture_is_bounded() {
+    measured_fund_cpu_fuel();
+}
+
+fn measured_fund_cpu_fuel() -> u64 {
+    use layerx_programs_runtime::terminal::{
+        CandidateTerminalOutcome, ExecutionTerminal, TerminalDetail,
+    };
+    use repair_478_fixture::{decode_kernel_terminal, fixture, PROGRAM};
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/repair-478");
+    let read = |name| {
+        std::fs::read(dir.join(name)).unwrap_or_else(|error| {
+            panic!("{name}: {error}; run the declared Go fixture gate first")
+        })
+    };
+    let owner: [u8; 32] = read("owner").try_into().unwrap();
+    let asset: [u8; 32] = read("asset").try_into().unwrap();
+    let f = fixture(owner, asset).unwrap();
+    assert_eq!(f.create, read("create"));
+    assert_eq!(f.fund, read("fund"));
+    assert_eq!(f.current, read("current"));
+    assert_eq!(f.next, read("next"));
+    let terminal = read("terminal");
+    let decoded = decode_kernel_terminal(1, &terminal).unwrap();
+    let TerminalDetail::Execution(ExecutionTerminal::CandidateV4 {
+        program,
+        abi_version,
+        usage,
+        outcome,
+        ..
+    }) = decoded.detail
+    else {
+        panic!("expected ABI5 execution");
+    };
+    assert_eq!(program, PROGRAM);
+    assert_eq!(abi_version, 5);
+    assert_eq!(
+        outcome,
+        CandidateTerminalOutcome::Success {
+            code: 0,
+            response: f.result
+        }
+    );
+    assert!(usage.cpu_fuel < 999_968);
+    assert!(usage.cpu_fuel > 0);
+    assert!(usage.cpu_fuel <= layerx_programs_runtime::meter::DEFAULT_CPU_FUEL);
+    assert!(usage.cpu_fuel < 10_000_000);
+    let shared_state_key_bytes =
+        u64::try_from(layerx_programs_ai_market::SHARED_STATE_KEY.len()).unwrap();
+    let shared_state_value_bytes = u64::try_from(f.current.len()).unwrap();
+    // host/balance.rs charges the u128 sight balance returned by balance_read.
+    let rewards_balance_read_bytes = u64::try_from(core::mem::size_of::<u128>()).unwrap();
+    assert_eq!(shared_state_key_bytes, 14);
+    assert_eq!(rewards_balance_read_bytes, 16);
+    assert_eq!(
+        usage.storage_read_bytes,
+        shared_state_key_bytes + shared_state_value_bytes + rewards_balance_read_bytes
+    );
+    assert_eq!(
+        usage.storage_write_bytes,
+        shared_state_key_bytes + u64::try_from(f.next.len()).unwrap()
+    );
+    println!(
+        "Fund committed fixture CPU fuel: {} (kernel allowance 10000000)",
+        usage.cpu_fuel
+    );
+    usage.cpu_fuel
 }

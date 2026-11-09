@@ -120,22 +120,23 @@ fn signed_receipt() -> (Value, Vec<u8>, ReceiptKeyEntry) {
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "feeDenom": "upax", "paymentDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&[6; 20]), "to": rpc_hex(&[7; 20]), "contractAddress": rpc_hex(&[0; 20]),
-        "vmError": "", "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes)
+        "vmError": "", "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
+        "signingKey": rpc_hex(&key.public_key)
     });
     (view, bytes, key)
 }
 
 fn published_keys() -> Value {
     let (_, _, key) = signed_receipt();
-    json!([
+    json!({"keys": [
         {"keyId": rpc_hex(&[2; 32]),
             "publicKey": rpc_hex(SigningKey::from_bytes(&[9; 32]).verifying_key().as_bytes()),
-            "firstHeight": "0x64", "lastHeight": "0xc7"},
+            "firstHeight": 100, "lastHeight": 199},
         {"keyId": rpc_hex(&key.key_id), "publicKey": rpc_hex(&key.public_key),
-            "firstHeight": "0x64", "lastHeight": "0xc7"}
-    ])
+            "firstHeight": 100, "lastHeight": 199}
+    ]})
 }
 
 fn receipt_exchanges() -> Vec<Exchange> {
@@ -325,4 +326,75 @@ fn native_route_rejects_an_unknown_kind() {
     }
     assert_eq!(must(route.signed_authority()).len(), 2);
     must(server.join());
+}
+
+#[test]
+fn native_receipt_refuses_missing_and_changed_payment_denomination() {
+    for denomination in [None, Some("uatom")] {
+        let (mut receipt, _, key) = signed_receipt();
+        match denomination {
+            None => {
+                receipt
+                    .as_object_mut()
+                    .expect("receipt object")
+                    .remove("paymentDenom");
+            }
+            Some(value) => receipt["paymentDenom"] = json!(value),
+        }
+        let (config, server) = serve(vec![(
+            "pax_sequencerReceipt",
+            json!([rpc_hex(&receipt_hash())]),
+            receipt,
+        )]);
+        let client = endpoint(&config);
+        assert_eq!(
+            client.sequencer_receipt(&receipt_hash()),
+            Err(layerx_client::sequencer::SequencerError::Malformed)
+        );
+        must(server.join());
+        assert_eq!(key.key_id, KEY_ID);
+    }
+}
+
+#[test]
+fn native_keys_refuse_empty_sets_and_out_of_window_receipts() {
+    let (config, server) = serve(vec![
+        ("eth_chainId", json!([]), json!("0x7d")),
+        ("px_getReceiptKeys", json!([]), json!({"keys": []})),
+    ]);
+    let mut route = NativeReadRoute::new(endpoint(&config), config.chain_id);
+    assert!(matches!(
+        route.signed_authority(),
+        Err(NativeReadError::Verification)
+    ));
+    must(server.join());
+    for (first, last) in [(151, 199), (100, 149)] {
+        let mut keys = published_keys();
+        keys["keys"][1]["firstHeight"] = json!(first);
+        keys["keys"][1]["lastHeight"] = json!(last);
+        let (receipt, _, _) = signed_receipt();
+        let (config, server) = serve(vec![
+            ("px_getReceiptKeys", json!([]), keys),
+            (
+                "pax_sequencerReceipt",
+                json!([rpc_hex(&receipt_hash())]),
+                receipt,
+            ),
+        ]);
+        let client = endpoint(&config);
+        let keys = must(client.receipt_keys());
+        assert_eq!(keys[0].key_id, [2; 32]);
+        assert_eq!(keys[1].key_id, KEY_ID);
+        assert!(matches!(
+            lookup_authenticated(
+                &client,
+                receipt_hash(),
+                LookupContext {
+                    receipt_keys: &keys
+                }
+            ),
+            Err(layerx_client::rpc::receipt::ReceiptError::Verification(_))
+        ));
+        must(server.join());
+    }
 }

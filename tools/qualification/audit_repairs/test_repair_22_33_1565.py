@@ -47,7 +47,7 @@ def recipe(target):
 
 
 def test_agent_compatibility_major_matches_schema_manifest_and_publication():
-    document = read("services/agent/COMPATIBILITY.md")
+    document = read("docs/agent/COMPATIBILITY.md")
     schema = read("services/agent/schema/agent-api/v1.kvx")
     executable = read("services/agent/crates/layerx-agentd/src/compat.rs")
     manifest = tomllib.loads(read("services/agent/Cargo.toml"))
@@ -77,7 +77,7 @@ def test_agent_compatibility_major_matches_schema_manifest_and_publication():
 
 
 def test_agent_compatibility_signatures_rungs_and_unavailable_features():
-    document = read("services/agent/COMPATIBILITY.md")
+    document = read("docs/agent/COMPATIBILITY.md")
     write = read("services/agent/schema/agent-api/write.kvx")
     errors = read("services/agent/schema/agent-api/errors.kvx")
     assert value(write, "module", "contract_major") == 2
@@ -107,7 +107,7 @@ def test_agent_compatibility_signatures_rungs_and_unavailable_features():
 
 
 def test_agent_compatibility_release_checks_match_real_make_consumers():
-    document = read("services/agent/COMPATIBILITY.md")
+    document = read("docs/agent/COMPATIBILITY.md")
     commands = recipe("agent-test-agentd-migration")
     assert "make agent-test-agentd-migration" in document
     assert "--locked -p layerx-agentd --test migration" in commands
@@ -130,7 +130,7 @@ def test_agent_readme_topology_crates_and_root_rpc_match_current_inputs():
     assert "one BFT network, run by `paxd`" in document
     assert "A receipt is final when its block is committed" in document
     assert "Sub-chains are tenant\ndomains in the database" in document
-    assert "Signed transactions are submitted as exact\nbytes" in document
+    assert "Signed transactions are submitted as exact bytes" in " ".join(document.split())
     assert "EVM chain ID is **125** (`0x7d`)" in document
     endpoint = re.search(r"\]\((https://api-mainnet-beta[^)]+)\)", document)
     assert endpoint
@@ -204,8 +204,9 @@ def test_agent_readme_prerequisites_follow_make_and_real_node_script():
 
 
 def test_agent_documentation_relative_links_resolve():
-    for name in ("COMPATIBILITY.md", "README.md"):
-        document = (AGENT / name).read_text()
+    for path in (ROOT / "docs/agent/COMPATIBILITY.md", AGENT / "README.md"):
+        name = path.relative_to(ROOT).as_posix()
+        document = path.read_text()
         links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", document)
         assert links
         for link in links:
@@ -213,7 +214,7 @@ def test_agent_documentation_relative_links_resolve():
             if parsed.scheme:
                 assert parsed.scheme == "https"
                 continue
-            target = (AGENT / parsed.path).resolve()
+            target = (path.parent / parsed.path).resolve()
             assert target.is_relative_to(ROOT)
             assert target.exists(), f"{name}: unresolved {link}"
             if parsed.fragment:

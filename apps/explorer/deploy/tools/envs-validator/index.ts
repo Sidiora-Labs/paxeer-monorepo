@@ -119,7 +119,7 @@ async function checkPlaceholdersCongruity(envsMap: Record<string, string>) {
         console.log(`     ${ env }`);
       });
       console.log(`   They are either deprecated or running the app with them may lead to unexpected behavior.
-   Please check the documentation for more details - https://github.com/blockscout/frontend/blob/main/docs/ENVS.md
+   Please check the documentation for more details - docs/explorer/ENVS.md
       `);
       throw new Error();
     }

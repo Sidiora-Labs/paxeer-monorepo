@@ -285,11 +285,11 @@ type ShareBundleJSON struct {
 }
 
 type ImportRequest struct {
-	CeremonyID   string          `json:"ceremony_id,omitempty"`
+	CeremonyID   string          `json:"ceremony_id"`
 	Epoch        uint64          `json:"epoch"`
-	PublicKey    string          `json:"public_key,omitempty"`
-	Participants []string        `json:"participants,omitempty"`
-	Threshold    uint32          `json:"threshold,omitempty"`
+	PublicKey    string          `json:"public_key"`
+	Participants []string        `json:"participants"`
+	Threshold    uint32          `json:"threshold"`
 	SessionID    string          `json:"session_id"`
 	KeyID        string          `json:"key_id"`
 	Owner        string          `json:"owner"`
@@ -1088,6 +1088,10 @@ func (c *Client) describeCeremony(ctx context.Context, keyID string, equalEpoch 
 // journal. It does not establish completion; replay the recorded refresh session
 // and then call ReconcileCeremony before discarding any recovery material.
 func (c *Client) InspectRefreshRecovery(ctx context.Context, ceremonyID, importSession, refreshSession, keyID, publicKey, curve string, baseEpoch uint64) ([]DescribeResponse, error) {
+	return c.InspectRefreshRecoveryWithPreviousSession(ctx, ceremonyID, importSession, refreshSession, "", keyID, publicKey, curve, baseEpoch)
+}
+
+func (c *Client) InspectRefreshRecoveryWithPreviousSession(ctx context.Context, ceremonyID, importSession, refreshSession, previousSession, keyID, publicKey, curve string, baseEpoch uint64) ([]DescribeResponse, error) {
 	if ceremonyID == "" || refreshSession == "" || keyID == "" || baseEpoch == ^uint64(0) {
 		return nil, ErrConfig
 	}
@@ -1126,8 +1130,13 @@ func (c *Client) InspectRefreshRecovery(ctx context.Context, ceremonyID, importS
 			continue
 		}
 		statePublicKey, err := normalizeRecoveryPublicKey(parsed, state.PublicKey)
-		if err != nil || state.ExistingKey != (importSession == "") || state.CeremonyID != ceremonyID || state.ImportSessionID != importSession || state.SessionID != refreshSession || node.RefreshSessionID != refreshSession || state.KeyID != keyID || state.BaseEpoch != baseEpoch || state.Curve != curve || statePublicKey != publicKey || !sameMembers(state.Participants, c.NodeIDs()) {
+		if err != nil || state.ExistingKey != (importSession == "") || state.CeremonyID != ceremonyID || state.ImportSessionID != importSession || state.KeyID != keyID || state.BaseEpoch != baseEpoch || state.Curve != curve || statePublicKey != publicKey || !sameMembers(state.Participants, c.NodeIDs()) {
 			return nil, ErrDisagree
+		}
+		if state.SessionID != refreshSession || node.RefreshSessionID != refreshSession {
+			if previousSession == "" || state.SessionID != previousSession || node.RefreshSessionID != previousSession || node.RefreshState != "aborted" || state.Decision != "abort" || node.Epoch != baseEpoch {
+				return nil, ErrDisagree
+			}
 		}
 		switch node.RefreshState {
 		case "prepared", "running":

@@ -4,13 +4,15 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 cd "$root"
 
-python3 - <<'PY'
+run_workflow_checks() {
+	python3 - "$@" <<'PY'
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -209,18 +211,18 @@ def publish_tag_must_match_version():
     )
     build_index, _ = step(publish, "releaser", "Build release binaries")
     require(validate_index < build_index, "tag must be validated before building")
-    require(identity["version"] == "v6.12.0", "release version must be v6.12.0")
+    require(identity["version"] == "v7.0.0", "release version must be v7.0.0")
     for tag, code, output in (
-        ("paxeer-network/v6.12.0", 0, ""),
+        ("paxeer-network/v7.0.0", 0, ""),
         (
-            "paxeer-network/v6.12.1",
+            "paxeer-network/v7.0.1",
             1,
-            "Tag paxeer-network/v6.12.1 does not match tools/release/version.json v6.12.0\n",
+            "Tag paxeer-network/v7.0.1 does not match tools/release/version.json v7.0.0\n",
         ),
         (
-            "v6.12.0",
+            "v7.0.0",
             1,
-            "Tag v6.12.0 does not match tools/release/version.json v6.12.0\n",
+            "Tag v7.0.0 does not match tools/release/version.json v7.0.0\n",
         ),
     ):
         result = subprocess.run(
@@ -273,56 +275,95 @@ def check_paths_cover_native_inputs():
     )
 
 
-def identity_greps_v6120_constant():
+def identity_greps_registered_upgrade_constant():
     _, script = step(check, "release-check", "Validate version and namespaced tag")
-    matches = re.findall(r"^if ! (grep .+); then$", script, re.M)
+    matches = re.findall(
+        r"^if ! (grep [^\n]+); then$", script.replace("\\\n", ""), re.M
+    )
     require(len(matches) == 1, "identity must check one upgrade declaration")
-    require(identity["upgrade"] == "v6.12.0", "upgrade must be v6.12.0")
-    command = shlex.split(matches[0].replace("$upgrade", identity["upgrade"]))
+    require(identity["upgrade"] == "v7.0", "upgrade must be v7.0")
+    pipeline = matches[0]
+    source_paths = ("node/upgrades.go", "precompiles/common/precompiles.go")
     require(
-        command
+        shlex.split(pipeline)
         == [
             "grep",
-            "-qxF",
-            'const V6120Upgrade = "v6.12.0"',
-            "node/upgrades_v6120.go",
+            "-hE",
+            "^[[:space:]]*const (MergeUpgrade|AnchorStoreDeleteUpgrade|V6120Upgrade)[[:space:]]*=",
+            *source_paths,
+            "|",
+            "grep",
+            "-qF",
+            "--",
+            '= "$upgrade"',
         ],
-        "identity must grep the exact V6120Upgrade declaration",
-    )
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
-    require(
-        result.returncode == 0,
-        f"real V6120Upgrade declaration was not found: {result.stderr}",
-    )
-    source = Path(command[-1]).read_text()
-    without_declaration = "\n".join(
-        line for line in source.splitlines() if line != command[-2]
-    )
-    custody = Path("modules/layerxcustody/types/governance_activation.go").read_text()
-    result = subprocess.run(
-        command[:-1] + ["-"],
-        input=without_declaration + "\n" + custody,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    require(
-        result.returncode == 1,
-        "custody constant or non-declaration satisfied the upgrade identity check",
+        "identity must restrict the pipeline to registered declaring lines",
     )
 
+    def assert_pipeline(upgrade, code, directory=None):
+        result = subprocess.run(
+            ["bash", "-euo", "pipefail", "-c", pipeline],
+            cwd=directory,
+            env={**os.environ, "upgrade": upgrade},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        require(
+            result.returncode == code,
+            f"{upgrade!r}: declaration pipeline exited {result.returncode}, expected {code}",
+        )
+        require(result.stdout == "", f"unexpected pipeline output {result.stdout!r}")
+        require(result.stderr == "", f"unexpected pipeline stderr {result.stderr!r}")
 
-passed = 0
-failed = 0
-for test in (
+    assert_pipeline(identity["upgrade"], 0)
+    for upgrade in ("v7.0-unregistered", "v999.0", ""):
+        assert_pipeline(upgrade, 1)
+
+    declaring_line = re.compile(
+        r"^\s*const (MergeUpgrade|AnchorStoreDeleteUpgrade|V6120Upgrade)\s*=.*$",
+        re.M,
+    )
+    with tempfile.TemporaryDirectory(prefix="release-upgrade-declarations-") as directory:
+        for source_path in source_paths:
+            source = Path(source_path).read_text()
+            require(
+                declaring_line.search(source),
+                f"{source_path}: expected a registered upgrade declaration",
+            )
+            without_declarations = declaring_line.sub("", source)
+            decoys = (
+                '\n// const MergeUpgrade = "v7.0"\n'
+                '// Reference to the plan: = "v7.0"\n'
+                'const UnrelatedUpgrade = "v7.0"\n'
+                'var UpgradeReference = "v7.0"\n'
+            )
+            mutated_path = Path(directory, source_path)
+            mutated_path.parent.mkdir(parents=True, exist_ok=True)
+            mutated_path.write_text(without_declarations + decoys)
+        assert_pipeline(identity["upgrade"], 1, directory)
+
+
+tests = (
     check_installs_rust,
     publish_installs_rust,
     check_pins_cc,
     publish_title_names_paxeer_x,
     publish_tag_must_match_version,
     check_paths_cover_native_inputs,
-    identity_greps_v6120_constant,
-):
+    identity_greps_registered_upgrade_constant,
+)
+registered = {test.__name__: test for test in tests}
+selectors = sys.argv[1:]
+for selector in selectors:
+    if not selector or selector not in registered:
+        print(f"Unknown or empty workflow check: {selector!r}", file=sys.stderr)
+        sys.exit(2)
+selected = [registered[selector] for selector in selectors] if selectors else tests
+
+passed = 0
+failed = 0
+for test in selected:
     try:
         test()
     except (AssertionError, OSError, KeyError, subprocess.SubprocessError) as error:
@@ -334,3 +375,21 @@ for test in (
 print(f"workflows: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
 PY
+}
+
+publish_tag_must_match_version() {
+	run_workflow_checks publish_tag_must_match_version "$@"
+}
+
+identity_greps_registered_upgrade_constant() {
+	run_workflow_checks identity_greps_registered_upgrade_constant "$@"
+}
+
+case "${1:-}" in
+publish_tag_must_match_version | identity_greps_registered_upgrade_constant)
+	selected_check=$1
+	shift
+	"$selected_check" "$@"
+	;;
+*) run_workflow_checks "$@" ;;
+esac

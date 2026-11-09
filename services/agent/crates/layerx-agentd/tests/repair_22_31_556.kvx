@@ -1,0 +1,29 @@
+[repair.22.31.556]
+acceptance = "22998.1"
+gotchas = [3175, 3142]
+decisions = [2602, 2621]
+implementation = "Promote log evidence to VerificationLevel::COMMITTED (wire rank 6, rung Committed), preserving checkpoint signature and block-hash checks."
+
+[sites]
+retained = "src/events/ingest.rs commit_block: retained event metadata is promoted to COMMITTED."
+persisted_pending = "src/events/ingest.rs commit_block: pending records encode COMMITTED."
+in_memory = "src/events/ingest.rs commit_block: pending and buffered events are promoted to COMMITTED."
+validation = "validate_event accepts COMMITTED logs without receipt references only through the existing valid log-evidence branch; receipt mismatches and malformed log evidence remain errors."
+migration = "decode_metadata maps persisted byte 4 values 4 and 6 to COMMITTED; both retained metadata and pending records share this decoder. Promoted and migrated events write rank 6 on encoding, never rank 4. Other level mappings are preserved."
+
+[tests]
+promotion = "events::ingest::tests::committed_promotion_validates_and_reopens_pending_and_retained_logs drives the real store, ingestion, signed-checkpoint verification and commit_block; checks all three promotion sites, validates receipted events, asserts rank 6 encoding and closes and reopens the store."
+migration = "events::ingest::tests::legacy_rank_four_durable_records_migrate_to_committed_on_read persists historical rank 4 retained metadata and a pending log, reopens the store, checks COMMITTED and rank 6 re-encoding."
+log_evidence = "events::ingest::tests::committed_log_without_receipt_validates_through_log_evidence checks valid committed log evidence without a receipt, pending codec round-trip and rejection of malformed evidence."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The exact verified revision is the final verify row in the private ledger and must match the preceding successful build row and final candidate."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_command = "cg spec done 22.31.556 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- events::ingest && cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test ingest --test ingest_eth_subscribe"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+results = "Recorded by reference to the private ledger: build and verify rows contain exact revision, command, exit and private log path. Repair runs, if required, use their ledger row paths. No passing result is asserted before execution."
+changes_after_gates = "No source or repair record amendments after the final gates; results are referenced through the ledger to keep this record in the verified candidate (gotcha 3142)."
+publication = "No manual commit or push; the runner owns publication. Existing out-of-scope runner bookkeeping is preserved."

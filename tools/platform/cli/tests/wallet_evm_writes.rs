@@ -266,37 +266,44 @@ fn exported_evidence(proof: &NestedAccountProof, sequencer_id: [u8; 32]) -> Vec<
 }
 
 fn account_result(did: &str) -> Value {
-    let name = format!("agent:{did}:asset:{}", hex(&ASSET));
-    let parsed = layerx_types::account::AccountId::parse(&name).expect("account name");
-    let id = account_id_for_protocol(&parsed, 3).expect("account id");
-    let mut canonical = u16::try_from(name.len())
-        .expect("name length")
-        .to_be_bytes()
-        .to_vec();
-    canonical.extend_from_slice(name.as_bytes());
-    canonical.push(14);
-    canonical.extend_from_slice(&1000_u128.to_be_bytes());
-    canonical.extend_from_slice(&ASSET);
-    canonical.push(1);
-    canonical.extend_from_slice(&19_u64.to_be_bytes());
-    canonical.extend_from_slice(&3_u64.to_be_bytes());
-    canonical.extend_from_slice(&[0, 1]);
-    canonical.extend_from_slice(&[0; 32]);
-    canonical.push(0);
-    let account = decode_account_value(id, &canonical).expect("canonical source account");
-    assert_eq!(account.next_sequence, 19);
-    let proof = nested_fixture(id, &canonical, &sequencer());
-    let result = json!({
-        "account_id":hex(&id), "name":name, "asset_id":hex(&ASSET),
-        "balance":"1000", "next_sequence":"19", "frozen":false,
-        "canonical_value":hex(&canonical),
-        "proof_material":hex(&exported_evidence(&proof, sequencer().verifying_key().to_bytes())),
-        "observed_head_sequence":"10", "batch_number":BATCH_NUMBER.to_string(),
-        "verification":"state_proven"
-    });
-    assert_eq!(result["account_id"], hex(&account.account_id));
-    assert_eq!(result["asset_id"], hex(&account.asset_id()));
-    result
+    use layerx_platform_cli::wallet_gateway as producer;
+    let owner =
+        producer::key(did.strip_prefix("did:layerx:").expect("DID prefix")).expect("owner key");
+    let mut native = [0; 32];
+    native[0] = 1;
+    let name =
+        layerx_wire::account::account_name_for_asset(did, ASSET, native).expect("account name");
+    let id = account_id_for_protocol(&name, 3).expect("account id");
+    producer::ledger_account(did, &hex(&ASSET), BATCH_NUMBER, &mut |data| {
+        let word = |value: u128| {
+            let mut result = vec![0; 16];
+            result.extend_from_slice(&value.to_be_bytes());
+            result
+        };
+        match &data[..4] {
+            [0x3f, 0x05, 0x0c, 0xbc] => {
+                assert_eq!(&data[4..36], &owner);
+                assert_eq!(&data[36..], &ASSET);
+                Ok(id.to_vec())
+            }
+            [0x37, 0x95, 0x5a, 0xb2] => {
+                assert_eq!(&data[4..], &id);
+                Ok(owner.to_vec())
+            }
+            [0xce, 0x2f, 0x92, 0x1f] => {
+                assert_eq!(&data[4..36], &id);
+                assert_eq!(&data[36..], &ASSET);
+                Ok(word(19))
+            }
+            [0xb1, 0xff, 0xc0, 0x3e] => {
+                assert_eq!(&data[4..36], &id);
+                assert_eq!(&data[36..], &ASSET);
+                Ok(word(1000))
+            }
+            selector => panic!("unexpected native account selector: {selector:?}"),
+        }
+    })
+    .expect("production gateway account producer")
 }
 
 fn error_data(reason: &str) -> Vec<u8> {
@@ -489,7 +496,7 @@ impl WalletFixture {
         change: impl Fn(&str, &mut Value) + Send + 'static,
     ) -> (Output, Vec<Value>) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("RPC listener");
-        let endpoint = format!("http://{}/rpc", listener.local_addr().expect("RPC address"));
+        let endpoint = format!("http://{}", listener.local_addr().expect("RPC address"));
         listener
             .set_nonblocking(true)
             .expect("nonblocking listener");
@@ -529,7 +536,6 @@ impl WalletFixture {
                     header.push(byte[0]);
                 }
                 let header = std::str::from_utf8(&header).expect("HTTP text");
-                assert!(header.starts_with("POST /rpc HTTP/1.1\r\n"));
                 let length = header
                     .lines()
                     .find_map(|line| {
@@ -543,16 +549,13 @@ impl WalletFixture {
                 socket.read_exact(&mut body).expect("HTTP body");
                 let request: Value = serde_json::from_slice(&body).expect("RPC JSON");
                 let method = request["method"].as_str().expect("method");
+                assert!(header.starts_with("POST / HTTP/1.1\r\n"));
                 let mut result = match method {
                     "eth_getTransactionCount" => json!("0x7"),
                     "eth_gasPrice" => json!("0x2"),
                     "eth_estimateGas" => json!("0x5208"),
-                    "px_getBalances" => {
-                        assert_eq!(request["params"], json!([did]));
-                        json!({"did":did,"verification":"state_proven","accounts":[account]})
-                    }
                     "px_getAccount" => {
-                        assert_eq!(request["params"], json!([account["account_id"]]));
+                        assert_eq!(request["params"], json!([did, hex(&ASSET)]));
                         account.clone()
                     }
                     "eth_sendRawTransaction" => {
@@ -591,6 +594,7 @@ impl WalletFixture {
             .command()
             .args(["--rpc", &endpoint])
             .args(args)
+            .args(["--gateway-rpc", &endpoint])
             .args(["--fee-limit", "200000", "--timeout-seconds", "5"])
             .arg("--evm-key-file")
             .arg(self.directory.path().join("evm.json"))
@@ -624,7 +628,10 @@ fn assert_submission(fixture: &WalletFixture, requests: &[Value]) -> Eip1559Call
     assert_eq!(nonce.len(), 1);
     assert_eq!(
         nonce[0]["params"],
-        json!([fixture.account.evm_address_text(), "pending"])
+        json!([
+            format!("0x{}", hex(&fixture.account.evm_address())),
+            "pending"
+        ])
     );
     let sent: Vec<_> = requests
         .iter()
@@ -654,7 +661,10 @@ fn assert_submission(fixture: &WalletFixture, requests: &[Value]) -> Eip1559Call
     assert_eq!(estimates.len(), 1);
     assert_eq!(estimates[0]["params"][1], "pending");
     let tx = &estimates[0]["params"][0];
-    assert_eq!(tx["from"], fixture.account.evm_address_text());
+    assert_eq!(
+        tx["from"],
+        format!("0x{}", hex(&fixture.account.evm_address()))
+    );
     assert_eq!(tx["chainId"], "0x7d");
     assert_eq!(tx["nonce"], "0x7");
     assert_eq!(tx["gas"], "0x186a0");
@@ -707,7 +717,7 @@ fn wallet_send_submits_raw_evm_transaction() {
             .filter(|request| request["method"] == "px_getBalances")
             .map(|request| request["params"].clone())
             .collect::<Vec<_>>(),
-        vec![json!([fixture.account.did()])]
+        Vec::<Value>::new()
     );
     assert_eq!(
         requests
@@ -715,7 +725,7 @@ fn wallet_send_submits_raw_evm_transaction() {
             .filter(|request| request["method"] == "px_getAccount")
             .map(|request| request["params"].clone())
             .collect::<Vec<_>>(),
-        vec![json!([source["account_id"]])]
+        vec![json!([fixture.account.did(), hex(&ASSET)])]
     );
     assert_eq!(
         disclosure.counterparties[0].account,
@@ -747,25 +757,25 @@ fn wallet_send_refuses_mismatched_account_reads_before_submission() {
             "px_getAccount",
             "account_id",
             json!(hex(&DESTINATION)),
-            "source account snapshot mismatch",
+            "InvalidResponse",
         ),
         (
             "px_getAccount",
             "asset_id",
             json!(hex(&[0x44; 32])),
-            "source account asset mismatch",
+            "InvalidResponse",
         ),
         (
-            "px_getBalances",
-            "account_id",
+            "px_getAccount",
+            "owner",
             json!(hex(&DESTINATION)),
-            "wallet_accounts_unavailable: account id binding is invalid",
+            "InvalidResponse",
         ),
         (
-            "px_getBalances",
+            "px_getAccount",
             "next_sequence",
             json!("019"),
-            "wallet_accounts_unavailable: account evidence is noncanonical",
+            "InvalidResponse",
         ),
     ] {
         let (output, requests) = fixture.run_with_account_change(
@@ -774,18 +784,17 @@ fn wallet_send_refuses_mismatched_account_reads_before_submission() {
             false,
             move |received_method, result| {
                 if received_method == method {
-                    if method == "px_getBalances" {
-                        result["accounts"][0][field] = value.clone();
-                    } else {
-                        result[field] = value.clone();
-                    }
+                    result[field] = value.clone();
                 }
             },
         );
         assert!(!output.status.success());
         assert!(output.stdout.is_empty());
         let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(stderr.contains(error), "{stderr}");
+        let refusal: Value =
+            serde_json::from_slice(&output.stderr).expect("public refusal envelope");
+        assert_eq!(refusal["ok"], false);
+        assert_eq!(refusal["error"]["detail"], error, "{stderr}");
         assert!(requests.iter().any(|request| request["method"] == method));
         assert!(requests
             .iter()

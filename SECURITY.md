@@ -4,7 +4,9 @@ Paxeer X Network handles authorization, accounting, custody, bridging and settle
 
 ## Report privately
 
-Do not open a public issue, discussion or pull request for a suspected vulnerability. Report it by email to <security@paxeer.app> or through GitHub private vulnerability reporting: open the repository's Security tab and choose "Report a vulnerability", or go directly to <https://github.com/Sidiora-Labs/Paxeer-X-Network/security/advisories/new>. Only the maintainers see the report.
+Report suspected vulnerabilities by email to <security@sidioralabs.com>. A reporter seeking a bounty must submit by email only, with the full report and credentials required under Bug bounty below.
+
+GitHub private vulnerability reporting remains available: open the repository's Security tab and choose "Report a vulnerability", or go directly to <https://github.com/Sidiora-Labs/paxeer-monorepo/security/advisories/new>. Only the maintainers see a private report. Reports made through GitHub, including private vulnerability reporting, or any other public surface (issue, discussion, pull request, advisory or social post) are fixed through the normal maintenance process without attribution or reward. Do not disclose suspected vulnerabilities publicly.
 
 Include:
 
@@ -18,7 +20,7 @@ Test only against systems and assets you own or have written permission to test.
 
 ## Handling and disclosure
 
-The maintainers confirm receipt in the advisory, assess scope and severity, and work on the fix in a private advisory fork when one is needed. The fix lands on `main`, and when it changes the chain node it ships in a release as described in [RELEASE.md](RELEASE.md). The advisory is published once the fix is available, crediting the reporter unless they ask otherwise. A report found to be out of scope is closed with the reason given in the advisory. Please keep details private until the advisory is published.
+The maintainers confirm receipt by email or in the private advisory, assess scope and severity, and work on the fix in a private advisory fork when one is needed. The fix lands on `main`, and when it changes the chain node it ships in a release as described in [RELEASE.md](RELEASE.md). The advisory is published once the fix is available, crediting reporters who submitted by email only unless they ask otherwise. Reports through GitHub or another public surface are fixed without attribution or reward. A report found to be out of scope is closed with the reason given by email or in the advisory. Please keep details private until the advisory is published.
 
 ## Response targets
 
@@ -26,18 +28,25 @@ These response targets are best-effort commitments. The maintainers aim to ackno
 
 Remediation targets, counted from the severity decision, are thirty days for Critical issues, sixty days for High issues, ninety days for Medium issues and the next scheduled release for Low issues. Coordinated disclosure is targeted within fourteen days of the fix being available.
 
-If a target is missed, escalate by commenting in the advisory. After two further business days without a response, email <security@paxeer.app> with the advisory identifier.
+If a target is missed, follow up by email or comment in the private advisory. After two further business days without a response, email <security@sidioralabs.com> with the report or advisory identifier.
 
 ## Bug bounty
 
-The [Paxeer bug bounty programme](https://www.paxeer.app/bug-bounty) rewards vulnerabilities in the in-scope code listed below, subject to the out-of-scope exclusions. One reward in USD is paid per unique vulnerability; if reports are duplicates, only the first reporter receives the reward.
+This repository text is the bug bounty policy. The programme rewards vulnerabilities in the in-scope code listed below, subject to the out-of-scope exclusions. Rewards range from $500 to $100,000 USD per unique vulnerability, paid once to the first reporter. The amount is determined by the affected subsystem, its role in the network, the severity and effect on core functions, and the risk to user funds.
 
-- Critical: $10,000-$50,000 — could move or destroy funds, or change what the network considers final
-- High: $5,000-$10,000 — a serious security or stability weakness that does not by itself lose funds
-- Medium: $1,000-$5,000 — limited impact, or exploitable only under specific conditions
-- Low: $100-$1,000 — minor issues and informational findings
+Bounty eligibility requires all three of the following:
+
+1. Submission by email to <security@sidioralabs.com> only.
+2. A full and clear report covering every item in the Include list under Report privately above, including an end-to-end reproduction.
+3. Credentials demonstrating that the submitter is legitimate and competent, for example prior published disclosures or CVE credits, a professional or audit-firm affiliation, a verifiable identity, and an account of how the issue was found.
+
+A report missing any of these three requirements is handled as an ordinary report with no reward. Reports submitted through GitHub or another public surface are fixed through the normal maintenance process without attribution or reward.
 
 Stop testing at a proof of concept. Never move funds that are not your own, and follow the testing restrictions above. Keep the issue private until it is fixed and the advisory is published.
+
+## Known exemptions
+
+- [GHSA-55f3-3qvg-8pv5](https://github.com/advisories/GHSA-55f3-3qvg-8pv5): `wasmer` 4.2.2 is pinned by `cosmwasm-vm` 1.5.12 in `wasm-runtime/libwasmvm`. The modules load without WASI filesystem access. By maintainer decision of 2026-11-05, this exemption holds until the next runtime upgrade and is reviewed at that upgrade. The rationale and mitigation are recorded in [repair_22_31_450.kvx](wasm-runtime/libwasmvm/repair_22_31_450.kvx).
 
 ## Supported versions
 

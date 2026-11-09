@@ -1,6 +1,9 @@
 //! AI.F01-T04 task-set lifecycle over the complete shared state value: `ADMIT_TASK`,
 //! `ACCEPT_TASK`, `CANCEL_TASK`, `COMMIT_TASK_RESULT` and `SEAL_TASK_SET` against an epoch
 //! opened through the real F01/F02/F03/F06/F08 producers and `OPEN_EPOCH`.
+#[path = "repair_22_33_261.rs"]
+mod repair_22_33_261;
+
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
     admission::{
@@ -238,12 +241,15 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation: Vec<u8>,
     replay: ReplayTable,
 }
 impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let (_, table) = layerx_programs_ai_market::reputation_transition::split_joint(admission)?;
+        let reputation = admission[..admission.len() - table.len()].to_vec();
         let (workers, region) = split_identity_section(identity)?;
         Ok(Self {
             revision: state.revision,
@@ -252,7 +258,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation,
             replay: state.control.replay,
         })
     }
@@ -271,15 +278,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let admission = [self.reputation.as_slice(), admission.as_slice()].concat();
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &admission],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &[],
@@ -894,67 +897,28 @@ fn opened(workers: &[u8], activate: bool) -> CodecResult<Market> {
 }
 
 fn restored_execution_height_market() -> CodecResult<Market> {
-    let mut task_policy = policy(1, 3)?;
-    task_policy.task_timeout_heights = 8;
-    task_policy.minimum_worker_count = 2;
-    let mut world = World {
-        bytes: create_with_policy(64, &task_policy)?,
-        owner_sequence: 2,
+    let produced = repair_22_33_261::execution_height_fixture();
+    let world = World {
+        bytes: produced.bytes,
+        owner_sequence: produced.owner_sequence,
         suffix: Vec::new(),
     };
-    world.edit(|parts, _| {
-        let mut section = PolicySection::decode(&parts.policy)?;
-        section.header.lifecycle = registry_ops::ACTIVE;
-        let mut encoded = vec![0; F01_SECTION_CAP];
-        let len = section.encode(&mut encoded)?;
-        encoded.truncate(len);
-        parts.policy = encoded;
-        Ok(())
-    })?;
-    let first = world.enroll(1, 66)?;
-    let second = world.edit(|parts, market| {
-        let owner = principal(5)?;
-        let worker = derive_worker(market.market_id, owner, [5; 32])?;
-        let slot = parts.workers.free_slot()?;
-        let record = worker_record(worker, owner, public(&delegate_key(5)), slot, 66)?;
-        parts.workers.insert(&record)?;
-        parts
-            .replay
-            .bind(ActorSlot::worker(usize::from(slot))?, owner, version()?)?;
-        let admitted = parts
-            .admission
-            .get(Participant::Worker(first.worker))
-            .ok_or(NON_CANONICAL)?;
-        parts
-            .admission
-            .insert(layerx_programs_ai_market::admission::AdmissionMeta {
-                participant: Participant::Worker(worker),
-                owner,
-                ..admitted
-            })?;
-        Ok(WorkerRosterEntry {
-            worker,
-            owner,
-            recipient: AccountId::new(owner.bytes())?,
-            generation: version()?,
-            key_version: version()?,
-            public_key: record.delegate,
-            metadata: record.metadata,
-        })
-    })?;
-    for n in 2..=4 {
-        world.evaluator(n, 65 + u64::from(n))?;
-    }
-    world.fund(500, 70)?;
-    let frozen = world.open(96)?;
-    assert_eq!((frozen.epoch, frozen.workers, frozen.evaluators), (0, 2, 3));
+    assert_eq!(
+        (
+            produced.frozen.epoch,
+            produced.frozen.workers,
+            produced.frozen.evaluators
+        ),
+        (2, 2, 3)
+    );
     assert_eq!(world.section()?.current.task_timeout_heights, 8);
+    assert_eq!(world.section()?.current.minimum_worker_count, 2);
     let header = world.parts()?.market()?;
     Ok(Market {
         world,
-        frozen,
+        frozen: produced.frozen,
         header,
-        workers: vec![first, second],
+        workers: produced.workers,
     })
 }
 
@@ -1038,7 +1002,12 @@ impl Market {
             roster: self.frozen.roster.bytes(),
             requester: principal(requester)?,
             worker: self.workers.get(worker).ok_or(NON_CANONICAL)?.worker,
-            metadata: METADATA,
+            metadata: self
+                .workers
+                .get(worker)
+                .ok_or(NON_CANONICAL)?
+                .metadata
+                .bytes(),
             nonce: [nonce; 32],
             input: [0xa0 + nonce; 32],
             deadline,
@@ -1156,28 +1125,28 @@ impl Market {
 
 #[test]
 fn a28_execution_height_timeout_commits_at_105() -> TestResult {
-    for height in [105, 107] {
+    for height in [329, 331] {
         let mut m = restored_execution_height_market()?;
-        let a = m.admission(0x21, 0, 1, 108)?;
+        let a = m.admission(0x21, 0, 1, 332)?;
         assert_eq!(
-            m.admit(&Admit { deadline: 109, ..a }, 100),
+            m.admit(&Admit { deadline: 333, ..a }, 324),
             Err(F01_TASK_EXPIRED)
         );
         let rewards = m.world.parts()?.rewards;
         let admit = m.bound(dispatch::ADMIT_TASK, a.requester, a.payload());
-        assert_eq!(m.world.route(&admit, 100)?, ResultStatus::Ok);
+        assert_eq!(m.world.route(&admit, 324)?, ResultStatus::Ok);
         let task = m.task_id(0x21, 1)?;
         let mut step = Step {
             operation: dispatch::ACCEPT_TASK,
             worker: 1,
-            sequence: 1,
+            sequence: 5,
             expected: m.world.revision()?,
             task,
             digest: ACK,
         };
-        assert_eq!(m.world.route(&m.step_call(&step)?, 101)?, ResultStatus::Ok);
+        assert_eq!(m.world.route(&m.step_call(&step)?, 325)?, ResultStatus::Ok);
         step.operation = dispatch::COMMIT_TASK_RESULT;
-        step.sequence = 2;
+        step.sequence = 6;
         step.expected = m.world.revision()?;
         step.digest = RESULT;
         assert_eq!(
@@ -1194,43 +1163,43 @@ fn a28_execution_height_timeout_commits_at_105() -> TestResult {
             ),
             (
                 TaskStatus::ResultCommitted,
-                108,
+                332,
                 Some(Digest32::new(ACK)?),
                 Some(Digest32::new(RESULT)?)
             )
         );
         assert_eq!(m.world.parts()?.rewards, rewards);
-        assert_eq!(m.cancel(0x21, task, 110), Err(F01_TASK_ALREADY_ACCEPTED));
+        assert_eq!(m.cancel(0x21, task, 334), Err(F01_TASK_ALREADY_ACCEPTED));
     }
     Ok(())
 }
 
 #[test]
 fn a28_execution_height_timeout_refuses_at_110_and_cancels() -> TestResult {
-    for cancel_height in [108, 110, 128] {
+    for cancel_height in [332, 334, 352] {
         let mut m = restored_execution_height_market()?;
-        let a = m.admission(0x21, 0, 1, 108)?;
-        m.admit(&a, 100)?;
+        let a = m.admission(0x21, 0, 1, 332)?;
+        m.admit(&a, 324)?;
         let task = m.task_id(0x21, 1)?;
-        m.step(dispatch::ACCEPT_TASK, 1, 1, task, ACK, 101)?;
+        m.step(dispatch::ACCEPT_TASK, 1, 5, task, ACK, 325)?;
         let before = m.world.bytes.clone();
         let rewards = m.world.parts()?.rewards;
         let step = Step {
             operation: dispatch::COMMIT_TASK_RESULT,
             worker: 1,
-            sequence: 2,
+            sequence: 6,
             expected: m.world.revision()?,
             task,
             digest: RESULT,
         };
-        for height in [108, 110] {
+        for height in [332, 334] {
             assert_eq!(
                 m.world.route(&m.step_call(&step)?, height),
                 Err(F01_TASK_EXPIRED)
             );
             assert_eq!(m.world.bytes, before);
         }
-        assert_eq!(m.cancel(0x21, task, 107), Err(F01_TASK_ALREADY_ACCEPTED));
+        assert_eq!(m.cancel(0x21, task, 331), Err(F01_TASK_ALREADY_ACCEPTED));
         assert_eq!(m.cancel(0x22, task, cancel_height), Err(UNAUTHORIZED));
         let cancel = m.bound(dispatch::CANCEL_TASK, a.requester, task.bytes().to_vec());
         assert_eq!(m.world.route(&cancel, cancel_height)?, ResultStatus::Ok);
@@ -1244,7 +1213,7 @@ fn a28_execution_height_timeout_refuses_at_110_and_cancels() -> TestResult {
             (TaskStatus::Cancelled, None, None)
         );
         assert_eq!(m.world.parts()?.rewards, rewards);
-        let state = decode_reward_state(&rewards)?;
+        let state = decode_reward_state(rewards.get(..REWARD_STATE_BYTES).ok_or(NON_CANONICAL)?)?;
         let row = state.row(m.frozen.epoch)?;
         assert_eq!(row.unclaimed_sum()?, 0);
         assert_eq!(
@@ -1270,17 +1239,17 @@ fn a28_execution_height_timeout_refuses_at_110_and_cancels() -> TestResult {
 #[test]
 fn a28_unaccepted_cancellation_keeps_its_deadline_and_work_guards() -> TestResult {
     let mut m = restored_execution_height_market()?;
-    let a = m.admission(0x21, 0, 1, 108)?;
-    m.admit(&a, 100)?;
+    let a = m.admission(0x21, 0, 1, 332)?;
+    m.admit(&a, 324)?;
     let task = m.task_id(0x21, 1)?;
     let before = m.world.bytes.clone();
-    assert_eq!(m.cancel(0x21, task, 108), Err(F01_TASK_EXPIRED));
+    assert_eq!(m.cancel(0x21, task, 332), Err(F01_TASK_EXPIRED));
     assert_eq!(m.world.bytes, before);
-    assert_eq!(m.cancel(0x21, task, 128), Err(F01_TASK_EXPIRED));
+    assert_eq!(m.cancel(0x21, task, 352), Err(F01_TASK_EXPIRED));
     assert_eq!(m.world.bytes, before);
     assert_eq!(m.cancel(0x21, task, 63), Err(ARITHMETIC));
     assert_eq!(m.world.bytes, before);
-    m.cancel(0x21, task, 107)?;
+    m.cancel(0x21, task, 331)?;
     assert_eq!(m.find(task)?.status, TaskStatus::Cancelled);
     let mut m = opened(&[1], true)?;
     let a = m.admission(0x21, 0, 1, 1172)?;
@@ -1476,7 +1445,7 @@ fn publish_worker_metadata(m: &mut Market, at: u64) -> CodecResult<MetadataDiges
 }
 
 #[test]
-fn a29_changed_metadata_refuses_admission_until_the_next_roster() -> TestResult {
+fn a29_admission_keeps_frozen_metadata_until_the_next_roster() -> TestResult {
     let mut world = World::create(ORIGIN)?;
     let worker = world.enroll(1, ORIGIN + 2)?;
     for n in 2..=4 {
@@ -1501,11 +1470,20 @@ fn a29_changed_metadata_refuses_admission_until_the_next_roster() -> TestResult 
         ..a
     };
     let before = m.world.bytes.clone();
-    for body in [a, changed] {
-        let call = m.bound(dispatch::ADMIT_TASK, body.requester, body.payload());
-        assert_eq!(m.world.route(&call, 1525), Err(WRONG_ROSTER));
-        assert_eq!(m.world.bytes, before);
-    }
+    let call = m.bound(dispatch::ADMIT_TASK, changed.requester, changed.payload());
+    assert_eq!(m.world.route(&call, 1525), Err(WRONG_ROSTER));
+    assert_eq!(m.world.bytes, before);
+    let call = m.bound(dispatch::ADMIT_TASK, a.requester, a.payload());
+    assert_eq!(m.world.route(&call, 1525)?, ResultStatus::Ok);
+    assert_eq!(
+        m.world.revision()?,
+        decode_shared_state(&before)?.revision + 1
+    );
+    let admitted_task = m.task_id(0x21, 1)?;
+    m.cancel(0x21, admitted_task, 1526)?;
+    assert_eq!(m.find(admitted_task)?.status, TaskStatus::Cancelled);
+    let digest = m.expected_digest(&m.region()?)?;
+    m.seal(digest, 1576)?;
     m.world.terminalize(&m.frozen, &m.workers[0], 1624)?;
     m.frozen = m.world.open(1640)?;
     assert_eq!(m.frozen.epoch, 5);

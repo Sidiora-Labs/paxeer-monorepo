@@ -49,12 +49,6 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create blocksim: %w", err)
 	}
-	defer func() {
-		if err := bs.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error closing blocksim: %v\n", err)
-		}
-	}()
-
 	metrics.StartMetricsServer(ctx, reg, config.MetricsAddr)
 	metrics.StartSystemMetrics(ctx, "blocksim", config.BackgroundMetricsScrapeInterval,
 		[]metrics.MonitoredDir{
@@ -78,5 +72,14 @@ func run() error {
 		}()
 	}
 
+	return waitForBenchmark(bs)
+}
+
+func waitForBenchmark(bs *blocksim.BlockSim) (err error) {
+	defer func() {
+		if closeErr := bs.Close(); err == nil {
+			err = closeErr
+		}
+	}()
 	return bs.BlockUntilHalted()
 }

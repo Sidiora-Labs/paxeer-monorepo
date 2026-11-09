@@ -1,0 +1,21 @@
+[repair.22.39.159]
+base_revision = "215e9d31d2501e5207b4bb09ec9130e66ccaf154"
+requirement = "22998.1"
+gotcha = "3593"
+decision = "2857"
+implementation = "Resolve RPC service variables initialized with Go composite literals so the full documentation CLI can reach the nested JSON and embedded Go ABI catalogue; render tuple components recursively and mark indexed event fields."
+baseline = "Remove exactly the two tools/docs/gen nodeids from tests/ci/data/tools_python_suite_baseline.json; both named test functions remain executable without skips or deselections."
+
+[contract.precompiles]
+producer_header = "tools/docs/gen/gen_system_docs.py:10 declares the generated inventory header, used by gen_precompiles; docs/system/precompiles.md:1 instead declares its preserve note and carries curated lifecycle and address-selection prose."
+consumer_change = "Replace the stale whole-page equality between the generated inventory and curated documentation with exact checks of each distinct header, live ABI function counts, linked source paths, fixed destinations and every function/event/error signature for perps, pricefeed and addr. Existing inventory address and nested-directory assertions remain."
+producer_signatures = "docs/system/precompiles.md:53 specifies recursive tuple expansion, preserved array suffixes and indexed event arguments; abi_signature now follows that encoding contract for JSON and embedded ABIs."
+producer_rpc = "rpc/server.go:327 initializes pxAPI as &pxAccountAPI and :329 registers it as a service; the resolver previously understood only constructor calls and closures. The CLI test asserts px_getAccount and pax_sequencerReceipt catalogue entries."
+coverage = "The real CLI generates into an isolated output directory, keeps the curated source page byte-identical, asserts exact source-set coverage without duplicate ABI rows, and checks nested ABI counts, endpoint addresses, embedded methods, tuple arrays and indexed events."
+
+[qualification]
+verified_revision_source = "The final passing kind=build and kind=verify entries in /out/run/gates.jsonl name the verified revision, exact commands, exit codes and private logs; qualification is claimed only when hf-done passes at the same candidate revision as hf-build."
+build_evidence = "/out/run/gates.jsonl, kind=build; command output /out/logs/build-*.log."
+verify_evidence = "/out/run/gates.jsonl, kind=verify; command output /out/logs/verify-*.log."
+build_command = "python3 -m py_compile tools/docs/gen/gen_system_docs.py tools/docs/gen/test_gen_system_docs.py tools/docs/gen/test_gen_system_docs_abis.py"
+verify_command = "test $(grep -c tools/docs/gen/ tests/ci/data/tools_python_suite_baseline.json) -eq 0 && python3 -m pytest -q tools/docs/gen"

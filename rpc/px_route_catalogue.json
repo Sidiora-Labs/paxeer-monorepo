@@ -190,6 +190,15 @@
       "transport": "http",
       "authentication": "gateway-api-key",
       "version": "paxeer-x.ui-bindings.v2"
+    },
+    {
+      "id": "node_rpc",
+      "purpose": "Committed inference market reads",
+      "exposure": "product",
+      "discovery_path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1"
     }
   ],
   "routes": [
@@ -17225,46 +17234,6 @@
       "service": "wallet-ui",
       "method": "HEAD",
       "path": "/wallet/Paxeer_Sans_Rounded/PPPangramSansRounded-Thin.otf",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "wallet"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
-    },
-    {
-      "id": "wallet-ui:GET:/wallet/Untitled%20design.svg",
-      "service": "wallet-ui",
-      "method": "GET",
-      "path": "/wallet/Untitled%20design.svg",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "wallet"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
-    },
-    {
-      "id": "wallet-ui:HEAD:/wallet/Untitled%20design.svg",
-      "service": "wallet-ui",
-      "method": "HEAD",
-      "path": "/wallet/Untitled%20design.svg",
       "transport": "http",
       "authentication": "public-read",
       "timeout_seconds": 8,
@@ -39386,6 +39355,76 @@
         ".ico"
       ],
       "asset_max_path_bytes": 1023
+    },
+    {
+      "id": "node_rpc:px_getInferenceRooms",
+      "service": "node_rpc",
+      "method": "px_getInferenceRooms",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceRoom",
+      "service": "node_rpc",
+      "method": "px_getInferenceRoom",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceDeal",
+      "service": "node_rpc",
+      "method": "px_getInferenceDeal",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferencePeer",
+      "service": "node_rpc",
+      "method": "px_getInferencePeer",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceReceipts",
+      "service": "node_rpc",
+      "method": "px_getInferenceReceipts",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
     }
   ]
 }

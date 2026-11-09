@@ -151,10 +151,11 @@ impl AgentEnvelopeTransport {
         )?;
         let read = object(
             &success.value,
-            &["value", "achieved_rung", "freshness"],
+            &["value", "achieved_verification_level", "freshness"],
             operation,
         )?;
-        let achieved = crate::rpc_export::rung_from_wire(&read["achieved_rung"], operation)?;
+        let achieved =
+            crate::rpc_export::rung_from_wire(&read["achieved_verification_level"], operation)?;
         if achieved < requested
             || !matches!(success.verification_status, VerificationStatus::Achieved(rung) if rung == achieved)
         {

@@ -1,0 +1,48 @@
+[issue.1698]
+number = 1698
+title = "[Coherence] The repair record states a verify command that the task's own spec says cannot install this workspace"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "apps/launchpad/web/src/page-modules/live/repair-22-33-955.kvx:6 still advertises npm from commit 13aa4f5c52939191fd76c1a30ce0603e12a2d5b5, whereas spec/layerx-merge/spec.kvx:161636 declares pnpm and spec/layerx-merge/spec.kvx:161649 records the npm workspace-resolution failure, consistent with the workspace dependencies at apps/launchpad/web/package.json:18 and the workspace membership at apps/launchpad/pnpm-workspace.yaml:2."
+close_comment = "The browser-source repair record still lists an npm install that cannot resolve the web package's workspace dependencies. A follow-up task will align its verification command with the declared pnpm frozen-lockfile install and the existing browser-source tests."
+
+[task.18.1698.1]
+title = "Issue #1698: Align the browser-source repair record with its pnpm verification command"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181698.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace only verify_cmd in apps/launchpad/web/src/page-modules/live/repair-22-33-955.kvx:6 with the command declared at spec/layerx-merge/spec.kvx:161636: pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && node --test apps/launchpad/web/test/repair-22-33-955.test.mjs."
+do_2 = "Check that the record contains the complete declared pnpm command on its verify_cmd line; retain the proving tests listed at apps/launchpad/web/src/page-modules/live/repair-22-33-955.kvx:5 and the existing browser-source assertions in apps/launchpad/web/test/repair-22-33-955.test.mjs:68, :115 and :147."
+symbols = []
+touches = ["apps/launchpad/web/src/page-modules/live/repair-22-33-955.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Ex 'verify_cmd = .pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && node --test apps/launchpad/web/test/repair-22-33-955[.]test[.]mjs.' apps/launchpad/web/src/page-modules/live/repair-22-33-955.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181698]
+title = "The browser-source repair record advertises the declared workspace-compatible verification command"
+ac_1 = "The verify_cmd at apps/launchpad/web/src/page-modules/live/repair-22-33-955.kvx:6 equals the pnpm frozen-lockfile install followed by the browser-source node tests declared at spec/layerx-merge/spec.kvx:161636."
+
+[acceptance.18.1698.1]
+feature = "18"
+req = "181698.1"
+scenario = "Given the browser-source repair record, when its verify_cmd is read, then it specifies the declared pnpm frozen-lockfile install with scripts disabled followed by the existing browser-source node test file."
+contract = "contracts/programme.md#programme-artifacts"
+test = "apps/launchpad/web/src/page-modules/live/repair-22-33-955.kvx::grep declared pnpm verification command (planned)"
+qualification = "UNRUN"

@@ -27,8 +27,8 @@ use layerx_programs_ai_market::{
     dispatch::{self, Buffers, Operation, Routed},
     epoch::{self, Frozen, Outcome as Opening, ADVANCE_SCRATCH_BYTES, OPEN_SCRATCH_BYTES},
     errors::{
-        ApplicationError, CodecResult, CONFLICT, EXPIRED, F04_COMMIT_MISMATCH, NON_CANONICAL,
-        NOT_FOUND, REPLAY_CONFLICT, WRONG_EPOCH, WRONG_PHASE,
+        ApplicationError, CodecResult, CONFLICT, EXPIRED, F03_REPORT_ALREADY_FINAL,
+        F04_COMMIT_MISMATCH, NON_CANONICAL, NOT_FOUND, REPLAY_CONFLICT, WRONG_EPOCH, WRONG_PHASE,
     },
     evaluators::{
         admission::{self as f03, AdmissionReceipt, ReportRegion},
@@ -2003,7 +2003,7 @@ fn a09_dropped_responses_reconcile_by_query_and_retry_until_expiry() -> Checked 
     let renewed =
         Market::reveal_call(2, &other, salt, m.world.next_sequence(2)?, REVEAL_END)?.encode()?;
     m.deliver(&renewed, 2, REVEAL_AT + 2)?
-        .refused(CONFLICT, revealed)?;
+        .refused(F03_REPORT_ALREADY_FINAL, revealed)?;
     let mut again = decode_envelope(&reveal)?.envelope;
     again.sequence = m.world.next_sequence(2)?;
     again.request = RequestId::new(tag(0xa2, 2, again.sequence))?;

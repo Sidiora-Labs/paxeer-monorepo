@@ -105,7 +105,8 @@ above. They listen on 8050 and take no config file, so they need no
 `railway.json` — set
 `SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR` / `SIG_PROVIDER__SERVER__HTTP__ADDR`
 and point the backend's `MICROSERVICE_SC_VERIFIER_URL` and
-`MICROSERVICE_SIG_PROVIDER_URL` at their private network addresses.
+`MICROSERVICE_SIG_PROVIDER_URL` at `http://OPERATOR_HOST:8050` for each service.
+Replace `OPERATOR_HOST` with the operator-supplied hostname of the smart-contract verifier or signature provider selected by that variable.
 
 ## Variable names
 
@@ -211,7 +212,7 @@ These names appear in
 
 Four more names are not in that file but are needed whenever the API and the
 frontend are not behind one proxy on the default port. They are part of the
-frontend's own catalogue, `apps/explorer/docs/ENVS.md`:
+frontend's own catalogue, `docs/explorer/ENVS.md`:
 `NEXT_PUBLIC_API_PORT`, `NEXT_PUBLIC_APP_PORT`, `NEXT_PUBLIC_AD_BANNER_PROVIDER`,
 `NEXT_PUBLIC_AD_TEXT_PROVIDER`.
 

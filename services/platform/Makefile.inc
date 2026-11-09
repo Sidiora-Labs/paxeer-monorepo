@@ -39,9 +39,10 @@ platform-sample-install: platform-sample-preflight
 	python3 -m venv $(PLATFORM_PYTHON_ENV)
 	$(PLATFORM_PYTHON_ENV)/bin/python -m pip install --no-index --no-deps --no-build-isolation \
 		$(CURDIR)/services/agent/sdk/python $(CURDIR)/sdk/integrations/fastapi
+	$(PLATFORM_PYTHON_ENV)/bin/python -m pip install -r sdk/integrations/fastapi/tests/requirements.txt
 	cd sdk/platform/go && go mod download
-	cd services/platform/docs/samples/first-payment-go && go mod download
-	cargo fetch --manifest-path services/platform/docs/samples/verify-receipt-rust/Cargo.toml --locked
+	cd services/platform/examples/samples/first-payment-go && go mod download
+	cargo fetch --manifest-path services/platform/examples/samples/verify-receipt-rust/Cargo.toml --locked
 	cargo fetch --manifest-path services/platform/examples/marketplace/program/Cargo.toml --locked
 	$(MAKE) platform-jvm-dependencies-install
 	@set -eu; \
@@ -53,12 +54,12 @@ platform-sample-install: platform-sample-preflight
 		test "$$(sha256sum sdk/integrations/ios/Package.resolved | awk '{print $$1}')" = "$$ios_lock"
 	dotnet restore sdk/platform/dotnet/LayerX.Sdk.csproj --nologo
 	dotnet restore sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --nologo
-	dotnet restore services/platform/docs/samples/first-payment-csharp/FirstPayment.csproj --nologo
+	dotnet restore services/platform/examples/samples/first-payment-csharp/FirstPayment.csproj --nologo
 
 platform-sample-dependencies-ready:
 	@test -x $(PLATFORM_PYTHON_ENV)/bin/python || { echo "run make platform-sample-install first" >&2; exit 1; }
 	@$(PLATFORM_PYTHON_ENV)/bin/python -c 'import importlib.metadata as m; assert m.version("layerx-sdk") == "0.1.0"; assert m.version("layerx-fastapi") == "0.1.0"'
-	@test -s services/platform/docs/samples/verify-receipt-rust/Cargo.lock
+	@test -s services/platform/examples/samples/verify-receipt-rust/Cargo.lock
 	@command -v mvn >/dev/null || { echo "Maven is required for Platform samples" >&2; exit 1; }
 	@command -v swift >/dev/null || { echo "Swift is required for Platform SDK and samples" >&2; exit 1; }
 	@command -v dotnet >/dev/null || { echo "dotnet is required for the C sharp sample" >&2; exit 1; }
@@ -75,8 +76,8 @@ platform-jvm-dependencies-install:
 	$(MAKE) platform-install-local-artifacts PLATFORM_MAVEN_OFFLINE=
 	@set -eu; for pom in sdk/platform/jvm/pom.xml sdk/integrations/spring/pom.xml sdk/integrations/android/pom.xml \
 		sdk/integrations/spring/example/pom.xml \
-		services/platform/docs/samples/first-payment-jvm/pom.xml services/platform/docs/samples/paid-endpoint-spring/pom.xml \
-		services/platform/docs/samples/mobile-payment-android/pom.xml; do \
+		services/platform/examples/samples/first-payment-jvm/pom.xml services/platform/examples/samples/paid-endpoint-spring/pom.xml \
+		services/platform/examples/samples/mobile-payment-android/pom.xml; do \
 		mvn -q -Dmaven.repo.local="$(PLATFORM_MAVEN_REPOSITORY)" -f "$$pom" -Pconformance verify dependency:go-offline; \
 	done
 
@@ -140,8 +141,7 @@ platform-test-tooling: platform-test-cli-production-credential-refusal public-tl
 		services/platform/hosted/tests/topology-check.sh \
 		services/platform/hosted/tests/beta-cluster.sh \
 		services/platform/hosted/node/bootstrap.sh services/platform/hosted/node/supervisor.sh \
-		services/platform/hosted/paxeer/deploy-contracts.sh scripts/ci/beta-contract-check.sh
-	python3 -m py_compile services/platform/hosted/paxeer/settlement-domain.py services/platform/hosted/paxeer/prepare-beta.py
+		services/platform/hosted/paxeer/deploy-contracts.sh
 	bash -n tools/platform/cli/tests/clean-bootstrap.sh
 	$(PLATFORM_CARGO) build --offline --manifest-path $(PLATFORM_TOOLS_MANIFEST) --locked -p layerx-platform-cli
 	bash tools/platform/cli/tests/clean-bootstrap.sh
@@ -268,7 +268,7 @@ platform-receipt-fixture: $(BUILD_DIR)/tools/generate_receipt_fixture \
 		sdk/platform/conformance/fixtures/receipt-programs-positive-v2.json \
 		sdk/platform/conformance/fixtures/receipt-refusals-v2.json
 
-platform-verify-sdks: programs-check-native-lifecycle-fixtures programs-check-capability-fixture programs-check-executed-fixture platform-sdk-check platform-sample-dependencies-ready platform-js-install
+platform-verify-sdks: programs-check-native-lifecycle-fixtures programs-check-capability-fixture platform-sdk-check platform-sample-dependencies-ready platform-js-install
 	@python3 -c 'import pytest' || { echo "pytest is required for Python SDK conformance" >&2; exit 1; }
 	npm run build --workspace @sidiora/layerx-sdk
 	$(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-sdk --tests
@@ -332,29 +332,34 @@ platform-test-ten-line:
 	tools/paxeer-x/gates/104.16.5.sh
 
 platform-test-middleware: platform-sample-dependencies-ready
-	npm run build --workspace @sidiora/layerx-seller-middleware
-	npm run build --workspace @sidiora/layerx-buyer-middleware
-	npm run build --workspace @sidiora/layerx-merchant-middleware
-	npm run build --workspace @sidiora/layerx-agent-middleware
-	npm run build --workspace @sidiora/layerx-middleware-conformance
+	npm test --workspace @sidiora/layerx-seller-middleware
+	npm test --workspace @sidiora/layerx-buyer-middleware
+	npm test --workspace @sidiora/layerx-merchant-middleware
+	npm test --workspace @sidiora/layerx-agent-middleware
+	npm test --workspace @sidiora/layerx-middleware-conformance
 	npm run conformance --workspace @sidiora/layerx-middleware-conformance
+	python3 -m pytest -q tests/ci/test_platform_middleware_suites_wired.py
+	$(PLATFORM_PYTHON_ENV)/bin/python -m pytest -q \
+		services/platform/middleware/conformance/pay6 services/platform/middleware/examples
 	node --check services/platform/examples/merchant-shop/index.mjs
 	node --check services/platform/examples/merchant-checkout/index.mjs
 	node --check services/platform/examples/buyer-agent/index.mjs
 	node --check services/platform/examples/paid-api/index.mjs
-	node --check services/platform/examples/marketplace/index.mjs
+	npm test --workspace @sidiora/layerx-example-marketplace
 	node --check services/platform/examples/support/runtime.mjs
 	node --check services/platform/examples/support/merchant-app.mjs
 	node --check services/platform/examples/agent-spend/index.mjs
-	npm run build --workspace @sidiora/layerx-express
-	npm run build --workspace @sidiora/layerx-next
+	npm test --workspace @sidiora/layerx-express
+	npm test --workspace @sidiora/layerx-next
 	npm run build --workspace @sidiora/layerx-example-next
 	npm run scan --workspace @sidiora/layerx-example-next
 	PYTHONPATH=services/agent/sdk/python:sdk/integrations/fastapi python3 -m compileall -q \
 		sdk/integrations/fastapi/layerx_fastapi sdk/integrations/fastapi/examples
-	npm run build --workspace @sidiora/layerx-agent-integrations
+	npm test --workspace @sidiora/layerx-agent-integrations
+	PYTHONPATH=services/agent/sdk/python:sdk/integrations/fastapi $(PLATFORM_PYTHON_ENV)/bin/python -m pytest -q sdk/integrations/fastapi
 	mvn -o -q -f sdk/integrations/android/pom.xml -DskipTests verify
 	swift build --disable-automatic-resolution --package-path sdk/integrations/ios
+	swift test --package-path sdk/integrations/ios
 	$(MAKE) platform-test-ten-line
 
 platform-test-reference-apps:
@@ -408,12 +413,12 @@ platform-real-android-integration: platform-sample-dependencies-ready
 platform-test-docs: platform-test-reference-apps platform-sample-dependencies-ready
 	sh services/platform/tools/docs-gate $(CURDIR)
 	command -v node >/dev/null
-	$(PLATFORM_PYTHON_ENV)/bin/python -m compileall -q services/platform/docs/samples/first-payment-python services/platform/docs/samples/paid-endpoint-fastapi
-	cd services/platform/docs/samples/first-payment-go && GOPROXY=off go build ./...
-	cargo build --offline --locked --manifest-path services/platform/docs/samples/verify-receipt-rust/Cargo.toml --release
-	mvn -o -q -f services/platform/docs/samples/first-payment-jvm/pom.xml package
-	mvn -o -q -f services/platform/docs/samples/paid-endpoint-spring/pom.xml package
-	mvn -o -q -f services/platform/docs/samples/mobile-payment-android/pom.xml package
-	swift build --disable-automatic-resolution --package-path services/platform/docs/samples/first-payment-swift
-	swift build --disable-automatic-resolution --package-path services/platform/docs/samples/mobile-payment-ios
-	dotnet build services/platform/docs/samples/first-payment-csharp/FirstPayment.csproj --no-restore --configuration Release --nologo
+	$(PLATFORM_PYTHON_ENV)/bin/python -m compileall -q services/platform/examples/samples/first-payment-python services/platform/examples/samples/paid-endpoint-fastapi
+	cd services/platform/examples/samples/first-payment-go && GOPROXY=off go build ./...
+	cargo build --offline --locked --manifest-path services/platform/examples/samples/verify-receipt-rust/Cargo.toml --release
+	mvn -o -q -f services/platform/examples/samples/first-payment-jvm/pom.xml package
+	mvn -o -q -f services/platform/examples/samples/paid-endpoint-spring/pom.xml package
+	mvn -o -q -f services/platform/examples/samples/mobile-payment-android/pom.xml package
+	swift build --disable-automatic-resolution --package-path services/platform/examples/samples/first-payment-swift
+	swift build --disable-automatic-resolution --package-path services/platform/examples/samples/mobile-payment-ios
+	dotnet build services/platform/examples/samples/first-payment-csharp/FirstPayment.csproj --no-restore --configuration Release --nologo

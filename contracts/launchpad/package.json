@@ -1,6 +1,6 @@
 {
   "name": "kindle-contracts",
-  "version": "2.0.0",
+  "version": "0.1.0",
   "private": false,
   "scripts": {
     "compile": "hardhat compile",
@@ -39,8 +39,8 @@
     "hardhat": "^2.22.6",
     "hardhat-gas-reporter": "^2.3.0"
   },
-  "author": "Sidiora",
-  "license": "GPL-3.0",
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "dependencies": {
     "prettier-plugin-solidity": "^2.3.1",
     "solhint": "^6.2.1",

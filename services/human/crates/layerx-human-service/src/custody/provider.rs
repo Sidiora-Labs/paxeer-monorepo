@@ -394,7 +394,7 @@ pub(super) struct ValidatedSignRequest {
 pub enum NativeConsent<'a> {
     PreparationPurpose(&'a layerx_agent_api::identity::NativePreparationPurposeV1),
     LocalGrant(&'a layerx_agent_api::identity::NativeLocalGrantConsentV1),
-    SendPurpose(&'a layerx_agent_api::identity::NativeSendPurposeV1),
+    SendPurpose(&'a layerx_agent_api::identity::NativeSendPurposeV2),
 }
 
 impl NativeConsent<'_> {
@@ -447,12 +447,12 @@ impl NativeConsent<'_> {
                 let canonical = value
                     .canonical_bytes()
                     .map_err(|_| CustodyError::InvalidEvidence)?;
-                let actual = layerx_agent_api::identity::NativeSendPurposeV1::from_canonical_bytes(
+                let actual = layerx_agent_api::identity::NativeSendPurposeV2::from_canonical_bytes(
                     &canonical,
                 )
                 .map_err(|_| CustodyError::InvalidEvidence)?;
                 if &actual != value
-                    || value.owner_public_key != expected_public_key
+                    || value.consent_public_key != expected_public_key
                     || now_ms >= value.expires_at_ms
                 {
                     return Err(CustodyError::InvalidEvidence);
@@ -848,6 +848,7 @@ impl RemoteKmsProvider {
         if limits.maximum_frame_bytes > PROVIDER_FRAME_LIMIT {
             return Err(CustodyError::Kms(KmsError::InvalidConfiguration));
         }
+        let deadline_tls = Some(tls.deadline_client());
         Ok(Self {
             clock,
             provider_reference,
@@ -856,7 +857,7 @@ impl RemoteKmsProvider {
             tls,
             gate: ConnectionGate::new(limits.maximum_connections),
             limits,
-            deadline_tls: None,
+            deadline_tls,
             operation_deadline: None,
         })
     }

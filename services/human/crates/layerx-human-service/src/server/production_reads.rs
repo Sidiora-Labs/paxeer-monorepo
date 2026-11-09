@@ -55,11 +55,25 @@ pub(super) fn activity_entry_json(
     scope: &PrincipalScope<'_>,
     id: &ActivityEntryId,
 ) -> Result<Value, ApiFailure> {
+    activity_entry_json_with(scope, id, receipt_keys, || {
+        layerx_network_gateway::GatewayEndpoint::from_environment()
+            .and_then(|gateway| gateway.list_assets())
+            .map_err(|_| ApiFailure::upstream_degraded())
+    })
+}
+
+pub(super) fn activity_entry_json_with(
+    scope: &PrincipalScope<'_>,
+    id: &ActivityEntryId,
+    keys: impl Fn() -> Result<Vec<ReceiptKeyEntry>, ApiFailure>,
+    assets: impl Fn() -> Result<layerx_network_gateway::AssetTable, ApiFailure>,
+) -> Result<Value, ApiFailure> {
     let entry = Feed::entry(scope, id)
         .map_err(|error| feed_failure(&error))?
         .ok_or_else(ApiFailure::not_found)?;
     let mut actuals = Vec::with_capacity(entry.receipts().len());
     let mut labels = BTreeMap::new();
+    let mut finality = None;
     for receipt in entry.receipts() {
         let bytes = receipt
             .canonical()
@@ -73,8 +87,19 @@ pub(super) fn activity_entry_json(
         });
         labels.insert(
             receipt.reference().to_owned(),
-            receipt_label(scope, row, digest)?,
+            receipt_label_with_keys(scope, row, digest, &keys()?)?,
         );
+        if receipt.rung() == Rung::Committed {
+            let proof = committed_proof(scope, digest)?;
+            let checkpoint = proof
+                .checkpoint_id()
+                .map_err(|_| ApiFailure::upstream_degraded())?;
+            labels.insert(hex(&checkpoint), "committed");
+            finality = Some(
+                crate::activity::detail::FinalityReference::new(checkpoint, Rung::Committed)
+                    .map_err(|_| ApiFailure::upstream_degraded())?,
+            );
+        }
         actuals.push(
             crate::activity::detail::ReceiptActual::from_verified_journey_bytes(
                 bytes,
@@ -83,16 +108,12 @@ pub(super) fn activity_entry_json(
             .map_err(|_| ApiFailure::upstream_degraded())?,
         );
     }
-    let detail = EntryDetail::assemble(&entry, actuals, None)
+    let detail = EntryDetail::assemble(&entry, actuals, finality)
         .map_err(|_| ApiFailure::upstream_degraded())?;
     let assets = if detail.actuals().is_empty() {
         None
     } else {
-        Some(
-            layerx_network_gateway::GatewayEndpoint::from_environment()
-                .and_then(|gateway| gateway.list_assets())
-                .map_err(|_| ApiFailure::upstream_degraded())?,
-        )
+        Some(assets()?)
     };
     activity_detail_json(&entry, &detail, &labels, assets.as_ref())
 }
@@ -126,7 +147,7 @@ fn activity_detail_json(
                 .copied()
                 .ok_or_else(ApiFailure::unavailable)?;
             Ok(
-                json!({"evidence_id":format!("evd_{}",link.reference()),"class":"layerx-receipt","verification":verification}),
+                json!({"evidence_id":format!("evd_{}",link.reference()),"class":match link.kind() { crate::activity::detail::EvidenceKind::Receipt => "layerx-receipt", crate::activity::detail::EvidenceKind::Checkpoint => "checkpoint-proof" },"verification":verification}),
             )
         })
         .collect::<Result<Vec<_>, ApiFailure>>()?;
@@ -776,7 +797,7 @@ impl super::ProductionComponents {
         }
         let verification = match evidence.rung {
             Rung::Receipted => "receipt-verified",
-            Rung::Committed => "checkpoint-finalised",
+            Rung::Committed => "committed",
             Rung::Submitted => return Err(ApiFailure::upstream_degraded()),
         };
         let key_entry = layerx_proof::inclusion::SequencerAuthorization::new(
@@ -892,8 +913,9 @@ fn evidence_get(
             }),
             expected,
         )?;
-        if verification != "receipt-verified" {
-            return Err(ApiFailure::upstream_degraded());
+        match (evidence.rung, verification) {
+            (Rung::Receipted, "receipt-verified") | (Rung::Committed, "committed") => {}
+            _ => return Err(ApiFailure::upstream_degraded()),
         }
         return Ok(response(
             super::ProductionComponents::managed_receipt_material(id, &evidence)?,
@@ -1003,7 +1025,7 @@ fn intent_evm_receipt(
         };
         let verification = match rung {
             Rung::Receipted => "receipt-verified",
-            Rung::Committed => "checkpoint-finalised",
+            Rung::Committed => "committed",
             Rung::Submitted => return Err(ApiFailure::upstream_degraded()),
         };
         let portable = PortableReceiptV2::export_with_transaction(
@@ -1162,6 +1184,14 @@ fn native_journey_json(
     scope: &PrincipalScope<'_>,
     journey: &JourneyEngine,
 ) -> Result<Value, ApiFailure> {
+    native_journey_json_with(scope, journey, receipt_keys)
+}
+
+pub(super) fn native_journey_json_with(
+    scope: &PrincipalScope<'_>,
+    journey: &JourneyEngine,
+    keys: impl Fn() -> Result<Vec<ReceiptKeyEntry>, ApiFailure>,
+) -> Result<Value, ApiFailure> {
     let status = journey.status().map_err(|error| failure(&error))?;
     if status.state() == JourneyState::Closed {
         return Ok(json!({
@@ -1189,7 +1219,7 @@ fn native_journey_json(
             canonical: &evidence.canonical_receipt,
             rung: evidence.rung,
         });
-        let verification = receipt_label(scope, row, digest)?;
+        let verification = receipt_label_with_keys(scope, row, digest, &keys()?)?;
         references.push(Some(evidence_ref(digest, verification)));
     }
     let stages = status.phases().iter().enumerate().map(|(index, phase)| {
@@ -1250,17 +1280,69 @@ fn receipt_label(
     row: Option<ReceiptRow<'_>>,
     digest: [u8; 32],
 ) -> Result<&'static str, ApiFailure> {
+    receipt_label_with_keys(_scope, row, digest, &receipt_keys()?)
+}
+
+fn committed_proof(
+    scope: &PrincipalScope<'_>,
+    digest: [u8; 32],
+) -> Result<crate::journeys::BankCommitEvidence, ApiFailure> {
+    for journey in JourneyEngine::list(scope).map_err(|error| failure(&error))? {
+        for (index, observed) in journey
+            .status()
+            .map_err(|error| failure(&error))?
+            .receipt_digests()
+            .iter()
+            .enumerate()
+        {
+            if *observed == Some(digest) {
+                return journey
+                    .bank_commit_evidence(index)
+                    .cloned()
+                    .ok_or_else(ApiFailure::upstream_degraded);
+            }
+        }
+    }
+    Err(ApiFailure::upstream_degraded())
+}
+
+fn receipt_label_with_keys(
+    scope: &PrincipalScope<'_>,
+    row: Option<ReceiptRow<'_>>,
+    digest: [u8; 32],
+    keys: &[ReceiptKeyEntry],
+) -> Result<&'static str, ApiFailure> {
+    if let Some(row) = &row {
+        if row.rung == Rung::Committed {
+            if <[u8; 32]>::from(Sha256::digest(row.canonical)) != digest {
+                return Err(ApiFailure::upstream_degraded());
+            }
+            let signed = EvidenceBundle::receipt_fact(
+                &row.entry_id,
+                row.canonical.to_vec(),
+                Rung::Receipted,
+            )
+            .and_then(|fact| EvidenceBundle::verify_receipt(&fact, keys));
+            if verification_label(&verification_status(signed))? != "receipt-verified" {
+                return Err(ApiFailure::upstream_degraded());
+            }
+            let decoded = layerx_wire::receipt::decode(row.canonical)
+                .map_err(|_| ApiFailure::upstream_degraded())?;
+            let receipt = decoded
+                .protocol()
+                .ok_or_else(ApiFailure::upstream_degraded)?;
+            committed_proof(scope, digest)?
+                .verify_retained(receipt, keys)
+                .map_err(|_| ApiFailure::upstream_degraded())?;
+            return Ok("committed");
+        }
+    }
     let status = match row {
         Some(row) => verification_status(
             EvidenceBundle::receipt_fact(&row.entry_id, row.canonical.to_vec(), row.rung).and_then(
                 |mut fact| {
                     fact.receipt_hash = digest;
-                    let keys = receipt_keys().map_err(|_| {
-                        VerifyError::Unavailable(ExportError::AuthorityUnavailable {
-                            reference: hex(&digest),
-                        })
-                    })?;
-                    EvidenceBundle::verify_receipt(&fact, &keys)
+                    EvidenceBundle::verify_receipt(&fact, keys)
                 },
             ),
         ),
@@ -1436,7 +1518,7 @@ fn cached_balance_verification(
     match super::production_components::AccountBalance::material_rung(bytes)? {
         None | Some(Rung::Submitted) => Ok(("submission-record", "unverified")),
         Some(Rung::Receipted) => Ok(("layerx-receipt", "receipt-verified")),
-        Some(Rung::Committed) => Ok(("checkpoint-proof", "checkpoint-finalised")),
+        Some(Rung::Committed) => Ok(("checkpoint-proof", "committed")),
     }
 }
 
@@ -1555,11 +1637,7 @@ mod balance_evidence_tests {
             (None, "submission-record", "unverified"),
             (Some(Rung::Submitted), "submission-record", "unverified"),
             (Some(Rung::Receipted), "layerx-receipt", "receipt-verified"),
-            (
-                Some(Rung::Committed),
-                "checkpoint-proof",
-                "checkpoint-finalised",
-            ),
+            (Some(Rung::Committed), "checkpoint-proof", "committed"),
         ] {
             let balance = AccountBalance::from_agent(VerifiedBalance {
                 account: [1; 32],

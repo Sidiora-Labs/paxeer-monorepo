@@ -1,0 +1,7 @@
+[
+  {
+    "nodeid": "tests/agent/sdk/python/test_receipt_fixture.py::ReceiptFixtureTest::test_core_fixture_receipt_verifies_positively",
+    "first_error_line": "layerx_sdk.production.PlatformSdkError: The service response did not match the contract.",
+    "retiring_task": "22.39.120"
+  }
+]

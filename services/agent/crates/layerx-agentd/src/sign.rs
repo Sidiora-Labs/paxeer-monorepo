@@ -1,24 +1,36 @@
 //! External-by-default signing and bounded protocol session-key self-signing.
+//!
+//! Current EIP-1559 consumer contract (all errors are [`SigningError`]):
+//! * [`external`] takes `&SigningPreparation` and returns
+//!   `Result<ExternalSigningPackage, SigningError>`: exact unsigned type-2 bytes,
+//!   a 32-byte signing hash and disclosure digest, with no signing key.
+//! * [`attach_external_signature`] takes `&SigningPreparation` and `[u8; 65]`
+//!   (`r || s || yParity`) and returns `Result<Vec<u8>, SigningError>` containing
+//!   the exact signed type-2 transaction.
+//! * [`verify_before_submit`] takes `&[u8]`, `&SigningPreparation`, `&[u8; 20]`
+//!   recovered EVM sender, and `&ModuleRegistry`, returning
+//!   `Result<VerifiedSubmission, SigningError>`. The wrapper retains exact bytes
+//!   and their keccak256 hash for the durable outbox.
+//! * [`self_sign`] is async, taking `Option<&ProvisionedSessionKey>`,
+//!   `&SigningPreparation`, `&ModuleRegistry`, u64 protocol time in milliseconds,
+//!   and u64 current revocation sequence. Its future resolves to
+//!   `Result<SignedPreparation, SigningError>` with a 65-byte signature and
+//!   20-byte sender after scope, expiry and revocation checks.
+//!
+//! Retained preparations reopen via [`SigningPreparation::restore`] with
+//! call/disclosure binding intact.
 
 use std::collections::BTreeSet;
 
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_crypto::session::{issue_session_key, IssuedSessionKey, SessionKeyRequest};
 use layerx_crypto::signer::SignError;
-use layerx_types::activity::ActivityBuildError;
 use layerx_types::payload::{ActivityType, ModuleRegistry};
-use layerx_wire::WireError;
 
-use crate::prepare::{
-    verify_call_binding, CallBindingError, DisclosureBindingError, DisclosureDigest, EvmPrepared,
-};
+use crate::prepare::{verify_call_binding, CallBindingError, EvmPrepared};
 
 #[path = "sign_verify.rs"]
 mod verification;
-
-#[path = "sign_legacy.rs"]
-mod legacy;
-pub use legacy::{attach_kernel_signature, verify_kernel_before_submit, VerifiedKernelArtifact};
 
 pub use verification::{SubmissionBindingAudit, VerifiedSubmission};
 
@@ -34,7 +46,7 @@ pub enum SigningMode {
 pub struct ExternalSigningPackage {
     pub canonical_bytes: Vec<u8>,
     pub signing_preimage: [u8; 32],
-    pub disclosure_digest: DisclosureDigest,
+    pub disclosure_digest: [u8; 32],
     pub mode: SigningMode,
 }
 
@@ -44,7 +56,7 @@ pub struct SelfSigningAudit {
     pub mode: SigningMode,
     pub session_public_key: [u8; 32],
     pub activity_type: ActivityType,
-    pub disclosure_digest: DisclosureDigest,
+    pub disclosure_digest: [u8; 32],
     pub authority_bytes: Vec<u8>,
     pub expires_at: u64,
     pub revocation_sequence: u64,
@@ -130,7 +142,7 @@ pub fn validate_issued_session(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SigningError {
-    Disclosure(DisclosureBindingError),
+    CallBinding(CallBindingError),
     NotProvisioned,
     InvalidProvisioning,
     KeyMismatch,
@@ -139,8 +151,6 @@ pub enum SigningError {
     Revoked,
     AuthorityMismatch,
     Crypto(SignError),
-    SignatureEncoding(ActivityBuildError),
-    Wire(WireError),
     PreparedBytesChanged,
     SignatureInvalid,
     SignerMismatch,
@@ -149,13 +159,8 @@ pub enum SigningError {
 impl From<CallBindingError> for SigningError {
     fn from(error: CallBindingError) -> Self {
         match error {
-            CallBindingError::Disclosure(error) => {
-                Self::Disclosure(DisclosureBindingError::Decode(error))
-            }
-            CallBindingError::DigestMismatch => {
-                Self::Disclosure(DisclosureBindingError::DigestMismatch)
-            }
             CallBindingError::SigningHashMismatch => Self::PreparedBytesChanged,
+            error => Self::CallBinding(error),
         }
     }
 }
@@ -174,7 +179,7 @@ pub fn external(prepared: &SigningPreparation) -> Result<ExternalSigningPackage,
     Ok(ExternalSigningPackage {
         canonical_bytes: prepared.transaction.call.encode_unsigned(),
         signing_preimage: prepared.transaction.signing_hash,
-        disclosure_digest: DisclosureDigest(prepared.transaction.disclosure_digest),
+        disclosure_digest: prepared.transaction.disclosure_digest,
         mode: SigningMode::External,
     })
 }
@@ -250,7 +255,7 @@ pub async fn self_sign(
             mode: SigningMode::ProtocolSessionKey,
             session_public_key: public_key,
             activity_type,
-            disclosure_digest: DisclosureDigest(prepared.transaction.disclosure_digest),
+            disclosure_digest: prepared.transaction.disclosure_digest,
             authority_bytes,
             expires_at: provisioned.issued.expires_at,
             revocation_sequence: provisioned.issued.revocation_sequence,

@@ -217,7 +217,7 @@ def test_kernel_build_and_release_guidance_use_the_paxd_lifecycle():
     ):
         assert fact in build, fact
     dependencies, _ = make_rule("Makefile", "paxd-native-libs")
-    assert dependencies == ["$(LIBRARY)", "programs-release-build"]
+    assert dependencies == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     dependencies, recipe = make_rule("Makefile", "paxd-build")
     assert dependencies == ["paxd-native-libs"]
     assert "jq -er .version tools/release/version.json" in recipe

@@ -1,0 +1,79 @@
+[repair.22.31.573]
+mode = "BUILD"
+base_revision = "a2929e37fb9b23a6cbd9057b325de3dc9cdf4c53"
+decisions = ["2679", "2683", "2685", "2689", "2692", "2698", "2750"]
+gotchas = ["3264", "3269", "3275", "3279", "3282", "3288", "3290", "3365"]
+evidence = "The exact candidate revision, build command, verify command, exit codes and private logs are recorded by reference to /out/run/gates.jsonl; the final response copies the final bounded gate result. No successful qualification is claimed before hf-done passes."
+accounting = "The store keeps the previous retained snapshot independently of the sampled-transition pending snapshot. The first observation uses full state sizes; subsequent observations charge memory expansion plus changed 4096-byte pages and changed instance members. A separate canonical ObservationCharge preserves full snapshot sizes, instance sizes, commitment fuel and witness bytes while the host and observer authorize the same retained byte and work totals."
+host = "Canonical host preimages and storage overlays are compared with the preceding retained supplement. Unchanged pages and overlay entries are not charged again. Retention history resets with a new capture or trace, and restored single-step replay seeds the store's previous retained snapshot."
+diagnostic = "A retained-limit refusal appends retained_bytes, remaining_bytes and remaining_work to execution_supplement.retained_limit in the EngineFault reason."
+requested_regression = "The real ABI-v2 guest declares 17 Wasm pages, writes shared storage, emits an event and performs 128 storage reads into distinct 4096-byte pages. Per decision 2683 the authenticated request uses the exact declared budget, sequence 1, height 1000 and kernel maximum 4096-boundary, 1048576-byte profile; it requires more than 128 and at most 4096 boundaries, every host result, storage, event and fuel assertion. The 2-boundary case asserts the exact commitment-limit refusal and storage rollback."
+bounded_regression = "An additional eight-read authenticated case requires the total full linear-memory snapshots to exceed 64 MiB while retaining a valid replay record under the same 128-boundary profile. It checks every actual host result and changed memory page on decoded production replay boundaries."
+resolved_contract = "ProgramReplayProfile fixes the source-instruction interval at 1, so 128 host calls require more than 128 boundaries. Decision 2683 authorizes the kernel maximum 4096 for the distinct-page case and preserves the eight-read case under the 128-boundary profile."
+baseline_numbers = "No pre-repair gate was run: the task forbids building or testing until the entire implementation is complete. No unobserved retained-limit numbers are asserted as measured evidence."
+frozen_vectors = "program_replay, repair_22_31_259 and repair_22_31_569 are unchanged; repair_22_31_564 changes only its stale refusal reason to include at retain_boundary_capture.source and are qualified only by the declared hf-done invocation at the candidate revision. MAX_TRACE_STATE_BYTES, MAX_PROGRAM_REPLAY_BYTES, captured_leaf, from_captured and witness digests are unchanged."
+qualification_reference = "The final build and verification evidence is the last build and verify entries for the same revision in /out/run/gates.jsonl, including exact commands, exit codes and private log paths; hf-done must pass before this task is qualified."
+dependency_resolution = "Task 22.31.572 repairs the historical compat.rs include failure and is required by this task; the historical finding below is retained by reference without reinvestigation."
+continuation = "Attempt 5 preserves the attempt-4 tree on the supplied base 6e6455302579344df116b87109309a9f1131a2eb with 22.31.572 and 22.31.574 merged. Decision 2692 avoids legacy trace materialization for every profiled V2 outcome and reduces only this proof's storage baseline to 32 bytes, including its rollback expectation. All existing assertions and RETAINED_PAGE_BYTES remain. Only hf-build and hf-done are allowed in this session; hf-done runs the dependent-crate check and all five test binaries, so no individual binary is run separately. The current /out/run/gates.jsonl entries supersede historical qualification results below."
+module_start = "The instantiation callback refuses captured module initializers before retaining a boundary without an entrypoint context. After successful instantiation, entrypoint execution installs execution_supplement_retained. This preserves program_replay::actual_module_start_refuses_unobservable_start_state and prevents stale terminal authorization from carrying an initializer's byte count into the entrypoint."
+
+
+legacy_trace = "Profiled V2 executions leave the optional legacy trace None on success, published failure and all budget-refusal exits, skipping measure_execution_transitions and account_trace_snapshot entirely. Replay record capture, canonical commitments, witness encoding, limits and unprofiled execution are unchanged; commit.rs is unchanged. Both successful 573 cases assert the legacy trace is absent."
+legacy_trace_compatibility = "The declared verify suites contain no assertion requiring a legacy trace under a replay profile; program_replay requires None for a retained guest trap."
+witness_measurements = "Measured admitted host_calls, boundary count, leaf_bytes (sum of encoded leaves), framed_leaf_bytes (leaves plus four-byte length prefixes) and record_bytes are recorded by reference to the repair_22_31_573 measurement line in the final verify log named by /out/run/gates.jsonl. Each boundary line records portable state, semantic and remaining metadata bytes. The test asserts the framed leaf total and whole record fit the unchanged 1048576-byte limit; no unobserved numbers are asserted here."
+baseline = "The shared-storage baseline is 32 bytes of 0x33, verified on rollback; the guest writes VALUE and reads into distinct 4096-byte retained pages. The proof first attempts 128 calls under the merged chunk-root encoding; only a witness-bound refusal starts the search of real authenticated executions between 65 and 128 calls for the largest admitted count. That branch asserts adjacent maximality and rollback for every refusal. The admitted count and per-boundary witness composition are emitted to the final verify log; all successful-case assertions apply to the selected count. No runtime fallback or profile bound changes."
+
+[qualification.first_verify]
+revision = "9e5622af10f313b53c1e89d8970b500b638e541c"
+command = "cg spec done 22.31.573 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All dependent checks passed; program_replay stopped on actual_module_start_refuses_unobservable_start_state with step 5 encoded bytes 65809 versus authorized bytes 65774, before the other test targets ran."
+repair = "Refuse captured module initialization in its instantiation callback, preserving the unchanged test's exact UnreachableExecuted assertion and retaining delta accounting for entrypoints."
+
+[qualification.dependents]
+revision = "b599da8f6dfd568233a53e41ecce90f5124e7f09"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agent-api -p layerx-agentd -p layerx-agentd-host -p layerx-client -p layerx-mcp -p layerx-proof -p layerx-sdk"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "hf-done returned 7 before running cg spec done or the verify_cmd: layerx-agentd src/compat.rs:8 cannot read include_str!(../../../COMPATIBILITY.md), os error 2, preventing its lib and lib-test compilation and four other dependent workspaces; the missing external file is outside task scope and is not repaired or reinvestigated."
+
+[qualification.attempt4]
+revision = "9443aaf7bd66356c3c9acd9c30d1cbfc91ebdb6e"
+command = "cg spec done 22.31.573 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build and all 58 dependent crates passed; program_replay (4), repair_22_31_259 (9), repair_22_31_564 (4), repair_22_31_569 (2), and the 573 boundary-limit case passed. The eight-read 573 case refuses execution trace peak retained bytes 333376350 exceed 67108864; the 128-read case refuses SupplementRejected at retain_boundary_capture.source."
+constraint = "The legacy trace subsequently sums every full canonical state in commit.rs, outside scope, so adjusting only its peak estimate cannot admit the required greater-than-64-MiB full-state proof. The unchanged semantic witness duplicates the 4096-byte seed in host and storage baseline preimages at every boundary; 65 seven-operator reads alone require at least 3727360 seed bytes, above the fixed 1048576-byte witness limit."
+assumption = "Preserve all existing guards, witness encodings, seed and rollback assertions, and the required host-call count above 64. Resolving the legacy trace representation requires an explicit contract decision; no check is disabled and no test is weakened."
+evidence_reference = "Build, all dependent checks, and verification at this revision are recorded by reference to /out/run/gates.jsonl and /out/logs/build-1.log, /out/logs/dependents-1.log, /out/logs/verify-1.log. This record is appended after the failed gate and does not claim qualification of a later candidate."
+
+[qualification.attempt5_first_verify]
+revision = "70e37e82b41d047e01b83b47ebd16591465a3837"
+command = "cg spec done 22.31.573 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 58 dependent crates and all four recorded suites passed, as did the eight-read and two-boundary 573 cases; the 128-call case refused at retain_boundary_capture.source after shrinking the baseline to 32 bytes."
+repair = "Decision 2692 permits reducing the workload to the largest fitting count above 64; the proof measures that count through bounded production executions and requires exact witness-bound refusals, adjacent maximality and every original successful-outcome assertion."
+
+[qualification.attempt6_reader_stop]
+revision = "3dd45b6c61b6b0de2ea941f3af4ca61a6d7fd6af plus the preserved attempt-5 tree; the allowed build candidate is recorded in /out/run/gates.jsonl"
+command = "read-only inspection of the native ABI-v5 market adjudicator and its portable boundary reader; no verify command run"
+observed = "host/market.rs:70 calls adjudicate_market_step; execute.rs:6311 opens the supplied single-leaf proofs through open_market_boundary, whose line 6049 calls PortableBoundary::decode_untrusted; portable_replay.rs:128 reads the complete linear-memory field and line 480 copies it into the replay snapshot; execute.rs:5790 passes that snapshot to engine.execute_step, which compares its linear_memory to restored instance memory at programs/vendor/wasmi-0.31.2/src/engine/mod.rs:164."
+assumption = "This native host adjudication path is another kernel reader under decision 2696: transition evidence supplies only two adjacent leaves and terminal evidence one leaf (execute.rs:6266-6288), without the preceding leaves needed by the proposed memory-delta reader; call.c:2968-3030 itself only hashes opaque leaves."
+result = "Stopped at the explicit reader condition before changing the leaf encoding or frozen vectors; attempt-5 implementation stands, no test was weakened or rerun, no memory-delta implementation or successful qualification is claimed, and hf-build evidence is retained by reference to /out/run/gates.jsonl."
+
+[continuation.attempt8]
+decision = "2750 supersedes the withdrawn memory-encoding change of 2696; portable_replay.rs and replay.rs remain unchanged, as do the recorded vector suites and their already-sited 564 refusal assertion."
+reader = "Every raw leaf is decoded with its record header. Host result and 17-page assertions use PortableBoundary::rebuild_memory starting from the validated guest initial_replay_memory and advancing through every preceding leaf; the eight-read proof separately retains the empty accounting baseline so the first observation must still charge the whole state."
+merge = "The inherited execute.rs contained six unresolved current/seed conflict blocks. They are resolved by preserving the current initializer and trap guards and the retained-state callback. The two streaming capture setup sites introduced by 577 now install the retention-aware callback too; module initialization retains its refusal callback."
+measurements = "The final verify log referenced by /out/run/gates.jsonl contains the admitted host_calls, boundaries, leaf_bytes, framed_leaf_bytes and record_bytes, plus each boundary's encoded state, encoded semantic, metadata and changed-chunk count. These are measured by the test in the declared hf-done invocation at the same candidate revision as hf-build, without editing the record after qualification."
+gate_reference = "The exact revision, command, exit code and private log locations are the final same-candidate build and verify entries in /out/run/gates.jsonl. Only hf-build and hf-done are run; no individual binary or extra gate is run."
+
+[qualification.attempt8_first_verify]
+revision = "e33a079ae7911ea4d64e8dae42c4a6046350f9bf"
+command = "cg spec done 22.31.573 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build, 58 dependent crates, all four carried suites and two 573 cases passed; the 128-call search rejected the new quantified witness-bound reason: observed 1051089, permitted 1048576, leaf_length 5119, step 658."
+repair = "Recognize the current sited Bounds diagnostic and assert its exact capture-witness check, fixed permitted bytes, observed overflow, crossing leaf size and matching leaf breakdown before searching the largest admitted count; preserve historical exact refusal checks and every rollback assertion."

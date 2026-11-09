@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { spotWidgetElements } from './fixtures/spot-widget-elements';
 export { spotWidgetElements } from './fixtures/spot-widget-elements';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -73,6 +74,7 @@ test('markets_mode_handler_switches_to_spot', async () => {
   const { default: MarketsPage } = await import('../src/page-modules/markets');
   const tabs = await import('../src/widgets/markets/MarketsHeaderTabs');
   const { ErrorBoundary } = await import('../src/app/shell/ErrorBoundary');
+  const client = new QueryClient();
 
   process.env.NEXT_PUBLIC_RELEASE_SPOT_OPEN = '1';
   try {
@@ -92,13 +94,20 @@ test('markets_mode_handler_switches_to_spot', async () => {
     }
 
     const router = { query: {} } as unknown as NextRouter;
-    const html = renderToStaticMarkup(createElement(RouterContext.Provider, { value: router }, createElement(Harness)));
+    const html = renderToStaticMarkup(
+      createElement(
+        RouterContext.Provider,
+        { value: router },
+        createElement(QueryClientProvider, { client }, createElement(Harness)),
+      ),
+    );
 
     assert.equal(passes.length, 2);
     assert.deepEqual(passes[0], { mode: 'perps', activeTab: 'markets', boundaries: ['Markets overview'] });
     assert.deepEqual(passes[1], { mode: 'spot', activeTab: 'markets', boundaries: ['Spot Markets'] });
     assert.ok(html.includes('24h Volume'), 'spot markets panel is rendered');
   } finally {
+    client.clear();
     delete process.env.NEXT_PUBLIC_RELEASE_SPOT_OPEN;
   }
 });

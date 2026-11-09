@@ -1,0 +1,48 @@
+[issue.1686]
+number = 1686
+title = "[Coherence] GraphQL tickers now take the latest index from mark events and successful aggregates, but the REST tickers and market records still read it only from mark events"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "services/platform/perps-data/internal/rest/venue.go:212 and services/platform/perps-data/internal/rest/venue.go:220 still source ticker index_price only from mark events, unlike the successful-aggregate union at services/platform/perps-data/internal/graphql/perps.go:1171, while commit 95c0c0e727d38a85f484609f56c852ae4ed5afa2 already repaired market-record index and basis selection at services/platform/perps-data/internal/rest/markets.go:138 and services/platform/perps-data/internal/rest/markets.go:147."
+close_comment = "Market records already use the latest index observation from mark events and successful aggregates, but venue tickers still return stale or missing index prices after aggregate updates. The remaining fix aligns ticker index selection with GraphQL and market records while retaining mark prices from mark events."
+
+[task.18.1686.1]
+title = "Issue #1686: Align venue ticker index prices with successful aggregate updates"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181686.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change venueTickersSQL at services/platform/perps-data/internal/rest/venue.go:211 to select index independently from the union of perps.mark_prices and perps.index_prices where kind is aggregate and index_price is non-null, ordered by descending (block, tx_index, log_index, sub), matching services/platform/perps-data/internal/graphql/perps.go:1171 and services/platform/perps-data/internal/rest/markets.go:147; retain the separate latest mark selection, display-unit conversion and response fields, and correct the mark-only index nullability comment at services/platform/perps-data/internal/rest/venue.go:172."
+do_2 = "Add TestVenueLatestIndexCoherence in services/platform/perps-data/internal/rest/proof_rest_test.go using isolated PostgreSQL and real pricefeed/perps producer events through production decoding and store.WriteBlock; compare registered single/list ticker routes at both /api and /api/markets mounts with GraphQL orderlyTickers and market-record index values, covering aggregate updates without a new mark, aggregate-only markets, skipped aggregates, mark-only and empty markets, and ordering by every source-position component; assert mark independence, unchanged response fields and market-record basis including a zero index, extending the mark-only ticker coverage at services/platform/perps-data/internal/rest/venue_test.go:242 and the symbol-route comparison at services/platform/perps-data/internal/graphql/repair_m829_test.go:618."
+symbols = ["venueTickersSQL", "TestVenueLatestIndexCoherence"]
+touches = ["services/platform/perps-data/internal/rest/venue.go", "services/platform/perps-data/internal/rest/proof_rest_test.go"]
+tests = ["services/platform/perps-data/internal/rest/proof_rest_test.go::TestVenueLatestIndexCoherence"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./services/platform/perps-data/internal/rest/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./services/platform/perps-data/internal/rest/ -run '^TestVenueLatestIndexCoherence$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181686]
+title = "Venue tickers expose the same latest index observation as GraphQL and market records"
+ac_1 = "The ticker routes registered at services/platform/perps-data/internal/rest/venue.go:27 select the greatest (block, tx_index, log_index, sub) from mark events and non-null successful aggregates, matching services/platform/perps-data/internal/graphql/perps.go:1171 and services/platform/perps-data/internal/rest/markets.go:147, including an aggregate-only market with a non-null index and null mark; skipped aggregates cannot replace an index, and mark prices and response fields retain their existing semantics."
+
+[acceptance.18.1686.1]
+feature = "18"
+req = "181686.1"
+scenario = "Given stored mark events and successful or skipped pricefeed aggregates, including a market with aggregates and no mark event, when single and list tickers are requested through either route mount, then their index prices match GraphQL and market records at the greatest source position, skipped aggregates are ignored, and mark prices remain independently sourced from mark events."
+contract = "contracts/perps-data.md#rest"
+test = "services/platform/perps-data/internal/rest/proof_rest_test.go::TestVenueLatestIndexCoherence (planned)"
+qualification = "UNRUN"

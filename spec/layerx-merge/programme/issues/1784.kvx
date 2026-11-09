@@ -1,0 +1,7 @@
+[issue.1784]
+number = 1784
+title = "[Coherence] The new Wallet and Continuous integration release-note sections can never collect a pull request because no labeler rule applies area:wallet or area:ci"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 8c111e2f7a76a1f63ec39615afe801580ba1091e added area:wallet for apps/wallet/** and sdk/wallet/** at .github/labeler.yml:34 and area:ci for .github/** and CI tooling at .github/labeler.yml:40, supplying the categories at .github/release.yml:26 and .github/release.yml:38 through .github/workflows/labeler.yml:24 with regression assertions at tests/ci/test_label_config_consistency.py:27, tests/ci/test_label_config_consistency.py:44 and tests/ci/test_label_config_consistency.py:59; services/wallet/** retains area:human at .github/labeler.yml:29 while the completed task scopes the Wallet label to the app and SDK at spec/layerx-merge/spec.kvx:353365."
+close_comment = "Wallet app and SDK changes now receive area:wallet, and .github/** changes receive area:ci, so both release-note sections have automatic label sources. Wallet service changes remain in the Human interface category."

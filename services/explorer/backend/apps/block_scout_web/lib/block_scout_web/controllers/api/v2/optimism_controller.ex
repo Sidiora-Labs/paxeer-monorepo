@@ -521,43 +521,58 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
   """
   @spec interop_messages(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def interop_messages(conn, params) do
-    current_chain_id = ChainId.get_id()
+    with {:ok, interop_paging_options} <- interop_message_paging_options(params) do
+      current_chain_id = ChainId.get_id()
 
-    {messages, next_page} =
-      params
-      |> interop_extract_message_filters()
-      |> Keyword.merge(paging_options(params))
-      |> Keyword.merge(@api_true)
-      |> Keyword.merge(current_chain_id: current_chain_id)
-      |> InteropMessage.list()
-      |> split_list_by_page()
+      {messages, next_page} =
+        params
+        |> interop_extract_message_filters()
+        |> Keyword.merge(interop_paging_options)
+        |> Keyword.merge(@api_true)
+        |> Keyword.merge(current_chain_id: current_chain_id)
+        |> InteropMessage.list()
+        |> split_list_by_page()
 
-    next_page_params = next_page_params(next_page, messages, Map.take(params, ["items_count"]))
+      next_page_params =
+        BlockScoutWeb.Chain.next_page_params(next_page, messages, params, false, &InteropMessage.paging_params/1)
 
-    messages_extended =
-      messages
-      |> Enum.map(fn message ->
-        message_extended =
-          cond do
-            message.init_chain_id != current_chain_id and not is_nil(current_chain_id) ->
-              Map.put(message, :init_chain, InteropMessage.interop_chain_id_to_instance_info(message.init_chain_id))
+      messages_extended =
+        messages
+        |> Enum.map(fn message ->
+          message_extended =
+            cond do
+              message.init_chain_id != current_chain_id and not is_nil(current_chain_id) ->
+                Map.put(message, :init_chain, InteropMessage.interop_chain_id_to_instance_info(message.init_chain_id))
 
-            message.relay_chain_id != current_chain_id and not is_nil(current_chain_id) ->
-              Map.put(message, :relay_chain, InteropMessage.interop_chain_id_to_instance_info(message.relay_chain_id))
+              message.relay_chain_id != current_chain_id and not is_nil(current_chain_id) ->
+                Map.put(message, :relay_chain, InteropMessage.interop_chain_id_to_instance_info(message.relay_chain_id))
 
-            true ->
-              message
-          end
+              true ->
+                message
+            end
 
-        InteropMessage.extend_with_status(message_extended)
-      end)
+          InteropMessage.extend_with_status(message_extended)
+        end)
 
-    conn
-    |> put_status(200)
-    |> render(:optimism_interop_messages, %{
-      messages: messages_extended,
-      next_page_params: next_page_params
-    })
+      conn
+      |> put_status(200)
+      |> render(:optimism_interop_messages, %{
+        messages: messages_extended,
+        next_page_params: next_page_params
+      })
+    else
+      :error -> interop_render_http_error(conn, :bad_request, "Invalid interop message cursor")
+    end
+  end
+
+  defp interop_message_paging_options(params) do
+    if Enum.any?(~w(timestamp init_transaction_hash init_chain_id nonce), &Map.has_key?(params, &1)) do
+      with {:ok, options} <- InteropMessage.paging_options(params) do
+        {:ok, [paging_options: %{options | page_size: PagingOptions.page_size() + 1}]}
+      end
+    else
+      {:ok, paging_options(%{})}
+    end
   end
 
   operation :interop_messages_count, false

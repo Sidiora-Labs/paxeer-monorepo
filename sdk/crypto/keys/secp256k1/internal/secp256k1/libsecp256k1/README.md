@@ -3,6 +3,11 @@ libsecp256k1
 
 Optimized C library for EC operations on curve secp256k1.
 
+This vendored copy pins bitcoin-core/secp256k1 revision
+`9d560f992db26612ce2630b194aef5f44d63a530` with go-ethereum's callback adjustment
+and is wrapped through cgo by the node's
+`sdk/crypto/keys/secp256k1/internal/secp256k1` Go package.
+
 This library is a work in progress and is being used to research best practices. Use at your own risk.
 
 Features:

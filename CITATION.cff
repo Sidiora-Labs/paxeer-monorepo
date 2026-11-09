@@ -3,12 +3,14 @@ message: If you use Paxeer X Network, please cite it using these metadata.
 type: software
 title: Paxeer X Network
 abstract: >-
-  Paxeer X Network is one network with two execution domains: the Paxeer X
-  chain node (paxd) and the LayerX kernel (layerxd), a deterministic execution
-  and accounting domain for autonomous agents.
+  Paxeer X Network is a distributed HyperState Machine for payments, code
+  execution and intent routing. It is one BFT network with EVM chain ID 125;
+  the LayerX kernel is embedded in the paxd node and participates in block
+  proposal and deterministic execution.
 authors:
   - name: Sidiora Labs
-version: v6.12.0
+version: v7.0.0
+date-released: 2026-11-07
 license: Apache-2.0
-repository-code: https://github.com/Sidiora-Labs/Paxeer-X-Network
+repository-code: https://github.com/Sidiora-Labs/paxeer-monorepo
 url: https://paxeer.network

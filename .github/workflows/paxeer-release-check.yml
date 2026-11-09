@@ -26,6 +26,7 @@ on:
       - 'tools/ci/consensus_commit_gate.py'
       - 'tools/ci/tests/test_consensus_commit_gate.py'
       - 'docs/release/consensus-commits.md'
+      - '.github/actions/release-toolchain/**'
       - '.github/workflows/paxeer-release-check.yml'
       - '.github/workflows/paxeer-release-publish.yml'
   workflow_dispatch:
@@ -40,10 +41,10 @@ concurrency:
 jobs:
   release-check:
     name: Validate Paxeer release identity and reproducibility
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     steps:
       - name: Checkout code and tags
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Refuse unlisted consensus-changing commits
@@ -62,8 +63,9 @@ jobs:
             exit 1
           fi
           upgrade=$(jq -er '.upgrade' tools/release/version.json)
-          if ! grep -qxF "const V6120Upgrade = \"$upgrade\"" node/upgrades_v6120.go; then
-            echo "Upgrade name $upgrade is not declared as V6120Upgrade in node/upgrades_v6120.go"
+          if ! grep -hE '^[[:space:]]*const (MergeUpgrade|AnchorStoreDeleteUpgrade|V6120Upgrade)[[:space:]]*=' \
+            node/upgrades.go precompiles/common/precompiles.go | grep -qF -- "= \"$upgrade\""; then
+            echo "Upgrade name $upgrade is not declared as MergeUpgrade, AnchorStoreDeleteUpgrade or V6120Upgrade in node/upgrades.go or precompiles/common/precompiles.go"
             exit 1
           fi
 
@@ -84,41 +86,12 @@ jobs:
           fi
 
           echo "Paxeer release identity is $tag (upgrade $upgrade)"
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: false
       - name: Install native build dependencies
-        run: |
-          set -euo pipefail
-          . tools/release/toolchain.env
-          : "${CC_VERSION:?tools/release/toolchain.env must pin CC_VERSION}"
-          cc_package="gcc-${CC_VERSION%%.*}"
-          sudo apt-get update
-          cc_package_version=$(apt-cache madison "$cc_package" | awk -v version="$CC_VERSION" '
-            { candidate = $3; sub(/^[0-9]+:/, "", candidate) }
-            index(candidate, version "-") == 1 { print $3; exit }
-          ')
-          if [[ -z "$cc_package_version" ]]; then
-            echo "No package for $cc_package at CC_VERSION $CC_VERSION" >&2
-            exit 1
-          fi
-          sudo apt-get install -y --no-install-recommends build-essential libssl-dev libsqlite3-dev \
-            "$cc_package=$cc_package_version" "g++-${CC_VERSION%%.*}=$cc_package_version"
-          compiler_bin="$RUNNER_TEMP/release-toolchain/bin"
-          mkdir -p "$compiler_bin"
-          ln -sf "/usr/bin/$cc_package" "$compiler_bin/cc"
-          ln -sf "/usr/bin/$cc_package" "$compiler_bin/gcc"
-          ln -sf "/usr/bin/g++-${CC_VERSION%%.*}" "$compiler_bin/c++"
-          ln -sf "/usr/bin/g++-${CC_VERSION%%.*}" "$compiler_bin/g++"
-          export PATH="$compiler_bin:$PATH"
-          echo "$compiler_bin" >> "$GITHUB_PATH"
-          have_cc=$(cc -dumpfullversion)
-          printf '%s\n' "$have_cc"
-          if [[ "$have_cc" != "$CC_VERSION" ]]; then
-            echo "build-paxd: toolchain.env pins cc $CC_VERSION, found $have_cc" >&2
-            exit 1
-          fi
+        uses: ./.github/actions/release-toolchain
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal --no-self-update
       - name: Check reproducible release build

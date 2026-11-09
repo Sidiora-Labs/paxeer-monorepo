@@ -29,6 +29,14 @@ node endpoint, with the same chain identity as the numbered nodes.
 | 13 | `https://api13.mainnet-beta.paxeer.network` | `wss://api13.mainnet-beta.paxeer.network` |
 | 14 | `https://api14.mainnet-beta.paxeer.network` | `wss://api14.mainnet-beta.paxeer.network` |
 
+**Retention:** `api2.mainnet-beta.paxeer.network` is the archive node and keeps
+full history; the other thirteen numbered nodes prune. On a pruned node,
+`pax_sequencerReceipt` and state queries for heights outside that node's
+retention return JSON-RPC error `-32000`. This is expected retention behavior,
+not a defect. Send historical receipt and state queries to
+`https://api2.mainnet-beta.paxeer.network` at the root path, on EVM chain ID 125.
+There is no router or separate LayerX interface.
+
 Nodes are numbered, not ranked. Keep more than one configured, use bounded
 timeouts and compare `eth_blockNumber` when choosing a node near the head.
 Check `eth_chainId` before signing or broadcasting. A slow or unreachable
@@ -66,14 +74,14 @@ the corresponding committed evidence.
 
 ## Method contracts
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`. Availability depends on the node configuration; this list does
 not promise that every upstream Geth method is supported. See
-[EVM JSON-RPC differences](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/evm_jsonrpc_unsupported.md).
+[EVM JSON-RPC differences](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/evm_jsonrpc_unsupported.md).
 
-Hosted gateway `px_` methods have a separate service contract at
-`services/platform/hosted/gateway/openrpc.json`; consult
-[Hosted gateway JSON-RPC](../platform/gateway-rpc.md) for that API. A hosted
+The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [Hosted gateway JSON-RPC](../platform/gateway-rpc.md). A hosted
 method is not automatically available on every public node.
 
 The former unified router and its prefixed RPC routes are retired.

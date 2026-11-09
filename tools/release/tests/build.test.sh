@@ -12,7 +12,7 @@ export LC_ALL=C
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 
-want_version=v6.12.0
+want_version=$(jq -er .version tools/release/version.json)
 want_tag=paxeer-network/$want_version
 out=$work/release
 build_log=$work/build.log
@@ -44,7 +44,7 @@ go_build_line() {
 start=$(date +%s)
 rm -f -- build/liblayerx.a
 build_status=0
-env -u SOURCE_DATE_EPOCH -u PAXD_COMMIT PAXD_DIST_DIR="$out" PAXD_RELEASE_LAYERXD=1 \
+env -u SOURCE_DATE_EPOCH -u PAXD_COMMIT -u PAXD_RELEASE_LAYERXD PAXD_DIST_DIR="$out" \
   bash tools/release/build-paxd.sh > "$build_log" 2>&1 || build_status=$?
 echo "build-paxd.sh exit $build_status"
 tail -n 40 "$build_log"
@@ -76,6 +76,10 @@ sandbox_library_built_first() {
   [ -f programs/target/release/liblayerx_programs_sandbox.a ] || { echo "the release sandbox library is missing" >&2; return 1; }
   [ ! -e programs/target/debug ] || { echo "programs/target/debug exists after the release build" >&2; return 1; }
   [ -x "$out/$paxd_name" ] || { echo "$paxd_name did not link" >&2; return 1; }
+  local embedded expected
+  expected=$(cat "${native_libs[@]}" | sha256sum | cut -d' ' -f1)
+  embedded=$("$out/$paxd_name" version --long --output json | jq -er '.native_archive_digest')
+  [ "$embedded" = "$expected" ] || { echo "paxd native archive digest differs" >&2; return 1; }
   if ldd "$out/$paxd_name" | grep -F liblayerx; then echo "$paxd_name links a liblayerx shared object" >&2; return 1; fi
 }
 
@@ -127,10 +131,10 @@ sidecar_artifact_listed() {
 }
 
 release_directory_contents() {
-  local want have lib pinned paxd_sum
+  local want have lib pinned paxd_sum upgrade
   require_build
   [ "$(bash tools/release/build-paxd.sh --print-tag)" = "$want_tag" ] || { echo "the release tag is not $want_tag" >&2; return 1; }
-  want=$(printf '%s\n' SHA256SUMS layerxd-$want_version-linux-amd64 "${wasm_libs[@]}" native-libs.sha256 \
+  want=$(printf '%s\n' SHA256SUMS "${wasm_libs[@]}" native-libs.sha256 \
     "$paxd_name" "$sidecar_name" upgrade-info.json | sort)
   have=$(find "$out" -mindepth 1 -printf '%f\n' | sort)
   [ "$have" = "$want" ] || { echo "release directory holds: $(echo $have)" >&2; return 1; }
@@ -142,8 +146,9 @@ release_directory_contents() {
     [ "$(sha256sum "$out/$lib" | cut -d' ' -f1)" = "$pinned" ] || { echo "$lib differs from wasm-runtime/libwasmvm-linux.sha256" >&2; return 1; }
   done
   paxd_sum=$(awk -v name="$paxd_name" '$2 == name { print $1 }' "$out/SHA256SUMS")
-  jq -e --arg sum "$paxd_sum" '.name == "v6.12.0" and (.info | contains("checksum=sha256:" + $sum))' "$out/upgrade-info.json" >/dev/null ||
-    { echo "upgrade-info.json does not name v6.12.0 with the paxd checksum $paxd_sum" >&2; return 1; }
+  upgrade=$(jq -er .upgrade tools/release/version.json) || return 1
+  jq -e --arg name "$upgrade" --arg sum "$paxd_sum" '.name == $name and (.info | contains("checksum=sha256:" + $sum))' "$out/upgrade-info.json" >/dev/null ||
+    { echo "upgrade-info.json does not name $upgrade with the paxd checksum $paxd_sum" >&2; return 1; }
 }
 
 epoch_after_last_write() {

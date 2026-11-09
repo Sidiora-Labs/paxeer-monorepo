@@ -14,7 +14,7 @@ use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retri
 use layerx_agent_api::idempotency::{IdempotentMutation, Key};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
-use layerx_agent_api::read::{ReadRequest, VerifiedRead};
+use layerx_agent_api::read::{Freshness, ReadRequest, RelativeTo, VerifiedRead};
 use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
 
 use layerx_types::result::ResultCode;
@@ -825,7 +825,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
@@ -836,7 +836,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
@@ -847,7 +847,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         _registry: &layerx_types::payload::ModuleRegistry,
         mcp: bool,
@@ -859,11 +859,13 @@ impl AgentEnvelopeTransport {
             &purpose
                 .canonical_bytes()
                 .map_err(|_| EnvelopeError::InvalidRequest)?,
-            &request.purpose.owner_public_key,
+            &purpose.consent_public_key,
             &request.purpose.signature,
         )?;
-        let sender =
-            self.preparation_sender(&request.authority, request.purpose.owner_public_key)?;
+        let sender = self.preparation_sender(&request.authority, purpose.consent_public_key)?;
+        if sender != purpose.evm_sender {
+            return Err(EnvelopeError::InvalidCredential);
+        }
         crate::native_effect::validate_send_request_binding(request, credential, key)?;
         let response = if mcp {
             self.mcp_invoke(request_id, credential, "activity.prepare", &body, key)?
@@ -903,7 +905,9 @@ impl AgentEnvelopeTransport {
                 &value.canonical_bytes,
             )
             || call.signing_hash() != value.signing_preimage
-            || call.chain_id != u64::from(purpose.network_id)
+            || call.chain_id != purpose.chain_id
+            || purpose.transaction_type
+                != layerx_agent_api::identity::NativeSendPurposeV2::TRANSACTION_TYPE
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -1475,7 +1479,7 @@ pub fn validate_call_disclosure(
         || value.preparation_id != <[u8; 32]>::from(Sha256::digest(&request.canonical_bytes))
         || value.disclosure_digest
             != disclosure
-                .audit_digest()
+                .signing_digest()
                 .map_err(|_| EnvelopeError::InvalidRequest)?
         || value.activity_type != disclosure.activity_type.value()
         || value.actor != disclosure.actor
@@ -1589,8 +1593,10 @@ fn raw_call_matches_request(
         && call.to[18..] == target
         && call.nonce == nonce
         && disclosure.activity_type == kind
-        && disclosure.expiry.not_before == not_before
-        && disclosure.expiry.not_after == not_after
+        // Ledger send carries its expiry in the signed payload, without an activity window.
+        && ((kind.module() == ModuleId::Asset && kind.ordinal() == 5)
+            || (disclosure.expiry.not_before == not_before
+                && disclosure.expiry.not_after == not_after))
         && (if disclosure.idempotency_key == [0; 32] {
             <[u8; 32]>::from(Sha256::digest(raw)) == idempotency_key
         } else {
@@ -1730,18 +1736,26 @@ pub fn decode_proof_bundle_response(
 ) -> Option<VerifiedRead<ProofBundle>> {
     let operation = Operation::ReadProofBundle;
     let read = response.value.as_object()?;
-    if !exact_fields(read, &["value", "achieved_rung", "freshness"]) {
+    if !exact_fields(read, &["value", "achieved_verification_level", "freshness"]) {
         return None;
     }
-    let achieved = Rung::from_name(read.get("achieved_rung")?.as_str()?)?;
+    let achieved = Rung::from_name(read.get("achieved_verification_level")?.as_str()?)?;
     if !matches!(response.verification_status, VerificationStatus::Achieved(rung) if rung == achieved)
+    {
+        return None;
+    }
+    let freshness = Freshness::decode_json(&read.get("freshness")?.to_string()).ok()?;
+    let RelativeTo::Block { height, hash } = freshness.relative_to;
+    if freshness.value_height > freshness.chain_head
+        || height != freshness.value_height
+        || hash == [0; 32]
     {
         return None;
     }
     let result = VerifiedRead::new(
         crate::rpc_export::decode_bundle(read.get("value")?, operation).ok()?,
         achieved,
-        crate::rpc_projection::decode_freshness(read.get("freshness")?, operation).ok()?,
+        freshness,
     );
     let target = ProofBundleTarget::decode(request.selector.as_bytes()).ok()?;
     let typed_request = ReadRequest {
@@ -1773,5 +1787,120 @@ mod rung_contract_tests {
         assert_eq!(expected.retriability, Retriability::Terminal);
         assert_eq!(expected.reason.as_str(), "idempotent_replay");
         assert_ne!(expected.class, ErrorClass::IdempotencyConflict);
+    }
+}
+
+#[cfg(test)]
+mod native_disclosure_tests {
+    use super::*;
+    use layerx_agent_api::identity::{NativeDisclosureRequestV1, NativeDisclosureResultV1};
+    use layerx_agentd::prepare::evm;
+    use sha2::{Digest, Sha256};
+
+    fn served_call() -> (NativeDisclosureRequestV1, NativeDisclosureResultV1) {
+        let payload = hex::decode(
+            include_str!("../../layerx-crypto/tests/fixtures/payments/native-1-5.hex").trim(),
+        )
+        .expect("Ledger transfer payload");
+        let prepared = evm::prepare_bound(
+            evm::EvmPreparationState {
+                chain_id: 125,
+                pending_nonce: 7,
+                base_fee_per_gas: 1,
+                head_height: 50,
+            },
+            evm::PreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 5,
+                maximum_payload_bytes: 65536,
+            },
+            evm::PrepareRequest {
+                from: [0x11; 20],
+                call: evm::PrecompileCall::ledger_transfer(payload),
+                expected_nonce: Some(7),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 65536,
+            },
+            100_000,
+        )
+        .expect("daemon Ledger call producer");
+        assert_eq!(&prepared.call.data[..4], &[0x2b, 0xb1, 0xae, 0x7c]);
+        let canonical_bytes = prepared.call.encode_unsigned();
+        let d = prepared.disclosure;
+        let value = NativeDisclosureResultV1 {
+            preparation_id: Sha256::digest(&canonical_bytes).into(),
+            canonical_bytes: canonical_bytes.clone(),
+            disclosure_digest: prepared.disclosure_digest,
+            activity_type: d.activity_type.value(),
+            actor: d.actor,
+            authority: d.authority,
+            asset: d.asset,
+            fee_limit: d.fee_limit,
+            not_before: d.expiry.not_before,
+            not_after: d.expiry.not_after,
+            payload_expires_at: d.expiry.payload_expires_at,
+            idempotency_key: d.idempotency_key,
+        };
+        (NativeDisclosureRequestV1 { canonical_bytes }, value)
+    }
+
+    #[test]
+    fn native_disclosure_binds_unsigned_ledger_call_and_signer() {
+        let (request, value) = served_call();
+        let disclosure = validate_call_disclosure(&request, &value, [0x11; 20])
+            .expect("served unsigned call and signer agree");
+        let call = layerx_crypto::evm_transaction::decode_unsigned(&request.canonical_bytes)
+            .expect("unsigned EIP-1559");
+        assert_eq!(disclosure.signing_digest().unwrap(), call.signing_hash());
+        assert_eq!(value.disclosure_digest, call.signing_hash());
+        assert!(validate_call_disclosure(&request, &value, [0x22; 20]).is_err());
+        let mut audit = value.clone();
+        audit.disclosure_digest = disclosure.audit_digest().unwrap();
+        assert_ne!(audit.disclosure_digest, value.disclosure_digest);
+        assert!(validate_call_disclosure(&request, &audit, [0x11; 20]).is_err());
+        let mut signed = request.clone();
+        signed.canonical_bytes = call.sign(&[3; 32]).expect("signed transaction");
+        assert!(validate_call_disclosure(&signed, &value, [0x11; 20]).is_err());
+    }
+
+    #[test]
+    fn native_disclosure_rejects_every_changed_answer_field() {
+        let (request, value) = served_call();
+        for field in [
+            "preparation_id",
+            "canonical_bytes",
+            "disclosure_digest",
+            "activity_type",
+            "actor",
+            "authority",
+            "asset",
+            "fee_limit",
+            "not_before",
+            "not_after",
+            "payload_expires_at",
+            "idempotency_key",
+        ] {
+            let mut changed = value.clone();
+            match field {
+                "preparation_id" => changed.preparation_id[0] ^= 1,
+                "canonical_bytes" => changed.canonical_bytes[0] ^= 1,
+                "disclosure_digest" => changed.disclosure_digest[0] ^= 1,
+                "activity_type" => changed.activity_type ^= 1,
+                "actor" => changed.actor[0] ^= 1,
+                "authority" => changed.authority[0] ^= 1,
+                "asset" => changed.asset[0] ^= 1,
+                "fee_limit" => changed.fee_limit ^= 1,
+                "not_before" => changed.not_before ^= 1,
+                "not_after" => changed.not_after ^= 1,
+                "payload_expires_at" => changed.payload_expires_at ^= 1,
+                "idempotency_key" => changed.idempotency_key[0] ^= 1,
+                _ => unreachable!(),
+            }
+            assert!(
+                validate_call_disclosure(&request, &changed, [0x11; 20]).is_err(),
+                "{field}"
+            );
+        }
     }
 }

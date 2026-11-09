@@ -16,6 +16,8 @@ pub struct PortableTrap {
 
 #[derive(Debug, Clone)]
 pub struct PortableBoundary {
+    pub header: crate::replay_record::ReplayRecordHeader,
+    pub memory: crate::replay::ReplayMemory,
     pub replay: wasmi::ExecutionReplaySnapshot,
     pub arbitration: crate::ArbitrationExecutionState,
     pub semantic_bytes: Vec<u8>,
@@ -83,17 +85,19 @@ fn wasmi_values(
     Ok(result)
 }
 
-fn legacy(bytes: &[u8]) -> Result<crate::ExecutionState, ReplayWitnessError> {
+fn legacy(
+    bytes: &[u8],
+    header: &crate::replay_record::ReplayRecordHeader,
+    semantic: &[u8],
+    maximum: usize,
+) -> Result<crate::ExecutionState, ReplayWitnessError> {
     if bytes.len() > crate::MAX_STEP_STATE_BYTES {
         return Err(ReplayWitnessError::Bounds);
     }
     let mut cursor = ReplayCursor::new(bytes);
-    if cursor.u16()? != crate::STEP_COMMITMENT_VERSION {
-        return Err(ReplayWitnessError::Encoding);
-    }
-    let module_code_hash = cursor.array()?;
-    let input_digest = cursor.array()?;
-    let execution_parameters_digest = cursor.array()?;
+    let module_code_hash = header.identity.module_code_hash;
+    let input_digest = header.identity.input_digest;
+    let execution_parameters_digest = header.execution_parameters_digest;
     let step_index = cursor.u64()?;
     let program_counter = cursor.u64()?;
     let value_stack = values(&mut cursor)?;
@@ -135,32 +139,8 @@ fn legacy(bytes: &[u8]) -> Result<crate::ExecutionState, ReplayWitnessError> {
             value: value(&mut cursor)?,
         });
     }
-    let count = cursor.count(5)?;
-    let mut storage_overlay = reserve(count)?;
-    for _ in 0..count {
-        storage_overlay.push(match cursor.u8()? {
-            0 => crate::StorageOverlayEntry::Write {
-                key: cursor.owned_field(crate::MAX_STEP_STATE_BYTES)?,
-                value: cursor.owned_field(crate::MAX_STEP_STATE_BYTES)?,
-            },
-            1 => crate::StorageOverlayEntry::Delete {
-                key: cursor.owned_field(crate::MAX_STEP_STATE_BYTES)?,
-            },
-            _ => return Err(ReplayWitnessError::Encoding),
-        });
-    }
-    let fuel_remaining = cursor.u64()?;
-    let metered_usage = crate::MeteredUsage {
-        cpu_fuel: cursor.u64()?,
-        memory_bytes: cursor.u64()?,
-        storage_read_bytes: cursor.u64()?,
-        storage_write_bytes: cursor.u64()?,
-        output_values: cursor.u32()?,
-        output_bytes: cursor.u64()?,
-        occupancy_byte_batches: cursor.u128()?,
-        occupancy_fee_units: cursor.u128()?,
-        fee_units: cursor.u128()?,
-    };
+    let (storage_overlay, fuel_remaining, metered_usage) =
+        crate::replay::semantic_legacy_fields(semantic, maximum)?;
     if !cursor.done() {
         return Err(ReplayWitnessError::Encoding);
     }
@@ -179,69 +159,33 @@ fn legacy(bytes: &[u8]) -> Result<crate::ExecutionState, ReplayWitnessError> {
         fuel_remaining,
         metered_usage,
     };
-    if result
-        .canonical_bytes()
-        .map_err(|_| ReplayWitnessError::Binding)?
-        != bytes
-    {
-        return Err(ReplayWitnessError::Encoding);
-    }
     Ok(result)
 }
 
-fn arbitration(bytes: &[u8]) -> Result<crate::ArbitrationExecutionState, ReplayWitnessError> {
+fn arbitration(
+    bytes: &[u8],
+    header: &crate::replay_record::ReplayRecordHeader,
+    semantic: &[u8],
+    maximum: usize,
+) -> Result<crate::ArbitrationExecutionState, ReplayWitnessError> {
     let mut cursor = ReplayCursor::new(bytes);
     if cursor.u16()? != crate::ARBITRATION_STEP_COMMITMENT_VERSION {
         return Err(ReplayWitnessError::Encoding);
     }
-    let runtime_version = cursor.u16()?;
-    let abi_version = cursor.u16()?;
-    let fee_schedule_version = cursor.u32()?;
-    let metering_schedule_version = cursor.u32()?;
-    let trace_policy = crate::TracePolicy::new(cursor.u64()?, cursor.u32()?)
-        .map_err(|_| ReplayWitnessError::Bounds)?;
-    let module_code_hash = cursor.array()?;
-    let input_digest = cursor.array()?;
-    let execution_parameters_digest: [u8; 32] = cursor.array()?;
-    let host_base_state_root = cursor.array()?;
-    let receipt_oracle_root = cursor.array()?;
-    let balance_oracle_root = cursor.array()?;
-    let legacy = Arc::new(legacy(cursor.field()?)?);
-    if legacy.execution_parameters_digest != execution_parameters_digest {
-        return Err(ReplayWitnessError::Binding);
-    }
+    let legacy = Arc::new(legacy(cursor.field()?, header, semantic, maximum)?);
     let engine_state = cursor.owned_field(crate::MAX_ARBITRATION_ENGINE_STATE_BYTES)?;
     let host_state_root = cursor.array()?;
     let host_state_bytes = cursor.u64()?;
     if !cursor.done() {
         return Err(ReplayWitnessError::Encoding);
     }
-    let result = crate::ArbitrationExecutionState {
-        identity: crate::ArbitrationExecutionIdentity {
-            module_code_hash,
-            input_digest,
-            runtime_version,
-            abi_version,
-            fee_schedule_version,
-            metering_schedule_version,
-            trace_policy,
-            host_base_state_root,
-            receipt_oracle_root,
-            balance_oracle_root,
-        },
+    Ok(crate::ArbitrationExecutionState {
+        identity: header.identity,
         legacy,
         engine_state,
         host_state_root,
         host_state_bytes,
-    };
-    if result
-        .canonical_bytes()
-        .map_err(|_| ReplayWitnessError::Binding)?
-        != bytes
-    {
-        return Err(ReplayWitnessError::Encoding);
-    }
-    Ok(result)
+    })
 }
 
 fn optional_u32(cursor: &mut ReplayCursor<'_>) -> Result<Option<u32>, ReplayWitnessError> {
@@ -357,7 +301,7 @@ fn trap_code(tag: u8) -> Result<Option<wasmi::core::TrapCode>, ReplayWitnessErro
     })
 }
 
-fn trap_tag(code: &Option<wasmi::core::TrapCode>) -> u8 {
+pub(crate) fn trap_tag(code: &Option<wasmi::core::TrapCode>) -> u8 {
     use wasmi::core::TrapCode;
     match code {
         None => 0,
@@ -376,18 +320,43 @@ fn trap_tag(code: &Option<wasmi::core::TrapCode>) -> u8 {
 }
 
 impl PortableBoundary {
+    /// Decodes a self-contained boundary transport envelope. Raw record leaves require
+    /// `decode_with_header`, since their immutable inputs are stored once per record.
     pub fn decode_untrusted(bytes: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
+        let (header, leaf) = Self::split_envelope(bytes, maximum)?;
+        Self::decode_with_header(leaf, maximum, &header)
+    }
+
+    /// Extracts the record header and the raw Merkle leaf from the producer's
+    /// self-contained transport without changing either encoding.
+    pub fn split_envelope(
+        bytes: &[u8],
+        maximum: usize,
+    ) -> Result<(crate::replay_record::ReplayRecordHeader, &[u8]), ReplayWitnessError> {
         bounded(bytes, maximum)?;
         let mut cursor = ReplayCursor::new(bytes);
-        let domain = b"LXP/program-replay-boundary/v1\0";
+        let domain = b"LXP/program-replay-boundary-context/v2\0";
         if cursor.take(domain.len())? != domain {
             return Err(ReplayWitnessError::Encoding);
         }
-        let decoded = crate::replay_record::decode_portable_state_bytes_untrusted(
-            cursor.field()?,
-            crate::MAX_ARBITRATION_STATE_BYTES,
-        )?;
-        let arbitration = arbitration(&decoded)?;
+        let header_bytes = cursor.field()?;
+        let header = crate::replay_record::ReplayRecordHeader::decode(header_bytes, maximum)?;
+        let leaf = cursor.take(bytes.len() - domain.len() - 4 - header_bytes.len())?;
+        Ok((header, leaf))
+    }
+
+    pub fn decode_with_header(
+        bytes: &[u8],
+        maximum: usize,
+        header: &crate::replay_record::ReplayRecordHeader,
+    ) -> Result<Self, ReplayWitnessError> {
+        bounded(bytes, maximum)?;
+        // Both boundary entry points validate the same header before restoring
+        // absent immutable values, including the composition graph and response capacity, and checking
+        // any explicitly present values against that same header.
+        header.canonical_bytes(maximum)?;
+        let mut cursor = ReplayCursor::new(bytes);
+        let state = cursor.field()?;
         let count = cursor.count(16)?;
         let mut frames = reserve(count)?;
         for _ in 0..count {
@@ -419,7 +388,16 @@ impl PortableBoundary {
         let arbitration_instance_retained_bytes = cursor.u64()?;
         let arbitration_canonical_state_bytes = cursor.u64()?;
         let arbitration_commitment_fuel = cursor.u64()?;
-        let semantic_bytes = cursor.owned_field(maximum)?;
+        let (semantic_bytes, composition_digest) =
+            crate::replay::expand_semantic(cursor.field()?, header, maximum)?;
+        if crate::replay::semantic_composition_digest(&semantic_bytes, maximum)?
+            != composition_digest
+        {
+            return Err(ReplayWitnessError::Binding);
+        }
+        let mut arbitration = arbitration(state, header, &semantic_bytes, maximum)?;
+        let memory = crate::replay::ReplayMemory::decode(&arbitration.legacy.linear_memory)?;
+        Arc::make_mut(&mut arbitration.legacy).linear_memory.clear();
         let trap = match cursor.u8()? {
             0 => None,
             1 => Some(PortableTrap {
@@ -518,6 +496,8 @@ impl PortableBoundary {
             return Err(ReplayWitnessError::Encoding);
         }
         let result = Self {
+            header: header.clone(),
+            memory,
             replay: wasmi::ExecutionReplaySnapshot {
                 snapshot: Arc::new(snapshot),
                 frames,
@@ -532,12 +512,50 @@ impl PortableBoundary {
         Ok(result)
     }
 
+    pub fn rebuild_memory(&mut self, previous: &[u8]) -> Result<Vec<u8>, ReplayWitnessError> {
+        let memory = self.memory.rebuild(previous)?;
+        self.set_rebuilt_memory(memory.clone())?;
+        Ok(memory)
+    }
+
+    pub fn set_rebuilt_memory(&mut self, memory: Vec<u8>) -> Result<(), ReplayWitnessError> {
+        if memory.len() != self.memory.length as usize
+            || crate::replay::replay_memory_root(&memory)? != self.memory.root
+        {
+            return Err(ReplayWitnessError::Binding);
+        }
+        Arc::make_mut(&mut self.arbitration.legacy).linear_memory = memory.clone();
+        let snapshot = Arc::make_mut(&mut self.replay.snapshot);
+        snapshot.linear_memory = memory.clone();
+        for instance in &mut snapshot.arbitration_instances {
+            if instance.instance_index == 0 {
+                for engine_memory in &mut instance.memories {
+                    if engine_memory.memory_index == 0 {
+                        engine_memory.bytes.clone_from(&memory);
+                    }
+                }
+            }
+        }
+        self.arbitration.engine_state = crate::execute::arbitration_engine_state_bytes(snapshot)
+            .map_err(|_| ReplayWitnessError::Binding)?;
+        Ok(())
+    }
+
     pub fn reencode_untrusted(&self, maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
         bounded(&[], maximum)?;
+        if crate::replay_record::ReplayRecordHeader::from_boundary(
+            &self.arbitration,
+            &self.semantic_bytes,
+            maximum,
+        )? != self.header
+        {
+            return Err(ReplayWitnessError::Binding);
+        }
         let mut bytes = crate::replay_record::captured_leaf_bytes(
             &self.replay,
             &self.arbitration,
             &self.semantic_bytes,
+            &self.memory,
             maximum,
         )?;
         match &self.trap {
@@ -656,16 +674,17 @@ pub fn decode_record(
     bounded(bytes, maximum)?;
     let mut cursor = ReplayCursor::new(bytes);
     if cursor.take(PROGRAM_REPLAY_RECORD_DOMAIN.len())? != PROGRAM_REPLAY_RECORD_DOMAIN
-        || cursor.u16()? != 1
+        || cursor.u16()? != 2
     {
         return Err(ReplayWitnessError::Encoding);
     }
-    let code_hash = cursor.array()?;
-    let input_digest = cursor.array()?;
-    let runtime_version = cursor.u16()?;
-    let abi_version = cursor.u16()?;
-    let fee_schedule_version = cursor.u32()?;
-    let metering_schedule_version = cursor.u32()?;
+    let header = crate::replay_record::ReplayRecordHeader::decode(cursor.field()?, maximum)?;
+    let code_hash = header.identity.module_code_hash;
+    let input_digest = header.identity.input_digest;
+    let runtime_version = header.identity.runtime_version;
+    let abi_version = header.identity.abi_version;
+    let fee_schedule_version = header.identity.fee_schedule_version;
+    let metering_schedule_version = header.identity.metering_schedule_version;
     let profile = ProgramReplayProfile::new(cursor.u32()?, cursor.u32()?)?;
     if bytes.len() > profile.maximum_bytes() as usize {
         return Err(ReplayWitnessError::Bounds);
@@ -679,8 +698,13 @@ pub fn decode_record(
         return Err(ReplayWitnessError::Binding);
     }
     let mut cursor = ReplayCursor::new(witness);
-    if cursor.take(PROGRAM_REPLAY_WITNESS_DOMAIN.len())? != PROGRAM_REPLAY_WITNESS_DOMAIN
-        || cursor.u32()? != boundary_count
+    if cursor.take(PROGRAM_REPLAY_WITNESS_DOMAIN.len())? != PROGRAM_REPLAY_WITNESS_DOMAIN {
+        return Err(ReplayWitnessError::Encoding);
+    }
+    if cursor.array::<32>()? != header.digest()? {
+        return Err(ReplayWitnessError::Binding);
+    }
+    if cursor.u32()? != boundary_count
         || boundary_count == 0
         || boundary_count > profile.maximum_boundaries()
     {
@@ -715,6 +739,7 @@ pub fn decode_record(
         metering_schedule_version,
         terminal_status,
         record_leaves,
+        header,
     )?;
     if record.boundary_root() != boundary_root || record.canonical_bytes() != bytes {
         return Err(ReplayWitnessError::Binding);

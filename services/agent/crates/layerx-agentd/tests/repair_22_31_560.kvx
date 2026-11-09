@@ -1,0 +1,262 @@
+[meta]
+task = "22.31.560"
+requirement = "22998.1"
+basis = "Gotcha 3192 and decision 2634."
+
+[identifier]
+definition = "prepare/expiry.rs::DurablePreparation::native_identifier computes SHA-256 of Eip1559Call::encode_unsigned; DurablePreparation::store_key retains its existing tenant, Configuration kind and prepare/record/<32 bytes> shape."
+producer = "human_runtime.rs::native_send_preview and native_send_owner_preview_on_surface publish that identifier as purpose.preparation_id and canonical_digest."
+cache = "human_runtime.rs::prepare_gated keys the prepared entry and SigningPreparation::retain by the same identifier; rpc_prepare_native, rpc_prepare_native_effect and rpc_prepare_native_send already select that cache key and DurablePreparation::store_key using the signed purpose identifier."
+restore = "restore_native_cache and restore_native_effect_cache refuse a retained signing transaction whose unsigned call digest differs from the requested identifier before populating the cache."
+submit = "submit_external_with_origin uses the submitted preparation_ref for both durable lookups instead of recomputing the authorization-envelope digest."
+response = "rpc_prepare_native_send returns the unsigned call and its signing hash, matching the owner preview."
+binding = "capability/binding.rs::verify_native_owner_send_purpose and inspect_native_send_capability use the shared call identifier. verify_native_owner_purpose restores the retained signing inputs at that identifier, checks their exact relationship to the authorization envelope and binds the V1 purpose to the call digest. NativePreparationBindingV1 separately retains the verified envelope digest for subsequent authorization checks."
+tenant = "prepare_gated takes the storage tenant from the authenticated gate principal; its cache key, SigningPreparation::retain and authorization-reference key use that tenant. Native RPC cache selection and restore use the same principal tenant. verify_native_owner_purpose restores with the verified owner tenant, which native_purpose_owner derives from that principal and verifies against the session tenant. The transport tenant remains the authority and policy lookup tenant."
+diagnostics = "prepare_gated reports the originating signing retention and authorization-reference put_local errors; verify_native_owner_purpose reports the SigningPreparation::restore error before mapping it to BindingError::Corrupt; BindingError::owner_error reports the binding error when mapping to Unavailable."
+
+[envelope_consumer]
+name = "human_runtime.rs::rpc_native_disclosure consumes the envelope bytes returned beside preparation_id by rpc_prepare_native and rpc_prepare_native_effect, deriving their envelope digest."
+reference = "prepare_gated retains a prepare/authorization-reference/<envelope digest> index to the single call preparation identifier; rpc_native_disclosure resolves this index before every held-preparation lookup and still compares and returns the exact canonical envelope bytes beside the identifier. The envelope digest remains derivable from these unchanged envelope bytes; no second preparation record or signing record is created under it."
+
+[proof]
+fixture = "repair_22_31_560.rs includes the existing native_send_preview_evm.rs loopback Anvil, authenticated authority and runtime-clock fixture; Anvil is selected by LAYERX_TEST_ANVIL or anvil on PATH. No remote endpoint or credential is required."
+producer_transport = "owner_preview_over_unix drives AcceptedTransport and serve_one over UnixStream, decodes the production owner preview and signs its actual NativeSendPurposeV2. prepare_rpc sends the complete V2 request through handle_rpc with a distinct outer idempotency key on each call."
+first_prepare = "native_send_first_prepare_and_reopened_prepare_match_owner_preview requires status 200 and exact equality of preview preparation_id, unsigned canonical bytes and signing preimage; assert_durable reads DurablePreparation::store_key and SigningPreparation::restore under that same identifier."
+restart = "reopen_daemon closes the Store instance, reopens its original directory and constructs a fresh ProductionHumanOperations and UnifiedAgentOwner with restored sessions; the second handle_rpc Prepare uses the same purpose and a fresh outer idempotency key so RPC idempotency cannot bypass durable preparation recovery."
+tenant = "assert_durable checks the authorization reference, signing inputs and durable preparation under the credential's principal tenant before and after reopen, asserts that tenant differs from the fixture's transport tenant and requires all three records to be absent under the transport tenant."
+refusal = "native_send_prepare_refuses_a_different_signed_preparation_identifier changes both preparation_id and canonical_digest and signs the changed purpose with the real owner key; handle_rpc must answer 403 owner.refused."
+unchanged_assertions = "The included native_send_preview_is_an_unsigned_ledger_transfer_call test retains all its existing assertions."
+
+[interface_constraints]
+legacy_carriers = "approval/native_program.rs::NativeProgramApprovalCarrier::bind and approval/native_effect.rs::NativeEffectApprovalCarrier::bind independently require reservation.id to equal SHA-256 of the authorization-envelope bytes; their read and validation paths require the same envelope identifier. These files are outside this task's allowed scope; their checks are not relaxed or bypassed."
+fixture_authority = "The named preview fixture serves preview and EVM preparation reads; native RPC admission additionally requests committed capability, receipt-key and authenticated rate-usage evidence. No proof, authority, approval carrier or reservation is fabricated by this repair test."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The candidate revision on the final matching build and verify ledger entries is the verified revision, only if both entries pass."
+build = "The command, exit and log fields of the build entry produced by hf-build are authoritative."
+verify = "The command, exit and log fields of the verify entry produced by hf-done are authoritative; hf-done invokes cg spec done 22.31.560 -f layerx-merge --root TASK_ROOT with the declared cargo test and graph checks."
+policy = "This record precedes the gates and asserts no gate outcome. Do not amend files after the final gates. Unrelated or missing-interface failures are reported with the exact private evidence reference."
+
+[first_gate_observation]
+revision = "ae1d4f2289a8428f7b543c18feffdfaacfd182d1"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The genuine first Prepare answers 503 owner.unavailable instead of the required 200; the held fixture mutex is then poisoned by that assertion."
+repair = "The test harness resumes every caught assertion panic only after releasing its fixture mutex, so the other unchanged assertions execute independently; the first case additionally verifies the production signing record under the preview identifier before requiring 200. The installed Anvil command points directly to the binary so fixture shutdown reaps its actual child."
+
+[continue_environment_repair]
+revision = "e63f630bffcfacf264f28f958c122e9df8d17e1f"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build and all 15 dependent-crate checks passed; verification could not start the loopback EVM fixture because anvil was absent from this fresh sandbox, producing OS error 2 at native_send_preview_evm.rs:161."
+repair = "Install the real @foundry-rs/anvil 1.7.1 fixture binary on PATH; keep every test and assertion, rerun hf-build and hf-done at the resulting candidate, and resolve the final evidence through qualification.ledger."
+
+[receipt_key_peer]
+basis = "Attempt 3, gotcha 3238: the loopback EVM node does not implement px_getReceiptKeys."
+implementation = "repair_22_31_560.rs::fixture_with_receipt_keys adds a loopback chain peer in front of the existing fixture peer, holds a real Ed25519 signing key and serves one nonzero SHA-256 keyId with its valid publicKey, firstHeight 1 and lastHeight HEAD + 1000. decode_receipt_keys validates the response and assertions bind the decoded key and range; all EVM calls still reach the original peer and real Anvil."
+startup = "The fixture runtime is reconstructed with that peer before the owner preview; reopen_daemon uses separate clock and key directories on every reconstruction. The later store close/reopen and all first and second Prepare equality assertions remain mandatory."
+diagnostic = "The chain peer prints any upstream JSON-RPC error with its originating request. Production budget_read_parts already prints receipt key and chain-id read errors into the private verify log. A first Prepare 503 is retained as a failing assertion with its daemon diagnostic in that log."
+evidence = "Resolve final build, dependent-crate and verify revision, command, exit and private log through /out/run/gates.jsonl; this record asserts no unrun gate."
+
+[attempt_3_first_gate]
+revision = "30c4add5c2dbb06309e2e33ac9241c6b6b914dd3"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The key peer rejected its own unprefixed hex as Malformed, and the daemon printed layerx-agentd: preparation receipt key read failed: Unavailable before first Prepare answered 503; joining that panicked peer during assertion cleanup aborted the test."
+repair = "Use the sequencer decoder's required 0x-prefixed fixed hex fields and validate the complete key response before spawning the peer. Every original test and assertion is retained; final gate results remain referenced through qualification.ledger."
+
+[authority_prepare_peer]
+basis = "Attempt 4, gotcha 3243: the shared authority peer must serve the balance-context read made by genuine Prepare."
+balance = "native_send_preview_evm.rs::authority_peer serves the same balance-context document fields as human_approval_budget_actor.rs and repair_22_31_562.rs, binding account_id to the fixture subject account and asset_id to its asset. Its sequencer key, SHA-256 identifier and height range match fixture_with_receipt_keys, which holds the matching real signing key."
+routes = "Both initial and reopened runtimes use authority_peer. Registry, subject-context and identity retain their existing documents; balance-context supports budget_read_parts. The native send Prepare code requests no other authority route directly; all unknown routes still panic so additional required reads fail visibly."
+cleanup = "Peer::drop reports the original worker panic payload and resumes it when no panic is active; during an assertion unwind it reports without starting a second panic. No assertion or unknown-route check is removed."
+production = "The attempt-3 production tree and all mandatory first Prepare, durable lookup, reopened Prepare and wrong-identifier assertions remain intact."
+evidence = "The final build and dependent-crate check and hf-done results, including their matching candidate revision, commands, exits and private logs, are referenced through qualification.ledger; no gate outcome is asserted before it runs."
+
+[committed_checkpoint_peer]
+basis = "Attempt 5, gotcha 3252: verify_direct_node_readiness requires the signed committed checkpoint at the EVM fixture head."
+implementation = "fixture_with_receipt_keys serves px_getCommit and px_getValidators at HEAD 64 from support/human_budget_checkpoint.json, requiring the exact requested height. decode_validators and verify_commit_material under ChainProofVerifier chain id 125 authenticate the recorded signedHeader before starting the peer; assertions require chain 125 and height HEAD."
+block = "The real Anvil node mines HEAD blocks. For eth_getBlockByNumber at HEAD or latest, the peer forwards to that node, requires its block number to equal HEAD, and binds hash, stateRoot and timestamp to VerifiedChainHead::header_hash, app_hash and time_ms in seconds. All other EVM reads retain the real node result and every upstream RPC refusal is printed."
+production = "The attempt-4 production changes and every first Prepare, durable retention, reopened Prepare and wrong-identifier assertion remain intact."
+evidence = "qualification.ledger references the final matching hf-build and hf-done entries for their candidate revision, command, exit and private log. This record precedes qualification; no gate outcome is asserted before execution and no file is amended after the final gates."
+
+[attempt_5_committed_binding_repair]
+revision = "7789c270f8e48aa3a8ff58d6c1987c7fcd5e4dc5"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 15 dependent-crate checks pass; the signed checkpoint succeeds, then the genuine first Prepare answers 503 owner.unavailable because CommittedReads::inventory calls getEvmAddrByLayerX at height 0x40 and the preview-only chain peer asserts the pending tag."
+repair = "The outer Prepare peer adds the committed getEvmAddrByLayerX read at exactly HEAD using the same verified SignedBinding as the preview peer, requiring the exact selector and owner public key. The original peer's pending-tag assertion remains unchanged. Committed proof requests and every upstream refusal are logged; no witness, proof or approval carrier is fabricated. The final matching build and verify results remain referenced through qualification.ledger."
+
+[committed_inventory_peer]
+basis = "Attempt 6, gotcha 3261: the first Prepare must read the complete committed identity and asset inventory at HEAD."
+implementation = "committed_native_send_calls binds getEvmAddrByLayerX, getUnifiedAccount and getLayerXDid to the fixture's verified SignedBinding, owner DID and main account, using the exact ABI words and dynamic DID layout consumed by read/committed.rs::inventory. The ledger serves getAsset metadata for upax, accountId, accountOwner, balanceOf and nextSequence for the same owner, fee asset and source sequence."
+budget = "The peer also serves getBudget, budgetRemaining and the budget account balance using the production ProtocolBudgetRecord and ProtocolBudgetState codecs with tests/vectors/native-budget-records.json, the same record as human_approval_budget_actor.rs. Its owner and asset are bound to this fixture; the other values are retained. support/human_budget_checkpoint.json supplies the signed checkpoint and validators, and contains no budget call values."
+dispatch = "Answers require the pinned HEAD, destination and full calldata. A known destination and selector with different arguments panics; every other request is forwarded to the configured loopback node, and any upstream refusal prints the exact request and response. Pending binding, fee denomination, gas and nonce reads retain the existing real Anvil path."
+scope = "Only the test peer, test runtime configuration, shared fixture environment cleanup and this task record are amended in attempt 6; the attempt-5 production tree and every test assertion remain intact."
+environment = "The fresh sandbox lacks anvil on PATH; the real @foundry-rs/anvil 1.7.1 binary is installed outside the repository and linked onto PATH for the unchanged loopback node fixture. No credential or live endpoint is required."
+evidence = "qualification.ledger references the final hf-build and hf-done records for the exact candidate revision, command, exit code and private evidence path; a successful qualification requires matching build and verify revisions. This record precedes the gates and asserts no unrun outcome."
+
+[attempt_6_first_gate]
+revision = "5270978d2a7c16f386d28c6ec2254d48e69a705d"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 15 dependent-crate checks pass; two tests pass, and the first Prepare now answers 403 owner.refused instead of 200 after the committed inventory peer is extended."
+repair = "reopen_daemon loads a protected native effect policy for bootstrap-service with exact operation, transfer, fee and purpose bounds, and independently pins ExportTrustSource to the loopback receipt key and verified checkpoint validators. The native RPC requires both deployment configurations and the earlier fixture installed neither; its Comet endpoint is now the loopback chain peer and the shared fixture restores the previous environment on drop. Successful committed selectors and every upstream refusal are printed to the private verify log, with no proof or history fabricated. Final evidence remains qualification.ledger."
+
+[remaining_interface_constraints]
+history = "authenticated_native_policy_usage requires independently trusted complete committed history through policy_history::read_policy_history_from_sources, including native Comet results and successor commits; missing node methods remain visible failures and are never replaced with unproven empty history."
+carrier = "The existing interface_constraints.legacy_carriers finding remains: NativeEffectApprovalCarrier::bind and its validation require the envelope digest as reservation.id; these out-of-scope checks are preserved."
+
+[attempt_7_refusal_trace]
+basis = "Gotcha 3271: instrument the attempt-6 production tree before changing the fixture."
+command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_560 native_send_first_prepare_and_reopened_prepare_match_owner_preview -- --exact --nocapture"
+exit = 101
+log = "/out/logs/attempt-7-refusal-trace.log"
+site = "rpc_prepare_native_send first with_native_preparation, human_runtime.rs:7191: Session(ScopeDenied), before either verify_native_owner_send_purpose or inspect_native_send_capability enters its closure; committed_prepared_caps and fee checks passed."
+input = "session::authenticated_native_scope (session.rs:1368-1370) reads the absent native_scope_key for the credential tenant and session. Fixture::new opens an ordinary prepare session; native_send_owner_preview_on_surface stages and validates the signed local grant but never publishes its updates. prepare_rpc previously sent local_grant null, leaving the required native session scope absent. No committed read, policy row, history item or trust pin caused this refusal."
+repair = "prepare_rpc now serializes the exact NativeLocalGrantConsentV1 used by owner preview, including the capability, session_scope, expiry, owner key and signature. The first and reopened Prepare use that same signed grant and purpose, retaining equal request bodies apart from outer RPC fields. The wrong-identifier case also carries the authentic grant and retains its mandatory owner.refused assertion. The daemon installs the grant through rpc_prepare_native_send's existing with_native_owner_install and stage_native_local_grant path; no store record is injected by the test."
+production = "Every temporary TRACE560 diagnostic was removed by restoring the byte-exact attempt-6 human_runtime.rs before qualification. No production code changes are added in attempt 7."
+environment = "Install the real @foundry-rs/anvil 1.7.1 binary outside the repository and link its native executable onto PATH; the unchanged fixture starts and reaps the real loopback node."
+evidence = "Resolve the final candidate revision, commands, exits and private logs from the matching build, dependents and verify entries in qualification.ledger (/out/run/gates.jsonl). This record precedes those gates and claims no unrun outcome."
+
+[attempt_7_history_gate_repair]
+revision = "2d8815bdef016cb797295ffd268b02de03c76393"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 15 dependent-crate checks pass; two cases pass. The genuine first Prepare now passes native session admission, reaches authenticated_native_policy_usage and refuses because px_getHistory is forwarded to Anvil and returns -32601 Method not found."
+repair = "The peer serves the history page plus complete native block_results and Comet commit responses for the covered ten-second window. native_send_history_commits uses the recorded checkpoint's test validator seed (the same [1;32] as support/record_human_budget_checkpoint.py), app hash, chain and head timestamp. It produces linked signed headers at 63, 64 and 65 with the production CheckpointHeader::block_hash and BlockCommit::vote_sign_bytes encoders; read::checkpoint and layerx_client::rpc::commit::verify_commit_material both verify every signature and hash before serving. The recorded checkpoint's original predecessor and result roots had no captured evidence, so the head is re-signed to bind these actual fixture result sets and their predecessor; no check of the recorded checkpoint is weakened."
+absence = "Before producing the empty native result ranges at 63 and 64, the fixture reads the corresponding blocks from real Anvil and asserts their transactions arrays are empty. Each successor header commits to the production empty-result Merkle root. The consumer authenticates the entire range and predecessor links; an empty index response alone is never accepted as history proof."
+proof = "assert_native_send_policy_history drives read_policy_history_from_sources and time_window with the exact owner, receipt-key trust, validator trust, head 64 and ten-second rate window used by Prepare. It requires first covered height 63, last 64 and zero authenticated activity and success counts before the unchanged first Prepare 200 assertion."
+production = "No production files change in this repair. The prior native-effect carrier envelope-digest interface constraint remains preserved as recorded in interface_constraints and remaining_interface_constraints; no assertion, bound, signature check, scope or approval check is relaxed."
+evidence = "The last matching build, dependents and verify entries in /out/run/gates.jsonl identify the final candidate revision, commands, exits and private logs. This record precedes the repair gates and claims no outcome before execution."
+
+[attempt_8_refusal_site]
+basis = "Gotcha 3278, decision 2688: retain the attempt-7 implementation and assertions; report every explicit native send Prepare refusal through one production diagnostic helper."
+implementation = "rpc_prepare_native_send::refused prints layerx-agentd: native send prepare refused at <site> and returns the same HumanOperationError::Refused. Every explicit Refused mapping and former local refused closure call names its own static site; optional lookup diagnostics are evaluated only on absence. The external rejection remains owner.refused."
+command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_560 native_send_first_prepare_and_reopened_prepare_match_owner_preview -- --exact --nocapture"
+exit = 101
+log = "/out/logs/attempt-8-refusal-trace.log"
+site = "layerx-agentd: native send prepare refused at budget source read; the genuine first Prepare answers 403 owner.refused instead of the mandatory 200 after committed inventory and authenticated history succeed."
+condition = "budget/program_sources.rs::read_native_effect_budget_sources rejects caps.level() < VerificationLevel::STATE_PROVEN as ProgramSourceError::Snapshot before resolving charges. read/committed.rs::CommittedCaps::level unconditionally returns VerificationLevel::CHECKPOINT_FINALISED. layerx-types/src/verify.rs::VerificationLevel::cmp orders that retired level below STATE_PROVEN, independently of the signed checkpoint, state root, inventory, history or any other fixture input."
+disposition = "The fixture cannot honestly satisfy this production condition: changing node responses cannot change CommittedCaps::level. Both production definitions are outside the six allowed paths. Per do_10, stop fixture repair here and preserve every assertion and check; do not substitute a level, bypass budget source admission or fabricate a capability witness. The existing carrier identifier constraint remains recorded separately, without claiming this run reached it."
+evidence = "Final hf-build and hf-done results are referenced by their last build and verify entries in qualification.ledger, /out/run/gates.jsonl, for exact candidate revision, command, exit and private log. This record precedes the final gates, claims no passing outcome and must not be amended afterward."
+
+[attempt_9_committed_level]
+basis = "Gotcha 3285, decision 2694: preserve the attempt-8 identifier alignment, refusal helper, fixture and every assertion."
+implementation = "Both CommittedCaps::level definitions in read/committed.rs return VerificationLevel::COMMITTED; no other code in that file changes. The authenticated committed snapshot can therefore satisfy the existing STATE_PROVEN floor in budget/program_sources.rs without weakening that check."
+diagnostic = "Run hf-done with RUST_TEST_NOCAPTURE=1 so its declared repair_22_31_560 test command executes the first-Prepare case and prints any further refusing site in the private verify log. No separate cargo test invocation precedes the permitted verify gate."
+environment = "Install the real @foundry-rs/anvil 1.7.1 binary outside the repository for the existing loopback EVM fixture; no credential or remote endpoint is required."
+evidence = "The final matching build, dependents and verify entries in /out/run/gates.jsonl identify the exact candidate revision, command, exit and private log. hf-done runs the dependent-crate check and declared verify command with graph checks; qualification requires every entry to pass at the same candidate. This record precedes the gates and asserts no outcome."
+
+[attempt_9_budget_allocation_repair]
+revision = "4392e38d97ea4edaf0d12455d9020407d90ceee9"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+site = "layerx-agentd: native send prepare refused at budget allocations; build and all 15 dependent-crate checks passed, two cases passed and the first Prepare answered 403 instead of the required 200."
+input = "reopen_daemon supplied an enrolment limit with a new random identity on every restart and no protected program denomination. program_allocation_charge_limits requires each matching enrolment's stored asset/source denomination before allocating the resolved native send and fee charges."
+repair = "reopen_daemon uses the same tenant-bound limit configuration across reconstruction, preserving its ceiling, and attaches a protected denomination document through ProductionHumanOperations::attach_program_budget_denominations. It binds the existing upax asset and exact principal account to that limit; UnifiedAgentOwner::new installs it through the production enrolment path. No store record, approval, reservation or authorization is injected and every assertion remains unchanged."
+evidence = "The final matching build, dependents and verify records in qualification.ledger identify the repaired candidate and exact commands, exits and private logs. Any further refusal site is the production helper's native send prepare refused at line in that final verify log, incorporated here by reference; the previously recorded carrier interface constraint remains intact. This record precedes the repair gates and asserts no unrun result."
+
+[attempt_10_rate_binding_diagnostic]
+scope = "do_12 names approval/native_program.rs, but the explicit seven-path SCOPE and runner allowed list exclude it. Preserve that file and every condition; add production diagnostics at rpc_prepare_native_send's existing StagedNativeRateUse::stage error mapping in the allowed human_runtime.rs."
+diagnostic = "The unchanged CarrierError is printed with disclosure binding, envelope/canonical and envelope/preparation digest equalities, actor, empty chain/windows, evidence count and head advance. Each authenticated proof reports actor, through_sequence versus prepared head, observed_core_ms versus constraint time, required and unique window, and common observed batch. The read-only StagedNativeRateAdvance::stage diagnostic reports its original error or remaining pending count without publishing anything."
+proof = "assert_native_send_policy_history additionally requires observed_core_ms and observed_batch_id equal the independently acquired signed checkpoint timestamp and header hash; every existing first Prepare, restart, durable and wrong-identifier assertion remains unchanged."
+constraint = "StagedNativeRateUse::stage computes SHA-256(prepared.canonical_bytes), the authorization envelope, and requires equality to both binding.canonical_digest and binding.preparation_id. verify_native_owner_send_purpose and inspect_native_send_capability require both binding values equal SHA-256(unsigned EVM call). If the diagnostic confirms those two unequal digests, no honest fixture window evidence can satisfy the condition; neither binding is substituted and no check is relaxed."
+evidence = "Run hf-build then RUST_TEST_NOCAPTURE=1 hf-done; resolve their exact candidate revision, command, exit and private log through qualification.ledger. If the digest conflict is confirmed, this is an in-scope implementation blocked by an excluded production interface, not a fixture failure to disguise. This record precedes the final gates and claims no passing result."
+
+
+[attempt_11_production_boundaries]
+basis = "Gotcha 3301, decision 2704: preserve the attempt-10 fixture, identifier alignment and every assertion."
+rate_binding = "capability/binding.rs::NativePreparationBindingV1::envelope_digest exposes the independently verified envelope digest. approval/native_program.rs::StagedNativeRateUse::stage compares SHA-256(prepared.canonical_bytes) with that digest; canonical_digest and preparation_id retain the unsigned EVM call identifier. The actor, chain, window, evidence and pending-use checks remain unchanged."
+envelope_consumer = "PendingNativeUse::encode, native_rate_key and the native program carrier lookups retain the envelope digest as their authorization reference; the record still carries the exact canonical envelope bytes beside that reference. This does not create a second preparation or signing record."
+core_time = "prepare/mod.rs::ProductionCorePreparationBoundary::preparation_state converts the node head timestamp from seconds to milliseconds with checked_mul(1000), returning the existing CoreStateError::Unverified snapshot error on overflow. The fixture's authenticated window already uses checkpoint milliseconds."
+diagnostic = "rpc_prepare_native_send retains its static native rate staging refusal site and removes the verbose digest/window trace and diagnostic-only second staging call. The external refusal and all admission checks are preserved."
+evidence = "The final matching build, dependents and verify entries in qualification.ledger (/out/run/gates.jsonl) record the verified candidate revision, exact commands, exits and private log locations. hf-build runs the declared build; hf-done runs the dependent-crate check, declared repair_22_31_560 tests and graph checks. No result is claimed before execution, and no file is amended after the final gates."
+
+
+[attempt_11_build_repair]
+revision = "1e84d0c569e79658ff32588f2246cc385f40b40d"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The diagnostic cleanup initially matched rpc_prepare_native's earlier rate staging call, whose refusal closure takes no argument and already returns SessionControlError, producing E0057 and E0308."
+repair = "Restore that generic handler's original mapping and anchor the trace removal to rpc_prepare_native_send, preserving its native rate staging refusal helper. Final matching build, dependent-crate and verify evidence remains qualification.ledger; every test and assertion is retained."
+
+
+[attempt_11_fixture_time_repair]
+revision = "4fe987e01733af68de684926830f2b293d30a85d"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 15 dependent-crate checks pass; all three tests refuse at owner preview because Fixture::request still supplies second-based authorization bounds and purpose expiry after the production snapshot is converted to milliseconds."
+repair = "Fixture::request converts the EVM head timestamp with checked_mul(1000) and expresses its existing twenty-second debit expiry and thirty-second authorization, purpose and grant windows in milliseconds; expiry_seconds remains seconds. Every existing assertion and the real signed grant and payload paths remain unchanged. Final gate evidence remains qualification.ledger."
+
+
+[attempt_14_preview_diagnostics]
+basis = "Gotcha 3326, decision 2721: retain the attempt-13 identifier alignment, millisecond snapshot and fixture bounds, durable recovery proof and every assertion."
+fixture = "native_send_preview_evm.rs::Fixture::new passes timestamp_span 30000 to ProductionHumanOperations::new, matching the thirty-second millisecond authorization window built by Fixture::request. Every other fixture value is unchanged."
+diagnostic = "human_runtime.rs::native_send_preview_refused is shared by native_send_owner_preview_on_surface and native_send_preview_authorization. It prints layerx-agentd: native send preview refused at <site> and returns the unchanged HumanOperationError::Refused. Sites distinguish timestamp span, bound outside core time, payload size, nonce, activity, payload hash, owner authority, fee policy, purpose, disclosure binding, session scope, capability, effects and ceilings; delegated Refused errors also name their boundary without changing other error variants. The RPC refusal remains owner.refused."
+evidence = "The final matching build, dependents and verify entries of qualification.ledger (/out/run/gates.jsonl) identify the final candidate revision, exact commands, exits and private logs. hf-build runs the declared build; hf-done runs the dependent-crate check and the declared verify command with graph checks. This record precedes the gates and asserts no unrun outcome; no file is amended after the final gates."
+refusal_site = "If a case still refuses, its exact site is the native send preview refused at or native send prepare refused at line in the final verify entry's private log, incorporated here by reference together with the failing assertion. No production condition or test assertion is relaxed."
+
+
+[attempt_14_reconstructed_span_repair]
+revision = "03ed5ace871d3e1a5475a856f8eab0aaab42dd57"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 15 dependent-crate checks pass; the original preview case passes, while both repair cases refuse in native_send_preview_authorization at timestamp span exceeded before their assertions because repair_22_31_560.rs::reopen_daemon reconstructs ProductionHumanOperations with timestamp_span 30."
+repair = "Apply decision 2721's millisecond unit correction to that reconstruction as well: pass timestamp_span 30000, matching the unchanged thirty-second authorization window and Fixture::new. Preserve all other values and assertions. Final matching build, dependents and verify evidence and any further exact refusal site are incorporated by reference through qualification.ledger and attempt_14_preview_diagnostics.refusal_site; no files are amended after the final gates."
+
+
+[attempt_15_carrier_boundary]
+scope = "The explicit nine-path SCOPE excludes approval/native_effect.rs although do_17 requests editing its bind method. Preserve that file and all checks; diagnose its ordered binding predicates at rpc_prepare_native_send's existing error mapping in the permitted human_runtime.rs."
+diagnostic = "The original NativeEffectError is printed, and the existing refused helper names disclosure binding, origin tenant, generation, session, zero capability, zero purpose commitment, protocol version, programs module, reservation identity, reservation expiry sequence or reservation deadline. Predicates are inspected only after bind fails; no extra clock sample, policy decision, reservation or store update is introduced."
+condition = "NativeEffectApprovalCarrier::bind requires reservation.id equal SHA-256(prepared.canonical_bytes), the authorization-envelope digest; rpc_prepare_native_send's ProgramReservationRequest uses the signed purpose's unsigned-call identifier. The carrier validate and read paths also require the envelope identifier. A fixture cannot make these distinct real canonical objects have the same SHA-256 digest; preserve the check and every assertion."
+evidence = "The exact refusing site and original error are incorporated by reference from the final hf-done verify log in qualification.ledger. Final build, dependent-crate and verify revision, command, exit and private log are the matching entries of /out/run/gates.jsonl. Run only hf-build and hf-done with RUST_TEST_NOCAPTURE=1; the explicit allowed-gates order excludes a separate diagnostic cargo test invocation. No gate outcome is claimed before execution and no files are amended after the final gates."
+
+
+[attempt_15_build_repair]
+revision = "374a4293497596199e3fedb9dcd19d6e8ec9631f"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The new diagnostic used ModuleId without qualifying its module at human_runtime.rs:7489 (E0433); use layerx_types::payload::ModuleId::Programs, preserving every predicate. Final build and verify results remain referenced through qualification.ledger."
+
+
+[attempt_16_carrier_identifier]
+basis = "Gotcha 3334, decision 2726: preserve the attempt-15 tree and every admission predicate and test assertion."
+implementation = "NativeEffectApprovalCarrier::bind accepts preparation_id, compares reservation.id with it and retains it as the carrier preparation reference. The unused local envelope digest is removed. human_runtime.rs passes the ProgramReservationRequest identifier at both effect-carrier bind calls (rpc_prepare_native_effect and rpc_prepare_native_send); its post-error site helper compares the same identifier. The cited third call in rpc_prepare_native binds NativeProgramApprovalCarrier, whose separate envelope invariant is preserved. There are no direct effect-carrier bind unit tests in this checkout; the existing repair integration cases exercise the real carrier."
+diagnostic = "Every refusing bind predicate names its site while preserving the original NativeEffectError. The final validate mapping also names approval carrier validation envelope preparation identity when the unchanged validator requires the call identifier equal SHA-256 of the authorization envelope. The original validator, budget binding, durable read checks and every assertion remain intact."
+evidence = "The final matching build, dependent-crate check and verify entries of qualification.ledger (/out/run/gates.jsonl) supply revision, exact command, exit and private log; all native send prepare refused at lines in the final verify log are incorporated by reference, including the next printed carrier clause if one refuses. Only hf-build and hf-done run: the explicit allowed-gates order supersedes the historical request for a standalone diagnostic test. No outcome is claimed before execution; no files are amended after the final gates."
+
+[attempt_16_local_gotcha]
+observed = "The acceptance criteria are in spec/layerx-merge/spec.kvx; no separate spec/layerx-merge/requirements.kvx exists. The failed read changed no files."
+
+
+[attempt_16_clock_repair]
+revision = "0aa06617dcfed1c5aeee99bfc832109d4132c37d"
+command = "cg spec done 22.31.560 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 15 dependent crates passed; two of three tests passed. First Prepare refused at approval carrier clock reading past bound (line 3094), because the runtime clock used current wall time against the recorded checkpoint authorization bound."
+repair = "native_send_preview_evm.rs::clock_peer_at serves the supplied epoch in milliseconds plus monotonic elapsed time; clock_peer retains wall-time initialization for the standalone EVM fixture. repair_22_31_560.rs::reopen_daemon starts the runtime clock at the authenticated checkpoint timestamp, matching the protocol head used by Fixture::request; the same path runs before initial Prepare and after durable reopen. No clock predicate, expiry bound or test assertion changes. Final build, dependent and verify evidence, and any next printed clause, remain incorporated by reference through qualification.ledger and attempt_16_carrier_identifier.evidence; no files change after the final gates."
+
+[attempt_17_carrier_validation]
+basis = "Gotcha 3339: retain the attempt-16 implementation, real daemon recovery proof and every assertion."
+implementation = "approval/native_effect.rs::NativeEffectApprovalCarrier::validate no longer equates the retained preparation identifier with SHA-256 of the canonical authorization envelope. bind keeps the identifier it receives, compares the reservation identity with it, and reports validation failures at approval carrier validation with the original NativeEffectError. No preparation identifier is derived from the envelope in this carrier. Every other validation predicate remains, including canonical decoding, authority comparison, disclosure expiry and budget identity."
+evidence = "The final matching build, dependents and verify entries of qualification.ledger (/out/run/gates.jsonl) supply the candidate revision, exact commands, exits and private logs. Only the explicitly allowed hf-build and hf-done gates run; hf-done executes the first-Prepare case within the declared three-case suite and checks the graph and dependent crates. No outcome is claimed before execution and no files are amended after the final gates."
+refusal_site = "Any next native send prepare refused at clause, its originating error and assertion are incorporated by reference from the final hf-done private verify log in qualification.ledger."
+
+[repair_22_39_128_signing_binding]
+basis = "Decision 2846 and gotcha 3518 retain the attempt-2 implementation and finish every source-reader call site."
+implementation = "rpc_prepare_native, rpc_prepare_native_effect and rpc_prepare_native_send pass the cached SigningPreparation of the selected preparation identity into budget source selection. The verifier binds the typed call through those signing inputs while validating the retained wire carrier and owner authority; canonical envelope bytes are not decoded as an unsigned EIP-1559 call."
+evidence = "The final matching hf-build and hf-done entries for task 22.39.128 in /out/run/gates.jsonl name the exact candidate revision, command, exit and private log by reference. Its declared verification executes repair_22_31_217 and human_runtime::retained_settlement_tests; this record does not claim that repair_22_31_560 was executed. No file changes follow the final build/verify pair."

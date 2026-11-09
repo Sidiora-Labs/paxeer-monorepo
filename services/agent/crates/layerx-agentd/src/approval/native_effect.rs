@@ -2,7 +2,7 @@ use crate::budget::ProgramBudgetReservation;
 use crate::human::{HumanPeer, HumanSubject};
 use crate::policy::native_program::NativeLocalOutcome;
 use crate::policy::native_program::{NativeEffectIntent, NativeEffectPolicy};
-use crate::prepare::{PreparationAuthorization, Prepared};
+use crate::prepare::{EvmPrepared, PreparationAuthorization};
 use crate::store::{ObjectKind, StorageClass, Store, TenantId, TenantKey};
 use layerx_crypto::disclosure::{BudgetStateContext, DisclosedNativeOperation, Disclosure};
 use layerx_crypto::evm_transaction::transaction_hash;
@@ -60,7 +60,7 @@ pub struct NativeEffectApprovalCarrier {
     activity_module: u16,
     activity_ordinal: u16,
     canonical_bytes: Vec<u8>,
-    authority: RetainedAuthority,
+    sender: [u8; 20],
     disclosure_digest: [u8; 32],
     fee_asset: [u8; 32],
     fee_state_root: [u8; 32],
@@ -72,7 +72,6 @@ pub struct NativeEffectApprovalCarrier {
     created_at_unix_seconds: u64,
     clock_generation: [u8; 16],
     budget_expiry_sequence: u64,
-    envelope_not_after: u64,
     budget: Vec<u8>,
     policy_source: Vec<u8>,
     requires_approval: bool,
@@ -154,47 +153,11 @@ impl RetainedBudgetContext {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(tag = "kind", content = "bytes")]
-enum RetainedAuthority {
-    Owner(Vec<u8>),
-    SessionKey(Vec<u8>),
-    DelegatedCapability(Vec<u8>),
-    BudgetAllowance(Vec<u8>),
-    Escrow(Vec<u8>),
-    ProtocolModule(Vec<u8>),
-}
-impl RetainedAuthority {
-    fn from_actual(a: &layerx_types::activity::Authority) -> Self {
-        use layerx_types::activity::Authority;
-        let bytes = a.as_bytes().to_vec();
-        match a {
-            Authority::Owner(_) => Self::Owner(bytes),
-            Authority::SessionKey(_) => Self::SessionKey(bytes),
-            Authority::DelegatedCapability(_) => Self::DelegatedCapability(bytes),
-            Authority::BudgetAllowance(_) => Self::BudgetAllowance(bytes),
-            Authority::Escrow(_) => Self::Escrow(bytes),
-            Authority::ProtocolModule(_) => Self::ProtocolModule(bytes),
-        }
-    }
-    fn actual(&self) -> Result<layerx_types::activity::Authority, NativeEffectError> {
-        use layerx_types::activity::Authority;
-        match self {
-            Self::Owner(b) => Authority::owner(b),
-            Self::SessionKey(b) => Authority::session_key(b),
-            Self::DelegatedCapability(b) => Authority::delegated_capability(b),
-            Self::BudgetAllowance(b) => Authority::budget_allowance(b),
-            Self::Escrow(b) => Authority::escrow(b),
-            Self::ProtocolModule(b) => Authority::protocol_module(b),
-        }
-        .map_err(|_| NativeEffectError::Corrupt)
-    }
-}
-
 impl NativeEffectApprovalCarrier {
     pub(crate) fn bind(
         peer: &HumanPeer,
-        prepared: &Prepared,
+        owner: &layerx_types::ids::Did,
+        prepared: &EvmPrepared,
         origin: &PreparationAuthorization,
         capability: crate::capability::CapabilityId,
         purpose_hash: [u8; 32],
@@ -206,42 +169,87 @@ impl NativeEffectApprovalCarrier {
         >,
         profile: crate::capability::NativeAdmissionProfile,
     ) -> Result<Self, NativeEffectError> {
-        crate::prepare::verify_disclosure_binding(prepared)
-            .map_err(|_| NativeEffectError::Binding)?;
-        let tenant = human_tenant(peer)?;
-        let id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
-        if origin.session.tenant != tenant
-            || origin.generation == 0
-            || origin.session.session_id.0 == [0; 32]
-            || capability.0 == [0; 32]
-            || purpose_hash == [0; 32]
-            || prepared.envelope.protocol_version() != 3
-            || prepared.envelope.activity_type().module() == ModuleId::Programs
-            || reservation.id != id
-            || reservation.expiry_sequence <= prepared.observed_head_sequence
-            || reservation.core_deadline.is_none_or(|deadline| {
-                deadline.0 != prepared.envelope.timestamp_bound().not_after()
-            })
-        {
-            return Err(NativeEffectError::Binding);
+        let refused = |site, error| {
+            eprintln!("layerx-agentd: native send prepare refused at {site}");
+            error
+        };
+        crate::prepare::verify_call_binding(prepared).map_err(|_| {
+            refused(
+                "approval carrier disclosure binding",
+                NativeEffectError::Binding,
+            )
+        })?;
+        let preparation_id = Sha256::digest(prepared.call.encode_unsigned()).into();
+        let tenant =
+            human_tenant(peer).map_err(|error| refused("approval carrier tenant", error))?;
+        for (invalid, site) in [
+            (
+                origin.session.tenant != tenant,
+                "approval carrier origin tenant",
+            ),
+            (origin.generation == 0, "approval carrier generation"),
+            (
+                origin.session.session_id.0 == [0; 32],
+                "approval carrier session",
+            ),
+            (capability.0 == [0; 32], "approval carrier zero capability"),
+            (
+                purpose_hash == [0; 32],
+                "approval carrier zero purpose commitment",
+            ),
+            (
+                prepared.disclosure.activity_type.module() == ModuleId::Programs,
+                "approval carrier programs module",
+            ),
+            (
+                reservation.id != preparation_id,
+                "approval carrier reservation identity",
+            ),
+            (
+                reservation.expiry_sequence <= prepared.observed_head_height,
+                "approval carrier reservation expiry sequence",
+            ),
+            (
+                reservation
+                    .core_deadline
+                    .is_none_or(|deadline| deadline.0 != prepared.disclosure.expiry.not_after),
+                "approval carrier reservation deadline",
+            ),
+        ] {
+            if invalid {
+                return Err(refused(site, NativeEffectError::Binding));
+            }
         }
         if let crate::capability::NativeAdmissionProfile::Registration { fee_asset } = profile {
             if fee_asset != fee.value.asset.asset_id {
-                return Err(NativeEffectError::Binding);
+                return Err(refused(
+                    "approval carrier registration fee asset",
+                    NativeEffectError::Binding,
+                ));
             }
         }
-        let intent = NativeEffectIntent::from_prepared(prepared, fee, purpose_hash, profile)
-            .map_err(|_| NativeEffectError::Policy)?;
-        let decision = policy
-            .evaluate_local(&intent)
-            .map_err(|_| NativeEffectError::Policy)?;
+        let intent = NativeEffectIntent::from_prepared(owner, prepared, fee, purpose_hash, profile)
+            .map_err(|_| refused("approval carrier intent", NativeEffectError::Policy))?;
+        let decision = policy.evaluate_local(&intent).map_err(|_| {
+            refused(
+                "approval carrier policy evaluation",
+                NativeEffectError::Policy,
+            )
+        })?;
         let reading = clock
             .sample(std::time::Duration::from_secs(1))
-            .map_err(|_| NativeEffectError::Binding)?;
-        if reading.generation == [0; 16]
-            || reading.unix_milliseconds >= prepared.envelope.timestamp_bound().not_after()
-        {
-            return Err(NativeEffectError::Binding);
+            .map_err(|_| refused("approval carrier clock sample", NativeEffectError::Binding))?;
+        if reading.generation == [0; 16] {
+            return Err(refused(
+                "approval carrier clock generation",
+                NativeEffectError::Binding,
+            ));
+        }
+        if reading.unix_milliseconds >= prepared.disclosure.expiry.not_after {
+            return Err(refused(
+                "approval carrier clock reading past bound",
+                NativeEffectError::Binding,
+            ));
         }
         let context = match &prepared.disclosure.native_operation {
             Some(DisclosedNativeOperation::BudgetFund(v)) => Some(v.context),
@@ -250,35 +258,37 @@ impl NativeEffectApprovalCarrier {
             _ => None,
         };
         let required = decision.outcome == NativeLocalOutcome::ApprovalRequired;
-        let version = if profile.label().is_some() { 2 } else { 1 };
+        let version = 3;
         let result = Self {
             call_bound: None,
             version,
             tenant: peer.tenant.clone(),
             principal: peer.principal.clone(),
-            actor: prepared.envelope.actor_did().as_bytes().to_vec(),
+            actor: owner.as_bytes().to_vec(),
             session: origin.session.session_id.0,
             generation: origin.generation,
-            preparation: id,
-            activity_module: prepared.envelope.activity_type().module() as u16,
-            activity_ordinal: prepared.envelope.activity_type().ordinal(),
-            canonical_bytes: prepared.canonical_bytes.clone(),
-            authority: RetainedAuthority::from_actual(prepared.envelope.authority()),
-            disclosure_digest: prepared.disclosure_digest.0,
+            preparation: preparation_id,
+            activity_module: prepared.disclosure.activity_type.module() as u16,
+            activity_ordinal: prepared.disclosure.activity_type.ordinal(),
+            canonical_bytes: prepared.call.encode_unsigned(),
+            sender: prepared.from,
+            disclosure_digest: prepared.disclosure_digest,
             fee_asset: fee.value.asset.asset_id,
             fee_state_root: fee.state_root,
             fee_observed_sequence: fee.observed_sequence,
             budget_context: context.map(RetainedBudgetContext::from_actual),
             capability: capability.0,
             purpose_hash,
-            created_at_sequence: prepared.observed_head_sequence,
+            created_at_sequence: prepared.observed_head_height,
             created_at_unix_seconds: reading.unix_seconds(),
             clock_generation: reading.generation,
             budget_expiry_sequence: reservation.expiry_sequence,
-            envelope_not_after: prepared.envelope.timestamp_bound().not_after(),
-            budget: reservation
-                .encode()
-                .map_err(|_| NativeEffectError::Budget)?,
+            budget: reservation.encode().map_err(|_| {
+                refused(
+                    "approval carrier budget encoding",
+                    NativeEffectError::Budget,
+                )
+            })?,
             policy_source: policy.source().to_vec(),
             requires_approval: required,
             state: if required {
@@ -290,7 +300,9 @@ impl NativeEffectApprovalCarrier {
             queued_submission: None,
             admission_profile: profile.label().map(str::to_owned),
         };
-        result.validate()?;
+        result
+            .validate()
+            .map_err(|error| refused("approval carrier validation", error))?;
         Ok(result)
     }
 
@@ -308,49 +320,43 @@ impl NativeEffectApprovalCarrier {
         .map_err(|_| NativeEffectError::Corrupt)
     }
     pub(crate) fn disclosure(&self) -> Result<Disclosure, NativeEffectError> {
-        if let Some(call) = &self.call_bound {
-            return call
-                .restore()
-                .map(|prepared| prepared.disclosure)
-                .map_err(|_| NativeEffectError::Binding);
-        }
-        let registry = self.registry()?;
-        let disclosure = match &self.budget_context {
-            Some(c) => layerx_crypto::disclosure::bind_budget_mutation(
-                &self.canonical_bytes,
-                &registry,
-                &c.actual(),
-            ),
-            None => layerx_crypto::disclosure::bind(&self.canonical_bytes, &registry),
-        }
-        .map_err(|_| NativeEffectError::Corrupt)?;
-        disclosure
-            .validate_canonical(&self.canonical_bytes)
-            .map_err(|error| match error {
-                layerx_crypto::disclosure::DisclosureError::FieldMismatch("canonical_bytes") => {
-                    NativeEffectError::Binding
-                }
-                _ => NativeEffectError::Corrupt,
-            })?;
+        let call = layerx_crypto::evm_transaction::decode_unsigned(&self.canonical_bytes)
+            .map_err(|_| NativeEffectError::Corrupt)?;
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, self.sender)
+            .map_err(|_| NativeEffectError::Corrupt)?;
+        let context = match &disclosure.native_operation {
+            Some(DisclosedNativeOperation::BudgetFund(v)) => Some(v.context),
+            Some(DisclosedNativeOperation::BudgetDefund(v)) => Some(v.context),
+            Some(DisclosedNativeOperation::BudgetRevoke(v)) => Some(v.context),
+            _ => None,
+        };
         if disclosure
-            .audit_digest()
+            .signing_digest()
             .map_err(|_| NativeEffectError::Corrupt)?
             != self.disclosure_digest
-            || disclosure.actor != self.actor
+            || disclosure.actor.as_slice() != self.sender
+            || disclosure.activity_type.module() as u16 != self.activity_module
+            || disclosure.activity_type.ordinal() != self.activity_ordinal
+            || context.map(RetainedBudgetContext::from_actual) != self.budget_context
         {
             return Err(NativeEffectError::Binding);
-        };
+        }
         Ok(disclosure)
     }
     fn validate(&self) -> Result<(), NativeEffectError> {
         if super::call_bound::validate(self).map_err(|_| NativeEffectError::Binding)? {
             return Ok(());
         }
+        if self.version != 3 {
+            return Err(NativeEffectError::Corrupt);
+        }
+        layerx_types::ids::Did::new(&self.actor).map_err(|_| NativeEffectError::Corrupt)?;
+        let not_after = self.disclosure()?.expiry.not_after;
         let tenant = TenantId::new(self.tenant.clone()).map_err(|_| NativeEffectError::Corrupt)?;
         let _ = tenant;
         if !matches!(
             (self.version, self.admission_profile.as_deref()),
-            (1, None) | (2, Some(_))
+            (3, None) | (3, Some(crate::capability::NATIVE_REGISTRATION_PROFILE))
         ) || self.principal.is_empty()
             || self.principal.len() > 255
             || self.session == [0; 32]
@@ -363,33 +369,25 @@ impl NativeEffectApprovalCarrier {
             || self.clock_generation == [0; 16]
             || self.canonical_bytes.is_empty()
             || self.canonical_bytes.len() > MAX_CARRIER
-            || self.preparation != <[u8; 32]>::from(Sha256::digest(&self.canonical_bytes))
             || self.created_at_sequence >= self.budget_expiry_sequence
             || self.created_at_unix_seconds == 0
             || self
                 .created_at_unix_seconds
                 .checked_mul(1000)
-                .is_none_or(|time| time >= self.envelope_not_after)
+                .is_none_or(|time| time >= not_after)
         {
             return Err(NativeEffectError::Corrupt);
         }
         let disclosure = self.disclosure()?;
-        let decoded =
-            layerx_wire::activity::decode_unsigned(&self.canonical_bytes, &self.registry()?)
-                .map_err(|_| NativeEffectError::Corrupt)?;
-        if decoded.protocol_version() != 3
-            || self.authority.actual()?.as_bytes() != decoded.authority()
-            || disclosure.expiry.not_after != self.envelope_not_after
-        {
-            return Err(NativeEffectError::Binding);
-        }
+        let decoded = layerx_crypto::evm_transaction::decode_unsigned(&self.canonical_bytes)
+            .map_err(|_| NativeEffectError::Corrupt)?;
         if let crate::capability::NativeAdmissionProfile::Registration { fee_asset } =
             self.profile()?
         {
             let commitment = crate::capability::native_registration_commitment(
                 &disclosure,
-                decoded.protocol_version(),
-                decoded.network_id(),
+                3,
+                u32::try_from(decoded.chain_id).map_err(|_| NativeEffectError::Binding)?,
                 self.preparation,
                 fee_asset,
             )
@@ -404,11 +402,14 @@ impl NativeEffectApprovalCarrier {
             }
         }
         let budget = self.budget()?;
-        if budget.id != self.preparation
+        let owner =
+            layerx_types::ids::Did::new(&self.actor).map_err(|_| NativeEffectError::Corrupt)?;
+        let owner_id = layerx_wire::hash::did_id_for_protocol(&owner, 3)
+            .map_err(|_| NativeEffectError::Corrupt)?;
+        if budget.allocation_actor() != Some(owner_id)
+            || budget.id != self.preparation
             || budget.expiry_sequence != self.budget_expiry_sequence
-            || budget
-                .core_deadline
-                .is_none_or(|time| time.0 != self.envelope_not_after)
+            || budget.core_deadline.is_none_or(|time| time.0 != not_after)
             || budget.encode().map_err(|_| NativeEffectError::Budget)? != self.budget
         {
             return Err(NativeEffectError::Binding);
@@ -511,8 +512,8 @@ impl NativeEffectApprovalCarrier {
         &self,
     ) -> Result<crate::capability::NativeAdmissionProfile, NativeEffectError> {
         match (self.version, self.admission_profile.as_deref()) {
-            (1, None) => Ok(crate::capability::NativeAdmissionProfile::Effect),
-            (2, Some(crate::capability::NATIVE_REGISTRATION_PROFILE)) => {
+            (3, None) => Ok(crate::capability::NativeAdmissionProfile::Effect),
+            (3, Some(crate::capability::NATIVE_REGISTRATION_PROFILE)) => {
                 Ok(crate::capability::NativeAdmissionProfile::Registration {
                     fee_asset: self.fee_asset,
                 })
@@ -550,8 +551,8 @@ impl NativeEffectApprovalCarrier {
     pub(crate) fn created_at_unix_seconds(&self) -> u64 {
         self.created_at_unix_seconds
     }
-    pub(crate) fn activity_expires_at_unix_milliseconds(&self) -> u64 {
-        self.envelope_not_after
+    pub(crate) fn activity_expires_at_unix_milliseconds(&self) -> Result<u64, NativeEffectError> {
+        Ok(self.disclosure()?.expiry.not_after)
     }
     pub(crate) fn submission_ref(&self) -> Option<[u8; 32]> {
         self.queued_submission.as_ref().map(|q| q.submission_id)
@@ -597,7 +598,7 @@ impl NativeEffectApprovalCarrier {
         if durable.preparation_id != id
             || durable.session_id != held.session
             || durable.generation != held.generation
-            || durable.not_after != held.envelope_not_after
+            || durable.not_after != held.disclosure()?.expiry.not_after
             || durable.extensions.get(&6) != Some(&held.budget)
             || durable
                 .extensions
@@ -607,10 +608,11 @@ impl NativeEffectApprovalCarrier {
         {
             return Err(NativeEffectError::Binding);
         }
-        let activity =
-            layerx_wire::activity::decode_unsigned(&held.canonical_bytes, &held.registry()?)
-                .map_err(|_| NativeEffectError::Corrupt)?;
-        if durable.payload_hash != activity.payload_hash() || durable.tenant != *tenant {
+        let call = layerx_crypto::evm_transaction::decode_unsigned(&held.canonical_bytes)
+            .map_err(|_| NativeEffectError::Corrupt)?;
+        if durable.payload_hash != layerx_crypto::evm_transaction::transaction_hash(&call.data)
+            || durable.tenant != *tenant
+        {
             return Err(NativeEffectError::Binding);
         }
         if let Some(queued) = &held.queued_submission {
@@ -674,7 +676,7 @@ impl NativeEffectApprovalCarrier {
         let exact = outbox
             .exact_signed_bytes(queued.submission_id)
             .map_err(|_| NativeEffectError::Corrupt)?;
-        let signed = layerx_wire::activity::decode_signed(exact, &self.registry()?)
+        let signed = layerx_wire::historical::activity::decode_signed(exact, &self.registry()?)
             .map_err(|_| NativeEffectError::Corrupt)?;
         if origin.session.tenant != tenant
             || origin.session.session_id.0 != self.session
@@ -687,13 +689,14 @@ impl NativeEffectApprovalCarrier {
                 crate::outbox::SubmissionState::Prepared | crate::outbox::SubmissionState::Signed
             )
             || Sha256::digest(exact).as_slice() != queued.signed_digest.as_slice()
-            || layerx_wire::activity::encode_signed(&signed)
+            || layerx_wire::historical::activity::encode_signed(&signed)
                 .map_err(|_| NativeEffectError::Corrupt)?
                 != exact
-            || layerx_wire::activity::encode_unsigned(&signed)
+            || layerx_wire::historical::activity::encode_unsigned(&signed)
                 .map_err(|_| NativeEffectError::Corrupt)?
                 != self.canonical_bytes
-            || layerx_wire::hash::activity_id(&signed).map_err(|_| NativeEffectError::Corrupt)?
+            || layerx_wire::historical::hash::activity_id(&signed)
+                .map_err(|_| NativeEffectError::Corrupt)?
                 != queued.activity_id
             || durable
                 .extensions
@@ -902,7 +905,8 @@ impl NativeEffectApprovalCarrier {
         if self.state != NativeEffectApprovalState::Awaiting || !self.requires_approval {
             return Err(NativeEffectError::Binding);
         }
-        let expired = sequence >= self.budget_expiry_sequence || core_ms >= self.envelope_not_after;
+        let expired = sequence >= self.budget_expiry_sequence
+            || core_ms >= self.disclosure()?.expiry.not_after;
         let mut result = self.clone();
         result.state = if expired {
             NativeEffectApprovalState::Expired
@@ -946,7 +950,7 @@ impl NativeEffectApprovalCarrier {
             )
             || observation.through_sequence() < self.created_at_sequence
             || (observation.through_sequence() < self.budget_expiry_sequence
-                && observation.observed_core_ms() < self.envelope_not_after)
+                && observation.observed_core_ms() < self.disclosure()?.expiry.not_after)
         {
             return Err(NativeEffectError::Binding);
         }
@@ -1002,7 +1006,7 @@ impl NativeEffectApprovalCarrier {
     pub(crate) fn authorize_human_submit(
         &self,
         peer: &HumanPeer,
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         origin: &PreparationAuthorization,
         submission_ref: Option<[u8; 32]>,
         sequence: u64,
@@ -1013,11 +1017,11 @@ impl NativeEffectApprovalCarrier {
             || origin.session.tenant.as_str() != self.tenant
             || origin.session.session_id.0 != self.session
             || origin.generation != self.generation
-            || prepared.canonical_bytes != self.canonical_bytes
-            || prepared.disclosure_digest.0 != self.disclosure_digest
+            || prepared.call.encode_unsigned() != self.canonical_bytes
+            || prepared.disclosure_digest != self.disclosure_digest
             || sequence < self.created_at_sequence
             || sequence >= self.budget_expiry_sequence
-            || core_ms >= self.envelope_not_after
+            || core_ms >= self.disclosure()?.expiry.not_after
             || !matches!(
                 self.state,
                 NativeEffectApprovalState::Granted | NativeEffectApprovalState::NotRequired
@@ -1073,7 +1077,7 @@ impl NativeEffectApprovalCarrier {
     pub(crate) fn authorize_submit(
         &self,
         context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         release_ref: Option<[u8; 32]>,
         sequence: u64,
         core_ms: u64,
@@ -1108,68 +1112,21 @@ impl NativeEffectApprovalCarrier {
     pub(crate) fn restore_prepared(
         &self,
         registry: &ModuleRegistry,
-    ) -> Result<Prepared, NativeEffectError> {
-        if self.call_bound.is_some() {
-            return Err(NativeEffectError::Binding);
-        }
-        use layerx_types::activity::{EnvelopeBuilder, TimestampBound};
-        use layerx_types::amount::Amount;
-        use layerx_types::ids::{Did, IdempotencyKey};
-        use layerx_types::payload::Payload;
-        let a = layerx_wire::activity::decode_unsigned(&self.canonical_bytes, registry)
+    ) -> Result<EvmPrepared, NativeEffectError> {
+        let _ = registry;
+        let call = layerx_crypto::evm_transaction::decode_unsigned(&self.canonical_bytes)
             .map_err(|_| NativeEffectError::Corrupt)?;
-        let payload = Payload::new(registry, a.activity_type(), a.payload())
-            .map_err(|_| NativeEffectError::Corrupt)?;
-        let hash = layerx_wire::hash::payload_hash_for(&payload)
-            .map_err(|_| NativeEffectError::Corrupt)?;
-        if hash != a.payload_hash() {
-            return Err(NativeEffectError::Binding);
-        }
-        let actor = Did::new(a.actor_did()).map_err(|_| NativeEffectError::Corrupt)?;
-        let authority = self.authority.actual()?;
-        let bound = TimestampBound::new(
-            a.timestamp_bound().not_before,
-            a.timestamp_bound().not_after,
-        )
-        .map_err(|_| NativeEffectError::Corrupt)?;
-        let mut b = EnvelopeBuilder::new();
-        b.protocol_version(a.protocol_version())
-            .and_then(|b| b.network_id(a.network_id()))
-            .and_then(|b| b.activity_type(a.activity_type()))
-            .and_then(|b| b.actor_did(actor))
-            .and_then(|b| b.authority(authority))
-            .and_then(|b| b.account_sequence(a.account_sequence()))
-            .and_then(|b| b.timestamp_bound(bound))
-            .and_then(|b| b.idempotency_key(IdempotencyKey::new(a.idempotency_key())))
-            .and_then(|b| b.fee_limit(Amount::from_u128(a.fee_limit())))
-            .and_then(|b| b.payload_hash(hash))
-            .and_then(|b| b.payload(payload))
-            .map_err(|_| NativeEffectError::Corrupt)?;
-        let envelope = b.build().map_err(|_| NativeEffectError::Corrupt)?;
-        if layerx_wire::activity::encode_unsigned_envelope(&envelope)
-            .map_err(|_| NativeEffectError::Corrupt)?
-            != self.canonical_bytes
-        {
-            return Err(NativeEffectError::Binding);
-        }
-        let signing_preimage = *layerx_wire::sign::preimage_unsigned(&envelope)
-            .map_err(|_| NativeEffectError::Corrupt)?
-            .as_bytes();
         let disclosure = self.disclosure()?;
-        let disclosure_digest = crate::prepare::DisclosureDigest(self.disclosure_digest);
-        Ok(Prepared {
-            envelope,
-            canonical_bytes: self.canonical_bytes.clone(),
-            signing_preimage,
-            observed_head_sequence: self.created_at_sequence,
+        let prepared = EvmPrepared {
+            signing_hash: call.signing_hash(),
+            call,
+            from: self.sender,
             disclosure,
-            disclosure_digest,
-            audit: crate::prepare::PreparationAuditEntry {
-                idempotency_key: a.idempotency_key(),
-                observed_head_sequence: self.created_at_sequence,
-                disclosure_digest,
-            },
-        })
+            disclosure_digest: self.disclosure_digest,
+            observed_head_height: self.created_at_sequence,
+        };
+        verify_call_binding(&prepared).map_err(|_| NativeEffectError::Binding)?;
+        Ok(prepared)
     }
 }
 fn human_tenant(peer: &HumanPeer) -> Result<TenantId, NativeEffectError> {
@@ -1260,14 +1217,14 @@ impl super::call_bound::CallCarrier for NativeEffectApprovalCarrier {
             version: 3,
             tenant: call.tenant.clone(),
             principal: call.principal.clone(),
-            actor: prepared.disclosure.actor.clone(),
+            actor: call.owner_did.as_bytes().to_vec(),
             session: call.session,
             generation: call.generation,
             preparation: call.preparation,
             activity_module: prepared.disclosure.activity_type.module() as u16,
             activity_ordinal: prepared.disclosure.activity_type.ordinal(),
             canonical_bytes: call.canonical_bytes.clone(),
-            authority: RetainedAuthority::Owner(call.sender.to_vec()),
+            sender: call.sender,
             disclosure_digest: call.disclosure_digest,
             fee_asset: budget
                 .charges
@@ -1284,7 +1241,6 @@ impl super::call_bound::CallCarrier for NativeEffectApprovalCarrier {
             created_at_unix_seconds: call.admitted_at_ms / 1000,
             clock_generation: [0; 16],
             budget_expiry_sequence: budget.expiry_sequence,
-            envelope_not_after: call.deadline()?,
             budget: call.budget.clone(),
             policy_source: Vec::new(),
             requires_approval: true,
@@ -1317,3 +1273,9 @@ impl super::call_bound::CallCarrier for NativeEffectApprovalCarrier {
     }
 }
 super::call_bound::impl_call_approval!(NativeEffectApprovalCarrier);
+
+fn verify_call_binding(
+    prepared: &EvmPrepared,
+) -> Result<(), crate::prepare::evm::CallBindingError> {
+    crate::prepare::verify_call_binding(prepared)
+}

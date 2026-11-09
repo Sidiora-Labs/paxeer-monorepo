@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+from dataclasses import replace
 import io
 import json
 import os
@@ -364,13 +365,35 @@ class ConfidenceTests(unittest.TestCase):
 
     def test_choice_confidence_falls_back_to_the_reported_confidence(self) -> None:
         accepted = parse_answer(
-            "q", {"type": "choice", "choice": "consistent", "confidence": 0.64}
+            "q",
+            {
+                "type": "choice",
+                "choice": "consistent",
+                "confidence": 0.64,
+                "probabilities": {"consistent": 0.64, "overclaims": 0.36},
+            },
         )
         rejected = parse_answer(
-            "q", {"type": "choice", "choice": "overclaims", "confidence": 0.64}
+            "q",
+            {
+                "type": "choice",
+                "choice": "overclaims",
+                "confidence": 0.64,
+                "probabilities": {"consistent": 0.36, "overclaims": 0.64},
+            },
         )
         self.assertAlmostEqual(pr.choice_confidence(accepted, pr.ACCEPTED_HONESTY), 0.64)
         self.assertAlmostEqual(pr.choice_confidence(rejected, pr.ACCEPTED_HONESTY), 0.36)
+        self.assertAlmostEqual(
+            pr.choice_confidence(replace(accepted, probabilities={}), pr.ACCEPTED_HONESTY),
+            0.64,
+        )
+        self.assertAlmostEqual(
+            pr.choice_confidence(replace(rejected, probabilities={}), pr.ACCEPTED_HONESTY),
+            0.36,
+        )
+        with self.assertRaisesRegex(JevRequestError, "has no probability distribution"):
+            parse_answer("q", {"type": "choice", "choice": "consistent", "confidence": 0.64})
 
 
 class BodyFindingTests(unittest.TestCase):

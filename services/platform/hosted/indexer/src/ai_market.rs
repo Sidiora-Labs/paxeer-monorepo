@@ -60,8 +60,8 @@ pub const EPOCH_HEADERS_MAX: u64 = 4_096;
 pub const WORKER_ROWS_MAX: usize = 32;
 /// Frozen evaluator rows per market.
 pub const EVALUATOR_ROWS_MAX: usize = 8;
-/// Feature availability entries, F01..F10.
-pub const FEATURES: usize = 10;
+/// Feature availability entries, F01..F11.
+pub const FEATURES: usize = 11;
 /// `ai_event_tag` of the finalized snapshot fact in the existing program event family.
 pub const SNAPSHOT_EVENT_TAG: u16 = 0x0A10;
 /// Default authenticated query rate per principal.
@@ -1612,6 +1612,18 @@ impl ProjectionStore {
         let state = load_state(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         if record.read != ReadVerification::SequencerSigned {
             return Err(ViewError::BindingMismatch);
+        }
+        if proof.header.chain_id != authority.chain_id {
+            let verified = verify_block_commit(proof, authority)
+                .map_err(|_| ViewError::FinalityUnavailable)?;
+            let error = ViewError::WrongDomain;
+            record_alert(
+                &conn,
+                record.market.as_bytes(),
+                &verified.block_hash,
+                &error,
+            )?;
+            return Err(error);
         }
         let authenticated =
             verify_program_state(proof, authority, record.chain, record.program, &state)

@@ -4,7 +4,7 @@ import React from 'react';
 
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, within } from 'vitest/lib';
+import { screen } from 'vitest/lib';
 
 vi.hoisted(() => {
   window.__envs = {
@@ -34,20 +34,20 @@ describe('NavigationDesktop', () => {
     routerState.query = {};
   });
 
-  it('carries the network mark and the menu in one row', () => {
+  it('carries the three navigation buttons in one row', () => {
     const { container } = render(<NavigationDesktop/>);
 
-    const row = container.querySelector('[data-label="brand-row"]');
+    const row = container.querySelector('nav');
 
     expect(row).toBeTruthy();
-    expect(row?.querySelector('svg')).toBeTruthy();
-    expect(within(row as HTMLElement).getByLabelText('Main navigation')).toBeTruthy();
+    expect(row?.querySelectorAll('button')).toHaveLength(3);
+    expect(row?.getAttribute('aria-label')).toBe('Main navigation');
   });
 
   it('groups the menu the way the scan layout orders it', () => {
     render(<NavigationDesktop/>);
 
-    expect(menuTexts()).toEqual([ 'Home', 'Blockchain', 'Tokens', 'Resources', 'API', 'More' ]);
+    expect(menuTexts()).toEqual([ 'Explore', 'Network', 'Developers' ]);
   });
 
   it('marks the group the current page belongs to', () => {
@@ -58,7 +58,7 @@ describe('NavigationDesktop', () => {
     const groups = Array.from(container.querySelectorAll('[data-label="nav-group"]'));
     const selected = groups.filter((group) => group.hasAttribute('data-selected'));
 
-    expect(selected.map((group) => group.textContent?.trim())).toEqual([ 'Blockchain' ]);
+    expect(selected.map((group) => group.textContent?.trim())).toEqual([ 'Explore' ]);
   });
 
   it('leaves the sign in out while the account feature is off', () => {

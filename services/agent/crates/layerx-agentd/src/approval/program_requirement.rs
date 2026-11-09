@@ -5,7 +5,7 @@ use crate::agent_rpc_peer::RpcOwnerContext;
 use crate::approval::ApprovalSubmissionQueue;
 use crate::policy::approval::{ApprovalSnapshot, ApprovalState};
 use crate::policy::{DecisionReason, EvaluationInput, Outcome, PolicySnapshot};
-use crate::prepare::{DurablePreparation, Prepared};
+use crate::prepare::{DurablePreparation, EvmPrepared};
 use crate::store::{ObjectKind, StorageClass, Store, TenantId, TenantKey};
 
 const PREFIX: &[u8] = b"program-required-approval-v1:";
@@ -43,7 +43,10 @@ struct Binding {
 #[serde(tag = "kind", deny_unknown_fields)]
 enum Requirement {
     NotRequired,
-    Required { approval_id: [u8; 32], expires_at: u64 },
+    Required {
+        approval_id: [u8; 32],
+        expires_at: u64,
+    },
     Denied,
 }
 
@@ -104,7 +107,8 @@ fn key(tenant: &TenantId, preparation: [u8; 32]) -> Result<TenantKey, Refusal> {
     .map_err(|_| Refusal::Corrupt)
 }
 
-fn binding(context: &RpcOwnerContext<'_>, prepared: &Prepared) -> Result<Binding, Refusal> {
+fn binding(context: &RpcOwnerContext<'_>, prepared: &EvmPrepared) -> Result<Binding, Refusal> {
+    crate::prepare::verify_call_binding(prepared).map_err(|_| Refusal::Binding)?;
     let principal = context.principal();
     let peer = context.peer();
     let origin = context.permit().preparation_authorization();
@@ -115,14 +119,11 @@ fn binding(context: &RpcOwnerContext<'_>, prepared: &Prepared) -> Result<Binding
         || origin.session.tenant != principal.tenant
         || origin.session.session_id != principal.session_id
         || origin.generation == 0
-        || prepared.envelope.actor_did() != &principal.agent
-        || prepared.envelope.idempotency_key().bytes() != prepared.audit.idempotency_key
-        || layerx_wire::activity::encode_unsigned_envelope(&prepared.envelope)
-            .map_err(|_| Refusal::Binding)? != prepared.canonical_bytes
+        || prepared.disclosure.actor.as_slice() != prepared.from
     {
         return Err(Refusal::Binding);
     }
-    let hash = digest(&prepared.canonical_bytes);
+    let hash = digest(&prepared.call.encode_unsigned());
     Ok(Binding {
         tenant: peer.tenant.clone(),
         principal: peer.principal.clone(),
@@ -130,18 +131,19 @@ fn binding(context: &RpcOwnerContext<'_>, prepared: &Prepared) -> Result<Binding
         session: origin.session.session_id.0,
         generation: origin.generation,
         preparation: hash,
-        idempotency: prepared.audit.idempotency_key,
-        canonical_len: u64::try_from(prepared.canonical_bytes.len()).map_err(|_| Refusal::Corrupt)?,
+        idempotency: prepared.disclosure.idempotency_key,
+        canonical_len: u64::try_from(prepared.call.encode_unsigned().len())
+            .map_err(|_| Refusal::Corrupt)?,
         canonical_digest: hash,
-        payload_hash: prepared.envelope.payload_hash(),
-        prepared_at: prepared.observed_head_sequence,
+        payload_hash: layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data),
+        prepared_at: prepared.observed_head_height,
     })
 }
 
 impl Record {
     pub(crate) fn evaluate(
         context: &RpcOwnerContext<'_>,
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         snapshot: &PolicySnapshot,
         input: &EvaluationInput<'_>,
         approval: Option<&ApprovalSnapshot>,
@@ -152,15 +154,17 @@ impl Record {
             return Err(Refusal::Policy);
         }
         let binding = binding(context, prepared)?;
-        let evidence = input.program_requirement_context(
-            &binding.tenant,
-            &binding.actor,
-            binding.session,
-            binding.generation,
-            snapshot.policy(),
-            approval.map(|hold| hold.context.capability),
-            prepared.observed_head_sequence,
-        ).map_err(|_| Refusal::Binding)?;
+        let evidence = input
+            .program_requirement_context(
+                &binding.tenant,
+                &binding.actor,
+                binding.session,
+                binding.generation,
+                snapshot.policy(),
+                approval.map(|hold| hold.context.capability),
+                prepared.observed_head_height,
+            )
+            .map_err(|_| Refusal::Binding)?;
         let decision = crate::policy::evaluate(snapshot.policy(), input);
         if decision.policy_version != snapshot.version() {
             return Err(Refusal::Policy);
@@ -180,9 +184,11 @@ impl Record {
                     || hold.submission_ref.is_some()
                     || hold.created_at_sequence != binding.prepared_at
                     || hold.expires_at_sequence <= hold.created_at_sequence
-                    || hold.prepared.unsigned_canonical_bytes.as_bytes() != prepared.canonical_bytes
+                    || hold.prepared.unsigned_canonical_bytes.as_bytes()
+                        != prepared.call.encode_unsigned()
                     || hold.prepared.disclosure.canonical_digest != binding.canonical_digest
-                    || hold.prepared.preparation_ref.as_str() != preparation_reference(binding.preparation)
+                    || hold.prepared.preparation_ref.as_str()
+                        != preparation_reference(binding.preparation)
                 {
                     return Err(Refusal::Binding);
                 }
@@ -197,7 +203,9 @@ impl Record {
             immutable: Immutable {
                 version: 1,
                 binding,
-                policy_source: std::str::from_utf8(source).map_err(|_| Refusal::Policy)?.to_owned(),
+                policy_source: std::str::from_utf8(source)
+                    .map_err(|_| Refusal::Policy)?
+                    .to_owned(),
                 policy_generation: snapshot.generation(),
                 policy_version: decision.policy_version,
                 context: evidence,
@@ -222,19 +230,28 @@ impl Record {
     pub(crate) fn encoded(&self) -> Result<Vec<u8>, Refusal> {
         self.validate()?;
         let bytes = serde_json::to_vec(self).map_err(|_| Refusal::Corrupt)?;
-        if bytes.len() > MAX_RECORD { return Err(Refusal::Corrupt); }
+        if bytes.len() > MAX_RECORD {
+            return Err(Refusal::Corrupt);
+        }
         Ok(bytes)
     }
 
     pub(crate) fn companion(&self) -> Result<(TenantKey, Vec<u8>), Refusal> {
-        let tenant = TenantId::new(self.immutable.binding.tenant.clone()).map_err(|_| Refusal::Corrupt)?;
-        Ok((key(&tenant, self.immutable.binding.preparation)?, self.encoded()?))
+        let tenant =
+            TenantId::new(self.immutable.binding.tenant.clone()).map_err(|_| Refusal::Corrupt)?;
+        Ok((
+            key(&tenant, self.immutable.binding.preparation)?,
+            self.encoded()?,
+        ))
     }
 
     pub(crate) fn required_approval(&self) -> Result<Option<([u8; 32], u64)>, Refusal> {
         match self.immutable.requirement {
             Requirement::NotRequired => Ok(None),
-            Requirement::Required { approval_id, expires_at } => Ok(Some((approval_id, expires_at))),
+            Requirement::Required {
+                approval_id,
+                expires_at,
+            } => Ok(Some((approval_id, expires_at))),
             Requirement::Denied => Err(Refusal::Policy),
         }
     }
@@ -249,14 +266,22 @@ impl Record {
         submission_ref: Option<[u8; 32]>,
     ) -> Result<Self, Refusal> {
         self.validate()?;
-        let Requirement::Required { approval_id: expected, .. } = self.immutable.requirement else {
+        let Requirement::Required {
+            approval_id: expected,
+            ..
+        } = self.immutable.requirement
+        else {
             return Err(Refusal::Conflict);
         };
-        if approval_id != expected { return Err(Refusal::Binding); }
+        if approval_id != expected {
+            return Err(Refusal::Binding);
+        }
         let (approver, approver_actor, approver_session, approver_generation) = match context {
             Some(context) => {
                 let operation = match outcome {
-                    Terminal::Granted | Terminal::Defective => crate::tenant::Operation::ApprovalApprove,
+                    Terminal::Granted | Terminal::Defective => {
+                        crate::tenant::Operation::ApprovalApprove
+                    }
                     Terminal::Rejected => crate::tenant::Operation::ApprovalReject,
                     Terminal::Expired => return Err(Refusal::Binding),
                 };
@@ -297,7 +322,9 @@ impl Record {
         };
         if let Some(existing) = &self.decision {
             stamp.sequence = existing.sequence;
-            if existing != &stamp { return Err(Refusal::Conflict); }
+            if existing != &stamp {
+                return Err(Refusal::Conflict);
+            }
             return Ok(self.clone());
         }
         let mut updated = self.clone();
@@ -309,10 +336,14 @@ impl Record {
     fn validate(&self) -> Result<(), Refusal> {
         let immutable = &self.immutable;
         let binding = &immutable.binding;
-        if immutable.version != 1 || immutable.policy_generation == 0
-            || immutable.policy_version.is_empty() || immutable.context.is_empty()
-            || binding.principal.is_empty() || binding.generation == 0
-            || binding.actor.is_empty() || binding.canonical_len == 0
+        if immutable.version != 1
+            || immutable.policy_generation == 0
+            || immutable.policy_version.is_empty()
+            || immutable.context.is_empty()
+            || binding.principal.is_empty()
+            || binding.generation == 0
+            || binding.actor.is_empty()
+            || binding.canonical_len == 0
             || binding.preparation != binding.canonical_digest
         {
             return Err(Refusal::Corrupt);
@@ -320,35 +351,72 @@ impl Record {
         TenantId::new(binding.tenant.clone()).map_err(|_| Refusal::Corrupt)?;
         let policy = crate::policy::load_policy_source(immutable.policy_source.as_bytes())
             .map_err(|_| Refusal::Policy)?;
-        if policy.version != immutable.policy_version { return Err(Refusal::Policy); }
-        let Requirement::Required { approval_id, expires_at } = immutable.requirement else {
-            return if self.decision.is_none() { Ok(()) } else { Err(Refusal::Terminal) };
+        if policy.version != immutable.policy_version {
+            return Err(Refusal::Policy);
+        }
+        let Requirement::Required {
+            approval_id,
+            expires_at,
+        } = immutable.requirement
+        else {
+            return if self.decision.is_none() {
+                Ok(())
+            } else {
+                Err(Refusal::Terminal)
+            };
         };
         if approval_id == [0; 32] || expires_at <= binding.prepared_at {
             return Err(Refusal::Corrupt);
         }
-        let Some(decision) = &self.decision else { return Ok(()); };
+        let Some(decision) = &self.decision else {
+            return Ok(());
+        };
         if decision.requirement_digest != self.commitment()?
             || decision.approval_id != approval_id
-            || decision.decision_key.is_empty() || decision.decision_key.len() > 255
+            || decision.decision_key.is_empty()
+            || decision.decision_key.len() > 255
             || decision.decision_key.as_bytes().contains(&0)
             || decision.sequence < binding.prepared_at
         {
             return Err(Refusal::Terminal);
         }
-        let authenticated = decision.approver.as_deref().is_some_and(|value| !value.is_empty())
-            && decision.approver_actor.as_ref().is_some_and(|value| !value.is_empty())
+        let authenticated = decision
+            .approver
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+            && decision
+                .approver_actor
+                .as_ref()
+                .is_some_and(|value| !value.is_empty())
             && decision.approver_session.is_some()
             && decision.approver_generation.is_some_and(|value| value != 0);
         match decision.outcome {
-            Terminal::Granted if authenticated && decision.sequence < expires_at
-                && decision.submission_ref.is_some_and(|value| value != [0; 32]) => Ok(()),
-            Terminal::Rejected | Terminal::Defective if authenticated
-                && decision.sequence < expires_at && decision.submission_ref.is_none() => Ok(()),
-            Terminal::Expired if decision.sequence >= expires_at
-                && decision.approver.is_none() && decision.approver_actor.is_none()
-                && decision.approver_session.is_none() && decision.approver_generation.is_none()
-                && decision.submission_ref.is_none() => Ok(()),
+            Terminal::Granted
+                if authenticated
+                    && decision.sequence < expires_at
+                    && decision
+                        .submission_ref
+                        .is_some_and(|value| value != [0; 32]) =>
+            {
+                Ok(())
+            }
+            Terminal::Rejected | Terminal::Defective
+                if authenticated
+                    && decision.sequence < expires_at
+                    && decision.submission_ref.is_none() =>
+            {
+                Ok(())
+            }
+            Terminal::Expired
+                if decision.sequence >= expires_at
+                    && decision.approver.is_none()
+                    && decision.approver_actor.is_none()
+                    && decision.approver_session.is_none()
+                    && decision.approver_generation.is_none()
+                    && decision.submission_ref.is_none() =>
+            {
+                Ok(())
+            }
             _ => Err(Refusal::Terminal),
         }
     }
@@ -356,43 +424,53 @@ impl Record {
 
 pub(crate) fn read_bound(
     store: &Store,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     durable: &DurablePreparation,
 ) -> Result<Record, Refusal> {
+    crate::prepare::verify_call_binding(prepared).map_err(|_| Refusal::Binding)?;
     let durable_key = DurablePreparation::store_key(&durable.tenant, durable.preparation_id)
         .map_err(|_| Refusal::Binding)?;
     let retained = store.get(&durable_key).ok_or(Refusal::Missing)?;
     if retained.class() != StorageClass::LocalOnly
         || DurablePreparation::decode(durable.tenant.clone(), retained.bytes())
-            .map_err(|_| Refusal::Corrupt)? != *durable
-        || layerx_wire::activity::encode_unsigned_envelope(&prepared.envelope)
-            .map_err(|_| Refusal::Binding)? != prepared.canonical_bytes
+            .map_err(|_| Refusal::Corrupt)?
+            != *durable
     {
         return Err(Refusal::Binding);
     }
-    let stored = store.get(&key(&durable.tenant, durable.preparation_id)?).ok_or(Refusal::Missing)?;
+    let stored = store
+        .get(&key(&durable.tenant, durable.preparation_id)?)
+        .ok_or(Refusal::Missing)?;
     if stored.class() != StorageClass::LocalOnly || stored.bytes().len() > MAX_RECORD {
         return Err(Refusal::Corrupt);
     }
     let record: Record = serde_json::from_slice(stored.bytes()).map_err(|_| Refusal::Corrupt)?;
-    if record.encoded()?.as_slice() != stored.bytes() { return Err(Refusal::Corrupt); }
+    if record.encoded()?.as_slice() != stored.bytes() {
+        return Err(Refusal::Corrupt);
+    }
     let binding = &record.immutable.binding;
     if binding.tenant != durable.tenant.as_str()
         || binding.preparation != durable.preparation_id
-        || binding.session != durable.session_id || binding.generation != durable.generation
+        || binding.session != durable.session_id
+        || binding.generation != durable.generation
         || binding.payload_hash != durable.payload_hash
-        || binding.payload_hash != prepared.envelope.payload_hash()
-        || binding.actor != prepared.envelope.actor_did().as_bytes()
-        || binding.idempotency != prepared.audit.idempotency_key
-        || binding.idempotency != prepared.envelope.idempotency_key().bytes()
-        || binding.prepared_at != prepared.observed_head_sequence
-        || binding.canonical_digest != digest(&prepared.canonical_bytes)
-        || binding.canonical_len != u64::try_from(prepared.canonical_bytes.len()).map_err(|_| Refusal::Binding)?
+        || binding.payload_hash
+            != layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data)
+        || prepared.disclosure.actor.as_slice() != prepared.from
+        || binding.idempotency != prepared.disclosure.idempotency_key
+        || binding.idempotency != prepared.disclosure.idempotency_key
+        || binding.prepared_at != prepared.observed_head_height
+        || binding.canonical_digest != digest(&prepared.call.encode_unsigned())
+        || binding.canonical_len
+            != u64::try_from(prepared.call.encode_unsigned().len()).map_err(|_| Refusal::Binding)?
     {
         return Err(Refusal::Binding);
     }
     let commitment = record.commitment()?;
-    if durable.extensions.get(&PROGRAM_REQUIREMENT_EXTENSION).map(Vec::as_slice)
+    if durable
+        .extensions
+        .get(&PROGRAM_REQUIREMENT_EXTENSION)
+        .map(Vec::as_slice)
         != Some(commitment.as_slice())
     {
         return Err(Refusal::Missing);
@@ -403,7 +481,7 @@ pub(crate) fn read_bound(
 pub(crate) fn read(
     store: &Store,
     context: &RpcOwnerContext<'_>,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     durable: &DurablePreparation,
 ) -> Result<Record, Refusal> {
     let record = read_bound(store, prepared, durable)?;
@@ -414,26 +492,36 @@ pub(crate) fn read(
 }
 
 fn preparation_reference(preparation: [u8; 32]) -> String {
-    preparation.iter().map(|byte| format!("{byte:02x}")).collect()
+    preparation
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 pub(crate) fn authorize_program(
     store: &Store,
     context: &RpcOwnerContext<'_>,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     durable: &DurablePreparation,
     queue: &ApprovalSubmissionQueue,
     current_sequence: u64,
     current_core_timestamp: u64,
 ) -> Result<Option<[u8; 32]>, Refusal> {
     let record = read(store, context, prepared, durable)?;
-    if current_sequence < record.immutable.binding.prepared_at || current_core_timestamp >= durable.not_after {
+    if current_sequence < record.immutable.binding.prepared_at
+        || current_core_timestamp >= durable.not_after
+    {
         return Err(Refusal::Terminal);
     }
     let reference = match record.immutable.requirement {
         Requirement::NotRequired if record.decision.is_none() => None,
-        Requirement::Required { approval_id, expires_at } => {
-            if current_sequence >= expires_at { return Err(Refusal::Terminal); }
+        Requirement::Required {
+            approval_id,
+            expires_at,
+        } => {
+            if current_sequence >= expires_at {
+                return Err(Refusal::Terminal);
+            }
             let decision = record.decision.as_ref().ok_or(Refusal::Required)?;
             if decision.outcome != Terminal::Granted || decision.sequence > current_sequence {
                 return Err(Refusal::Terminal);
@@ -442,19 +530,23 @@ pub(crate) fn authorize_program(
             hash.update(b"layerx-approved-preparation-v1");
             hash.update(durable.tenant.as_str().as_bytes());
             hash.update(approval_id);
-            hash.update(&prepared.canonical_bytes);
+            hash.update(&prepared.call.encode_unsigned());
             let expected: [u8; 32] = hash.finalize().into();
-            if decision.submission_ref != Some(expected) { return Err(Refusal::Binding); }
+            if decision.submission_ref != Some(expected) {
+                return Err(Refusal::Binding);
+            }
             Some(expected)
         }
         _ => return Err(Refusal::Terminal),
     };
-    queue.authorize_submit(
-        &durable.tenant,
-        &preparation_reference(durable.preparation_id),
-        &prepared.canonical_bytes,
-        reference,
-    ).map_err(|_| Refusal::Conflict)?;
+    queue
+        .authorize_submit(
+            &durable.tenant,
+            &preparation_reference(durable.preparation_id),
+            &prepared.call.encode_unsigned(),
+            reference,
+        )
+        .map_err(|_| Refusal::Conflict)?;
     Ok(reference)
 }
 
@@ -467,41 +559,54 @@ pub(crate) fn read_approval(
     let durable_key = DurablePreparation::store_key(&snapshot.context.tenant, preparation)
         .map_err(|_| Refusal::Binding)?;
     let retained = store.get(&durable_key).ok_or(Refusal::Missing)?;
-    if retained.class() != StorageClass::LocalOnly { return Err(Refusal::Corrupt); }
+    if retained.class() != StorageClass::LocalOnly {
+        return Err(Refusal::Corrupt);
+    }
     let durable = DurablePreparation::decode(snapshot.context.tenant.clone(), retained.bytes())
         .map_err(|_| Refusal::Corrupt)?;
     if durable.encode().map_err(|_| Refusal::Corrupt)?.as_slice() != retained.bytes() {
         return Err(Refusal::Corrupt);
     }
-    let stored = store.get(&key(&snapshot.context.tenant, preparation)?).ok_or(Refusal::Missing)?;
+    let stored = store
+        .get(&key(&snapshot.context.tenant, preparation)?)
+        .ok_or(Refusal::Missing)?;
     if stored.class() != StorageClass::LocalOnly || stored.bytes().len() > MAX_RECORD {
         return Err(Refusal::Corrupt);
     }
     let record: Record = serde_json::from_slice(stored.bytes()).map_err(|_| Refusal::Corrupt)?;
-    if record.encoded()?.as_slice() != stored.bytes() { return Err(Refusal::Corrupt); }
+    if record.encoded()?.as_slice() != stored.bytes() {
+        return Err(Refusal::Corrupt);
+    }
     let binding = &record.immutable.binding;
     let commitment = record.commitment()?;
-    let policy_context: serde_json::Value = serde_json::from_slice(&record.immutable.context)
-        .map_err(|_| Refusal::Corrupt)?;
+    let policy_context: serde_json::Value =
+        serde_json::from_slice(&record.immutable.context).map_err(|_| Refusal::Corrupt)?;
     if binding.tenant != snapshot.context.tenant.as_str()
         || binding.actor != snapshot.context.agent.as_bytes()
         || binding.actor != snapshot.prepared.disclosure.actor.as_str().as_bytes()
         || binding.session != snapshot.context.session.0
         || binding.session != durable.session_id
         || binding.generation != durable.generation
-        || binding.preparation != preparation || durable.preparation_id != preparation
+        || binding.preparation != preparation
+        || durable.preparation_id != preparation
         || binding.canonical_digest != preparation
         || binding.canonical_len != u64::try_from(canonical.len()).map_err(|_| Refusal::Binding)?
         || binding.payload_hash != durable.payload_hash
         || binding.prepared_at != snapshot.created_at_sequence
         || snapshot.prepared.disclosure.canonical_digest != preparation
         || snapshot.prepared.preparation_ref.as_str() != preparation_reference(preparation)
-        || snapshot.prepared.disclosure.idempotency_key.as_str() != preparation_reference(binding.idempotency)
+        || snapshot.prepared.disclosure.idempotency_key.as_str()
+            != preparation_reference(binding.idempotency)
         || snapshot.context.policy_version != record.immutable.policy_version
-        || policy_context.get("capability") != Some(&serde_json::json!(snapshot.context.capability.0))
-        || durable.extensions.get(&PROGRAM_REQUIREMENT_EXTENSION).map(Vec::as_slice)
+        || policy_context.get("capability")
+            != Some(&serde_json::json!(snapshot.context.capability.0))
+        || durable
+            .extensions
+            .get(&PROGRAM_REQUIREMENT_EXTENSION)
+            .map(Vec::as_slice)
             != Some(commitment.as_slice())
-        || record.required_approval()? != Some((snapshot.context.request_id, snapshot.expires_at_sequence))
+        || record.required_approval()?
+            != Some((snapshot.context.request_id, snapshot.expires_at_sequence))
     {
         return Err(Refusal::Binding);
     }
@@ -513,32 +618,54 @@ pub(crate) fn read_approval(
             hash.update(snapshot.context.request_id);
             hash.update(canonical);
             let reference: [u8; 32] = hash.finalize().into();
-            if decision.submission_ref != Some(reference) { return Err(Refusal::Binding); }
+            if decision.submission_ref != Some(reference) {
+                return Err(Refusal::Binding);
+            }
         }
     }
     Ok((record, durable))
 }
 
 impl Record {
-    pub(crate) fn terminal_decision(&self) -> Result<Option<(Terminal, &str, Option<[u8; 32]>)>, Refusal> {
+    pub(crate) fn terminal_decision(
+        &self,
+    ) -> Result<Option<(Terminal, &str, Option<[u8; 32]>)>, Refusal> {
         self.validate()?;
-        Ok(self.decision.as_ref().map(|decision| (
-            decision.outcome, decision.decision_key.as_str(), decision.submission_ref,
-        )))
+        Ok(self.decision.as_ref().map(|decision| {
+            (
+                decision.outcome,
+                decision.decision_key.as_str(),
+                decision.submission_ref,
+            )
+        }))
     }
 }
 
-pub(crate) fn has_bound_approval(store: &Store, snapshot: &ApprovalSnapshot) -> Result<bool, Refusal> {
+pub(crate) fn has_bound_approval(
+    store: &Store,
+    snapshot: &ApprovalSnapshot,
+) -> Result<bool, Refusal> {
     let preparation = digest(snapshot.prepared.unsigned_canonical_bytes.as_bytes());
-    let requirement_exists = store.get(&key(&snapshot.context.tenant, preparation)?).is_some();
+    let requirement_exists = store
+        .get(&key(&snapshot.context.tenant, preparation)?)
+        .is_some();
     let durable_key = DurablePreparation::store_key(&snapshot.context.tenant, preparation)
         .map_err(|_| Refusal::Binding)?;
-    let extension_exists = store.get(&durable_key).map(|stored| {
-        if stored.class() != StorageClass::LocalOnly { return Err(Refusal::Corrupt); }
-        let durable = DurablePreparation::decode(snapshot.context.tenant.clone(), stored.bytes())
-            .map_err(|_| Refusal::Corrupt)?;
-        Ok(durable.extensions.contains_key(&PROGRAM_REQUIREMENT_EXTENSION))
-    }).transpose()?.unwrap_or(false);
+    let extension_exists = store
+        .get(&durable_key)
+        .map(|stored| {
+            if stored.class() != StorageClass::LocalOnly {
+                return Err(Refusal::Corrupt);
+            }
+            let durable =
+                DurablePreparation::decode(snapshot.context.tenant.clone(), stored.bytes())
+                    .map_err(|_| Refusal::Corrupt)?;
+            Ok(durable
+                .extensions
+                .contains_key(&PROGRAM_REQUIREMENT_EXTENSION))
+        })
+        .transpose()?
+        .unwrap_or(false);
     if requirement_exists || extension_exists {
         read_approval(store, snapshot)?;
         Ok(true)
@@ -550,6 +677,86 @@ pub(crate) fn has_bound_approval(store: &Store, snapshot: &ApprovalSnapshot) -> 
 impl Record {
     pub(crate) fn terminal_approver(&self) -> Result<Option<&str>, Refusal> {
         self.validate()?;
-        Ok(self.decision.as_ref().and_then(|decision| decision.approver.as_deref()))
+        Ok(self
+            .decision
+            .as_ref()
+            .and_then(|decision| decision.approver.as_deref()))
     }
+}
+
+const CALL_PREFIX: &[u8] = b"program-required-call-v2:";
+
+#[derive(Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct CallRequirement {
+    version: u8,
+    tenant: String,
+    principal: String,
+    owner: String,
+    account: String,
+    session: [u8; 32],
+    generation: u64,
+    sender: [u8; 20],
+    canonical_bytes: Vec<u8>,
+    canonical_digest: [u8; 32],
+    disclosure_digest: [u8; 32],
+    operation: (u16, u16),
+    idempotency: [u8; 32],
+    nonce: u64,
+    observed_height: u64,
+    held_digest: [u8; 32],
+    decision: Option<super::call_bound::CallDecision>,
+}
+
+pub(crate) fn call_companion(
+    call: &super::call_bound::RetainedNativeCall,
+) -> Result<(TenantKey, Vec<u8>), super::CallApprovalError> {
+    use super::CallApprovalError;
+    let prepared = call.restore()?;
+    let requirement = CallRequirement {
+        version: 2,
+        tenant: call.tenant.clone(),
+        principal: call.principal.clone(),
+        owner: call.owner_did.clone(),
+        account: call.owner_account.clone(),
+        session: call.session,
+        generation: call.generation,
+        sender: prepared.from,
+        canonical_bytes: prepared.call.encode_unsigned(),
+        canonical_digest: digest(&call.canonical_bytes),
+        disclosure_digest: call.disclosure_digest,
+        operation: (
+            prepared.disclosure.activity_type.module() as u16,
+            prepared.disclosure.activity_type.ordinal(),
+        ),
+        idempotency: prepared.disclosure.idempotency_key,
+        nonce: prepared.call.nonce,
+        observed_height: prepared.observed_head_height,
+        held_digest: call.held_digest()?,
+        decision: call.decision.clone(),
+    };
+    let key = TenantKey::new(
+        TenantId::new(call.tenant.clone()).map_err(|_| CallApprovalError::Binding)?,
+        ObjectKind::Configuration,
+        [CALL_PREFIX, call.preparation.as_slice()].concat(),
+    )
+    .map_err(|_| CallApprovalError::Binding)?;
+    let bytes = serde_json::to_vec(&requirement).map_err(|_| CallApprovalError::Corrupt)?;
+    if bytes.len() > MAX_RECORD {
+        return Err(CallApprovalError::Corrupt);
+    }
+    Ok((key, bytes))
+}
+
+pub(crate) fn check_call(
+    store: &Store,
+    call: &super::call_bound::RetainedNativeCall,
+) -> Result<(), super::CallApprovalError> {
+    use super::CallApprovalError;
+    let (key, expected) = call_companion(call)?;
+    let stored = store.get(&key).ok_or(CallApprovalError::Missing)?;
+    if stored.class() != StorageClass::LocalOnly || stored.bytes() != expected {
+        return Err(CallApprovalError::Binding);
+    }
+    Ok(())
 }

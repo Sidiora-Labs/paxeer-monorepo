@@ -264899,9 +264899,9 @@ path = "contracts/config/checkpoint-settlement.json"
 line = 1
 signature = "JSON object {chain_id, offline_export}"
 callers = ["docker/kernel/Dockerfile:354", "docker/kernel/Dockerfile:397", "docker/kernel/init.sh:1151", "docker/layerx/Dockerfile:17", "docker/paxeer/Dockerfile.paxd-node:11", "docker/platform-node/Dockerfile:42", "services/agent/crates/layerx-proof/src/settlement.rs:12", "services/agent/crates/layerx-types/src/settlement.rs:11", "services/platform/hosted/node/bootstrap.sh:460", "services/platform/hosted/node/bootstrap.sh:461", "services/platform/hosted/node/bootstrap.sh:463", "services/platform/hosted/node/deployment.yaml:290", "services/platform/hosted/node/deployment.yaml:323", "services/platform/hosted/node/supervisor.sh:569", "services/platform/hosted/node/supervisor.sh:570", "services/platform/hosted/paxeer/deploy-contracts.sh:3", "services/platform/hosted/paxeer/deploy-contracts.sh:52", "services/platform/hosted/paxeer/deploy-contracts.sh:77", "services/platform/hosted/paxeer/settlement-domain.py:143", "tools/paxeer-x/build/104.30.2.mk:25", "tools/paxeer-x/retired_callers.json:312", "tools/qualification/paxeer-x/authority-evidence-read.py:13", "tools/qualification/paxeer-x/program_balance_read.py:80", "tools/qualification/paxeer-x/program_cache_native_equivalence.py:83", "tools/qualification/paxeer-x/program_market_attestation.py:23", "tools/qualification/paxeer-x/program_spend_composition.py:87", "tools/qualification/paxeer-x/program_transfer_authority.py:35", "services/agent/crates/layerx-client/tests/availability_daemon.rs:273", "services/human/crates/layerx-human-service/tests/support/withdraw-daemon.py:38", "services/platform/hosted/core/tests/boundary.rs:2688", "services/platform/hosted/core/tests/boundary.rs:2691", "services/platform/hosted/core/tests/boundary.rs:2827", "services/platform/hosted/core/tests/qualify.py:17", "services/platform/hosted/core/tests/receipt_retention.py:15", "services/platform/hosted/node/tests/bootstrap-test.py:34", "services/platform/hosted/node/tests/node-artifacts.py:15", "services/platform/hosted/node/tests/node-artifacts.py:97", "services/platform/hosted/node/tests/node-test.sh:314", "services/platform/hosted/node/tests/reset_recovery.py:1093", "services/platform/hosted/node/tests/reset_recovery.py:266"]
-status = "retired"
+status = "keep"
 contract = "contracts/address-inventory.md#fmt-checkpoint-settlement"
-notes = "kernel checkpoint settlement domain document embedded by layerx-proof (services/agent/crates/layerx-proof/src/settlement.rs:12) and copied into the kernel, layerx, node and platform images; retire: the settlement-domain component lists it (tools/paxeer-x/retired_callers.json:306 and :312); 83 caller lines in 57 files; first 40 listed; absent at HEAD (reconcile 2026-11-03, 0b17e0748b8a)"
+notes = "kept by decisions 3022 and 3027: the document stays on main as a COPY input of docker/layerx/Dockerfile:18 and a document the historical module reads; 6.59.7 retired its kernel consumer only (gotcha 3732); kernel checkpoint settlement domain document embedded by layerx-proof (services/agent/crates/layerx-proof/src/settlement.rs:12) and copied into the kernel, layerx, node and platform images; retire: the settlement-domain component lists it (tools/paxeer-x/retired_callers.json:306 and :312); 83 caller lines in 57 files; first 40 listed; absent at HEAD (reconcile 2026-11-03, 0b17e0748b8a)"
 
 [interface.6.fmt-ed25519-vectors-json]
 kind = "file_format"
@@ -286894,9 +286894,9 @@ signature = "verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) pure retur
 address = "0x1012"
 selector = "0x2a5bdc60"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:48; sol precompiles/layerxverify/LayerXVerify.sol:102; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:48; sol precompiles/layerxverify/LayerXVerify.sol:102; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyed25519]
 kind = "precompile_method"
@@ -286906,9 +286906,9 @@ signature = "verifyEd25519(bytes32,uint8,bytes,bytes) pure returns (bool)"
 address = "0x1012"
 selector = "0xb23cd638"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:44; sol precompiles/layerxverify/LayerXVerify.sol:68; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:44; sol precompiles/layerxverify/LayerXVerify.sol:68; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyreceipt]
 kind = "precompile_method"
@@ -286918,9 +286918,9 @@ signature = "verifyReceipt(bytes,bytes32) pure returns ((bytes32,bytes32,uint64,
 address = "0x1012"
 selector = "0x582eecb5"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:45; sol precompiles/layerxverify/LayerXVerify.sol:76; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:45; sol precompiles/layerxverify/LayerXVerify.sol:76; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyreceiptinclusion]
 kind = "precompile_method"
@@ -286930,9 +286930,9 @@ signature = "verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint
 address = "0x1012"
 selector = "0x3f0de084"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:46; sol precompiles/layerxverify/LayerXVerify.sol:83; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:46; sol precompiles/layerxverify/LayerXVerify.sol:83; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifystateproof]
 kind = "precompile_method"
@@ -286942,9 +286942,9 @@ signature = "verifyStateProof(bytes,bytes32) pure returns (uint16,bytes,bytes)"
 address = "0x1012"
 selector = "0xe6038e69"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:47; sol precompiles/layerxverify/LayerXVerify.sol:95; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:47; sol precompiles/layerxverify/LayerXVerify.sol:95; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1013-assetbypointer]
 kind = "precompile_method"
@@ -300452,9 +300452,9 @@ signature = "function verifyDiscoveryProof( bytes calldata payload, bytes callda
 address = "0x1012"
 selector = "0x2a5bdc60"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) returns ((bytes32,uint32,bytes32,uint16,uint64,uint64,uint64,bytes32,bytes32)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) returns ((bytes32,uint32,bytes32,uint16,uint64,uint64,uint64,bytes32,bytes32)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyed25519-b23cd638]
 kind = "sol_function"
@@ -300464,9 +300464,9 @@ signature = "function verifyEd25519( bytes32 publicKey, uint8 domain, bytes call
 address = "0x1012"
 selector = "0xb23cd638"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyEd25519(bytes32,uint8,bytes,bytes) returns (bool); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyEd25519(bytes32,uint8,bytes,bytes) returns (bool); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyreceipt-582eecb5]
 kind = "sol_function"
@@ -300476,9 +300476,9 @@ signature = "function verifyReceipt( bytes calldata receipt, bytes32 sequencerPu
 address = "0x1012"
 selector = "0x582eecb5"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyReceipt(bytes,bytes32) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyReceipt(bytes,bytes32) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyreceiptinclusion-3f0de084]
 kind = "sol_function"
@@ -300488,9 +300488,9 @@ signature = "function verifyReceiptInclusion( bytes calldata receipt, bytes call
 address = "0x1012"
 selector = "0x3f0de084"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint64,uint64) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64),(bytes32,uint32,uint64,uint64,uint64,uint64,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint64,uint64) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64),(bytes32,uint32,uint64,uint64,uint64,uint64,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifystateproof-e6038e69]
 kind = "sol_function"
@@ -300500,9 +300500,9 @@ signature = "function verifyStateProof( bytes calldata witness, bytes32 stateRoo
 address = "0x1012"
 selector = "0xe6038e69"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyStateProof(bytes,bytes32) returns (uint16,bytes,bytes); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyStateProof(bytes,bytes32) returns (uint16,bytes,bytes); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-imanagersealattestation-componentforrole-f5517ac2]
 kind = "sol_function"
@@ -312549,7 +312549,7 @@ signature = "eth_getRawTransactionByBlockHashAndIndex(blockHash common.Hash, ind
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; null for an unknown block; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; JSON string '0x' for an unknown block or an out-of-range index; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getrawtransactionbyblocknumberandindex-j38]
 kind = "jsonrpc_method"
@@ -312559,7 +312559,7 @@ signature = "eth_getRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber,
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; null past the end; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; JSON string '0x' for an unknown block or an out-of-range index; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getrawtransactionbyhash-j38]
 kind = "jsonrpc_method"
@@ -312569,7 +312569,7 @@ signature = "eth_getRawTransactionByHash(hash common.Hash) (hexutil.Bytes, error
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; binary envelope, null for an unknown hash, pending sequencer transactions included; tasks 7.5.1 and 7.9.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; binary envelope, JSON string '0x' for an unknown hash, pending sequencer transactions included; tasks 7.5.1 and 7.9.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getstorageat]
 kind = "jsonrpc_method"
@@ -313192,7 +313192,7 @@ signature = "func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context,
 callers = ["services/agent/crates/layerx-client/src/sequencer.rs:5", "services/agent/crates/layerx-client/tests/sequencer.rs:176", "services/agent/crates/layerx-proof/src/sequencer_logs.rs:111", "services/agent/sdk/python/layerx_sdk/x402_rpc.py:195", "services/agent/sdk/typescript/src/ai_market.ts:3092", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex:6", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs:42", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:150", "services/interop/crates/layerx-gas-station/src/rate.rs:530", "services/interop/crates/layerx-gas-station/src/rpc.rs:78", "services/interop/crates/layerx-gas-station/tests/rate.rs:323", "services/interop/crates/layerx-gas-station/tests/service.rs:168", "services/interop/crates/layerx-gas-station/tests/station.rs:259", "services/platform/hosted/ai-evaluator/src/main.rs:1050", "services/platform/hosted/gateway/src/main.rs:4523", "services/platform/hosted/testnet/tests/wallet-receipt-journey.py:66", "tools/qualification/paxeer-x/paid-web-contract.py:836", "tools/qualification/paxeer-x/router-authority-schema.py:13", "tools/qualification/paxeer-x/wallet-402-caps.py:663"]
 status = "stable"
 contract = "contracts/evm-rpc.md#pax-sequencerreceipt"
-notes = "pax_sequencerReceipt; HTTP only; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 \"served by sequencer\" (rpc/sequencer_receipt.go:49, :99)"
+notes = "pax_sequencerReceipt; HTTP and WebSocket; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 \"served by sequencer\" (rpc/sequencer_receipt.go:49, :99)"
 
 [interface.7.rpc-pax-setreceiptlogfeed]
 kind = "jsonrpc_method"
@@ -760704,16 +760704,6 @@ status = "stable"
 contract = "contracts/operations.md#ci-formats"
 notes = "Dependency update config."
 
-[interface.16.fmt-gh-issue-template-bug-report-md]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/bug_report.md"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/bug_report.md: ---"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
 [interface.16.fmt-gh-issue-template-bug-yml]
 kind = "file_format"
 path = ".github/ISSUE_TEMPLATE/bug.yml"
@@ -760734,31 +760724,11 @@ status = "stable"
 contract = "contracts/operations.md#ci-formats"
 notes = "Issue form or template."
 
-[interface.16.fmt-gh-issue-template-enahancement-yml]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/enahancement.yml"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/enahancement.yml: name: Enhancement"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
 [interface.16.fmt-gh-issue-template-feature-yml]
 kind = "file_format"
 path = ".github/ISSUE_TEMPLATE/feature.yml"
 line = 1
 signature = ".github/ISSUE_TEMPLATE/feature.yml: name: LayerX Network feature request"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
-[interface.16.fmt-gh-issue-template-general-issue-md]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/general_issue.md"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/general_issue.md: ---"
 callers = []
 status = "stable"
 contract = "contracts/operations.md#ci-formats"
@@ -775130,3 +775100,445 @@ status = "served"
 contract = "contracts/programme.md#programme-artifacts"
 notes = "programme kvx reader with the grammar of CONTRACT section 1; refuses duplicate sections and keys; callers are the programme tasks named in task.interfaces; served at HEAD (reconcile 2026-11-02, 2ca2d5bac): def load at spec/layerx-merge/programme/kvx.py:63; planned wording was: load(path) -> dict[str, dict[str, str|int|list]]"
 
+
+[interface.22.inference-f11-operation-table]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/dispatch.rs"
+line = 0
+signature = "pub const OpenRoom: Operation = Operation(0x0B01) through CloseRoom = Operation(0x0B0C) and the reads RoomView = Operation(0x0B10) through BookView = Operation(0x0B14)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#f11-operations"
+notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-f11-errors]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/errors.rs"
+line = 0
+signature = "pub const F11_ROOM_UNKNOWN and the other F11 error codes"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#f11-operations"
+notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-f11-availability]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 0
+signature = "pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]>"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#f11-operations"
+notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-room-profile]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/policy.rs"
+line = 0
+signature = "room profile fields of the market policy (host share, protocol share, bond, lap size, challenge window, maximum tokens)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#f11-operations"
+notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-manifest-v2]
+kind = "file_format"
+path = "programs/crates/layerx-programs-ai-market/src/workers.rs"
+line = 0
+signature = "ManifestV2: v1 fields then runtime digest, model digest, device class, memory bytes, bandwidth class, price quote; domain PARTICIPANT_METADATA_DOMAIN_V2"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#manifest-v2"
+notes = "planned by task 22.38.2 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-room-record]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/rooms.rs"
+line = 0
+signature = "pub struct RoomRecord, AskRecord, BidRecord, DealRecord and pub fn apply_record_deal"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#room-records"
+notes = "planned by task 22.38.3 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-lap-receipt]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/laps.rs"
+line = 0
+signature = "pub struct LapReceipt, ReceiptBatch and pub fn apply_settle_laps"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#lap-receipts"
+notes = "planned by task 22.38.4 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-canary-commitment]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/canary.rs"
+line = 0
+signature = "pub struct CanaryCommitment, pub fn apply_challenge_lap, apply_resolve_challenge, relative_tolerance_hit"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#canary"
+notes = "planned by task 22.38.5 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-payout-split]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/rewards.rs"
+line = 0
+signature = "pub fn apply_split_payout and pub struct PayoutShares"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#payout-split"
+notes = "planned by task 22.38.6 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-bond-record]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/bonds.rs"
+line = 0
+signature = "pub struct BondRecord, pub fn apply_lock_bond, apply_slash_bond, apply_refund_bond"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#bonds"
+notes = "planned by task 22.38.7 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-f11-views]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 0
+signature = "pub struct RoomView, DealView, PeerView, ReceiptBatchView and pub fn answer_room_view"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#views"
+notes = "planned by task 22.38.8 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-placement-book]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/placement.rs"
+line = 0
+signature = "pub struct PlacementBook, BookView and pub fn crossing_pairs"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#placement-book"
+notes = "planned by task 22.38.11 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x101b-streamopenforask]
+kind = "precompile_method"
+path = "precompiles/layerxpay/stream.go"
+line = 0
+signature = "streamOpenForAsk(bytes32,address,uint256,uint8,uint256,bytes32) returns (uint64) (planned)"
+address = "0x101B"
+selector = "0x382e3492"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#streams-0x101b"
+notes = "planned by task 22.38.9 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x101b-askstreamof]
+kind = "precompile_method"
+path = "precompiles/layerxpay/stream.go"
+line = 0
+signature = "askStreamOf(bytes32) view returns (uint64) (planned)"
+address = "0x101B"
+selector = "0x929c1012"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#streams-0x101b"
+notes = "planned by task 22.38.9 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x101b-evt-askstreamopened]
+kind = "precompile_event"
+path = "precompiles/layerxpay/events.go"
+line = 0
+signature = "AskStreamOpened(bytes32 indexed,uint64 indexed,address) (planned)"
+address = "0x101B"
+selector = "0x6f08b9aa8d2830cd88fe10722ae13a87e4761ee05380ce005d7bf908c963a53a"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#streams-0x101b"
+notes = "planned by task 22.38.9 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x0907-bindpeer]
+kind = "precompile_method"
+path = "precompiles/layerxagent/teeattestor/teeattestor.go"
+line = 0
+signature = "bindPeer(uint8,bytes,bytes32,bytes32,bytes32) returns (bool) (planned)"
+address = "0x0907"
+selector = "0xc7c179e5"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#attestation-0x0907"
+notes = "planned by task 22.38.10 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x0907-peerbinding]
+kind = "precompile_method"
+path = "precompiles/layerxagent/teeattestor/teeattestor.go"
+line = 0
+signature = "peerBinding(bytes32) view returns (uint8,bytes32,bytes32,uint64) (planned)"
+address = "0x0907"
+selector = "0xc3c05f2e"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#attestation-0x0907"
+notes = "planned by task 22.38.10 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x0907-evt-peerattestationbound]
+kind = "precompile_event"
+path = "precompiles/layerxagent/teeattestor/teeattestor.go"
+line = 0
+signature = "PeerAttestationBound(bytes32 indexed,uint8,bytes32,bytes32) (planned)"
+address = "0x0907"
+selector = "0xb2675f0546c3f64db3575e68d8a769972fbf02993bed9c75abe0e34452f985f5"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#attestation-0x0907"
+notes = "planned by task 22.38.10 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferencerooms]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferenceRooms() -> room summaries (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferenceroom]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferenceRoom(roomId) -> room view with ask stream state (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferencedeal]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferenceDeal(dealId) -> deal view (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferencepeer]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferencePeer(peerKey) -> peer view with attestation binding (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferencereceipts]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferenceReceipts(dealId) -> receipt batch views (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-mode-inference-market]
+kind = "rust_pub_item"
+path = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs"
+line = 0
+signature = "Mode::InferenceMarket parsed from the mode value inference-market"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-signal-listen]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-serve-listen]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_SERVE_LISTEN"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-model-digest]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_MODEL_DIGEST"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-runtime-digest]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-room-profile]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_ROOM_PROFILE"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-signal-hello-frame]
+kind = "file_format"
+path = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs"
+line = 0
+signature = "hello frame (peer key, signature over room id and nonce, v2 manifest) answered by the room offer (room id, model digest, runtime digest, layer plan, price); frames at most 65536 bytes"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#signalling"
+notes = "planned by task 22.38.16 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.ws-inference-signal]
+kind = "ws_route"
+path = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs"
+line = 0
+signature = "WS / on the signalling listener (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#signalling"
+notes = "planned by task 22.38.16 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.http-inference-chat-completions]
+kind = "http_route"
+path = "services/agent/crates/layerx-agentd/src/inference_market/serve.rs"
+line = 0
+signature = "POST /v1/chat/completions (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#completion-routes"
+notes = "planned by task 22.38.21 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.http-inference-messages]
+kind = "http_route"
+path = "services/agent/crates/layerx-agentd/src/inference_market/serve.rs"
+line = 0
+signature = "POST /v1/messages (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#completion-routes"
+notes = "planned by task 22.38.21 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-peer-wire-frame]
+kind = "file_format"
+path = "apps/inference-peer/src/wire.mjs"
+line = 0
+signature = "room wire frame encoded by encodeFrame and decoded by decodeFrame (kind, room id, sequence, payload)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#peer-wire"
+notes = "planned by task 22.38.24 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.cli-inference-peer-join]
+kind = "cli_command"
+path = "apps/inference-peer/bin/inference-peer.mjs"
+line = 0
+signature = "'join <host> <room>' -- join a room, optionally with an attestation envelope file"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#peer-cli"
+notes = "planned by task 22.38.30 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.cli-inference-peer-serve]
+kind = "cli_command"
+path = "apps/inference-peer/bin/inference-peer.mjs"
+line = 0
+signature = "'serve' -- local OpenAI-compatible route forwarding to the host completion route"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#peer-cli"
+notes = "planned by task 22.38.30 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.cli-inference-peer-status]
+kind = "cli_command"
+path = "apps/inference-peer/bin/inference-peer.mjs"
+line = 0
+signature = "'status' -- print the joined room, layer range and lap counters"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#peer-cli"
+notes = "planned by task 22.38.30 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.ts-sdk-inference-market]
+kind = "ts_export"
+path = "services/agent/sdk/typescript/src/inference_market.ts"
+line = 0
+signature = "export openRoom, postAsk, fundAsk, recordDeal, settleLaps, getInferenceRooms"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#sdks"
+notes = "planned by task 22.38.31 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rs-sdk-inference-market]
+kind = "rust_pub_item"
+path = "services/agent/crates/layerx-sdk/src/inference_market.rs"
+line = 0
+signature = "pub struct InferenceMarket with open_room, post_ask, get_inference_rooms"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#sdks"
+notes = "planned by task 22.38.32 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.http-explorer-api-inference]
+kind = "http_route"
+path = "apps/explorer/pages/api/inference.ts"
+line = 0
+signature = "ANY /api/inference (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#explorer"
+notes = "planned by task 22.38.33 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.ts-explorer-paxeerxinference]
+kind = "ts_export"
+path = "apps/explorer/ui/pages/PaxeerXInference.tsx"
+line = 0
+signature = "export default function PaxeerXInference()"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#explorer"
+notes = "planned by task 22.38.33 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.ts-wallet-inferenceview]
+kind = "ts_export"
+path = "apps/wallet/src/surfaces/InferenceView.tsx"
+line = 0
+signature = "export function InferenceView()"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#wallet"
+notes = "planned by task 22.38.34 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.cli-inference-market-room-driver]
+kind = "cli_command"
+path = "tools/qualification/paxeer-x/inference_market_room.py"
+line = 0
+signature = "'inference_market_room.py --proof room|canary|settlement' -- isolated-chain proof driver"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#qualification"
+notes = "planned by task 22.38.36 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"

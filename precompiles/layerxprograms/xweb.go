@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"sync"
 
 	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
@@ -14,11 +15,11 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
-	method := programsABI.Methods["call"]
-	if call.method == nil || call.method.Name != method.Name {
+func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}, authorities ...ReceiptAuthority) ([]byte, error) {
+	if call.method == nil || (call.method.Name != "call" && call.method.Name != "callWithReceipts") {
 		return nil, errGateUnknownMethod
 	}
+	method := programsABI.Methods[call.method.Name]
 	decoded, err := decodeArgs(call.method, args)
 	if err != nil {
 		return nil, err
@@ -55,7 +56,7 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 	if err != nil {
 		return nil, err
 	}
-	receipt, err := submit(cached, p, call, 0x00090003, payload, feeLimit)
+	receipt, err := submit(cached, p, call, 0x00090003, payload, feeLimit, authorities...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +71,14 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 		found := false
 		if keeper != nil {
 			denom, found = keeper.ProgramFeeDenom(cached, xwebtypes.Hash32(leg.Asset))
+			feeAccount := xwebkeeper.ProgramFeeAccount(xwebtypes.Hash32(leg.Asset))
+			if found || bytes.Equal(lxphost.BankAddress(leg.To), feeAccount) {
+				denom, err = nativeProgramAssetDenom(cached, p, keeper, leg.Asset)
+				if err != nil {
+					return nil, err
+				}
+				found = true
+			}
 		}
 		if !found {
 			if _, err := p.host.ReadAsset(cached, leg.Asset); err != nil {
@@ -98,6 +107,19 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 
 type xwebContextKey struct{}
 
+// nativeProgramAssetDenom resolves live host assets through the native bank
+// denomination bindings loaded from xweb genesis and current governance.
+func nativeProgramAssetDenom(ctx sdk.Context, p *PrecompileExecutor, keeper *xwebkeeper.Keeper, assetID [32]byte) (string, error) {
+	if _, err := p.host.ReadAsset(ctx, assetID); err != nil {
+		return "", fmt.Errorf("LXP_ASSET_MISMATCH: unknown native asset: %w", err)
+	}
+	denom, found := keeper.ProgramFeeDenom(ctx, xwebtypes.Hash32(assetID))
+	if !found || !slices.Contains(keeper.GetParams(ctx).ProgramFeeDenoms, denom) {
+		return "", fmt.Errorf("LXP_ASSET_MISMATCH: native asset has no allowed bank denomination")
+	}
+	return denom, nil
+}
+
 var webHandlers = sync.OnceValue(func() handlerTable {
 	table := make(handlerTable, len(handlers))
 	for name, h := range handlers {
@@ -105,6 +127,13 @@ var webHandlers = sync.OnceValue(func() handlerTable {
 	}
 	table["call"] = func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
 		return callWithWebRequests(ctx.WithValue(xwebContextKey{}, p.xweb), p, call, args)
+	}
+	table["callWithReceipts"] = func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
+		authorities, err := decodeCallReceiptAuthorities(call, args)
+		if err != nil {
+			return nil, err
+		}
+		return callWithWebRequests(ctx.WithValue(xwebContextKey{}, p.xweb), p, call, args, authorities...)
 	}
 	return table
 })

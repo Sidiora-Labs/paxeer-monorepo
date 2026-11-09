@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -153,7 +154,7 @@ func repair48DSN(t *testing.T, dsn, schema string) string {
 
 func repair48Minio(t *testing.T) storage.Config {
 	t.Helper()
-	port := freePort(t)
+	port := internaltest.FreePorts(t, 1)[0]
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
 	key := strings.ReplaceAll(uuid.NewString(), "-", "")
 	secret := strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -211,7 +212,7 @@ CREATE VIEW users.identity_outbox AS SELECT * FROM gateway_identity.identity_out
 	_, err = e.identity.Pool.Exec(ctx, "CREATE FUNCTION users.consume_account_deletion_reauth"+ddl)
 	repair48Must(t, err)
 	leaf := e.pki.Leaf("user-authority", "user.railway.internal")
-	port := freePort(t)
+	port := internaltest.FreePorts(t, 1)[0]
 	endpoint := fmt.Sprintf("https://127.0.0.1:%d", port)
 	audit := filepath.Join(t.TempDir(), "request-headers.jsonl")
 	cfg := map[string]any{"DSN": repair48DSN(t, e.identity.Pool.Config().ConnString(), "gateway_identity"), "RPC": e2eChain(t), "Listen": fmt.Sprintf("127.0.0.1:%d", port), "Cert": leaf.CertFile, "Key": leaf.KeyFile, "CA": e.pki.CAFile, "GatewayPin": e.gatewayClient.SHA256, "GatewayPublicKey": base64.StdEncoding.EncodeToString(e.gatewayKey.Private.Public().(ed25519.PublicKey)), "Identity": repair48IdentityConfig(e, "social"), "Objects": objects, "Version": version, "HeaderAudit": audit}
@@ -464,7 +465,7 @@ func TestRepair_48_v2_recovery(t *testing.T)      { repair48Deletion(t, "v2") }
 
 func repair48Vault(t *testing.T) (string, string, string) {
 	t.Helper()
-	port := freePort(t)
+	port := internaltest.FreePorts(t, 1)[0]
 	dir := t.TempDir()
 	token := strings.ReplaceAll(uuid.NewString(), "-", "")
 	endpoint := fmt.Sprintf("https://127.0.0.1:%d", port)
@@ -524,7 +525,7 @@ func TestRepair_48_ingest_response(t *testing.T) {
 	_, err = db.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) SELECT token_address,pool_address,creator,$1,optical,nft_id,created_block,$2,tx_hash,0,0,created_at,'{}','{}' FROM indexer.pools WHERE pool_address=$3`, "0x"+strings.Repeat("f0", 20), "0x"+strings.Repeat("de", 32), poolAddress)
 	repair48Must(t, err)
 	leaf := e.pki.Leaf("livestream-authority", "livestream.railway.internal")
-	port := freePort(t)
+	port := internaltest.FreePorts(t, 1)[0]
 	endpoint := fmt.Sprintf("https://127.0.0.1:%d", port)
 	streamKey := strings.ReplaceAll(uuid.NewString(), "-", "")
 	cfg := map[string]any{"DSN": repair48DSN(t, e.database.AdminDSN, "livestream"), "RPC": e2eChain(t), "Listen": fmt.Sprintf("127.0.0.1:%d", port), "Cert": leaf.CertFile, "Key": leaf.KeyFile, "CA": e.pki.CAFile, "GatewayPin": e.gatewayClient.SHA256, "GatewayPublicKey": base64.StdEncoding.EncodeToString(e.gatewayKey.Private.Public().(ed25519.PublicKey)), "Identity": repair48IdentityConfig(e, "livestream"), "Wallet": owner.wallet, "Pool": poolAddress, "VaultURL": vaultURL, "VaultCA": vaultCA, "VaultToken": vaultToken, "StreamKey": streamKey}

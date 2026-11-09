@@ -23,9 +23,43 @@ pub enum UnknownOutcome {
 
 /// Persisted verified receipt used to rebuild consumed accounting.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PersistedReceipt {
+pub struct PersistedReceipt<E = RawReceiptEvidence> {
     pub expected_activity_id: [u8; 32],
-    pub evidence: RawReceiptEvidence,
+    pub evidence: E,
+}
+
+/// The two independently verified durable receipt evidence formats.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BudgetReceiptEvidence {
+    Legacy(RawReceiptEvidence),
+    Current(crate::receipt::TransactionReceiptEvidence),
+}
+
+impl From<RawReceiptEvidence> for BudgetReceiptEvidence {
+    fn from(evidence: RawReceiptEvidence) -> Self {
+        Self::Legacy(evidence)
+    }
+}
+
+impl From<crate::receipt::TransactionReceiptEvidence> for BudgetReceiptEvidence {
+    fn from(evidence: crate::receipt::TransactionReceiptEvidence) -> Self {
+        Self::Current(evidence)
+    }
+}
+
+impl BudgetReceiptEvidence {
+    pub(crate) fn verify(
+        &self,
+        verifier: &EvidenceAuthority,
+    ) -> Result<
+        crate::protocol_evidence::VerifiedSpendReceipt,
+        crate::protocol_evidence::ReceiptEvidenceError,
+    > {
+        match self {
+            Self::Legacy(raw) => verifier.verify_receipt(raw).map(Into::into),
+            Self::Current(raw) => verifier.verify_current_receipt(raw),
+        }
+    }
 }
 
 /// Operator-visible restart accounting.
@@ -86,24 +120,32 @@ pub(crate) fn persist_unknown(
     Ok(())
 }
 
-pub(crate) fn rebuild_accounting(
+pub(crate) fn rebuild_accounting<E: Clone + Into<BudgetReceiptEvidence>>(
     store: &Store,
     tenant: &TenantId,
     unknown_ids: &[[u8; 32]],
-    receipts: &[PersistedReceipt],
+    receipts: &[PersistedReceipt<E>],
     protocol: &ProtocolBudgetState,
     verifier: &EvidenceAuthority,
 ) -> Result<RestartAccounting, RestartError> {
     let mut replay = EvidenceAuthority::receipt_replay_guard();
     let mut receipt_consumed = 0_u128;
     for receipt in receipts {
-        let verified_receipt = verifier
-            .verify_receipt(&receipt.evidence)
+        let verified_receipt = receipt
+            .evidence
+            .clone()
+            .into()
+            .verify(verifier)
             .map_err(|_| RestartError::UnverifiedReceipt)?;
         if verified_receipt.activity_id() != receipt.expected_activity_id {
             return Err(RestartError::ReceiptActivityMismatch);
         }
-        replay.admit(&verified_receipt).map_err(map_replay_error)?;
+        replay
+            .admit_identity(
+                verified_receipt.receipt_ref(),
+                verified_receipt.activity_id(),
+            )
+            .map_err(map_replay_error)?;
         if verified_receipt.result_code() == 0 {
             receipt_consumed = receipt_consumed
                 .checked_add(verified_receipt.amount())

@@ -769,7 +769,7 @@ mod tests {
 
     fn signed_native_send() -> Disclosure {
         use ed25519_dalek::{Signer as _, SigningKey};
-        use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions, SendDebit};
+        use layerx_crypto::send::SendDebit;
         let signer = SigningKey::from_bytes(&[42; 32]);
         let debit = SendDebit {
             from: PAYER,
@@ -797,21 +797,9 @@ mod tests {
         let public_key = signer.verifying_key().to_bytes();
         let payload =
             must(debit.encode_signed(public_key, signer.sign(&message.digest()).to_bytes()));
-        must(encode_send_envelope(
-            &payload,
-            &EnvelopeOptions {
-                actor: "did:layerx:alice",
-                public_key,
-                network_id: 17,
-                protocol_version: 3,
-                identity_sequence: 19,
-                idempotency_key: [4; 32],
-                fee_limit: 20,
-                not_before: 10,
-                not_after: 100,
-            },
+        prepared_disclosure(crate::prepare::evm::PrecompileCall::ledger_transfer(
+            payload,
         ))
-        .disclosure
     }
 
     #[test]
@@ -1131,7 +1119,6 @@ mod tests {
 
         let fee_asset = [9; 32];
         let ordinary = registration(1_000);
-        let asset = ordinary.asset;
         let disclosure = registration_disclosure(ordinary);
         assert_eq!(
             derive_native_effects(&disclosure, &none()),
@@ -1141,27 +1128,17 @@ mod tests {
             derive_native_profile_effects(&disclosure, NativeAdmissionProfile::Effect),
             Err(EffectsError::Unsupported("Register"))
         );
-        let account = must(layerx_types::account::AccountId::for_asset(
-            "did:layerx:alice",
-            fee_asset,
-            fee_asset,
-        ));
-        let principal = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
-        let admitted = must(derive_native_profile_effects(
-            &disclosure,
-            NativeAdmissionProfile::Registration { fee_asset },
-        ));
         assert_eq!(
-            admitted.effects(),
-            [Effect::Authorization {
-                kind: AuthorizationKind::SupplyCap,
-                account: principal,
-                asset: Some(asset),
-                amount: 1_000,
-            }]
+            derive_native_profile_effects(
+                &disclosure,
+                NativeAdmissionProfile::Registration { fee_asset },
+            ),
+            Err(EffectsError::Unsupported("Register"))
         );
-        assert!(admitted.gross_per_asset().is_empty());
-        assert_eq!(admitted.rate_actions(), 1);
+        assert_eq!(
+            derive_native_registration(&disclosure, fee_asset),
+            Err(EffectsError::Unsupported("Register"))
+        );
         assert_eq!(
             derive_native_registration(&disclosure, [0; 32]),
             Err(EffectsError::Unsupported("Register"))
@@ -1192,33 +1169,16 @@ mod tests {
             Err(EffectsError::InvalidNativeDisclosure)
         );
 
-        let commitment = must(native_registration_commitment(
-            &disclosure,
-            3,
-            17,
-            [5; 32],
-            fee_asset,
-        ));
-        assert_ne!(
-            commitment,
-            must(native_registration_commitment(
-                &disclosure,
-                3,
-                17,
-                [5; 32],
-                [8; 32]
-            ))
-        );
-        assert_ne!(
-            commitment,
-            must(native_registration_commitment(
-                &disclosure,
-                3,
-                17,
-                [6; 32],
-                fee_asset
-            ))
-        );
+        for (digest, fee) in [
+            ([5; 32], fee_asset),
+            ([5; 32], [8; 32]),
+            ([6; 32], fee_asset),
+        ] {
+            assert_eq!(
+                native_registration_commitment(&disclosure, 3, 17, digest, fee,),
+                Err(EffectsError::Unsupported("Register"))
+            );
+        }
         for (protocol, network, fee) in [(2, 17, fee_asset), (3, 0, fee_asset), (3, 17, [0; 32])] {
             assert_eq!(
                 native_registration_commitment(&disclosure, protocol, network, [5; 32], fee),
@@ -1244,46 +1204,65 @@ mod tests {
     }
 
     fn registration_disclosure(registration: layerx_crypto::payments::Registration) -> Disclosure {
-        use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-        use layerx_wire::{encode::Encoder, hash::Domain};
-        use sha2::{Digest as _, Sha256};
-        let actor: &[u8] = b"did:layerx:alice";
-        let payload = must(Payment::Register(registration).encode(actor));
-        let kind = must(ActivityType::new(ModuleId::Asset, 1));
-        let registry = must(ModuleRegistry::new(&[must(ModuleRegistration::new(
-            ModuleId::Asset,
-            &[kind],
-        ))]));
-        let mut hasher = Sha256::new();
-        hasher.update(Domain::PayloadHash.tag());
-        hasher.update(&payload);
-        let digest: [u8; 32] = hasher.finalize().into();
-        let mut e = Encoder::new(65536);
-        must(e.structure_header_version(0x1001, 3));
-        must(e.u8(11));
-        must(e.tag(1, 12));
-        must(e.u16(3));
-        must(e.tag(2, 12));
-        must(e.u32(17));
-        must(e.tag(3, 12));
-        must(e.u32(kind.value()));
-        must(e.tag(4, 12));
-        must(e.bytes(actor, 255));
-        must(e.tag(5, 12));
-        must(e.bytes(&[9; 32], 524_288));
-        must(e.tag(6, 12));
-        must(e.u64(7));
-        must(e.tag(7, 12));
-        must(e.u64(10));
-        must(e.u64(100));
-        must(e.tag(8, 12));
-        must(e.bytes(&[0x71; 32], 32));
-        must(e.tag(9, 12));
-        must(e.u128(20));
-        must(e.tag(10, 12));
-        must(e.bytes(&digest, 32));
-        must(e.tag(11, 12));
-        must(e.bytes(&payload, 524_288));
-        must(layerx_crypto::disclosure::bind(&e.finish(), &registry))
+        use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+        let word = |value: u128| {
+            let mut word = [0; 32];
+            word[16..].copy_from_slice(&value.to_be_bytes());
+            word
+        };
+        prepared_disclosure(PrecompileCall {
+            target: PrecompileTarget::Ledger,
+            selector: layerx_crypto::disclosure::call::ledger_selector(
+                "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
+            ),
+            arguments: vec![
+                AbiArgument::Word(registration.asset),
+                AbiArgument::Word(registration.salt),
+                AbiArgument::Bytes(registration.symbol.into_bytes()),
+                AbiArgument::Bytes(registration.name.into_bytes()),
+                AbiArgument::Word(word(u128::from(registration.decimals))),
+                AbiArgument::Word(word(registration.supply_cap)),
+                AbiArgument::Word(word(u128::from(registration.issuer_kind))),
+                AbiArgument::Bytes(registration.custody_ref),
+            ],
+        })
+    }
+
+    fn prepared_disclosure(call: crate::prepare::evm::PrecompileCall) -> Disclosure {
+        use crate::prepare::evm::{
+            prepare_bound, EvmPreparationState, PreparationDefaults, PrepareRequest,
+        };
+        let prepared = must(prepare_bound(
+            EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: 7,
+                base_fee_per_gas: 1,
+                head_height: 19,
+            },
+            PreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 20,
+                maximum_payload_bytes: 4096,
+            },
+            PrepareRequest {
+                from: [0x11; 20],
+                call,
+                expected_nonce: Some(7),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 4096,
+            },
+            100_000,
+        ));
+        let disclosure = must(layerx_crypto::disclosure::call::bind_call(
+            &prepared.call,
+            prepared.from,
+        ));
+        assert_eq!(disclosure, prepared.disclosure);
+        assert_eq!(
+            must(disclosure.signing_digest()),
+            prepared.disclosure_digest
+        );
+        disclosure
     }
 }

@@ -1,17 +1,116 @@
 include!("../src/main.rs");
 
 mod px_reads {
-    use std::io::{BufRead as _, Read as _};
-    use std::net::{Shutdown, TcpListener};
+    use std::io::{BufRead as _, Read as _, Write as _};
+    use std::net::TcpListener;
     use std::path::Path;
     use std::process::{Command, Output};
     use std::time::{Duration, Instant};
 
     use serde_json::{json, Value};
 
+    pub const DID: &str =
+        "did:layerx:6161616161616161616161616161616161616161616161616161616161616161";
+
+    pub fn balance_document() -> Value {
+        use layerx_platform_cli::wallet_gateway as producer;
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
+        ))
+        .expect("committed ABI vectors");
+        let case = |name: &str| {
+            fixture["cases"]
+                .as_array()
+                .expect("cases")
+                .iter()
+                .find(|row| row["name"] == name)
+                .expect("ABI case")
+        };
+        let bytes =
+            |text: &str| crate::encoding::hex_decode("ABI fixture", text).expect("ABI bytes");
+        let unified = producer::evm::decode_unified_account(&bytes(
+            case("addr.getUnifiedAccount")["result"]
+                .as_str()
+                .expect("unified result"),
+        ))
+        .expect("real addr codec");
+        let coins = producer::evm::decode_coins(&bytes(
+            case("bank.all_balances")["result"]
+                .as_str()
+                .expect("bank result"),
+        ))
+        .expect("real bank codec");
+        let rows = coins.into_iter().map(|(denom, amount)| json!({"denom":denom,"amount":producer::evm::uint256_decimal(&amount)})).collect();
+        let document = producer::balances(
+            producer::account_document(
+                Some(unified.evm),
+                Some(unified.pax_address),
+                Some(unified.did_public_key),
+                Some(unified.layerx_main_account_id),
+            ),
+            91,
+            rows,
+        );
+        assert_eq!(
+            document["balances"],
+            case("bank.all_balances")["out"]["response"]
+        );
+        document
+    }
+
+    pub fn asset_row() -> Value {
+        use layerx_platform_cli::wallet_gateway as producer;
+        let word = |value: u128| {
+            let mut word = vec![0; 16];
+            word.extend_from_slice(&value.to_be_bytes());
+            word
+        };
+        let asset = [0x22; 32];
+        let mut abi = Vec::new();
+        for field in [
+            asset.to_vec(),
+            word(384),
+            word(448),
+            word(6),
+            word(1_000_000),
+            vec![0x61; 32],
+            vec![0x44; 32],
+            word(1),
+            word(0),
+            word(512),
+            word(0),
+            word(1_000_000),
+        ] {
+            abi.extend(field);
+        }
+        for text in ["TST", "Test Token"] {
+            abi.extend(word(text.len() as u128));
+            abi.extend(text.as_bytes());
+            abi.resize(abi.len().div_ceil(32) * 32, 0);
+        }
+        abi.extend(word(0));
+        let mut row = json!({"asset_id":producer::hex(&asset),"kind":"ledger","denom":format!("layerx/{}",producer::hex(&asset))});
+        row.as_object_mut().expect("row").extend(
+            producer::ledger_asset_metadata(&abi, asset)
+                .expect("real ledger metadata codec")
+                .as_object()
+                .expect("metadata")
+                .clone(),
+        );
+        row
+    }
+
     pub fn capture() -> (String, std::thread::JoinHandle<Value>) {
+        capture_at("/")
+    }
+
+    pub fn hosted() -> (String, std::thread::JoinHandle<Value>) {
+        capture_at("/rpc")
+    }
+
+    fn capture_at(path: &'static str) -> (String, std::thread::JoinHandle<Value>) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("wire capture listener");
-        let endpoint = format!("http://{}/rpc", listener.local_addr().expect("address"));
+        let endpoint = format!("http://{}{}", listener.local_addr().expect("address"), path);
         listener.set_nonblocking(true).expect("nonblocking capture");
         let worker = std::thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(10);
@@ -31,7 +130,7 @@ mod px_reads {
             let mut reader = std::io::BufReader::new(stream);
             let mut line = String::new();
             reader.read_line(&mut line).expect("request line");
-            assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+            assert_eq!(line, format!("POST {path} HTTP/1.1\r\n"));
             let mut length = None;
             loop {
                 line.clear();
@@ -49,16 +148,36 @@ mod px_reads {
             assert!(length <= 1_048_576);
             let mut body = vec![0; length];
             reader.read_exact(&mut body).expect("request body");
-            reader
-                .get_ref()
-                .shutdown(Shutdown::Both)
-                .expect("close capture without a node reply");
             let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
             assert_eq!(request["jsonrpc"], "2.0");
             assert!(!request["method"]
                 .as_str()
                 .expect("method")
                 .starts_with("lx_"));
+            if path == "/" {
+                // Root receipt transport is asserted independently of hosted service reads.
+                return request;
+            }
+            let result = match request["method"].as_str().expect("method") {
+                "px_getBalances" => balance_document(),
+                "px_listAssets" => {
+                    let (cursor, limit) =
+                        layerx_platform_cli::wallet_gateway::page_params(Some(&request["params"]))
+                            .expect("published page parameters");
+                    layerx_platform_cli::wallet_gateway::assets_page(
+                        vec![asset_row()],
+                        94,
+                        cursor,
+                        limit,
+                        None,
+                    )
+                    .expect("real gateway page producer")
+                }
+                "pax_sequencerReceipt" => receipt(),
+                method => panic!("unexpected read method {method}"),
+            };
+            let response = json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
+            write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).expect("producer response transport");
             request
         });
         (endpoint, worker)
@@ -118,32 +237,77 @@ fn wallet_balance_reads_px_get_balances() {
     let directory = tempfile::tempdir().expect("configuration directory");
     for explicit_rpc in [true, false] {
         for asset in [None, Some("22".repeat(32))] {
-            let (endpoint, captured) = px_reads::capture();
+            let (endpoint, captured) = px_reads::hosted();
             px_reads::configure(directory.path(), &endpoint);
             let mut args = Vec::new();
             if explicit_rpc {
                 args.extend(["--rpc", endpoint.as_str()]);
             }
-            args.extend(["wallet", "balance", "--did", "did:layerx:alice"]);
+            args.extend(["wallet", "balance", "--did", px_reads::DID]);
+            args.extend(["--gateway-rpc", endpoint.as_str()]);
             if let Some(asset) = &asset {
                 args.extend(["--asset", asset.as_str()]);
             }
             let output = px_reads::cli(directory.path(), &args);
             assert!(
-                !output.status.success(),
-                "wire capture supplies no node response"
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
             );
+            let printed: Value = serde_json::from_slice(&output.stdout).expect("CLI public output");
+            assert_eq!(printed["ok"], true);
             let request = captured.join().expect("wire capture");
             assert_eq!(request["method"], "px_getBalances");
-            assert_eq!(request["params"], json!(["did:layerx:alice"]));
+            assert_eq!(request["params"], json!([px_reads::DID]));
+            assert_eq!(printed["kind"], "wallet.balance");
+            let mut expected = px_reads::balance_document();
+            expected["verification"] = json!("unverified_node_observation");
+            if asset.is_some() {
+                expected["balances"] = json!([]);
+            }
+            assert_eq!(printed["data"], expected);
+            assert_eq!(printed["data"]["height"], 91);
+            assert_eq!(printed["data"]["units"], "base");
+            assert_eq!(printed["data"]["evidence"], "committed_eth_call");
         }
     }
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("unused node listener");
+    listener
+        .set_nonblocking(true)
+        .expect("nonblocking listener");
+    let endpoint = format!("http://{}/", listener.local_addr().expect("node address"));
+    px_reads::configure(directory.path(), &endpoint);
+    let output = px_reads::cli(
+        directory.path(),
+        &[
+            "--rpc",
+            &endpoint,
+            "wallet",
+            "balance",
+            "--did",
+            px_reads::DID,
+        ],
+    );
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    let printed: Value = serde_json::from_slice(&output.stderr).expect("CLI public refusal");
+    assert_eq!(printed["ok"], false);
+    assert_eq!(printed["error"]["code"], "gateway_rpc_required");
+    assert_eq!(
+        printed["error"]["detail"],
+        "gateway_rpc_required: provide --gateway-rpc for hosted px_ balances"
+    );
+    assert!(matches!(
+        listener.accept(),
+        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+    ));
 }
 
 #[test]
 fn token_list_reads_px_list_assets() {
     let directory = tempfile::tempdir().expect("configuration directory");
-    let cursor = "11".repeat(32);
+    let cursor = "16".to_owned();
     let asset = "22".repeat(32);
     for (args, params) in [
         (vec!["token", "list"], json!([])),
@@ -155,7 +319,7 @@ fn token_list_reads_px_list_assets() {
         (vec!["token", "info", &asset], json!([])),
     ] {
         for explicit_rpc in [true, false] {
-            let (endpoint, captured) = px_reads::capture();
+            let (endpoint, captured) = px_reads::hosted();
             px_reads::configure(directory.path(), &endpoint);
             let mut arguments = Vec::new();
             if explicit_rpc {
@@ -164,12 +328,22 @@ fn token_list_reads_px_list_assets() {
             arguments.extend(args.iter().copied());
             let output = px_reads::cli(directory.path(), &arguments);
             assert!(
-                !output.status.success(),
-                "wire capture supplies no node response"
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
             );
+            let printed: Value = serde_json::from_slice(&output.stdout).expect("CLI public output");
+            assert_eq!(printed["ok"], true);
             let request = captured.join().expect("wire capture");
             assert_eq!(request["method"], "px_listAssets");
             assert_eq!(request["params"], params);
+            assert_eq!(printed["kind"], "token.read");
+            if args[1] == "info" {
+                assert_eq!(printed["data"]["asset"], px_reads::asset_row());
+            } else {
+                assert_eq!(printed["data"]["assets"], json!([px_reads::asset_row()]));
+            }
+            assert_eq!(printed["data"]["height"], 94);
         }
     }
 }
@@ -282,7 +456,7 @@ fn wallet_receipt_reads_sequencer_receipt_by_tx_hash() -> Result<(), String> {
             directory.path(),
             &[
                 "--rpc",
-                "http://127.0.0.1:1/rpc",
+                "http://127.0.0.1:1",
                 "wallet",
                 "receipt",
                 &invalid,

@@ -1,0 +1,31 @@
+[manifest]
+task = "22.32.190"
+domain = 17
+owner_role = "fm-programme"
+pages = 3
+
+[qualification]
+evidence_ref = "Private runner gate ledger for task 22.32.190: /out/run/gates.jsonl"
+build_ref = "The build row records the candidate revision, command, exit code and private log path."
+verify_ref = "The verify row records the candidate revision, cg spec done command, exit code and private log path; qualification requires passing build and verify rows at the same revision."
+
+[page.1]
+path = "README.md"
+status = "current"
+bytes = 30509
+source_1 = "Decision 2658 and gotcha 3234: api2 keeps full history, the other thirteen numbered nodes prune, and out-of-retention receipt and state queries return -32000; historical queries use api2."
+source_2 = "Decision 2521: public node JSON-RPC uses the root path on EVM chain ID 125, with no router or separate LayerX interface."
+
+[page.2]
+path = "docs/readme/PUBLIC-RPC.md"
+status = "current"
+bytes = 2779
+source_1 = "Decision 2658 and gotcha 3234: api2 keeps full history, the other thirteen numbered nodes prune, and out-of-retention receipt and state queries return -32000; historical queries use api2."
+source_2 = "Decision 2521: public node JSON-RPC uses the root path on EVM chain ID 125, with no router or separate LayerX interface."
+
+[page.3]
+path = "docs/site/docs/reference/public-rpc.md"
+status = "current"
+bytes = 5111
+source_1 = "Decision 2658 and gotcha 3234: api2 keeps full history, the other thirteen numbered nodes prune, and out-of-retention receipt and state queries return -32000; historical queries use api2."
+source_2 = "Decision 2521: public node JSON-RPC uses the root path on EVM chain ID 125, with no router or separate LayerX interface."

@@ -36,7 +36,7 @@ The proposer executes and orders transactions; validators verify execution
 and commit the block. Submission or an early signed receipt does not establish
 block finality. The committed block is the finality boundary for program
 storage, transfers, events, and receipts; there is no later checkpoint
-settlement stage. See [Commitment levels](CommitmentLevels.md).
+settlement stage. See [Commitment levels (retired)](CommitmentLevels.md).
 
 Sub-chains are tenant domains: namespaces in the database that share the
 network and can be launched without provisioning another chain. See
@@ -74,10 +74,11 @@ storage also carries deterministic occupancy charges. See
 [Programs](Programs.md#occupancy-and-committed-state), [Fees](Fees.md), and
 [Assets and tokens](Assets.md).
 
-Hosted `px_*` methods belong to `services/platform/hosted/gateway/`, whose
-`openrpc.json` defines their contract. They are not node namespaces. The
-public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
-`txpool`; obtain hosted service availability from its operator.
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`,
+`test`, and `txpool`. The `px` namespace answers from node state; `px_register`
+and `px_requestFunds` are hosted identity and faucet operations whose contract
+is `services/platform/hosted/gateway/openrpc.json`. Obtain hosted service
+availability from its operator.
 
 ## Resources
 
@@ -92,7 +93,7 @@ public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
 - [Public payment API transcript](PublicAPI.md)
 - [SDK quickstarts](SdkQuickstarts.md): [Rust](SdkQuickstartRust.md) · [TypeScript](SdkQuickstartTypeScript.md) · [Python](SdkQuickstartPython.md) · [Go](SdkQuickstartGo.md) · [JVM](SdkQuickstartJvm.md) · [.NET](SdkQuickstartDotNet.md) · [Swift](SdkQuickstartSwift.md)
 - [Assets and tokens](Assets.md)
-- [Commitment levels](CommitmentLevels.md)
+- [Commitment levels (retired)](CommitmentLevels.md)
 - [Running an agent](RunningAnAgent.md)
 - [Protocol](Protocol.md)
 - [Unified network architecture](UnifiedNetwork.md)
@@ -108,7 +109,7 @@ public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
 - [Bridge](Bridge.md)
 - [Fees](Fees.md)
 - [Sequencing](Sequencing.md)
-- [Finality](Finality.md)
+- [Finality (retired)](Finality.md)
 - [Data availability](DataAvailability.md)
 - [Agent API](AgentApi.md)
 - [MCP](Mcp.md)
@@ -117,11 +118,10 @@ public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
 - [Human journeys](HumanJourneys.md)
 - [Human custody](HumanCustody.md)
 - [Human owner registration](HumanOwnerRegistration.md)
-- [Protocol design](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-protocol/design.md)
-- [Contributing guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md)
-- [Security policy](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md)
-- [Qualification documentation](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/QUALIFICATION.md)
-- [Monorepo layout](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/MONOREPO.md)
+- [Contributing guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
+- [Security policy](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md)
+- [Qualification documentation](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/QUALIFICATION.md)
+- [Monorepo layout](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/MONOREPO.md)
 - [Programs](Programs.md): native WASM execution, guest ABIs, LXT-20, simulation, and committed receipts
 - [Sandbox](Sandbox.md)
 - [Storage scan](StorageScan.md)
@@ -136,8 +136,6 @@ public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
 - [Market-maker ramps](MarketMakerRamps.md)
 - [Ethereum and Solana mirrors](Mirrors.md)
 - [Ethereum and Solana migration](Migration.md)
-- [402LXP protocol](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/402lxp/protocol.md)
-- [402LXP RPC verification guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/402lxp/README.md)
 - [Agentd](Agentd.md)
 - [CLI](Cli.md)
 - [Hosted core](HostedCore.md)

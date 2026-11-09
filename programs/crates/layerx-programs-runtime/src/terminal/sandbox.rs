@@ -7,6 +7,38 @@ pub const SANDBOX_SETTLEMENT_DOMAIN: &[u8] = b"LXP/programs/sandbox-settlement/v
 const USAGE_DOMAIN: &[u8] = b"LayerX/programs/sandbox/usage-receipt/v4\0";
 pub const MAX_SANDBOX_USAGE_RECEIPT_BYTES: usize = 4096;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SandboxSettlementFrameError {
+    ShortFrame,
+    DigestMismatch,
+    MalformedCanonical,
+}
+
+impl SandboxSettlementFrameError {
+    #[must_use]
+    pub const fn result_code(self) -> i32 {
+        -3 // NON_CANONICAL, including authentication failures.
+    }
+}
+
+impl core::fmt::Display for SandboxSettlementFrameError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str(match self {
+            Self::ShortFrame => "short sandbox usage receipt frame",
+            Self::DigestMismatch => "sandbox usage receipt digest mismatch",
+            Self::MalformedCanonical => "malformed canonical sandbox usage receipt body",
+        })
+    }
+}
+
+impl std::error::Error for SandboxSettlementFrameError {}
+
+impl From<TerminalDecodeError> for SandboxSettlementFrameError {
+    fn from(_: TerminalDecodeError) -> Self {
+        Self::MalformedCanonical
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SandboxSettlement {
     pub receipt: Vec<u8>,
@@ -43,6 +75,12 @@ pub struct SandboxReceiptBinding {
 }
 
 impl SandboxSettlement {
+    /// Completes the native storage-environment frame: canonical usage bytes followed
+    /// by their 32-byte SHA-256 digest, as computed by the usage receipt producer.
+    pub fn append_receipt_digest(canonical: &mut Vec<u8>, digest: [u8; 32]) {
+        canonical.extend_from_slice(&digest);
+    }
+
     /// Encodes the frozen native usage-receipt contract and validates conservation.
     /// The host authenticates lease transition fields and transfer inclusion separately.
     pub fn canonical_usage_receipt(&self) -> Result<Vec<u8>, TerminalDecodeError> {
@@ -253,18 +291,37 @@ impl SandboxSettlement {
     }
 }
 
-/// Wraps the actual execution bytes and canonical usage receipt for native publication.
+/// Authenticates a native storage-environment frame consisting of canonical usage
+/// bytes followed by their 32-byte SHA-256 digest. Only the canonical body is
+/// attached to the execution bytes for terminal publication.
+///
+/// # Errors
+///
+/// Refuses a short frame, a digest mismatch or a malformed canonical body as NON_CANONICAL.
 pub fn attach_sandbox_settlement(
     execution: &mut Vec<u8>,
     receipt: &[u8],
     transfer_root: [u8; 32],
-) -> Result<(), TerminalDecodeError> {
-    let settlement = SandboxSettlement::read(receipt, transfer_root, false)?;
+) -> Result<(), SandboxSettlementFrameError> {
+    let canonical_length = receipt
+        .len()
+        .checked_sub(32)
+        .ok_or(SandboxSettlementFrameError::ShortFrame)?;
+    let (canonical, digest) = receipt.split_at(canonical_length);
+    if canonical.len() > MAX_SANDBOX_USAGE_RECEIPT_BYTES {
+        return Err(SandboxSettlementFrameError::MalformedCanonical);
+    }
+    let computed = crate::hash_bytes(crate::HashAlgorithm::Sha256, canonical)
+        .map_err(|_| SandboxSettlementFrameError::MalformedCanonical)?;
+    if computed != digest {
+        return Err(SandboxSettlementFrameError::DigestMismatch);
+    }
+    let settlement = SandboxSettlement::read(canonical, transfer_root, false)?;
     let execution_length = execution.len();
     let prefix = SANDBOX_SETTLEMENT_DOMAIN.len() + 4;
     let length = prefix
         .checked_add(execution_length)
-        .and_then(|n| n.checked_add(4 + receipt.len() + 32))
+        .and_then(|n| n.checked_add(4 + canonical.len() + 32))
         .ok_or(TerminalDecodeError::Malformed)?;
     let encoded_length =
         u32::try_from(execution_length).map_err(|_| TerminalDecodeError::Malformed)?;
@@ -274,7 +331,7 @@ pub fn attach_sandbox_settlement(
     execution[..SANDBOX_SETTLEMENT_DOMAIN.len()].copy_from_slice(SANDBOX_SETTLEMENT_DOMAIN);
     execution[SANDBOX_SETTLEMENT_DOMAIN.len()..prefix]
         .copy_from_slice(&encoded_length.to_be_bytes());
-    execution.extend_from_slice(&(receipt.len() as u32).to_be_bytes());
+    execution.extend_from_slice(&(canonical.len() as u32).to_be_bytes());
     settlement.append_usage_receipt(execution);
     execution.extend_from_slice(&transfer_root);
     Ok(())

@@ -1,0 +1,51 @@
+[issue.1658]
+number = 1658
+title = "Markets stream drops valid snapshots with nullable feed metrics"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The validation introduced by commit 34996678dbe2feb1b2e5866e0f08d91879088fc4 still rejects null at apps/perps/src/hooks/perps/useMarketsStream.ts:290 and drops the snapshot at :359, although services/platform/perps-data/internal/records/records.go:71, :72 and :80 declare nullable price, change_24h and last_updated, services/platform/perps-data/internal/feeds/topics.go:1137 and :1177 preserve unavailable opening-fill change independently of price, volume and open interest populated at :1221, spec/release-v6-12-0/contracts/data-services.md:471 and :473 require that nullability, and apps/perps/src/widgets/markets/useMarketsRows.ts:43 and :55 discard or replace the available metrics while apps/perps/tests/proof_widgets.test.ts:275 incorrectly groups allowed nulls with malformed values."
+close_comment = "Market snapshots with unavailable feed metrics are currently discarded, hiding otherwise available live data. The follow-up task preserves those snapshots, displays unavailable metrics explicitly, and retains malformed-value validation."
+
+[task.18.1658.1]
+title = "Issue #1658: Preserve markets snapshots with unavailable feed metrics"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181658.1"]
+capabilities = []
+interfaces = []
+do_1 = "Align MarketSnapshot and normalizeMarket at apps/perps/src/hooks/perps/useMarketsStream.ts:35 and :330 with services/platform/perps-data/internal/records/records.go:67: represent the producer's price, change_24h and last_updated nulls explicitly, retain each available metric and the snapshot, and preserve exact funding null handling at apps/perps/src/hooks/perps/useMarketsStream.ts:302; reject malformed non-null numeric values and nulls in non-nullable numeric fields with the existing finite-value and sign rules instead of coercing them to zero."
+do_2 = "Carry nullable price and change through MarketRow at apps/perps/src/widgets/markets/types.ts:10 and buildMarketsRows at apps/perps/src/widgets/markets/useMarketsRows.ts:35 without the zero substitution at :55; retain hasLiveData for accepted snapshots, make filterAndSort at :87 handle unavailable values deterministically, and update apps/perps/src/widgets/markets/MarketsTable.tsx:237, apps/perps/src/widgets/markets/MarketsHighlights.tsx:44 and :180 and apps/perps/src/page-modules/markets/index.tsx:365 to show unavailable values neutrally, exclude unavailable change from gainers and losers, and preserve available volume, open interest and funding when some or all rows contain allowed nulls."
+do_3 = "Update the price-only projections at apps/perps/src/hooks/perps/useRealtimePrices.ts:35 and :83 and freshness scheduling at apps/perps/src/hooks/perps/usePriceFreshness.ts:16 to explicitly exclude unavailable prices without inventing zero or altering valid ticker prices, funding precision or expiry behavior; keep numeric-only PriceFlash inputs behind availability checks in the markets widgets."
+do_4 = "Add TestMarketsNullableSnapshotsReachMountedView in services/platform/perps-data/internal/feeds/proof_websocket_test.go using the real migrated database, broker and gateway setup at :67 and the real socket crossing at :267; seed no-opening-fill, no-price and no-update-time states so the unchanged producer emits every documented nullable field individually and together, assert the raw frame nulls, and drive those frames through the actual markets stream into a mounted React markets table and highlights with the existing real DOM setup pattern at apps/perps/tests/repair-22-33-710.test.ts:154, without replacing the producer, transport, hooks or components."
+do_5 = "Declare and register marketsNullableSnapshotsReachMountedView in apps/perps/tests/proof_widgets.test.ts, have the focused Go test invoke that consumer test and marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults, and assert retained metrics, null-as-unavailable display, live readiness with some or all rows nullable, sorting and filtering, transitions to available values, and exact funding; separate the allowed-null cases from the malformed matrix at apps/perps/tests/proof_widgets.test.ts:272 while preserving every malformed non-null refusal, non-nullable-field null refusal, negative-value check, zero-value check and sibling-row isolation assertion."
+symbols = ["MarketSnapshot", "normalizeMarket", "MarketRow", "buildMarketsRows", "filterAndSort", "MarketsTable", "selectRows", "HighlightList", "FundingTabPanel", "tickerFromSnapshot", "useRealtimePrices", "usePriceFreshness", "TestMarketsNullableSnapshotsReachMountedView", "marketsNullableSnapshotsReachMountedView", "marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults"]
+touches = ["apps/perps/src/hooks/perps/useMarketsStream.ts", "apps/perps/src/hooks/perps/useRealtimePrices.ts", "apps/perps/src/hooks/perps/usePriceFreshness.ts", "apps/perps/src/widgets/markets/types.ts", "apps/perps/src/widgets/markets/useMarketsRows.ts", "apps/perps/src/widgets/markets/MarketsTable.tsx", "apps/perps/src/widgets/markets/MarketsHighlights.tsx", "apps/perps/src/page-modules/markets/index.tsx", "apps/perps/tests/proof_widgets.test.ts", "services/platform/perps-data/internal/feeds/proof_websocket_test.go"]
+tests = ["services/platform/perps-data/internal/feeds/proof_websocket_test.go::TestMarketsNullableSnapshotsReachMountedView"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "go test -count=1 ./services/platform/perps-data/internal/feeds/ -run '^TestMarketsNullableSnapshotsReachMountedView$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181658]
+title = "Allowed unavailable feed metrics preserve live markets data"
+ac_1 = "Given market records whose nullable fields are declared at services/platform/perps-data/internal/records/records.go:71 and whose unavailable opening-fill change is preserved at services/platform/perps-data/internal/feeds/topics.go:1177, the markets stream retains snapshots with each allowed null and with combined nulls, the mounted markets view preserves available price, volume, open interest and exact funding and displays unavailable metrics without inventing zero, sorting and filtering remain usable, and malformed non-null values and forbidden nulls remain rejected."
+
+[acceptance.18.1658.1]
+feature = "18"
+req = "181658.1"
+scenario = "Given producer-emitted markets snapshots with each documented nullable field absent individually and together, when real websocket frames reach the markets stream and mounted markets view, then accepted rows retain available metrics, unavailable values display neutrally, some or all nullable rows leave the view usable, and malformed non-null numeric values and nulls in required numeric fields are refused without dropping valid siblings."
+contract = "contracts/perps-data.md#websocket"
+test = "services/platform/perps-data/internal/feeds/proof_websocket_test.go::TestMarketsNullableSnapshotsReachMountedView (planned)"
+qualification = "UNRUN"

@@ -13,7 +13,7 @@ const SearchBarSuggestTacOperation = ({ data, isMobile }: ItemsProps<SearchResul
   const icon = <OperationEntity.Icon type={ data.tac_operation.type }/>;
   const hash = (
     <chakra.mark overflow="hidden" whiteSpace="nowrap" fontWeight={ 700 } mr={ 2 }>
-      <HashStringShortenDynamic hash={ data.tac_operation.operation_id } noTooltip/>
+      <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.tac_operation.operation_id } noTooltip/>
     </chakra.mark>
   );
   const status = <TacOperationStatus status={ data.tac_operation.type }/>;

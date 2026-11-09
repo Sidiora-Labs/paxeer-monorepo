@@ -1,0 +1,7 @@
+[issue.1608]
+number = 1608
+title = "[Coherence] The audit record wrongly reports four agent contract pages as missing; they exist under spec/layerx-merge/contracts/"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "Completed audit task 22.30.92 (spec/layerx-merge/spec.kvx:376694) must have finding.missing_contracts and doc.13 through doc.16 corrected (spec/layerx-merge/programme/audit/records/22.30.92.kvx:514 and :919) to acknowledge the existing spec/layerx-merge/contracts/agent-api.md:1, spec/layerx-merge/contracts/agent-formats.md:124, spec/layerx-merge/contracts/agent-rust-api.md:1 and spec/layerx-merge/contracts/agent-config.md:1 pages and retain only the registry's stale v1 declaration (spec/layerx-merge/interfaces.kvx:391174, whose contract target is at :391177), updating that declaration to v2 because the contract now documents v2 at spec/layerx-merge/contracts/agent-formats.md:128 following commit 207dd219d2cddafa0c835d1baf675400aad5d61c, the verifier requires it at services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:12 and :283, and services/agent/crates/layerx-agentd/tests/repair_22_33_1520.rs:1284 covers v2 acceptance and v1 refusal."
+close_comment = "All four agent contract pages exist under spec/layerx-merge/contracts/, and the budget-proof page now documents v2 and v1 refusal. The specification correction should replace the audit's missing-page claims with assessments of the existing pages and identify the remaining registry v1 declaration for alignment with v2."

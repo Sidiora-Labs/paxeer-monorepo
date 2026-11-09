@@ -1233,9 +1233,9 @@ file = "rpc/raw_tx.go"
 line = 48
 class = "doc-drift"
 severity = "low"
-observed = "Registry rows 7.rpc-eth-getrawtransactionbyhash-j38 and the two indexed raw rows still promise JSON null and reference absent contracts/evm-rpc.md. The actual nil hexutil.Bytes result is the JSON string 0x, explicitly required by decision 2300 and asserted by the real client parity proof."
-expected = "Public raw transaction descriptions must state the authoritative 0x missing-envelope result while uncle methods retain null. Their linked client-parity contract must exist and agree with the producer and consumer."
-proposal = "Update the three raw-method registry notes in spec/layerx-merge/interfaces.kvx and restore contracts/evm-rpc.md with decision 2300's wire distinction. Preserve rpc/proof_client_parity_test.go's real transport assertions; do not change the correct producer to match obsolete null prose."
+observed = "The client-parity anchor exists at spec/layerx-merge/contracts/evm-rpc.md:7, but its three raw-method notes at :26-28 and the corresponding registry notes at spec/layerx-merge/interfaces.kvx:312552, :312562 and :312572 still promise JSON null for missing envelopes. The Go nil hexutil.Bytes result encodes as the JSON string '0x', required by decision 2300 and asserted by rpc/proof_client_parity_test.go:303-337."
+expected = "The existing spec/layerx-merge/contracts/evm-rpc.md#client-parity contract and the three raw-method registry notes must describe missing envelopes as the JSON string '0x' for unknown hashes, unknown blocks and out-of-range indexes. Preserve successful envelopes, the Go nil acceptance statements and uncle null results; nil hexutil.Bytes and its JSON encoding are distinct."
+proposal = "Correct the three raw-method notes in the existing spec/layerx-merge/contracts/evm-rpc.md:26-28 and spec/layerx-merge/interfaces.kvx:312552, :312562 and :312572 to state decision 2300's JSON string '0x' missing-envelope result. No contract restoration is needed. Preserve rpc/proof_client_parity_test.go:303-337, every producer, successful envelopes, Go nil acceptance statements and uncle null behavior."
 owner_domain = 7
 interface = "7.rpc-eth-getrawtransactionbyhash-j38"
 
@@ -1435,7 +1435,7 @@ status = "stale"
 notes = "Lines 6-14 contain superseded pending, proof, uncle and unsupported-method claims; the legacy gate section still describes intentional compatibility. See rpc-instructions-drift."
 
 [doc.rpc-contract]
-path = "contracts/evm-rpc.md"
-status = "missing"
-notes = "The raw-method registry rows reference #client-parity in this absent contract. Decision 2300 and the real proof establish 0x for missing raw envelopes; restore the linked public contract. See raw-missing-contract-drift."
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "stale"
+notes = "The client-parity anchor exists at spec/layerx-merge/contracts/evm-rpc.md:7; the audit identified stale raw-envelope notes at spec/layerx-merge/contracts/evm-rpc.md:26-28. Correct those three notes and their registry counterparts for decision 2300's JSON string '0x' result; no contract file needs restoration. See raw-missing-contract-drift."
 

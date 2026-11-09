@@ -76,6 +76,18 @@ impl BoundaryRefusal {
 
 /// The only surface an authorized invocation may reach.
 pub trait ToolBoundary {
+    /// Checks local prerequisites before the durable invocation begins.
+    ///
+    /// This check must not perform network, payment, hold or other external effects. Its
+    /// refusals can therefore be retained as refused outcomes even when the dependency
+    /// is unavailable. Boundaries without local prerequisites need no check.
+    ///
+    /// # Errors
+    /// Returns a typed refusal when a local prerequisite is unavailable.
+    fn preflight(&mut self, _tool: ToolDefinition) -> Result<(), BoundaryRefusal> {
+        Ok(())
+    }
+
     /// Executes one already authorized tool invocation.
     ///
     /// # Errors

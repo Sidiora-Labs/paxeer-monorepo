@@ -32,3 +32,6 @@ def test_wallet_go_workflow_triggers_on_every_test_input():
     }
     for paths in (pull_request_paths, push_paths):
         assert expected_filters <= set(paths)
+        vectors = "services/agent/crates/layerx-wire/tests/support/wallet_vectors/**"
+        assert paths.count(vectors) == 1
+        assert (root / vectors.removesuffix("/**")).is_dir()

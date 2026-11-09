@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import './chain.test';
 import { expect, test } from 'vitest';
+import { BRIDGE_EVENTS } from '@sidiora/layerx-sdk/browser';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { act, createElement } from 'react';
@@ -99,6 +100,10 @@ async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_r
       expect(receipt.receipt).toBe(entry.signedReceipt);
       expect(receipt.authentication.receiptDigest).toBe(entry.receiptDigest);
       const sent = surfaceReceipt(receipt, bridge(provider));
+      expect(sent.events[0]).toHaveProperty(
+        'precompile',
+        BRIDGE_EVENTS.find((event) => event.name === 'BridgeOut')!.precompile
+      );
       expect(sent).toEqual({
         hash: entry.receiptJson.txHash,
         rung: 'receipted',
@@ -106,7 +111,7 @@ async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_r
         events: [
           {
             event: 'BridgeOut',
-            precompile: entry.receiptJson.to,
+            precompile: BRIDGE_EVENTS.find((event) => event.name === 'BridgeOut')!.precompile,
             topic0: entry.receiptJson.logs[0]!.topics[0],
             fields: {
               chain: 1n,
@@ -129,8 +134,6 @@ async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_r
               'paxeer_sendTransactionReceipted',
               'eth_sendTransaction',
               'pax_sequencerReceipt',
-              'px_getReceiptKeys',
-              'eth_getRawTransactionByHash',
               'px_getReceiptKeys',
               'eth_getRawTransactionByHash',
               'pax_sequencerReceipt',

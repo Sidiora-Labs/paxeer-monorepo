@@ -17,7 +17,7 @@ const ValidatorsListItem = ({ data, isLoading }: Props) => {
   return (
     <ListItemMobileGrid.Container>
 
-      <ListItemMobileGrid.Label isLoading={ isLoading }>Address</ListItemMobileGrid.Label>
+      <ListItemMobileGrid.Label isLoading={ isLoading }>Validator</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
         <AddressEntity
           isLoading={ isLoading }
@@ -26,17 +26,25 @@ const ValidatorsListItem = ({ data, isLoading }: Props) => {
         />
       </ListItemMobileGrid.Value>
 
-      <ListItemMobileGrid.Label isLoading={ isLoading }>Status</ListItemMobileGrid.Label>
-      <ListItemMobileGrid.Value>
-        <ValidatorStatus state={ data.state } isLoading={ isLoading }/>
-      </ListItemMobileGrid.Value>
+      { data.state != null && (
+        <>
+          <ListItemMobileGrid.Label isLoading={ isLoading }>Status</ListItemMobileGrid.Label>
+          <ListItemMobileGrid.Value>
+            <ValidatorStatus state={ data.state } isLoading={ isLoading }/>
+          </ListItemMobileGrid.Value>
+        </>
+      ) }
 
-      <ListItemMobileGrid.Label isLoading={ isLoading }>Blocks</ListItemMobileGrid.Label>
-      <ListItemMobileGrid.Value>
-        <Skeleton loading={ isLoading }>
-          { data.blocks_validated_count.toLocaleString() }
-        </Skeleton>
-      </ListItemMobileGrid.Value>
+      { data.blocks_validated_count != null && (
+        <>
+          <ListItemMobileGrid.Label isLoading={ isLoading }>Blocks</ListItemMobileGrid.Label>
+          <ListItemMobileGrid.Value>
+            <Skeleton loading={ isLoading }>
+              { data.blocks_validated_count.toLocaleString() }
+            </Skeleton>
+          </ListItemMobileGrid.Value>
+        </>
+      ) }
     </ListItemMobileGrid.Container>
   );
 };

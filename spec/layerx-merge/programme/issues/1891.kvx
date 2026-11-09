@@ -1,0 +1,48 @@
+[issue.1891]
+number = 1891
+title = "[Coherence] The apps/perps workspace lockfile was not refreshed for the new wallet SDK devDependencies, although the repair record says it was"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "sdk/wallet/package.json:61 and sdk/wallet/package.json:63 declare jsdom ^26.1.0 and react-dom ^19.3.1, but the SDK importer at apps/perps/pnpm-lock.yaml:264 omits both from its devDependencies at apps/perps/pnpm-lock.yaml:281 despite membership at apps/perps/pnpm-workspace.yaml:3; tests/ci/test_perps_workspace_lockfile_current.py:96, tests/ci/test_perps_workspace_lockfile_current.py:124 and tests/ci/test_perps_workspace_lockfile_current.py:144 reject that mismatch, while services/wallet/pnpm-lock.yaml:250 and services/wallet/pnpm-lock.yaml:256 contain both and commit 661007bc729b355a7d2eb1d843c691aa23715e3c omits the perps lockfile despite tests/ci/repair_22_39_178.kvx:29 claiming its refresh."
+close_comment = "The perps workspace lockfile still omits the wallet SDK's jsdom and react-dom development dependencies, so it does not match the SDK manifest. A follow-up task will refresh that lockfile with the pinned pnpm version and check the frozen install and both existing perps importer checks."
+
+[task.18.1891.1]
+title = "Issue #1891: Refresh the perps lockfile for the wallet SDK dependencies"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181891.1"]
+capabilities = []
+interfaces = []
+do_1 = "Regenerate apps/perps/pnpm-lock.yaml with the workspace's pinned pnpm 10.34.9 using a lockfile-only install with scripts disabled, so the SDK importer at apps/perps/pnpm-lock.yaml:264 records jsdom ^26.1.0 and react-dom ^19.3.1 from sdk/wallet/package.json:61 and sdk/wallet/package.json:63, including their real resolutions and snapshots; preserve the workspace members at apps/perps/pnpm-workspace.yaml:2 and all dependency floors."
+do_2 = "Prove the regenerated lockfile supports the perps frozen install, then run the existing tests/ci/test_perps_workspace_lockfile_current.py:104 membership and importer check and its apps/perps/pnpm-lock.yaml parameter at tests/ci/test_perps_workspace_lockfile_current.py:141; retain every existing assertion and change only the perps lockfile."
+symbols = []
+touches = ["apps/perps/pnpm-lock.yaml"]
+tests = ["tests/ci/test_perps_workspace_lockfile_current.py::test_perps_lock_importers_match_members", "tests/ci/test_perps_workspace_lockfile_current.py::test_every_pnpm_lock_importer_matches_manifest[apps/perps/pnpm-lock.yaml]"]
+planned_paths = []
+build_cmd = "cd apps/perps && pnpm install --frozen-lockfile --ignore-scripts"
+verify_cmd = "python3 -m pytest -q tests/ci/test_perps_workspace_lockfile_current.py::test_perps_lock_importers_match_members 'tests/ci/test_perps_workspace_lockfile_current.py::test_every_pnpm_lock_importer_matches_manifest[apps/perps/pnpm-lock.yaml]'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181891]
+title = "The perps lockfile matches the wallet SDK manifest and supports frozen installs"
+ac_1 = "The SDK importer at apps/perps/pnpm-lock.yaml:264 records jsdom ^26.1.0 and react-dom ^19.3.1 declared at sdk/wallet/package.json:61 and sdk/wallet/package.json:63 with complete resolutions and snapshots, the perps frozen install exits zero, and both existing perps checks at tests/ci/test_perps_workspace_lockfile_current.py:104 and tests/ci/test_perps_workspace_lockfile_current.py:141 pass without weakened assertions."
+
+[acceptance.18.1891.1]
+feature = "18"
+req = "181891.1"
+scenario = "Given the wallet SDK is a perps workspace member and declares jsdom ^26.1.0 and react-dom ^19.3.1, when the regenerated perps lockfile is installed frozen and its two existing importer checks run, then the install and both checks exit zero with the SDK dependency specifiers preserved."
+contract = "contracts/tools-ops.md#ci-scripts"
+test = "tests/ci/test_perps_workspace_lockfile_current.py::test_perps_lock_importers_match_members (planned)"
+qualification = "UNRUN"

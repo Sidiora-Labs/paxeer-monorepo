@@ -315,3 +315,173 @@ fn receipt_key_validation_still_refuses_invalid_nonempty_lists() {
         must(server.join());
     }
 }
+
+fn readiness_recording(
+    exchanges: Vec<(&'static str, serde_json::Value)>,
+) -> (
+    layerx_agentd::node_rpc::NodeRpcConfig,
+    std::thread::JoinHandle<()>,
+) {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::time::{Duration, Instant};
+    let listener = must(TcpListener::bind("127.0.0.1:0"));
+    must(listener.set_nonblocking(true));
+    let config = layerx_agentd::node_rpc::NodeRpcConfig {
+        url: format!("http://{}/", must(listener.local_addr())),
+        chain_id: 125,
+        deadline: Duration::from_secs(2),
+    };
+    let server = std::thread::spawn(move || {
+        for (method, result) in exchanges {
+            let expires = Instant::now() + Duration::from_secs(5);
+            let stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < expires, "missing {method} request");
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("{error}"),
+                }
+            };
+            must(stream.set_read_timeout(Some(Duration::from_secs(2))));
+            must(stream.set_write_timeout(Some(Duration::from_secs(2))));
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(must(reader.read_line(&mut line)), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(must(value.trim().parse::<usize>()));
+                }
+            }
+            let length = length.expect("bounded content length");
+            assert!(length < 65536);
+            let mut body = vec![0; length];
+            must(reader.read_exact(&mut body));
+            let request: serde_json::Value = must(serde_json::from_slice(&body));
+            assert_eq!(request["jsonrpc"], "2.0");
+            assert_eq!(request["method"], method);
+            assert_eq!(request["params"], serde_json::json!([]));
+            let response =
+                serde_json::json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
+            must(write!(reader.into_inner(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}", response.len()));
+        }
+    });
+    (config, server)
+}
+
+#[test]
+fn readiness_refresh_closes_writes_and_preserves_generation() {
+    use layerx_agentd::protocol_evidence::VerifierPolicyError;
+    use serde_json::json;
+    let key = ed25519_dalek::SigningKey::from_bytes(&[8; 32])
+        .verifying_key()
+        .to_bytes();
+    let foreign_key = ed25519_dalek::SigningKey::from_bytes(&[19; 32])
+        .verifying_key()
+        .to_bytes();
+    let keys = |public: [u8; 32], first: u64, last: u64| {
+        json!({"keys": [{
+            "keyId": format!("0x{}", hex::encode(public)),
+            "publicKey": format!("0x{}", hex::encode(public)),
+            "firstHeight": first, "lastHeight": last,
+        }]})
+    };
+    let mut gate = gate();
+    assert_eq!(gate.guard_write(|| 7), Err(WriteGateError::NotReady));
+    let (node_config, server) = readiness_recording(vec![
+        ("eth_chainId", json!("0x7d")),
+        ("px_getReceiptKeys", keys(key, 1, 100)),
+        ("px_getReceiptKeys", keys(foreign_key, 1, 100)),
+        ("px_getReceiptKeys", keys(key, 1, 101)),
+        ("px_getReceiptKeys", json!({"keys": []})),
+        ("px_getReceiptKeys", keys(key, 1, 100)),
+        ("px_getReceiptKeys", keys(key, 1, 100)),
+    ]);
+    let node = must(NodeRpc::connect(&node_config));
+    let first = must(gate.readiness_gate(&node)).clone();
+    assert_eq!(first.generation, 1);
+    assert_eq!(first.chain_id, 125);
+    assert_eq!(first.receipt_keys[0].public_key, key);
+    assert_eq!(gate.guard_write(|| 7), Ok(7));
+    for expected in [
+        GateError::Evidence(VerifierPolicyError::HandshakeKey),
+        GateError::Evidence(VerifierPolicyError::HandshakeKey),
+        GateError::NodeRpc(malformed_keys()),
+    ] {
+        assert_eq!(gate.readiness_gate(&node), Err(expected));
+        assert_eq!(gate.status(), &Status::NotReady);
+        let ran = std::cell::Cell::new(false);
+        assert_eq!(
+            gate.guard_write(|| ran.set(true)),
+            Err(WriteGateError::NotReady)
+        );
+        assert!(!ran.get());
+        assert!(matches!(
+            gate.evidence_authority(),
+            Err(WriteGateError::NotReady)
+        ));
+    }
+    assert_eq!(must(gate.readiness_gate(&node)).generation, 2);
+    gate.disconnected();
+    assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
+    assert_eq!(must(gate.readiness_gate(&node)).generation, 3);
+    must(server.join());
+    // A transport refusal after readiness closes both writes and evidence access.
+    assert!(gate.readiness_gate(&node).is_err());
+    assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
+    assert!(matches!(
+        gate.evidence_authority(),
+        Err(WriteGateError::NotReady)
+    ));
+    drop(gate);
+    let mut reopened = self::gate();
+    assert_eq!(reopened.status(), &Status::NotReady);
+    assert_eq!(reopened.guard_write(|| 1), Err(WriteGateError::NotReady));
+    let (node_config, server) = readiness_recording(vec![
+        ("eth_chainId", json!("0x7d")),
+        ("px_getReceiptKeys", keys(key, 1, 100)),
+    ]);
+    let node = must(NodeRpc::connect(&node_config));
+    assert_eq!(must(reopened.readiness_gate(&node)).generation, 1);
+    must(server.join());
+    let (mut wrong_config, server) = readiness_recording(vec![("eth_chainId", json!("0x7d"))]);
+    wrong_config.chain_id = 126;
+    assert_eq!(
+        NodeRpc::connect(&wrong_config).err(),
+        Some(NodeRpcError::ChainIdMismatch {
+            expected: 126,
+            observed: 125
+        })
+    );
+    must(server.join());
+    // The published contract version is accepted by both SDK and daemon; old major 1 is refused by both.
+    must(layerx_agentd::compat::verify_published());
+    let contract = layerx_agent_api::agent_api_schema_v1().version;
+    assert_eq!(contract.major, CONTRACT_VERSION);
+    let sdk = must(layerx_sdk::Client::daemon(
+        "/run/layerx/agent.sock",
+        contract,
+    ));
+    assert_eq!(sdk.contract(), contract);
+    assert!(layerx_sdk::Client::daemon(
+        "/run/layerx/agent.sock",
+        layerx_agent_api::ContractVersion { major: 1, minor: 0 }
+    )
+    .is_err());
+    assert_eq!(
+        verify(DAEMON_VERSION, "paxd/v1.0.0", contract.major, SDK_VERSION)
+            .unwrap()
+            .contract_version,
+        contract.major
+    );
+    assert_eq!(
+        verify(DAEMON_VERSION, "paxd/v1.0.0", 1, SDK_VERSION),
+        Err(CompatibilityError::UnsupportedContract)
+    );
+}

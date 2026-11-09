@@ -1,0 +1,7 @@
+[issue.1839]
+number = 1839
+title = "[Coherence] Removing PaymentRpc's hosted_gateway_endpoint keyword and receipt_keys method breaks every existing SDK test that still uses them"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commits 06d9fa865e929be081a8bddc1836c9ac8e384d48 and 5247adc56b93433fa7d8ad18a98455124a7e19df migrated the stale callers to the split RPC clients: tests/agent/sdk/python/test_repair_22_31_147.py:395 and :469 retrieve keys through HostedGatewayRpc while :706 and :789 use PaymentRpc without the removed keyword, tests/agent/sdk/python/test_repair_22_33_17.py:171, :265, :288, :295, :330 and :360 use HostedGatewayRpc for keys and :290 asserts node refusal of gateway methods, tests/agent/sdk/python/test_repair_22_33_15.py:148 and tests/agent/sdk/python/test_repair_22_33_16.py:243 use HostedGatewayRpc for keys, and services/agent/sdk/python/tests/test_ai_market_commit.py:433 uses HostedGatewayRpc with separate gateway and node request assertions at :435 and :436, matching services/agent/sdk/python/layerx_sdk/x402_rpc.py:221 and :247."
+close_comment = "The affected Python SDK callers now retrieve receipt keys through HostedGatewayRpc at /rpc and use PaymentRpc for node requests. The stale constructor keyword and PaymentRpc receipt-key calls have been replaced, with assertions covering the separation of gateway and node methods."

@@ -2,7 +2,7 @@
 
 Paxeer X Network reúne pagamentos, execução de programas e operações de agentes autônomos em uma única rede.
 
-[English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · [简体中文](zh-cn.md) · Português · [Deutsch](de.md) · [Français](fr.md)
+[English](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · [简体中文](zh-cn.md) · Português · [Deutsch](de.md) · [Français](fr.md)
 
 ## O que é o LayerX Network
 
@@ -10,7 +10,7 @@ LayerX é o kernel integrado à Paxeer X Network. O nó `paxd` executa uma únic
 
 O host `modules/lxphost` integra o kernel C17 e o runtime de programas Rust ao nó Go. `node/app.go` registra os módulos nativos e verifica a ordem das transações nas propostas. O estado persistido da cadeia sustenta os saldos, as permissões, os pagamentos e os programas. As subcadeias são domínios de locatários: namespaces no banco de dados, criados sem infraestrutura de uma nova rede.
 
-Este monorepo da Sidiora Labs contém o nó, o kernel, os contratos, os serviços, os aplicativos e os SDKs. A referência da integração é [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx).
+Este monorepo da Sidiora Labs contém o nó, o kernel, os contratos, os serviços, os aplicativos e os SDKs. A referência da integração é [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/spec/layerx-merge/spec.kvx).
 
 ### Módulos e precompiles
 
@@ -53,7 +53,7 @@ jq -n --arg hash "${TX_HASH:?}" \
 
 Um `result: null` indica que o nó ainda não oferece um recibo para esse hash. Quando o recibo estiver disponível, confira `transactionHash`, `blockHash`, `blockNumber` e `status`: `0x1` indica execução bem-sucedida e `0x0` indica falha. A finalização decorre da confirmação do bloco pelo consenso BFT. Se o envio expirar, consulte o hash original antes de tentar novamente.
 
-Mantenha mais de um nó configurado e compare `eth_blockNumber`, pois os nós podem estar em alturas diferentes. Os namespaces públicos são `debug`, `echo`, `eth`, `net`, `pax`, `test` e `txpool`, conforme a configuração do nó. Métodos `px_` pertencem ao gateway hospedado, cujo contrato é `services/platform/hosted/gateway/openrpc.json`; veja [Gateway JSON-RPC](../../platform/gateway-rpc.md) antes de usá-los.
+Mantenha mais de um nó configurado e compare `eth_blockNumber`, pois os nós podem estar em alturas diferentes. Os namespaces públicos são `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` e `txpool`, conforme a configuração do nó. O namespace `px` responde a partir do estado do nó; `px_register` e `px_requestFunds` são operações dos serviços hospedados, cujo contrato é `services/platform/hosted/gateway/openrpc.json`; veja [Gateway JSON-RPC](../../platform/gateway-rpc.md).
 
 ## Compilar a partir do código-fonte
 
@@ -90,7 +90,7 @@ Os serviços têm alvos próprios: `make agent-build`, `make human-build`, `make
 - [Endpoints JSON-RPC públicos](../../reference/public-rpc.md)
 - [Layout do monorepo](../monorepo.md)
 - [Gates de qualificação](../../operators/qualification.md)
-- [Especificações](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
+- [Especificações](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/)
 
 ## SDKs e integrações
 
@@ -108,14 +108,14 @@ Os serviços têm alvos próprios: `make agent-build`, `make human-build`, `make
 
 ## Contribuindo
 
-Leia [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md) antes de abrir um pull request. Mudanças no protocolo começam em `spec/`. Não divulgue uma vulnerabilidade suspeita em uma issue pública; siga [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md).
+Leia [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md) antes de abrir um pull request. Mudanças no protocolo começam em `spec/`. Não divulgue uma vulnerabilidade suspeita em uma issue pública; siga [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md).
 
 ## Segurança
 
-Reporte vulnerabilidades pelo relatório privado do GitHub, conforme descrito em [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md).
+Reporte vulnerabilidades pelo relatório privado do GitHub, conforme descrito em [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md).
 
 ## Licença
 
-Licenciado sob a Licença Apache, Versão 2.0. Consulte [`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) e [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE).
+Licenciado sob a Licença Apache, Versão 2.0. Consulte [`LICENSE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE) e [`NOTICE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/NOTICE).
 
 Paxeer X Network é desenvolvido pela Sidiora Labs.

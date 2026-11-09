@@ -1,0 +1,7 @@
+[issue.1779]
+number = 1779
+title = "[Coherence] Task 22.31.587's verify cannot pass with the edits its do-steps prescribe for identity.test.sh"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 84e41c7e32f7707dac1f3ce246de4e381cabe6fb fixes both reported failures: tools/release/tests/identity.test.sh:8 expects version v7.0.0, tools/release/tests/identity.test.sh:31 independently expects upgrade v7.0, tools/release/tests/identity.test.sh:32 retains the strict two-key check, tools/release/version.json:1 contains only upgrade v7.0 and version v7.0.0, and tools/release/tests/test_upgrade_info.py:46 asserts that exact identity."
+close_comment = "The release identity check now expects version v7.0.0 and upgrade plan v7.0 independently. The release identity file contains exactly those two fields, satisfying the strict key check and resolving both reported failures."

@@ -29,9 +29,21 @@ area:human:
           - services/wallet/**
           - services/human/**
           - apps/perps/**
-          - apps/wallet/**
           - apps/web/**
+
+area:wallet:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/wallet/**
           - sdk/wallet/**
+
+area:ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - tools/ci/**
+          - scripts/ci/**
+          - tests/ci/**
 
 area:contracts:
   - changed-files:

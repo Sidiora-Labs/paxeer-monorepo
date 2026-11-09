@@ -212,7 +212,7 @@ def test_build_and_release_guidance_uses_integrated_paxd():
     assert ["make", "paxd-build"] in commands
     assert ["./build/paxd", "version"] in commands
     assert ["./build/paxd", "start", "--home", "$PAXD_HOME"] in commands
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in source("Makefile")
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in source("Makefile")
     assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     for stale in (

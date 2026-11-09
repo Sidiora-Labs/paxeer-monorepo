@@ -1,0 +1,48 @@
+[issue.1609]
+number = 1609
+title = "[Coherence] Audit finding 50 claims that the registry-source contract pages are missing, but all of them exist under spec/layerx-merge/contracts"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "spec/layerx-merge/programme/audit/records/22.30.95.kvx:1063 still claims missing contract pages and :82 repeats that claim, although spec/layerx-merge/contracts/agent-config.md:7 and :477 and spec/layerx-merge/contracts/agent-rust-api.md:499 contain the cited anchors, while spec/layerx-merge/interfaces.kvx:391311 actually links the named configuration row to the existing spec/layerx-merge/contracts/agent-formats.md:252 anchor."
+close_comment = "The registry-source contract pages and anchors exist, so the missing-document finding is incorrect. Task 18.1609.1 tracks correcting audit record 22.30.95 and its finding count while preserving the existing contract links."
+
+[task.18.1609.1]
+title = "Issue #1609: Correct the false registry-source missing-contract audit finding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181609.1"]
+capabilities = []
+interfaces = []
+do_1 = "In spec/layerx-merge/programme/audit/records/22.30.95.kvx, remove the false finding.50 at :1058, reduce findings at :7 from 50 to 49, and change file.12 at :78 to verdict clean with a note beginning Registry-source contract links resolve relative to spec/layerx-merge. and citing the existing configuration, Rust API and format anchors; retain the other 49 findings, blocking ids, audit revision and reviewed line counts."
+do_2 = "Prove the corrected note and count, retention of finding.49, and absence of finding.50 and both false missing-contract statements with the focused documentation check; spec/layerx-merge/interfaces.kvx:391311 resolves to spec/layerx-merge/contracts/agent-formats.md:252, and the other cited anchors exist at spec/layerx-merge/contracts/agent-config.md:7 and :477 and spec/layerx-merge/contracts/agent-rust-api.md:499."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.95.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fq 'Registry-source contract links resolve relative to spec/layerx-merge.' spec/layerx-merge/programme/audit/records/22.30.95.kvx && grep -Fxq 'findings = 49' spec/layerx-merge/programme/audit/records/22.30.95.kvx && grep -Fxq '[finding.49]' spec/layerx-merge/programme/audit/records/22.30.95.kvx && ! grep -Eq '^\\[finding\\.50\\]$|neither contract page exists|contract links are missing' spec/layerx-merge/programme/audit/records/22.30.95.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181609]
+title = "Registry-source audit findings reflect the existing contract pages and anchors"
+ac_1 = "Given the resolving contract link at spec/layerx-merge/interfaces.kvx:391311 and anchors at spec/layerx-merge/contracts/agent-formats.md:252, spec/layerx-merge/contracts/agent-config.md:7 and :477 and spec/layerx-merge/contracts/agent-rust-api.md:499, the audit record no longer carries the false finding at spec/layerx-merge/programme/audit/records/22.30.95.kvx:1058 or its file.12 missing-link note at :82, records file.12 as clean with the correct link resolution, and counts the 49 remaining findings without altering their content."
+
+[acceptance.18.1609.1]
+feature = "18"
+req = "181609.1"
+scenario = "Given existing registry-source contract pages and anchors, when the audit record is corrected, then it records resolving links, omits the false missing-document finding, and preserves the other 49 findings with an accurate total."
+contract = "contracts/agent-formats.md#registry-source-config"
+test = "spec/layerx-merge/programme/audit/records/22.30.95.kvx::focused link-resolution and finding-count grep check (planned)"
+qualification = "UNRUN"

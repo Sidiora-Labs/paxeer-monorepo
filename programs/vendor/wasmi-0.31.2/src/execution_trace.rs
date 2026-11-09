@@ -88,6 +88,95 @@ pub struct ExecutionInstanceState {
     pub element_segments: Vec<ExecutionElementSegment>,
 }
 
+impl ExecutionInstanceState {
+    pub(crate) fn retained_delta_bytes(&self, previous: Option<&Self>) -> Option<u64> {
+        fn header<T>(changed: bool) -> Option<u64> {
+            u64::try_from(if changed {
+                core::mem::size_of::<T>()
+            } else {
+                0
+            })
+            .ok()
+        }
+        fn items<T: PartialEq>(previous: &[T], current: &[T]) -> Option<u64> {
+            let count = current
+                .iter()
+                .enumerate()
+                .filter(|(index, value)| previous.get(*index) != Some(*value))
+                .count();
+            u64::try_from(count.checked_mul(core::mem::size_of::<T>())?).ok()
+        }
+        let mut bytes = header::<Self>(previous.is_none_or(|old| {
+            old.instance_index != self.instance_index
+                || old.memories.len() != self.memories.len()
+                || old.globals.len() != self.globals.len()
+                || old.tables.len() != self.tables.len()
+                || old.data_segments.len() != self.data_segments.len()
+                || old.element_segments.len() != self.element_segments.len()
+        }))?;
+        for (index, memory) in self.memories.iter().enumerate() {
+            let old = previous.and_then(|state| state.memories.get(index));
+            bytes = bytes
+                .checked_add(header::<ExecutionMemory>(old.is_none_or(|old| {
+                    old.memory_index != memory.memory_index
+                        || old.initial_pages != memory.initial_pages
+                        || old.maximum_pages != memory.maximum_pages
+                        || old.bytes.len() != memory.bytes.len()
+                }))?)?
+                .checked_add(ObservationCharge::retained_memory_bytes(
+                    old.map_or(&[], |old| old.bytes.as_slice()),
+                    &memory.bytes,
+                )?)?;
+        }
+        bytes = bytes.checked_add(items(
+            previous.map_or(&[], |old| old.globals.as_slice()),
+            &self.globals,
+        )?)?;
+        for (index, table) in self.tables.iter().enumerate() {
+            let old = previous.and_then(|state| state.tables.get(index));
+            bytes = bytes
+                .checked_add(header::<ExecutionTable>(old.is_none_or(|old| {
+                    old.table_index != table.table_index
+                        || old.minimum != table.minimum
+                        || old.maximum != table.maximum
+                        || old.elements.len() != table.elements.len()
+                }))?)?
+                .checked_add(items(
+                    old.map_or(&[], |old| old.elements.as_slice()),
+                    &table.elements,
+                )?)?;
+        }
+        for (index, segment) in self.data_segments.iter().enumerate() {
+            let old = previous.and_then(|state| state.data_segments.get(index));
+            bytes = bytes
+                .checked_add(header::<ExecutionDataSegment>(old.is_none_or(|old| {
+                    old.segment_index != segment.segment_index
+                        || old.dropped != segment.dropped
+                        || old.bytes.len() != segment.bytes.len()
+                }))?)?
+                .checked_add(ObservationCharge::changed_bytes(
+                    old.map_or(&[], |old| old.bytes.as_slice()),
+                    &segment.bytes,
+                    4096,
+                )?)?;
+        }
+        for (index, segment) in self.element_segments.iter().enumerate() {
+            let old = previous.and_then(|state| state.element_segments.get(index));
+            bytes = bytes
+                .checked_add(header::<ExecutionElementSegment>(old.is_none_or(|old| {
+                    old.segment_index != segment.segment_index
+                        || old.dropped != segment.dropped
+                        || old.elements.len() != segment.elements.len()
+                }))?)?
+                .checked_add(items(
+                    old.map_or(&[], |old| old.elements.as_slice()),
+                    &segment.elements,
+                )?)?;
+        }
+        Some(bytes)
+    }
+}
+
 /// Allocation-free upper bound presented to the host before an observation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ObservationCharge {
@@ -106,6 +195,34 @@ pub struct ObservationCharge {
 }
 
 impl ObservationCharge {
+    pub fn memory_expansion_bytes(previous: &[u8], current: &[u8]) -> Option<u64> {
+        u64::try_from(current.len().checked_sub(previous.len())?).ok()
+    }
+
+    /// Retained memory growth and changed 4-KiB pages of the existing memory.
+    pub fn retained_memory_bytes(previous: &[u8], current: &[u8]) -> Option<u64> {
+        let expansion = Self::memory_expansion_bytes(previous, current)?;
+        Self::changed_bytes(previous, &current[..previous.len()], 4096)?.checked_add(expansion)
+    }
+
+    pub fn changed_bytes(previous: &[u8], current: &[u8], page_bytes: usize) -> Option<u64> {
+        if page_bytes == 0 {
+            return None;
+        }
+        current
+            .chunks(page_bytes)
+            .enumerate()
+            .try_fold(0_u64, |total, (index, page)| {
+                let start = index.checked_mul(page_bytes)?;
+                let end = start.checked_add(page.len())?;
+                if previous.get(start..end) == Some(page) {
+                    Some(total)
+                } else {
+                    total.checked_add(u64::try_from(page.len()).ok()?)
+                }
+            })
+    }
+
     pub fn total_bytes(self) -> Option<u64> {
         self.value_bytes
             .checked_add(self.frame_bytes)?
@@ -281,17 +398,110 @@ pub(crate) struct ExecutionObserver {
     pub(crate) step_index: u64,
     pub(crate) transitions: Vec<ExecutionTransition>,
     pub(crate) pending: Option<Arc<ExecutionSnapshot>>,
+    pub(crate) last_retained: Option<Arc<ExecutionSnapshot>>,
     pub(crate) error: Option<ExecutionObserverError>,
     pub(crate) supplement: ExecutionSupplement,
     pub(crate) boundary_authorized: bool,
     pub(crate) aggregate_bytes: u64,
     pub(crate) aggregate_work: u64,
+    pub(crate) retained_allocation_bytes: u64,
+    pub(crate) retained_allocation_work: u64,
     pub(crate) maximum_bytes: u64,
     pub(crate) maximum_work: u64,
     pub(crate) sampled_current: bool,
 }
 
 impl ExecutionObserver {
+    pub(crate) fn authorize_retained_execution_snapshot(
+        &mut self,
+        charge: ObservationCharge,
+        replay: bool,
+    ) -> Result<(), ExecutionObserverError> {
+        if let Some(error) = self.error {
+            return Err(error);
+        }
+        if !charge.collect {
+            return Ok(());
+        }
+        let bound = (|| {
+            fn backing<T>(count: u64) -> Option<u64> {
+                if count == 0 {
+                    return Some(0);
+                }
+                count
+                    .checked_mul(2)?
+                    .max(4)
+                    .checked_mul(u64::try_from(core::mem::size_of::<T>()).ok()?)
+            }
+            let values = charge.value_bytes.checked_sub(4)?.checked_div(5)?;
+            let frames = charge.frame_bytes.checked_sub(4)?.checked_div(9)?;
+            let globals = charge.global_bytes.checked_sub(4)?.checked_div(10)?;
+            let controls = charge.instruction_bytes.checked_sub(4)?.checked_div(6)?;
+            let memory = charge.memory_bytes.checked_sub(4)?;
+            let mut bytes = u64::try_from(core::mem::size_of::<ExecutionSnapshot>())
+                .ok()?
+                .checked_add(2 * core::mem::size_of::<usize>() as u64)?
+                .checked_add(backing::<ExecutionValue>(values)?)?
+                .checked_add(backing::<ExecutionFrame>(frames)?)?
+                .checked_add(backing::<ExecutionValue>(charge.frame_bytes / 5)?)?
+                .checked_add(backing::<ExecutionGlobal>(globals)?)?
+                .checked_add(if memory == 0 { 0 } else { memory.max(8) })?
+                .checked_add(charge.instance_state_bytes)?
+                .checked_add(backing::<ExecutionControlFrame>(controls)?)?
+                .checked_add(charge.retained_instruction_bytes)?
+                .checked_add(4 * core::mem::size_of::<ExecutionTransition>() as u64)?;
+            if replay {
+                bytes = bytes
+                    .checked_add(core::mem::size_of::<ExecutionReplaySnapshot>() as u64)?
+                    .checked_add(2 * core::mem::size_of::<usize>() as u64)?
+                    .checked_add(backing::<ExecutionReplayFrame>(frames)?)?
+                    .checked_add(values)?
+                    .checked_add(4 * core::mem::size_of::<ExecutionReplayTransition>() as u64)?;
+            }
+            let work = if self.last_retained.is_some() {
+                bytes
+                    .checked_add(charge.instance_state_bytes.checked_mul(2)?)?
+                    .checked_add(memory)?
+            } else {
+                bytes
+            };
+            Some((bytes, work))
+        })();
+        match bound {
+            Some((bytes, work)) => self.authorize_retained_allocation(bytes, work),
+            None => {
+                self.error = Some(ExecutionObserverError::SnapshotLimitExceeded);
+                Err(ExecutionObserverError::SnapshotLimitExceeded)
+            }
+        }
+    }
+
+    pub(crate) fn authorize_retained_allocation(
+        &mut self,
+        bytes: u64,
+        work: u64,
+    ) -> Result<(), ExecutionObserverError> {
+        if let Some(error) = self.error {
+            return Err(error);
+        }
+        match (
+            self.retained_allocation_bytes.checked_add(bytes),
+            self.retained_allocation_work.checked_add(work),
+        ) {
+            (Some(bytes), Some(work))
+                if bytes <= self.maximum_bytes && work <= self.maximum_work =>
+            {
+                self.retained_allocation_bytes = bytes;
+                self.retained_allocation_work = work;
+                Ok(())
+            }
+            _ => {
+                self.error = Some(ExecutionObserverError::SnapshotLimitExceeded);
+                Err(ExecutionObserverError::SnapshotLimitExceeded)
+            }
+        }
+    }
+
     pub(crate) fn enter_boundary(&mut self) -> Result<bool, ExecutionObserverError> {
         if self.interval == 0 {
             self.error = Some(ExecutionObserverError::InvalidInterval);
@@ -341,7 +551,8 @@ pub struct ExecutionTrapRecord {
 
 impl PartialEq for ExecutionTrapRecord {
     fn eq(&self, other: &Self) -> bool {
-        self.pre == other.pre && self.host_trap == other.host_trap
+        self.pre == other.pre
+            && self.host_trap == other.host_trap
             && self.trap_code.as_ref().map(core::mem::discriminant)
                 == other.trap_code.as_ref().map(core::mem::discriminant)
     }

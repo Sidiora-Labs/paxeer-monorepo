@@ -6,6 +6,7 @@ import importlib.util
 import json
 import re
 import sys
+import subprocess
 import traceback
 from pathlib import Path
 
@@ -431,7 +432,8 @@ def test_event_decoding():
 def test_cosmos_submission_vector():
     vector = json.loads(
         (
-            ROOT / "services/platform/hosted/feeder/tests/fixtures/cosmos_tx_vector.json"
+            ROOT
+            / "services/platform/hosted/feeder/tests/fixtures/cosmos_tx_vector.json"
         ).read_text()
     )
     secret = int(vector["secret_key_hex"], 16)
@@ -493,7 +495,7 @@ def test_cosmos_submission_vector():
 
 
 def test_protobuf_queries():
-    assert P.pb_bytes(1, P.UPGRADE) == b"\x0a\x07v6.12.0"
+    assert P.pb_bytes(1, P.UPGRADE) == b"\x0a\x04v7.0"
     assert P.pb_fields(P.pb_uint(1, 300) + P.pb_bytes(2, b"ab")) == [
         (1, 0, 300),
         (2, 2, b"ab"),
@@ -547,14 +549,15 @@ def test_sidecar_cadence_refuses_missing_blocks():
 
     replacement = "0x" + f"{5:040x}"
     substituted = {
-        height: set(block_validators)
-        for height, block_validators in per_block.items()
+        height: set(block_validators) for height, block_validators in per_block.items()
     }
     substituted[start].remove(first_validator)
     substituted[start].add(replacement)
     try:
         P.sidecar_cadence(substituted, start, end)
-        raise AssertionError("a different set of four validators passed the cadence check")
+        raise AssertionError(
+            "a different set of four validators passed the cadence check"
+        )
     except P.CheckFailed as exc:
         assert f"at {start}:" in str(exc)
         assert f"missing validators ['{first_validator}']" in str(exc)
@@ -563,7 +566,9 @@ def test_sidecar_cadence_refuses_missing_blocks():
         P.sidecar_cadence(per_block, start, end - 1)
         raise AssertionError("fewer than SIDECAR_BLOCKS submissions passed")
     except P.CheckFailed as exc:
-        assert f"validator {first_validator} submitted {P.SIDECAR_BLOCKS - 1}" in str(exc)
+        assert f"validator {first_validator} submitted {P.SIDECAR_BLOCKS - 1}" in str(
+            exc
+        )
 
 
 def test_module_addresses():
@@ -572,6 +577,74 @@ def test_module_addresses():
         assert len(P.address_bytes(address)) == 20
         assert address[2:] == hashlib.sha256(name.encode()).hexdigest()[:40]
     assert len({P.module_address(n) for n in ("launchpad", "perps", "spot")}) == 3
+
+
+# Owner-domain 16 wiring contract: task 22.33.893 supplies these real scenarios
+# in rehearsal/programme.py and rehearse-v6120.sh, including durable evidence.
+MERGED_CHECKS = (
+    "check_merged_transaction",
+    "check_current_guest_deployment",
+    "check_native_xweb",
+    "check_tenant_isolation",
+    "check_persisted_restart",
+)
+
+
+def driver_function(name):
+    source = (ROOT / "tools/release/rehearse-v6120.sh").read_text()
+    match = re.search(r"^" + re.escape(name) + r"\(\) \{.*?^\}", source, re.M | re.S)
+    assert match, f"real rehearsal driver has no {name}"
+    return match.group()
+
+
+def exercise_driver_check(name, url, work):
+    """Invoke the real wrapper, argument producer and Python check, retaining its log."""
+    work = Path(work)
+    work.mkdir(parents=True, exist_ok=True)
+    wrappers = ("programme_args", "run_programme_check")
+    source = "\n".join(driver_function(fn) for fn in wrappers)
+    driver = (ROOT / "tools/release/rehearse-v6120.sh").read_text()
+    wrapper = re.search(r"^" + re.escape(name) + r"\(\) \{[^\n]+\}", driver, re.M)
+    assert wrapper, f"real rehearsal driver has no {name} wrapper"
+    script = r"""
+set -euo pipefail
+release=$1; logs=$2; url=$3; halt_height=20
+plan=$(jq -er .upgrade "$release/version.json")
+release_version=$(jq -er .version "$release/version.json")
+credentials=$logs/credentials; units=(node0 node1 node2 node3); sidecar_pids=()
+rpc_url() { printf '%s\n' "$url"; }
+evm_url() { printf '%s\n' "$url"; }
+""" + source + "\n" + wrapper.group() + "\n" + name
+    return subprocess.run(
+        [
+            "bash",
+            "-c",
+            script,
+            "programme-driver",
+            str(ROOT / "tools/release"),
+            str(work),
+            url,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+def test_merged_scenarios_registered_and_invoked():
+    missing = [name for name in MERGED_CHECKS if name not in P.CHECKS]
+    assert not missing, (
+        "owner-domain 16 wiring required in tools/release/rehearsal/programme.py "
+        f"and tools/release/rehearse-v6120.sh (22.33.893): {missing}"
+    )
+    driver = driver_function("run_programme_checks")
+    for name in MERGED_CHECKS:
+        assert callable(P.CHECKS[name]) and P.CHECKS[name].__name__ == name
+        assert re.search(r"\b" + name + r"\b", driver), name
+        assert (
+            f"{name}() {{ run_programme_check {name}; }}"
+            in (ROOT / "tools/release/rehearse-v6120.sh").read_text()
+        ), name
 
 
 def test_checks_and_driver_functions():
@@ -593,6 +666,9 @@ def test_checks_and_driver_functions():
         "check_price_submission_bounds",
         "check_plan_and_version",
     ]
+    expected += list(MERGED_CHECKS)
+    missing = set(expected) - set(P.CHECKS)
+    assert not missing, f"merged programme scenarios are not wired: {sorted(missing)}"
     assert list(P.CHECKS) == expected
     driver = (ROOT / "tools/release/rehearse-v6120.sh").read_text()
     for name in expected:

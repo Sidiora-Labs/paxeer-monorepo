@@ -1,0 +1,48 @@
+[issue.1770]
+number = 1770
+title = "Explorer Ask flag is rejected by the startup environment validator"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "The assistantSchema added by commit 18fc77a542d2c20d4e27e3d06f2f03252367e29c declares NEXT_PUBLIC_ASSISTANT_ENABLED at apps/explorer/deploy/tools/envs-validator/schemas/features/assistant.ts:6 and is exported at schemas/features/index.ts:5, but apps/explorer/deploy/tools/envs-validator/schema.ts:152 omits it from the feature concatenations while schema.ts:34 rejects unknown keys, index.ts:22 collects every public variable and index.ts:63 validates without stripping unknown keys, so the documented flag at docs/explorer/ENVS.md:1116 and the false value at apps/explorer/configs/envs/paxeer-x.env:69 cause rejection and a fatal exit at apps/explorer/deploy/scripts/entrypoint.sh:49 before Next starts at entrypoint.sh:99 through the validator and entrypoint installed by docker/explorer-frontend/Dockerfile:170 and Dockerfile:209."
+close_comment = "The startup validator still rejects the documented Ask flag, including the disabled value in the Paxeer preset. Tracked in task 18.1770.1 to register the assistant schema and cover both boolean values while preserving rejection of invalid values and unknown public variables."
+
+[task.18.1770.1]
+title = "Issue #1770: Accept the Explorer Ask flag in startup validation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181770.1"]
+capabilities = []
+interfaces = []
+do_1 = "Concatenate the existing assistantSchema from apps/explorer/deploy/tools/envs-validator/schemas/features/assistant.ts:5 into the normal frontend aggregate schema alongside the feature concatenations at apps/explorer/deploy/tools/envs-validator/schema.ts:152; preserve noUnknown(true) at schema.ts:34 and the production validation options at apps/explorer/deploy/tools/envs-validator/index.ts:63."
+do_2 = "Add apps/explorer/deploy/tools/envs-validator/assistant.spec.ts with a declared explorerAssistantStartupValidation function registered as test(explorerAssistantStartupValidation), following the built CLI approach at apps/explorer/deploy/tools/envs-validator/external-json.spec.ts:18: generate the runtime registry with the real collect_envs.sh and docs/explorer/ENVS.md, invoke the built validator with complete valid public settings and each string true and false, and assert exit 0; assert exit 1 and the appropriate field error for an invalid boolean, and exit 1 with the unknown-variable error for an unrelated unknown public key whose placeholder is present so the schema check is reached; load the actual Paxeer preset public values using the entrypoint export rules at apps/explorer/deploy/scripts/entrypoint.sh:19 with the required host overrides and the real configs/paxeer-x/footer.json content staged in the downloader asset layout, and assert exit 0 with its unchanged false Ask flag; use no mocked validator or model request."
+symbols = ["schema", "explorerAssistantStartupValidation"]
+touches = ["apps/explorer/deploy/tools/envs-validator/schema.ts", "apps/explorer/deploy/tools/envs-validator/assistant.spec.ts"]
+tests = ["apps/explorer/deploy/tools/envs-validator/assistant.spec.ts::explorerAssistantStartupValidation"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/explorer/deploy/tools/envs-validator run build"
+verify_cmd = "pnpm --dir apps/explorer exec vitest run deploy/tools/envs-validator/assistant.spec.ts -t '^explorerAssistantStartupValidation$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181770]
+title = "Explorer startup accepts valid Ask configuration and retains strict environment validation"
+ac_1 = "Given otherwise valid production frontend settings, the real validator at apps/explorer/deploy/tools/envs-validator/index.ts:63 accepts NEXT_PUBLIC_ASSISTANT_ENABLED=true and false as documented at docs/explorer/ENVS.md:1116, accepts the documented Paxeer preset including its false flag at apps/explorer/configs/envs/paxeer-x.env:69, rejects an invalid boolean, and still rejects an unrelated unknown public variable through schema.ts:34."
+
+[acceptance.18.1770.1]
+feature = "18"
+req = "181770.1"
+scenario = "Given complete valid frontend settings or the documented Paxeer preset, when the production environment validator checks the Ask flag, then true and false pass, an invalid boolean fails, and an unrelated unknown public variable still fails."
+contract = "contracts/explorer-frontend-config.md#cfg-features"
+test = "apps/explorer/deploy/tools/envs-validator/assistant.spec.ts::explorerAssistantStartupValidation (planned)"
+qualification = "UNRUN"

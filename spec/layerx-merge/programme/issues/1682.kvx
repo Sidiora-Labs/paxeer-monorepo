@@ -1,0 +1,49 @@
+[issue.1682]
+number = 1682
+title = "[Coherence] IsHistoricalReplay disagrees with the precompile version selector, so the final part of the v5.7.5 replay range takes the current association path"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The guard introduced by commit 20a20c0f712758dfa234ebf288364d14bce0ae3f still excludes v6.0.0 at utils/helpers/legacy/v575/associate.go:15 and redirects association and migration at :32 and :47, although sdk/x/upgrade/keeper/keeper.go:303 selects the next completed upgrade and node/app.go:3748 copies that name into tracing contexts, while engine/deps/xevm/keeper/keeper.go:183 and the served selector at modules/evm/keeper/keeper.go:386 select the last version active at the height, leaving the v575 implementation registered by precompiles/addr/setup.go:30 active until v6.0.0, with different account-number, sequence and self-migration results in utils/helpers/associate.go:50 and :69 and only manually named replay contexts in utils/helpers/legacy/v575/repair_m784_test.go:148 and :267."
+close_comment = "Historical address association still takes the current migration path for part of the v5.7.5 replay interval because the next upgrade name is mistaken for the selected precompile version. A repair task will bind association and migration replay to the selected version and prove the historical account and balance changes across the v6.0.0 boundary."
+
+[task.18.1682.1]
+title = "Issue #1682: Bind v575 association replay to the selected precompile version"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181682.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the association and direct migration dispatch based on ClosestUpgradeName in utils/helpers/legacy/v575/associate.go:31 and :46 with explicit selection of the v575 association implementation supplied by its owning caller at precompiles/addr/legacy/v575/addr.go:185; require tracing as well as that selection, preserve the original historical bodies and current validation outside replay, and leave the ceiling lookup at sdk/x/upgrade/keeper/keeper.go:293 unchanged because its callers require the next upgrade, not the active precompile version."
+do_2 = "Extend utils/helpers/legacy/v575/repair_m784_test.go:264 with TestIssue1682AssociationReplay for both association and direct migration, asserting historical self-account removal, historical target account-number and sequence creation, coin and wei transfer, address mappings and current-path retention and invalid-key refusal; extend precompiles/addr/legacy/v575/repair_m1264_test.go:183 with TestIssue1682ReplaySelection using real upgrade, EVM, account and bank keepers, actual GetVersioned and CustomPrecompiles dispatch and a signed ABI association payload, deriving ClosestUpgradeName through GetClosestUpgrade instead of assigning a version literal."
+do_3 = "Record v5.7.5, v5.8.0, v5.9.0 and v6.0.0 at distinct done heights and cover the start, intermediate upgrades, the final block before v6.0.0, the v6.0.0 boundary and non-tracing execution, asserting both the selected version and observable account, balance and mapping results; retain existing key-validation and replay assertions, and keep the distinct context-free address-conversion defect recorded in input/1683.md outside this association repair."
+symbols = ["AssociationHelper", "NewAssociationHelper", "AssociateAddresses", "MigrateBalance", "TestIssue1682AssociationReplay", "TestIssue1682ReplaySelection"]
+touches = ["utils/helpers/legacy/v575/associate.go", "utils/helpers/legacy/v575/repair_m784_test.go", "precompiles/addr/legacy/v575/addr.go", "precompiles/addr/legacy/v575/repair_m1264_test.go"]
+tests = ["utils/helpers/legacy/v575/repair_m784_test.go::TestIssue1682AssociationReplay", "precompiles/addr/legacy/v575/repair_m1264_test.go::TestIssue1682ReplaySelection"]
+planned_paths = []
+build_cmd = "go build ./precompiles/addr/legacy/v575/..."
+verify_cmd = "go test -count=1 ./utils/helpers/legacy/v575/ ./precompiles/addr/legacy/v575/ -run '^(TestIssue1682AssociationReplay|TestIssue1682ReplaySelection|TestRepairM_784_.*|TestRepairM_1264_.*)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181682]
+title = "Historical v575 association and migration follow the selected precompile version"
+ac_1 = "When the real selector at modules/evm/keeper/keeper.go:371 selects v5.7.5 from precompiles/addr/setup.go:30 for a traced height, association and direct migration in utils/helpers/legacy/v575/associate.go:31 and :46 preserve the original historical account, coin, wei and mapping transitions even when GetClosestUpgrade returns v6.0.0; selection at and after the v6.0.0 done height and all non-tracing calls retain their own current validation and migration behavior."
+
+[acceptance.18.1682.1]
+feature = "18"
+req = "181682.1"
+scenario = "Given real completed upgrade records through v6.0.0 and funded association accounts, when signed association calls execute through the actual precompile selector across the v575 interval and the v6.0.0 boundary, then every selected v575 trace preserves historical account numbers, sequences, coin and wei migration and mappings, including the final interval where the next upgrade is v6.0.0, while later versions and non-tracing calls retain their own behavior."
+contract = "contracts/evm.md#go-api"
+test = "precompiles/addr/legacy/v575/repair_m1264_test.go::TestIssue1682ReplaySelection (planned)"
+qualification = "UNRUN"

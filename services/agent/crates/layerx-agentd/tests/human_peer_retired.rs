@@ -2,6 +2,15 @@ use layerx_agent_api::error::ErrorClass;
 use layerx_agentd::human::{encode_response, HumanOperationError, HumanRefusal};
 use layerx_types::rung::Rung;
 
+fn field(bytes: &mut Vec<u8>, value: &[u8]) {
+    bytes.extend_from_slice(
+        &u32::try_from(value.len())
+            .expect("bounded field")
+            .to_be_bytes(),
+    );
+    bytes.extend_from_slice(value);
+}
+
 #[test]
 fn export_above_committed_is_rung_unattainable() {
     assert_eq!(Rung::from_name("committed"), Some(Rung::Committed));
@@ -13,9 +22,11 @@ fn export_above_committed_is_rung_unattainable() {
     let refusal = HumanRefusal::ExportLevelUnattainable;
     assert_eq!(refusal.reason(), "export.rung_unattainable");
     assert_eq!(refusal.class(), ErrorClass::VerificationFailure);
+    let mut expected = b"LXHAGT01\x01".to_vec();
+    field(&mut expected, refusal.reason().as_bytes());
     assert_eq!(
         encode_response(Err(HumanOperationError::Typed(refusal))),
-        b"LXHAGT01\x01"
+        expected
     );
 
     for source in [

@@ -1,0 +1,48 @@
+[issue.1637]
+number = 1637
+title = "Custody protocol test still expects version 2 after selector rejects it"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "services/human/crates/layerx-human-service/src/server/production_components.rs:3276 rejects protocols other than 3 and :3308 propagates that rejection without attestors, but :3354 still expects Ok(2), an assertion retained by commit 3181f65bfba1b7585029b04348cc173ce2fbdeb7 despite its selector migration."
+close_comment = "The custody protocol test still expects version 2 even though the supported protocol is version 3. The follow-up task makes the test assert version-2 rejection while retaining default, explicit version-3 and invalid-input coverage."
+
+[task.18.1637.1]
+title = "Issue #1637: Align custody protocol assertions with version-3 selection"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181637.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/src/server/production_components.rs:3352 rename attestor_custody_protocol_keeps_the_existing_behaviour_without_attestors to attestor_custody_protocol_requires_three_without_attestors and replace the :3354 Ok(2) expectation with an exact assertion of the unsupported-version error returned at :3277 through :3308; retain the supported default and explicit version-3 assertions, malformed-input refusals and the separate require_attestor_custody_protocol(false, 2) assertion at :3359, since that helper only enforces the additional attestor constraint."
+do_2 = "Run the attestor_custody_protocol unit-test module against the real selectors, proving version 2 is refused without attestors and version 3 is accepted by default and explicitly, while preserving the attestor-specific refusal coverage at services/human/crates/layerx-human-service/src/server/production_components.rs:3329 and :3336; preserve the existing selector contract and environment-loader rejection coverage at services/human/crates/layerx-human-service/tests/repair_22_33_42.rs:471."
+symbols = ["attestor_custody_protocol_requires_three_without_attestors"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs"]
+tests = ["services/human/crates/layerx-human-service/src/server/production_components.rs::attestor_custody_protocol_requires_three_without_attestors"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib attestor_custody_protocol"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181637]
+title = "Custody protocol tests enforce the supported version without attestors"
+ac_1 = "The non-attestor custody selector test at services/human/crates/layerx-human-service/src/server/production_components.rs:3352 asserts that explicit version 2 returns the unsupported-version error, absent and explicit version 3 return Ok(3), and malformed or unsupported values are refused, matching selected_protocol at :3265 and selected_custody_protocol at :3305."
+
+[acceptance.18.1637.1]
+feature = "18"
+req = "181637.1"
+scenario = "Given custody protocol selection without attestors, when the real selector receives no version, explicit version 3, version 2 or invalid input, then the unit test proves only the default and explicit version 3 succeed and version 2 returns the unsupported-version error."
+contract = "contracts/services.md#human-service"
+test = "services/human/crates/layerx-human-service/src/server/production_components.rs::attestor_custody_protocol_requires_three_without_attestors (planned)"
+qualification = "UNRUN"

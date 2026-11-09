@@ -1,18 +1,15 @@
 //! Finding-to-test mapping and deferred domain wiring: prepare/repair_22_33_1543.kvx.
 
-#[path = "../src/prepare/restore_tests.rs"]
-mod restore_tests;
-
 use layerx_agentd::budget::{reserve, restore, LimitId, ReservationRequest};
 use layerx_agentd::prepare::{
-    disclose, prepare_bound, retention_sweep, verify_call_binding, CallBindingError,
+    disclose, prepare_bound, sweep_retention, verify_call_binding, CallBindingError,
     DurablePreparation, EvmPrepareError, LifecycleError, LifecycleState, PreparationLifecycle,
     EXTENSION_CALL,
 };
 use layerx_agentd::session::{SessionId, SessionRef};
 use layerx_agentd::store::TenantId;
+use layerx_agentd::test_support::preparation::*;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
-use restore_tests::*;
 
 #[test]
 fn f14_call_disclosure_refuses_calldata_actor_nonce_fees_and_digest_mutations() {
@@ -513,13 +510,13 @@ fn f16_shared_sweep_evicts_only_durably_recorded_terminal_history() {
         )
         .unwrap();
     assert_eq!(
-        retention_sweep(&lifecycle, 109, 10)
+        sweep_retention(&lifecycle, 109, 10)
             .unwrap()
             .evicted_terminal_preparations,
         0
     );
     assert_eq!(
-        retention_sweep(&lifecycle, 110, 10)
+        sweep_retention(&lifecycle, 110, 10)
             .unwrap()
             .evicted_terminal_preparations,
         1

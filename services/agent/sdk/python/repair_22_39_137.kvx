@@ -1,0 +1,49 @@
+[meta]
+task = "22.39.137"
+requirement = "22998.1"
+base_revision = "fae0d0941041b5ce7f67c5893441daccfe68fba9"
+qualification_revision = "refs/heads/task/22.39.137"
+revision_evidence = "The bounded gates record the exact candidate revision, command, exit code and private log in /out/run/gates.jsonl; hf-done advances the task ref to that candidate. Only a passing hf-done qualifies this repair."
+build = "hf-build"
+verify = "hf-done"
+
+[wire]
+reference = "services/platform/middleware/seller/src/rpc.ts; services/platform/middleware/seller/test/payment-rpc.test.mjs; services/platform/middleware/conformance/pay6/test_rpc.py"
+gateway = "HostedGatewayRpc(endpoint, headers) owns the explicit /rpc gateway endpoint and px_* methods; PaymentRpc(endpoint, headers) owns root node endpoints and eth_* or pax_* methods. Both retain independent copied headers, request identifiers, redirect refusal, deadline, body bounds and envelope validation."
+keys = "HostedGatewayRpc.receipt_keys decodes px_getReceiptKeys into the existing ReceiptKey type; hosted methods cannot be sent through PaymentRpc."
+submission = "PaymentRpc.send bounds and decodes the signed transaction through decode_signed_transaction before any request, preserving canonical replay-protected legacy and type-2 producer transactions. Malformed submissions raise ValueError invalid-rpc-submit and never reach the transport; submission response hash binding, revert handling and unknown-outcome errors remain in place."
+endpoint_reference = "The declared Python conformance case and the TypeScript paymentRpcSeparatesNodeAndHostedOrigins test require /rpc for the hosted gateway; the current TypeScript HostedGatewayRpc constructor passes / to its transport, which contradicts those tests. This task follows the declared conformance endpoint without changing the TypeScript paths."
+
+[coverage]
+conformance = "All assertions of services/platform/middleware/conformance/pay6/test_rpc.py remain unchanged, including commitment, real node, gateway origin, redirect, body and envelope cases."
+local = "test_x402_rpc_surface.py asserts the actual public producer names, reads the real TypeScript paymentPeer proof and receipt over HTTP, submits its signed transaction, authenticates the receipt and payment, decodes producer key metadata, and checks pre-request transaction and method refusals, endpoint validation and independent credentials."
+preserved = "No test is deleted, skipped, ignored, weakened or marked expected to fail; no mock transport or fallback is added."
+
+[qualification]
+build_command = "npm ci --ignore-scripts --no-audit --no-fund && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+verify_command = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_rpc.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_rpc_surface.py"
+evidence = "The build and verification rows in /out/run/gates.jsonl must name the same final candidate revision; their exit codes and private logs are authoritative. A failed gate does not mark this task complete."
+
+[qualification.initial_verify]
+revision = "0b56ab428b00de1feb9b5cabf166c48adee5849d"
+command = "cg spec done 22.39.137 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The conformance suite reported 1 failed, 7 passed and 5 subtests passed: verify_rpc_payment accepted an unauthenticated committed-rung claim when the requested commitment was receipted; the local suite did not run."
+repair = "Authenticate every committed result through rpc_committed_evidence regardless of the requested minimum commitment, explicitly refusing missing finality; the local producer exchange asserts that a relabeled committed result cannot upgrade the actual receipted proof."
+
+[continuation]
+base_revision = "5eec969fb07bda52928ba4476772a5998713bc93"
+prior_candidate = "73ee319e281bfe064cca3e0f845a087089f989d6"
+reference = "services/platform/middleware/seller/src/rpc.ts:151-155 catches every verifySequencerReceipt failure and throws MiddlewareError verification-failure."
+mapping = "verify_rpc_payment maps every PlatformSdkError from verify_payment_receipt, including SequencerReceiptVerificationError, to ValueError payment-binding-mismatch with the original failure as its cause; the subclass re-raise exemption is removed."
+preserved = "The prior hosted gateway client, pre-request transaction decoding and committed evidence authentication stand unchanged; the local suite retains exact ValueError names for both commitment paths."
+evidence = "The continuation hf-build and hf-done rows in /out/run/gates.jsonl record the exact final candidate revision, commands, exits and private logs by reference; both must qualify the same candidate."
+
+[qualification.continuation_verify]
+revision = "e8c3521965db9943eecf96411d0d90b67dbecb03"
+command = "cg spec done 22.39.137 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Conformance passed; the local suite reported 1 failed and 22 passed because the committed minimum without finality correctly mapped the SDK verification failure to payment-binding-mismatch while the local assertion expected missing-committed-evidence."
+repair = "Assert the exact producer error name payment-binding-mismatch for the committed minimum; retain missing-committed-evidence for the receipted minimum with an unauthenticated committed rung. Both paths still require ValueError and an anchored exact error name."

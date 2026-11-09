@@ -2,6 +2,8 @@
 //! market is produced by the real F01/F02/F03/F06/F08/F09 producers, `OPEN_EPOCH` and the F01
 //! task-set lifecycle; `CommitScore` and `RevealScore` go through `commit_reveal::apply` with
 //! real envelopes, the canonical commitment digest and real ed25519 evaluator keys.
+#[path = "repair_22_33_260.rs"]
+mod repair;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
     admission::{
@@ -19,7 +21,8 @@ use layerx_programs_ai_market::{
     epoch::{self, Frozen, Outcome as Opening, ADVANCE_SCRATCH_BYTES, OPEN_SCRATCH_BYTES},
     errors::{
         ApplicationError, CodecResult, ARITHMETIC, BAD_SIGNATURE, CAPACITY, CONFLICT, EXPIRED,
-        F03_SCORE_RANGE, F03_UNKNOWN_WORKER, F04_COMMIT_MISMATCH, F04_NO_SCORES, F04_SALT_INVALID,
+        F03_NONCANONICAL_VECTOR, F03_NO_SCORES, F03_REPORT_ALREADY_FINAL, F03_SCORE_RANGE,
+        F03_UNKNOWN_WORKER, F04_COMMIT_MISMATCH, F04_NO_SCORES, F04_SALT_INVALID,
         F08_MARKET_PAUSED, KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REPLAY_CONFLICT, REVOKED,
         UNAUTHORIZED, WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_MARKET, WRONG_PHASE,
         WRONG_PROGRAM, WRONG_ROSTER,
@@ -299,6 +302,7 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation: Vec<u8>,
     replay: ReplayTable,
     features: Vec<u8>,
 }
@@ -306,6 +310,8 @@ impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let (_, table) = layerx_programs_ai_market::reputation_transition::split_joint(admission)?;
+        let reputation = admission[..admission.len() - table.len()].to_vec();
         let (workers, region) = split_identity_section(identity)?;
         Ok(Self {
             revision: state.revision,
@@ -314,7 +320,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation,
             replay: state.control.replay,
             features: state.control.feature_bytes.to_vec(),
         })
@@ -334,15 +341,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let admission = [self.reputation.as_slice(), admission.as_slice()].concat();
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &admission],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &self.features,
@@ -568,88 +571,27 @@ impl World {
     /// F02 ENROLLED record with an ed25519 delegate, worker replay slot and F08 approval
     /// plus owner acceptance.
     fn enroll(&mut self, n: u8, at: u64) -> CodecResult<WorkerRosterEntry> {
-        self.edit(|parts, market| {
-            let owner = principal(n)?;
-            let worker = derive_worker(market.market_id, owner, [n; 32])?;
-            let slot = parts.workers.free_slot()?;
-            let record = worker_record(worker, owner, public(&delegate_key(n)), slot, at)?;
-            parts.workers.insert(&record)?;
-            parts
-                .replay
-                .bind(ActorSlot::worker(usize::from(slot))?, owner, version()?)?;
-            let participant = Participant::Worker(worker);
-            let (effective, digest) = approve(
-                &mut parts.admission,
-                market,
-                participant,
-                owner,
-                record.delegate,
-                at,
-            )?;
-            parts.admission.admit(
-                &ctx(market, owner, at),
-                &Admission {
-                    participant,
-                    delegate_generation: 1,
-                    effective_epoch: effective,
-                    config_version: 1,
-                    approval_digest: digest,
-                },
-            )?;
-            roster_entry(&record)
-        })
+        repair::enroll(
+            &mut self.bytes,
+            &mut self.owner_sequence,
+            principal(n)?,
+            n,
+            &delegate_key(n),
+            MetadataDigest::new(METADATA)?,
+            at,
+        )
     }
     /// F03 nomination accepted through the signed F08 evaluator consent of its delegate; the
     /// evaluator replay slot `n - 2` is bound to its owner (no producer binds it yet).
     fn evaluator(&mut self, n: u8, at: u64) -> TestResult {
-        self.edit(|parts, market| {
-            let owner = principal(n)?;
-            let key = evaluator_key(n);
-            let signing_key = public(&key);
-            let participant =
-                Participant::Evaluator(derive_evaluator(market.market_id, owner, [n; 32])?);
-            let (effective, digest) = approve(
-                &mut parts.admission,
-                market,
-                participant,
-                owner,
-                signing_key,
-                at,
-            )?;
-            let grant = grant(market, owner, n, signing_key, effective)?;
-            let consent = EvaluatorConsent {
-                chain: market.deployment_chain_domain,
-                program: market.program_id,
-                market: market.market_id,
-                evaluator: grant.evaluator,
-                owner,
-                signing_key,
-                enrollment_nonce: [n; 32],
-                rubric: grant.rubric,
-                approval_digest: digest,
-                request: RequestId::new([n; 32])?,
-                grant_version: 1,
-                key_version: 1,
-                effective_epoch: effective,
-                config_version: 1,
-                expiry_height: market.origin_height + effective * 128 + 64,
-            };
-            let mut signed = [0u8; 362];
-            consent.encode(&mut signed)?;
-            let mut payload = signed.to_vec();
-            payload.extend_from_slice(&key.sign(consent.digest()?.as_bytes()).to_bytes());
-            admit_evaluator(
-                &mut parts.admission,
-                &ctx(market, owner, at),
-                &grant,
-                consent.request,
-                &payload,
-            )?;
-            parts
-                .replay
-                .bind(ActorSlot::evaluator(usize::from(n - 2))?, owner, version()?)?;
-            parts.insert_grant(grant, n)
-        })
+        repair::evaluator(
+            &mut self.bytes,
+            &mut self.owner_sequence,
+            principal(n)?,
+            n,
+            &evaluator_key(n),
+            at,
+        )
     }
     /// Real owner FUND of `amount` into the F06 reward state.
     fn fund(&mut self, amount: u128, at: u64) -> TestResult {
@@ -753,53 +695,18 @@ impl World {
     fn restore(
         &mut self,
         first: WorkerRosterEntry,
-        at: u64,
-    ) -> CodecResult<Vec<WorkerRosterEntry>> {
-        self.edit(|parts, market| {
-            let worker = parts
-                .admission
-                .get(Participant::Worker(first.worker))
-                .ok_or(NOT_FOUND)?;
-            let evaluator = parts
-                .admission
-                .get(Participant::Evaluator(derive_evaluator(
-                    market.market_id,
-                    principal(2)?,
-                    [2; 32],
-                )?))
-                .ok_or(NOT_FOUND)?;
-            let mut entries = vec![first];
-            for n in LOW + 1..LOW + 32 {
-                let owner = principal(n)?;
-                let id = derive_worker(market.market_id, owner, [n; 32])?;
-                let slot = parts.workers.free_slot()?;
-                let record = worker_record(id, owner, public(&delegate_key(n)), slot, at)?;
-                parts.workers.insert(&record)?;
-                parts
-                    .replay
-                    .bind(ActorSlot::worker(usize::from(slot))?, owner, version()?)?;
-                parts.admission.insert(AdmissionMeta {
-                    participant: Participant::Worker(id),
-                    owner,
-                    ..worker
-                })?;
-                entries.push(roster_entry(&record)?);
-            }
-            for n in 5..=9 {
-                let owner = principal(n)?;
-                let grant = grant(market, owner, n, public(&evaluator_key(n)), 0)?;
-                parts.admission.insert(AdmissionMeta {
-                    participant: Participant::Evaluator(grant.evaluator),
-                    owner,
-                    ..evaluator
-                })?;
-                parts
-                    .replay
-                    .bind(ActorSlot::evaluator(usize::from(n - 2))?, owner, version()?)?;
-                parts.insert_grant(grant, n)?;
-            }
-            Ok(entries)
-        })
+        _at: u64,
+    ) -> CodecResult<(Vec<WorkerRosterEntry>, u64)> {
+        repair::grow(
+            &mut self.bytes,
+            &mut self.owner_sequence,
+            first,
+            32,
+            principal,
+            delegate_key,
+            evaluator_key,
+            MetadataDigest::new(METADATA)?,
+        )
     }
 }
 
@@ -807,9 +714,11 @@ impl World {
 impl World {
     /// Permissionless object-local `OPEN_EPOCH` of the clock epoch of `at`.
     fn open(&mut self, at: u64) -> CodecResult<Frozen> {
+        let mut candidate = self.clone();
+        repair::refresh_workers(&mut candidate.bytes, at)?;
         let mut next = vec![0; MAX_STATE_BYTES];
         let mut scratch = vec![0; OPEN_SCRATCH_BYTES];
-        let preview = epoch::preview_open(&self.bytes, at, &mut next, &mut scratch)?;
+        let preview = epoch::preview_open(&candidate.bytes, at, &mut next, &mut scratch)?;
         let call = Req {
             epoch: preview.epoch,
             config: preview.config.get(),
@@ -824,7 +733,7 @@ impl World {
         } = epoch::open_epoch(
             &call.context(at)?,
             &decode_envelope(&encoded)?,
-            &self.bytes,
+            &candidate.bytes,
             &mut next,
             &mut scratch,
             &mut event,
@@ -833,7 +742,8 @@ impl World {
             return Err(NON_CANONICAL);
         };
         next.truncate(state_len);
-        self.bytes = next;
+        candidate.bytes = next;
+        *self = candidate;
         Ok(frozen)
     }
     /// Permissionless object-local `ADVANCE_ACTIVATION`; the lifecycle becomes ACTIVE.
@@ -909,6 +819,7 @@ impl World {
 /// A market with an opened epoch.
 #[derive(Clone)]
 struct Market {
+    evaluator_base: [u64; 8],
     world: World,
     frozen: Frozen,
     header: MarketHeader,
@@ -943,6 +854,7 @@ fn unsealed_market(origin: u64) -> CodecResult<Market> {
     world.advance(previous.start + 1)?;
     let header = world.parts()?.market()?;
     let mut m = Market {
+        evaluator_base: [0; 8],
         world,
         frozen: first,
         header,
@@ -963,32 +875,34 @@ fn unsealed_market(origin: u64) -> CodecResult<Market> {
     );
     Ok(m)
 }
-/// Epoch 6 (T = 896) of a market at both identity bounds: 32 frozen workers and evaluators
-/// 2..=9 frozen, the empty task set sealed and every evidence root sealed at 960.
+/// A market whose opening height and epoch derive from admission, with 32 workers and
+/// evaluators 2..=9 frozen; the empty task set and every evidence root seal at opening + 64.
 fn crowded() -> CodecResult<Market> {
     let mut world = World::create(ORIGIN)?;
     let first = world.enroll(LOW, 130)?;
     for n in 2..=4 {
         world.evaluator(n, 129 + u64::from(n))?;
     }
-    let mut workers = world.restore(first, 134)?;
-    world.schedule(6, 135)?;
-    world.fund(500, 136)?;
-    let frozen = world.open(896)?;
+    let (mut workers, opening) = world.restore(first, 134)?;
+    let target_epoch = (opening - ORIGIN) / 128;
+    world.schedule(target_epoch, opening - 32)?;
+
+    let frozen = world.open(opening)?;
     assert_eq!(
         (frozen.epoch, frozen.workers, frozen.evaluators),
-        (6, 32, 8)
+        (target_epoch, 32, 8)
     );
-    world.advance(897)?;
+    world.advance(opening + 1)?;
     workers.sort_by_key(|w| w.worker);
     let header = world.parts()?.market()?;
     let mut m = Market {
+        evaluator_base: [0; 8],
         world,
         frozen,
         header,
         workers,
     };
-    m.seal(&[2, 3, 4, 5, 6, 7, 8, 9], 960)?;
+    m.seal(&[2, 3, 4, 5, 6, 7, 8, 9], opening + 64)?;
     Ok(m)
 }
 
@@ -1066,6 +980,8 @@ impl Market {
         );
         self.world.task(&call, at)?;
         for &n in evaluators {
+            self.evaluator_base[usize::from(n - 2)] =
+                repair::next_sequence(&self.world.bytes, principal(n)?)? - 1;
             let call = self.evidence_call(n)?;
             self.world.evidence(&call, at)?;
         }
@@ -1083,7 +999,7 @@ impl Market {
         claim.extend_from_slice(rubric()?.as_bytes());
         claim.push(1);
         Ok(Req {
-            sequence: 1,
+            sequence: repair::next_sequence(&self.world.bytes, principal(n)?)?,
             request: tag(0xc5, n, 1),
             expiry: ROLE_EXPIRY,
             ..bound(dispatch::SealEvidence, principal(n)?, &frozen, claim)
@@ -1170,12 +1086,14 @@ fn raw_body(body: &ReportBody<'_>, count: u16, scores: &[u8]) -> CodecResult<Vec
 impl Market {
     /// Evaluator `n`'s native `CommitScore` envelope over `binding` and `commitment`.
     fn commit_call(
+        &self,
         n: u8,
         binding: &EvaluatorBinding,
         commitment: CommitmentDigest,
         sequence: u64,
         expiry: u64,
     ) -> CodecResult<Req> {
+        let sequence = sequence + self.evaluator_base[usize::from(n - 2)];
         Ok(Req {
             sequence,
             request: tag(0xa1, n, sequence),
@@ -1190,12 +1108,14 @@ impl Market {
     }
     /// Evaluator `n`'s native `RevealScore` envelope carrying `report` and `salt`.
     fn reveal_call(
+        &self,
         n: u8,
         report: &SignedReport<'_>,
         salt: [u8; 32],
         sequence: u64,
         expiry: u64,
     ) -> CodecResult<Req> {
+        let sequence = sequence + self.evaluator_base[usize::from(n - 2)];
         Ok(Req {
             sequence,
             request: tag(0xa2, n, sequence),
@@ -1295,7 +1215,7 @@ impl Market {
     /// the commit end.
     fn commit(&mut self, n: u8, report: &SignedReport<'_>, at: u64) -> CodecResult<CommitRecord> {
         let c = commitment_of(&report.body, SALT)?;
-        let call = Market::commit_call(n, &report.body.binding, c, 2, self.start() + 80)?;
+        let call = self.commit_call(n, &report.body.binding, c, 2, self.start() + 80)?;
         let F04::Committed { record, .. } = self.call(&call, at)? else {
             return Err(NON_CANONICAL);
         };
@@ -1308,7 +1228,7 @@ impl Market {
             ),
             (
                 c,
-                2,
+                call.sequence,
                 report.body.binding.grant,
                 report.body.binding.key_version
             )
@@ -1323,7 +1243,7 @@ impl Market {
         report: &SignedReport<'_>,
         at: u64,
     ) -> CodecResult<AdmissionReceipt> {
-        let call = Market::reveal_call(n, report, SALT, 3, self.start() + 96)?;
+        let call = self.reveal_call(n, report, SALT, 3, self.start() + 96)?;
         let F04::Revealed { receipt, .. } = self.call(&call, at)? else {
             return Err(NON_CANONICAL);
         };
@@ -1338,57 +1258,25 @@ impl Market {
     }
     /// One real owner F03 authority operation bound to the opened epoch. F03 advances only the
     /// shared revision, so the F01 header revision is re-bound to it.
-    fn owner_authority(
-        &mut self,
-        operation: Operation,
-        payload: Vec<u8>,
-        aggregate_sealed: bool,
-        at: u64,
-    ) -> TestResult {
-        let sequence = self.world.owner_sequence;
-        let call = Req {
-            sequence,
-            request: tag(0x30, 0, sequence),
-            ..bound(
-                operation,
-                PrincipalId::new(OWNER)?,
-                &self.frozen_binding(),
-                payload,
-            )
-        };
-        let market = self.world.parts()?.market()?;
-        let mut scratch = vec![0; authority::SCRATCH_BYTES];
-        let mut out = vec![0; MAX_STATE_BYTES];
-        let mut event = vec![0; MAX_EVENT_BYTES];
-        let authority::Outcome::Applied { state_len, .. } = authority::apply(
-            &self.world.bytes,
-            &AuthorityContext {
-                market: &market,
-                invoking_principal: PrincipalId::new(OWNER)?,
-                immediate_caller: Presence::Absent,
-                height: at,
-                approved_rubric: rubric()?,
-                aggregate_sealed,
-            },
-            &call.encode()?,
-            &mut scratch,
-            &mut out,
-            &mut event,
-        )?
-        else {
-            return Err(NON_CANONICAL);
-        };
-        self.world.bytes = Parts::load(&out[..state_len])?.encode()?;
-        self.world.owner_sequence += 1;
+    fn owner_authority(&mut self, operation: Operation, payload: Vec<u8>, at: u64) -> TestResult {
+        repair::call(
+            &mut self.world.bytes,
+            operation,
+            PrincipalId::new(OWNER)?,
+            &payload,
+            at,
+        )?;
+        self.world.owner_sequence =
+            repair::next_sequence(&self.world.bytes, PrincipalId::new(OWNER)?)?;
         Ok(())
     }
     /// Real F03 `RevokeEvaluator` of evaluator `n` by the market owner.
-    fn revoke(&mut self, n: u8, aggregate_sealed: bool, at: u64) -> TestResult {
+    fn revoke(&mut self, n: u8, at: u64) -> TestResult {
         let mut payload = self.evaluator(n)?.as_bytes().to_vec();
         payload.extend_from_slice(&1u64.to_be_bytes());
         payload.extend_from_slice(&1u16.to_be_bytes());
         payload.extend_from_slice(&[0x5e; 32]);
-        self.owner_authority(dispatch::RevokeEvaluator, payload, aggregate_sealed, at)
+        self.owner_authority(dispatch::RevokeEvaluator, payload, at)
     }
     /// Real F03 `RotateEvaluatorKey` of evaluator `n` to key version 2, effective next epoch.
     fn rotate(&mut self, n: u8, at: u64) -> TestResult {
@@ -1397,7 +1285,7 @@ impl Market {
         for value in [2, 1, self.frozen.epoch + 1] {
             payload.extend_from_slice(&u64::to_be_bytes(value));
         }
-        self.owner_authority(dispatch::RotateEvaluatorKey, payload, false, at)
+        self.owner_authority(dispatch::RotateEvaluatorKey, payload, at)
     }
 }
 
@@ -1604,7 +1492,7 @@ fn a01_one_immutable_commitment_exact_retry_and_expiry() -> TestResult {
     let report = m.signed(2, &scores)?;
     let binding = report.body.binding;
     let c = commitment_of(&report.body, SALT)?;
-    let call = Market::commit_call(2, &binding, c, 2, REVEAL_AT)?;
+    let call = m.commit_call(2, &binding, c, 2, REVEAL_AT)?;
     let F04::Committed {
         record,
         revision,
@@ -1616,7 +1504,7 @@ fn a01_one_immutable_commitment_exact_retry_and_expiry() -> TestResult {
     };
     assert_eq!(
         (record.height, record.sequence, record.commitment),
-        (COMMIT_AT, 2, c)
+        (COMMIT_AT, call.sequence, c)
     );
     let committed = m.world.bytes.clone();
     let F04::Retained(retained) = m.call(&call, 1089)? else {
@@ -1628,14 +1516,14 @@ fn a01_one_immutable_commitment_exact_retry_and_expiry() -> TestResult {
             retained.applied_revision,
             retained.result_digest
         ),
-        (2, revision, result)
+        (call.sequence, revision, result)
     );
     let mut flipped = c.bytes();
     flipped[31] ^= 1;
     let other = CommitmentDigest::new(flipped)?;
-    let conflicting = Market::commit_call(2, &binding, other, 2, REVEAL_AT)?;
+    let conflicting = m.commit_call(2, &binding, other, 2, REVEAL_AT)?;
     assert_eq!(m.refused(&conflicting, 1090)?, REPLAY_CONFLICT);
-    let renewed = Market::commit_call(2, &binding, other, 3, REVEAL_AT)?;
+    let renewed = m.commit_call(2, &binding, other, 3, REVEAL_AT)?;
     assert_eq!(m.refused(&renewed, 1090)?, CONFLICT);
     assert_eq!(m.refused(&call, REVEAL_AT)?, EXPIRED);
     assert_eq!(m.world.bytes, committed);
@@ -1656,14 +1544,14 @@ fn a02_half_open_windows_and_a_single_reveal() -> TestResult {
         .collect::<CodecResult<Vec<_>>>()?;
     let c = commitment_of(&reports[0].body, SALT)?;
     for at in [COMMIT_AT - 1, REVEAL_AT] {
-        let call = Market::commit_call(2, &reports[0].body.binding, c, 2, ROLE_EXPIRY)?;
+        let call = m.commit_call(2, &reports[0].body.binding, c, 2, ROLE_EXPIRY)?;
         assert_eq!(m.refused(&call, at)?, WRONG_PHASE);
     }
     assert_eq!(m.slot(2, REVEAL_AT)?.status, Status::Absent);
     let record = m.commit(2, &reports[0], COMMIT_AT)?;
     m.commit(3, &reports[1], REVEAL_AT - 1)?;
     m.commit(4, &reports[2], 1090)?;
-    let early = Market::reveal_call(2, &reports[0], SALT, 3, ROLE_EXPIRY)?;
+    let early = m.reveal_call(2, &reports[0], SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&early, REVEAL_AT - 1)?, WRONG_PHASE);
     let receipt = m.reveal(2, &reports[0], REVEAL_AT)?;
     let state = decode_shared_state(&m.world.bytes)?;
@@ -1685,16 +1573,16 @@ fn a02_half_open_windows_and_a_single_reveal() -> TestResult {
         },
     ];
     assert_eq!(listed, expected);
-    let retry = Market::reveal_call(2, &reports[0], SALT, 3, REVEAL_END)?;
+    let retry = m.reveal_call(2, &reports[0], SALT, 3, REVEAL_END)?;
     let F04::Retained(retained) = m.call(&retry, REVEAL_AT + 1)? else {
         return Err(NON_CANONICAL);
     };
     assert_eq!(
         (retained.sequence, retained.result_digest),
-        (3, receipt.result()?)
+        (retry.sequence, receipt.result()?)
     );
     let last = m.reveal(3, &reports[1], REVEAL_END - 1)?;
-    let late = Market::reveal_call(4, &reports[2], SALT, 3, ROLE_EXPIRY)?;
+    let late = m.reveal_call(4, &reports[2], SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&late, REVEAL_END)?, WRONG_PHASE);
     let slot = m.slot(2, REVEAL_END)?;
     assert_eq!(
@@ -1714,7 +1602,7 @@ fn a02_commit_boundaries_use_sequenced_execution_height() -> TestResult {
     let scores = base.both(250_000, 750_000);
     let report = base.signed(2, &scores)?;
     let commitment = commitment_of(&report.body, SALT)?;
-    let call = Market::commit_call(2, &report.body.binding, commitment, 2, ROLE_EXPIRY)?;
+    let call = base.commit_call(2, &report.body.binding, commitment, 2, ROLE_EXPIRY)?;
     for (height, accepted) in [
         (1063, false),
         (1064, true),
@@ -1733,7 +1621,12 @@ fn a02_commit_boundaries_use_sequenced_execution_height() -> TestResult {
             };
             assert_eq!(
                 (record.height, record.sequence, record.commitment, revision),
-                (height, 2, commitment, base.world.revision()? + 1)
+                (
+                    height,
+                    call.sequence,
+                    commitment,
+                    base.world.revision()? + 1
+                )
             );
             assert_eq!(
                 m.slot(2, height)?,
@@ -1765,7 +1658,7 @@ fn a02_reveal_boundaries_use_sequenced_execution_height() -> TestResult {
     let scores = base.both(250_000, 750_000);
     let report = base.signed(2, &scores)?;
     let record = base.commit(2, &report, 1070)?;
-    let call = Market::reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?;
+    let call = base.reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?;
     for (height, accepted) in [
         (1079, false),
         (1080, true),
@@ -1784,7 +1677,7 @@ fn a02_reveal_boundaries_use_sequenced_execution_height() -> TestResult {
             };
             assert_eq!(
                 (receipt.height, receipt.activity, revision),
-                (height, 3, base.world.revision()? + 1)
+                (height, call.sequence, base.world.revision()? + 1)
             );
             assert_eq!(
                 m.slot(2, height)?,
@@ -1891,11 +1784,11 @@ fn a03_malformed_vectors_refuse_before_admission() -> TestResult {
     let variants = [
         (
             raw_body(&report.body, 2, &entries(&[(b, 750_000), (a, 250_000)]))?,
-            NON_CANONICAL,
+            F03_NONCANONICAL_VECTOR,
         ),
         (
             raw_body(&report.body, 2, &entries(&[(a, 250_000), (a, 250_000)]))?,
-            NON_CANONICAL,
+            F03_NONCANONICAL_VECTOR,
         ),
         (trailing, NON_CANONICAL),
         (raw_body(&report.body, 3, &scores)?, NON_CANONICAL),
@@ -1904,7 +1797,7 @@ fn a03_malformed_vectors_refuse_before_admission() -> TestResult {
             F03_SCORE_RANGE,
         ),
     ];
-    let template = Market::reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?;
+    let template = m.reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?;
     for (body, code) in variants {
         let payload = raw_reveal(&body, &report.signature.0, &SALT)?;
         assert_eq!(
@@ -1918,13 +1811,13 @@ fn a03_malformed_vectors_refuse_before_admission() -> TestResult {
         assert_eq!(call.encode().map(|_| ()), Err(code));
     }
     let unknown = m.signed(2, &unknown_scores)?;
-    let call = Market::reveal_call(2, &unknown, SALT, 3, ROLE_EXPIRY)?;
+    let call = m.reveal_call(2, &unknown, SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&call, REVEAL_AT)?, F04_COMMIT_MISMATCH);
-    let call = Market::reveal_call(3, &own, SALT, 3, ROLE_EXPIRY)?;
+    let call = m.reveal_call(3, &own, SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&call, REVEAL_AT)?, F03_UNKNOWN_WORKER);
     let changed_scores = m.both(250_001, 750_000);
     let changed = m.signed(2, &changed_scores)?;
-    let call = Market::reveal_call(2, &changed, SALT, 3, ROLE_EXPIRY)?;
+    let call = m.reveal_call(2, &changed, SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&call, REVEAL_AT)?, F04_COMMIT_MISMATCH);
     assert_eq!((m.admitted(2)?, m.admitted(3)?), (None, None));
     assert_eq!(m.slot(3, REVEAL_END - 1)?.status, Status::Committed);
@@ -2006,7 +1899,7 @@ fn a04_each_binding_field_and_a_foreign_reveal() -> TestResult {
     let start = m.world.bytes.clone();
     for (binding, code) in binding_variants(&m)? {
         let body = Market::body(binding, 2, &scores)?;
-        let call = Market::commit_call(2, &binding, commitment_of(&body, SALT)?, 2, ROLE_EXPIRY)?;
+        let call = m.commit_call(2, &binding, commitment_of(&body, SALT)?, 2, ROLE_EXPIRY)?;
         assert_eq!(m.refused(&call, COMMIT_AT)?, code);
     }
     assert_eq!(m.world.bytes, start);
@@ -2016,11 +1909,11 @@ fn a04_each_binding_field_and_a_foreign_reveal() -> TestResult {
     let stolen = Req {
         actor: principal(3)?,
         request: tag(0xa2, 3, 3),
-        ..Market::reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?
+        ..m.reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?
     };
     assert_eq!(m.refused(&stolen, REVEAL_AT)?, UNAUTHORIZED);
     let forged = sign(report.body, &evaluator_key(3))?;
-    let call = Market::reveal_call(2, &forged, SALT, 3, ROLE_EXPIRY)?;
+    let call = m.reveal_call(2, &forged, SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&call, REVEAL_AT)?, BAD_SIGNATURE);
     let receipt = m.reveal(2, &report, REVEAL_AT)?;
     let slot = m.slot(2, REVEAL_AT)?;
@@ -2035,7 +1928,7 @@ fn a04_native_principals_and_a_relayed_delegate() -> TestResult {
     let scores = m.both(1, 2);
     let report = m.signed(2, &scores)?;
     let c = commitment_of(&report.body, SALT)?;
-    let native = Market::commit_call(2, &report.body.binding, c, 2, ROLE_EXPIRY)?;
+    let native = m.commit_call(2, &report.body.binding, c, 2, ROLE_EXPIRY)?;
     let outsider = principal(RELAYER)?;
     let relayed = CallContext {
         principal: outsider,
@@ -2070,10 +1963,10 @@ fn a04_native_principals_and_a_relayed_delegate() -> TestResult {
     let F04::Committed { record, .. } = m.send(&delegated, &relayed)? else {
         return Err(NON_CANONICAL);
     };
-    assert_eq!((record.commitment, record.sequence), (c, 2));
+    assert_eq!((record.commitment, record.sequence), (c, native.sequence));
     let reveal = Req {
         delegate: Some((evaluator_key(2), evaluator_key(2))),
-        ..Market::reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?
+        ..m.reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?
     };
     let ctx = CallContext {
         principal: outsider,
@@ -2098,13 +1991,13 @@ fn a05_signature_and_salt_refusals_keep_the_commitment() -> TestResult {
         signature,
         ..report
     };
-    let call = Market::reveal_call(2, &changed, SALT, 3, ROLE_EXPIRY)?;
+    let call = m.reveal_call(2, &changed, SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&call, REVEAL_AT)?, BAD_SIGNATURE);
     assert_eq!(Salt32::new([0; 32]).map(|_| ()), Err(F04_SALT_INVALID));
     let valid = reveal_payload(&report, SALT)?;
     let body = &valid[4..valid.len() - 96];
     let sig = &report.signature.0;
-    let template = Market::reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?;
+    let template = m.reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?;
     for (salt, code) in [
         (&[0; 32][..], F04_SALT_INVALID),
         (&SALT[..31], NON_CANONICAL),
@@ -2125,7 +2018,7 @@ fn a05_signature_and_salt_refusals_keep_the_commitment() -> TestResult {
         };
         assert_eq!(call.encode().map(|_| ()), Err(code));
     }
-    let other = Market::reveal_call(2, &report, [0x5b; 32], 3, ROLE_EXPIRY)?;
+    let other = m.reveal_call(2, &report, [0x5b; 32], 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&other, REVEAL_AT)?, F04_COMMIT_MISMATCH);
     assert_eq!(m.slot(2, REVEAL_END - 1)?.commit, Some(record));
     let receipt = m.reveal(2, &report, REVEAL_END - 1)?;
@@ -2138,7 +2031,7 @@ fn a06_missing_commit_and_partial_reveals() -> TestResult {
     let mut m = market()?;
     let scores = m.both(1, 2);
     let report = m.signed(7, &scores)?;
-    let uncommitted = Market::reveal_call(7, &report, SALT, 2, ROLE_EXPIRY)?;
+    let uncommitted = m.reveal_call(7, &report, SALT, 2, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&uncommitted, REVEAL_AT)?, NOT_FOUND);
     assert_eq!(m.slot(7, REVEAL_AT)?.status, Status::Absent);
     let mut c = crowded()?;
@@ -2152,10 +2045,10 @@ fn a06_missing_commit_and_partial_reveals() -> TestResult {
     }
     c.reveal(2, &reports[0], start + 80)?;
     c.reveal(3, &reports[1], start + 95)?;
-    let late = Market::reveal_call(4, &reports[2], SALT, 3, ROLE_EXPIRY)?;
+    let late = c.reveal_call(4, &reports[2], SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(c.refused(&late, start + 96)?, WRONG_PHASE);
     let state = decode_shared_state(&c.world.bytes)?;
-    assert_eq!(split_reports(&state)?.1.rows(6).count(), 2);
+    assert_eq!(split_reports(&state)?.1.rows(c.frozen.epoch).count(), 2);
     for n in 2..=9 {
         let slot = c.slot(n, start + 96)?;
         let expected = if n <= 3 {
@@ -2190,9 +2083,9 @@ fn a07_empty_vectors_refuse_and_explicit_zero_is_admitted() -> TestResult {
     );
     let call = Req {
         payload,
-        ..Market::reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?
+        ..m.reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?
     };
-    assert_eq!(call.encode().map(|_| ()), Err(NON_CANONICAL));
+    assert_eq!(call.encode().map(|_| ()), Err(F03_NO_SCORES));
     let zero = entries(&[(a, 0)]);
     let explicit = m.signed(2, &zero)?;
     let mut body = vec![0; REPORT_MAX_BYTES];
@@ -2234,8 +2127,8 @@ fn a08_concurrent_and_repeated_requests_settle_once() -> TestResult {
     let binding = report.body.binding;
     let first = commitment_of(&report.body, SALT)?;
     let second = commitment_of(&report.body, [0x5b; 32])?;
-    let a = Market::commit_call(2, &binding, first, 2, REVEAL_AT)?;
-    let b = Market::commit_call(2, &binding, second, 2, REVEAL_AT)?;
+    let a = m.commit_call(2, &binding, first, 2, REVEAL_AT)?;
+    let b = m.commit_call(2, &binding, second, 2, REVEAL_AT)?;
     for call in [&a, &b] {
         let (outcome, _, _) = m.compose(call, &call.context(COMMIT_AT)?)?;
         assert!(matches!(outcome, Ok(F04::Committed { .. })));
@@ -2244,24 +2137,24 @@ fn a08_concurrent_and_repeated_requests_settle_once() -> TestResult {
         return Err(NON_CANONICAL);
     };
     assert_eq!(m.refused(&b, COMMIT_AT)?, REPLAY_CONFLICT);
-    let renewed = Market::commit_call(2, &binding, second, 3, REVEAL_AT)?;
+    let renewed = m.commit_call(2, &binding, second, 3, REVEAL_AT)?;
     assert_eq!(m.refused(&renewed, COMMIT_AT)?, CONFLICT);
     let receipt = m.reveal(2, &report, REVEAL_AT)?;
     let revealed = m.world.bytes.clone();
-    let retry = Market::reveal_call(2, &report, SALT, 3, REVEAL_END)?;
+    let retry = m.reveal_call(2, &report, SALT, 3, REVEAL_END)?;
     let F04::Retained(retained) = m.call(&retry, REVEAL_AT + 2)? else {
         return Err(NON_CANONICAL);
     };
     assert_eq!(
         (retained.sequence, retained.result_digest),
-        (3, receipt.result()?)
+        (retry.sequence, receipt.result()?)
     );
     let changed_scores = m.both(250_001, 750_000);
     let changed = m.signed(2, &changed_scores)?;
-    let conflicting = Market::reveal_call(2, &changed, SALT, 3, REVEAL_END)?;
+    let conflicting = m.reveal_call(2, &changed, SALT, 3, REVEAL_END)?;
     assert_eq!(m.refused(&conflicting, REVEAL_AT + 3)?, REPLAY_CONFLICT);
-    let again = Market::reveal_call(2, &changed, SALT, 4, REVEAL_END)?;
-    assert_eq!(m.refused(&again, REVEAL_AT + 3)?, CONFLICT);
+    let again = m.reveal_call(2, &changed, SALT, 4, REVEAL_END)?;
+    assert_eq!(m.refused(&again, REVEAL_AT + 3)?, F03_REPORT_ALREADY_FINAL);
     assert_eq!(m.world.bytes, revealed);
     let slot = m.slot(2, REVEAL_END)?;
     assert_eq!((slot.commit, slot.reveal), (Some(record), Some(receipt)));
@@ -2299,7 +2192,8 @@ fn a10_largest_reports_at_both_identity_bounds() -> TestResult {
     assert_eq!(section.len(), 9 + 8 * 1526 + 9 + 8 * 96);
     let mut signed = 0;
     for n in 2..=9 {
-        let row = f03::admitted_report(&state, 6, c.evaluator(n)?)?.ok_or(NOT_FOUND)?;
+        let row =
+            f03::admitted_report(&state, c.frozen.epoch, c.evaluator(n)?)?.ok_or(NOT_FOUND)?;
         signed += row.signed_bytes().len();
     }
     assert_eq!(signed, 8 * 1444);
@@ -2319,7 +2213,7 @@ fn a10_largest_reports_at_both_identity_bounds() -> TestResult {
     );
     let call = Req {
         payload,
-        ..Market::reveal_call(2, &reports[0], SALT, 4, ROLE_EXPIRY)?
+        ..c.reveal_call(2, &reports[0], SALT, 4, ROLE_EXPIRY)?
     };
     assert_eq!(call.encode().map(|_| ()), Err(NON_CANONICAL));
     Ok(())
@@ -2371,7 +2265,7 @@ fn a11_expiry_is_a_projection_without_writes() -> TestResult {
         );
     }
     assert_eq!(m.world.bytes, committed);
-    let delayed = Market::reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?;
+    let delayed = m.reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&delayed, REVEAL_END)?, WRONG_PHASE);
     assert_eq!(m.slot(2, REVEAL_END)?.status, Status::Expired);
     assert_eq!(m.admitted(2)?, None);
@@ -2390,17 +2284,29 @@ fn a12_revocation_and_rotation_across_the_epoch_boundary() -> TestResult {
     }
     m.rotate(2, 1089)?;
     m.world.stage(&policy(2, 3)?, 8, 1089)?;
-    m.revoke(3, false, 1090)?;
+    m.revoke(3, 1090)?;
     let c = commitment_of(&reports[1].body, [0x5b; 32])?;
-    let revoked = Market::commit_call(3, &reports[1].body.binding, c, 3, ROLE_EXPIRY)?;
+    let revoked = m.commit_call(3, &reports[1].body.binding, c, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&revoked, 1091)?, REVOKED);
     for (n, report) in [(2, &reports[0]), (4, &reports[2]), (5, &reports[3])] {
         m.reveal(n, report, REVEAL_AT)?;
     }
-    let late = Market::reveal_call(3, &reports[1], SALT, 3, ROLE_EXPIRY)?;
+    let late = m.reveal_call(3, &reports[1], SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&late, REVEAL_AT)?, REVOKED);
-    m.revoke(4, false, 1105)?;
-    m.revoke(5, true, 1106)?;
+    m.revoke(4, 1120)?;
+    repair::call(
+        &mut m.world.bytes,
+        dispatch::BeginAggregation,
+        principal(KEEPER)?,
+        &[],
+        1120,
+    )?;
+    let sealed = m.world.bytes.clone();
+    m.revoke(5, 1121)?;
+    assert_eq!(
+        repair::settlement_bytes(&m.world.bytes)?,
+        repair::settlement_bytes(&sealed)?
+    );
     let state = decode_shared_state(&m.world.bytes)?;
     let region =
         authority::evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
@@ -2412,7 +2318,7 @@ fn a12_revocation_and_rotation_across_the_epoch_boundary() -> TestResult {
         (true, false)
     );
     assert!(m.admitted(4)?.is_some() && m.admitted(5)?.is_some());
-    let old = Market::commit_call(
+    let old = m.commit_call(
         2,
         &reports[0].body.binding,
         commitment_of(&reports[0].body, SALT)?,
@@ -2420,7 +2326,7 @@ fn a12_revocation_and_rotation_across_the_epoch_boundary() -> TestResult {
         REVEAL_AT,
     )?;
     let frozen = m.frozen;
-    m.world.terminalize(&frozen, &m.workers, 1136)?;
+    repair::settle(&mut m.world.bytes, 1136)?;
     m.frozen = m.world.open(1152)?;
     assert_eq!(
         (m.frozen.epoch, m.frozen.config.get(), m.frozen.evaluators),
@@ -2428,7 +2334,7 @@ fn a12_revocation_and_rotation_across_the_epoch_boundary() -> TestResult {
     );
     let at = 1216;
     assert_eq!(m.refused(&old, at)?, EXPIRED);
-    let previous_epoch = Market::commit_call(
+    let previous_epoch = m.commit_call(
         2,
         &reports[0].body.binding,
         commitment_of(&reports[0].body, SALT)?,
@@ -2437,7 +2343,7 @@ fn a12_revocation_and_rotation_across_the_epoch_boundary() -> TestResult {
     )?;
     assert_eq!(m.refused(&previous_epoch, at)?, WRONG_EPOCH);
     let unrotated = m.signed(2, &scores)?;
-    let call = Market::commit_call(
+    let call = m.commit_call(
         2,
         &unrotated.body.binding,
         commitment_of(&unrotated.body, SALT)?,
@@ -2453,13 +2359,13 @@ fn a12_revocation_and_rotation_across_the_epoch_boundary() -> TestResult {
     let rotated = sign(Market::body(binding, 2, &scores)?, &rotated_key(2))?;
     let c = commitment_of(&rotated.body, SALT)?;
     let F04::Committed { record, .. } =
-        m.call(&Market::commit_call(2, &binding, c, 4, ROLE_EXPIRY)?, at)?
+        m.call(&m.commit_call(2, &binding, c, 4, ROLE_EXPIRY)?, at)?
     else {
         return Err(NON_CANONICAL);
     };
     assert_eq!(
         (record.key_version.get(), record.sequence, record.height),
-        (2, 4, at)
+        (2, m.evaluator_base[0] + 4, at)
     );
     Ok(())
 }
@@ -2473,7 +2379,7 @@ fn suspension_refuses_new_commitments_and_keeps_reveals() -> TestResult {
     m.commit(2, &first, COMMIT_AT)?;
     m.world.suspend(1089)?;
     let c = commitment_of(&second.body, SALT)?;
-    let call = Market::commit_call(3, &second.body.binding, c, 2, ROLE_EXPIRY)?;
+    let call = m.commit_call(3, &second.body.binding, c, 2, ROLE_EXPIRY)?;
     assert_eq!(m.refused(&call, 1090)?, F08_MARKET_PAUSED);
     assert_eq!(m.slot(3, 1090)?.status, Status::Absent);
     let receipt = m.reveal(2, &first, REVEAL_AT)?;

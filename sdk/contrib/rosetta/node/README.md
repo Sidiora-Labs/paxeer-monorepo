@@ -26,7 +26,11 @@ copies it, without extraction, to `/opt/rosetta/archived/data.tar.gz` with mode
 historical `simd` state. Use this target only to inspect the committed fixture;
 never use those keys on a public network or restore that state into `paxd`.
 
-The former `Dockerfile` and Compose entry points remain withdrawn by task
-22.33.1357. `Dockerfile.historical` stays byte-for-byte historical. The owning
+The former `Dockerfile` and Compose entry points remain withdrawn.
+`Dockerfile.historical` is kept unchanged. The owning
 SDK domain must retire the old Makefile callers; integrating this explicit
 recipe into a new orchestration needs a separate qualified change.
+
+The [root-chain image, runtime configuration and archived-key boundary tests](../../../../tools/qualification/audit_repairs/test_repair_22_33_1358.py)
+check the recipe's actual instructions and committed build consumers. These
+source checks do not build the image or run Rosetta data/construction requests.

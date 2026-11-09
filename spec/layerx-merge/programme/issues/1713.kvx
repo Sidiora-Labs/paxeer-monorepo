@@ -1,0 +1,48 @@
+[issue.1713]
+number = 1713
+title = "Web-search exact-payment adapter rejects valid two-log receipts"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "services/agent/sdk/typescript/src/web-search.ts:406 still requires one total log before header preparation at :599, whereas modules/layerxledger/keeper/events.go:74 and :89 emit Transfer then PaymentExact, precompiles/layerxledger/payments_test.go:239 asserts both, rpc/sequencer_receipt.go:606 retains every log, and services/agent/sdk/typescript/test/web-search.test.ts:178 forwards the historical single-log recording unchanged, confirming the incompatibility introduced by commit cb50180548c81a93044fcc5883195a0670f127f4."
+close_comment = "Valid exact-payment receipts contain both Transfer and PaymentExact, but the web-search log adapter currently rejects that receipt shape. A focused fix is required to accept one matching PaymentExact event while preserving receipt authentication and payment validation."
+
+[task.18.1713.1]
+title = "Issue #1713: Accept exact payments within complete receipt log lists"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181713.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change verifyExactPaymentLogs in services/agent/sdk/typescript/src/web-search.ts:405 to select exactly one matching PaymentExact event at the Ledger address from the full log list, allowing the accompanying Transfer event; bind its payer and payment reference to the authenticated payment and calldata at :365 and :595, preserve signature, transaction hash, calldata, payee, asset, amount and reference checks, and reject missing or duplicate matching events and malformed or mismatched payment fields before sending the header."
+do_2 = "Declare and register webSearchExactPaymentLogReceipts in services/agent/sdk/typescript/test/web-search.test.ts alongside webSearchClientTests at :35; use the unchanged raw transaction, signed receipt, complete Transfer-plus-PaymentExact logs and pins from services/agent/sdk/typescript/test/fixtures/repair-22-33-24/committed.json:9 via services/agent/sdk/typescript/test/recorded-committed.ts:34 and :64, drive WebSearchClient through header preparation and assert delivery of the matching payment header; assert refusal before delivery for absent or duplicate matching events, malformed logs and wrong payer, payee, asset, amount or reference, retain the existing refusal cases at services/agent/sdk/typescript/test/web-search.test.ts:224 and receipt authentication checks, and never synthesize or re-sign the positive receipt."
+symbols = ["verifyExactPaymentLogs", "WebSearchClient", "webSearchExactPaymentLogReceipts"]
+touches = ["services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search.test.ts"]
+tests = ["services/agent/sdk/typescript/test/web-search.test.ts::webSearchExactPaymentLogReceipts", "services/agent/sdk/typescript/test/web-search.test.ts::webSearchClientTests"]
+planned_paths = []
+build_cmd = "pnpm --dir services/agent/sdk/typescript run build"
+verify_cmd = "node --test --test-name-pattern='^(webSearchExactPaymentLogReceipts|webSearchClientTests)$' services/agent/sdk/typescript/dist/test/web-search.test.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181713]
+title = "Web-search exact-payment validation accepts complete Ledger receipt logs"
+ac_1 = "Given an authenticated payExact receipt with the producer's Transfer and PaymentExact logs asserted at precompiles/layerxledger/payments_test.go:239, when WebSearchClient prepares an exact payment through services/agent/sdk/typescript/src/web-search.ts:595, then exactly one matching PaymentExact event permits header delivery with payer, payee, asset, amount and reference bound to the verified transaction; missing, duplicate, malformed or mismatched payment events and invalid receipt authentication are refused before header delivery."
+
+[acceptance.18.1713.1]
+feature = "18"
+req = "181713.1"
+scenario = "Given a valid producer-derived payExact receipt containing Transfer followed by PaymentExact, when the web-search client receives the full log list, then it delivers the matching payment header and continues the purchase, while absent, duplicate, malformed or mismatched payment events and unauthenticated receipts are refused before payment header delivery."
+contract = "contracts/agent-ts-sdk.md#web-search"
+test = "services/agent/sdk/typescript/test/web-search.test.ts::webSearchExactPaymentLogReceipts (planned)"
+qualification = "UNRUN"

@@ -1,4 +1,4 @@
-use layerx_platform_authority::hex;
+use crate::hex;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{verify_sequencer_signature, ReceiptCheck, ReceiptKeys};
 use serde::Deserialize;
@@ -15,14 +15,14 @@ const MAX_HEADER_BYTES: usize = 32 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(8);
 
 #[derive(Debug)]
-pub(super) enum ReceiptSource {
+pub enum ReceiptSource {
     Found(Vec<u8>),
     Unknown,
     Unavailable(String),
     KeyMismatch,
 }
 
-pub(super) struct ChainReceipts {
+pub struct ChainReceipts {
     host: String,
     address: SocketAddr,
     path: String,
@@ -43,11 +43,11 @@ struct ReceiptKeyEntry {
 }
 
 impl ChainReceipts {
-    pub(super) fn pinned_keys(&self) -> &[SequencerAuthorization] {
+    pub fn pinned_keys(&self) -> &[SequencerAuthorization] {
         &self.keys
     }
 
-    pub(super) fn load(url: &str, keys_file: &Path) -> Result<Self, String> {
+    pub fn load(url: &str, keys_file: &Path) -> Result<Self, String> {
         let source = url
             .strip_prefix("http://")
             .ok_or("chain RPC requires http://loopback:port")?;
@@ -94,7 +94,7 @@ impl ChainReceipts {
         })
     }
 
-    pub(super) fn lookup(&self, activity_id: [u8; 32]) -> ReceiptSource {
+    pub fn lookup(&self, activity_id: [u8; 32]) -> ReceiptSource {
         match self.read(activity_id) {
             Ok(None) => ReceiptSource::Unknown,
             Ok(Some((bytes, signing_key, height, _))) => {
@@ -156,7 +156,7 @@ impl ChainReceipts {
         }
     }
 
-    pub(super) fn committed(&self, id: [u8; 32]) -> Result<(Vec<u8>, u64, [u8; 32]), String> {
+    pub fn committed(&self, id: [u8; 32]) -> Result<(Vec<u8>, u64, [u8; 32]), String> {
         let (bytes, _, _, committed) = self.read(id)?.ok_or("committed receipt missing")?;
         let (height, hash) = committed.ok_or("receipt is not committed")?;
         Ok((bytes, height, hash))
@@ -182,7 +182,13 @@ impl ChainReceipts {
         stream
             .set_write_timeout(Some(remaining()?))
             .map_err(|error| error.to_string())?;
-        let request = format!("POST {} HTTP/1.0\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", self.path, self.host, body.len(), body);
+        let request = format!(
+            "POST {} HTTP/1.0\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            self.path,
+            self.host,
+            body.len(),
+            body
+        );
         stream
             .write_all(request.as_bytes())
             .map_err(|error| error.to_string())?;

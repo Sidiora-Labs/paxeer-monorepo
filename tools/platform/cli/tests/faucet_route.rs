@@ -112,6 +112,7 @@ fn faucet_posts_service_claim_route() -> TestResult {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
     let cli = FaucetCli::new(&format!("http://{}", listener.local_addr()?))?;
+    let service_endpoint = format!("http://{}/rpc", listener.local_addr()?);
     let session = "faucet-route-identity-session";
     let stored = cli.run(&["auth", "set"], Some(session))?;
     assert!(
@@ -119,7 +120,16 @@ fn faucet_posts_service_claim_route() -> TestResult {
         "{}",
         String::from_utf8_lossy(&stored.stderr)
     );
-    let mut invocation = Invocation(cli.command(&["faucet", "--key", "alice"]).spawn()?);
+    let mut invocation = Invocation(
+        cli.command(&[
+            "faucet",
+            "--key",
+            "alice",
+            "--service-endpoint",
+            &service_endpoint,
+        ])
+        .spawn()?,
+    );
     let deadline = Instant::now() + Duration::from_secs(10);
     let stream = loop {
         match listener.accept() {
@@ -184,12 +194,17 @@ fn faucet_posts_service_claim_route() -> TestResult {
         })
     );
     assert!(!String::from_utf8_lossy(&body).contains("lx_requestFunds"));
+    let funding = json!({"funded":true,"funding_id":"ef".repeat(32),"transaction_id":"cd".repeat(32),"amount":"1000000","network":"layerx-testnet"});
+    let reply = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":request["id"],"result":funding}))?;
+    write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",reply.len())?;
+    reader.get_mut().write_all(&reply)?;
+    reader.get_mut().flush()?;
     drop(reader);
     let deadline = Instant::now() + Duration::from_secs(10);
     while invocation.0.try_wait()?.is_none() {
         assert!(
             Instant::now() < deadline,
-            "faucet did not report closed transport"
+            "faucet did not consume its funding response"
         );
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -200,8 +215,20 @@ fn faucet_posts_service_claim_route() -> TestResult {
         .take()
         .ok_or("missing stderr")?
         .read_to_string(&mut stderr)?;
-    assert!(!invocation.0.wait()?.success());
-    assert!(stderr.contains("POST /rpc failed"), "{stderr}");
+    assert!(invocation.0.wait()?.success(), "{stderr}");
+    let mut stdout = String::new();
+    invocation
+        .0
+        .stdout
+        .take()
+        .ok_or("missing stdout")?
+        .read_to_string(&mut stdout)?;
+    let result: Value = serde_json::from_str(&stdout)?;
+    assert_eq!(result["ok"], true);
+    assert_eq!(result["kind"], "faucet.claimed");
+    assert_eq!(result["data"]["claim"]["funded"], true);
+    assert_eq!(result["data"]["claim"]["txHash"], funding["transaction_id"]);
+    assert_eq!(result["data"]["claim"]["amount"], "1000000");
     assert!(
         matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
     );
@@ -213,7 +240,17 @@ fn faucet_requires_identity_session() -> TestResult {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
     let cli = FaucetCli::new(&format!("http://{}", listener.local_addr()?))?;
-    for arguments in [vec!["faucet"], vec!["faucet", "--key", "alice"]] {
+    let service_endpoint = format!("http://{}/rpc", listener.local_addr()?);
+    for arguments in [
+        vec!["faucet", "--service-endpoint", &service_endpoint],
+        vec![
+            "faucet",
+            "--key",
+            "alice",
+            "--service-endpoint",
+            &service_endpoint,
+        ],
+    ] {
         let output = cli.run(&arguments, None)?;
         assert!(!output.status.success());
         let refusal: Value = serde_json::from_slice(&output.stderr)?;

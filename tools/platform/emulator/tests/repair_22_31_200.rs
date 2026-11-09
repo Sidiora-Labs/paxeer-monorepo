@@ -263,9 +263,10 @@ const vector = document.cases.find(entry => entry.id === 'V1-layerxledger-pay-ex
 assert.ok(vector);
 const pin = { keyId: bytes(vector.pinnedKey.keyId), publicKey: bytes(vector.pinnedKey.publicKey),
   first_height: BigInt(vector.pinnedKey.firstHeight), last_height: BigInt(vector.pinnedKey.lastHeight) };
+const verified = await sdk.verifySequencerReceipt(bytes(vector.signedReceipt), bytes(vector.rawTransaction), [pin]);
 const proof = { format: 'layerx-receipt-proof-v2', verificationLevel: 'receipted',
   rawTransaction: vector.rawTransaction, signedReceipt: vector.signedReceipt,
-  receiptDigest: hex(sdk.keccak256(bytes(vector.signedReceipt))),
+  receiptDigest: hex(verified.receiptDigest),
   receiptKey: { keyId: vector.pinnedKey.keyId, publicKey: vector.pinnedKey.publicKey,
     firstHeight: `0x${pin.first_height.toString(16)}`, lastHeight: `0x${pin.last_height.toString(16)}` } };
 const log = vector.receiptJson.logs[0];

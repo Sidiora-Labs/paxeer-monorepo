@@ -1,0 +1,52 @@
+[issue.1884]
+number = 1884
+title = "[P3] Refresh the published crypto API contract after legacy codec removal"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "services/agent/crates/layerx-crypto/src/lib.rs:1 publishes api-contract.md, whose lines 32-36 and 53-58 still advertise removed activity helpers and deny the retained constructor, although commit f2ca9f35edf084513f34954793456128c87b45b7 deleted those helpers without updating that document, src/signer.rs:55 retains the validated compatibility constructor, src/signer.rs:96 refuses its signing purpose, src/disclosure.rs:69 and src/send.rs:158 expose supported call preparation, src/signer.rs:331 exposes call signing, and src/lib.rs:21 and src/payments.rs:21 retain deprecated onboarding as decisions 2237 and 2356 require (spec/layerx-merge/spec.kvx:6535 and spec/layerx-merge/spec.kvx:7249)."
+close_comment = "The published crypto contract still lists deleted activity APIs and misstates the retained request constructor. The follow-up documentation task will describe supported EIP-1559 call preparation and signing, distinguish retained onboarding compatibility, and add a checked call example."
+
+[task.18.1884.1]
+title = "Issue #1884: Refresh the published crypto contract for supported call APIs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181884.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update services/agent/crates/layerx-crypto/src/api-contract.md:28 and :50 to identify disclosure::bind, bind_budget_mutation, send::EnvelopeOptions, DisclosedEnvelope, encode_send_envelope and signer::sign_disclosed as removed APIs rather than available deprecated compatibility; describe disclosure::call::bind_call, send::CallOptions, send::DisclosedCall, send::ledger_payment_call and signer::sign_disclosed_call using their current signatures at src/disclosure.rs:69, src/send.rs:158, src/send.rs:167, src/send.rs:185 and src/signer.rs:331."
+do_2 = "Describe SigningRequest::new at services/agent/crates/layerx-crypto/src/signer.rs:55 as a retained domain-checked, canonical-disclosure-validated compatibility constructor whose Activity purpose is refused by signing_bytes at :96 and external_signing_bytes at :118; distinguish it from SigningRequest::bind and SendDebit::signing_request, and remove the claim that local consumers can use sign_disclosed."
+do_3 = "Document the genuinely retained deprecated onboarding module and OnboardingConsent/SponsoredRegistration re-exports at services/agent/crates/layerx-crypto/src/lib.rs:21 and src/payments.rs:21, with binding::BindAuthorization for current EVM registration, following decisions 2237 and 2356 at spec/layerx-merge/spec.kvx:6535 and :7249; retain the raw bind-consent, native payer-authorization and proof-rung guarantees already documented at src/api-contract.md:10 and :67."
+do_4 = "Add an executable Rust documentation example named supported_call_example in services/agent/crates/layerx-crypto/src/api-contract.md, declare and invoke that function in the example, and use the real native payer producer, ledger_payment_call with CallOptions, DisclosedCall, bind_call and sign_disclosed_call with an explicit sender matching the selected EVM key; assert canonical-byte round trip, disclosure equality and recovered transaction sender, following the existing producer-to-consumer checks at tests/repair_22_33_1558.rs:98 and tests/send_call.rs:32 without importing their private support modules."
+do_5 = "Build and inspect the rendered layerx_crypto crate documentation with custody enabled, then run its Rust documentation tests so the supported-call example compiles and executes; preserve runtime behavior, retired API absence and all existing validation assertions, including tests/repair_22_33_1558.rs:142, :186, :292 and :342 and tests/signer.rs:258."
+symbols = []
+touches = ["services/agent/crates/layerx-crypto/src/api-contract.md"]
+tests = ["services/agent/crates/layerx-crypto/src/api-contract.md::supported_call_example"]
+planned_paths = []
+build_cmd = "cargo doc --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --features custody --no-deps"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --features custody --doc"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181884]
+title = "Published crypto documentation matches supported call APIs and retained compatibility"
+ac_1 = "The crate documentation included at services/agent/crates/layerx-crypto/src/lib.rs:1 lists the activity helpers removed by f2ca9f35edf084513f34954793456128c87b45b7 as unavailable, describes the supported APIs at src/disclosure.rs:69, src/send.rs:158 and src/signer.rs:331, accurately distinguishes the retained constructor at src/signer.rs:55 and refused Activity signing at :96, and retains only the onboarding compatibility actually exported at src/lib.rs:21 and src/payments.rs:21."
+ac_2 = "With custody enabled, the rendered crate documentation contains a supported_call_example that executes the real payer-to-ledger-call-to-disclosure-to-EVM-signature flow and asserts canonical-byte round trip, disclosure equality and sender recovery; runtime behavior and existing validation tests remain unchanged."
+
+[acceptance.18.1884.1]
+feature = "18"
+req = "181884.1"
+scenario = "Given the published crypto contract after activity codec retirement, when a consumer follows its custody-enabled supported-call example, then the documented exports compile, canonical call bytes and disclosure agree, the transaction signature recovers the explicit sender, and the text accurately distinguishes removed APIs from retained compatibility."
+contract = "contracts/agent-rust-api.md#crypto"
+test = "services/agent/crates/layerx-crypto/src/api-contract.md::supported_call_example (planned)"
+qualification = "UNRUN"

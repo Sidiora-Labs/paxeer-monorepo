@@ -5,7 +5,7 @@
 task = "22.30.85"
 revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
 files_reviewed = 68
-findings = 39
+findings = 38
 docs_reviewed = 18
 upgrade_ready = false
 blocking = ["deployment-projection", "head-authority-route", "retired-anchor-finality", "mixed-height-and-sequence", "rotated-human-receipt-key", "source-route-abi-five", "source-store-abi-five", "upgrade-journal-schema", "missing-chain-rpc-deployment", "budget-gateway-wiring"]
@@ -801,24 +801,14 @@ expected = "Authority guidance must describe pax_sequencerReceipt, the pinned ke
 proposal = "Rewrite services/platform/hosted/authority/README.md source/configuration tables to match chain_receipt.rs and main.rs, remove absent test/socket instructions and specify mandatory human integration evidence."
 owner_domain = 8
 
-[finding.missing-interface-contract-pages]
-file = "spec/layerx-merge/interfaces.kvx"
-line = 313497
-class = "doc-drift"
-severity = "medium"
-observed = "Hosted, Programs and SDK interface rows reference contracts/platform-hosted.md, contracts/programs.md and contracts/cosmos-fork.md; all three pages are absent, leaving route, error and crate/SDK contracts unresolved."
-expected = "Public interface declarations must resolve to maintained product contracts explaining transport, shape and lifecycle."
-proposal = "Restore contracts/platform-hosted.md, contracts/programs.md and contracts/cosmos-fork.md in domains 8, 13 and 15 or repoint their declarations to existing authoritative pages and regenerate spec/layerx-merge/interfaces.kvx."
-owner_domain = 8
-
 [finding.historical-verifier-signature-doc]
 file = "spec/layerx-merge/interfaces.kvx"
 line = 550225
 class = "doc-drift"
 severity = "medium"
-observed = "The verify-historical-deployment row declares only a DeploymentProof argument; the implementation and hosted consumer pass proof, current head, history and time. The declared historical call contract omits its verification context."
+observed = "At revision 0f3fe6b8c5c1973c0e80408097cf66e06e40785f, interfaces.kvx:550225 and spec/layerx-merge/contracts/programs.md:752 declare verify_historical_deployment with only a DeploymentProof argument. programs/crates/layerx-programs-registry/src/protocol_evidence.rs:690-696 requires proof, current VerifiedHeader, trust_chain and now_ms; services/platform/hosted/registry/src/node_state.rs:261 passes all four. The implementation checks current-head freshness and verifies the history from its trust anchor to that head."
 expected = "The historical verifier declaration must describe actual parameters and trust/freshness semantics rather than a superseded single-argument signature."
-proposal = "Update the domain-13 declaration source and regenerate spec/layerx-merge/interfaces.kvx with the full current-head, history and time parameters and a maintained contract target."
+proposal = "Update the domain-13 declaration source and regenerate spec/layerx-merge/interfaces.kvx and the existing spec/layerx-merge/contracts/programs.md#registry-crate signature with the full current-head, trust-chain and time parameters; document current-head freshness and authenticated historical continuity."
 owner_domain = 13
 
 [doc.01]
@@ -892,22 +882,22 @@ status = "accurate"
 notes = "Complete boundary/readiness guide reviewed: cgroup delegation, quota mounts, privilege drop, immutable builder pins and actual readiness prerequisites match implementation; package wiring defects are recorded separately."
 
 [doc.15]
-path = "contracts/platform-hosted.md"
-status = "missing"
-notes = "The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "accurate"
+notes = "interfaces.kvx:313497 resolves relative to spec/layerx-merge to ai-artifacts-config-keys at lines 329-339. Its capacity_bytes, listener, revocation_mark, optional retention_mark, commit_readers, tenants and publishers match services/platform/hosted/ai-artifacts/src/authority.rs:49-67; the prepare/finalize/resolve/upload routes at lines 363-391 match main.rs:423-469. The page explicitly freezes revision 2a1033aa2 and distinguishes planned sources and UNRUN acceptance from qualification; retired rows remain migration obligations."
 
 [doc.16]
-path = "contracts/programs.md"
-status = "missing"
-notes = "The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."
+path = "spec/layerx-merge/contracts/programs.md"
+status = "stale"
+notes = "interfaces.kvx:550232 resolves relative to spec/layerx-merge to registry-crate at line 646. The historical verifier signature at line 752 omits current VerifiedHeader, trust_chain and now_ms required by programs/crates/layerx-programs-registry/src/protocol_evidence.rs:690-696 and passed by services/platform/hosted/registry/src/node_state.rs:261. Extend the existing declaration and page with those parameters and freshness/trust-continuity semantics as recorded in historical-verifier-signature-doc; retain the page's explicit pinned-revision and planned-source distinctions."
 
 [doc.17]
-path = "contracts/cosmos-fork.md"
-status = "missing"
-notes = "The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "interfaces.kvx:647194 resolves relative to spec/layerx-merge to crypto at line 2865. Lines 2869-2871 correctly declare secp256k1_context_clone/create/destroy against sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/include/secp256k1.h:167-187. The notes distinguish header APIs from direct wrapper calls: secp256.go:29-32 compiles the C implementation and :49 initializes through context_create_sign_verify, without calling context_clone. The page freezes revision 2a1033aa2 and keeps planned acceptance UNRUN; the independent sdk/std/codec.go vesting-comment finding remains."
 
 [doc.18]
 path = "spec/layerx-merge/interfaces.kvx"
 status = "stale"
-notes = "Reviewed package produced/consumed rows; missing contract targets and historical verifier signature drift are recorded. Retired rows remain migration obligations rather than instructions to restore deleted producers."
+notes = "Reviewed package produced/consumed rows; the hosted, Programs and SDK contract targets resolve relative to spec/layerx-merge to the existing pages reviewed in doc.15-17. Historical verifier signature drift remains in interfaces.kvx:550225 and contracts/programs.md:752 as recorded in historical-verifier-signature-doc. Retired rows remain migration obligations rather than instructions to restore deleted producers."
 

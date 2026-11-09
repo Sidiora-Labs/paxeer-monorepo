@@ -9,8 +9,8 @@ use std::os::unix::fs::DirBuilderExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use std::task::{Context, Poll, Wake, Waker};
 use std::thread::JoinHandle;
@@ -19,9 +19,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::disclosure::call::encode_payment_call;
 use layerx_crypto::evm_transaction::{
-    decode_signed, recover_sender, transaction_hash, Eip1559Call,
+    Eip1559Call, decode_signed, recover_sender, transaction_hash,
 };
-use layerx_crypto::payments::{asset_id, Payment, Registration};
+use layerx_crypto::payments::{Payment, Registration, asset_id};
 use layerx_crypto::signer::LocalSigner;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
@@ -29,7 +29,7 @@ use layerx_sdk::rpc_verification::ReceiptPolicy;
 use layerx_sdk::wallet::{PaymentOptions, Wallet};
 use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::payload::ModuleId;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
@@ -166,10 +166,10 @@ impl Server {
         .with_no_client_auth()
         .with_single_cert(
             vec![CertificateDer::from(
-                include_bytes!("../../src/repair_22_31_227_fixture/server.der").to_vec(),
+                include_bytes!("../fixtures/repair_22_31_227_fixture/server.der").to_vec(),
             )],
             PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
-                include_bytes!("../../src/repair_22_31_227_fixture/server-key.der").to_vec(),
+                include_bytes!("../fixtures/repair_22_31_227_fixture/server-key.der").to_vec(),
             )),
         )
         .expect("committed TLS fixture");
@@ -314,7 +314,6 @@ impl LocalNode {
         if state["_committed"].is_null() {
             return rpc;
         }
-        let record = &state["_committed"];
         let authority = layerx_sdk::rpc_verification::node_commit::NodeCommitAuthority::new(
             "committed-fixture".to_owned(),
             vec![(
@@ -327,31 +326,8 @@ impl LocalNode {
             10,
         )
         .expect("independent validator pin");
-        let coverage = layerx_sdk::rpc_verification::node_commit::NodeCommitCoverage {
-            covering_height: 10,
-            batch_transaction: unhex(field(&record["batch"], "tx")),
-            transaction_proof: layerx_sdk::rpc_verification::node_commit::NodeTransactionProof {
-                total: record["batch"]["proof"]["total"]
-                    .as_u64()
-                    .expect("proof total"),
-                index: record["batch"]["proof"]["index"]
-                    .as_u64()
-                    .expect("proof index"),
-                aunts: record["batch"]["proof"]["aunts"]
-                    .as_array()
-                    .expect("proof aunts")
-                    .iter()
-                    .map(|v| {
-                        unhex(v.as_str().expect("aunt"))
-                            .try_into()
-                            .expect("aunt width")
-                    })
-                    .collect(),
-            },
-            activity_ids: vec![fixed_field(&record["receiptJson"], "txHash")],
-        };
-        rpc.with_node_commit_authority(authority, coverage)
-            .expect("real recorded batch inclusion")
+        rpc.with_node_commit_authority(authority)
+            .expect("independent node commit authority")
     }
     fn restart(&mut self) {
         self.server.take();
@@ -443,7 +419,12 @@ fn node_response(state: &mut Value, request: &Value) -> Value {
             }
         }
         "eth_getBlockByNumber" if !state["_committed"].is_null() => {
-            json!({"number":state["_committed"]["receiptJson"]["blockNumber"],"hash":state["_committed"]["receiptJson"]["blockHash"]})
+            json!({"number":state["_committed"]["receiptJson"]["blockNumber"],"hash":state["_committed"]["receiptJson"]["blockHash"],
+                "transactions":[state["_committed"]["receiptJson"]["txHash"]]})
+        }
+        "px_getSequenceBatch" => {
+            assert_eq!(params, &json!(["10"]));
+            state["_committed"]["batch"].clone()
         }
         "px_getCommit" => {
             assert_eq!(params, &json!(["10"]));
@@ -988,6 +969,7 @@ pub(super) fn committed_wait_uses_live_block_authority_after_reopen() {
             record["rawTransaction"].clone();
         state["receipts"][field(&record["receiptJson"], "txHash")] = record["receiptJson"].clone();
         state["_committed"] = record.clone();
+        state["_committed"]["batch"]["activityIds"] = json!([record["receiptJson"]["txHash"]]);
     }
     let policy = pinned_policy(&node);
     let rpc = node.rpc();
@@ -1095,7 +1077,7 @@ pub(super) fn committed_wait_uses_live_block_authority_after_reopen() {
 }
 
 pub(super) fn daemon_not_ready_goldens_preserve_value_and_rung_order() {
-    use layerx_sdk::agent_envelope::{decode_response_status, EnvelopeOutcome, NotReadyStatus};
+    use layerx_sdk::agent_envelope::{EnvelopeOutcome, NotReadyStatus, decode_response_status};
     use layerx_types::rung::Rung;
     for (name, expected) in [
         (
@@ -1422,7 +1404,7 @@ fn owner_case() -> OwnerCase {
         .into();
     let preparation = json!({"version":"1","preparation_id":hex(&digest),"canonical_bytes":hex(&canonical),"signing_preimage":hex(&call.signing_hash()),"activity":{"version":"1","module":"9","ordinal":"3"},"approval_required":false,"approval_id":null});
     let disclosed = json!({"version":"1","preparation_id":hex(&digest),"canonical_bytes":hex(&canonical),"disclosure_digest":hex(&disclosure.audit_digest().expect("call audit codec")),"activity_type":disclosure.activity_type.value().to_string(),"actor":hex(&disclosure.actor),"authority":hex(&disclosure.authority),"asset":hex(&disclosure.asset),"fee_limit":disclosure.fee_limit.to_string(),"not_before":disclosure.expiry.not_before.to_string(),"not_after":disclosure.expiry.not_after.to_string(),"payload_expires_at":disclosure.expiry.payload_expires_at.to_string(),"idempotency_key":hex(&disclosure.idempotency_key)});
-    let mut document = json!({"tenant":"sdk-fixture","session_id":hex(&[0x51;32]),"token_id":hex(&[0x52;32]),"generation":"1","ca_pem":Path::new(env!("CARGO_MANIFEST_DIR")).join("src/repair_22_31_227_fixture/ca.pem").to_str().expect("CA path"),"owner_preview_purpose":hex(&purpose_bytes),"owner_public_key":hex(owner.verifying_key().as_bytes()),"evm_sender":hex(&sender),"owner_purpose_signature":hex(&purpose_signature.to_bytes()),"owner_preview_canonical_bytes":hex(&canonical),"external_evm_secret":hex(&external),"request":{"actor":actor,"authority":hex(owner.verifying_key().as_bytes()),"account_sequence":"7","not_before":"0","not_after":u64::MAX.to_string(),"idempotency_key":hex(&digest),"fee_limit":"200000","payload":hex(&payload),"payload_hash":hex(&payload_hash),"capability_id":hex(&[0x53;32])},"pending_lookup":{"activity_id":hex(&[0xab;32]),"required":"receipted"},"absent_lookup":{"activity_id":hex(&[0xcd;32]),"required":"receipted"}});
+    let mut document = json!({"tenant":"sdk-fixture","session_id":hex(&[0x51;32]),"token_id":hex(&[0x52;32]),"generation":"1","ca_pem":Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/repair_22_31_227_fixture/ca.pem").to_str().expect("CA path"),"owner_preview_purpose":hex(&purpose_bytes),"owner_public_key":hex(owner.verifying_key().as_bytes()),"evm_sender":hex(&sender),"owner_purpose_signature":hex(&purpose_signature.to_bytes()),"owner_preview_canonical_bytes":hex(&canonical),"external_evm_secret":hex(&external),"request":{"actor":actor,"authority":hex(owner.verifying_key().as_bytes()),"account_sequence":"7","not_before":"0","not_after":u64::MAX.to_string(),"idempotency_key":hex(&digest),"fee_limit":"200000","payload":hex(&payload),"payload_hash":hex(&payload_hash),"capability_id":hex(&[0x53;32])},"pending_lookup":{"activity_id":hex(&[0xab;32]),"required":"receipted"},"absent_lookup":{"activity_id":hex(&[0xcd;32]),"required":"receipted"}});
     let fixture = document.clone();
     let pending: Value = serde_json::from_str(include_str!(
         "../../../../../../services/agent/schema/agent-api/golden/agent-http-success-pending.json"
@@ -1523,7 +1505,7 @@ pub(super) fn native_owner_preview_prepare_disclose_external_sign_and_submit() {
     };
     use layerx_agent_api::submit::{PreparationRef, SignRequest, SignatureBytes, SubmitRequest};
     use layerx_sdk::agent_envelope::{
-        validate_call_disclosure, AgentEnvelopeTransport, EnvelopeCredential,
+        AgentEnvelopeTransport, EnvelopeCredential, validate_call_disclosure,
     };
     let case = owner_case();
     let credential = EnvelopeCredential::new(
@@ -1624,12 +1606,14 @@ pub(super) fn native_owner_preview_prepare_disclose_external_sign_and_submit() {
     }
     let mut bad_preimage = prepared.clone();
     bad_preimage.signing_preimage = [0x55; 32];
-    assert!(layerx_sdk::agent_envelope::validate_unsigned_preparation(
-        &bad_preimage,
-        prepared.preparation_id,
-        prepared.preparation_id
-    )
-    .is_err());
+    assert!(
+        layerx_sdk::agent_envelope::validate_unsigned_preparation(
+            &bad_preimage,
+            prepared.preparation_id,
+            prepared.preparation_id
+        )
+        .is_err()
+    );
 
     let key = Zeroizing::new(fixed_field::<32>(&case, "external_evm_secret"));
     let raw = call.sign(&key).expect("external EVM signer");
@@ -1900,13 +1884,15 @@ pub(super) fn program_abi_constructor_retains_c_producer_transaction() {
     assert!(NativeProgramCallRequest::new(&registry, native, fee + 1, &raw).is_err());
     let mut retired = transaction.clone();
     retired.data = payload.clone();
-    assert!(NativeProgramCallRequest::new(
-        &registry,
-        native,
-        fee,
-        &retired.sign(&[0x42; 32]).expect("signed retired payload")
-    )
-    .is_err());
+    assert!(
+        NativeProgramCallRequest::new(
+            &registry,
+            native,
+            fee,
+            &retired.sign(&[0x42; 32]).expect("signed retired payload")
+        )
+        .is_err()
+    );
     let (_, signature) = decode_signed(&raw).expect("real recoverable signature");
     let carrier = layerx_agent_api::submit::SignatureBytes::new(signature.as_bytes().to_vec())
         .expect("65-byte carrier");
@@ -1938,10 +1924,10 @@ mod binary {
 pub(super) fn authenticated_registration_and_session_reach_exact_owner_results() {
     use layerx_agent_api::error::RequestId;
     use layerx_agent_api::idempotency::Key;
-    use layerx_client::account_binding::{plan_bind, BindPlan};
-    use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
-    use layerx_sdk::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
+    use layerx_client::account_binding::{BindPlan, plan_bind};
+    use layerx_crypto::session::{SessionKeyRequest, SessionPurpose, issue_session_key};
     use layerx_sdk::Operation;
+    use layerx_sdk::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
 
     let account = derive_from_seed(&[0x41; 32], 0).expect("provisioned owner");
     let BindPlan::Bind(binding) = plan_bind(&account, 125, None, 0).expect("consent producer")
@@ -1965,11 +1951,9 @@ pub(super) fn authenticated_registration_and_session_reach_exact_owner_results()
         session_public_key,
         not_before: 1,
         expires_at: Some(10_000),
-        permitted_activity_types: vec![layerx_types::payload::ActivityType::new(
-            ModuleId::Asset,
-            4,
-        )
-        .expect("open account")],
+        permitted_activity_types: vec![
+            layerx_types::payload::ActivityType::new(ModuleId::Asset, 4).expect("open account"),
+        ],
         revocation_sequence: Some(1),
         fee_budget: None,
         purpose: SessionPurpose::Activity,
@@ -2048,7 +2032,8 @@ pub(super) fn authenticated_registration_and_session_reach_exact_owner_results()
         json!({"request_id":envelope["request_id"],"value":values[index],
             "verification_status":{"state":"achieved","rung":"submitted"}})
     });
-    let ca = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/repair_22_31_227_fixture/ca.pem");
+    let ca = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/repair_22_31_227_fixture/ca.pem");
     let transport = AgentEnvelopeTransport::connect(&server.endpoint, None, Some(&ca))
         .expect("real authenticated envelope transport");
     let credential =

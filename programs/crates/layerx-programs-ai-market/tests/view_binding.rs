@@ -1,9 +1,14 @@
 use layerx_programs_ai_market::{
+    admission::{AdmissionMeta, AdmissionTable, Participant, FLAG_ADMITTED, TABLE_MAX_BYTES},
     codec::{self, decode_envelope, derive_market, derive_worker, encode_envelope, Envelope},
     dispatch,
     errors::{
         ApplicationError, CAPACITY, CONFLICT, NON_CANONICAL, NOT_FOUND, WRONG_DOMAIN, WRONG_MARKET,
-        WRONG_PROGRAM,
+        WRONG_PROGRAM, WRONG_ROSTER,
+    },
+    evaluators::{
+        authority::{self, EvaluatorRecord, EvaluatorRegion, LastRequest, SnapshotContext},
+        model::{EvaluatorGrant, GrantStatus},
     },
     policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
     queries::{
@@ -17,12 +22,14 @@ use layerx_programs_ai_market::{
     },
     registry::{derive_rewards_account, F01_SECTION_CAP},
     registry_ops::{self, Outcome},
+    rewards::{RewardLedger, RewardState, REWARD_STATE_BYTES},
+    roster,
     state::{self, ActorSlot, Control, ReplayTable, Section, SharedState},
     types::{
         AccountId, AssetId, Authentication, ChainDomain, Digest32, EvaluatorId,
         EvaluatorRosterEntry, MarketId, MetadataDigest, PolicyDigest, Presence, PrincipalId,
-        ProgramId, PublicKey32, RequestDigest, RequestId, RosterDigest, RubricDigest, StateDigest,
-        Version, WorkerRosterEntry,
+        ProgramId, PublicKey32, RequestDigest, RequestId, ResultDigest, RosterDigest, RubricDigest,
+        StateDigest, Version, WorkerRosterEntry,
     },
     workers::{WorkerCurrent, WorkerState, WorkerTable, WORKER_TABLE_MAX_BYTES},
     MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
@@ -305,7 +312,8 @@ fn header_reports_exact_state_identity_and_explicit_absence() -> Checked {
     assert_eq!(availability[0], Availability::Available);
     assert_eq!(availability[1], Availability::Available);
     assert_eq!(availability[2], Availability::NotYetProduced);
-    assert_eq!(availability[5], Availability::NotEnabled);
+    assert_eq!(availability[5], Availability::NotYetProduced);
+    assert_ne!(availability[5], Availability::NotEnabled);
     assert_eq!(availability[9], Availability::Available);
 
     let uncreated = encode_shared(&SharedState {
@@ -324,6 +332,70 @@ fn header_reports_exact_state_identity_and_explicit_absence() -> Checked {
     assert_eq!(
         feature_availability(&uncreated)?[0],
         Availability::NotYetProduced
+    );
+    Ok(())
+}
+
+#[test]
+fn availability_distinguishes_absent_malformed_and_unsupported_capture_content() -> Checked {
+    let empty = encode_shared(&SharedState {
+        revision: 1,
+        feature_sections: [&[]; 5],
+        control: Control {
+            replay: owner_replay()?,
+            feature_bytes: &[],
+        },
+    })?;
+    let (captured, _) = capture(&empty, 0xA1)?;
+    assert_eq!(captured, empty);
+    assert_eq!(
+        feature_availability(&captured)?,
+        [Availability::NotYetProduced; 11]
+    );
+
+    let shared = state::decode_shared_state(&empty)?;
+    for (section, features) in [
+        (Section::PolicyLifecycle, &[0][..]),
+        (Section::IdentityRoster, &[1, 2][..]),
+        (Section::CurrentReports, &[3][..]),
+        (Section::SettlementClaims, &[5][..]),
+        (Section::ReputationAdmission, &[7][..]),
+    ] {
+        let bytes = encode_shared(&shared.replace_section(section, &[0xff])?)?;
+        let (captured, _) = capture(&bytes, 0xA1)?;
+        let availability = feature_availability(&captured)?;
+        for &feature in features {
+            assert_eq!(availability[feature], Availability::ContentUnavailable);
+        }
+    }
+    let mut bad_control = shared.clone();
+    bad_control.control.feature_bytes = &[0xff];
+    let bytes = encode_shared(&bad_control)?;
+    let (captured, _) = capture(&bytes, 0xA1)?;
+    assert_eq!(
+        feature_availability(&captured)?[8],
+        Availability::ContentUnavailable
+    );
+
+    let created = market_with_workers(3)?;
+    let shared = state::decode_shared_state(&created)?;
+    let mut policy = shared.section(Section::PolicyLifecycle)?.to_vec();
+    policy[..2].copy_from_slice(&2u16.to_be_bytes());
+    let bytes = encode_shared(&shared.replace_section(Section::PolicyLifecycle, &policy)?)?;
+    let (captured, _) = capture(&bytes, 0xA1)?;
+    assert_eq!(
+        feature_availability(&captured)?[0],
+        Availability::UnsupportedVersion
+    );
+
+    let mut table = vec![0; TABLE_MAX_BYTES];
+    let n = AdmissionTable::new().encode(&mut table)?;
+    table[..2].copy_from_slice(&2u16.to_be_bytes());
+    let bytes = encode_shared(&shared.replace_section(Section::ReputationAdmission, &table[..n])?)?;
+    let (captured, _) = capture(&bytes, 0xA1)?;
+    assert_eq!(
+        feature_availability(&captured)?[7],
+        Availability::UnsupportedVersion
     );
     Ok(())
 }
@@ -515,9 +587,9 @@ fn a02_v2_finality_binds_block_commit_of_the_same_root() -> Checked {
         native_state_root: digest(0xA1)?,
         block_height: 1010,
         block_hash: facts.proof.block_hash,
-        app_hash: digest(0xC1)?,
+        app_hash: facts.proof.native_state_root,
         store_proof_digest: digest(0xD1)?,
-        rank: 2,
+        rank: FINALIZED_RANK,
     };
     let published = bind_snapshot(&bytes, &facts, &finality, 9_000)?;
     assert_eq!(published.native_state_root, finality.native_state_root);
@@ -528,6 +600,10 @@ fn a02_v2_finality_binds_block_commit_of_the_same_root() -> Checked {
     assert_eq!(published.batch_id, facts.proof.block_hash);
     assert_eq!(published.rank, FINALIZED_RANK);
     assert_eq!(published.require_finalized(), Ok(()));
+    assert_eq!(
+        published.finalized_head(),
+        Ok((facts.proof.execution_height, facts.proof.block_hash))
+    );
     assert_eq!(published.publication_time_ms, 9_000);
     assert_eq!(published.revision, facts.revision);
     assert_eq!(published.epoch, Presence::Absent);
@@ -535,8 +611,14 @@ fn a02_v2_finality_binds_block_commit_of_the_same_root() -> Checked {
     assert_eq!(published.policy, policy_id()?);
     for rank in [0, FINALIZED_RANK, FINALIZED_RANK + 1, u8::MAX] {
         let evidence = FinalityEvidence { rank, ..finality };
-        let binding = bind_snapshot(&bytes, &facts, &evidence, 9_000)?;
-        assert_eq!(binding, published);
+        assert_eq!(
+            bind_snapshot(&bytes, &facts, &evidence, 9_000),
+            if rank <= FINALIZED_RANK {
+                Ok(SnapshotBinding { rank, ..published })
+            } else {
+                Err(NON_CANONICAL.into())
+            }
+        );
     }
 
     let rebound = bind_snapshot(
@@ -572,6 +654,50 @@ fn a02_v2_finality_binds_block_commit_of_the_same_root() -> Checked {
     );
     assert_ne!(&encoded[..n], &updated[..updated_len]);
     assert_eq!(s, bytes);
+    Ok(())
+}
+
+#[test]
+fn a02_v2_preserves_lower_ranks_and_rejects_invalid_ranks() -> Checked {
+    let s = market_with_workers(2)?;
+    let (bytes, facts) = capture(&s, 0xA1)?;
+    let finality = FinalityEvidence {
+        native_state_root: facts.proof.native_state_root,
+        block_height: facts.proof.execution_height,
+        block_hash: facts.proof.block_hash,
+        app_hash: facts.proof.native_state_root,
+        store_proof_digest: digest(0xD1)?,
+        rank: FINALIZED_RANK,
+    };
+    let published = bind_snapshot(&bytes, &facts, &finality, 9_000)?;
+    for rank in 0..FINALIZED_RANK {
+        let evidence = FinalityEvidence { rank, ..finality };
+        let binding = bind_snapshot(&bytes, &facts, &evidence, 9_000)?;
+        assert_eq!(binding, SnapshotBinding { rank, ..published });
+        let mut encoded = [0; BINDING_MAX_BYTES];
+        let n = binding.encode(&mut encoded)?;
+        let consumer = SnapshotBinding::decode(&encoded[..n])?;
+        assert_eq!(consumer, binding);
+        assert_eq!(
+            consumer.require_finalized(),
+            Err(QueryError::FinalityUnavailable)
+        );
+        assert_eq!(
+            consumer.finalized_head(),
+            Err(QueryError::FinalityUnavailable)
+        );
+    }
+    for rank in [FINALIZED_RANK + 1, u8::MAX] {
+        assert_eq!(
+            bind_snapshot(
+                &bytes,
+                &facts,
+                &FinalityEvidence { rank, ..finality },
+                9_000
+            ),
+            Err(QueryError::Application(NON_CANONICAL))
+        );
+    }
     Ok(())
 }
 
@@ -678,7 +804,7 @@ fn a03_score_and_reward_fields_never_fabricate_numbers() -> Checked {
     for row in &rows {
         assert_eq!(row.score.status(), ScoreStatus::NotProduced);
         assert_eq!(row.score.ppm(), Presence::Absent);
-        assert_eq!(row.reward.status(), Availability::NotEnabled);
+        assert_eq!(row.reward.status(), Availability::NotYetProduced);
         assert_eq!(row.reward.asset(), Presence::Absent);
         assert_eq!(row.reward.earned(), Presence::Absent);
         assert_eq!(row.reward.claimed(), Presence::Absent);
@@ -729,14 +855,209 @@ fn frozen_roster(workers: &[WorkerCurrent], market_program: [u8; 32]) -> Checked
 
 /// 32 current workers and 8 frozen evaluators projected from real state and roster codecs.
 fn forty_rows() -> Checked<Vec<ParticipantRow>> {
-    let s = market_with_workers(32)?;
-    let shared = state::decode_shared_state(&s)?;
+    use ed25519_dalek::{Signer, SigningKey};
+    use layerx_programs_ai_market::{
+        admission::{
+            admit_evaluator, AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent,
+            Participant, TABLE_MAX_BYTES,
+        },
+        evaluators::{
+            authority::{self, EvaluatorRecord, EvaluatorRegion, LastRequest, SnapshotContext},
+            model::{EvaluatorGrant, GrantStatus, GrantTerms},
+        },
+        registry_ops::PolicySection,
+        rewards::{RewardLedger, RewardState, REWARD_STATE_BYTES},
+        roster,
+    };
+    let source = market_with_workers(32)?;
+    let mut shared = state::decode_shared_state(&source)?;
+    let policy = PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?;
+    let market = policy.header;
     let table = WorkerTable::decode(shared.section(Section::IdentityRoster)?)?;
     let workers: Vec<WorkerCurrent> = table.iter().copied().collect();
-    let roster = frozen_roster(&workers, PROGRAM)?;
-    let view = codec::decode_roster(&roster)?;
+    let old_roster = frozen_roster(&workers, PROGRAM)?;
+    let old_view = codec::decode_roster(&old_roster)?;
+    let frozen: Vec<WorkerRosterEntry> = (0..old_view.worker_count())
+        .map(|i| old_view.worker(i))
+        .collect::<Result<_, _>>()?;
+    let mut admission = AdmissionTable::new();
+    let mut region = EvaluatorRegion::new();
+    for n in 0..8u8 {
+        if n == 4 {
+            roster::open_epoch(&mut admission, 1, |_| false)?;
+        }
+        let effective = if n < 4 { 0 } else { 2 };
+        let at = market.origin_height + if n < 4 { 0 } else { 128 };
+        let owner = principal([60 + n; 32])?;
+        let key = SigningKey::from_bytes(&[70 + n; 32]);
+        let grant = EvaluatorGrant::nominate(
+            market.market_id,
+            owner,
+            [n + 1; 32],
+            GrantTerms {
+                rubric: RubricDigest::new([4; 32])?,
+                grant_version: Version::new(1)?,
+                key_version: Version::new(1)?,
+                signing_key: PublicKey32(key.verifying_key().to_bytes()),
+                effective_epoch: effective,
+                expiry_epoch_exclusive: 32,
+            },
+        )?;
+        let request = RequestId::new([n + 1; 32])?;
+        let approval = admission.approve(
+            &AdmissionContext {
+                market: &market,
+                invoking_principal: market.owner_principal,
+                height: at,
+            },
+            &ApprovalTerms {
+                participant: Participant::Evaluator(grant.evaluator),
+                owner,
+                enrollment_nonce_commitment: digest(n + 1)?,
+                delegate: grant.signing_key,
+                delegate_generation: 1,
+                identity_commitment: digest(n + 1)?,
+                effective_epoch: effective,
+                config_version: 1,
+                request,
+                expiry_height: market.origin_height + effective * 128 + 64,
+            },
+        )?;
+        let consent = EvaluatorConsent {
+            chain: chain()?,
+            program: program()?,
+            market: market.market_id,
+            evaluator: grant.evaluator,
+            owner,
+            signing_key: grant.signing_key,
+            enrollment_nonce: [n + 1; 32],
+            rubric: grant.rubric,
+            approval_digest: approval,
+            request,
+            grant_version: 1,
+            key_version: 1,
+            effective_epoch: effective,
+            config_version: 1,
+            expiry_height: market.origin_height + effective * 128 + 64,
+        };
+        let mut encoded = [0; layerx_programs_ai_market::evaluators::model::CONSENT_BYTES];
+        consent.encode(&mut encoded)?;
+        let mut bytes = encoded.to_vec();
+        bytes.extend_from_slice(&key.sign(consent.digest()?.as_bytes()).to_bytes());
+        admit_evaluator(
+            &mut admission,
+            &AdmissionContext {
+                market: &market,
+                invoking_principal: owner,
+                height: at,
+            },
+            &grant,
+            request,
+            &bytes,
+        )?;
+        region.insert(&EvaluatorRecord {
+            grant,
+            last: LastRequest {
+                sequence: 1,
+                request,
+                digest: RequestDigest::new([n + 1; 32])?,
+                result: layerx_programs_ai_market::ResultDigest::new([n + 1; 32])?,
+            },
+            rekey: None,
+            revocation: None,
+        })?;
+    }
+    roster::open_epoch(&mut admission, 7, |_| false)?;
+    let mut identity = vec![0; Section::IdentityRoster.payload_cap()];
+    let worker_len = table.encode(&mut identity)?;
+    let region_len = region.encode(&mut identity[worker_len..])?;
+    identity.truncate(worker_len + region_len);
+    let mut opened_identity = vec![0; Section::IdentityRoster.payload_cap()];
+    let opened = authority::open_epoch(
+        &identity,
+        &SnapshotContext {
+            market: &market,
+            epoch: 7,
+            approved_rubric: RubricDigest::new([4; 32])?,
+            workers: &frozen,
+            admission: &admission,
+        },
+        &mut opened_identity,
+    )?;
+    opened_identity.truncate(opened.section_len);
+    let (_, region_bytes) = authority::split_identity_section(&opened_identity)?;
+    let mut region = EvaluatorRegion::decode(region_bytes)?;
+    let entries: Vec<EvaluatorRosterEntry> = region
+        .snapshot()
+        .ok_or(NON_CANONICAL)?
+        .entries()
+        .map(|r| r.entry)
+        .collect();
+    let roster = codec::Roster {
+        market: market.market_id,
+        epoch: 7,
+        config: Version::new(1)?,
+        workers: &frozen,
+        evaluators: &entries,
+    };
+    let mut roster_bytes = vec![0; codec::ROSTER_MAX_BYTES];
+    let len = codec::encode_roster(&roster, &mut roster_bytes)?;
+    roster_bytes.truncate(len);
+    let view = codec::decode_roster(&roster_bytes)?;
+    let ledger = RewardLedger::new(
+        AssetId::new(ASSET)?,
+        derive_rewards_account(program()?, AssetId::new(ASSET)?)?,
+        AccountId::new(REFUND)?,
+    )?
+    .deposit(1)?;
+    let mut reward_base = vec![0; REWARD_STATE_BYTES];
+    let rewards = RewardState::init(&ledger, &mut reward_base)?;
+    let mut reward_bytes = vec![0; REWARD_STATE_BYTES];
+    rewards.reserve_epoch(
+        7,
+        1,
+        layerx_programs_ai_market::types::RosterDigest::new([0x98; 32])?,
+        &frozen,
+        market.origin_height + 7 * 128,
+        &mut reward_bytes,
+    )?;
+    let records: Vec<_> = region.records().copied().collect();
+    for mut record in records {
+        record.grant.status = GrantStatus::Revoked;
+        record.revocation = Some(authority::Revocation {
+            reason: authority::RevocationReason::OperatorRemoval,
+            evidence: digest(1)?,
+            height: market.origin_height + 7 * 128,
+            excludes_frozen_epoch: false,
+        });
+        region.replace(&record)?;
+    }
+    identity.resize(Section::IdentityRoster.payload_cap(), 0);
+    let region_len = region.encode(&mut identity[worker_len..])?;
+    identity.truncate(worker_len + region_len);
+    let mut admission_bytes = vec![0; TABLE_MAX_BYTES];
+    let len = admission.encode(&mut admission_bytes)?;
+    admission_bytes.truncate(len);
+    shared.feature_sections[Section::IdentityRoster.index()] = &identity;
+    shared.feature_sections[Section::ReputationAdmission.index()] = &admission_bytes;
+    shared.feature_sections[Section::SettlementClaims.index()] = &reward_bytes;
+    let s = encode_shared(&shared)?;
     let mut rows = vec![blank_row()?; 40];
+    assert_eq!(
+        participant_rows(&s, Some(&view), &mut rows),
+        Err(WRONG_ROSTER)
+    );
+    let s = commit_roster(&s, &view)?;
     assert_eq!(participant_rows(&s, Some(&view), &mut rows)?, 40);
+    let mut from_state = vec![blank_row()?; 40];
+    assert_eq!(participant_rows(&s, None, &mut from_state)?, 40);
+    assert_eq!(from_state, rows);
+    for row in &rows[32..] {
+        assert_eq!(row.reward.status(), Availability::NotEnabled);
+        assert_eq!(row.reward.asset(), Presence::Absent);
+        assert_eq!(row.reward.earned(), Presence::Absent);
+        assert_eq!(row.reward.claimed(), Presence::Absent);
+    }
     let foreign = frozen_roster(&workers, [98; 32])?;
     assert_eq!(
         participant_rows(
@@ -747,6 +1068,115 @@ fn forty_rows() -> Checked<Vec<ParticipantRow>> {
         Err(WRONG_MARKET)
     );
     Ok(rows)
+}
+
+fn commit_roster(s: &[u8], view: &codec::RosterView<'_>) -> Checked<Vec<u8>> {
+    let shared = state::decode_shared_state(s)?;
+    let policy = registry_ops::PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?;
+    let workers = (0..view.worker_count())
+        .map(|i| view.worker(i))
+        .collect::<Result<Vec<_>, _>>()?;
+    let evaluators = (0..view.evaluator_count())
+        .map(|i| view.evaluator(i))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut admission = AdmissionTable::new();
+    for (participant, owner, generation) in workers
+        .iter()
+        .map(|w| (Participant::Worker(w.worker), w.owner, w.key_version.get()))
+        .chain(evaluators.iter().map(|e| {
+            (
+                Participant::Evaluator(e.evaluator),
+                e.owner,
+                e.key_version.get(),
+            )
+        }))
+    {
+        admission.insert(AdmissionMeta {
+            participant,
+            owner,
+            admitted_epoch: None,
+            last_heartbeat_epoch: None,
+            last_heartbeat_height: None,
+            immunity_until_epoch: view.epoch,
+            pending_exit: None,
+            membership_generation: 1,
+            complete_missed_opened_epochs: 0,
+            membership_flags: FLAG_ADMITTED,
+            delegate_generation: generation,
+            admission_height: Some(1_000),
+            approval: None,
+        })?;
+    }
+    roster::open_epoch(&mut admission, view.epoch, |_| false)?;
+    let mut region = EvaluatorRegion::new();
+    for entry in evaluators {
+        region.insert(&EvaluatorRecord {
+            grant: EvaluatorGrant {
+                evaluator: entry.evaluator,
+                principal: entry.owner,
+                rubric: entry.rubric,
+                grant_version: entry.grant,
+                key_version: entry.key_version,
+                signing_key: entry.public_key,
+                effective_epoch: view.epoch,
+                expiry_epoch_exclusive: view.epoch + 32,
+                status: GrantStatus::Pending,
+            },
+            last: LastRequest {
+                sequence: 1,
+                request: RequestId::new([1; 32])?,
+                digest: RequestDigest::new([2; 32])?,
+                result: ResultDigest::new([3; 32])?,
+            },
+            rekey: None,
+            revocation: None,
+        })?;
+    }
+    let mut identity = authority::split_identity_section(shared.section(Section::IdentityRoster)?)?
+        .0
+        .to_vec();
+    let mut encoded = vec![0; authority::REGION_MAX_BYTES];
+    let n = region.encode(&mut encoded)?;
+    identity.extend_from_slice(&encoded[..n]);
+    let mut opened_identity = vec![0; Section::IdentityRoster.payload_cap()];
+    let opened = authority::open_epoch(
+        &identity,
+        &SnapshotContext {
+            market: &policy.header,
+            epoch: view.epoch,
+            approved_rubric: policy.current.commitments.rubric,
+            workers: &workers,
+            admission: &admission,
+        },
+        &mut opened_identity,
+    )?;
+    assert_eq!(usize::from(opened.members), view.evaluator_count());
+    let ledger = RewardLedger::new(
+        policy.header.funding_asset,
+        policy.header.rewards_account,
+        AccountId::new(REFUND)?,
+    )?
+    .deposit(100)?;
+    let mut initial_rewards = vec![0; REWARD_STATE_BYTES];
+    let rewards = RewardState::init(&ledger, &mut initial_rewards)?;
+    let mut reserved_rewards = vec![0; REWARD_STATE_BYTES];
+    rewards.reserve_epoch(
+        view.epoch,
+        100,
+        view.digest()?,
+        &workers,
+        1_000,
+        &mut reserved_rewards,
+    )?;
+    let mut encoded_admission = vec![0; TABLE_MAX_BYTES];
+    let n = admission.encode(&mut encoded_admission)?;
+    let next = shared.replace_section(
+        Section::IdentityRoster,
+        &opened_identity[..opened.section_len],
+    )?;
+    let next = next.replace_section(Section::SettlementClaims, &reserved_rewards)?;
+    let next = next.replace_section(Section::ReputationAdmission, &encoded_admission[..n])?;
+    encode_shared(&next)
 }
 
 fn scope(filter: KindFilter, active_only: bool) -> Checked<CursorScope> {

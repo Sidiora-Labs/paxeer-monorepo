@@ -2,6 +2,7 @@ import React from 'react';
 
 import * as celoEpochMock from 'mocks/epochs/celo';
 import { test, expect } from 'playwright/lib';
+import { viewport } from 'playwright/utils/config';
 
 import EpochElectionRewards from './EpochElectionRewards';
 
@@ -12,7 +13,7 @@ const hooksConfig = {
   },
 };
 
-test('base view', async({ render, mockApiResponse }) => {
+test('base view +@dark-mode', async({ render, mockApiResponse }) => {
   await mockApiResponse(
     'general:epoch_celo_election_rewards',
     celoEpochMock.electionRewardDetails1,
@@ -23,7 +24,8 @@ test('base view', async({ render, mockApiResponse }) => {
   await expect(component).toHaveScreenshot();
 });
 
-test('base view +@mobile -@default', async({ render, mockApiResponse }) => {
+test('base view +@mobile -@default +@dark-mode', async({ render, mockApiResponse, page }) => {
+  await page.setViewportSize(viewport.mobile);
   await mockApiResponse(
     'general:epoch_celo_election_rewards',
     celoEpochMock.electionRewardDetails1,

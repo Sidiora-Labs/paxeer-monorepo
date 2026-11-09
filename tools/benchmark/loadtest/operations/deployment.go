@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -230,6 +231,20 @@ type WasmDeployment struct {
 	Settle                 time.Duration
 }
 
+type WasmDeploymentError struct {
+	Cause                   error
+	CodeIDs                 []string
+	Addresses               []string
+	Stage, TxHash, Recovery string
+	Uncertain               bool
+}
+
+func (e *WasmDeploymentError) Error() string {
+	return fmt.Sprintf("CW20 deployment stopped at %s: %v; committed code IDs=%v; committed contract addresses=%v; uncertain=%t; txhash=%q; %s", e.Stage, e.Cause, e.CodeIDs, e.Addresses, e.Uncertain, e.TxHash, e.Recovery)
+}
+
+func (e *WasmDeploymentError) Unwrap() error { return e.Cause }
+
 func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, output io.Writer) error {
 	if options.Root == "" || options.Paxd == "" || options.Key == "" || options.Chain == "" {
 		return errors.New("home, binary, key and chain are required")
@@ -238,108 +253,87 @@ func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, 
 	if err != nil {
 		return err
 	}
-	options.Root = root
-	names := []string{"jupiter", "mars", "saturn", "venus"}
-	for _, name := range names {
-		root := filepath.Join(options.Root, name)
-		if _, err := commands.Run(ctx, Command{Args: []string{"cargo", "build", "--manifest-path", filepath.Join(root, "Cargo.toml")}}); err != nil {
-			return err
+	artifact := filepath.Join(root, "contracts", "wasm", "cw20_base.wasm")
+	file, err := os.Open(artifact)
+	if err != nil {
+		return fmt.Errorf("CW20 preflight artifact %q: %w", artifact, err)
+	}
+	info, statErr := file.Stat()
+	var header [8]byte
+	_, readErr := io.ReadFull(file, header[:])
+	closeErr := file.Close()
+	if statErr != nil || readErr != nil || closeErr != nil || !info.Mode().IsRegular() || info.Size() <= 8 || !bytes.Equal(header[:], []byte{0, 97, 115, 109, 1, 0, 0, 0}) {
+		return fmt.Errorf("CW20 preflight: %q must be a readable WebAssembly v1 artifact", artifact)
+	}
+	for _, command := range []struct{ name, usage string }{
+		{"store", "store [wasm file]"}, {"instantiate", "instantiate [code_id_int64]"},
+	} {
+		raw, err := commands.Run(ctx, Command{Args: []string{options.Paxd, "tx", "wasm", command.name, "--help"}})
+		if err != nil {
+			return fmt.Errorf("CW20 preflight %s: %w", command.name, err)
 		}
-		if _, err := commands.Run(ctx, Command{Args: []string{"docker", "run", "--rm", "-v", root + ":/code", "--mount", "type=volume,source=" + name + "_cache,target=/code/target", "--mount", "type=volume,source=registry_cache,target=/usr/local/cargo/registry", "cosmwasm/rust-optimizer:0.12.5"}}); err != nil {
-			return err
+		if !strings.Contains(string(raw), command.usage) {
+			return fmt.Errorf("CW20 preflight: %q does not advertise supported wasm %s", options.Paxd, command.name)
 		}
 	}
-	tx := func(kind string, args ...string) (string, error) {
-		argv := append([]string{options.Paxd, "tx"}, args...)
-		argv = append(argv, "-y", "--from="+options.Key, "--chain-id="+options.Chain)
-		if args[0] == "wasm" {
-			argv = append(argv, "--gas=5000000", "--fees=1000000uhpx")
+	state := &WasmDeploymentError{Recovery: fmt.Sprintf("Use %q on chain %q to query wasm code-info CODE_ID and list-contract-by-code CODE_ID for the committed IDs; query tx TXHASH when known, otherwise resolve the sender with keys show %q -a and query txs by message.sender=ADDRESS before retrying the uncertain step. Committed chain state is retained; do not blindly redeploy.", options.Paxd, options.Chain, options.Key)}
+	fail := func(err error) error { state.Cause = err; return state }
+	tx := func(stage, kind string, args ...string) (string, error) {
+		state.Stage, state.TxHash, state.Uncertain = stage, "", false
+		if err := ctx.Err(); err != nil {
+			return "", err
 		}
-		if args[0] == "dex" {
-			argv = append(argv, "--gas=500000", "--fees=10000000uhpx")
+		argv := append([]string{options.Paxd, "tx", "wasm"}, args...)
+		argv = append(argv, "-y", "--from="+options.Key, "--chain-id="+options.Chain,
+			"--gas=5000000", "--fees=1000000uhpx", "--broadcast-mode=block", "--output=json")
+		state.Uncertain = true
+		raw, runErr := commands.Run(ctx, Command{Args: argv})
+		var receipt struct {
+			TxHash string          `json:"txhash"`
+			Code   json.RawMessage `json:"code"`
+			Height json.RawMessage `json:"height"`
 		}
-		argv = append(argv, "--broadcast-mode=block", "--output=json")
-		raw, err := commands.Run(ctx, Command{Args: argv})
+		if decodeJSON(raw, &receipt) == nil {
+			state.TxHash = receipt.TxHash
+			if code := strings.Trim(string(receipt.Code), `"`); code != "" && code != "0" {
+				state.Uncertain = false
+			}
+		}
+		if runErr != nil {
+			return "", runErr
+		}
+		value, err := TransactionIdentifier(raw, kind)
 		if err != nil {
 			return "", err
 		}
-		return TransactionIdentifier(raw, kind)
+		height, ok := new(big.Int).SetString(strings.Trim(string(receipt.Height), `"`), 10)
+		if !ok || height.Sign() <= 0 {
+			return "", errors.New("transaction identifier has no committed height")
+		}
+		state.Uncertain = false
+		return value, nil
 	}
-	ids, addresses := map[string]string{}, map[string]string{}
-	for _, name := range names {
-		id, err := tx("code_id", "wasm", "store", filepath.Join(options.Root, name, "artifacts", name+".wasm"))
+	for i := 0; i < 2; i++ {
+		id, err := tx(fmt.Sprintf("store %d", i+1), "code_id", "store", artifact)
 		if err != nil {
-			return err
+			return fail(err)
 		}
-		ids[name] = id
+		state.CodeIDs = append(state.CodeIDs, id)
 	}
-	raw, err := commands.Run(ctx, Command{Args: []string{options.Paxd, "keys", "show", "node_admin", "--bech=val", "--output=json"}})
-	if err != nil {
-		return err
-	}
-	var validator struct {
-		Address string `json:"address"`
-	}
-	if err = decodeJSON(raw, &validator); err != nil {
-		return err
-	}
-	if _, err = sdk.ValAddressFromBech32(validator.Address); err != nil {
-		return err
-	}
-	if _, err = tx("success", "staking", "delegate", validator.Address, "1000000000uhpx"); err != nil {
-		return err
-	}
-	for _, name := range []string{"mars", "saturn", "venus", "jupiter"} {
-		msg := "{}"
-		if name == "jupiter" {
-			encoded, _ := json.Marshal(map[string]string{"mars_address": addresses["mars"]})
-			msg = string(encoded)
-		}
-		address, err := tx("contract_address", "wasm", "instantiate", ids[name], msg, "--no-admin", "--label=dex")
+	for i, id := range state.CodeIDs {
+		msg := `{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}`
+		address, err := tx(fmt.Sprintf("instantiate %d (code ID %s)", i+1, id), "contract_address", "instantiate", id, msg, "--no-admin", "--label=cw20-loadtest")
 		if err != nil {
-			return err
+			return fail(err)
 		}
-		addresses[name] = address
+		state.Addresses = append(state.Addresses, address)
 	}
-	for _, name := range []string{"mars", "saturn", "venus", "jupiter"} {
-		args := []string{"dex", "register-contract", addresses[name], ids[name], "false", "true"}
-		if name == "saturn" || name == "jupiter" {
-			args = append(args, addresses["mars"])
-		}
-		if _, err := tx("success", args...); err != nil {
-			return err
-		}
+	state.Stage = "publish addresses"
+	if err := ctx.Err(); err != nil {
+		return fail(err)
 	}
-	for _, name := range names {
-		pair := map[string]any{"batch_contract_pair": []any{map[string]any{"contract_addr": addresses[name], "pairs": []any{map[string]string{"price_denom": "PAX", "asset_denom": "ATOM", "tick_size": "0.0000001"}}}}}
-		file, err := os.CreateTemp(options.Root, ".pairs-*.json")
-		if err != nil {
-			return err
-		}
-		path := file.Name()
-		err = json.NewEncoder(file).Encode(pair)
-		closeErr := file.Close()
-		if err == nil {
-			err = closeErr
-		}
-		if err == nil {
-			_, err = tx("success", "dex", "register-pairs", path)
-		}
-		os.Remove(path)
-		if err != nil {
-			return err
-		}
-	}
-	if err := Sleep(ctx, options.Settle); err != nil {
-		return err
-	}
-	if _, err := tx("success", "staking", "unbond", validator.Address, "1000000000uhpx"); err != nil {
-		return err
-	}
-	for _, name := range names {
-		if _, err := fmt.Fprintln(output, addresses[name]); err != nil {
-			return err
-		}
+	if _, err := fmt.Fprint(output, strings.Join(state.Addresses, "\n")+"\n"); err != nil {
+		return fail(err)
 	}
 	return nil
 }

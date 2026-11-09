@@ -9,6 +9,7 @@ pub mod binding;
 #[cfg(feature = "custody")]
 pub mod ct;
 #[cfg(feature = "custody")]
+/// Disclosure of canonical EIP-1559 calls.
 pub mod disclosure;
 pub mod ed25519;
 pub mod evm_transaction;
@@ -29,6 +30,7 @@ pub mod redact;
 pub mod remote;
 pub mod secp256k1;
 #[cfg(feature = "custody")]
+/// Native payer authorization and ledger payment calls.
 pub mod send;
 #[cfg(feature = "custody")]
 pub mod session;

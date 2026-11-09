@@ -1,0 +1,7 @@
+[issue.1653]
+number = 1653
+title = "RPC config rejects the documented zero interval for disabling stats"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "not-relevant"
+evidence = "The earlier zero-disable requirement in spec/layerx-merge/programme/audit/records/22.30.68.kvx:1058 remains implemented internally by rpc/stats/tracker.go:68 and covered by rpc/stats/repair_m1294_test.go:150, but the later done task 22.33.1298 at spec/layerx-merge/spec.kvx:297574 and spec/layerx-merge/spec.kvx:297584 explicitly requires rejecting nonpositive rpc_stats_interval, implemented by commits 263febe8556f593f1a901b5d9a9d330c126c9332 and b52499c3134e694aee4bf0059144d2ab2cbb4de5 in rpc/config/config.go:491, documented at rpc/config/config.go:722 and covered through configuration and node decoding at rpc/repair_m1298_test.go:50 and rpc/repair_m1298_test.go:69 with positive startup coverage at rpc/repair_m1298_test.go:99; node/app.go:1006 propagates invalid configuration into a startup panic, while the separate printer uses a fixed five-second interval at rpc/rpcstack.go:125 and rpc/rpcstack.go:222."
+close_comment = "The current configuration contract requires rpc_stats_interval to be at least 1ns, as specified by completed task 22.33.1298 and documented in the configuration template. Zero still disables trackers through their internal lifecycle API, but accepting zero during configuration loading would contradict the later configuration requirement."

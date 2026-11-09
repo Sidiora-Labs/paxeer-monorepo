@@ -1,0 +1,86 @@
+[repair]
+task = "22.31.540"
+requirement = "22998.1"
+decision = "2601"
+continuation_decisions = ["2790", "3046", "2799", "2762", "2771", "2812", "2844"]
+gotchas = ["3143", "3142", "2962", "3419", "3423", "3517"]
+base_revision = "d15ac4fd410f6217fd9ebad36a0f4aab5f02f37d"
+continued_revision = "9814e658da2cf5d260364300a792e71bad686b15"
+continuation = "Retain the attempt-3 implementation, four regression tests and receipt support; extend the budget-proof node-answer vector with the ownership reads re-executed by the current verifier, derived through the production client decoder, without changing export.json."
+change = "Use COMMITTED for spend floors, committed receipt export reports and tenant defaults; emit committed on current Human response and statement producers and code 6 through the shared receipt frame encoder."
+
+[sites.spend]
+path = "src/agents/spend.rs"
+symbols = ["SpendReconciliation::observe", "SpendReconciliation::observe_budget_proof"]
+sites = ["observe state floor (former line 286)", "observe receipt floor (former line 316)", "observe_budget_proof budget floor (former line 394)", "observe_budget_proof receipt floor (former line 428)"]
+comparison = "VerificationLevel::COMMITTED through compare(COMMITTED).is_ge(); no ordering or evidence guard is relaxed."
+
+[sites.export]
+path = "src/activity/export.rs"
+sites = ["verify_receipt_export_with_consensus achieved_levels (former line 1307)", "statement_row delegates to HumanComponentServer::verification_level_name"]
+
+[sites.server]
+paths = ["src/server.rs", "src/server/projection.rs", "src/server/production_reads.rs", "src/server/production_components.rs", "src/server/agent_creation.rs", "src/server/schema.rs"]
+mapping = "The existing server module root moved from src/server/mod.rs to the task's src/server.rs; existing child modules stay in src/server. verification_level_name moved from projection.rs into that root and names Rung::Committed committed."
+producers = ["activity_entry_json_with checkpoint label", "ProductionComponents::managed_receipt_material", "intent_evm_evidence", "receipt_label_with_keys", "cached_balance_verification", "agent lifecycle committed receipt refusal wording"]
+consumers = ["state-proof cached material admits committed", "executable VerificationLevel variants collapse the three obsolete schema labels to committed", "enforce_verified_balance requires committed checkpoint evidence for committed balance"]
+owner_frame = "The owner lookup producer now lives in prerequisite 22.31.539's layerx_agentd::human_runtime::receipt_lookup_found_bytes and uses shared ReceiptLookupFrame::encode, which emits VerificationLevel::COMMITTED.wire_rank() = 6; Human agent_runtime consumes that shared decoder. No duplicate wire encoder is introduced."
+retained_spellings = "Only explicit schema vocabulary migration and tests refusing historical response labels retain retired spellings in production crate sources; schema source files outside this task remain unchanged."
+
+[sites.tests]
+paths = ["tests/agent_runtime_receipt_frame.rs", "tests/agent_runtime_rungs.rs", "tests/repair_22_31_156.rs", "tests/repair_22_31_579.rs", "../layerx-human-test-support/src/lib.rs", "../layerx-human-test-support/tests/evidence_gate_rungs.rs"]
+current_response_expectations = ["tests/balance_rungs.rs", "tests/receipt_evidence_v2.rs", "tests/projection_rungs.rs", "tests/repair_22_33_41.rs", "tests/repair_22_33_42.rs", "tests/agent_controls.rs", "tests/agent_controls_rungs.rs", "tests/native_lifecycle.rs", "tests/support/approval_owner.rs", "tests/retired_client_modules.rs (source inventory follows the moved module root)"]
+shared_support = ["tests/support/committed_receipt.rs extracts the current-main 22.31.156 recorded Go producer receipt/consensus loader, preserving its sourceSha256 assertion and absent-vote checks", "tests/support/budget_proof_replay.rs serves the existing budget-proof-v2 recorded node answers over HTTP"]
+
+[coverage]
+path = "tests/repair_22_31_540.rs"
+tests = ["committed_state_is_served_as_committed_and_survives_reopen", "state_proven_state_cannot_promote_served_spend", "committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingress", "real_committed_receipt_exports_committed_verification_and_statement_label"]
+real_paths = "Recorded HTTP getBudget and consensus -> CommittedReads -> RawStateEvidence::budget_witness -> EvidenceAuthority -> SpendReconciliation -> both shell views and reopened principal store; production budget proof verifier -> observe_budget_proof; recorded Go receipt and consensus -> activity export verifier -> evidence bundle codec -> CSV statement and managed_receipt_material -> executable response schema."
+frame_assertion = "agent_runtime_receipt_frame asserts the shared encoder emits byte 6 for COMMITTED and retains all corrupt evidence refusals."
+
+[interface_limits]
+receipt = "The declared SpendReconciliation APIs accept only daemon RawReceiptEvidence: EvidenceAuthority::verify_receipt returns InclusionEvidence from verify_receipt, whose achieved level is BATCH_INCLUDED. That interface cannot issue a receipt at COMMITTED or STATE_PROVEN. A COMMITTED state is exercised through the actual served path, and a real committed receipt through the export producer; no fabricated receipt token or widened evidence type substitutes for the unavailable combined input."
+budget = "VerifiedBudgetProof has private fields and its real constructor rejects every level other than COMMITTED. The positive regression reaches the spend budget floor with a real COMMITTED proof; STATE_PROVEN is asserted refused by the production proof ingress before an opaque proof exists, rather than fabricating an impossible lower-level token."
+remaining = "Literal combined committed-state/committed-receipt and STATE_PROVEN-receipt spend cases require an upstream receipt evidence interface change; this task does not claim those cases executed."
+
+[gates]
+ledger = "/out/run/gates.jsonl"
+build = "hf-build; authoritative build row contains revision, exact build_cmd, exit and private log."
+verify = "hf-done; authoritative verify row contains revision, cg spec done command, exit and private log containing the declared verify_cmd and graph checks."
+qualified_revision = "The revision on the final passing verify row, with the same candidate as its passing build row; this record is immutable before either gate."
+external_dependencies = "None: no credential, environment variable or live endpoint is required; loopback HTTP replays committed node transcripts."
+
+[previous_attempt_qualification_repair]
+cycle = 1
+finding = "The carried fixture extraction left repair_22_31_156.rs using RECORDED without importing it; the fixture constant remained private in support/committed_receipt.rs."
+repair = "Expose and import the original RECORDED fixture constant; retain the existing signed-refusal assertions and bytes."
+evidence = "The prior attempt ledger records that repaired compile failure; current-attempt qualification is recorded only by the build and verify rows referenced in gates above."
+
+[merge_resolution]
+conflict = "repair_22_31_156.rs retained current-main receipt loader functions beside the seed extraction; keep the current functions in the existing shared support module and remove the duplicate definitions and merge markers."
+assertions = "The current-main sourceSha256 provenance assertion and all absent-commit-vote field assertions survive unchanged; no test is deleted, skipped, ignored or weakened."
+
+[qualification_repair_current]
+cycle = 1
+finding = "Initial verification reached all four new tests: the state profiles used the owner account instead of the absent-source budget account, the CSV check split a quoted comma, and the proof transcript lacks authenticated ownership reads."
+repair = "Use the recorded budget account for the two state observations and reopen; assert the complete quoted CSV header and committed row; preserve strict refusal of unrecorded RPC requests with the exact request in the diagnostic."
+evidence = "Initial build and verify rows in /out/run/gates.jsonl name revision 678100cc0873f5163cc72b267bfd2aca6da42f98, exact commands, exit codes and private logs; subsequent rows describe the repaired candidate."
+
+[qualification_missing_interface]
+revision = "678100cc0873f5163cc72b267bfd2aca6da42f98"
+command = "cg spec done 22.31.540 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The immutable tests/vectors/budget-proof-v2/node-answers.json has no getEvmAddrByLayerX(bytes32), getUnifiedAccount(address) or accountOwner(bytes32) eth_call answers required by the current budget proof verifier."
+assumption = "The owning fixture producer must supply genuine ownership read recordings; neither that fixture nor the verifier is in scope, and fabricated RPC answers or a bypass verifier would violate the task."
+
+[continuation_vector]
+path = "tests/vectors/budget-proof-v2/node-answers.json"
+decision = "2844"
+source = "Decode the existing owner's px_getAccount result with layerx_sdk.px.decode_px_account_join; use its bound EVM address, DID public key, account id and absent Pax address."
+derivation = "Encode the address answer with layerx_sdk.chains._encode_abi and round-trip with _decode_abi; cross-check selector c413bad3 and the address-word layout against sdk/platform/conformance/fixtures/account-derivation-v1.json."
+ownership = "Also encode getUnifiedAccount(address) with the addr ABI's address/string/bytes32/bytes32 layout, using the decoded account fields and checking decode_bound_did; derive accountOwner(bytes32) from the protocol DID identity hash and cross-check export.identity_key. These are the two subsequent committed reads in authenticated_owner_address."
+height = "All three requests use the recorded committed height 0x8; no wildcard request matching, fallback answer or verifier bypass is added."
+export_sha256 = "a4e014746143b4bd892a4fa09aaa41fb8b7088d535e152239c14519583a08c34"
+resolution = "The previous missing-interface entry describes the earlier scope; the vector is now explicitly in scope and supplies each required ownership answer consistent with its recorded account. No live-chain execution is claimed."
+evidence = "The final build and verify rows in /out/run/gates.jsonl identify the qualified revision and private logs; no task file is amended after qualification starts."

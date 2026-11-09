@@ -4,7 +4,7 @@ use sha2::{Digest as _, Sha256};
 use crate::agent_rpc_peer::RpcOwnerContext;
 use crate::budget::ProgramBudgetReservation;
 use crate::policy::native_program::{NativeLocalOutcome, NativeProgramIntent, NativeProgramPolicy};
-use crate::prepare::Prepared;
+use crate::prepare::EvmPrepared;
 use crate::store::{ObjectKind, StorageClass, Store, TenantId, TenantKey};
 
 const PREFIX: &[u8] = b"native-program-approval-carrier-v1:";
@@ -12,7 +12,7 @@ const PRESENTATION_PREFIX: &[u8] = b"native-program-approval-presentation-v2:";
 const MAX_CARRIER: usize = 4 * 1024 * 1024;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum CarrierError {
+pub enum CarrierError {
     Missing,
     Binding,
     Policy,
@@ -35,7 +35,7 @@ pub struct NativeProgramApprovalCarrier {
     activity_module: u16,
     activity_ordinal: u16,
     canonical_bytes: Vec<u8>,
-    authority: RetainedAuthority,
+    sender: [u8; 20],
     created_at_sequence: u64,
     budget_expiry_sequence: u64,
     envelope_not_after: u64,
@@ -99,12 +99,13 @@ impl VerifiedUnsignedProgramRejection {
 impl NativeProgramApprovalCarrier {
     pub(crate) fn bind(
         context: &RpcOwnerContext<'_>,
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         policy: &NativeProgramPolicy,
         reservation: &ProgramBudgetReservation,
     ) -> Result<Self, CarrierError> {
+        crate::prepare::verify_call_binding(prepared).map_err(|_| CarrierError::Binding)?;
         let origin = context.permit().preparation_authorization();
-        let preparation: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+        let preparation: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
         if context.peer().subject.is_none()
             || context.peer().uid == 0
             || context.peer().principal.is_empty()
@@ -112,9 +113,14 @@ impl NativeProgramApprovalCarrier {
             || origin.session.tenant != context.principal().tenant
             || origin.session.session_id != context.principal().session_id
             || origin.generation == 0
-            || prepared.envelope.actor_did() != &context.principal().agent
+            || prepared.disclosure.actor.as_slice() != prepared.from
+            || reservation.allocation_actor()
+                != Some(
+                    layerx_wire::hash::did_id_for_protocol(&context.principal().agent, 3)
+                        .map_err(|_| CarrierError::Binding)?,
+                )
             || reservation.id != preparation
-            || reservation.expiry_sequence <= prepared.observed_head_sequence
+            || reservation.expiry_sequence <= prepared.observed_head_height
         {
             return Err(CarrierError::Binding);
         }
@@ -125,7 +131,7 @@ impl NativeProgramApprovalCarrier {
             .map_err(|_| CarrierError::Policy)?;
         let carrier = Self {
             call_bound: None,
-            version: 1,
+            version: 2,
             tenant: context.peer().tenant.clone(),
             principal: context.peer().principal.clone(),
             actor: context.principal().agent.as_bytes().to_vec(),
@@ -134,11 +140,11 @@ impl NativeProgramApprovalCarrier {
             preparation,
             activity_module: decision.activity.module() as u16,
             activity_ordinal: decision.activity.ordinal(),
-            canonical_bytes: prepared.canonical_bytes.clone(),
-            authority: RetainedAuthority::from_actual(prepared.envelope.authority()),
-            created_at_sequence: prepared.observed_head_sequence,
+            canonical_bytes: prepared.call.encode_unsigned(),
+            sender: prepared.from,
+            created_at_sequence: prepared.observed_head_height,
             budget_expiry_sequence: reservation.expiry_sequence,
-            envelope_not_after: prepared.envelope.timestamp_bound().not_after(),
+            envelope_not_after: prepared.disclosure.expiry.not_after,
             program_budget: reservation.encode().map_err(|_| CarrierError::Budget)?,
             native_policy_source: policy.source().to_vec(),
             local_policy_outcome: decision.outcome,
@@ -168,7 +174,7 @@ impl NativeProgramApprovalCarrier {
             return Ok(());
         }
         use layerx_types::payload::{ActivityType, ModuleId};
-        if self.version != 1
+        if self.version != 2
             || self.generation == 0
             || self.principal.is_empty()
             || self.canonical_bytes.is_empty()
@@ -333,10 +339,10 @@ impl NativeProgramApprovalCarrier {
     pub(crate) fn read(
         store: &Store,
         context: &RpcOwnerContext<'_>,
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         reservation: &ProgramBudgetReservation,
     ) -> Result<Self, CarrierError> {
-        let preparation: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+        let preparation: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
         let key = TenantKey::new(
             context.principal().tenant.clone(),
             ObjectKind::PreparedActivity,
@@ -359,44 +365,6 @@ impl NativeProgramApprovalCarrier {
             return Err(CarrierError::Binding);
         }
         Ok(record)
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(tag = "kind", content = "bytes")]
-enum RetainedAuthority {
-    Owner(Vec<u8>),
-    SessionKey(Vec<u8>),
-    DelegatedCapability(Vec<u8>),
-    BudgetAllowance(Vec<u8>),
-    Escrow(Vec<u8>),
-    ProtocolModule(Vec<u8>),
-}
-
-impl RetainedAuthority {
-    fn from_actual(authority: &layerx_types::activity::Authority) -> Self {
-        use layerx_types::activity::Authority;
-        let bytes = authority.as_bytes().to_vec();
-        match authority {
-            Authority::Owner(_) => Self::Owner(bytes),
-            Authority::SessionKey(_) => Self::SessionKey(bytes),
-            Authority::DelegatedCapability(_) => Self::DelegatedCapability(bytes),
-            Authority::BudgetAllowance(_) => Self::BudgetAllowance(bytes),
-            Authority::Escrow(_) => Self::Escrow(bytes),
-            Authority::ProtocolModule(_) => Self::ProtocolModule(bytes),
-        }
-    }
-    fn actual(&self) -> Result<layerx_types::activity::Authority, CarrierError> {
-        use layerx_types::activity::Authority;
-        match self {
-            Self::Owner(bytes) => Authority::owner(bytes),
-            Self::SessionKey(bytes) => Authority::session_key(bytes),
-            Self::DelegatedCapability(bytes) => Authority::delegated_capability(bytes),
-            Self::BudgetAllowance(bytes) => Authority::budget_allowance(bytes),
-            Self::Escrow(bytes) => Authority::escrow(bytes),
-            Self::ProtocolModule(bytes) => Authority::protocol_module(bytes),
-        }
-        .map_err(|_| CarrierError::Corrupt)
     }
 }
 
@@ -449,18 +417,35 @@ impl NativeProgramApprovalCarrier {
     pub(crate) fn restore_prepared(
         &self,
         registry: &layerx_types::payload::ModuleRegistry,
-    ) -> Result<Prepared, CarrierError> {
-        if self.call_bound.is_some() {
+    ) -> Result<EvmPrepared, CarrierError> {
+        if let Some(call) = &self.call_bound {
+            return call.restore().map_err(|_| CarrierError::Corrupt);
+        }
+        let _ = registry;
+        let call = layerx_crypto::evm_transaction::decode_unsigned(&self.canonical_bytes)
+            .map_err(|_| CarrierError::Corrupt)?;
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, self.sender)
+            .map_err(|_| CarrierError::Corrupt)?;
+        let disclosure_digest = disclosure
+            .signing_digest()
+            .map_err(|_| CarrierError::Corrupt)?;
+        let prepared = EvmPrepared {
+            signing_hash: call.signing_hash(),
+            call,
+            from: self.sender,
+            disclosure,
+            disclosure_digest,
+            observed_head_height: self.created_at_sequence,
+        };
+        crate::prepare::verify_call_binding(&prepared).map_err(|_| CarrierError::Corrupt)?;
+        if prepared.disclosure.actor.as_slice() != self.sender
+            || prepared.disclosure.activity_type.module() as u16 != self.activity_module
+            || prepared.disclosure.activity_type.ordinal() != self.activity_ordinal
+            || prepared.disclosure.expiry.not_after != self.envelope_not_after
+        {
             return Err(CarrierError::Binding);
         }
-        let authority = self.authority.actual()?;
-        crate::prepare::restore_canonical(
-            &self.canonical_bytes,
-            self.created_at_sequence,
-            registry,
-            Some(&authority),
-        )
-        .map_err(|_| CarrierError::Corrupt)
+        Ok(prepared)
     }
 
     pub(crate) fn preparation_id(&self) -> [u8; 32] {
@@ -741,13 +726,14 @@ impl NativeProgramApprovalCarrier {
             return Ok(None);
         }
         let prepared = held.restore_prepared(registry)?;
-        if prepared.envelope.network_id() != network_id
-            || prepared.envelope.actor_did().as_bytes() != held.actor
-            || prepared.envelope.activity_type().module() as u16 != held.activity_module
-            || prepared.envelope.activity_type().ordinal() != held.activity_ordinal
-            || prepared.envelope.timestamp_bound().not_after() != held.envelope_not_after
+        if u32::try_from(prepared.call.chain_id).map_err(|_| CarrierError::Binding)? != network_id
+            || prepared.disclosure.actor.as_slice() != held.sender
+            || prepared.disclosure.activity_type.module() as u16 != held.activity_module
+            || prepared.disclosure.activity_type.ordinal() != held.activity_ordinal
+            || prepared.disclosure.expiry.not_after != held.envelope_not_after
             || durable.not_after != held.envelope_not_after
-            || durable.payload_hash != prepared.envelope.payload_hash()
+            || durable.payload_hash
+                != layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data)
             || !durable.holds.is_empty()
             || lifecycle.state(id).map_err(|_| CarrierError::Corrupt)?
                 != crate::prepare::LifecycleState::Prepared
@@ -758,7 +744,7 @@ impl NativeProgramApprovalCarrier {
             .extensions
             .get(&crate::prepare::EXTENSION_IDEMPOTENCY)
             .map(Vec::as_slice)
-            != Some(prepared.audit.idempotency_key.as_slice())
+            != Some(prepared.disclosure.idempotency_key.as_slice())
             || durable
                 .extensions
                 .contains_key(&crate::prepare::EXTENSION_OUTCOME)
@@ -768,13 +754,13 @@ impl NativeProgramApprovalCarrier {
         let outbox_key = TenantKey::new(
             tenant.clone(),
             ObjectKind::Outbox,
-            prepared.audit.idempotency_key.to_vec(),
+            prepared.disclosure.idempotency_key.to_vec(),
         )
         .map_err(|_| CarrierError::Corrupt)?;
         let signed_key = TenantKey::new(
             tenant.clone(),
             ObjectKind::PreparedActivity,
-            prepared.audit.idempotency_key.to_vec(),
+            prepared.disclosure.idempotency_key.to_vec(),
         )
         .map_err(|_| CarrierError::Corrupt)?;
         if store.get(&outbox_key).is_some()
@@ -1195,7 +1181,7 @@ impl NativeProgramApprovalCarrier {
     pub(crate) fn authorize_submit(
         &self,
         context: &RpcOwnerContext<'_>,
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         submission_ref: Option<[u8; 32]>,
         sequence: u64,
         core_ms: u64,
@@ -1204,7 +1190,7 @@ impl NativeProgramApprovalCarrier {
         if self.session != origin.session.session_id.0
             || self.generation != origin.generation
             || self.principal != context.peer().principal
-            || self.canonical_bytes != prepared.canonical_bytes
+            || self.canonical_bytes != prepared.call.encode_unsigned()
             || sequence < self.created_at_sequence
             || sequence >= self.budget_expiry_sequence
             || core_ms >= self.envelope_not_after
@@ -1227,6 +1213,7 @@ impl NativeProgramApprovalCarrier {
 
 const RATE_PREFIX: &[u8] = b"native-program-rate-v1:";
 const MAX_PENDING_RATE: usize = 4096;
+const RATE_ARCHIVE_PREFIX: &[u8] = b"native-program-rate-committed-v1:";
 
 #[derive(Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -1323,6 +1310,7 @@ fn pending_native_uses(
 pub(crate) struct StagedNativeRateUse {
     record: PendingNativeUse,
     previous: Vec<PendingNativeUse>,
+    advancement: StagedNativeRateAdvance,
     counts: std::collections::BTreeMap<[u8; 32], std::collections::BTreeMap<u64, u64>>,
     observed_batch: [u8; 32],
 }
@@ -1331,12 +1319,12 @@ impl StagedNativeRateUse {
     pub(crate) fn stage(
         store: &Store,
         constraints: &crate::capability::binding::NativeCapabilityConstraintsV1,
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         evidence: &[crate::protocol_evidence::AuthenticatedTimeWindowUse],
     ) -> Result<Self, CarrierError> {
         let binding = constraints.binding();
-        crate::prepare::verify_disclosure_binding(prepared).map_err(|_| CarrierError::Binding)?;
-        let digest: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+        crate::prepare::verify_call_binding(prepared).map_err(|_| CarrierError::Binding)?;
+        let digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
         let windows = constraints
             .rate_obligations()
             .values()
@@ -1344,11 +1332,11 @@ impl StagedNativeRateUse {
             .collect::<std::collections::BTreeSet<_>>();
         if digest != binding.canonical_digest()
             || digest != binding.preparation_id()
-            || prepared.envelope.actor_did() != binding.agent()
+            || prepared.disclosure.actor.as_slice() != prepared.from
             || constraints.chain().is_empty()
             || windows.is_empty()
             || evidence.len() != windows.len()
-            || prepared.observed_head_sequence.checked_add(1).is_none()
+            || prepared.observed_head_height.checked_add(1).is_none()
         {
             return Err(CarrierError::Binding);
         }
@@ -1356,7 +1344,7 @@ impl StagedNativeRateUse {
         let mut observed_batch = None;
         for proof in evidence {
             if proof.actor() != binding.agent()
-                || proof.through_sequence() != prepared.observed_head_sequence
+                || proof.through_sequence() != prepared.observed_head_height
                 || proof.observed_core_ms() != constraints.observed_at_ms()
                 || !windows.contains(&proof.window_seconds())
                 || observed_batch.is_some_and(|batch| batch != proof.observed_batch_id())
@@ -1367,7 +1355,10 @@ impl StagedNativeRateUse {
             observed_batch = Some(proof.observed_batch_id());
         }
         let previous = pending_native_uses(store, binding.tenant())?;
-        if previous.len() >= MAX_PENDING_RATE
+        let advancement = StagedNativeRateAdvance::stage(store, binding.tenant(), evidence)?;
+        let archived = archived_rate_key(binding.tenant(), digest)?;
+        if advancement.remaining >= MAX_PENDING_RATE
+            || store.get(&archived).is_some()
             || previous.iter().any(|record| record.preparation == digest)
         {
             return Err(CarrierError::Binding);
@@ -1422,14 +1413,15 @@ impl StagedNativeRateUse {
                 tenant: binding.tenant().as_str().to_owned(),
                 actor: binding.agent().as_bytes().to_vec(),
                 preparation: digest,
-                canonical_bytes: prepared.canonical_bytes.clone(),
+                canonical_bytes: prepared.call.encode_unsigned(),
                 chain: constraints.chain().to_vec(),
-                observed_head_sequence: prepared.observed_head_sequence,
+                observed_head_sequence: prepared.observed_head_height,
                 admitted_at_ms: constraints.observed_at_ms(),
                 activity_id: None,
                 committed: None,
             },
             previous,
+            advancement,
             counts,
             observed_batch: observed_batch.ok_or(CarrierError::Binding)?,
         })
@@ -1465,20 +1457,18 @@ impl StagedNativeRateUse {
             return Err(CarrierError::Binding);
         }
         inserts.push((self.record.key()?, self.record.encode()?));
-        store
-            .apply_program_approval_batch(updates, inserts, Vec::new())
-            .map_err(|_| CarrierError::Corrupt)
+        self.advancement.commit_joined(store, updates, inserts)
     }
 }
 
 pub(crate) fn native_rate_submission_update(
     store: &Store,
     tenant: &TenantId,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &crate::sign::VerifiedSubmission,
     registry: &layerx_types::payload::ModuleRegistry,
 ) -> Result<(TenantKey, Vec<u8>), CarrierError> {
-    let preparation: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let preparation: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
     let mut record = pending_native_uses(store, tenant)?
         .into_iter()
         .find(|record| record.preparation == preparation)
@@ -1489,8 +1479,8 @@ pub(crate) fn native_rate_submission_update(
     let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
         .map_err(|_| CarrierError::Binding)?;
     if call.encode_unsigned() != record.canonical_bytes
-        || record.canonical_bytes != prepared.canonical_bytes
-        || record.actor != sender
+        || record.canonical_bytes != prepared.call.encode_unsigned()
+        || prepared.from != sender
         || prepared.disclosure.actor != sender
         || layerx_crypto::evm_transaction::transaction_hash(submission.exact_bytes())
             != submission.activity_id()
@@ -1605,14 +1595,14 @@ impl super::call_bound::CallCarrier for NativeProgramApprovalCarrier {
             version: 2,
             tenant: call.tenant.clone(),
             principal: call.principal.clone(),
-            actor: prepared.disclosure.actor.clone(),
+            actor: call.owner_did.as_bytes().to_vec(),
             session: call.session,
             generation: call.generation,
             preparation: call.preparation,
             activity_module: prepared.disclosure.activity_type.module() as u16,
             activity_ordinal: prepared.disclosure.activity_type.ordinal(),
             canonical_bytes: call.canonical_bytes.clone(),
-            authority: RetainedAuthority::Owner(call.sender.to_vec()),
+            sender: call.sender,
             created_at_sequence: call.observed_height,
             budget_expiry_sequence: budget.expiry_sequence,
             envelope_not_after: call.deadline()?,
@@ -1636,3 +1626,160 @@ impl super::call_bound::CallCarrier for NativeProgramApprovalCarrier {
     }
 }
 super::call_bound::impl_call_approval!(NativeProgramApprovalCarrier);
+
+fn archived_rate_key(tenant: &TenantId, preparation: [u8; 32]) -> Result<TenantKey, CarrierError> {
+    TenantKey::new(
+        tenant.clone(),
+        ObjectKind::PreparedActivity,
+        [RATE_ARCHIVE_PREFIX, preparation.as_slice()].concat(),
+    )
+    .map_err(|_| CarrierError::Corrupt)
+}
+
+pub struct StagedNativeRateAdvance {
+    tenant: TenantId,
+    previous: Vec<PendingNativeUse>,
+    expired: Vec<PendingNativeUse>,
+    remaining: usize,
+}
+
+impl StagedNativeRateAdvance {
+    pub fn stage(
+        store: &Store,
+        tenant: &TenantId,
+        evidence: &[crate::protocol_evidence::AuthenticatedTimeWindowUse],
+    ) -> Result<Self, CarrierError> {
+        let first = evidence.first().ok_or(CarrierError::Binding)?;
+        let mut windows = std::collections::BTreeSet::new();
+        let mut lower = u64::MAX;
+        for proof in evidence {
+            if proof.actor() != first.actor()
+                || proof.observed_batch_id() != first.observed_batch_id()
+                || proof.through_sequence() != first.through_sequence()
+                || proof.observed_core_ms() != first.observed_core_ms()
+                || !windows.insert(proof.window_seconds())
+            {
+                return Err(CarrierError::Binding);
+            }
+            lower = lower.min(
+                proof
+                    .window_seconds()
+                    .checked_mul(1000)
+                    .and_then(|span| proof.observed_core_ms().checked_sub(span))
+                    .unwrap_or(0),
+            );
+        }
+        let previous = pending_native_uses(store, tenant)?;
+        let mut expired = Vec::new();
+        for record in &previous {
+            if record.actor != first.actor().as_bytes() {
+                continue;
+            }
+            if record.observed_head_sequence > first.through_sequence()
+                || record.admitted_at_ms > first.observed_core_ms()
+            {
+                return Err(CarrierError::Binding);
+            }
+            if let Some((sequence, timestamp)) = record.committed {
+                if sequence > first.through_sequence()
+                    || timestamp > first.observed_core_ms()
+                    || timestamp < record.admitted_at_ms
+                    || sequence <= record.observed_head_sequence
+                    || record.activity_id.is_none()
+                {
+                    return Err(CarrierError::Binding);
+                }
+                if timestamp <= lower {
+                    expired.push(record.clone());
+                }
+            }
+        }
+        let remaining = previous.len() - expired.len();
+        Ok(Self {
+            tenant: tenant.clone(),
+            previous,
+            expired,
+            remaining,
+        })
+    }
+
+    pub fn remaining(&self) -> usize {
+        self.remaining
+    }
+
+    pub fn commit_joined(
+        self,
+        store: &mut Store,
+        updates: Vec<(TenantKey, Vec<u8>)>,
+        mut inserts: Vec<(TenantKey, Vec<u8>)>,
+    ) -> Result<(), CarrierError> {
+        if pending_native_uses(store, &self.tenant)? != self.previous {
+            return Err(CarrierError::Binding);
+        }
+        let mut removals = Vec::new();
+        for record in self.expired {
+            removals.push(record.key()?);
+            inserts.push((
+                archived_rate_key(&self.tenant, record.preparation)?,
+                record.encode()?,
+            ));
+        }
+        store
+            .apply_program_approval_batch(updates, inserts, removals)
+            .map_err(|_| CarrierError::Corrupt)
+    }
+}
+
+impl NativeProgramApprovalCarrier {
+    pub(crate) fn retained_call(&self) -> Option<&super::call_bound::RetainedNativeCall> {
+        self.call_bound.as_ref()
+    }
+
+    pub fn authorize_call_requirement(
+        store: &Store,
+        peer: &crate::human::HumanPeer,
+        id: [u8; 32],
+        prepared: &crate::prepare::EvmPrepared,
+    ) -> Result<(), super::CallApprovalError> {
+        let carrier = Self::read_call(store, peer, id)?;
+        crate::prepare::verify_call_binding(prepared)
+            .map_err(|_| super::CallApprovalError::Binding)?;
+        if carrier.restore_call()? != *prepared {
+            return Err(super::CallApprovalError::Binding);
+        }
+        super::program_requirement::check_call(
+            store,
+            carrier
+                .call_bound
+                .as_ref()
+                .ok_or(super::CallApprovalError::Version)?,
+        )
+    }
+}
+
+impl NativeProgramApprovalCarrier {
+    pub(crate) fn read_presentation_carrier(
+        store: &Store,
+        peer: &crate::human::HumanPeer,
+        id: [u8; 32],
+    ) -> Result<Self, CarrierError> {
+        let tenant = Self::human_tenant(peer)?;
+        let key = TenantKey::new(
+            tenant,
+            ObjectKind::PreparedActivity,
+            [PREFIX, id.as_slice()].concat(),
+        )
+        .map_err(|_| CarrierError::Binding)?;
+        let stored = store.get(&key).ok_or(CarrierError::Missing)?;
+        if stored.class() != StorageClass::LocalOnly || stored.bytes().len() > MAX_CARRIER {
+            return Err(CarrierError::Corrupt);
+        }
+        let candidate: Self =
+            serde_json::from_slice(stored.bytes()).map_err(|_| CarrierError::Corrupt)?;
+        if candidate.call_bound.is_some() {
+            Self::read_call(store, peer, id).map_err(|_| CarrierError::Binding)
+        } else {
+            Self::read_for_human(store, peer, id)
+        }
+    }
+}

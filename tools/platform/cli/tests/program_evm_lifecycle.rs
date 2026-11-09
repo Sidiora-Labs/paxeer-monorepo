@@ -1,13 +1,7 @@
-#[path = "../src/config.rs"]
-mod config;
-#[path = "../src/credential.rs"]
-mod credential;
-#[path = "../src/encoding.rs"]
-mod encoding;
-#[path = "../src/file_store.rs"]
-mod file_store;
-#[path = "../src/http.rs"]
-mod http;
+//! Task 22.39.118: ProgramLifecycleArgs requires --receipt-policy (src/main.rs:366-368).
+//! Pinned policy follows tests/repair_22_33_1494.rs:403-405.
+
+use layerx_platform_cli::{encoding, http};
 #[path = "../src/programs.rs"]
 mod programs;
 
@@ -75,7 +69,7 @@ fn capture() -> (String, std::thread::JoinHandle<Value>) {
         reader
             .read_line(&mut line)
             .unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+        assert_eq!(line, "POST / HTTP/1.1\r\n");
         let mut length = None;
         loop {
             line.clear();
@@ -156,10 +150,15 @@ fn submit_calldata(data: Vec<u8>) -> Result<String, String> {
     );
     let (endpoint, recorded) = capture();
     let client = http::Client::new(&endpoint, None)?;
-    assert!(
-        programs::submit_lifecycle_transaction(&client, &raw).is_err(),
-        "capture never supplies a node response"
-    );
+    let outcome = programs::submit_lifecycle_transaction(&client, &raw)?;
+    let expected_hash = format!("0x{}", encoding::hex_encode(&transaction_hash(&raw)));
+    assert_eq!(outcome["tx_hash"], expected_hash);
+    assert_eq!(outcome["txHash"], expected_hash);
+    assert_eq!(outcome["rung"], "unknown");
+    assert!(!outcome["detail"]
+        .as_str()
+        .ok_or("missing submission detail")?
+        .is_empty());
     let request = recorded.join().map_err(|_| "capture thread failed")?;
     assert_eq!(request["method"], "eth_sendRawTransaction");
     assert_eq!(
@@ -212,13 +211,36 @@ fn assert_cli_rpc(directory: &std::path::Path, operation: &[&str]) -> Result<(),
         "evm_address":format!("0x{}", encoding::hex_encode(&account.evm_address())),
         "evm_private_key":encoding::hex_encode(account.evm_secret().ok_or("missing EVM secret")?),
     })).map_err(|error| error.to_string())?.as_bytes()).map_err(|error| error.to_string())?;
+    let policy_file = directory.join("policy.json");
+    let sequencer = ed25519_dalek::SigningKey::from_bytes(&[0x51; 32]);
+    std::fs::write(
+        &policy_file,
+        json!({
+            "protocol_version": 2,
+            "network_id": 125,
+            "sequencer_id": encoding::hex_encode(&[0xa1; 32]),
+            "sequencer_key": encoding::hex_encode(&sequencer.verifying_key().to_bytes()),
+            "first_batch": 1,
+            "last_batch": 100,
+        })
+        .to_string(),
+    )
+    .map_err(|error| error.to_string())?;
     let (endpoint, recorded) = capture();
-    let url = format!("{endpoint}/rpc");
+    let url = endpoint.clone();
     let program = "11".repeat(32);
     let key_path = key_file.to_str().ok_or("key path is not UTF-8")?;
+    let policy_path = policy_file.to_str().ok_or("policy path is not UTF-8")?;
     let mut args = vec!["--json", "--rpc", &url, "program"];
     args.extend_from_slice(operation);
-    args.extend(["--program-id", &program, "--evm-key-file", key_path]);
+    args.extend([
+        "--program-id",
+        &program,
+        "--evm-key-file",
+        key_path,
+        "--receipt-policy",
+        policy_path,
+    ]);
     let result = cli(directory, &args);
     assert!(
         !result.status.success(),
@@ -252,12 +274,17 @@ fn program_deploy_calldata_matches_vector() -> Result<(), String> {
         .map_err(|_| "receipt capture thread failed")?;
     assert_eq!(request["method"], "pax_sequencerReceipt");
     assert_eq!(request["params"], json!([hash]));
-    for rung in ["submitted", "receipted", "committed"] {
+    let submitted = json!({"txHash":hash,"rung":"submitted"});
+    assert_eq!(
+        programs::lifecycle_receipt_result(&hash, &submitted)?,
+        json!({"txHash":hash,"rung":"submitted","state":"pending"})
+    );
+    for rung in ["receipted", "committed"] {
         let status = json!({"txHash":hash,"rung":rung});
-        let rendered = programs::lifecycle_receipt_result(&hash, &status)?;
-        assert_eq!(rendered["txHash"], hash);
-        assert_eq!(rendered["rung"], rung);
-        assert_eq!(rendered["sequencer_receipt"], status);
+        assert!(
+            programs::lifecycle_receipt_result(&hash, &status).is_err(),
+            "a bare terminal label cannot authenticate execution"
+        );
     }
     assert!(programs::lifecycle_receipt_result(&hash, &Value::Null).is_err());
     assert!(
@@ -395,3 +422,7 @@ fn program_wind_down_modes_use_layerxprograms() -> Result<(), String> {
     assert!(programs::lifecycle_calldata(0, &[], "0").is_err());
     Ok(())
 }
+
+// Audit proofs use committed node output and production CLI consumers.
+#[path = "repair_22_33_1496.rs"]
+mod audit_22_33_1496;

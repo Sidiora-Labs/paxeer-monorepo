@@ -141,37 +141,13 @@ fn assert_deprecated(source: &str, declaration: &str) {
 #[test]
 fn activity_disclosure_still_public_is_closed_by_transaction_round_trip() {
     let source = include_str!("../src/disclosure.rs");
-    assert_deprecated(source, "pub fn bind(");
-    assert_deprecated(source, "pub fn bind_budget_mutation(");
-    assert_deprecated(
-        include_str!("../src/signer.rs"),
-        "pub fn sign_disclosed<'a>(",
-    );
-    // The SDK still calls bind. Preserve its exact read/validate contract while
-    // proving that current ingress and transaction signing use type-2 calls.
-    let legacy = support::archived_send(25);
-    let registry = support::registry();
-    let disclosure = layerx_crypto::disclosure::bind(&legacy, &registry).expect("live SDK API");
-    assert_eq!(disclosure.reencode().expect("legacy reencode"), legacy);
-    assert_eq!(disclosure.amounts[0].value, 25);
-    assert_eq!(
-        disclosure.payload_sequence().expect("legacy sequence"),
-        Some(7)
-    );
-    let local = LocalSigner::new([0x53; 32]);
-    let signature = ready(layerx_crypto::signer::sign_disclosed(
-        &local,
-        &legacy,
-        &disclosure,
-        &registry,
-    ))
-    .expect("deprecated local consumer");
-    layerx_crypto::ed25519::verify_digest(
-        &local.public_key(),
-        signature.as_bytes(),
-        &disclosure.signing_digest().expect("legacy digest"),
-    )
-    .expect("legacy signature remains byte-bound");
+    for declaration in ["pub fn bind(", "pub fn bind_budget_mutation("] {
+        assert!(
+            !source.contains(declaration),
+            "retired declaration {declaration}"
+        );
+    }
+    assert!(!include_str!("../src/signer.rs").contains("pub fn sign_disclosed<'a>("));
     let payer = LocalSigner::new([5; 32]);
     let payload = ready(debit().sign(&payer)).expect("native authorization producer");
     let produced = payment_round_trip(&payload);
@@ -370,35 +346,12 @@ fn old_send_envelope_constructor_is_closed_with_native_payload_compatibility() {
         "pub struct DisclosedEnvelope",
         "pub fn encode_send_envelope(",
     ] {
-        assert_deprecated(source, declaration);
+        assert!(
+            !source.contains(declaration),
+            "retired declaration {declaration}"
+        );
     }
     let fixture = hex(include_str!("fixtures/payments/native-1-5.hex"));
-    let old = layerx_crypto::send::encode_send_envelope(
-        &fixture,
-        &layerx_crypto::send::EnvelopeOptions {
-            actor: "did:layerx:alice",
-            public_key: LocalSigner::new([0x61; 32]).public_key(),
-            protocol_version: 3,
-            network_id: 17,
-            identity_sequence: 9,
-            idempotency_key: [4; 32],
-            fee_limit: 20,
-            not_before: 10,
-            not_after: 100,
-        },
-    )
-    .expect("deprecated producer remains compatible for its live consumers");
-    assert_eq!(old.disclosure.canonical_payload(), fixture);
-    assert_eq!(
-        old.disclosure.payload_sequence().expect("source sequence"),
-        Some(7)
-    );
-    assert_eq!(old.disclosure.envelope_sequence(), 9);
-    assert_eq!(
-        layerx_crypto::disclosure::bind(&old.canonical, &old.registry).expect("legacy consumer"),
-        old.disclosure
-    );
-    assert!(decode_unsigned(&old.canonical).is_err());
     let consumed = payment_round_trip(&fixture);
     assert_eq!(
         consumed.disclosure.construct_method().expect("method"),
@@ -563,12 +516,7 @@ impl Drop for AgentPeer {
 
 #[test]
 fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening() {
-    assert_deprecated(
-        include_str!("../src/signer.rs"),
-        "pub fn sign_disclosed<'a>(",
-    );
-    assert!(!include_str!("../src/signer.rs")
-        .contains("pub fn new(\n        message: SignatureMessage"));
+    assert!(!include_str!("../src/signer.rs").contains("pub fn sign_disclosed<'a>("));
     let directory = TestDirectory::new();
     let socket = directory.0.join("agent.sock");
     let seed = [0x61; 32];
@@ -576,9 +524,9 @@ fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening() {
     let (_, options) = signer_and_options();
     let consent = bind_message(&options, 2);
     let retired_activity = support::archived_send(25);
-    let registry = support::registry();
-    let legacy_disclosure = layerx_crypto::disclosure::bind(&retired_activity, &registry)
-        .expect("legacy SDK disclosure");
+    let payment = support::send_call(25, 7);
+    let transaction = payment.call.encode_unsigned();
+    let request = support::signing::activity_request(&transaction, &payment.disclosure);
     let activity_digest = layerx_crypto::SignatureMessage::new(
         layerx_wire::hash::Domain::SignaturePreimage,
         3,
@@ -592,24 +540,24 @@ fn keystore_accepts_activity_preimage_is_closed_before_and_after_reopening() {
         let mut agent = AgentPeer::start(&socket, seed);
         let signer = KeystoreSigner::new(&socket, public_key).expect("external signer");
         assert_eq!(
-            ready(layerx_crypto::signer::sign_disclosed(
-                &signer,
-                &retired_activity,
-                &legacy_disclosure,
-                &registry
-            )),
+            ready(signer.sign(request)),
             Err(SignError::InvalidDisclosure)
         );
-        let mut altered = legacy_disclosure.clone();
+        let mut altered = payment.disclosure.clone();
         altered.amounts[0].value += 1;
         assert_eq!(
-            ready(layerx_crypto::signer::sign_disclosed(
-                &signer,
-                &retired_activity,
+            SigningRequest::new(
+                layerx_crypto::SignatureMessage::new(
+                    layerx_wire::hash::Domain::SignaturePreimage,
+                    support::PROTOCOL_VERSION,
+                    support::NETWORK_ID,
+                    &transaction,
+                )
+                .expect("activity preimage domain"),
                 &altered,
-                &registry
-            )),
-            Err(SignError::DisclosureMismatch("amounts"))
+            )
+            .err(),
+            Some(SignError::DisclosureMismatch("amounts"))
         );
         for retired in [retired_activity.as_slice(), activity_digest.as_slice()] {
             assert_eq!(

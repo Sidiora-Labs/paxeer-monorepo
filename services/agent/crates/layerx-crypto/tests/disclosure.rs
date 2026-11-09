@@ -3,7 +3,7 @@ use layerx_crypto::disclosure::{
     AmountRole, CounterpartyRole, DisclosedWithdrawal, DisclosureError, Expiry,
 };
 use layerx_crypto::evm_transaction::{decode_unsigned, recover_sender, Eip1559Call};
-use layerx_crypto::signer::{sign_disclosed, sign_disclosed_call, SignError, Signer};
+use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
 use layerx_wire::decode::Decoder;
 use sha2::{Digest as _, Sha256};
 
@@ -67,8 +67,8 @@ fn refuse_retired(canonical: &[u8]) {
 fn bridge_deposit_credit_discloses_and_signs_the_exact_compiled_semantics() {
     let canonical = support::archived_bridge_credit(25);
     let registry = support::bridge_registry();
-    let archive =
-        layerx_wire::activity::decode_unsigned(&canonical, &registry).expect("archived credit");
+    let archive = layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+        .expect("archived credit");
     assert_eq!(archive.activity_type().value(), 0x0008_0001);
     let payload = archive.payload();
     let mut payer = [0; 32];
@@ -87,7 +87,7 @@ fn bridge_deposit_credit_discloses_and_signs_the_exact_compiled_semantics() {
     nullifier.update([0x41; 32]);
     assert_eq!(archive.idempotency_key(), nullifier.finalize()[..]);
     assert_eq!(
-        layerx_wire::activity::encode_unsigned(&archive).expect("archive reencode"),
+        layerx_wire::historical::activity::encode_unsigned(&archive).expect("archive reencode"),
         canonical
     );
     refuse_retired(&canonical);
@@ -109,41 +109,43 @@ fn recorded_custody_credit_discloses_the_signed_activity() {
     );
     assert_eq!(recorded.len(), 1821);
     let registry = support::bridge_registry();
-    let activity =
-        layerx_wire::activity::decode_signed(recorded, &registry).expect("recorded activity");
+    let activity = layerx_wire::historical::activity::decode_signed(recorded, &registry)
+        .expect("recorded activity");
     assert_eq!(activity.network_id(), 77);
     assert_eq!(activity.protocol_version(), 3);
     assert_eq!(activity.signature().map(<[u8]>::len), Some(64));
     let payload = activity.payload();
     assert_eq!(payload.len(), 1495);
-    let old = support::signing::old_envelope(support::signer().public_key());
+    let produced = support::send_call(25, 7);
+    let mut substituted = produced.disclosure.clone();
+    substituted.actor = activity.actor_did().to_vec();
     assert_eq!(
-        ready(sign_disclosed(
-            &support::signer(),
-            &old.canonical,
-            &old.disclosure,
-            &old.registry
+        ready(sign_disclosed_call(
+            &support::evm_signer(),
+            &produced.call,
+            &substituted,
+            support::call_options(7).from
         )),
-        Err(SignError::InvalidDisclosure)
+        Err(SignError::DisclosureMismatch("call"))
     );
     assert_eq!(payload, &recorded[257..257 + payload.len()]);
     assert_eq!(&payload[..5], b"LXDC3");
-    let canonical =
-        layerx_wire::activity::encode_unsigned(&activity).expect("recorded unsigned activity");
+    let canonical = layerx_wire::historical::activity::encode_unsigned(&activity)
+        .expect("recorded unsigned activity");
     let mut nullifier = Sha256::new();
     nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
     nullifier.update(&payload[43..75]);
     assert_eq!(nullifier.finalize()[..], activity.idempotency_key());
     // Keep all source, recipient, asset and amount assertions on the recorded
     // codec; the custody executor and its signing route are retired.
-    let decoded =
-        layerx_wire::activity::decode_unsigned(&canonical, &registry).expect("archive codec");
+    let decoded = layerx_wire::historical::activity::decode_unsigned(&canonical, &registry)
+        .expect("archive codec");
     assert_eq!(&decoded.payload()[171..191], &payload[171..191]);
     assert_eq!(&decoded.payload()[107..139], &payload[107..139]);
     assert_eq!(&decoded.payload()[75..107], &payload[75..107]);
     assert_eq!(&decoded.payload()[191..207], &payload[191..207]);
     assert_eq!(
-        layerx_wire::activity::encode_unsigned(&decoded).expect("archive reencode"),
+        layerx_wire::historical::activity::encode_unsigned(&decoded).expect("archive reencode"),
         canonical
     );
     refuse_retired(&canonical);
@@ -221,10 +223,11 @@ fn byte_substitution_names_the_semantic_field_that_changed() {
 fn payload_commitment_mismatch_is_fail_closed() {
     let mut corrupted = support::archived_send(25);
     *corrupted.last_mut().expect("archived bytes") ^= 1;
-    let activity = layerx_wire::activity::decode_unsigned(&corrupted, &support::registry())
-        .expect("archive framing");
+    let activity =
+        layerx_wire::historical::activity::decode_unsigned(&corrupted, &support::registry())
+            .expect("archive framing");
     assert_ne!(
-        layerx_wire::hash::payload_hash(&activity).expect("actual hash"),
+        layerx_wire::historical::hash::payload_hash(&activity).expect("actual hash"),
         activity.payload_hash()
     );
     refuse_retired(&corrupted);
@@ -266,7 +269,8 @@ fn native_withdrawal_discloses_every_field_and_signs_exact_bytes() {
     )
     .expect("module");
     let registry = layerx_types::payload::ModuleRegistry::new(&[module]).expect("registry");
-    let archived = layerx_wire::activity::decode_unsigned(&canonical, &registry).expect("archive");
+    let archived =
+        layerx_wire::historical::activity::decode_unsigned(&canonical, &registry).expect("archive");
     assert_eq!(archived.activity_type().value(), 0x0001_0009);
     assert_eq!(archived.actor_did(), b"did:layerx:alice");
     assert_eq!(archived.authority().len(), 32);
@@ -274,7 +278,7 @@ fn native_withdrawal_discloses_every_field_and_signs_exact_bytes() {
     assert_eq!(archived.idempotency_key(), [0x71; 32]);
     assert_eq!(archived.account_sequence(), 7);
     assert_eq!(
-        layerx_wire::activity::encode_unsigned(&archived).expect("reencode"),
+        layerx_wire::historical::activity::encode_unsigned(&archived).expect("reencode"),
         canonical
     );
     refuse_retired(&canonical);

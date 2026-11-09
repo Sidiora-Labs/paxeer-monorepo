@@ -137,6 +137,7 @@ fn signed_receipt(success: bool) -> (Vec<u8>, Value, Vec<u8>, ReceiptKeyEntry) {
         .find(|case| case["id"] == id)
         .expect("ledger case");
     assert_eq!(case["receiptJson"]["receipt"], case["signedReceipt"]);
+    assert_eq!(case["receiptJson"]["paymentDenom"], "uhpx");
     (
         unhex(&case["rawTransaction"]),
         case["receiptJson"].clone(),
@@ -245,7 +246,10 @@ fn check_human_receipt_lookup(success: bool) {
                 last_height: last,
                 ..key
             };
-            let (node, endpoint, server) = lookup_server(rotated_keys(key), response.clone(), true);
+            let published = rotated_keys(key);
+            layerx_client::sequencer::decode_receipt_keys(&published)
+                .unwrap_or_else(|reason| panic!("receipt lookup key fixture refused: {reason:?}"));
+            let (node, endpoint, server) = lookup_server(published, response.clone(), true);
             let (lookup, keys) = must(lookup_human_receipt_by_outbox_hash(
                 node.as_ref(),
                 &endpoint,
@@ -254,7 +258,7 @@ fn check_human_receipt_lookup(success: bool) {
                 hash,
             ));
             let Lookup::Verified(receipt) = lookup else {
-                panic!("authenticated receipt required")
+                panic!("authenticated receipt required: {lookup:?}")
             };
             assert_eq!(receipt.activity_id(), hash);
             assert_eq!(receipt.canonical_bytes(), canonical);

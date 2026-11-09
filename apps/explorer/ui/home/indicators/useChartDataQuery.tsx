@@ -18,12 +18,12 @@ export type UseFetchChartDataResult = {
   data: TimeChartData;
 };
 
-export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFetchChartDataResult {
+export default function useChartDataQuery(indicatorId: ChainIndicatorId, calendarWindowDays?: number): UseFetchChartDataResult {
   const statsDailyTxsQuery = useApiQuery('stats:pages_main', {
     queryOptions: {
       refetchOnMount: false,
       enabled: isStatsFeatureEnabled && indicatorId === 'daily_txs',
-      select: (data) => data.daily_new_transactions?.chart.map((item) => ({ date: new Date(item.date), value: Number(item.value) })) || [],
+      select: (data) => data.daily_new_transactions?.chart.map((item) => ({ date: new Date(item.date), value: item.value })) || [],
     },
   });
 
@@ -33,9 +33,9 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
       enabled: isStatsFeatureEnabled && indicatorId === 'daily_operational_txs',
       select: (data) => {
         if (isArbitrumRollup) {
-          return data.daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: Number(item.value) })) || [];
+          return data.daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: item.value })) || [];
         } else if (isOptimisticRollup) {
-          return data.op_stack_daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: Number(item.value) })) || [];
+          return data.op_stack_daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: item.value })) || [];
         }
         return [];
       },
@@ -73,17 +73,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
       select: (data) => data.chart_data.map((item) => (
         {
           date: new Date(item.date),
-          value: (() => {
-            if (item.market_cap !== undefined) {
-              return item.market_cap;
-            }
-
-            if (item.closing_price === null) {
-              return null;
-            }
-
-            return Number(item.closing_price) * Number(data.available_supply);
-          })(),
+          value: item.market_cap ?? null,
         })),
     },
   });
@@ -95,7 +85,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
       select: (data) => data.chart_data.map((item) => (
         {
           date: new Date(item.date),
-          value: item.tvl !== undefined ? item.tvl : 0,
+          value: item.tvl ?? null,
         })),
     },
   });
@@ -104,42 +94,42 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId): UseFet
     case 'daily_txs': {
       const query = isStatsFeatureEnabled ? statsDailyTxsQuery : apiDailyTxsQuery;
       return {
-        data: getChartData(indicatorId, query.data || []),
+        data: getChartData(indicatorId, query.data || [], calendarWindowDays),
         isError: query.isError,
         isPending: query.isPending,
       };
     }
     case 'daily_operational_txs': {
       return {
-        data: getChartData(indicatorId, statsDailyOperationalTxsQuery.data || []),
+        data: getChartData(indicatorId, statsDailyOperationalTxsQuery.data || [], calendarWindowDays),
         isError: statsDailyOperationalTxsQuery.isError,
         isPending: statsDailyOperationalTxsQuery.isPending,
       };
     }
     case 'coin_price': {
       return {
-        data: getChartData(indicatorId, coinPriceQuery.data || []),
+        data: getChartData(indicatorId, coinPriceQuery.data || [], calendarWindowDays),
         isError: coinPriceQuery.isError,
         isPending: coinPriceQuery.isPending,
       };
     }
     case 'secondary_coin_price': {
       return {
-        data: getChartData(indicatorId, secondaryCoinPriceQuery.data || []),
+        data: getChartData(indicatorId, secondaryCoinPriceQuery.data || [], calendarWindowDays),
         isError: secondaryCoinPriceQuery.isError,
         isPending: secondaryCoinPriceQuery.isPending,
       };
     }
     case 'market_cap': {
       return {
-        data: getChartData(indicatorId, marketCapQuery.data || []),
+        data: getChartData(indicatorId, marketCapQuery.data || [], calendarWindowDays),
         isError: marketCapQuery.isError,
         isPending: marketCapQuery.isPending,
       };
     }
     case 'tvl': {
       return {
-        data: getChartData(indicatorId, tvlQuery.data || []),
+        data: getChartData(indicatorId, tvlQuery.data || [], calendarWindowDays),
         isError: tvlQuery.isError,
         isPending: tvlQuery.isPending,
       };

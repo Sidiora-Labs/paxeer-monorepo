@@ -7,6 +7,15 @@ if [ "$#" -ne 1 ]; then
 fi
 
 input_file="$1"
+if [ ! -f "$input_file" ]; then
+  echo "Environment documentation not found: $input_file" >&2
+  exit 1
+fi
+if [ ! -r "$input_file" ]; then
+  echo "Environment documentation is not readable: $input_file" >&2
+  exit 1
+fi
+
 prefix="NEXT_PUBLIC_"
 
 # Function to make the environment variables registry file based on documentation file ENVS.md
@@ -14,15 +23,19 @@ prefix="NEXT_PUBLIC_"
 # This variables will have dummy values assigned to them
 make_registry_file() {
   output_file=".env.registry"
+  local var_names
 
-  # Check if file already exists and empty its content if it does
-  if [ -f "$output_file" ]; then
-    > "$output_file"
+  if ! var_names=$(
+    set -o pipefail
+    grep -oE "${prefix}[[:alnum:]_]+" "$input_file" | sort -u
+  ); then
+    echo "Unable to read environment documentation: $input_file" >&2
+    return 1
   fi
 
-  grep -oE "${prefix}[[:alnum:]_]+" "$input_file" | sort -u | while IFS= read -r var_name; do
-    echo "$var_name=__" >> "$output_file"
-  done
+  while IFS= read -r var_name; do
+    echo "$var_name=__"
+  done <<< "$var_names" > "$output_file"
 }
 
 # Save build-time defaults in the raw NAME=value format consumed by Next.js.
@@ -44,5 +57,5 @@ save_build-time_envs() {
   done
 }
 
-make_registry_file
+make_registry_file || exit 1
 save_build-time_envs

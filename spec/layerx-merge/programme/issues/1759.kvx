@@ -1,0 +1,7 @@
+[issue.1759]
+number = 1759
+title = "[Coherence] The bypass_through ruling for 22.35.9 still sends the request through BlockScoutWeb.Router, so GET / raises the same NoRouteError"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit 213a42d6ac000615cc3f18c660413563cc8fbe7e implements direct WebRouter dispatch in services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs:32 and :56 after matching WebRouter browser bypasses at :31 and :55, then calls ChainController at :33 and :57 and asserts rendered heights 500 and 0 at :42 and :66, avoiding the endpoint dispatch through BlockScoutWeb.Router at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/endpoint.ex:105 and its conditional root forwarding at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/router.ex:115."
+close_comment = "Both chain-page regression cases already dispatch directly to WebRouter's browser pipeline before calling ChainController, so they do not depend on the endpoint forwarding the root path when the web application is disabled. The assertions still check rendered consensus heights of 500 and 0."

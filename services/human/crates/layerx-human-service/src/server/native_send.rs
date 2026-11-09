@@ -535,7 +535,7 @@ pub fn preview_send(
 pub struct NativeSendPreviewV2 {
     pub canonical_bytes: Vec<u8>,
     pub signing_preimage: Vec<u8>,
-    pub purpose: layerx_agent_api::identity::NativeSendPurposeV1,
+    pub purpose: layerx_agent_api::identity::NativeSendPurposeV2,
     pub head_sequence: u64,
     pub protocol_time_ms: u64,
     pub owner_public_key: [u8; 32],
@@ -563,4 +563,70 @@ pub fn preview_send_v2(
     runtime
         .native_send_preview_v2(&context, request, purpose_expires_ms, context.commitment)
         .map_err(|_| AgentFailure::Refused("native Send statement preview refused"))
+}
+
+/// Encodes Human's V2 consent for the daemon's native Send preparation route.
+pub fn encode_native_send_prepare_v2(
+    request: &PrepareRequest,
+    signed: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
+    local_grant: Option<&NativeLocalGrantConsentV1>,
+) -> Result<serde_json::Value, layerx_agent_api::identity::ContractError> {
+    use layerx_agent_api::identity::ContractError;
+    use sha2::{Digest as _, Sha256};
+    signed.clone().validate()?;
+    request.timestamp_bound.validate()?;
+    let purpose = &signed.purpose;
+    if request.protocol_activity_type != NATIVE_SEND
+        || request.actor != purpose.agent_did
+        || purpose.activity != NativeActivity::new(1, 5)?
+        || request.authority.as_str().is_empty()
+        || request.authority.as_str().len() > layerx_types::limits::MAX_AUTHORITY_BYTES
+        || request.payload.as_bytes().is_empty()
+        || request.payload.as_bytes().len() > layerx_types::limits::MAX_PAYLOAD_BYTES
+        || Sha256::digest(request.payload.as_bytes())[..] != request.payload_hash
+        || request.idempotency_key.as_str() != hex(purpose.idempotency_key)
+    {
+        return Err(ContractError::Mismatch("native_send_prepare.request"));
+    }
+    if let Some(grant) = local_grant {
+        grant.validate()?;
+    }
+    Ok(serde_json::json!({
+        "variant": "native_send_v1",
+        "activity": {"version":"1", "module":"1", "ordinal":"5"},
+        "actor": request.actor.as_str(), "authority": request.authority.as_str(),
+        "account_sequence": request.account_sequence.0.to_string(),
+        "not_before": request.timestamp_bound.not_before.0.to_string(),
+        "not_after": request.timestamp_bound.not_after.0.to_string(),
+        "idempotency_key": request.idempotency_key.as_str(),
+        "fee_limit": request.fee_limit.0.to_string(),
+        "payload": hex_bytes(request.payload.as_bytes()), "payload_hash": hex(request.payload_hash),
+        "capability_id": purpose.capability_id.as_str(),
+        "purpose": {
+            "purpose": {
+                "version": "2", "tenant": purpose.tenant.as_str(),
+                "agent_did": purpose.agent_did.as_str(), "owner_did": purpose.owner_did.as_str(),
+                "consent_public_key": hex(purpose.consent_public_key),
+                "evm_sender": hex_bytes(&purpose.evm_sender),
+                "session_id": purpose.session_id.as_str(), "generation": purpose.generation.to_string(),
+                "expires_at_ms": purpose.expires_at_ms.to_string(),
+                "capability_id": purpose.capability_id.as_str(),
+                "transaction_type": purpose.transaction_type.to_string(), "chain_id": purpose.chain_id.to_string(),
+                "activity": {"version":"1", "module":"1", "ordinal":"5"},
+                "preparation_id": hex(purpose.preparation_id), "canonical_digest": hex(purpose.canonical_digest),
+                "economic_action": hex(purpose.economic_action), "idempotency_key": hex(purpose.idempotency_key),
+                "commitment": hex(purpose.commitment)
+            },
+            "signature": hex_bytes(&signed.signature)
+        },
+        "local_grant": local_grant.map(|grant| serde_json::json!({
+            "version":"1", "capability":hex_bytes(&grant.capability), "session_scope":hex_bytes(&grant.session_scope),
+            "expires_at_ms":grant.expires_at_ms.to_string(), "owner_public_key":hex(grant.owner_public_key),
+            "signature":hex_bytes(&grant.signature)
+        }))
+    }))
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }

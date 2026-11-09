@@ -591,9 +591,7 @@ lxp_result lx_account_open(lx_account_registry *registry,
     if (status != LXP_OK) return status;
     if (memcmp(derived, presented_id, sizeof(derived)) != 0)
         return LXP_ERR_ACCOUNT_ID_MISMATCH;
-    if (parsed.kind == LX_ACCOUNT_MODULE_VALUE ||
-        parsed.kind == LX_ACCOUNT_SYSTEM_PAXEER_RESERVE ||
-        parsed.kind == LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS)
+    if (parsed.kind == LX_ACCOUNT_MODULE_VALUE)
         return LXP_ERR_UNAUTHORIZED_DEBIT;
     status = lx_account_registry_index_lookup(registry, derived, &slot);
     if (status == LXP_OK) {

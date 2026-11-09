@@ -155,6 +155,8 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_ARBITER_REQUIRED", message: "arbiter required", kernel: true, value: -737},
 	{code: "LXP_UNAUTHORIZED_ARBITER", message: "unauthorized arbiter", kernel: true, value: -738},
 	{code: "LXP_ESCROW_LINK_MISMATCH", message: "escrow link mismatch", kernel: true, value: -739},
+	{code: "LXP_REPLAY_BOUND", message: "replay bound", kernel: true, value: -740},
+	{code: "LXP_ENGINE_FAULT", message: "engine fault", kernel: true, value: -741},
 	{code: "LXP_PAY_UNBOUND_CALLER", message: "unbound caller"},
 	{code: "LXP_PAY_KERNEL_GATE_MISMATCH", message: "kernel gate mismatch"},
 	{code: "LXP_BATCH_GAP", message: "batch gap", kernel: true, value: -800},

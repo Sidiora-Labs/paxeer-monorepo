@@ -1,0 +1,51 @@
+[repair]
+task = "22.33.233"
+audit = "spec/layerx-merge/programme/audit/records/22.30.128.kvx"
+acceptance = "22998.1"
+continuation = "Attempt 6 adds this missing record; the inherited implementation and every assertion remain unchanged."
+
+[finding.ai-real-consumer-proof]
+class = "test-gap"
+severity = "medium"
+path = "programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs"
+tests = ["ai_real_consumer_recovers_fresh_guest_captures", "ai_real_consumer_refuses_unauthenticated_evidence_across_restart"]
+test_path = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"
+repair = "Retain the original codec assertions and compare fresh CREATE and READ_STATE_CHUNK dispatch output, verified consensus commits, canonical bindings and read facts against the recorded production ProjectionStore promotion and shutdown/reopen transcript, as authorized by the attempt-2 continuation."
+recovery = "For sequences 77 and 78, assert exact binding bytes, snapshot identity, finalized projection, source activity and pending events against the consumer's recovered state."
+refusals = "Retain the five transcript comparisons for invalid commit signature, wrong program, altered membership proof, mismatched read block hash and insufficient read verification. The live hosted test services/platform/hosted/indexer/tests/repair_22_31_350.rs::ai_market_rejects_altered_membership_and_unsigned_reads_across_restart drives fresh guest captures through ProjectionStore::observe and promote: an appended membership-proof byte returns FinalityUnavailable and Unverified reads with intact membership return BindingMismatch, remaining rank zero without a binding, publication event or finalized view across reopen; the otherwise identical SequencerSigned control promotes and recovers its binding."
+fixture = "CONSUMER_TRANSCRIPT in repair_22_33_233.rs; production consumer services/platform/hosted/indexer/src/ai_market.rs::ProjectionStore at source revision aa5e0820b3652890f3812a220f4b91f4f8a45387, with consumer and membership source hashes embedded."
+boundary = "The programs focused gate retains production guest, codec and consensus verification code with a recorded hosted peer. Live production consumer refusal and restart coverage belongs to services/platform/hosted/indexer/tests/repair_22_31_350.rs::ai_market_rejects_altered_membership_and_unsigned_reads_across_restart; programs intentionally does not depend on the hosted indexer, and neither test proves signed ProgramRead receipts."
+
+[baseline]
+source = "Inherited repair_22_33_233.rs baseline and the attempt-6 continuation ruling in /out/run/gate.json."
+initial = "Attempt 1 did not compile: E0433 for layerx_committed_proof and layerx_indexer; neither proving test executed."
+unchanged_tree = "Attempt 5 ran both proving tests successfully before this record was added; no failing test case was reported, and only the missing record failed the done graph check."
+policy = "Reuse the supplied baseline evidence; run only the declared final build and hf-done gate, without an extra baseline verification."
+
+[evidence.previous_build]
+revision = "5444ded3adeba37bfad7e5654a855e9fed4a029d"
+command = "cargo build --locked --manifest-path programs/crates/layerx-programs-ai-market/Cargo.toml --tests"
+exit = 0
+source = "Attempt-5 seed revision and the attempt-6 continuation ruling in /out/run/gate.json report a passing build and dependent-crate check."
+
+[evidence.previous_verify]
+revision = "5444ded3adeba37bfad7e5654a855e9fed4a029d"
+command = "cargo test --locked --manifest-path programs/crates/layerx-programs-ai-market/Cargo.toml --test repair_22_33_233"
+exit = 0
+passed = 2
+failed = 0
+source = "Attempt-5 output retained in /out/run/gate.json: both named tests pass; cg spec done subsequently refuses the missing repair_22_33_233.kvx path."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+build_command = "cargo build --locked --manifest-path programs/crates/layerx-programs-ai-market/Cargo.toml --tests"
+done_command = "cg spec done 22.33.233 -f layerx-merge --root /work/paxeer-monorepo"
+verify_command = "cargo test --locked --manifest-path programs/crates/layerx-programs-ai-market/Cargo.toml --test repair_22_33_233"
+private_ledger = "/out/run/gates.jsonl"
+private_build_log = "/out/logs/build-1.log"
+private_done_log = "/out/logs/verify-1.log"
+evidence_contract = "The gates append the exact final candidate revision, command, exit code and private log to the ledger; those rows qualify this record without editing the candidate after its build. Previous passes above do not claim qualification of this final candidate."
+
+[wiring.platform]
+request = "Domain 8 (Platform), services/platform/hosted/indexer/src/ai_market.rs and services/platform/hosted/indexer/tests/repair_22_31_350.rs: own transcript regeneration and live ProjectionStore shutdown/reopen integration; programs must not depend on the hosted indexer."

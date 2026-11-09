@@ -33,7 +33,39 @@ fn settlement_domain_vocabulary_is_absent() -> std::io::Result<()> {
 }
 
 #[test]
-fn verification_status_is_expressed_in_rungs_only() {
+fn native_send_v1_records_declare_the_explicit_legacy_refusal() -> Result<(), String> {
+    for source in [
+        layerx_agent_api::AGENT_API_V1_SOURCE,
+        include_str!("../../../schema/agent-api/golden/v1.kvx"),
+    ] {
+        for record in ["NativeSendPurposeV1", "SignedNativeSendPurposeV1"] {
+            let header = format!("[record.{record}]\n");
+            let section = source
+                .split_once(&header)
+                .ok_or_else(|| "retired V1 record must remain declared".to_owned())?
+                .1
+                .split("\n[")
+                .next()
+                .ok_or_else(|| "required value".to_owned())?;
+            let retired = section
+                .lines()
+                .find_map(|line| line.strip_prefix("retired = "))
+                .ok_or_else(|| "V1 record must declare its retirement".to_owned())?;
+            assert_eq!(
+                retired,
+                "\"Retired: validation explicitly refuses with ContractError::Mismatch(native_send.legacy_version); use NativeSendPurposeV2 and SignedNativeSendPurposeV2.\""
+            );
+            assert!(section.contains(&format!("rust = \"layerx_agent_api::identity::{record}\"")));
+            assert!(section.contains(&format!("wire_type = \"{record}Wire\"")));
+            assert!(section.lines().any(|line| line.starts_with("fields = [")));
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn verification_status_is_expressed_in_rungs_only() -> Result<(), String> {
     let identity: fn(RungStatus) -> VerificationStatus = |status| status;
     assert_eq!(
         identity(RungStatus::Achieved(Rung::Submitted)),
@@ -58,7 +90,7 @@ fn verification_status_is_expressed_in_rungs_only() {
         (Rung::Committed, Rung::Receipted),
     ] {
         let reason = ReasonCode::new("verification.below_requested")
-            .unwrap_or_else(|error| panic!("invalid reason: {error:?}"));
+            .map_err(|error| format!("invalid reason: {error:?}"))?;
         let success = ApiSuccess {
             request_id: RequestId(8),
             value: (),
@@ -93,4 +125,6 @@ fn verification_status_is_expressed_in_rungs_only() {
             "retired verification level remains in the API"
         );
     }
+
+    Ok(())
 }

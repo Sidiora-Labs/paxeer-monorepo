@@ -41,23 +41,8 @@ impl VerifiedChainHead {
     }
 
     #[must_use]
-    pub const fn height(&self) -> i64 {
-        self.height
-    }
-
-    #[must_use]
-    pub const fn time_ms(&self) -> i64 {
-        self.time_ms
-    }
-
-    #[must_use]
     pub const fn header_hash(&self) -> [u8; 32] {
         self.header_hash
-    }
-
-    #[must_use]
-    pub const fn app_hash(&self) -> [u8; 32] {
-        self.app_hash
     }
 
     #[must_use]
@@ -69,11 +54,6 @@ impl VerifiedChainHead {
     pub const fn last_results_hash(&self) -> [u8; 32] {
         self.last_results_hash
     }
-
-    #[must_use]
-    pub const fn next_validators_hash(&self) -> [u8; 32] {
-        self.next_validators_hash
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -83,8 +63,6 @@ pub enum ChainProofError {
     UnknownField,
     Mismatch,
     InsufficientPower,
-    Expired,
-    Absent,
 }
 
 impl std::fmt::Display for ChainProofError {
@@ -95,8 +73,6 @@ impl std::fmt::Display for ChainProofError {
             Self::UnknownField => f.write_str("unknown field"),
             Self::Mismatch => f.write_str("mismatch"),
             Self::InsufficientPower => f.write_str("insufficient power"),
-            Self::Expired => f.write_str("expired"),
-            Self::Absent => f.write_str("absent"),
         }
     }
 }

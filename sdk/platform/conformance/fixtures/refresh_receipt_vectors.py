@@ -123,9 +123,81 @@ def _portable(case, level):
     return result
 
 
+def _checkpoint(source, source_path, source_digest):
+    settlement = source["settlement"]
+    header = settlement["execution_header"]
+    commit = settlement["execution_commit"]
+    height = int(commit["height"])
+    block_hash = commit["block_id"]["hash"].lower()
+    if height != int(header["height"]) or len(bytes.fromhex(block_hash)) != 32:
+        raise ValueError("invalid recorded execution checkpoint")
+    if settlement["receipt"]["blockHash"].removeprefix("0x").lower() != block_hash:
+        raise ValueError("recorded receipt differs from execution checkpoint")
+    return {
+        "provenance": "Out-of-band test-network checkpoint captured from the producer's execution_commit, independently of the portable document being verified. This is a fixture-network pin, not a Paxeer production-network pin.",
+        "source": source_path,
+        "source_sha256": source_digest,
+        "capture_command": "python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py",
+        "chain_id": header["chain_id"],
+        "height": height,
+        "block_hash": block_hash,
+    }
+
+
+def _receipted_copies(fixtures):
+    source_text = (fixtures / "sequencer-receipt-v1.json").read_text()
+    source = json.loads(source_text)
+    if (source["chainId"] != 125 or source["provenance"]["generator"]
+            != "rpc/sequencer_receipt_vectors_test.go"):
+        raise ValueError("receipted copies require the retained chain-125 producer output")
+    decoder = json.JSONDecoder()
+    marker = '"cases": ['
+    position = source_text.index(marker) + len(marker)
+    cases = []
+    while True:
+        position += len(source_text[position:]) - len(source_text[position:].lstrip())
+        if source_text[position] == "]":
+            break
+        case, end = decoder.raw_decode(source_text, position)
+        cases.append((case, source_text[position:end]))
+        position = end
+        if source_text[position] == ",":
+            position += 1
+    for name, vector, count in (
+        ("vector-v1-receipted-positive", "V1", 5),
+        ("vector-v2-receipted-revert", "V2", 2),
+        ("vector-v3-receipt-refusals", "V3", 6),
+    ):
+        selected = [(case, raw) for case, raw in cases if case["vector"] == vector]
+        if len(selected) != count or len({case["id"] for case, _ in selected}) != count:
+            raise ValueError(f"missing or duplicate producer cases for {vector}")
+        path = fixtures / (name + ".json")
+        text = path.read_text()
+        if json.loads(text)["name"] != name:
+            raise ValueError(f"unexpected conformance copy identity: {name}")
+        start = text.index(marker) + len(marker) - 1
+        _, end = decoder.raw_decode(text, start)
+        # Preserve the producer's raw case bytes, including JSON escapes.
+        array = "[\n    " + ",\n    ".join(raw for _, raw in selected) + "\n  ]"
+        text = text[:start] + array + text[end:]
+        if vector == "V3":
+            provenance = {
+                "source": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+                "section": "cases",
+                "generator": source["provenance"]["generator"],
+                "sourceSha256": hashlib.sha256(source_text.encode()).hexdigest(),
+            }
+            start = text.index('"provenance": ') + len('"provenance": ')
+            _, end = decoder.raw_decode(text, start)
+            encoded = json.dumps(provenance, indent=2, sort_keys=True).replace("\n", "\n  ")
+            text = text[:start] + encoded + text[end:]
+        path.write_text(text)
+
+
 def main():
     fixtures = Path(__file__).resolve().parent
     root = fixtures.parents[3]
+    _receipted_copies(fixtures)
     v4_path = fixtures / "vector-v4-committed.json"
     v4 = json.loads(v4_path.read_text())
     source_bytes = (root / v4["provenance"]["source"]).read_bytes()
@@ -140,16 +212,23 @@ def main():
     v5_path = fixtures / "vector-v5-portable.json"
     v5 = json.loads(v5_path.read_text())
     source_path, case_id = v5["provenance"]["receiptedSource"].split("#")
-    cases = json.loads((root / source_path).read_text())["cases"]
+    receipted_bytes = (root / source_path).read_bytes()
+    cases = json.loads(receipted_bytes)["cases"]
     receipted = next(case for case in cases if case["id"] == case_id)
     committed_path, section = v5["provenance"]["committedSource"].split("#")
     if committed_path != v4["provenance"]["source"] or section != "settlement":
         raise ValueError("portable committed provenance differs from V4")
+    v5["provenance"]["receiptedSha256"] = hashlib.sha256(receipted_bytes).hexdigest()
+    v5["provenance"]["committedSha256"] = hashlib.sha256(source_bytes).hexdigest()
     bundles = [_portable(receipted, "receipted"), _portable(v4["positive"], "committed")]
     compact = lambda value: json.dumps(value, separators=(",", ":"))
     v4_path.write_text(json.dumps(v4, indent=2) + "\n")
-    prefix = v5_path.read_text().split('  "bundles": [', 1)[0]
+    metadata = {key: value for key, value in v5.items() if key != "bundles"}
+    prefix = json.dumps(metadata, indent=2).removesuffix("\n}") + ",\n"
     v5_path.write_text(prefix + '  "bundles": [\n    ' + ",\n    ".join(map(compact, bundles)) + "\n  ]\n}\n")
+    checkpoint_path = root / "sdk/platform/go/testdata/repair_m1384/checkpoint.json"
+    checkpoint = _checkpoint(source, v4["provenance"]["source"], v4["provenance"]["sha256"])
+    checkpoint_path.write_text(json.dumps(checkpoint, indent=2) + "\n")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+[issue.1808]
+number = 1808
+title = "[Coherence] The width ruling for 22.38.1 covers only the ai-market crate tests, but the hosted indexer fixes the availability array at ten entries and calls feature_availability"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit b5a4f2ce26c9c06539a23ecbe05679afaa239c8e widened the indexer consumers: programs/crates/layerx-programs-ai-market/src/queries.rs:930 returns eleven entries, services/platform/hosted/indexer/src/ai_market.rs:64 sets FEATURES to 11 for the availability fields at :486, :569 and :579, its decoder at :1094 retains the strict width check and its producer consumers at :1447 and :2301 use that width, services/platform/hosted/indexer/src/ai_views.rs:179 names F01 through F11 and :183 accepts eleven statuses, programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs:324 asserts the eleven-entry producer, and spec/layerx-merge/spec.kvx:9705 extends decision 2757 to dependent crates while :189324 declares both indexer files and :189342 requires their port and the focused layerx-indexer build."
+close_comment = "The hosted indexer now stores and verifies all eleven feature availability entries and exposes F11 in market and participant view components. The F11 change also declares the indexer consumers and includes a focused indexer build check."

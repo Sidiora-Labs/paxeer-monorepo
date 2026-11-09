@@ -236,21 +236,17 @@ fn assert_round_trip(case: &Value, height: u64, raw: bool) {
         .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
         .spawn().expect("independent verifier");
     let proof: Value = serde_json::from_slice(&wire).expect("emitted document");
-    python
-        .stdin
-        .take()
-        .expect("verifier stdin")
-        .write_all(
-            &serde_json::to_vec(&json!({"proof": proof, "pins": [case["key"]]}))
-                .expect("verifier input"),
-        )
-        .expect("write independent verifier input");
+    let input_result = python.stdin.take().expect("verifier stdin").write_all(
+        &serde_json::to_vec(&json!({"proof": proof, "pins": [case["key"]]}))
+            .expect("verifier input"),
+    );
     let output = python.wait_with_output().expect("independent verification");
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    input_result.expect("write independent verifier input");
     let result: Value = serde_json::from_slice(&output.stdout).expect("independent digest");
     assert_eq!(result[0], case["digest"]);
     assert_eq!(bytes(&result[1]).as_slice(), verified.activity_id());

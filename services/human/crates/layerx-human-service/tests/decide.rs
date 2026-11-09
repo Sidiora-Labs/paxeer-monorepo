@@ -1,47 +1,38 @@
+use layerx_agent_api::track::SubmissionState;
 use layerx_human_test_support as support;
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::Display;
-use std::fs;
+#[allow(dead_code)]
+#[path = "support/approval_owner.rs"]
+pub(crate) mod owner;
+
+#[allow(unused_imports)]
+use owner::hex;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use ciborium::value::Value as CborValue;
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_agent_api::identity::{ActivityType, AgentDid, Asset, AuthorityRef, ExplicitSet};
-use layerx_agent_api::prepare::{
-    CanonicalBytes, Disclosure, IdempotencyRef, PreparationRef, Prepared, SigningPreimage,
-};
-use layerx_agent_api::track::{
-    EvidenceRef as AgentEvidenceRef, SubmissionRef, SubmissionState, TrackedSubmission,
-};
-use layerx_agent_api::{Amount, TimestampSeconds};
-use layerx_agentd::approval::{
-    ApprovalExpiry, ApprovalOutcome as AgentOutcome, ApprovalService, ApprovalSubmissionQueue,
-    DecisionKey, DecisionRequest,
-};
-use layerx_agentd::budget::BudgetLimiter;
-use layerx_agentd::capability::CapabilityId;
-use layerx_agentd::policy::approval::{
-    hold, ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
-};
-use layerx_agentd::session::SessionId;
-use layerx_agentd::store::TenantId;
 use layerx_human_service::approvals::{
-    AgentApprovalRecord, AgentApprovalState, AgentDecision, AgentDecisionBoundary,
-    AgentDecisionResolution, AgentDecisionStatus, ApprovalBoundary, ApprovalBoundaryError,
-    Decisions, VerifiedBudgetAfter,
+    AgentApprovalState, AgentDecisionResolution, AgentDecisionStatus, ApprovalBoundary,
+    ApprovalBoundaryError, DecisionError, Decisions,
 };
 use layerx_human_service::audit::{verify_export, ApprovalOutcome, AuditChain, AuditEvent};
 use layerx_human_service::auth::{
     AccountIdentity, AuthConfig, Device, OperationDigest, Passkeys, RateLimit, SessionGrant,
 };
-use layerx_human_service::store::PrincipalScope;
+use layerx_human_service::store::{PrincipalScope, PrincipalStore};
 use layerx_human_service::trace::TraceId;
-use layerx_types::ids::Did;
-use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
+use std::fmt::Display;
+
+#[track_caller]
+fn checked<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
+    match value {
+        Ok(value) => value,
+        Err(error) => panic!("decision integration: {error:?}"),
+    }
+}
 
 const RP_ID: &str = "paxportwallet.com";
 const ORIGIN: &str = "https://paxportwallet.com";
@@ -268,295 +259,28 @@ fn open_session(
     )
 }
 
-fn tenant() -> TenantId {
-    TenantId::new("tenant-decisions").unwrap_or_else(|error| panic!("tenant: {error}"))
-}
-
-fn prepared(id: u8) -> Prepared {
-    let bytes = format!("held-approval-decision-{id}").into_bytes();
-    let digest = Sha256::digest(&bytes).into();
-    Prepared {
-        preparation_ref: PreparationRef::new(format!("preparation-{id}"))
-            .unwrap_or_else(|error| panic!("preparation: {error:?}")),
-        unsigned_canonical_bytes: CanonicalBytes::new(bytes)
-            .unwrap_or_else(|error| panic!("canonical bytes: {error:?}")),
-        signing_preimage: SigningPreimage::new(vec![id; 32])
-            .unwrap_or_else(|error| panic!("signing preimage: {error:?}")),
-        disclosure: Disclosure {
-            canonical_digest: digest,
-            activity_type: ActivityType(5),
-            actor: AgentDid::new("did:layerx:decision-agent")
-                .unwrap_or_else(|error| panic!("actor: {error:?}")),
-            authority: AuthorityRef::new("session-key")
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            counterparties: ExplicitSet::deny_all(),
-            amounts: ExplicitSet::deny_all(),
-            asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
-            fee_limit: Amount(2),
-            expiry: TimestampSeconds(200),
-            idempotency_key: IdempotencyRef::new(format!("movement-{id}"))
-                .unwrap_or_else(|error| panic!("idempotency: {error:?}")),
-        },
-        expiry: TimestampSeconds(200),
-    }
-}
-
-fn context(id: u8) -> ApprovalContext {
-    ApprovalContext {
-        actor_address: [4; 20],
-        tenant: tenant(),
-        agent: Did::new(b"did:layerx:decision-agent")
-            .unwrap_or_else(|error| panic!("agent: {error:?}")),
-        session: SessionId([2; 32]),
-        capability: CapabilityId([3; 32]),
-        policy_version: "policy-decisions-v1".to_owned(),
-        request_id: [id; 32],
-    }
-}
-
-struct AgentdDecisions<'a> {
-    service: ApprovalService<'a>,
-    queue: &'a ApprovalSubmissionQueue,
-    tenant: TenantId,
-    prepared: BTreeMap<[u8; 32], Prepared>,
-    released: BTreeMap<[u8; 32], [u8; 32]>,
-    seen: BTreeSet<String>,
-}
-
-impl AgentdDecisions<'_> {
-    fn normalize(
-        &mut self,
-        approval_id: [u8; 32],
-        idempotency_key: &str,
-        current_sequence: u64,
-        outcome: &layerx_agentd::approval::ApprovalDecision,
-    ) -> Result<AgentDecision, ApprovalBoundaryError> {
-        let repeated = !self.seen.insert(idempotency_key.to_owned());
-        let resolution = if repeated {
-            AgentDecisionResolution::Repeated
-        } else if matches!(
-            outcome.outcome,
-            AgentOutcome::Conflict | AgentOutcome::AlreadyDecided
-        ) {
-            AgentDecisionResolution::AlreadyDecided
-        } else {
-            AgentDecisionResolution::Applied
-        };
-        if let Some(reference) = outcome.submission_ref {
-            self.released.insert(approval_id, reference);
-        }
-        let winner = outcome.winning_outcome.unwrap_or(outcome.outcome);
-        let status = match winner {
-            AgentOutcome::Granted => AgentDecisionStatus::Approved {
-                submission_ref: outcome
-                    .submission_ref
-                    .or_else(|| self.released.get(&approval_id).copied()),
-            },
-            AgentOutcome::Rejected => AgentDecisionStatus::Rejected,
-            AgentOutcome::Expired => AgentDecisionStatus::Expired,
-            AgentOutcome::Defective => AgentDecisionStatus::Defective,
-            AgentOutcome::AlreadyDecided | AgentOutcome::Conflict => {
-                match self
-                    .service
-                    .get(&self.tenant, approval_id, current_sequence)
-                    .map_err(|_| ApprovalBoundaryError::Unavailable)?
-                    .state
-                {
-                    ApprovalState::Approved => AgentDecisionStatus::Approved {
-                        submission_ref: self.released.get(&approval_id).copied(),
-                    },
-                    ApprovalState::Rejected => AgentDecisionStatus::Rejected,
-                    ApprovalState::Expired => AgentDecisionStatus::Expired,
-                    ApprovalState::Defective => AgentDecisionStatus::Defective,
-                    ApprovalState::AwaitingApproval => return Err(ApprovalBoundaryError::Corrupt),
-                }
-            }
-        };
-        Ok(AgentDecision { status, resolution })
-    }
-}
-
-impl ApprovalBoundary for AgentdDecisions<'_> {
-    fn approval(
-        &mut self,
-        approval_id: [u8; 32],
-        at_sequence: u64,
-    ) -> Result<AgentApprovalRecord, ApprovalBoundaryError> {
-        let record = self
-            .service
-            .get(&self.tenant, approval_id, at_sequence)
-            .map_err(|_| ApprovalBoundaryError::Unavailable)?;
-        let state = match record.state {
-            ApprovalState::AwaitingApproval => AgentApprovalState::AwaitingApproval,
-            ApprovalState::Approved => AgentApprovalState::Approved {
-                submission_ref: *self
-                    .released
-                    .get(&approval_id)
-                    .ok_or(ApprovalBoundaryError::Corrupt)?,
-            },
-            ApprovalState::Rejected => AgentApprovalState::Rejected,
-            ApprovalState::Expired => AgentApprovalState::Expired,
-            ApprovalState::Defective => AgentApprovalState::Defective,
-        };
-        Ok(AgentApprovalRecord {
-            approval_id,
-            held_activity: record.held_activity,
-            canonical_bytes_digest: record.canonical_bytes_digest,
-            hold_reason_code: record.hold_reason.code.to_owned(),
-            hold_reason: record.hold_reason.message.to_owned(),
-            created_at_sequence: record.created_at_sequence,
-            expires_at_sequence: record.expires_at_sequence,
-            state,
-        })
-    }
-
-    fn verified_budget_after(
-        &mut self,
-        _hold: &AgentApprovalRecord,
-        at_sequence: u64,
-    ) -> Result<VerifiedBudgetAfter, ApprovalBoundaryError> {
-        Ok(VerifiedBudgetAfter {
-            remaining: 975,
-            rung: Rung::Committed,
-            evidence_digest: [9; 32],
-            observed_at_sequence: at_sequence,
-        })
-    }
-
-    fn track_released(
-        &mut self,
-        submission_ref: [u8; 32],
-    ) -> Result<TrackedSubmission, ApprovalBoundaryError> {
-        if self.queue.prepared(submission_ref).is_none() {
-            return Err(ApprovalBoundaryError::NotFound);
-        }
-        Ok(TrackedSubmission {
-            submission_ref: SubmissionRef::new(hex(submission_ref))
-                .map_err(|_| ApprovalBoundaryError::Corrupt)?,
-            state: SubmissionState::Queued,
-            evidence: vec![AgentEvidenceRef {
-                kind: "approval-release".to_owned(),
-                digest: submission_ref,
-            }],
-            rung: layerx_types::rung::Rung::Receipted,
-            transitions: Vec::new(),
-        })
-    }
-}
-
-impl AgentDecisionBoundary for AgentdDecisions<'_> {
-    fn approve(
-        &mut self,
-        approval_id: [u8; 32],
-        held_digest: [u8; 32],
-        idempotency_key: &str,
-        current_sequence: u64,
-    ) -> Result<AgentDecision, ApprovalBoundaryError> {
-        let prepared = self
-            .prepared
-            .get(&approval_id)
-            .cloned()
-            .ok_or(ApprovalBoundaryError::NotFound)?;
-        if prepared.disclosure.canonical_digest != held_digest {
-            return Err(ApprovalBoundaryError::VerificationFailed);
-        }
-        let decision = self
-            .service
-            .approve(
-                DecisionRequest {
-                    tenant: &self.tenant,
-                    approval_id,
-                    idempotency_key: &DecisionKey::new(idempotency_key)
-                        .map_err(|_| ApprovalBoundaryError::Corrupt)?,
-                    approver: ApproverId::new("human:mara")
-                        .map_err(|_| ApprovalBoundaryError::Corrupt)?,
-                    current_sequence,
-                },
-                &prepared,
-                self.queue,
-            )
-            .map_err(|_| ApprovalBoundaryError::Unavailable)?;
-        self.normalize(approval_id, idempotency_key, current_sequence, &decision)
-    }
-
-    fn reject(
-        &mut self,
-        approval_id: [u8; 32],
-        held_digest: [u8; 32],
-        idempotency_key: &str,
-        current_sequence: u64,
-    ) -> Result<AgentDecision, ApprovalBoundaryError> {
-        let record = self
-            .service
-            .get(&self.tenant, approval_id, current_sequence)
-            .map_err(|_| ApprovalBoundaryError::Unavailable)?;
-        if record.canonical_bytes_digest != held_digest {
-            return Err(ApprovalBoundaryError::VerificationFailed);
-        }
-        let decision = self
-            .service
-            .reject(DecisionRequest {
-                tenant: &self.tenant,
-                approval_id,
-                idempotency_key: &DecisionKey::new(idempotency_key)
-                    .map_err(|_| ApprovalBoundaryError::Corrupt)?,
-                approver: ApproverId::new("human:mara")
-                    .map_err(|_| ApprovalBoundaryError::Corrupt)?,
-                current_sequence,
-            })
-            .map_err(|_| ApprovalBoundaryError::Unavailable)?;
-        self.normalize(approval_id, idempotency_key, current_sequence, &decision)
-    }
-}
-
-fn hex(bytes: impl AsRef<[u8]>) -> String {
-    use std::fmt::Write as _;
-
-    let bytes = bytes.as_ref();
-    let mut output = String::with_capacity(bytes.len().saturating_mul(2));
-    for byte in bytes {
-        let _ = write!(output, "{byte:02x}");
-    }
-    output
-}
-
 #[test]
-#[allow(clippy::too_many_lines)]
 fn digest_bound_decisions_converge_and_export_the_agent_outcome() {
-    let directory = support::directory("approval-decisions");
-    let agent_root = directory.join("agent");
-    fs::create_dir_all(&agent_root).unwrap_or_else(|error| panic!("agent root: {error}"));
-    let registry = ApprovalRegistry::default();
-    let limiter =
-        BudgetLimiter::new(Vec::new()).unwrap_or_else(|error| panic!("limiter: {error:?}"));
-    let expiry = ApprovalExpiry::open(&agent_root)
-        .unwrap_or_else(|error| panic!("approval expiry: {error:?}"));
-    let service = ApprovalService::new(&registry, &limiter, &expiry);
-    let queue = ApprovalSubmissionQueue::default();
-    let first = prepared(1);
-    let second = prepared(2);
-    hold(&registry, context(1), first.clone(), 10, 190)
-        .unwrap_or_else(|error| panic!("first hold: {error:?}"));
-    hold(&registry, context(2), second.clone(), 10, 190)
-        .unwrap_or_else(|error| panic!("second hold: {error:?}"));
-    let mut boundary = AgentdDecisions {
-        service,
-        queue: &queue,
-        tenant: tenant(),
-        prepared: BTreeMap::from([([1; 32], first.clone()), ([2; 32], second.clone())]),
-        released: BTreeMap::new(),
-        seen: BTreeSet::new(),
-    };
-
-    let map = support::tenancy(&[("mara", "tenant-decisions")]);
-    let (mut store, _) = support::install_and_open(
-        &directory.join("human"),
-        &map,
-        support::retention_uniform(10_000),
+    let mut fixture = owner::Fixture::new(&[1, 2]);
+    let sequence = fixture.sequence;
+    let first = fixture.prepared[&1].clone();
+    let second = fixture.prepared[&2].clone();
+    assert_ne!(
+        first.disclosure.canonical_digest,
+        second.disclosure.canonical_digest
     );
-    let mut scope = store
-        .principal(&support::principal("mara"))
-        .unwrap_or_else(|error| panic!("principal scope: {error}"));
+    fixture.assert_reservations(2, 51, 0);
+    fixture.assert_foreign_refusals(1, sequence);
+    let mut boundary = fixture.client();
+    let hold = checked(boundary.approval_get([1; 32], sequence));
+    assert_eq!(hold.held_activity, first.disclosure);
+    fixture.assert_budget(&hold, 26, sequence);
+
+    let human_root = fixture.root().join("human");
+    let map = support::tenancy(&[("mara", fixture.peer.tenant.as_str())]);
+    let retention = support::retention_uniform(10_000);
+    let (mut store, tenancy_digest) = support::install_and_open(&human_root, &map, retention);
+    let mut scope = checked(store.principal(&support::principal("mara")));
     let passkeys = required(Passkeys::new(auth_config()), "passkeys");
     let mut authenticator = SoftwareAuthenticator::new();
     let first_session = register_session(&passkeys, &mut scope, &mut authenticator, 100);
@@ -567,8 +291,7 @@ fn digest_bound_decisions_converge_and_export_the_agent_outcome() {
         "dev_aabbccddeeff00112233445566778892",
         106,
     );
-    let mut audit = AuditChain::open(&scope).unwrap_or_else(|error| panic!("audit: {error}"));
-
+    let mut audit = checked(AuditChain::open(&scope));
     let wrong_challenge = required(
         passkeys.begin_step_up(
             &mut scope,
@@ -598,13 +321,14 @@ fn digest_bound_decisions_converge_and_export_the_agent_outcome() {
         &mut boundary,
         [1; 32],
         "approve-first-wrong",
-        12,
+        sequence,
         112,
         &mut audit,
-        &TraceId::mint([1; 16]),
+        &TraceId::mint([1; 16])
     )
     .is_err());
-    assert!(queue.is_empty());
+    fixture.assert_reservations(2, 51, 0);
+    assert!(checked(audit.entries(&scope)).is_empty());
 
     let challenge = required(
         passkeys.begin_step_up(
@@ -621,56 +345,112 @@ fn digest_bound_decisions_converge_and_export_the_agent_outcome() {
         passkeys.finish_step_up(&mut scope, &challenge.challenge_id, &assertion, 114),
         "finish approval step-up",
     );
-    let approved = Decisions::approve(
+    let (mut lossy_boundary, relay) = fixture.lose_approval_reply();
+    let lost = Decisions::approve(
         &mut scope,
         &passkeys,
         first_session.access_token().expose(),
         first_session.csrf_token().expose(),
         &evidence,
-        &mut boundary,
+        &mut lossy_boundary,
         [1; 32],
         "approve-first",
-        13,
+        sequence,
         115,
         &mut audit,
         &TraceId::mint([2; 16]),
-    )
-    .unwrap_or_else(|error| panic!("approve: {error}"));
-    assert_eq!(approved.resolution(), AgentDecisionResolution::Applied);
-    assert!(matches!(
-        approved.status(),
-        AgentDecisionStatus::Approved {
-            submission_ref: Some(_)
-        }
-    ));
-    assert_eq!(
-        approved.tracking().map(|tracking| &tracking.state),
-        Some(&SubmissionState::Queued)
     );
-    assert_eq!(queue.len(), 1);
-
-    let second_device = Decisions::reject(
-        &mut scope,
-        &passkeys,
-        second_session.access_token().expose(),
-        second_session.csrf_token().expose(),
-        &mut boundary,
-        [1; 32],
-        "reject-first-other-device",
-        14,
-        116,
-        &mut audit,
-        &TraceId::mint([3; 16]),
-    )
-    .unwrap_or_else(|error| panic!("second device: {error}"));
-    assert!(second_device.already_decided());
     assert!(matches!(
-        second_device.status(),
-        AgentDecisionStatus::Approved { .. }
+        lost,
+        Err(DecisionError::Agent(ApprovalBoundaryError::Unavailable))
     ));
-    assert_eq!(queue.len(), 1, "the held activity is released once");
+    checked(relay.join());
+    fixture.assert_reservations(2, 51, 1);
+    assert!(
+        checked(audit.entries(&scope)).is_empty(),
+        "a lost reply cannot invent a Human success"
+    );
+    drop(audit);
+    drop(scope);
+    drop(store);
+    fixture.reopen();
+    let mut store = checked(PrincipalStore::open(
+        &human_root,
+        support::retention_uniform(10_000),
+        tenancy_digest,
+    ));
+    let mut scope = checked(store.principal(&support::principal("mara")));
+    let mut audit = checked(AuditChain::open(&scope));
+    let mut boundary = fixture.client();
+    let replay = checked(boundary.approval_decide(
+        true,
+        [1; 32],
+        first.disclosure.canonical_digest,
+        "approve-first",
+        sequence,
+    ));
+    let reference = match replay.status {
+        AgentDecisionStatus::Approved {
+            submission_ref: Some(reference),
+        } => reference,
+        status => panic!("durable winner: {status:?}"),
+    };
+    fixture.assert_release(1, reference);
+    fixture.assert_reservations(2, 51, 1);
+    let recovered = checked(boundary.approval_get([1; 32], sequence));
+    assert_eq!(recovered.held_activity, first.disclosure);
+    assert_eq!(
+        recovered.state,
+        AgentApprovalState::Approved {
+            submission_ref: reference
+        }
+    );
+    fixture.assert_budget(&recovered, 26, sequence);
+    let mut wrong_digest = first.disclosure.canonical_digest;
+    wrong_digest[0] ^= 1;
+    assert!(boundary
+        .approval_decide(true, [1; 32], wrong_digest, "approve-first", sequence)
+        .is_err());
+    fixture.assert_foreign_refusals(1, sequence);
+    fixture.assert_release(1, reference);
+    fixture.assert_reservations(2, 51, 1);
 
-    let rejected = Decisions::reject(
+    let tracking = boundary.track_released(reference);
+    eprintln!(
+        "decision after lost-reply reopen: track_released({}) = {tracking:?}; expected state: Queued",
+        hex::encode(reference),
+    );
+    let tracking = checked(tracking);
+    assert_eq!(tracking.state, SubmissionState::Queued);
+    assert_eq!(tracking.submission_ref.as_str(), hex::encode(reference));
+    for (key, now, trace) in [
+        ("reject-first-other-device", 116, [3; 16]),
+        ("reject-first-another-key", 117, [4; 16]),
+    ] {
+        let other = checked(Decisions::reject(
+            &mut scope,
+            &passkeys,
+            second_session.access_token().expose(),
+            second_session.csrf_token().expose(),
+            &mut boundary,
+            [1; 32],
+            key,
+            sequence,
+            now,
+            &mut audit,
+            &TraceId::mint(trace),
+        ));
+        assert!(other.already_decided());
+        assert_eq!(
+            other.status(),
+            AgentDecisionStatus::Approved {
+                submission_ref: None
+            }
+        );
+        assert_eq!(other.tracking(), None);
+        fixture.assert_reservations(2, 51, 1);
+    }
+    let rejected = checked(Decisions::reject(
         &mut scope,
         &passkeys,
         second_session.access_token().expose(),
@@ -678,48 +458,58 @@ fn digest_bound_decisions_converge_and_export_the_agent_outcome() {
         &mut boundary,
         [2; 32],
         "reject-second",
-        15,
-        117,
+        sequence,
+        118,
         &mut audit,
-        &TraceId::mint([4; 16]),
-    )
-    .unwrap_or_else(|error| panic!("reject: {error}"));
+        &TraceId::mint([5; 16]),
+    ));
     assert_eq!(rejected.resolution(), AgentDecisionResolution::Applied);
     assert_eq!(rejected.status(), AgentDecisionStatus::Rejected);
     assert_eq!(rejected.nothing_moved(), Some("Nothing moved."));
-
-    let entries = audit
-        .entries(&scope)
-        .unwrap_or_else(|error| panic!("audit entries: {error}"));
+    fixture.assert_reservations(1, 25, 1);
+    fixture.assert_release(1, reference);
+    let rejected_hold = checked(boundary.approval_get([2; 32], sequence));
+    assert_eq!(rejected_hold.state, AgentApprovalState::Rejected);
+    assert_eq!(rejected_hold.held_activity, second.disclosure);
+    fixture.assert_budget(&rejected_hold, 52, sequence);
+    let rejected_decision = fixture.assert_rejected_decision(2, sequence);
+    let entries = checked(audit.entries(&scope));
     assert_eq!(entries.len(), 3);
-    assert!(matches!(
-        entries[0].event(),
-        AuditEvent::ApprovalDecision {
-            hold_digest,
-            outcome: ApprovalOutcome::Approved,
-            ..
-        } if *hold_digest == first.disclosure.canonical_digest
-    ));
-    assert!(matches!(
-        entries[1].event(),
-        AuditEvent::ApprovalDecision {
-            outcome: ApprovalOutcome::Approved,
-            ..
-        }
-    ));
-    assert!(matches!(
-        entries[2].event(),
-        AuditEvent::ApprovalDecision {
-            hold_digest,
-            outcome: ApprovalOutcome::Rejected,
-            ..
-        } if *hold_digest == second.disclosure.canonical_digest
-    ));
-    let export = audit
-        .export(&scope)
-        .unwrap_or_else(|error| panic!("audit export: {error}"));
-    let report = verify_export(&export).unwrap_or_else(|error| panic!("verify export: {error}"));
+    assert!(matches!(entries[0].event(), AuditEvent::ApprovalDecision {
+        hold_digest, outcome: ApprovalOutcome::Approved, ..
+    } if *hold_digest == first.disclosure.canonical_digest));
+    assert!(matches!(entries[1].event(), AuditEvent::ApprovalDecision {
+        hold_digest, outcome: ApprovalOutcome::Approved, ..
+    } if *hold_digest == first.disclosure.canonical_digest));
+    assert!(matches!(entries[2].event(), AuditEvent::ApprovalDecision {
+        hold_digest, outcome: ApprovalOutcome::Rejected, ..
+    } if *hold_digest == second.disclosure.canonical_digest));
+    let export = checked(audit.export(&scope));
+    let report = checked(verify_export(&export));
     assert_eq!(report.entries(), 3);
     assert_eq!(report.evidence_rows(), 3);
-    let _ = fs::remove_dir_all(directory);
+    drop(audit);
+    drop(scope);
+    drop(store);
+    fixture.reopen();
+    fixture.assert_reservations(1, 25, 1);
+    fixture.assert_release(1, reference);
+    assert_eq!(
+        fixture.assert_rejected_decision(2, sequence),
+        rejected_decision,
+        "the same store must retain the exact daemon-written rejection"
+    );
+    let mut store = checked(PrincipalStore::open(
+        &human_root,
+        support::retention_uniform(10_000),
+        tenancy_digest,
+    ));
+    let scope = checked(store.principal(&support::principal("mara")));
+    let audit = checked(AuditChain::open(&scope));
+    assert_eq!(checked(audit.export(&scope)), export);
+    let mut boundary = fixture.client();
+    let terminal = checked(boundary.approval_get([2; 32], sequence));
+    assert_eq!(terminal.state, AgentApprovalState::Rejected);
+    fixture.assert_budget(&terminal, 52, sequence);
+    assert_eq!(checked(boundary.track_released(reference)), tracking);
 }

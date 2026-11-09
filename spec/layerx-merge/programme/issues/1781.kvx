@@ -1,0 +1,7 @@
+[issue.1781]
+number = 1781
+title = "[Coherence] The perf-db license section names a `LICENSE-MIT` file that the repository does not contain"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "services/platform/perf-db/README.md:350 and services/platform/perf-db/README.md:351 declare Apache-2.0 and link to the existing root LICENSE:3 without naming LICENSE-MIT, while services/platform/perf-db/Cargo.toml:5 also declares Apache-2.0, following commits 9e641c1ddf67040da1703d14b0b2140e91621d39 and 0520b0ef7145985ccfca36fee0f78543f8747dfb."
+close_comment = "PerfDB's README no longer references the missing LICENSE-MIT file and links to the existing repository license text. Both the README and crate metadata now consistently declare Apache-2.0."

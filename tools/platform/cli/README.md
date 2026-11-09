@@ -47,27 +47,39 @@ curl --fail-with-body --silent --show-error "$RPC_URL" \
 ```
 
 The chain ID result is `0x7d`. Node namespaces are `debug`, `echo`, `eth`, `net`,
-`pax`, `test` and `txpool`. Hosted `px_` methods belong to
-[`services/platform/hosted/gateway`](../../../services/platform/hosted/gateway/openrpc.json);
-they are not implied by a public node URL. `node.hyperpaxeer.com` is only the library mirror used by build scripts.
+`pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the library mirror used by build scripts.
 
-**This checkout still has CLI transport gaps.** The old public `/rpc` and `/rpc/ws` routes are retired; they are not public node endpoints.
-[`src/rpc.rs`](src/rpc.rs) still requires that obsolete HTTP suffix, the wallet
-write handler repeats that assumption, and SDK-backed wallet reads use the
-SDK's gateway connection rather than its direct-node connection. Consequently,
-setting `--rpc` to a correct public root URL does not make these commands work
-against a public node. The CLI's bind and program paths also request methods
-that its local RPC allowlist does not admit. Changing the public URL to satisfy
-the old client validation does not fix the network connection.
+The global `--rpc` override and the environment endpoint must be an HTTP(S)
+origin at the root path (`/`); the CLI refuses any other path, including the
+retired `/rpc` route, which the hosted gateway answers with HTTP 404. `--rpc`
+names a node root for node operations; hosted wallet balance and write-account
+queries travel through `--gateway-rpc` with the operator's hosted service origin
+and a gateway credential. Token info and list select the hosted service through
+`--rpc` instead. Bind and program
+commands additionally depend on their methods being admitted by the CLI allowlist;
+the examples here do not qualify those paths.
 
-The RPC examples below document parsed command inputs for an operator-provided
-compatible deployment. `CLI_RPC_URL` denotes that deployment's explicitly
-configured transport, and `beta` denotes an already provisioned gateway-key
-alias. These examples are not a working public-node onboarding sequence.
-Wallet reads and writes additionally require compatible hosted account snapshots;
-the CLI requires a DID-bound `state_proven` account list, which is not the
-hosted gateway's `account`/`height`/`balances` response shape. Such mismatches
-produce errors, rather than a verified balance or successful write.
+An operator must supply the hosted service base URL, an independently trusted
+receipt-key anchor, a bearer identity session for faucet/REST calls and a stored
+gateway-key alias `beta` for gateway-authenticated RPC. Gateway aliases must be
+provisioned separately; `auth set` does not create one. Configure the hosted
+profile explicitly:
+
+```bash
+export CLI_RPC_URL="$HOSTED_SERVICE_URL/"
+layerx environment use beta --endpoint "$HOSTED_SERVICE_URL" --network-id 125 \
+  --sequencer-trust-anchor-file "$RECEIPT_ANCHOR_FILE"
+layerx auth set --environment beta
+```
+
+`HOSTED_SERVICE_URL` is the operator's HTTPS base URL without a trailing slash;
+`auth set` reads the identity token from stdin. Public nodes do not supply this
+hosted identity service. The RPC examples below require this compatible hosted
+deployment and existing funded, bound accounts; they are not public-node
+onboarding commands. The bounded integration test uses loopback peers and
+committed node transcripts; it does not certify a live deployment.
 
 ## Wallet quickstart
 
@@ -120,15 +132,22 @@ caller's idempotency key. These are not Ethereum node JSON-RPC methods.
 
 ### Beta funds
 
-`layerx faucet [--key NAME]` requests the hosted `px_requestFunds` method with
+`layerx faucet --service-endpoint URL [--key NAME]` requests the hosted `px_requestFunds` method with
 the selected key's DID and Ed25519 public key. It requires a bearer identity
 session stored with `layerx auth set`, which reads the token from stdin. Missing
 sessions return `identity_session_required`. Global `--rpc` and
 `--gateway-credential` overrides do not apply to this command.
 
-The faucet handler still constructs the retired HTTP route described above;
-it does not provide a public-node funding path. Availability and eligibility
-are determined by the hosted service, not by the existence of the CLI command.
+With the hosted profile selected, request funds using the identity session:
+
+```bash
+layerx faucet --service-endpoint "$HOSTED_FAUCET_URL" --key payments
+```
+
+`--service-endpoint` is required: it is the hosted faucet JSON-RPC URL, separate
+from the node origin, and the CLI posts to exactly that URL. It does not fund
+through a public Ethereum node. Availability and eligibility are determined by
+the hosted service, not by the existence of the CLI command.
 The decoder requires `funded: true`, a nonempty hexadecimal `funding_id`, a
 nonempty `transaction_id`, a positive canonical decimal `amount` and a nonempty
 `network`. It exposes `transaction_id` as `txHash`; a refusal or incomplete
@@ -136,9 +155,11 @@ response exits nonzero ([implementation](src/faucet.rs)).
 
 ### Prepare signing keys and receipt trust
 
-Wallet and token writes require both the selected wallet's Ed25519 seed and a
-matching EVM private-key export. Offline derivation reads a BIP-39 phrase from
-stdin or `--mnemonic-file`; an optional BIP-39 passphrase uses
+Wallet and token send/transfer require both the selected wallet's Ed25519 seed
+and a matching EVM private-key export. Every write requires `--evm-key-file`,
+`--receipt-policy` and `--fee-limit`; other token writes and open-account use
+the EVM key and selected wallet metadata. Offline derivation reads a BIP-39
+phrase from stdin or `--mnemonic-file`; an optional BIP-39 passphrase uses
 `--passphrase-file`. It prints public metadata and writes secrets only when
 `--export-private-keys` is supplied. The export must be a new file; Unix mode
 0600 is used.
@@ -191,31 +212,38 @@ The following are command-shape examples under the connection prerequisites
 above. `ASSET_ID` is a 64-character hexadecimal asset ID. `RECIPIENT_ACCOUNT`
 is an existing 64-character hexadecimal native account ID, not an EVM address.
 A recipient DID is also accepted, but requires successful hosted account
-resolution for that asset. Amounts are integer base units.
+resolution for that asset. Amounts are integer base units. `--rpc` names the
+node root, while hosted account queries use `--gateway-rpc`.
 
 ```bash
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token create \
   --key payments --symbol PAY --name 'Payment Token' \
   --decimals 6 --supply-cap 1000000000 --salt "$(openssl rand -hex 32)" \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet open-account \
   --key payments --asset "$ASSET_ID" --evm-key-file "$EVM_KEY_FILE" \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token mint \
   --key payments --asset "$ASSET_ID" --to "$RECIPIENT_ACCOUNT" --amount 100 \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token burn \
   --key payments --asset "$ASSET_ID" --amount 1 \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet send \
   --key payments --to "$RECIPIENT_ACCOUNT" --asset "$ASSET_ID" --amount 100 \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token transfer \
   --key payments --to "$RECIPIENT_ACCOUNT" --asset "$ASSET_ID" --amount 10 \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 ```
@@ -225,9 +253,12 @@ commands. Each recipient must open its own asset account before receiving units.
 Writes build chain-125 EIP-1559 transactions. The sender nonce comes from
 `eth_getTransactionCount` at `pending`. Send/transfer separately obtain the
 native source account's `next_sequence`, disclose and sign the Ed25519 debit,
-then disclose and sign the EVM transaction. Source selection validates the
-DID, asset, canonical account name and recomputed account ID from the hosted
-snapshot. Missing, incompatible or ambiguous account evidence is an error.
+then disclose and sign the EVM transaction. Source selection requests
+`px_getAccount [did, asset_id]` and validates its DID, owner, asset, height,
+recomputed account ID and canonical `next_sequence`.
+The hosted producer reads native ledger state at a committed height and labels
+it `committed_eth_call`; a bank balance display cannot authorize a debit.
+Missing or incompatible account evidence is an error.
 
 The handler reads `eth_gasPrice`, computes a gas bound from `--fee-limit` and
 calls `eth_estimateGas` at `pending`. It rejects fees above the limit, submits
@@ -239,7 +270,7 @@ execution evidence. The returned identifier is a `0x`-prefixed transaction hash.
 | --- | --- |
 | `executed` (default) | Verifies the signed receipt and bound execution/log fields; returns rung `receipted` |
 | `batched` | Also matches the committed block hash, number, status and transaction index to `eth_getTransactionReceipt`; returns rung `committed` |
-| `finalised` | Returns `MissingFinalityTrust`; this legacy option is unsupported |
+| `finalised` | Alias of `committed`; verifies the same receipt and committed-block evidence as `batched` |
 
 Use `batched` to request committed-block evidence. Commitment is finality on
 this BFT network; it does not require another certificate. Receipt reads use
@@ -267,13 +298,20 @@ unsigned type-2 transaction with nine RLP fields, estimates gas at `pending`
 and multiplies it by `eth_gasPrice`. It is subject to the CLI transport limits.
 `FROM_ADDRESS` is a `0x`-prefixed 20-byte EVM address.
 
-The implemented watch selector is `wallet watch account --account-id
-"$WATCH_ADDRESS"`, where `WATCH_ADDRESS` is an EVM log-emitting address, not a
+Watch the account-log selector through the operator's hosted subscription
+transport:
+
+```bash
+layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet watch account \
+  --account-id "$WATCH_ADDRESS" --timeout-seconds 60
+```
+
+`WATCH_ADDRESS` is a `0x`-prefixed 20-byte EVM log-emitting address, not a
 native account ID. It maps to `eth_subscribe` with a `logs` address filter and
 requires a stored gateway credential. Although clap still lists `receipts` and
-`checkpoints`, the subscription handler rejects those selectors. Its WebSocket
-URL construction also retains the retired route assumption; it is not a
-public-node WebSocket configuration guide.
+`checkpoints`, the subscription handler rejects those selectors. The hosted
+service must support the WebSocket upgrade at the configured RPC URL, using the gateway key. This does not configure a public-node
+WebSocket connection.
 
 A watch returns one notification with `verified: false` and exits. Its timeout
 accepts 1–300 seconds and defaults to 60. A notification establishes no
@@ -282,23 +320,33 @@ reads before reconnecting ([subscription implementation](src/rpc_subscription.rs
 
 ### Public JSON-RPC reads
 
-Use direct root-node requests for standard Ethereum reads. The CLI's native
-wallet and token reads require hosted methods and the compatible transport
-and response shapes described above:
+Use direct root-node requests for standard Ethereum reads. Wallet balance uses
+hosted methods through `--gateway-rpc`, while `--rpc` names the node root.
+Token info and list accept the hosted service URL through `--rpc`; these
+commands have no `--gateway-rpc` option. All require the compatible transport
+described above:
 
 ```bash
-layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet balance --did "$WALLET_DID"
+layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet balance --did "$WALLET_DID" \
+  --gateway-rpc "$HOSTED_SERVICE_URL/"
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet balance \
-  --did "$WALLET_DID" --asset "$ASSET_ID"
-layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token info "$ASSET_ID"
-layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token list --limit 64
+  --did "$WALLET_DID" --asset "$ASSET_ID" \
+  --gateway-rpc "$HOSTED_SERVICE_URL/"
+layerx --rpc "$HOSTED_SERVICE_URL/" --gateway-credential beta token info "$ASSET_ID"
+layerx --rpc "$HOSTED_SERVICE_URL/" --gateway-credential beta token list --limit 16
 ```
 
-Balance uses `px_getBalances`; token listing uses `px_listAssets`. Token info
-searches asset-list pages for the requested asset. `token list` accepts an
-optional `--cursor` and a `--limit` of 1–256; the default page size is 64.
-Asset metadata is unverified read data. Unknown methods, malformed responses
-and unavailable account evidence exit nonzero. Retired `lx_` methods are
+Balance uses `px_getBalances [did]` and displays the hosted `account`, `height`
+and bank `balances` with `units: base`, `evidence: committed_eth_call` and
+`verification: unverified_node_observation`.
+An asset filter selects the bank denomination `layerx/<asset_id>`; this read
+neither requires nor claims a native state proof. Token listing uses
+`px_listAssets`; token info searches its pages for the requested asset.
+`token list` accepts an optional canonical decimal registration `--cursor`
+from the previous page and a `--limit` of 1–16; the default page size is 16.
+Pages follow registration order, not lexical asset-ID order. Bank custody
+metadata and committed observations are not authenticated native state proofs.
+Unknown methods, malformed responses and unavailable account evidence exit nonzero. Retired `lx_` methods are
 explicitly refused by the CLI RPC allowlist.
 
 ## MCP payment surface

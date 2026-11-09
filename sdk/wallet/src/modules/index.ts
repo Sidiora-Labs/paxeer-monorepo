@@ -101,6 +101,9 @@ export async function sendModuleTransactionReceipted(
       expectedHash,
       { rung: 'receipted' }
     );
+    requireAuthenticatedReceipt(value);
+    matchReceiptTransaction(value, from, tx);
+    return value;
   }
   const answer = await authenticateSequencerReceipt(rpc, value, expectedHash);
   requireAuthenticatedReceipt(answer);

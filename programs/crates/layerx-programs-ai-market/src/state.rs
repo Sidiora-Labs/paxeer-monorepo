@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, Reader, StateFrame, Writer},
     errors::{
@@ -150,7 +151,7 @@ impl ReplayTable {
     }
     #[must_use]
     pub fn actor(&self, slot: ActorSlot) -> Option<ActorReplay> {
-        self.actors[usize::from(slot.0)]
+        *self.actors.guest_index(usize::from(slot.0))
     }
     /// Binds an empty slot to `principal` at `authority_version`.
     ///
@@ -165,7 +166,7 @@ impl ReplayTable {
         if self.actor(slot).is_some() {
             return Err(CONFLICT);
         }
-        self.actors[usize::from(slot.0)] = Some(ActorReplay {
+        *self.actors.guest_index_mut(usize::from(slot.0)) = Some(ActorReplay {
             principal,
             authority_version,
             last: None,
@@ -184,7 +185,7 @@ impl ReplayTable {
         if self.actor(slot).is_none() {
             return Err(NOT_FOUND);
         }
-        self.actors[usize::from(slot.0)] = None;
+        *self.actors.guest_index_mut(usize::from(slot.0)) = None;
         Ok(())
     }
     /// Rebinds the operator slot under a newer grant, dropping its retained result.
@@ -197,7 +198,7 @@ impl ReplayTable {
         if grant <= previous.authority_version {
             return Err(CONFLICT);
         }
-        self.actors[2] = Some(ActorReplay {
+        *self.actors.guest_index_mut(2) = Some(ActorReplay {
             principal,
             authority_version: grant,
             last: None,
@@ -236,6 +237,7 @@ impl ReplayTable {
     /// differs, `REPLAY_CONFLICT` when the retained sequence is reused by a different request,
     /// `SEQUENCE_CONSUMED` when the sequence is behind, `SEQUENCE_GAP` when it skips ahead,
     /// `ARITHMETIC` when the next sequence overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn check(&self, request: &ReplayRequest, height: u64) -> CodecResult<ReplayDecision> {
         request.validate(height)?;
         let actor = self.actor(request.slot).ok_or(NOT_FOUND)?;
@@ -270,6 +272,7 @@ impl ReplayTable {
     /// # Errors
     /// Propagates `check` refusals; returns `NON_CANONICAL` when `revision` is zero or behind the
     /// retained applied revision, `ARITHMETIC` when the revision overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn record_success(
         &mut self,
         request: &ReplayRequest,
@@ -300,7 +303,7 @@ impl ReplayTable {
             applied_revision: next_revision,
             expiry_height: request.expiry_height,
         };
-        self.actors[usize::from(request.slot.0)] = Some(ActorReplay {
+        *self.actors.guest_index_mut(usize::from(request.slot.0)) = Some(ActorReplay {
             last: Some(retained),
             ..actor
         });
@@ -326,6 +329,7 @@ impl ReplayRequest {
     /// # Errors
     /// Returns `NON_CANONICAL` when the operation is not role-sequenced or the request digest is
     /// zero; propagates the request-digest hashing refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn from_envelope(
         slot: ActorSlot,
         authority_version: Version,
@@ -380,6 +384,7 @@ impl HeightWindow {
     /// # Errors
     /// Returns `NON_CANONICAL` when the offsets are not an ordered window within 128 blocks;
     /// `ARITHMETIC` when a window height overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn epoch(origin: u64, epoch: u64, start_offset: u64, end_offset: u64) -> CodecResult<Self> {
         if start_offset >= end_offset || end_offset > 128 {
             return Err(NON_CANONICAL);
@@ -426,16 +431,20 @@ pub fn encode_replay(table: &ReplayTable, out: &mut [u8]) -> CodecResult<usize> 
     for (slot, actor) in table.actors.iter().enumerate() {
         if let Some(actor) = actor {
             w.u16(u16::try_from(slot).map_err(|_| ARITHMETIC)?)?;
-            w.put(actor.principal.as_bytes())?;
-            w.u64(actor.authority_version.get())?;
-            w.boolean(actor.last.is_some())?;
+            crate::codec::write_fields!(w;
+                id32: actor.principal.as_bytes();
+                u64: actor.authority_version.get();
+                u8: u8::from(actor.last.is_some());
+            )?;
             if let Some(last) = actor.last {
-                w.u64(last.sequence)?;
-                w.put(last.request_id.as_bytes())?;
-                w.put(last.request_digest.as_bytes())?;
-                w.put(last.result_digest.as_bytes())?;
-                w.u64(last.applied_revision)?;
-                w.u64(last.expiry_height)?;
+                crate::codec::write_fields!(w;
+                    u64: last.sequence;
+                    id32: last.request_id.as_bytes();
+                    id32: last.request_digest.as_bytes();
+                    id32: last.result_digest.as_bytes();
+                    u64: last.applied_revision;
+                    u64: last.expiry_height;
+                )?;
             }
         }
     }
@@ -458,20 +467,18 @@ fn read_replay(r: &mut Reader<'_>) -> CodecResult<ReplayTable> {
         let principal = r.principal_id()?;
         let authority_version = r.version()?;
         let last = if r.boolean()? {
-            let last = RetainedResult {
-                sequence: r.u64()?,
-                request_id: r.request_id()?,
-                request_digest: r.request_digest()?,
-                result_digest: r.result_digest()?,
-                applied_revision: r.u64()?,
-                expiry_height: r.u64()?,
-            };
+            let last = crate::codec::read_record!(r, RetainedResult { sequence = r.u64()?; }; request_id = r.request_id()?;
+                request_digest: RequestDigest,
+                result_digest: ResultDigest,
+                applied_revision: U64,
+                expiry_height: U64
+            );
             last.validate()?;
             Some(last)
         } else {
             None
         };
-        table.actors[usize::from(slot.0)] = Some(ActorReplay {
+        *table.actors.guest_index_mut(usize::from(slot.0)) = Some(ActorReplay {
             principal,
             authority_version,
             last,
@@ -532,10 +539,11 @@ pub fn encode_control(control: &Control<'_>, out: &mut [u8]) -> CodecResult<usiz
     if out.len() < n {
         return Err(CAPACITY);
     }
-    out[..2].copy_from_slice(&SCHEMA_VERSION.to_be_bytes());
-    out[2..4].fill(0);
-    let replay_len = encode_replay(&control.replay, &mut out[4..])?;
-    let mut w = Writer::new(&mut out[4 + replay_len..n]);
+    out.guest_index_mut(..2)
+        .guest_copy_from_slice(&SCHEMA_VERSION.to_be_bytes());
+    out.guest_index_mut(2..4).fill(0);
+    let replay_len = encode_replay(&control.replay, out.guest_index_mut(4..))?;
+    let mut w = Writer::new(out.guest_index_mut(4 + replay_len..n));
     w.bytes(control.feature_bytes, Section::Control.payload_cap())?;
     Ok(n)
 }
@@ -573,12 +581,51 @@ pub struct SharedState<'a> {
     pub feature_sections: [&'a [u8]; 5],
     pub control: Control<'a>,
 }
-impl SharedState<'_> {
+impl<'s> SharedState<'s> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn room_market(&self) -> CodecResult<(&'s [u8], &'s [u8])> {
+        let bytes = *self
+            .feature_sections
+            .guest_index(Section::SettlementClaims.index());
+        if !bytes.ends_with(b"PAXAI/F11") {
+            return Ok((bytes, &[]));
+        }
+        let footer = bytes.len().checked_sub(13).ok_or(NON_CANONICAL)?;
+        let len = u32::from_be_bytes(
+            bytes
+                .guest_index(footer..footer + 4)
+                .try_into()
+                .map_err(|_| NON_CANONICAL)?,
+        ) as usize;
+        let at = footer.checked_sub(len).ok_or(NON_CANONICAL)?;
+        Ok((bytes.guest_index(..at), bytes.guest_index(at..footer)))
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn encode_room_market(&self, book: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+        let (prefix, _) = self.room_market()?;
+        let len = prefix
+            .len()
+            .checked_add(book.len())
+            .and_then(|n| n.checked_add(13))
+            .ok_or(ARITHMETIC)?;
+        if len > Section::SettlementClaims.payload_cap() || out.len() < len {
+            return Err(CAPACITY);
+        }
+        let mut w = Writer::new(out);
+        w.put(prefix)?;
+        w.put(book)?;
+        w.u32(u32::try_from(book.len()).map_err(|_| ARITHMETIC)?)?;
+        w.put(b"PAXAI/F11")?;
+        Ok(w.len())
+    }
+
     /// Records a successful role request; the state is unchanged on any refusal.
     ///
     /// # Errors
     /// Propagates `SharedState::encoded_len` refusals for the current and candidate state and the
     /// replay table's `check`/`record_success` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn record_success(
         &mut self,
         request: &ReplayRequest,
@@ -590,15 +637,17 @@ impl SharedState<'_> {
         if matches!(decision, ReplayDecision::AlreadyApplied(_)) {
             return Ok(decision);
         }
-        let mut candidate = self.clone();
-        candidate.control.replay.record_success(
-            request,
-            height,
-            &mut candidate.revision,
-            result,
-        )?;
-        candidate.encoded_len()?;
-        *self = candidate;
+        let index = usize::from(request.slot.0);
+        let previous_actor = *self.control.replay.actors.guest_index(index);
+        let previous_revision = self.revision;
+        self.control
+            .replay
+            .record_success(request, height, &mut self.revision, result)?;
+        if let Err(error) = self.encoded_len() {
+            *self.control.replay.actors.guest_index_mut(index) = previous_actor;
+            self.revision = previous_revision;
+            return Err(error);
+        }
         Ok(ReplayDecision::Apply)
     }
     /// Encoded byte length of the full state frame.
@@ -625,7 +674,9 @@ impl SharedState<'_> {
             .checked_add(control_len)
             .ok_or(ARITHMETIC)?;
         for (i, bytes) in self.feature_sections.iter().enumerate() {
-            if bytes.len() > codec::STATE_SECTION_CAPS[i] - codec::STATE_SECTION_HEADER_BYTES {
+            if bytes.len()
+                > *(codec::STATE_SECTION_CAPS).guest_index(i) - codec::STATE_SECTION_HEADER_BYTES
+            {
                 return Err(CAPACITY);
             }
             total = total.checked_add(bytes.len()).ok_or(ARITHMETIC)?;
@@ -640,7 +691,7 @@ impl SharedState<'_> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for `Section::Control`, which is not a feature section.
-    pub fn section(&self, section: Section) -> CodecResult<&[u8]> {
+    pub fn section(&self, section: Section) -> CodecResult<&'s [u8]> {
         self.feature_sections
             .get(section.index())
             .copied()
@@ -651,20 +702,29 @@ impl SharedState<'_> {
     /// # Errors
     /// Returns `NON_CANONICAL` for `Section::Control`; propagates `SharedState::encoded_len`
     /// refusals for the result.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn replace_section<'a>(
         &'a self,
         section: Section,
         bytes: &'a [u8],
     ) -> CodecResult<SharedState<'a>> {
+        self.clone().with_section(section, bytes)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn with_section<'a>(
+        self,
+        section: Section,
+        bytes: &'a [u8],
+    ) -> CodecResult<SharedState<'a>>
+    where
+        's: 'a,
+    {
         if section == Section::Control {
             return Err(NON_CANONICAL);
         }
-        let mut next = SharedState {
-            revision: self.revision,
-            feature_sections: self.feature_sections,
-            control: self.control.clone(),
-        };
-        next.feature_sections[section.index()] = bytes;
+        let mut next: SharedState<'a> = self;
+        *next.feature_sections.guest_index_mut(section.index()) = bytes;
         next.encoded_len()?;
         Ok(next)
     }
@@ -689,12 +749,12 @@ pub fn encode_shared_state(
         &StateFrame {
             revision: state.revision,
             sections: [
-                state.feature_sections[0],
-                state.feature_sections[1],
-                state.feature_sections[2],
-                state.feature_sections[3],
-                state.feature_sections[4],
-                &control_scratch[..control_len],
+                *state.feature_sections.guest_index(0),
+                *state.feature_sections.guest_index(1),
+                *state.feature_sections.guest_index(2),
+                *state.feature_sections.guest_index(3),
+                *state.feature_sections.guest_index(4),
+                control_scratch.guest_index(..control_len),
             ],
         },
         out,
@@ -711,7 +771,9 @@ pub fn settlement_rewards<'a>(
     state: &SharedState<'a>,
     known: Option<RewardState<'a>>,
 ) -> CodecResult<RewardState<'a>> {
-    let bytes = state.feature_sections[Section::SettlementClaims.index()]
+    let bytes = state
+        .feature_sections
+        .guest_index(Section::SettlementClaims.index())
         .get(..REWARD_STATE_BYTES)
         .ok_or(WRONG_EPOCH)?;
     match known {
@@ -729,13 +791,13 @@ pub fn decode_shared_state(input: &[u8]) -> CodecResult<SharedState<'_>> {
     let state = SharedState {
         revision: frame.revision,
         feature_sections: [
-            frame.sections[0],
-            frame.sections[1],
-            frame.sections[2],
-            frame.sections[3],
-            frame.sections[4],
+            *frame.sections.guest_index(0),
+            *frame.sections.guest_index(1),
+            *frame.sections.guest_index(2),
+            *frame.sections.guest_index(3),
+            *frame.sections.guest_index(4),
         ],
-        control: decode_control(frame.sections[5])?,
+        control: decode_control(*frame.sections.guest_index(5))?,
     };
     state.encoded_len()?;
     Ok(state)

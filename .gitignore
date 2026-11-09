@@ -52,6 +52,7 @@ node_modules/
 # Runtime state and logs
 /.logs/
 *.log
+!tools/jev/tests/fixtures/failures/*.log
 *.db
 *.db-*
 *.sqlite
@@ -75,6 +76,9 @@ node_modules/
 *.p12
 *.pfx
 *.keystore
+!services/platform/ramps/reference/tests/fixtures/repair_fixtures/localhost.pem
+!services/platform/ramps/reference/tests/fixtures/repair_fixtures/localhost.p12
+!services/agent/crates/layerx-sdk/tests/fixtures/repair_22_31_227_fixture/ca.pem
 
 # Local editor packages and machine state
 /.vscode/*
@@ -106,7 +110,7 @@ sdk/platform/dotnet/bin/
 sdk/platform/dotnet/obj/
 sdk/platform/dotnet/tests/*/bin/
 sdk/platform/dotnet/tests/*/obj/
-services/platform/docs/samples/*/first-payment-go
+services/platform/examples/samples/*/first-payment-go
 tools/specgen/specgen
 
 # Python bytecode caches
@@ -129,6 +133,7 @@ __pycache__/
 /sdk/build/
 /wasm/build/
 /interchain/build/
+!/tools/hyperfide/.codex/hooks.json
 /evm_stress
 **/.terraform
 *terraform.lock.hcl

@@ -1,0 +1,197 @@
+[repair.22.31.516]
+acceptance = "22998.1"
+base_revision = "f1d852f7ed429bc2dbdc025fc685e6a0f006bdd8"
+gotcha = "3075"
+decision = "2564"
+exports = "budget_state::{Configuration, Session, identity_key, read, read_dynamic, export, export_at, export_dynamic}; BudgetStateConfig; human_policy::{PrincipalPolicy, Identity, EvidenceReference, Authority, ScopeBinding, KeyPolicy}; Response; committed::CommittedHeader and its shared native proof verification"
+implementation = "The binary and daemon fixtures consume the same library budget producer, policy types, response helpers and committed-header verifier; the existing record/native submodules remain the single implementations."
+removed = "Both authority_producer path-included crate stand-ins, including Config, Identity, PrincipalPolicy, Response, digest, json, refusal and unavailable."
+compatibility = "Production checks, wire bytes, bounds and assertions are preserved. The two recovery reads supply the current trusted runtime-clock sample required by ApprovalService::get. Existing fixture-recording tests retain their original ignored recording-only status."
+
+[verification]
+build = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_approval_budget_actor --test human_projection_facts"
+revision = "The exact candidate revision in the private hf-build/hf-done ledger /out/run/gates.jsonl; both gates must identify the same revision."
+evidence = "The final hf-done ledger row records revision, command, exit code and private log location. No passing result is claimed unless that gate exits zero."
+
+[run.human_approval_budget_actor]
+target = "human_approval_budget_actor"
+criterion = "The authenticated approval actor preserves its budget facts and refuses invalid requests after durable recovery."
+evidence = "The human_approval_budget_actor result in the focused hf-done verification log."
+
+[run.human_projection_facts]
+target = "human_projection_facts"
+criterion = "Authenticated approval and managed exports preserve facts, refusals and reopen behavior."
+evidence = "The human_projection_facts result in the same focused hf-done verification log."
+
+[gotcha.dependency-index]
+observed = "The sandbox starts without a populated Cargo index, so offline dependency resolution refused packages already named by the workspaces."
+resolution = "Resolve the changed dependency graph through the normal Cargo index before the locked gates; no build or test was run during implementation."
+
+[repair.module-paths]
+revision = "5378861d1f76acdc4bc74bfe1423022022a398e5"
+command = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Exporting the existing budget_state.rs through a path attribute changes Rust child-module resolution to human/; native.rs and record.rs were not found there."
+repair = "Explicit child paths point to the existing budget_state/native.rs and budget_state/record.rs implementations without duplicating them."
+
+[qualification.preexisting-approval-semantics]
+revision = "581548ee90adc666f269c7fd44ae6f7de8f933ed"
+command = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "The authority binary builds, but untouched approval_semantics.rs has four DecisionRequest initializers missing current_time (lines 171, 191, 245, 269) and one get call missing its TimestampSeconds argument (line 298); hf-done did not run."
+assumption = "These pre-existing approval API consumer errors are unrelated to replacing authority path includes; preserve them under the explicit record-dont-chase instruction."
+
+[qualification.attempt_2_build]
+revision = "9d2aa1225298f482b32ed184b15c382808a1c1ee"
+command = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_2_verify]
+revision = "9d2aa1225298f482b32ed184b15c382808a1c1ee"
+command = "cg spec done 22.31.516 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The declared cargo test exited 101 at human_approval_budget_actor.rs:736: the recorded budget-state verification is 4, while RemoteHumanAuthority::budget_state requires VerificationLevel::COMMITTED.wire_rank() (6); human_projection_facts did not execute because Cargo stopped after the first failing target."
+assumption = "Changing the authority's existing verification label or the tests' existing 4..=5 assertions contradicts this task's no-behavior-change and no-assertion-change constraints; record the inherited contract mismatch without chasing or repeating an unchanged gate."
+
+[qualification.attempt_2_disposition]
+status = "implemented_not_qualified"
+prerequisite = "The supplied base cdc031c745376234ac010cc61ede4f84eac6abe1 already includes the qualified 22.31.519 repair; no rebase or source edit was needed."
+dependents = "The automatic dependent-crate checks passed for all 13 recorded crates; private evidence is /out/logs/dependents-1.log and /out/run/gates.jsonl."
+source_changes_after_gates = false
+record_changes_after_gates = "Only this result record was appended after qualification; revision above identifies the tested candidate before this evidence append."
+completion = "hf-done failed; no passing verification, task completion, manual commit or push is claimed. The original recording-only tests retain their pre-existing ignored status."
+
+[qualification.attempt_3]
+base_revision = "cd92cc7ca508130c829d79dd34fb8d418c86fe62"
+prerequisite = "The supplied base includes 22.31.535; retain its committed verification labels and all attempt 2 library exports and dependency changes."
+repair = "Both recorded budget-state JSON literals use the committed wire rank 6; recording checks, remote-state checks and approval-budget wire assertions require layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(). Projection metadata strings remain as recorded."
+supersedes = "The attempt 2 label-contract conflict is resolved by 22.31.535 and decision 2593; no authority or daemon behavior changes in this continuation."
+revision = "The exact verified candidate is the revision field of the final verify row in /out/run/gates.jsonl, which must equal the build row revision; the final response copies that row verbatim."
+command = "cg spec done 22.31.516 -f layerx-merge --root /work/paxeer-monorepo"
+test_runs = "human_approval_budget_actor and human_projection_facts execute together through the declared hf-done gate; their individual outcomes are in its private verification log."
+evidence = "Private /out/run/gates.jsonl records the exact revision, command, exit and log for this continuation; success is established only by hf-done exit zero, with no file edits after the gates."
+
+[qualification.attempt_3_build]
+revision = "9fa8d294623ef613e19fbe0fef2e12ceea37d877"
+command = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_3_dependents]
+revision = "9fa8d294623ef613e19fbe0fef2e12ceea37d877"
+command = "hf-done"
+exit = 7
+log = "/out/logs/dependents-1.log"
+observed = "The automatic dependent-crate check exited 101 with E0063 at services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs:590: GrantTerms is missing receiver_did_key; hf-done refused before cg spec done or either focused test ran."
+assumption = "The host test is outside this task's scope; preserve it and stop under the gate's explicit instruction without retrying the unchanged failure."
+
+[qualification.attempt_3_disposition]
+status = "implemented_not_qualified"
+source_changes_after_gates = false
+record_changes_after_gates = "Only these evidence entries were appended after the failed gate; the recorded revision identifies the built candidate."
+completion = "The declared build passed; verification never ran because the dependent-crate check failed. No completion, manual commit or push is claimed."
+
+[qualification.attempt_4]
+revision = "03ef231d21cc0855ff89657a3af1eace227b9a55"
+command = "cg spec done 22.31.516 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all dependent checks passed, but human_approval_budget_actor failed at line 1025; human_projection_facts did not execute because Cargo stopped at the first target."
+assumption = "The unchanged daemon src/human_runtime.rs requires COMMITTED rank 6 in RemoteHumanAuthority::budget_state but accepts only ranks 4 through 5 in approval_budget_after at line 9903; changing this production guard is outside scope and changing the fixture or assertion cannot satisfy both checks."
+
+[qualification.attempt_4_build]
+revision = "03ef231d21cc0855ff89657a3af1eace227b9a55"
+command = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_4_disposition]
+status = "implemented_not_qualified"
+prerequisite = "The supplied base 67440eb40a1a12ffb2339e89ac29a382c43be4cf already contains 22.31.536 at 0935120943; no rebase or implementation repair was needed."
+dependents = "All automatic dependent-crate checks passed; private evidence is /out/logs/dependents-1.log and /out/run/gates.jsonl."
+source_changes_after_gates = false
+record_changes_after_gates = "Only this continuation result was appended after qualification; the revision above identifies the tested candidate before this evidence append."
+completion = "hf-done failed; no completion, commit or push is claimed, and the unrelated production contract conflict was recorded without an unchanged rerun."
+
+[qualification.attempt_5]
+prerequisite_revision = "9abc19544ec93a552f3cf460e80f608f13528a49"
+prerequisite = "The supplied checkout already merges 22.31.538 at 520744d625501e5a862101b09079a65b79b05bf0; retain all attempt 4 source changes and COMMITTED assertions without another rebase."
+implementation = "No source changes in this continuation; both fixture recorders use the shared authority library producer and its own policy and configuration types."
+command = "cg spec done 22.31.516 -f layerx-merge --root /work/paxeer-monorepo"
+revision = "The exact candidate revision is recorded by the build and verify rows in /out/run/gates.jsonl; both rows must name the same revision."
+test_runs = "The declared hf-done gate runs human_approval_budget_actor and human_projection_facts together; each target result is recorded in /out/logs/verify-1.log."
+evidence = "Use the final hf-done ledger row for the exact revision, command, exit code and private log path; this record does not claim a gate passed before it executes."
+record_timing = "Written before qualification so the repair record is included in the candidate compiled and verified by both gates."
+
+[qualification.attempt_5_build]
+revision = "c9f432702e445e06780f630e850853b082a871e2"
+command = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The authority build passed, but the daemon repair_22_31_535 test target failed with E0433 and E0432 in src/budget/budget_proof.rs:750 and :753 because crate::budget cannot be resolved."
+assumption = "This inherited test-module import failure is unrelated to the authority library extraction; preserve it under the explicit record-dont-chase instruction."
+
+[qualification.attempt_5_disposition]
+status = "implemented_not_qualified"
+verification = "hf-done did not run because hf-build failed; neither focused test execution nor spec completion is claimed."
+source_changes_after_gates = false
+record_changes_after_gates = "Only this failure evidence and disposition were appended after the gate; the recorded revision identifies the built candidate."
+completion = "No manual commit or push was made; the unrelated failure was recorded without repair or an unchanged gate rerun."
+
+[qualification.attempt_7]
+base_revision = "2f46f7d528280494bc50be0a659405238a78831e"
+prerequisite = "The runner applied attempt 6 onto the supplied current main revision; all authority library exports, dev-dependency, recorded responses and COMMITTED assertions are retained."
+repair = "Five refusal expectations assert the complete LXHAGT01 frame, status 1 and a big-endian u32 length-prefixed operation.refused reason through a field helper; foreign subject authorization, stale sequence and changed held digest paths return HumanOperationError::Refused."
+revision = "The final verify row in the private /out/run/gates.jsonl ledger names the exact candidate revision and must match the build row."
+test_runs = "hf-done executes human_approval_budget_actor and human_projection_facts together through the declared verify_cmd; individual outcomes are recorded in that row's private log."
+evidence = "The final gate ledger rows supply revision, command, exit code and private log location; no success is claimed before hf-done passes, and no file is amended after qualification."
+
+[qualification.attempt_8]
+base_revision = "2fc866681fa7ba2aa906d8462798037379801541"
+prerequisite = "The supplied checkout already matches origin/main; the attempt-7 authority library, dev-dependency, recorded responses and full-frame refusal assertions remain intact."
+repair = "The legacy reservation hold now calls hold_reserved_at with the original arguments followed by runtime.clock.as_ref(); all subsequent expectations remain unchanged."
+audit = "Both declared test files were searched for calls of hold, hold_reserved, reserve_and_hold, decide and expire without _at or _timed; the legacy hold was the only remaining call and its obsolete import was removed."
+revision = "The final hf-done row in the private /out/run/gates.jsonl ledger identifies the verified candidate and must match the hf-build revision."
+test_runs = "hf-done runs human_approval_budget_actor and human_projection_facts through the declared verify_cmd; each target result is recorded in the private verification log named by that ledger row."
+evidence = "Copy revision, command, exit and log from the final hf-done ledger row; success is claimed only after that gate passes. No file is amended after qualification."
+
+[qualification.attempt_9]
+base_revision = "f37a4ade5c0cc5f1cae1ddab141cec2e7c713f60"
+prerequisite = "The supplied base already descends from current main; preserve the complete attempt-8 implementation."
+repair = "After dropping the fixture owner and shared store, reopen Store, read the legacy approval's tenant-scoped approval-hold-v1 record, assert LXAPHLD5, extract its big-endian u32-length-prefixed LXAPHLD4 payload, assert that legacy magic, persist only that payload with put_local, and drop Store before the serving owner reopens it."
+assertions = "The legacy operation 47 still requires LXHAGT01 followed by status byte 2; all other response expectations and production sources remain as supplied."
+revision = "The final hf-done row in /out/run/gates.jsonl identifies the verified revision and must match the hf-build revision."
+test_runs = "hf-done runs human_approval_budget_actor and human_projection_facts together through the declared verify_cmd; the private log named in its ledger row records each target's outcome."
+evidence = "The final gate ledger rows record exact revision, command, exit and private log path; no passing result is claimed before hf-done passes, and no file is amended after qualification."
+
+
+[qualification.attempt_10]
+base_revision = "184d90e5dcdc399d85310343f5bacdd357ccb62f"
+gotcha = "3161"
+decision = "2617"
+repair = "The main reopen case preserves the timed LXAPHLD5 legacy-named hold and checks its successful facts frame, approval id and exact payload length: the approval encoder's payload plus the two-byte facts version and sixteen bytes of time facts; no other facts byte is pinned."
+regression = "pre_clock_hold_record_refuses_to_open shares the complete timed-hold fixture setup, drops its owners and shared store, rewrites the reopened hold to its embedded LXAPHLD4 payload, reopens again and observes UnifiedAgentOwner::new returning Refused without must. ApprovalRegistry replay independently reports LegacyTimeUnits and exposes no holds; no serving worker or socket exists."
+implementation = "The shared fixture prepare path returns before starting a serving owner; Runtime::try_owner uses exactly the existing constructor arguments and returns its error. The main fixture still requires owner construction to succeed. All supplied authority library exports, dev-dependency, recorded responses, COMMITTED checks and full-frame refusal assertions remain intact; production sources are unchanged in this continuation."
+revision = "The final hf-done row in /out/run/gates.jsonl identifies the exact verified candidate and must match the hf-build revision."
+test_runs = "hf-done runs human_approval_budget_actor and human_projection_facts together through the declared verify_cmd, including the timed-hold serving case and pre-clock reopen refusal case; each result is in the private log named by that ledger row."
+evidence = "The final gate ledger rows record exact revision, command, exit and private log path; success is claimed only after hf-done passes, and no file is amended after the gates."
+
+
+[qualification.attempt_10_repair_1]
+revision = "4aba0b6bda8541491df727d88ae79138a4e8ebb1"
+command = "cg spec done 22.31.516 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build and dependent-crate checks passed; the new pre-clock refusal case passed, but the main case reached its retained-store read and Store::open refused a second writer while the serving owner held the writer lock."
+repair = "Both read-only retained-store inspections now use the production Store::open_read_only snapshot API; all assertions, live transport exchanges and serving-owner restart remain intact. Fixture writes and the pre-clock test's real writer reopen still use Store::open."
+evidence = "The final build and verify rows in /out/run/gates.jsonl record the repaired candidate, exact commands, exits and private logs; both gates must name the same revision. No success is claimed until hf-done passes."
+
+[regression.managed_agent_checks_613]
+boundary = "The foreign-principal, stale-sequence and changed-held-digest frames are refused by subject authorization or approval_budget_after outside managed_agent and retain operation.refused; the managed export zero-digest case now asserts ManagedAgent(EvidenceDigest)."
+execution = "The existing regression target runs alone under task 22.31.613; tests/repair_22_31_613.kvx references its private command, revision, exit and log. All behavioral cases and recording-only ignore attributes are preserved."
+evidence = "The final passing verify row in /out/run/gates.jsonl supplies the verified revision, command, exit and private log and must match the final passing build row; no result is claimed before execution."

@@ -616,16 +616,18 @@ fn blank_row() -> CodecResult<ParticipantRow> {
 fn queries_read_the_worker_prefix_beside_the_region() -> TestResult {
     let (walk, worker) = Walk::enrolled(&key(0x41))?;
     let s = &walk.state;
-    let mut expected = [Availability::NotYetProduced; 10];
+    let mut expected = [Availability::NotYetProduced; 11];
     expected[0] = Availability::Available;
     expected[1] = Availability::Available;
-    expected[5] = Availability::NotEnabled;
+    expected[2] = Availability::Available;
+    expected[6] = Availability::Available;
     expected[9] = Availability::Available;
+    expected[10] = Availability::NotEnabled;
     assert_eq!(feature_availability(s)?, expected);
 
     let blank = blank_row()?;
     let mut rows = [blank; 2];
-    assert_eq!(participant_rows(s, None, &mut rows)?, 1);
+    assert_eq!(participant_rows(s, None, &mut rows)?, 2);
     assert_eq!(
         rows[0],
         ParticipantRow {
@@ -640,12 +642,33 @@ fn queries_read_the_worker_prefix_beside_the_region() -> TestResult {
             metadata: Presence::Present(MetadataDigest::new(METADATA)?),
             metadata_revision: 1,
             score: ScoreField::absent(Presence::Absent, ScoreStatus::NotProduced)?,
-            reward: RewardField::unavailable(Availability::NotEnabled)?,
+            reward: RewardField::unavailable(Availability::NotYetProduced)?,
             history_status: Availability::NotYetProduced,
             history: Presence::Absent,
         }
     );
-    assert_eq!(rows[1], blank);
+    let identity = identity(s)?;
+    let region = authority::evaluator_region(&identity)?;
+    let evaluator = region.records().next().ok_or(NOT_FOUND)?.grant;
+    assert_eq!(
+        rows[1],
+        ParticipantRow {
+            kind: ParticipantKind::Evaluator,
+            id: evaluator.evaluator.bytes(),
+            owner: evaluator.principal,
+            generation: evaluator.grant_version.get(),
+            identity_state: evaluator.status as u8,
+            frozen_member: false,
+            frozen_generation: Presence::Absent,
+            eligibility: 0,
+            metadata: Presence::Absent,
+            metadata_revision: 0,
+            score: ScoreField::absent(Presence::Absent, ScoreStatus::NotProduced)?,
+            reward: RewardField::unavailable(Availability::NotEnabled)?,
+            history_status: Availability::NotEnabled,
+            history: Presence::Absent,
+        }
+    );
     Ok(())
 }
 
@@ -653,7 +676,14 @@ fn queries_read_the_worker_prefix_beside_the_region() -> TestResult {
 fn a_truncated_worker_prefix_is_refused_by_every_reader() -> TestResult {
     let (walk, worker) = Walk::enrolled(&key(0x41))?;
     let truncated = with_identity(&walk.state, &[1, 0, 0])?;
-    assert_eq!(feature_availability(&truncated), Err(NON_CANONICAL));
+    let mut expected = [Availability::NotYetProduced; 11];
+    expected[0] = Availability::Available;
+    expected[1] = Availability::ContentUnavailable;
+    expected[2] = Availability::ContentUnavailable;
+    expected[6] = Availability::Available;
+    expected[9] = Availability::Available;
+    expected[10] = Availability::NotEnabled;
+    assert_eq!(feature_availability(&truncated)?, expected);
     let mut rows = [blank_row()?; 2];
     assert_eq!(
         participant_rows(&truncated, None, &mut rows),

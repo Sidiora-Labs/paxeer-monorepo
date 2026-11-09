@@ -7,10 +7,14 @@ rule_files:
   # - "second.rules"
 
 scrape_configs:
+  # This local deployment scrapes Prometheus itself and the explorer frontend.
+  # The backend deployment owns localhost:4000/metrics in its prometheus.yml.
+  # Benchmark, loadtest and hosted exporters are scraped by their own consumers.
   - job_name: prometheus
     static_configs:
       - targets: ['localhost:9090']
   - job_name: frontend
-    metrics_path: /node-api/metrics
+    metrics_path: /explorer/node-api/metrics
+    scheme: http
     static_configs:
       - targets: ['host.docker.internal:3000']

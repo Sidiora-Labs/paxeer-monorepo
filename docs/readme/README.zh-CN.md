@@ -26,10 +26,10 @@
 
 <p align="center">
   <!-- ═══ Repo Health ═══ -->
-  <img src="https://img.shields.io/github/actions/workflow/status/Sidiora-Labs/Paxeer-X-Network/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI" />
-  <img src="https://img.shields.io/github/license/Sidiora-Labs/Paxeer-X-Network?style=for-the-badge" alt="License" />
-  <img src="https://img.shields.io/github/last-commit/Sidiora-Labs/Paxeer-X-Network?style=for-the-badge&logo=git&logoColor=white" alt="Last Commit" />
-  <img src="https://img.shields.io/github/stars/Sidiora-Labs/Paxeer-X-Network?style=for-the-badge&logo=github" alt="Stars" />
+  <img src="https://img.shields.io/github/actions/workflow/status/Sidiora-Labs/paxeer-monorepo/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI" />
+  <img src="https://img.shields.io/github/license/Sidiora-Labs/paxeer-monorepo?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/github/last-commit/Sidiora-Labs/paxeer-monorepo?style=for-the-badge&logo=git&logoColor=white" alt="Last Commit" />
+  <img src="https://img.shields.io/github/stars/Sidiora-Labs/paxeer-monorepo?style=for-the-badge&logo=github" alt="Stars" />
 </p>
 
 ## Paxeer X Network 是什么
@@ -50,11 +50,11 @@ curl -sS https://api1.mainnet-beta.paxeer.network \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-结果中的 `result` 应为 `"0x7d"`。不同节点可能暂时落后于链头，需要最新高度时可比较多个节点的 `eth_blockNumber`。公共节点的命名空间包括 `debug`、`echo`、`eth`、`net`、`pax`、`test` 和 `txpool`；具体可调用的方法取决于节点配置。
+结果中的 `result` 应为 `"0x7d"`。不同节点可能暂时落后于链头，需要最新高度时可比较多个节点的 `eth_blockNumber`。公共节点的命名空间包括 `debug`、`echo`、`eth`、`net`、`pax`、`px`、`test` 和 `txpool`；具体可调用的方法取决于节点配置。
 
 网络不再使用独立的内核排序服务或统一路由接口。`node.hyperpaxeer.com` 仅为构建脚本使用的 hpx 库镜像（library mirror），不提供节点 RPC。
 
-公共端点列表见 [公共 JSON-RPC](../site/docs/reference/public-rpc.md)，方法说明见 [PublicRpc](../wiki/PublicRpc.md)。托管网关的 `px_*` 方法另有 [OpenRPC 契约](../../services/platform/hosted/gateway/openrpc.json)；接入托管功能时应使用该服务的实际部署配置，不能据此推断公共节点支持所有网关方法。
+公共端点列表见 [公共 JSON-RPC](../site/docs/reference/public-rpc.md)，方法说明见 [PublicRpc](../wiki/PublicRpc.md)。`px` 命名空间由节点根据节点状态应答；`px_register` 和 `px_requestFunds` 是托管身份与水龙头服务的操作，其契约见 [OpenRPC 契约](../../services/platform/hosted/gateway/openrpc.json)。
 
 钱包、注资与支付流程见 [支付入门](../wiki/PaymentsQuickstart.md)，资产说明见 [Assets](../wiki/Assets.md)，提交语义见 [CommitmentLevels](../wiki/CommitmentLevels.md)。本地开发操作见 [Quickstart](../wiki/Quickstart.md)；主网测试版与开发者接入说明见 [Getting Started](../wiki/Getting-Started-Beta.md)。
 
@@ -236,4 +236,4 @@ flowchart LR
 
 采用 Apache License 2.0 许可。参见 [`LICENSE`](../../LICENSE) 和 [`NOTICE`](../../NOTICE)。
 
-Paxeer X Network 由 Sidiora Labs 开发。源码：[github.com/Sidiora-Labs/Paxeer-X-Network](https://github.com/Sidiora-Labs/Paxeer-X-Network)。
+Paxeer X Network 由 Sidiora Labs 开发。源码：[github.com/Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo)。

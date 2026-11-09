@@ -3,7 +3,7 @@
   "info": {
     "title": "LayerX public JSON-RPC",
     "version": "0.1.0",
-    "description": "The merged Paxeer network is one execution domain in paxd, with EVM chain ID 125 (0x7d) and BFT block commitment as finality. Public node JSON-RPC is served at the root path of https://api-mainnet-beta.paxeer.network/ and https://api1.mainnet-beta.paxeer.network/ through https://api14.mainnet-beta.paxeer.network/. This OpenRPC document declares the hosted px_* methods and pax_sequencerReceipt; obtain hosted gateway coordinates and credentials from its operator. Hosted JSON-RPC uses JSON-RPC 2.0 POST / with Content-Type: application/json; authenticated route discovery uses GET /v1/routes at that gateway. Public node availability does not establish hosted px_* API deployment at public node URLs. The unified /rpc interface and its subtree are retired; there is no separate LayerX interface or execution router. Use native signed transactions and chain reads for network execution. The px_* methods provide registration, configured faucet access, account, balance, asset, history, consensus, receipt-key and capability reads, and authenticated route discovery, subject to each method's authentication and backend requirements. pax_sequencerReceipt relays the node receipt and commitment rung unchanged; submitted and receipted do not establish finality, which requires committed block evidence. Missing backend configuration or unavailable evidence produces an explicit refusal; balances, metadata, fees and finality are never fabricated."
+    "description": "The merged Paxeer network is one execution domain in paxd, with EVM chain ID 125 (0x7d) and BFT block commitment as finality. Public node JSON-RPC is served at the root path of https://api-mainnet-beta.paxeer.network/ and https://api1.mainnet-beta.paxeer.network/ through https://api14.mainnet-beta.paxeer.network/. This OpenRPC document declares the hosted px_* methods and pax_sequencerReceipt; node-only eth_*, net_* and web3_* methods are refused by the hosted dispatcher and use the node origin instead; obtain hosted gateway coordinates and credentials from its operator. Hosted JSON-RPC uses JSON-RPC 2.0 POST / with Content-Type: application/json; discovery is GET /openrpc.json; authenticated route discovery uses GET /v1/routes at that gateway. Public node availability does not establish hosted px_* API deployment at public node URLs. The unified /rpc interface and its subtree are retired; there is no separate LayerX interface or execution router. Use native signed transactions and chain reads for network execution. The px_* methods provide registration, configured faucet access, account, balance, asset, history, consensus, receipt-key and capability reads, and authenticated route discovery, subject to each method's authentication and backend requirements. pax_sequencerReceipt relays the node receipt and commitment rung unchanged; submitted and receipted do not establish finality, which requires committed block evidence. Missing backend configuration or unavailable evidence produces an explicit refusal; balances, metadata, fees and finality are never fabricated. A method targeting an unavailable surface is refused with -32003 surface_unavailable. This refusal applies while px_getCapabilities reports that surface false for exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016), launchpad (0x0000000000000000000000000000000000001017), ledger (0x000000000000000000000000000000000000101a), pay (0x000000000000000000000000000000000000101b), auth (0x000000000000000000000000000000000000101c) and programs (0x000000000000000000000000000000000000101d)."
   },
   "methods": [
     {
@@ -41,7 +41,7 @@
           "type": "object"
         }
       },
-      "description": "Creates one self-service identity principal in the registration tenant. The current gateway pins tenant to beta; no positional argument selects a tenant. The first two arguments are lowercase hexadecimal: a 32-byte Ed25519 signer public key and its 64-byte signature over SHA-256(len-prefixed \"layerx-register-binding-v1\", tenant, signer_public_key). The subject is derived as <tenant>.<first 16 bytes of SHA-256(len-prefixed \"layerx-register-subject-v1\", tenant, signer_public_key)>, so registration is idempotent and cannot name another key holder's principal. Without the optional third argument the result is the identity principal record: tenant, sub, allowed_signer_public_keys, account and audiences. An email address starts signup and returns a pending result; a verification token completes signup and returns the identity session. Malformed arguments are -32602; a signature that does not prove possession of the named key is -32002; the per-minute self-registration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.",
+      "description": "Creates one self-service identity principal in the registration tenant. The operator configures the trusted tenant with LAYERX_GATEWAY_TENANT when enabling registration; no positional argument or request header selects a tenant. Signatures and derived subjects are bound to that configured tenant, and identity responses must confirm it. The first two arguments are lowercase hexadecimal: a 32-byte Ed25519 signer public key and its 64-byte signature over SHA-256(len-prefixed \"layerx-register-binding-v1\", tenant, signer_public_key). The subject is derived as <tenant>.<first 16 bytes of SHA-256(len-prefixed \"layerx-register-subject-v1\", tenant, signer_public_key)>, so registration is idempotent and cannot name another key holder's principal. Without the optional third argument the result is the identity principal record: tenant, sub, allowed_signer_public_keys, account and audiences. An email address starts signup and returns a pending result; a verification token completes signup and returns the identity session. Malformed arguments are -32602; a signature that does not prove possession of the named key is -32002; the per-minute self-registration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.",
       "errors": [
         {
           "code": -32602,
@@ -402,7 +402,8 @@
           "required": [
             "height",
             "tx",
-            "proof"
+            "proof",
+            "activityIds"
           ],
           "properties": {
             "height": {
@@ -413,6 +414,14 @@
             "tx": {
               "type": "string",
               "pattern": "^0x([0-9a-fA-F]{2})*$"
+            },
+            "activityIds": {
+              "type": "array",
+              "description": "Complete consensus activity IDs for every transaction after tx 0, in original order: signed EVM transaction hashes, or SHA-256 of raw bytes for associate, non-EVM and undecodable transactions. Independent of Ethereum visibility and domain filtering; validated against the batch range, activity root and sequence state.",
+              "items": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+              }
             },
             "proof": {
               "type": "object",
@@ -1287,7 +1296,17 @@
     {
       "name": "px_listAssets",
       "paramStructure": "by-position",
-      "params": [],
+      "params": [
+        {
+          "name": "cursor",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "The next_cursor from the preceding page; a positive signed 64-bit registration row ID."
+          }
+        }
+      ],
       "result": {
         "name": "result",
         "schema": {
@@ -1295,7 +1314,9 @@
           "required": [
             "height",
             "assets",
-            "joined_limit"
+            "joined_limit",
+            "next_cursor",
+            "order"
           ],
           "additionalProperties": false,
           "properties": {
@@ -1356,7 +1377,7 @@
                       "string",
                       "null"
                     ],
-                    "pattern": "^[0-9]+$"
+                    "pattern": "^(0|[1-9][0-9]*)$"
                   },
                   "paused": {
                     "type": "boolean"
@@ -1373,11 +1394,21 @@
             "joined_limit": {
               "type": "integer",
               "const": 16
+            },
+            "next_cursor": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "order": {
+              "const": "registration"
             }
           }
         }
       },
-      "description": "Lists indexer assets sorted by asset_id, limited to 16. Bank denoms read name, symbol, decimals and supply from bank 0x1001; ledger assets read getAsset at 0x101A. Successful ledger reads also include paused (boolean) and verification (authenticated_committed_snapshot). All chain reads use the returned height. A failed or unsupported asset read leaves name, symbol, decimals and supply null and omits paused and verification. Supply is an integer in base units rendered as a decimal string. Takes no arguments.",
+      "description": "Lists one indexer keyset page in stable registration order, selecting at most 16 assets before metadata retrieval. next_cursor continues after this page; null marks the end. Each request fetches one indexer page and has a ten-second aggregate deadline checked before and after chain exchanges, in addition to transport deadlines. Bank denoms read name, symbol, decimals and supply from bank 0x1001; ledger assets read getAsset at 0x101A. Successful ledger reads also include paused (boolean) and verification (authenticated_committed_snapshot). All chain reads use the returned height. A failed or unsupported asset read leaves name, symbol, decimals and supply null and omits paused and verification. Supply is an integer in base units rendered as a decimal string. An optional decimal cursor continues a prior page; omitted or empty params starts at the beginning.",
       "errors": [
         {
           "code": -32602,
@@ -2691,6 +2722,912 @@
         }
       },
       "description": "Returns the authenticated route catalogue for the merged Paxeer network (chain 125), with separate node_rpc and hosted_gateway locations. Public node JSON-RPC uses the root path; hosted px_* JSON-RPC uses POST / at operator-provided gateway coordinates, and authenticated HTTP discovery uses GET /v1/routes there. The unified /rpc interface and its subtree are retired and omitted from discovery. Readiness reports dependency health and identity checks; route entries describe request contracts and do not establish successful end-to-end feature execution or hosted API deployment at public node URLs."
+    },
+    {
+      "name": "px_getInferenceRooms",
+      "paramStructure": "by-position",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "room_id",
+              "host_key",
+              "model_digest",
+              "runtime_digest",
+              "profile",
+              "state",
+              "opened_at_epoch",
+              "open_asks",
+              "open_bids",
+              "ask_streams"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "room_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "host_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "model_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "runtime_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "profile": {
+                "type": "object",
+                "required": [
+                  "minimum_bond",
+                  "lap_size_tokens",
+                  "challenge_window_blocks",
+                  "canary_ratio_bps",
+                  "slash_fraction_bps",
+                  "host_share_bps",
+                  "protocol_share_bps",
+                  "settlement_account"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "minimum_bond": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "lap_size_tokens": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "challenge_window_blocks": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "canary_ratio_bps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "slash_fraction_bps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "host_share_bps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "protocol_share_bps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "settlement_account": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "state": {
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              "opened_at_epoch": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "open_asks": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "maxItems": 64
+              },
+              "open_bids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "maxItems": 128
+              },
+              "ask_streams": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "ask_id",
+                    "stream_id",
+                    "stream"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "ask_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "stream_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "stream": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "payer",
+                            "stream_account",
+                            "recipient",
+                            "asset_id",
+                            "mode",
+                            "rate",
+                            "rate_unit",
+                            "start_ms",
+                            "last_accrual_ms",
+                            "end_ms",
+                            "total_cap",
+                            "accrued_total",
+                            "settled_total",
+                            "remainder_carry",
+                            "cumulative_meter",
+                            "meter_authorities",
+                            "underfunded",
+                            "paused",
+                            "closed"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "payer": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "stream_account": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "recipient": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "asset_id": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "mode": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "rate": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "rate_unit": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "start_ms": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "last_accrual_ms": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "end_ms": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "total_cap": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "accrued_total": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "settled_total": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "remainder_carry": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "cumulative_meter": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "meter_authorities": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              },
+                              "maxItems": 8
+                            },
+                            "underfunded": {
+                              "type": "boolean"
+                            },
+                            "paused": {
+                              "type": "boolean"
+                            },
+                            "closed": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "maxItems": 64
+              }
+            }
+          },
+          "maxItems": 16
+        }
+      },
+      "description": "Node root read of the deployed ai-market F11 program at one committed height. IDs are 32-byte lowercase hexadecimal without a prefix. The node must configure WithPxInferenceProgram with the deployed program and a bound read identity. Integers wider than 32 bits are decimal strings. Extra parameters are refused. Room answers include open ask streams read from 0x101B. An unavailable program, stream or binding is an explicit -32001 refusal. Hosted operators must route these reads to the configured node root.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32001,
+          "message": "Paxeer read unavailable"
+        }
+      ]
+    },
+    {
+      "name": "px_getInferenceRoom",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "roomId",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "room_id",
+            "host_key",
+            "model_digest",
+            "runtime_digest",
+            "profile",
+            "state",
+            "opened_at_epoch",
+            "open_asks",
+            "open_bids",
+            "ask_streams"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "room_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "host_key": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "model_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "runtime_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "profile": {
+              "type": "object",
+              "required": [
+                "minimum_bond",
+                "lap_size_tokens",
+                "challenge_window_blocks",
+                "canary_ratio_bps",
+                "slash_fraction_bps",
+                "host_share_bps",
+                "protocol_share_bps",
+                "settlement_account"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "minimum_bond": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "lap_size_tokens": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "challenge_window_blocks": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "canary_ratio_bps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "slash_fraction_bps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "host_share_bps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "protocol_share_bps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "settlement_account": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            "state": {
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "opened_at_epoch": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "open_asks": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "maxItems": 64
+            },
+            "open_bids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "maxItems": 128
+            },
+            "ask_streams": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "ask_id",
+                  "stream_id",
+                  "stream"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ask_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "stream_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "stream": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "payer",
+                          "stream_account",
+                          "recipient",
+                          "asset_id",
+                          "mode",
+                          "rate",
+                          "rate_unit",
+                          "start_ms",
+                          "last_accrual_ms",
+                          "end_ms",
+                          "total_cap",
+                          "accrued_total",
+                          "settled_total",
+                          "remainder_carry",
+                          "cumulative_meter",
+                          "meter_authorities",
+                          "underfunded",
+                          "paused",
+                          "closed"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "payer": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "stream_account": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "recipient": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "asset_id": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "mode": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "rate": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "rate_unit": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "start_ms": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "last_accrual_ms": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "end_ms": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "total_cap": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "accrued_total": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "settled_total": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "remainder_carry": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "cumulative_meter": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "meter_authorities": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "maxItems": 8
+                          },
+                          "underfunded": {
+                            "type": "boolean"
+                          },
+                          "paused": {
+                            "type": "boolean"
+                          },
+                          "closed": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "maxItems": 64
+            }
+          }
+        }
+      },
+      "description": "Node root read of the deployed ai-market F11 program at one committed height. IDs are 32-byte lowercase hexadecimal without a prefix. The node must configure WithPxInferenceProgram with the deployed program and a bound read identity. Integers wider than 32 bits are decimal strings. Extra parameters are refused. Room answers include open ask streams read from 0x101B. An unavailable program, stream or binding is an explicit -32001 refusal. Hosted operators must route these reads to the configured node root.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32001,
+          "message": "Paxeer read unavailable"
+        }
+      ]
+    },
+    {
+      "name": "px_getInferenceDeal",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "dealId",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "room_id",
+            "deal_id",
+            "ask_id",
+            "roster_digest",
+            "agreed_price_per_thousand_tokens",
+            "state",
+            "layers",
+            "settled_tokens",
+            "settled_amount_owed"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "room_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "deal_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "ask_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "roster_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "agreed_price_per_thousand_tokens": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "state": {
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "layers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "bid_id",
+                  "first_layer",
+                  "end_layer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "bid_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "first_layer": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end_layer": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "maxItems": 32
+            },
+            "settled_tokens": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "settled_amount_owed": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            }
+          }
+        }
+      },
+      "description": "Node root read of the deployed ai-market F11 program at one committed height. IDs are 32-byte lowercase hexadecimal without a prefix. The node must configure WithPxInferenceProgram with the deployed program and a bound read identity. Integers wider than 32 bits are decimal strings. Extra parameters are refused. An unavailable program, stream or binding is an explicit -32001 refusal. Hosted operators must route these reads to the configured node root.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32001,
+          "message": "Paxeer read unavailable"
+        }
+      ]
+    },
+    {
+      "name": "px_getInferencePeer",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "peerKey",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "peer_key",
+            "worker",
+            "delegate",
+            "metadata",
+            "generation",
+            "key_version",
+            "metadata_revision",
+            "valid_from",
+            "expiry",
+            "state",
+            "enrolled",
+            "capabilities_status",
+            "capabilities",
+            "bond_status",
+            "fault_count",
+            "attestation_binding"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "peer_key": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "worker": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "delegate": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "metadata": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "generation": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "key_version": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "metadata_revision": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "valid_from": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "expiry": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "state": {
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ]
+            },
+            "enrolled": {
+              "type": "boolean"
+            },
+            "capabilities_status": {
+              "enum": [
+                1,
+                4
+              ]
+            },
+            "capabilities": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "accelerator_memory_mib",
+                    "system_memory_mib",
+                    "bandwidth_class",
+                    "attestation_family",
+                    "runtime_kind",
+                    "region_code"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "accelerator_memory_mib": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "system_memory_mib": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "bandwidth_class": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "attestation_family": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "runtime_kind": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "region_code": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z]{2}$"
+                    }
+                  }
+                }
+              ]
+            },
+            "bond_status": {
+              "const": 2
+            },
+            "fault_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "attestation_binding": {
+              "type": "object",
+              "required": [
+                "family",
+                "model_digest",
+                "runtime_digest",
+                "block_height"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "family": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "model_digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "runtime_digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "block_height": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Node root read of the deployed ai-market F11 program at one committed height. IDs are 32-byte lowercase hexadecimal without a prefix. The node must configure WithPxInferenceProgram with the deployed program and a bound read identity. Integers wider than 32 bits are decimal strings. Extra parameters are refused. Peer answers include the binding read from 0x0907; zero fields mean no binding. An unavailable program, stream or binding is an explicit -32001 refusal. Hosted operators must route these reads to the configured node root.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32001,
+          "message": "Paxeer read unavailable"
+        }
+      ]
+    },
+    {
+      "name": "px_getInferenceReceipts",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "dealId",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "deal_id",
+              "first_lap_index",
+              "last_lap_index",
+              "cumulative_tokens",
+              "batch_digest",
+              "countersign_quorum"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "deal_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "first_lap_index": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "last_lap_index": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "cumulative_tokens": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "batch_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "countersign_quorum": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "maxItems": 16
+        }
+      },
+      "description": "Node root read of the deployed ai-market F11 program at one committed height. IDs are 32-byte lowercase hexadecimal without a prefix. The node must configure WithPxInferenceProgram with the deployed program and a bound read identity. Integers wider than 32 bits are decimal strings. Extra parameters are refused. The producer retains the current receipt batch per deal; this returns that batch, or an empty list before settlement. An unavailable program, stream or binding is an explicit -32001 refusal. Hosted operators must route these reads to the configured node root.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32001,
+          "message": "Paxeer read unavailable"
+        }
+      ]
     }
   ]
 }

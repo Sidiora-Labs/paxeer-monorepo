@@ -36,6 +36,13 @@ on:
       - ".github/workflows/programs-conformance.yml"
       - "tools/qualification/paxeer-x/deterministic-execution-producer.py"
       - "tools/paxeer-x/gates/104.19.2.sh"
+  workflow_call:
+    inputs:
+      scope:
+        description: Execution scope; acceptance runs only the release acceptance gate
+        type: string
+        required: false
+        default: release
   workflow_dispatch:
     inputs:
       scope:
@@ -51,7 +58,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: programs-conformance-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-programs-${{ inputs.scope }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -80,10 +87,20 @@ jobs:
       - name: Install locked AssemblyScript dependencies
         run: make programs-js-install
       - name: Run the aggregate Programs acceptance suite
-        run: make programs-test
+        shell: bash
+        run: |
+          set -euo pipefail
+          make programs-test 2>&1 | tee "$RUNNER_TEMP/programs-acceptance.log"
+      - name: Retain the acceptance gate log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: release-gate-programs-acceptance
+          path: ${{ runner.temp }}/programs-acceptance.log
+          if-no-files-found: error
 
   fuzz-smoke:
-    if: github.event_name != 'workflow_dispatch' || inputs.scope != 'determinism'
+    if: inputs.scope != 'acceptance' && (github.event_name != 'workflow_dispatch' || inputs.scope != 'determinism')
     name: Bounded committed-corpus fuzz gate
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
@@ -98,7 +115,7 @@ jobs:
         run: make programs-fuzz-smoke PROGRAMS_CARGO="cargo +1.91.1"
 
   differential-replay:
-    if: github.event_name != 'workflow_dispatch' || inputs.scope != 'determinism'
+    if: inputs.scope != 'acceptance' && (github.event_name != 'workflow_dispatch' || inputs.scope != 'determinism')
     name: Differential and versioned-replay gate
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 15
@@ -113,6 +130,7 @@ jobs:
         run: make programs-differential PROGRAMS_CARGO="cargo +1.91.1"
 
   deterministic-execution:
+    if: inputs.scope != 'acceptance'
     name: determinism-${{ matrix.key }}
     strategy:
       fail-fast: false
@@ -125,7 +143,7 @@ jobs:
           - key: linux-arm64-release
             os: ubuntu-24.04-arm
           - key: macos-arm64-release
-            os: macos-14
+            os: macos-15
           - key: windows-x86_64-release
             os: windows-2022
     runs-on: ${{ matrix.os }}
@@ -157,7 +175,7 @@ jobs:
           --phase run --manifest "$RUNNER_TEMP/determinism-build/manifest.json"
           --output "$RUNNER_TEMP/determinism-execution"
       - name: Upload deterministic execution evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: determinism-${{ matrix.key }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/determinism-execution/report.json
@@ -165,6 +183,7 @@ jobs:
           retention-days: 30
 
   deterministic-evidence:
+    if: inputs.scope != 'acceptance'
     name: Collect complete deterministic execution evidence
     needs: deterministic-execution
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -188,7 +207,7 @@ jobs:
           --phase collect --repository "$PAXEER_X_REPOSITORY"
           --run-id "$PAXEER_X_RUN_ID" --output "$RUNNER_TEMP/determinism-matrix"
       - name: Upload complete matrix binding
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: determinism-matrix-${{ github.run_attempt }}
           path: ${{ runner.temp }}/determinism-matrix/matrix.json

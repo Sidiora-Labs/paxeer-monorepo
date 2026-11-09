@@ -1,0 +1,49 @@
+[issue.1903]
+number = 1903
+title = "[Coherence] Six qualification-suite findings are left open behind a follow-up task that is already done, citing a no-new-skips rule that neither the task nor its requirement contains"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "The six open dispositions at spec/layerx-merge/dispositions/d22-21.kvx:423 and spec/layerx-merge/dispositions/d22-21.kvx:459 still name task 22.31.623, marked done at spec/layerx-merge/spec.kvx:178674 after commit 3740acfa3e25ea3b4aa157330f14dc50a37b0c47, although spec/layerx-merge/spec.kvx:351227 requires pending repair ownership and spec/layerx-merge/programme/closure_check.py:88 checks only existence; the issue correctly cites the skip permission at spec/layerx-merge/spec.kvx:178682 and the older requirement at spec/layerx-merge/spec.kvx:413055, but overlooks the explicit prohibition on skipped tests at spec/layerx-merge/spec.kvx:25123, while tools/qualification/repair_22_31_623.kvx:20 retains eight new skips, tools/qualification/audit_repairs/test_repair_22_33_372.py:58 still skips the missing distribution, and tests/ci/test_qualification_suites_collect.py:47 accepts a passing summary, so the settlement recorded at tools/qualification/repair_22_31_623.kvx:9496 does not establish unskipped coverage or supply a pending repair owner."
+close_comment = "The six open qualification findings still point to a completed task, leaving the remaining coverage without an active repair owner. A follow-up will give those findings pending repair ownership and explicit coverage obligations while preserving the existing requirement against skipped or weakened tests."
+
+[task.18.1903.1]
+title = "Issue #1903: Give the six open qualification findings pending repair ownership"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181903.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add pending task 18.1903.2 in spec/layerx-merge/spec.kvx to own the eight unexecuted cases listed at tools/qualification/repair_22_31_623.kvx:20, with reqs 22998.1, owner_role fm-tools-ops, concrete prerequisite and producer paths, one bounded build, one focused verification that executes those exact cases and rejects any skipped result, and the standard repair and time limits; its repair provisions the real SDK distribution, renderer node service and native executables required by those cases, preserving every assertion and the no-skip criterion at spec/layerx-merge/spec.kvx:25123, without changing the done task or either existing requirement."
+do_2 = "Change only the six disposition blocks for 22.31.621.1 and 22.31.623.1 through 22.31.623.5 at spec/layerx-merge/dispositions/d22-21.kvx:423 and spec/layerx-merge/dispositions/d22-21.kvx:459: retain open status, point follow_up to pending task 18.1903.2, and rewrite evidence to distinguish the historical failures settled by commit 3740acfa3e25ea3b4aa157330f14dc50a37b0c47 from the remaining unexecuted coverage recorded at tools/qualification/repair_22_31_623.kvx:20; cite the actual no-skip requirement at spec/layerx-merge/spec.kvx:25123 and never claim the older gate result proved execution of skipped cases."
+do_3 = "Add test_six_qualification_findings_have_pending_repair_owner in spec/layerx-merge/programme/tests/test_qualification_disposition_owners.py: read the real spec and disposition files, assert all six exact finding ids remain present once with open status and follow_up 18.1903.2, assert that task exists once with pending status, reqs 22998.1 and concrete coverage for all eight recorded cases, and assert its repair paths and nonempty bounded build and focused no-skip verification own that coverage; also assert the existing no-skip requirement and the completed status of 22.31.623 remain intact, so a completed or nonexistent owner and an unsupported resolved claim cannot pass."
+symbols = ["test_six_qualification_findings_have_pending_repair_owner"]
+touches = ["spec/layerx-merge/spec.kvx", "spec/layerx-merge/dispositions/d22-21.kvx", "spec/layerx-merge/programme/tests/test_qualification_disposition_owners.py"]
+tests = ["spec/layerx-merge/programme/tests/test_qualification_disposition_owners.py::test_six_qualification_findings_have_pending_repair_owner"]
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_qualification_disposition_owners.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_qualification_disposition_owners.py::test_six_qualification_findings_have_pending_repair_owner"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181903]
+title = "Every retained open qualification finding has pending work that owns its remaining coverage"
+ac_1 = "Given the six open findings at spec/layerx-merge/dispositions/d22-21.kvx:423 and spec/layerx-merge/dispositions/d22-21.kvx:459, their follow_up names pending task 18.1903.2 with explicit repair ownership and focused unskipped verification for the eight cases recorded at tools/qualification/repair_22_31_623.kvx:20; the existing prohibition on skipped or weakened tests at spec/layerx-merge/spec.kvx:25123 and the done status of 22.31.623 at spec/layerx-merge/spec.kvx:178674 remain unchanged."
+
+[acceptance.18.1903.1]
+feature = "18"
+req = "181903.1"
+scenario = "Given six open qualification findings whose follow-up task is already done, when the disposition ownership repair is applied, then each finding points to the pending task that owns the eight remaining coverage obligations and no skipped case is represented as verified or resolved."
+contract = "contracts/programme.md#decisions"
+test = "spec/layerx-merge/programme/tests/test_qualification_disposition_owners.py::test_six_qualification_findings_have_pending_repair_owner (planned)"
+qualification = "UNRUN"

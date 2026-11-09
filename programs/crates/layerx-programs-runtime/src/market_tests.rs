@@ -352,8 +352,8 @@ fn compiled_market_refuses_unfunded_and_unauthorized_payments_atomically() {
 }
 
 use crate::execute::{
-    encode_market_step_evidence, instantiate_market_sandbox_untrusted, market_sandbox_input_digest,
-    MarketSandboxRequest, MarketStepProof,
+    encode_market_step_evidence_with_header, instantiate_market_sandbox_untrusted,
+    market_sandbox_input_digest, MarketSandboxRequest, MarketStepProof,
 };
 use crate::portable_replay::{replay_leaf_hash, replay_node_hash, PortableBoundary};
 use crate::replay::{
@@ -438,12 +438,13 @@ fn claim_id(lease: [u8; 32]) -> [u8; 32] {
 
 /// A Merkle commitment over boundary leaves, built the way the runtime commits a trace.
 struct Committed {
+    header: crate::replay_record::ReplayRecordHeader,
     leaves: Vec<Vec<u8>>,
     levels: Vec<Vec<[u8; 32]>>,
 }
 
 impl Committed {
-    fn new(leaves: Vec<Vec<u8>>) -> Self {
+    fn new(leaves: Vec<Vec<u8>>, header: crate::replay_record::ReplayRecordHeader) -> Self {
         let mut levels = vec![leaves
             .iter()
             .enumerate()
@@ -459,7 +460,11 @@ impl Committed {
                 .collect();
             levels.push(next);
         }
-        Self { leaves, levels }
+        Self {
+            header,
+            leaves,
+            levels,
+        }
     }
     fn root(&self) -> [u8; 32] {
         self.levels[self.levels.len() - 1][0]
@@ -488,12 +493,31 @@ impl Committed {
                 siblings,
             })
             .collect();
-        encode_market_step_evidence(baseline, &proofs)
+        let initial = sandbox_module().initial_replay_memory().unwrap();
+        let mut memory = initial.clone();
+        for leaf in &self.leaves[..=indices[0] as usize] {
+            let mut boundary =
+                PortableBoundary::decode_with_header(leaf, MAX_BYTES as usize, &self.header)
+                    .unwrap();
+            memory = boundary.rebuild_memory(&memory).unwrap();
+        }
+        let chunks = crate::replay::ReplayMemory::capture(&memory, &initial)
+            .unwrap()
+            .changed_chunks;
+        encode_market_step_evidence_with_header(baseline, &proofs, &chunks, &self.header)
             .unwrap_or_else(|e| panic!("step evidence: {e:?}"))
     }
     fn commitment(&self, index: usize) -> [u8; 32] {
-        let boundary = PortableBoundary::decode_untrusted(&self.leaves[index], MAX_BYTES as usize)
-            .unwrap_or_else(|e| panic!("committed boundary: {e:?}"));
+        let mut memory = sandbox_module().initial_replay_memory().unwrap();
+        let mut boundary = None;
+        for leaf in &self.leaves[..=index] {
+            let mut current =
+                PortableBoundary::decode_with_header(leaf, MAX_BYTES as usize, &self.header)
+                    .unwrap();
+            memory = current.rebuild_memory(&memory).unwrap();
+            boundary = Some(current);
+        }
+        let boundary = boundary.unwrap();
         ArbitrationStepCommitment::from_state(&boundary.arbitration)
             .unwrap_or_else(|e| panic!("boundary commitment: {e:?}"))
             .digest
@@ -556,7 +580,10 @@ impl Execution {
             })
             .unwrap_or_else(|e| panic!("captured sandbox execution: {e:?}"));
         assert!(execution.terminal_fault.is_none());
-        let truth = Committed::new(execution.boundary_leaves.clone());
+        let truth = Committed::new(
+            execution.boundary_leaves.clone(),
+            execution.record.header().clone(),
+        );
         assert_eq!(truth.root(), execution.record.boundary_root());
         assert_eq!(truth.count(), execution.record.boundary_count());
         assert!(truth.count() >= 4, "trace too short to bisect");
@@ -569,9 +596,12 @@ impl Execution {
                 .enumerate()
                 .map(|(index, leaf)| {
                     if lie_from.is_some_and(|from| index >= from) {
-                        let mut boundary =
-                            PortableBoundary::decode_untrusted(leaf, MAX_BYTES as usize)
-                                .unwrap_or_else(|e| panic!("boundary: {e:?}"));
+                        let mut boundary = PortableBoundary::decode_with_header(
+                            leaf,
+                            MAX_BYTES as usize,
+                            execution.record.header(),
+                        )
+                        .unwrap_or_else(|e| panic!("boundary: {e:?}"));
                         boundary.arbitration.host_state_root[0] ^= 1;
                         boundary
                             .reencode_untrusted(MAX_BYTES as usize)
@@ -581,6 +611,7 @@ impl Execution {
                     }
                 })
                 .collect(),
+            execution.record.header().clone(),
         );
         Self {
             truth,
