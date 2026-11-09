@@ -1,0 +1,48 @@
+[issue.1718]
+number = 1718
+title = "Update retained explorer shell tests for the new search placeholder"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "task"
+evidence = "Commit 3e47cce170d8ee3d28781667da3ce848b46b83ae introduced the compact placeholder still rendered at apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx:124, but apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx:110,132,180 still select the old exact placeholder, while apps/explorer/ui/snippets/searchBar/repair-22-35-3.kvx:19 qualifies only the newer search suite."
+close_comment = "The retained shell tests still look for outdated search placeholder text, so they need to use the compact input's accessible label while preserving their header, layout and keyboard-focus checks. The follow-up task qualifies the shell and search suites together."
+
+[task.18.1718.1]
+title = "Issue #1718: Locate the shell search input by its accessible label"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181718.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the exact placeholder lookups in horizontalHeaderGroupsAndSearch, verticalSettingUsesTheSameHeader and searchShortcutFocusesTheRealInput at apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx:110,132,180 with accessible-label lookups for Search or ask, scoped to the desktop header; that label remains declared at apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx:123 and HeaderDesktop.tsx:38 renders the compact variant; preserve every existing header, layout and Ctrl-K and Cmd-K focus assertion."
+do_2 = "Use the declared verify_cmd as the joint shell/search qualification, running the complete retained apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx and current apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx suites together, including the explicit placeholder and accessible-label assertions at apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx:75,77; keep every test registered and every assertion intact."
+symbols = ["horizontalHeaderGroupsAndSearch", "verticalSettingUsesTheSameHeader", "searchShortcutFocusesTheRealInput"]
+touches = ["apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"]
+tests = ["apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::horizontalHeaderGroupsAndSearch", "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::verticalSettingUsesTheSameHeader", "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::searchShortcutFocusesTheRealInput", "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx::explicitCompactAndHeroRenderInBothModes"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/explorer exec vitest run ui/snippets/header/repair-22-35-2.spec.tsx ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181718]
+title = "Shell search behavior checks survive placeholder copy changes"
+ac_1 = "Given the compact input's accessible label at apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx:123 and current placeholder at line 124, when the retained shell and prompt suites run together, then horizontalHeaderGroupsAndSearch, verticalSettingUsesTheSameHeader and searchShortcutFocusesTheRealInput at apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx:103,124,178 locate that input by its accessible label and preserve their header, layout and both keyboard-focus checks, while the prompt suite continues to assert the current placeholders and labels at apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx:75,77."
+
+[acceptance.18.1718.1]
+feature = "18"
+req = "181718.1"
+scenario = "Given the current compact search input and the retained shell tests, when both shell and prompt suites run together, then accessible-label lookups locate the header input, horizontal and vertical layout assertions remain satisfied, Ctrl-K and Cmd-K focus that input, and the prompt suite preserves its explicit copy checks."
+contract = "contracts/explorer-frontend.md#pages"
+test = "apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx::searchShortcutFocusesTheRealInput (planned)"
+qualification = "UNRUN"
