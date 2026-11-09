@@ -36394,3 +36394,11 @@ symbol = "activity_codec.rs"
 observed = "Attempt 3 at 677da57e8c4b: build exit 0; verification exit 101: activity_codec, authority_from_prestate (with the exclusion of decision 3015) and repair_22_33_215 passed and proof_arbiter_crate failed the two cases of gotcha 3721 with Err(Encoding) at line 1794 and Err(Witness(Encoding)) at line 1538; the record traces both to the continuation base; log /out/logs/verify-1.log."
 assumption = "The retirement is complete and the two failures belong to the arbiter consumer defect that 22.39.183 repairs."
 severity = "high"
+
+[finding.22.39.117.4]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 4 at 0addf46863ce (base fa374671b962): build exit 0; verification exit 2: every launchpad module passed except shared/redis, where three cases failed with namespace required because L09_NAMESPACE was unset in the qualification environment; log /out/logs/verify-1.log."
+assumption = "The failure is environmental; nothing in the tree of the task is at fault."
+severity = "high"
