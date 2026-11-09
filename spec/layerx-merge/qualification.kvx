@@ -38370,3 +38370,43 @@ symbol = "4_3.py::test_host_checkpoint_submission_and_reopen"
 observed = "Attempt 6 at 7f9a26b43f24: build exit 0; verification exit 1: AUTH_SCOPE_DENIED at enrollment.js:159 persists and native_source_product_actor.mjs is unchanged against attempt 5; log /out/logs/verify-2.log."
 assumption = "The instruction was never applied."
 severity = "high"
+
+[finding.22.39.235.3]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 3 at f3d4852c64d5: build exit 0; verification exit 101 in cycle 2: clippy -D warnings reports thirteen missing backticks, five unwrap_err on Result, one redundant closure and one needless borrow in the test targets; the session reached its working-time limit; log /out/logs/verify-2.log."
+assumption = "The twenty sites are the last lints of the crate and its test targets."
+severity = "high"
+
+[finding.22.39.168.3]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 3 at 0ca51cadc0a4: build exit 0; no verification ran; the session log shows the module download and 429 reconnects for hours until the working-time limit; log /out/logs/build-1.log."
+assumption = "The model session stalled; the task stands as ruled for attempt 3."
+severity = "high"
+
+[finding.18.1717.1.6]
+task = "18.1717.1"
+file = "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+symbol = "LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"
+observed = "Attempt 6 at 6b410c64589a: build pnpm --dir apps/explorer exec tsc --noEmit exit 1 with ERR_PNPM_OTHER_PM_EXPECTED (the package pins yarn 1.22.22); no verification ran; log /out/logs/build-1.log."
+assumption = "The yarn form of the commands builds and runs the case in the qualification environment."
+severity = "high"
+
+[finding.22.39.243.1]
+task = "22.39.243"
+file = "tools/platform/release/src/main.rs"
+symbol = "main.rs"
+observed = "Attempt 1 at 9c5a04a11157: build exit 0; verification exit 1: layerx-platform-release --check refuses job publish-crates-io must run under the release condition; the registries test binary did not run; log /out/logs/verify-1.log."
+assumption = "The guarded condition of 22.39.98 is accepted and the registries test binary then runs."
+severity = "high"
+
+[finding.22.39.117.12]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 12 at ef16d9ebde7a: build exit 0; verification exit 2: TestProductionStreamRelayPublishesCommittedFrames fails at stream_relay_production_test.go:107 because CORE_API_TEST_NATS_URL is not set; the shared packages passed; log /out/logs/verify-1.log."
+assumption = "The broker binary of the qualification environment serves the relay case as it serves the driver cases."
+severity = "high"

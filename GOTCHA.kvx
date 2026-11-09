@@ -19490,3 +19490,43 @@ fix = "Task 22.39.244 reports F11 from the captured policy and the placement boo
 title = "The focused actor instruction of the host checkpoint case was not applied"
 symptom = "Task 18.1772.1 attempt 6 at 7f9a26b43f24: the tree leaves native_source_product_actor.mjs unchanged against attempt 5, so AUTH_SCOPE_DENIED persists at enrollment.js:159 through :1349 and the browser case does not select the virtual host mode (VIRTUAL_HOST_CONFIGURATION_REQUIRED); the attempt spent both cycles on the test runner options"
 fix = "The next attempt applies do_10 exactly before anything else"
+
+[gotcha.3934]
+title = "Twenty lints remain in the test targets of the programs runtime crate after the second repair cycle"
+symptom = "Task 22.39.235 attempt 3 at f3d4852c64d5: build exit 0; clippy -D warnings in cycle 2 reports thirteen doc items missing backticks at tests/repair_22_31_261.rs lines 2 to 8 and tests/repair_22_33_258.rs lines 2 to 13, five unwrap_err calls on a Result at tests/repair_22_31_488.rs lines 151, 166, 178 and 201, a redundant closure at tests/step_conformance.rs:50 and a needless borrow at tests/step_conformance.rs:181; the model session reached its working-time limit after the second cycle; log /out/logs/verify-2.log"
+fix = "The twenty sites are repaired in one pass and the record lists them"
+
+[gotcha.3935]
+title = "The launchpad module session stalled for hours on a Go module download under model endpoint reconnects"
+symptom = "Task 22.39.168 attempt 3 at 0ca51cadc0a4: the build (anvil --version and make -C services/launchpad vet) exited 0, then the Go module download of the user module ran for hours while the model endpoint answered 429 and the session reconnected until the working-time limit; no verification ran and do_8 (the connected export bucket) was not applied"
+fix = "Decision 3099: the attempt is a stall of the model session; the task relaunches as a continue with do_8 unchanged"
+
+[gotcha.3936]
+title = "The explorer build command runs pnpm inside a package pinned to yarn and the package manager of the qualification environment now refuses it"
+symptom = "Task 18.1717.1 attempt 6 at 6b410c64589a: the build pnpm --dir apps/explorer exec tsc --noEmit exits 1 with ERR_PNPM_OTHER_PM_EXPECTED because apps/explorer/package.json:295 pins packageManager to yarn 1.22.22; attempt 3 of the same task saw only a warning from an older pnpm; task 18.1679.1 attempt 4 installed the package with yarn --cwd apps/explorer install --frozen-lockfile by hand before its case ran; every qualified explorer task runs its commands as cd apps/explorer and yarn, which the qualification environment installs with the frozen lockfile"
+fix = "Decision 3107: the explorer commands of the two tasks change to the yarn form; the changed trees stand"
+
+[gotcha.3937]
+title = "The registry check refuses the guarded publication job once the gate records are emitted again"
+symptom = "Task 22.39.243 attempt 1 at 9c5a04a11157: build exit 0; the three gate jobs are named and the called workflows emit the gate records; layerx-platform-release --check then refuses job publish-crates-io must run under the release condition because the publication-job clause (main.rs:951 of the attempt tree) compares the whole condition string with the release condition while task 22.39.98 (7008181d46) wrote vars.LAYERX_RELEASE_CRATES_IO_INDEX is not empty in conjunction with the parenthesised release condition at platform.yml:487; the registries test binary did not run; log /out/logs/verify-1.log"
+fix = "Decision 3106: the clause accepts configuration guards conjoined with the parenthesised release condition"
+
+[gotcha.3938]
+title = "The retired-caller scan on main reports 2139 findings in 452 files, most of them outside live code"
+symptom = "python3 tools/paxeer-x/tests/retired_callers_test.py on the main tree at b352db3185 (excluding GOTCHA.kvx, CHANGELOG.md and CODEMAP.md per decision 3087) reports 2139 findings: custody-deposit 466, settlement-domain 184, router-joins 184, anchor 182, lni 132, layerxctl-port 122, finality-authority 110 and the rest below one hundred each; 186 findings lie in spec/layerx-merge/programme/reconcile, 72 in spec/release-v6-12-0, 25 in spec/layerx-merge/programme, 123 in tools/paxeer-x/route-catalogue.json, and several hundred in repair records (repair_*.kvx), the 4byte database under core/deps/geth/signer/fourbyte, programs/vendor, the charting library bundles under apps/launchpad/web/public and the vendored tree under tools"
+fix = "Decision 3104 scopes the catalogue before the per-package repairs of decision 3105"
+
+[gotcha.3939]
+title = "Two deleted trees of the catalogue are live by ruling and one holds only a record file"
+symptom = "The --deleted scan reports tests/daemon (finality-authority), services/agent/crates/layerx-wire (wire-codec) and services/agent/crates/layerx-client/src/lni (lni) as present: decision 542 retired the C daemon cases of tests/daemon, and the tree now holds the recorded daemon Python cases (conftest.py, recorded_paxd.py, the recorder, the serve and handover cases); decisions 910 and 921 keep layerx-wire as a workspace member (services/agent/Cargo.toml:4) and retire only its kernel activity envelope; the lni tree holds only repair_22_33_1544.kvx left behind after task 9.24.7 deleted the module"
+fix = "The first two leave the deleted-tree lists and the record moves to the crate root"
+
+[gotcha.3940]
+title = "The router-joins component lists as retired the three method names its own replacement keeps"
+symptom = "The replacement text of router-joins in tools/paxeer-x/retired_callers.json keeps the method names with one-source answers, yet its symbol list carries px_getUnifiedHistory, px_getNetwork and px_listAssets, so every live caller of the published methods (184 findings) is reported as retired"
+fix = "The three names leave the symbol list; the retired join and router symbols stay"
+
+[gotcha.3941]
+title = "The production stream relay case fails instead of starting the file-backed broker the sibling cases start"
+symptom = "Task 22.39.117 attempt 12 at ef16d9ebde7a: build exit 0; the shared chain, db, delivery and storage packages pass; make -C services/launchpad ci fails in core/api/internal/app because TestProductionStreamRelayPublishesCommittedFrames (stream_relay_production_test.go:107) calls t.Fatalf when CORE_API_TEST_NATS_URL is empty, while realBrokerProcess of sdk/launchpad/shared/delivery/natsdriver/driver_test.go:32 and the gateway identity case start a file-backed nats-server from NATS_SERVER_BINARY or the PATH for the same need; the qualification environment provides NATS_SERVER_BINARY and no broker URL; log /out/logs/verify-1.log"
+fix = "The case starts the broker from the binary when the URL is empty and keeps the URL override"

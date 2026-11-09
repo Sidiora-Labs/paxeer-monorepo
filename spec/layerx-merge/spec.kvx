@@ -11734,6 +11734,30 @@ value = "The read windows that bound public reads (READ_WINDOWS of services/plat
 basis = "Gotcha 3920: a parallel test binary draws every fixture from one process-global window"
 affects = ["22.39.240"]
 
+[decision.3104]
+title = "The retired-caller catalogue scopes documentation, vendored and ruled-live trees before the repairs"
+value = "tools/paxeer-x/retired_callers.json lists as documentation paths the history records (spec/layerx-merge/programme, spec/layerx-merge/programme/reconcile, spec/release-v6-12-0, spec/monorepo-layout), every repair record file (repair_*.kvx and the record directories of repairs 22.31.207 and 22.31.211) and the vendored trees (the vendored tree under tools, the 4byte database under core/deps/geth/signer/fourbyte, programs/vendor, the charting library bundles under apps/launchpad/web/public); a symbol the replacement text of a component keeps leaves that symbol list; the own module, precompile, api and contract-interface trees of a merge-disabled component with no deleted trees are allowed references naming their removal task; a deleted tree that a ruling keeps live leaves the deleted-tree list, and a deleted tree that holds only a record file is emptied by moving the record to the package root"
+basis = "Gotchas 3938 to 3940: most of the 2139 findings lie in records, vendored trees, history specs and trees kept live by ruling"
+affects = ["22.39.245", "17.2.8"]
+
+[decision.3105]
+title = "Every package repairs its retired references in one task of its own before the merge closes"
+value = "Decision 3101 is carried out by one task per owning package or package group (tasks 22.39.246 to 22.39.278), each scanning its own paths with the catalogue of decision 3104, repairing every finding at its source (the replacement the catalogue names, or removal of the dead path, or an allowed reference with a one-sentence reason), recording the findings and repairs, and ending its verification with the scan of its own paths; task 17.2.8 requires the catalogue task and every repair task and qualifies only when the scan of the whole main tree is clean"
+basis = "Gotcha 3938: 452 files across every package carry findings and no single owner can repair them"
+affects = ["17.2.8", "22.39.245"]
+
+[decision.3106]
+title = "A publication job may guard the release condition with configuration presence checks"
+value = "The registry check of layerx-platform-release accepts the condition of a publication job when it equals the release condition or when it is a conjunction whose conjuncts are the parenthesised release condition and one or more vars.NAME is-not-empty guards as task 22.39.98 wrote them; any other condition is refused with the accepted forms named"
+basis = "Gotcha 3937: the guard of 22.39.98 and the equality check of the publication clause contradict each other"
+affects = ["22.39.243"]
+
+[decision.3107]
+title = "Explorer commands run yarn from the package directory"
+value = "The build and verification commands of a task whose target is apps/explorer run as cd apps/explorer and yarn, never as pnpm with a directory flag, because the package pins yarn 1.22.22 and the qualification environment installs a yarn package with its frozen lockfile before the commands run"
+basis = "Gotcha 3936: pnpm refuses the yarn-pinned package"
+affects = ["18.1717.1", "18.1679.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41394,6 +41418,312 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.278]
+title = "Repair the retired references of the node-root RPC package"
+reqs = ["22998.1"]
+touches = ["rpc/config/config.go", "rpc/px_account.go", "rpc/px_assets.go", "rpc/px_history.go", "rpc/px_params.go", "rpc/px_route_catalogue.json"]
+tests = []
+verification_contract = "test -s rpc/repair_22_39_278.kvx && go test -count=1 ./rpc/ -run '^TestPxNodeRoot' && go test -count=1 ./rpc/config/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path rpc"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path rpc on the merged main tree and record every finding (path, line, component, symbol) in rpc/repair_22_39_278.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.277]
+title = "Repair the retired references of the container files, the root Makefile and README, the site configuration and the API contract documents"
+reqs = ["22998.1"]
+touches = ["docker/layerx/Dockerfile", "docker/layerx/Dockerfile.dockerignore", "docker/kernel/Dockerfile.dockerignore", "docker/paxeer/Dockerfile.paxd-node.dockerignore", "Makefile", "README.md", "docs/site/mkdocs.yml", "contracts/README.md", "contracts/address-inventory.md", "contracts/agent-api.md", "contracts/agent-formats.md", "contracts/agent-human-peer.md", "contracts/agent-rust-api.md", "contracts/platform-gateway.md", "contracts/platform-hosted.md", "contracts/platform-relay-archive.md", "contracts/config/checkpoint-settlement.json"]
+tests = []
+verification_contract = "test -s docker/layerx/repair_22_39_277.kvx && python3 -m pytest -q tests/ci/test_docs_make_targets_and_scripts.py tests/ci/test_docs_shell_commands_resolve.py tests/ci/test_docs_spec_references_exist.py && python3 tools/paxeer-x/tests/retired_callers_test.py --path docker/layerx --path docker/kernel --path docker/paxeer --path Makefile --path README.md --path docs/site --path contracts --path contracts/config"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path docker/layerx --path docker/kernel --path docker/paxeer --path Makefile --path README.md --path docs/site --path contracts --path contracts/config on the merged main tree and record every finding (path, line, component, symbol) in docker/layerx/repair_22_39_277.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.276]
+title = "Repair the retired references of the release, ci, workspace and programme scripts and fixtures"
+reqs = ["22998.1"]
+touches = ["tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl", "tools/jev/checks/fixtures/repair_22_33_704/interop-advisories.jsonl", "tools/release/rehearsal/programme.py", "tools/ci/consensus_commit_gate.py", "tools/workspace/platform-dependency-roots.txt", "scripts/ci/audit_object_checks.py", "scripts/programs/dependency-policy.sh", "docs/build/build_wiki.py"]
+tests = []
+verification_contract = "test -s tools/jev/repair_22_39_276.kvx && python3 -m pytest -q tests/ci/test_tools_python_suites_wired.py tests/ci/test_docs_make_targets_and_scripts.py && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/jev --path tools/release --path tools/ci --path tools/workspace --path scripts/ci --path scripts/programs --path docs/build"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/jev --path tools/release --path tools/ci --path tools/workspace --path scripts/ci --path scripts/programs --path docs/build on the merged main tree and record every finding (path, line, component, symbol) in tools/jev/repair_22_39_276.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.275]
+title = "Repair the retired references of the upgrade replay tooling"
+reqs = ["22998.1"]
+touches = ["tools/chain/upgrade-replay/appsetup.go", "tools/chain/upgrade-replay/precompile_calls.go", "tools/chain/upgrade-replay/replay.go"]
+tests = []
+verification_contract = "test -s tools/chain/repair_22_39_275.kvx && go test -count=1 ./tools/chain/upgrade-replay/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/chain"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/chain on the merged main tree and record every finding (path, line, component, symbol) in tools/chain/repair_22_39_275.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.274]
+title = "Repair the retired references of the bringup tooling"
+reqs = ["22998.1"]
+touches = ["tools/bringup/check-live.sh", "tools/bringup/foundation.go", "tools/bringup/live_rpc.go", "tools/bringup/roster.go", "tools/bringup/routes.go", "tools/bringup/runtime-dependencies.json", "tools/bringup/xweb-config.sh", "tools/bringup/xweb_transport.go"]
+tests = []
+verification_contract = "test -s tools/bringup/repair_22_39_274.kvx && go test -count=1 ./tools/bringup/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/bringup"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/bringup on the merged main tree and record every finding (path, line, component, symbol) in tools/bringup/repair_22_39_274.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.273]
+title = "Repair the retired references of the qualification suites and fixtures"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json", "tools/qualification/paxeer-x/agent_operation_envelope.py", "tools/qualification/paxeer-x/fixtures/agentd_fixture.py", "tools/qualification/paxeer-x/fixtures/caps_fixture.py", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py", "tools/qualification/paxeer-x/human-movement-kms-assembly.py", "tools/qualification/paxeer-x/paid-web-contract.py", "tools/qualification/paxeer-x/program_fee_governance.py", "tools/qualification/paxeer-x/router-authority-schema.py", "tools/qualification/paxeer-x/router-complete-readiness.py", "tools/qualification/paxeer-x/unified-account-identity.py", "tools/qualification/paxeer-x/wallet-custody-recovery.py"]
+tests = []
+verification_contract = "test -s tools/qualification/repair_22_39_273.kvx && python3 -m pytest -q tools/qualification && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/qualification"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/qualification on the merged main tree and record every finding (path, line, component, symbol) in tools/qualification/repair_22_39_273.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.272]
+title = "Repair the retired references of the launchpad web application, protocol catalogue and contracts"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/profile/activity-transport.ts", "sdk/launchpad/protocol/catalog/reviewed.json", "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json", "contracts/launchpad/contracts/core/SidioraFactory.sol", "contracts/launchpad/contracts/interfaces/ITreasury.sol", "contracts/launchpad/contracts/periphery/Router.sol", "contracts/launchpad/contracts/protocol/Treasury.sol"]
+tests = []
+verification_contract = "test -s apps/launchpad/repair_22_39_272.kvx && pnpm --dir apps/launchpad/web run test && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad on the merged main tree and record every finding (path, line, component, symbol) in apps/launchpad/repair_22_39_272.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.271]
+title = "Repair the retired references of the explorer backend and the signature provider sources"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/README.md", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt.ex", "services/explorer/backend/apps/explorer/priv/repo/migrations/20261001000000_create_paxeer_x_tables.exs", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/common.ex", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/rpc.ex", "services/explorer/backend/config/runtime.exs", "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json", "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_historical.json"]
+tests = []
+verification_contract = "test -s services/explorer/backend/repair_22_39_271.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x && python3 -m json.tool services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json > /dev/null && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/explorer/backend --path services/explorer/services"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/explorer/backend --path services/explorer/services on the merged main tree and record every finding (path, line, component, symbol) in services/explorer/backend/repair_22_39_271.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.270]
+title = "Repair the retired references of the explorer application"
+reqs = ["22998.1"]
+touches = ["apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/lib/metadata/getPageOgType.ts", "apps/explorer/lib/metadata/templates/description.ts", "apps/explorer/lib/metadata/templates/title.ts", "apps/explorer/lib/mixpanel/getPageType.ts", "apps/explorer/nextjs/nextjs-routes.d.ts", "apps/explorer/pages/paxeer-x/anchors.tsx", "apps/explorer/pages/paxeer-x/receipts.tsx", "apps/explorer/pages/paxeer-x/receipts/[id].tsx", "apps/explorer/public/openapi.yaml", "apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx"]
+tests = []
+verification_contract = "test -s apps/explorer/repair_22_39_270.kvx && cd apps/explorer && yarn vitest run ui/paxeerX && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer on the merged main tree and record every finding (path, line, component, symbol) in apps/explorer/repair_22_39_270.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.269]
+title = "Repair the retired references of the web application and the gas station container"
+reqs = ["22998.1"]
+touches = ["apps/web/e2e/prepare-production.py", "apps/web/src/api/gateway.ts", "apps/web/src/api/generated/index.ts", "apps/web/src/app/_markets/activity-feed.tsx", "apps/web/src/explorer/links.ts", "apps/web/src/explorer/native-model.ts", "docker/gas-station/init.sh"]
+tests = []
+verification_contract = "test -s apps/web/repair_22_39_269.kvx && pnpm --dir apps/web run test && python3 -m py_compile apps/web/e2e/prepare-production.py && bash -n docker/gas-station/init.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web --path docker/gas-station"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web --path docker/gas-station on the merged main tree and record every finding (path, line, component, symbol) in apps/web/repair_22_39_269.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.268]
+title = "Repair the retired references of the wallet SDK, gateway, demo, deployment and scripts"
+reqs = ["22998.1"]
+touches = ["sdk/wallet/src/endpoint.ts", "sdk/wallet/src/human.ts", "sdk/wallet/src/kernel.ts", "sdk/wallet/src/provider.ts", "sdk/wallet/src/types.ts", "services/wallet/gateway/migrations/005_agent_actions.sql", "services/wallet/demo/README.md", "services/wallet/deploy/env", "scripts/wallet/check-live.sh", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java"]
+tests = []
+verification_contract = "test -s sdk/wallet/repair_22_39_268.kvx && pnpm --dir services/wallet/gateway run test && bash -n scripts/wallet/check-live.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path sdk/wallet --path services/wallet/gateway --path services/wallet/demo --path services/wallet/deploy --path scripts/wallet --path sdk/platform"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path sdk/wallet --path services/wallet/gateway --path services/wallet/demo --path services/wallet/deploy --path scripts/wallet --path sdk/platform on the merged main tree and record every finding (path, line, component, symbol) in sdk/wallet/repair_22_39_268.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.267]
+title = "Repair the retired references of the interop service, its deployment and scripts"
+reqs = ["22998.1"]
+touches = ["services/interop/crates/layerx-interop-service/src/server.rs", "services/interop/deploy/search-front/nginx.conf", "scripts/interop/dependency-policy.sh"]
+tests = []
+verification_contract = "test -s services/interop/crates/layerx-interop-service/repair_22_39_267.kvx && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --lib && bash -n scripts/interop/dependency-policy.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/interop/crates/layerx-interop-service --path services/interop/deploy --path scripts/interop"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/interop/crates/layerx-interop-service --path services/interop/deploy --path scripts/interop on the merged main tree and record every finding (path, line, component, symbol) in services/interop/crates/layerx-interop-service/repair_22_39_267.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.266]
+title = "Repair the retired references of the platform command line, emulator core and release tooling"
+reqs = ["22998.1"]
+touches = ["tools/platform/cli/README.md", "tools/platform/cli/src/rpc.rs", "tools/platform/emulator/core/emulator_core.c"]
+tests = []
+verification_contract = "test -s tools/platform/repair_22_39_266.kvx && cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/platform"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/platform on the merged main tree and record every finding (path, line, component, symbol) in tools/platform/repair_22_39_266.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.265]
+title = "Repair the retired references of the ramps, examples and tools of the platform"
+reqs = ["22998.1"]
+touches = ["services/platform/ramps/journey_contract.py", "services/platform/ramps/reference/src/main.rs", "services/platform/ramps/sandbox-journey.sh", "services/platform/examples/support/runtime.mjs", "services/platform/tools/dependency-policy.sh"]
+tests = []
+verification_contract = "test -s services/platform/ramps/repair_22_39_265.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --lib && python3 -m py_compile services/platform/ramps/journey_contract.py && node --check services/platform/examples/support/runtime.mjs && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/ramps --path services/platform/examples --path services/platform/tools"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/ramps --path services/platform/examples --path services/platform/tools on the merged main tree and record every finding (path, line, component, symbol) in services/platform/ramps/repair_22_39_265.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.264]
+title = "Repair the retired references of the hosted human and node scripts of the platform"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/human/README.md", "services/platform/hosted/human/history_material.py", "services/platform/hosted/human/material.py", "services/platform/hosted/human/owner_native.py", "services/platform/hosted/human/repair_m1401_cases.py", "services/platform/hosted/node/generation_client.py"]
+tests = []
+verification_contract = "test -s services/platform/hosted/human/repair_22_39_264.kvx && python3 -m pytest -q services/platform/hosted/human && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/human --path services/platform/hosted/node"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/human --path services/platform/hosted/node on the merged main tree and record every finding (path, line, component, symbol) in services/platform/hosted/human/repair_22_39_264.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.263]
+title = "Repair the retired references of the platform indexer, registry, core, authority, agent boundary, testnet and webhooks crates"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer/src/abi.rs", "services/platform/hosted/indexer/src/ai_market.rs", "services/platform/hosted/indexer/src/ai_reputation.rs", "services/platform/hosted/indexer/src/config.rs", "services/platform/hosted/registry/src/committed_head_route.rs", "services/platform/hosted/registry/src/lib.rs", "services/platform/hosted/registry/src/main.rs", "services/platform/hosted/registry/src/node_state.rs", "services/platform/hosted/registry/src/routes.rs", "services/platform/hosted/core/src/lib.rs", "services/platform/hosted/authority/README.md", "services/platform/hosted/authority/src/lib.rs", "services/platform/hosted/agent-boundary/src/deployment.rs", "services/platform/hosted/testnet/README.md", "services/platform/hosted/testnet/src/main.rs", "services/platform/hosted/webhooks/src/ai_market.rs", "services/platform/hosted/webhooks/src/repair_22_33_1328_authority.rs"]
+tests = []
+verification_contract = "test -s services/platform/hosted/indexer/repair_22_39_263.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer -p layerx-platform-registry -p layerx-platform-core -p layerx-platform-authority -p layerx-platform-agent-boundary -p layerx-platform-testnet -p layerx-platform-webhooks --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/indexer --path services/platform/hosted/registry --path services/platform/hosted/core --path services/platform/hosted/authority --path services/platform/hosted/agent-boundary --path services/platform/hosted/testnet --path services/platform/hosted/webhooks"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/indexer --path services/platform/hosted/registry --path services/platform/hosted/core --path services/platform/hosted/authority --path services/platform/hosted/agent-boundary --path services/platform/hosted/testnet --path services/platform/hosted/webhooks on the merged main tree and record every finding (path, line, component, symbol) in services/platform/hosted/indexer/repair_22_39_263.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.262]
+title = "Repair the retired references of the platform gateway crate and its document"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/README.md", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/src/backend_availability.rs", "services/platform/hosted/gateway/src/evm.rs", "services/platform/hosted/gateway/src/explorer_proxy.rs", "services/platform/hosted/gateway/src/history.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/routes.rs", "services/platform/hosted/gateway/src/rpc.rs"]
+tests = []
+verification_contract = "test -s services/platform/hosted/gateway/repair_22_39_262.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/gateway"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/gateway on the merged main tree and record every finding (path, line, component, symbol) in services/platform/hosted/gateway/repair_22_39_262.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.261]
+title = "Repair the retired references of the human API schema and its golden vectors"
+reqs = ["22998.1"]
+touches = ["services/human/schema/human-api/baseline.kvx", "services/human/schema/human-api/compatibility.kvx", "services/human/schema/human-api/golden/deposit.confirm.request.json", "services/human/schema/human-api/golden/deposit.start.request.json", "services/human/schema/human-api/golden/exit.eligibility.response.json", "services/human/schema/human-api/golden/exit.start.request.json", "services/human/schema/human-api/golden/withdraw.claim.request.json", "services/human/schema/human-api/golden/withdraw.start.request.json", "services/human/schema/human-api/journeys.kvx", "services/human/schema/human-api/movement.kvx"]
+tests = []
+verification_contract = "test -s services/human/schema/repair_22_39_261.kvx && cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api && cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/schema"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/schema on the merged main tree and record every finding (path, line, component, symbol) in services/human/schema/repair_22_39_261.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.260]
+title = "Repair the retired references of the network gateway, test support, kms and tools of the human service"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-network-gateway/src/lib.rs", "services/human/crates/layerx-human-test-support/src/evidence_node.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/human/tools/boundary-check/src/lib.rs", "services/human/tools/dependency-policy.sh"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-network-gateway/repair_22_39_260.kvx && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway -p layerx-human-kms --lib && bash -n services/human/tools/dependency-policy.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-network-gateway --path services/human/crates/layerx-human-test-support --path services/human/crates/layerx-human-kms --path services/human/tools"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-network-gateway --path services/human/crates/layerx-human-test-support --path services/human/crates/layerx-human-kms --path services/human/tools on the merged main tree and record every finding (path, line, component, symbol) in services/human/crates/layerx-network-gateway/repair_22_39_260.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.259]
+title = "Repair the retired references of the human service crate"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-service/src/audit/event.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/frame.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/stream_journal.rs"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-service/repair_22_39_259.kvx && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-human-service"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-human-service on the merged main tree and record every finding (path, line, component, symbol) in services/human/crates/layerx-human-service/repair_22_39_259.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.258]
+title = "Repair the retired references of the TypeScript and Python agent SDKs"
+reqs = ["22998.1"]
+touches = ["services/agent/sdk/python/layerx_sdk/ai_market.py", "services/agent/sdk/python/layerx_sdk/exchange.py", "services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/python/layerx_sdk/px.pyi", "services/agent/sdk/python/layerx_sdk/revert.py", "services/agent/sdk/typescript/src/agent-http.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/src/history.ts", "services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/typescript/src/rpc.ts", "services/agent/sdk/typescript/src/verifier.ts", "services/agent/sdk/typescript/src/web-search.ts"]
+tests = []
+verification_contract = "test -s services/agent/sdk/repair_22_39_258.kvx && pnpm --dir services/agent/sdk/typescript run test:self-contained && python3 -m pytest -q services/agent/sdk/python/tests && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/sdk"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/sdk on the merged main tree and record every finding (path, line, component, symbol) in services/agent/sdk/repair_22_39_258.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.257]
+title = "Repair the retired references of the agent wallet SDK, proof, mcp and schema packages"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-proof/src/export.rs", "services/agent/crates/layerx-proof/src/state.rs", "services/agent/crates/layerx-mcp/src/tools/wallet.rs", "services/agent/schema/agent-api/golden/programs.kvx", "services/agent/schema/agent-api/programs.kvx"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-sdk/repair_22_39_257.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof -p layerx-mcp --lib && cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-sdk --path services/agent/crates/layerx-proof --path services/agent/crates/layerx-mcp --path services/agent/schema"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-sdk --path services/agent/crates/layerx-proof --path services/agent/crates/layerx-mcp --path services/agent/schema on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-sdk/repair_22_39_257.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.256]
+title = "Repair the retired references of the agent client crate"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/px.rs", "services/agent/crates/layerx-client/src/rpc/withdrawal.rs", "services/agent/crates/layerx-client/src/rpc/withdrawal_get_asset.json"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-client/repair_22_39_256.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-client"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-client on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-client/repair_22_39_256.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.255]
+title = "Repair the retired references of the agent crypto crate"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-crypto/src/api-contract.md", "services/agent/crates/layerx-crypto/src/remote.rs", "services/agent/crates/layerx-crypto/src/signer.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-crypto/repair_22_39_255.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-crypto"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-crypto on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-crypto/repair_22_39_255.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.254]
+title = "Repair the retired references of the agent types crate"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-types/src/account.rs", "services/agent/crates/layerx-types/src/historical/settlement.rs", "services/agent/crates/layerx-types/src/vectors/checkpoint.rs", "services/agent/crates/layerx-types/src/verify.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-types/repair_22_39_254.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-types --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-types"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-types on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-types/repair_22_39_254.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.253]
+title = "Repair the retired references of the agent daemon crate"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/host-tests/retired_env.rs", "services/agent/crates/layerx-agentd/src/agent_rpc.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/capability/effects.rs", "services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/node_rpc.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/program_node.rs", "services/agent/crates/layerx-agentd/src/tenant/errors.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/repair_22_39_253.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-agentd/repair_22_39_253.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.252]
+title = "Repair the retired references of the ai-market program crate and the programs overview"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/README.md"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-ai-market --path programs"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-ai-market --path programs on the merged main tree and record every finding (path, line, component, symbol) in programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.251]
+title = "Repair the retired references of the programs runtime crate"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/lib.rs", "programs/crates/layerx-programs-runtime/src/terminal.rs", "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-runtime/repair_22_39_251.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-runtime"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-runtime on the merged main tree and record every finding (path, line, component, symbol) in programs/crates/layerx-programs-runtime/repair_22_39_251.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.250]
+title = "Repair the retired references of the kernel host module and the executor precompile guard"
+reqs = ["22998.1"]
+touches = ["modules/lxphost/host.go", "engine/executor/precompiles/failfast.go"]
+tests = []
+verification_contract = "test -s modules/lxphost/repair_22_39_250.kvx && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^(TestKernelArchiveSymbolsReadsLibrary)$' && go vet ./engine/executor/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/lxphost --path engine/executor"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/lxphost --path engine/executor on the merged main tree and record every finding (path, line, component, symbol) in modules/lxphost/repair_22_39_250.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.249]
+title = "Repair the retired references of the governance, pay, launchpad, evm and xweb modules and the shared precompile packages"
+reqs = ["22998.1"]
+touches = ["modules/layerxgov/types/proposal.go", "modules/layerxpay/keeper/keeper.go", "modules/layerxpay/keeper/stream_agent.go", "modules/launchpad/keeper/treasury.go", "modules/evm/keeper/precompile.go", "modules/xweb/keeper/program.go", "modules/README.md", "api/README.md", "precompiles/setup.go", "precompiles/layerxauth/internal/repair1503/native.go", "precompiles/utils/expected_keepers.go", "precompiles/common/lxp_errors.go", "precompiles/addr/addr.go", "precompiles/launchpad/abi/Treasury.json", "precompiles/launchpad/gas.go", "precompiles/launchpad/treasury.go", "layerxproof/codec/checkpoint.go", "layerxproof/codec/discovery.go", "layerxproof/codec/state.go", "layerxproof/verify/checkpoint.go", "storage/common/keys/store_keys.go"]
+tests = []
+verification_contract = "test -s modules/layerxgov/repair_22_39_249.kvx && go test -count=1 ./modules/layerxgov/... ./modules/layerxpay/... ./modules/launchpad/... ./modules/evm/... ./modules/xweb/... ./precompiles/layerxauth/... ./precompiles/utils/ ./precompiles/common/ ./precompiles/addr/ ./precompiles/launchpad/... ./layerxproof/... ./storage/common/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxgov --path modules/layerxpay --path modules/launchpad --path modules/evm --path modules/xweb --path modules --path api --path precompiles --path precompiles/layerxauth --path precompiles/utils --path precompiles/common --path precompiles/addr --path precompiles/launchpad --path layerxproof/codec --path layerxproof/verify --path storage/common"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxgov --path modules/layerxpay --path modules/launchpad --path modules/evm --path modules/xweb --path modules --path api --path precompiles --path precompiles/layerxauth --path precompiles/utils --path precompiles/common --path precompiles/addr --path precompiles/launchpad --path layerxproof/codec --path layerxproof/verify --path storage/common on the merged main tree and record every finding (path, line, component, symbol) in modules/layerxgov/repair_22_39_249.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.248]
+title = "Repair the retired references of the node wiring"
+reqs = ["22998.1"]
+touches = ["node/app.go", "node/precompiles.go", "node/upgrades.go"]
+tests = []
+verification_contract = "test -s node/repair_22_39_248.kvx && go test -count=1 ./node/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path node"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path node on the merged main tree and record every finding (path, line, component, symbol) in node/repair_22_39_248.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.247]
+title = "Repair the retired references of the kernel modules and the replay tests"
+reqs = ["22998.1"]
+touches = ["src/modules/asset/README.md", "src/modules/governance/lxp_governance.c", "src/modules/programs/call.c", "src/modules/programs/fees.c", "src/modules/programs/occupancy.c", "tests/replay/golden/history.lxl", "tests/replay/lxp_test_golden_replay.c"]
+tests = []
+verification_contract = "test -s src/modules/repair_22_39_247.kvx && make -C . build/tests/kernel/codec/lxp_test_result_codes && ./build/tests/kernel/codec/lxp_test_result_codes && python3 tools/paxeer-x/tests/retired_callers_test.py --path src/modules --path tests/replay"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path src/modules --path tests/replay on the merged main tree and record every finding (path, line, component, symbol) in src/modules/repair_22_39_247.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.246]
+title = "Repair the retired references of the kernel headers, state, protocol and ledger sources"
+reqs = ["22998.1"]
+touches = ["include/layerx/lxp_authority.h", "include/layerx/lxp_module.h", "include/layerx/lxp_receipt.h", "include/layerx/programs.h", "src/state/lxp_authority.c", "src/state/lxp_identity.c", "src/protocol/lxp_genesis.c", "src/protocol/lxp_module_ctx.c", "src/protocol/lxp_receipt.c", "src/ledger/lx_account_id.c"]
+tests = []
+verification_contract = "test -s include/repair_22_39_246.kvx && make -C . build/tests/kernel/codec/lxp_test_result_codes && ./build/tests/kernel/codec/lxp_test_result_codes && python3 tools/paxeer-x/tests/retired_callers_test.py --path include --path src/state --path src/protocol --path src/ledger"
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path include --path src/state --path src/protocol --path src/ledger on the merged main tree and record every finding (path, line, component, symbol) in include/repair_22_39_246.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+symbols = []
+
+[capability.22.39.245]
+title = "Scope the retired-caller catalogue to live code and make the scan runnable per package"
+reqs = ["22998.1"]
+touches = ["tools/paxeer-x/retired_callers.json", "tools/paxeer-x/tests/retired_callers_test.py", "tools/paxeer-x/build/104.30.2.mk", "tools/paxeer-x/build/104.32.4.mk", "tools/paxeer-x/gates/104.29.5.sh", "tools/paxeer-x/gates/104.32.4.sh", "tools/paxeer-x/route-catalogue.json", "services/agent/crates/layerx-client/src/lni/repair_22_33_1544.kvx"]
+tests = []
+verification_contract = "test -s tools/paxeer-x/repair_22_39_245.kvx && test ! -e services/agent/crates/layerx-client/src/lni && python3 tools/paxeer-x/tests/retired_callers_test.py --self-test && python3 tools/paxeer-x/tests/retired_callers_test.py --deleted --path spec --path core/deps --path tools/paxeer-x --path tools/hyperfide --path modules/layerxcustody --path precompiles/layerxcustody --path api/layerxcustody --path modules/layerxanchor --path precompiles/layerxanchor --path api/layerxanchor --path modules/layerxexchange --path precompiles/layerxexchange --path api/layerxexchange --path precompiles/layerxverify --path contracts/src --path programs/vendor --path apps/launchpad/web/public --path tests/daemon --path services/agent/crates/layerx-wire --path services/agent/crates/layerx-client"
+do_1 = "do_1 Decision 3104. In tools/paxeer-x/retired_callers.json add to documentation_paths, each with a one-sentence reason: spec/layerx-merge/programme, spec/release-v6-12-0, spec/monorepo-layout, every repair record file (the repair_*.kvx files across the tree, matched by the checker as record files, and the record directories of repairs 22.31.207 and 22.31.211), the vendored tree under tools, core/deps/geth/signer/fourbyte, programs/vendor and the charting library bundles under apps/launchpad/web/public; extend validate_catalogue so a documentation entry may name a file-name pattern as well as a path. Remove px_getUnifiedHistory, px_getNetwork and px_listAssets from the router-joins symbols because the replacement keeps those names. Add allowed_references for the own trees of the merge-disabled components (modules/layerxcustody, precompiles/layerxcustody, api/layerxcustody, modules/layerxanchor, precompiles/layerxanchor, api/layerxanchor, modules/layerxexchange, precompiles/layerxexchange, api/layerxexchange, precompiles/layerxverify and the ILayerX interfaces of contracts/src), each reason naming the removal that retires the tree."
+symbols = []
 
 [capability.22.39.244]
 title = "Report the room market family availability from the captured policy and placement book"
@@ -160087,6 +160417,156 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.272]
+title = "Repair the retired references of the launchpad web application, protocol catalogue and contracts"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.272"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad on the merged main tree and record every finding (path, line, component, symbol) in apps/launchpad/repair_22_39_272.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/profile/activity-transport.ts", "sdk/launchpad/protocol/catalog/reviewed.json", "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json", "contracts/launchpad/contracts/core/SidioraFactory.sol", "contracts/launchpad/contracts/interfaces/ITreasury.sol", "contracts/launchpad/contracts/periphery/Router.sol", "contracts/launchpad/contracts/protocol/Treasury.sol"]
+tests = []
+planned_paths = ["apps/launchpad/repair_22_39_272.kvx"]
+build_cmd = "pnpm --dir apps/launchpad/web run typecheck && python3 -m json.tool sdk/launchpad/protocol/catalog/reviewed.json > /dev/null"
+verify_cmd = "test -s apps/launchpad/repair_22_39_272.kvx && pnpm --dir apps/launchpad/web run test && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.270]
+title = "Repair the retired references of the explorer application"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.270"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer on the merged main tree and record every finding (path, line, component, symbol) in apps/explorer/repair_22_39_270.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/lib/metadata/getPageOgType.ts", "apps/explorer/lib/metadata/templates/description.ts", "apps/explorer/lib/metadata/templates/title.ts", "apps/explorer/lib/mixpanel/getPageType.ts", "apps/explorer/nextjs/nextjs-routes.d.ts", "apps/explorer/pages/paxeer-x/anchors.tsx", "apps/explorer/pages/paxeer-x/receipts.tsx", "apps/explorer/pages/paxeer-x/receipts/[id].tsx", "apps/explorer/public/openapi.yaml", "apps/explorer/types/api/paxeerXArchive.ts", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx"]
+tests = []
+planned_paths = ["apps/explorer/repair_22_39_270.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn lint:tsc"
+verify_cmd = "test -s apps/explorer/repair_22_39_270.kvx && cd apps/explorer && yarn vitest run ui/paxeerX && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.269]
+title = "Repair the retired references of the web application and the gas station container"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.269"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web --path docker/gas-station on the merged main tree and record every finding (path, line, component, symbol) in apps/web/repair_22_39_269.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["apps/web/e2e/prepare-production.py", "apps/web/src/api/gateway.ts", "apps/web/src/api/generated/index.ts", "apps/web/src/app/_markets/activity-feed.tsx", "apps/web/src/explorer/links.ts", "apps/web/src/explorer/native-model.ts", "docker/gas-station/init.sh"]
+tests = []
+planned_paths = ["apps/web/repair_22_39_269.kvx"]
+build_cmd = "pnpm --dir apps/web install --frozen-lockfile --ignore-scripts && pnpm --dir apps/web run typecheck"
+verify_cmd = "test -s apps/web/repair_22_39_269.kvx && pnpm --dir apps/web run test && python3 -m py_compile apps/web/e2e/prepare-production.py && bash -n docker/gas-station/init.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web --path docker/gas-station"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.268]
+title = "Repair the retired references of the wallet SDK, gateway, demo, deployment and scripts"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.268"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path sdk/wallet --path services/wallet/gateway --path services/wallet/demo --path services/wallet/deploy --path scripts/wallet --path sdk/platform on the merged main tree and record every finding (path, line, component, symbol) in sdk/wallet/repair_22_39_268.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["sdk/wallet/src/endpoint.ts", "sdk/wallet/src/human.ts", "sdk/wallet/src/kernel.ts", "sdk/wallet/src/provider.ts", "sdk/wallet/src/types.ts", "services/wallet/gateway/migrations/005_agent_actions.sql", "services/wallet/demo/README.md", "services/wallet/deploy/env", "scripts/wallet/check-live.sh", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java"]
+tests = []
+planned_paths = ["sdk/wallet/repair_22_39_268.kvx"]
+build_cmd = "corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck && pnpm --dir sdk/wallet exec tsc --noEmit"
+verify_cmd = "test -s sdk/wallet/repair_22_39_268.kvx && pnpm --dir services/wallet/gateway run test && bash -n scripts/wallet/check-live.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path sdk/wallet --path services/wallet/gateway --path services/wallet/demo --path services/wallet/deploy --path scripts/wallet --path sdk/platform"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.258]
+title = "Repair the retired references of the TypeScript and Python agent SDKs"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.258"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/sdk on the merged main tree and record every finding (path, line, component, symbol) in services/agent/sdk/repair_22_39_258.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/agent/sdk/python/layerx_sdk/ai_market.py", "services/agent/sdk/python/layerx_sdk/exchange.py", "services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/python/layerx_sdk/px.pyi", "services/agent/sdk/python/layerx_sdk/revert.py", "services/agent/sdk/typescript/src/agent-http.ts", "services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/src/history.ts", "services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/typescript/src/rpc.ts", "services/agent/sdk/typescript/src/verifier.ts", "services/agent/sdk/typescript/src/web-search.ts"]
+tests = []
+planned_paths = ["services/agent/sdk/repair_22_39_258.kvx"]
+build_cmd = "pnpm --dir services/agent/sdk/typescript run build && python3 -m py_compile services/agent/sdk/python/layerx_sdk/ai_market.py services/agent/sdk/python/layerx_sdk/exchange.py services/agent/sdk/python/layerx_sdk/px.py services/agent/sdk/python/layerx_sdk/revert.py"
+verify_cmd = "test -s services/agent/sdk/repair_22_39_258.kvx && pnpm --dir services/agent/sdk/typescript run test:self-contained && python3 -m pytest -q services/agent/sdk/python/tests && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/sdk"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1826.1]
 title = "Issue #1826: Export the install-status error constructor through the public SDK entries"
 status = "done"
@@ -160363,8 +160843,8 @@ symbols = ["LayoutSearchResults", "searchResultsRoutesKeepOneHeaderAndLiveSearch
 touches = ["apps/explorer/ui/shared/layout/LayoutSearchResults.tsx", "apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx"]
 tests = ["apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx::searchResultsRoutesKeepOneHeaderAndLiveSearch"]
 planned_paths = ["apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx"]
-build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/explorer exec vitest run ui/shared/layout/LayoutSearchResults.spec.tsx -t '^searchResultsRoutesKeepOneHeaderAndLiveSearch$'"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit"
+verify_cmd = "cd apps/explorer && yarn vitest run ui/shared/layout/LayoutSearchResults.spec.tsx -t '^searchResultsRoutesKeepOneHeaderAndLiveSearch$'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -160381,6 +160861,7 @@ do_4 = "Attempt 3 (continue, gotcha 3858): the attempt-2 tree 46aee0f8f6f1 stand
 do_5 = "Attempt 4 (continue, gotcha 3894): the attempt-3 tree ad2c9549fb5b stands (the scrollTo polyfill, the layout change). In LayoutSearchResults.spec.tsx assert first that exactly one banner region is rendered on each of the two routes, then resolve the chain select by its accessible name inside that region (the label of the select, not a bare combobox role) and pick the option; keep the polyfill. If two selects remain inside the one header, the layout still renders the filter twice and the component is the fix, not the query."
 do_6 = "Attempt 5 (relaunch, decision 3099, gotcha 3917): attempt 4 completed no turn within the working-time limit and its tree d92a00495405 equals the attempt-3 tree ad2c9549fb5b (the scrollTo polyfill, the layout change); the instructions of do_5 stand unchanged: assert first that exactly one banner region renders on each of the two routes, resolve the chain select by its accessible name inside that region and pick the option, keep the polyfill. Run the build once and the verification once at the final revision."
 do_7 = "Attempt 6 (continue, gotcha 3928): the attempt-5 tree 3e43ad1d9d5f stands (the scrollTo polyfill, the layout change, the single banner assertion). In apps/explorer/ui/searchResults/LayoutSearchResults.spec.tsx set window.__multichainConfig with the chains of the case (the Optimism chain, id 10, among them) before rendering, in both the multichain false and true rounds of the spec, so ChainSelect of ui/shared/externalChains renders its toolkit Select instead of its loading state; then resolve the trigger inside the filters by the accessible name the toolkit Select exposes (the placeholder Select chain or the All chains option, whichever the rendered trigger carries) and pick the option. When the combobox is still absent, print the roles inside the filters in the assertion message. Run the build once and the verification once at the final revision."
+do_8 = "Attempt 7 (continue, gotcha 3936, decision 3107): the attempt-6 tree 6b410c64589a stands (the header fix, the chain setup and the selector diagnostics of do_7). The build and verification commands now run yarn from the package directory as every qualified explorer task does and the qualification environment installs the package with its frozen lockfile before the commands run; do not run pnpm in the package. Nothing else changes; run the build once and the verification once at the final revision."
 
 [task.18.1679.1]
 title = "Issue #1679: Restrict live transfer updates and notices to the first display page"
@@ -160397,8 +160878,8 @@ symbols = ["TokenTransfer", "tokenTransferLiveUpdatesFollowDisplayPage"]
 touches = ["apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx", "apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx"]
 tests = ["apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx::tokenTransferLiveUpdatesFollowDisplayPage"]
 planned_paths = []
-build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/explorer exec vitest run ui/token/TokenTransfer/TokenTransfer.spec.tsx -t '^tokenTransferLiveUpdatesFollowDisplayPage$'"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit"
+verify_cmd = "cd apps/explorer && yarn vitest run ui/token/TokenTransfer/TokenTransfer.spec.tsx -t '^tokenTransferLiveUpdatesFollowDisplayPage$'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -191374,6 +191855,456 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.267]
+title = "Repair the retired references of the interop service, its deployment and scripts"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.267"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/interop/crates/layerx-interop-service --path services/interop/deploy --path scripts/interop on the merged main tree and record every finding (path, line, component, symbol) in services/interop/crates/layerx-interop-service/repair_22_39_267.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/interop/crates/layerx-interop-service/src/server.rs", "services/interop/deploy/search-front/nginx.conf", "scripts/interop/dependency-policy.sh"]
+tests = []
+planned_paths = ["services/interop/crates/layerx-interop-service/repair_22_39_267.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --tests"
+verify_cmd = "test -s services/interop/crates/layerx-interop-service/repair_22_39_267.kvx && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --lib && bash -n scripts/interop/dependency-policy.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/interop/crates/layerx-interop-service --path services/interop/deploy --path scripts/interop"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.266]
+title = "Repair the retired references of the platform command line, emulator core and release tooling"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.266"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/platform on the merged main tree and record every finding (path, line, component, symbol) in tools/platform/repair_22_39_266.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["tools/platform/cli/README.md", "tools/platform/cli/src/rpc.rs", "tools/platform/emulator/core/emulator_core.c"]
+tests = []
+planned_paths = ["tools/platform/repair_22_39_266.kvx"]
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release --tests"
+verify_cmd = "test -s tools/platform/repair_22_39_266.kvx && cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/platform"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.265]
+title = "Repair the retired references of the ramps, examples and tools of the platform"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.265"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/ramps --path services/platform/examples --path services/platform/tools on the merged main tree and record every finding (path, line, component, symbol) in services/platform/ramps/repair_22_39_265.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/platform/ramps/journey_contract.py", "services/platform/ramps/reference/src/main.rs", "services/platform/ramps/sandbox-journey.sh", "services/platform/examples/support/runtime.mjs", "services/platform/tools/dependency-policy.sh"]
+tests = []
+planned_paths = ["services/platform/ramps/repair_22_39_265.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --tests && bash -n services/platform/ramps/*-journey.sh services/platform/tools/dependency-policy.sh"
+verify_cmd = "test -s services/platform/ramps/repair_22_39_265.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --lib && python3 -m py_compile services/platform/ramps/journey_contract.py && node --check services/platform/examples/support/runtime.mjs && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/ramps --path services/platform/examples --path services/platform/tools"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.263]
+title = "Repair the retired references of the platform indexer, registry, core, authority, agent boundary, testnet and webhooks crates"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.263"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/indexer --path services/platform/hosted/registry --path services/platform/hosted/core --path services/platform/hosted/authority --path services/platform/hosted/agent-boundary --path services/platform/hosted/testnet --path services/platform/hosted/webhooks on the merged main tree and record every finding (path, line, component, symbol) in services/platform/hosted/indexer/repair_22_39_263.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/platform/hosted/indexer/src/abi.rs", "services/platform/hosted/indexer/src/ai_market.rs", "services/platform/hosted/indexer/src/ai_reputation.rs", "services/platform/hosted/indexer/src/config.rs", "services/platform/hosted/registry/src/committed_head_route.rs", "services/platform/hosted/registry/src/lib.rs", "services/platform/hosted/registry/src/main.rs", "services/platform/hosted/registry/src/node_state.rs", "services/platform/hosted/registry/src/routes.rs", "services/platform/hosted/core/src/lib.rs", "services/platform/hosted/authority/README.md", "services/platform/hosted/authority/src/lib.rs", "services/platform/hosted/agent-boundary/src/deployment.rs", "services/platform/hosted/testnet/README.md", "services/platform/hosted/testnet/src/main.rs", "services/platform/hosted/webhooks/src/ai_market.rs", "services/platform/hosted/webhooks/src/repair_22_33_1328_authority.rs"]
+tests = []
+planned_paths = ["services/platform/hosted/indexer/repair_22_39_263.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer -p layerx-platform-registry -p layerx-platform-core -p layerx-platform-authority -p layerx-platform-agent-boundary -p layerx-platform-testnet -p layerx-platform-webhooks --lib"
+verify_cmd = "test -s services/platform/hosted/indexer/repair_22_39_263.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer -p layerx-platform-registry -p layerx-platform-core -p layerx-platform-authority -p layerx-platform-agent-boundary -p layerx-platform-testnet -p layerx-platform-webhooks --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/indexer --path services/platform/hosted/registry --path services/platform/hosted/core --path services/platform/hosted/authority --path services/platform/hosted/agent-boundary --path services/platform/hosted/testnet --path services/platform/hosted/webhooks"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.262]
+title = "Repair the retired references of the platform gateway crate and its document"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.262"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/gateway on the merged main tree and record every finding (path, line, component, symbol) in services/platform/hosted/gateway/repair_22_39_262.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/platform/hosted/gateway/README.md", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/src/backend_availability.rs", "services/platform/hosted/gateway/src/evm.rs", "services/platform/hosted/gateway/src/explorer_proxy.rs", "services/platform/hosted/gateway/src/history.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/routes.rs", "services/platform/hosted/gateway/src/rpc.rs"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/repair_22_39_262.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --lib --bins"
+verify_cmd = "test -s services/platform/hosted/gateway/repair_22_39_262.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/gateway"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.261]
+title = "Repair the retired references of the human API schema and its golden vectors"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.261"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/schema on the merged main tree and record every finding (path, line, component, symbol) in services/human/schema/repair_22_39_261.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/human/schema/human-api/baseline.kvx", "services/human/schema/human-api/compatibility.kvx", "services/human/schema/human-api/golden/deposit.confirm.request.json", "services/human/schema/human-api/golden/deposit.start.request.json", "services/human/schema/human-api/golden/exit.eligibility.response.json", "services/human/schema/human-api/golden/exit.start.request.json", "services/human/schema/human-api/golden/withdraw.claim.request.json", "services/human/schema/human-api/golden/withdraw.start.request.json", "services/human/schema/human-api/journeys.kvx", "services/human/schema/human-api/movement.kvx"]
+tests = []
+planned_paths = ["services/human/schema/repair_22_39_261.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/human/tools/schema-check/Cargo.toml"
+verify_cmd = "test -s services/human/schema/repair_22_39_261.kvx && cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api && cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/schema"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.260]
+title = "Repair the retired references of the network gateway, test support, kms and tools of the human service"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.260"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-network-gateway --path services/human/crates/layerx-human-test-support --path services/human/crates/layerx-human-kms --path services/human/tools on the merged main tree and record every finding (path, line, component, symbol) in services/human/crates/layerx-network-gateway/repair_22_39_260.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/human/crates/layerx-network-gateway/src/lib.rs", "services/human/crates/layerx-human-test-support/src/evidence_node.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/human/tools/boundary-check/src/lib.rs", "services/human/tools/dependency-policy.sh"]
+tests = []
+planned_paths = ["services/human/crates/layerx-network-gateway/repair_22_39_260.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway -p layerx-human-test-support -p layerx-human-kms --lib && cargo build --locked --manifest-path services/human/tools/boundary-check/Cargo.toml"
+verify_cmd = "test -s services/human/crates/layerx-network-gateway/repair_22_39_260.kvx && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway -p layerx-human-kms --lib && bash -n services/human/tools/dependency-policy.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-network-gateway --path services/human/crates/layerx-human-test-support --path services/human/crates/layerx-human-kms --path services/human/tools"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.259]
+title = "Repair the retired references of the human service crate"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.259"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-human-service on the merged main tree and record every finding (path, line, component, symbol) in services/human/crates/layerx-human-service/repair_22_39_259.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/src/audit/event.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/frame.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/stream_journal.rs"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/repair_22_39_259.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib"
+verify_cmd = "test -s services/human/crates/layerx-human-service/repair_22_39_259.kvx && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/crates/layerx-human-service"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.257]
+title = "Repair the retired references of the agent wallet SDK, proof, mcp and schema packages"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.257"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-sdk --path services/agent/crates/layerx-proof --path services/agent/crates/layerx-mcp --path services/agent/schema on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-sdk/repair_22_39_257.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-proof/src/export.rs", "services/agent/crates/layerx-proof/src/state.rs", "services/agent/crates/layerx-mcp/src/tools/wallet.rs", "services/agent/schema/agent-api/golden/programs.kvx", "services/agent/schema/agent-api/programs.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-sdk/repair_22_39_257.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof -p layerx-mcp --tests && cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --lib"
+verify_cmd = "test -s services/agent/crates/layerx-sdk/repair_22_39_257.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof -p layerx-mcp --lib && cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-sdk --path services/agent/crates/layerx-proof --path services/agent/crates/layerx-mcp --path services/agent/schema"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.256]
+title = "Repair the retired references of the agent client crate"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.256"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-client on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-client/repair_22_39_256.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/px.rs", "services/agent/crates/layerx-client/src/rpc/withdrawal.rs", "services/agent/crates/layerx-client/src/rpc/withdrawal_get_asset.json"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-client/repair_22_39_256.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "test -s services/agent/crates/layerx-client/repair_22_39_256.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-client"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.255]
+title = "Repair the retired references of the agent crypto crate"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.255"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-crypto on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-crypto/repair_22_39_255.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/agent/crates/layerx-crypto/src/api-contract.md", "services/agent/crates/layerx-crypto/src/remote.rs", "services/agent/crates/layerx-crypto/src/signer.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-crypto/repair_22_39_255.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --tests"
+verify_cmd = "test -s services/agent/crates/layerx-crypto/repair_22_39_255.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-crypto"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.254]
+title = "Repair the retired references of the agent types crate"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.254"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-types on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-types/repair_22_39_254.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/agent/crates/layerx-types/src/account.rs", "services/agent/crates/layerx-types/src/historical/settlement.rs", "services/agent/crates/layerx-types/src/vectors/checkpoint.rs", "services/agent/crates/layerx-types/src/verify.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-types/repair_22_39_254.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-types --tests"
+verify_cmd = "test -s services/agent/crates/layerx-types/repair_22_39_254.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-types --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-types"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.253]
+title = "Repair the retired references of the agent daemon crate"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.253"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd on the merged main tree and record every finding (path, line, component, symbol) in services/agent/crates/layerx-agentd/repair_22_39_253.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/host-tests/retired_env.rs", "services/agent/crates/layerx-agentd/src/agent_rpc.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/capability/effects.rs", "services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/node_rpc.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/program_node.rs", "services/agent/crates/layerx-agentd/src/tenant/errors.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_253.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --bins"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/repair_22_39_253.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.252]
+title = "Repair the retired references of the ai-market program crate and the programs overview"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.252"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-ai-market --path programs on the merged main tree and record every finding (path, line, component, symbol) in programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/README.md"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-ai-market --path programs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.251]
+title = "Repair the retired references of the programs runtime crate"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.251"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-runtime on the merged main tree and record every finding (path, line, component, symbol) in programs/crates/layerx-programs-runtime/repair_22_39_251.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/lib.rs", "programs/crates/layerx-programs-runtime/src/terminal.rs", "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-runtime/repair_22_39_251.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-runtime/repair_22_39_251.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-runtime"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.244]
 title = "Report the room market family availability from the captured policy and placement book"
 status = "done"
@@ -191433,6 +192364,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3937, decision 3106): the attempt-1 tree 9c5a04a11157 stands (the named gate jobs, the gate records emitted by programs-conformance.yml and agent.yml, the reusable-workflow following of the checker, the registries cases). In tools/platform/release/src/main.rs make the publication-job clause (main.rs:951 of the attempt tree) accept the condition of a publication job when it equals the release condition or when it is a conjunction whose conjuncts are the parenthesised release condition and vars.NAME is-not-empty guards as platform.yml:487 carries for publish-crates-io; name the two accepted forms in the refusal; add a registries case for the guarded form and a case that refuses a guard that is not a configuration presence check. Run the build once and the verification once at the final revision."
 
 [task.22.39.241]
 title = "Re-record the x-websearch conformance suite digest after the metered payer fixture change"
@@ -191861,6 +192793,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3839): the attempt-1 tree 7be3886a3b62 is the starting point for the lint repairs of the library, with two corrections. First, restore the call sites of lxt20_tests.rs line 71 and market_tests.rs line 125 to the three-argument form of main (storage, an AuthorizedExecutionRequest, the budget), exactly as the base ab70c667c76c carries them, and keep the signature of execute_authorized_v2_with_budget as the base defines it. Second, in tests/repair_22_31_259.rs the explicit import that replaces the glob of layerx_program_sdk::arbiter names only the constants that module defines (MARKET_STEP_TRANSITION and its siblings), while MarketStepProof stays imported from rt::execute as line 667 of main does; apply the same rule to tests/repair_22_31_577.rs line 2. Record both corrections in repair_22_39_235.kvx. Run the build once and the verification once at the final revision and record both by reference; if the lint gate still reports sites, repair them within the one allowed cycle and rerun once."
 do_5 = "Attempt 3 (continue, gotcha 3880, decision 3089): the attempt-2 tree 5e1a4256cbf6 stands (the lint repairs of the runtime crate and its test targets, the From<usize> repairs, the record). The task now requires 22.39.238, which removes the red include from the agent daemon integration target; this attempt launches once that task has landed. Change nothing in services/agent; run the build once, let the dependents check pass, and run the verification once at the final revision."
+do_6 = "Attempt 4 (continue, gotcha 3934, decision 3089): the attempt-3 tree f3d4852c64d5 stands (the lint repairs of the runtime crate and its test targets, the record). Rebase on main and repair the twenty remaining sites in one pass: wrap the code items of the doc comments at tests/repair_22_31_261.rs lines 2 to 8 and tests/repair_22_33_258.rs lines 2 to 13 in backticks, replace the five unwrap_err calls of tests/repair_22_31_488.rs (lines 151, 166, 178, 201 and the fifth the lint names) with a match or expect_err that keeps the asserted error, replace the redundant closure at tests/step_conformance.rs:50 with the function path and drop the needless borrow at tests/step_conformance.rs:181; add the twenty sites to repair_22_39_235.kvx; run the build once and the verification once at the final revision."
 
 [task.18.1758.1]
 title = "Issue #1758: Preserve capability-install replay compatibility across reply encoding changes"
@@ -221266,6 +222199,156 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.278]
+title = "Repair the retired references of the node-root RPC package"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.278"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path rpc on the merged main tree and record every finding (path, line, component, symbol) in rpc/repair_22_39_278.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["rpc/config/config.go", "rpc/px_account.go", "rpc/px_assets.go", "rpc/px_history.go", "rpc/px_params.go", "rpc/px_route_catalogue.json"]
+tests = []
+planned_paths = ["rpc/repair_22_39_278.kvx"]
+build_cmd = "go vet ./rpc/ ./rpc/config/"
+verify_cmd = "test -s rpc/repair_22_39_278.kvx && go test -count=1 ./rpc/ -run '^TestPxNodeRoot' && go test -count=1 ./rpc/config/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path rpc"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.275]
+title = "Repair the retired references of the upgrade replay tooling"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.275"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/chain on the merged main tree and record every finding (path, line, component, symbol) in tools/chain/repair_22_39_275.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["tools/chain/upgrade-replay/appsetup.go", "tools/chain/upgrade-replay/precompile_calls.go", "tools/chain/upgrade-replay/replay.go"]
+tests = []
+planned_paths = ["tools/chain/repair_22_39_275.kvx"]
+build_cmd = "go build ./tools/chain/upgrade-replay/..."
+verify_cmd = "test -s tools/chain/repair_22_39_275.kvx && go test -count=1 ./tools/chain/upgrade-replay/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/chain"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.274]
+title = "Repair the retired references of the bringup tooling"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.274"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/bringup on the merged main tree and record every finding (path, line, component, symbol) in tools/bringup/repair_22_39_274.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["tools/bringup/check-live.sh", "tools/bringup/foundation.go", "tools/bringup/live_rpc.go", "tools/bringup/roster.go", "tools/bringup/routes.go", "tools/bringup/runtime-dependencies.json", "tools/bringup/xweb-config.sh", "tools/bringup/xweb_transport.go"]
+tests = []
+planned_paths = ["tools/bringup/repair_22_39_274.kvx"]
+build_cmd = "go vet ./tools/bringup/... && bash -n tools/bringup/check-live.sh tools/bringup/xweb-config.sh"
+verify_cmd = "test -s tools/bringup/repair_22_39_274.kvx && go test -count=1 ./tools/bringup/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/bringup"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.249]
+title = "Repair the retired references of the governance, pay, launchpad, evm and xweb modules and the shared precompile packages"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.249"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxgov --path modules/layerxpay --path modules/launchpad --path modules/evm --path modules/xweb --path modules --path api --path precompiles --path precompiles/layerxauth --path precompiles/utils --path precompiles/common --path precompiles/addr --path precompiles/launchpad --path layerxproof/codec --path layerxproof/verify --path storage/common on the merged main tree and record every finding (path, line, component, symbol) in modules/layerxgov/repair_22_39_249.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["modules/layerxgov/types/proposal.go", "modules/layerxpay/keeper/keeper.go", "modules/layerxpay/keeper/stream_agent.go", "modules/launchpad/keeper/treasury.go", "modules/evm/keeper/precompile.go", "modules/xweb/keeper/program.go", "modules/README.md", "api/README.md", "precompiles/setup.go", "precompiles/layerxauth/internal/repair1503/native.go", "precompiles/utils/expected_keepers.go", "precompiles/common/lxp_errors.go", "precompiles/addr/addr.go", "precompiles/launchpad/abi/Treasury.json", "precompiles/launchpad/gas.go", "precompiles/launchpad/treasury.go", "layerxproof/codec/checkpoint.go", "layerxproof/codec/discovery.go", "layerxproof/codec/state.go", "layerxproof/verify/checkpoint.go", "storage/common/keys/store_keys.go"]
+tests = []
+planned_paths = ["modules/layerxgov/repair_22_39_249.kvx"]
+build_cmd = "go build ./modules/layerxgov/... ./modules/layerxpay/... ./modules/launchpad/... ./modules/evm/... ./modules/xweb/... ./precompiles/ ./precompiles/layerxauth/... ./precompiles/utils/ ./precompiles/common/ ./precompiles/addr/ ./precompiles/launchpad/... ./layerxproof/... ./storage/common/..."
+verify_cmd = "test -s modules/layerxgov/repair_22_39_249.kvx && go test -count=1 ./modules/layerxgov/... ./modules/layerxpay/... ./modules/launchpad/... ./modules/evm/... ./modules/xweb/... ./precompiles/layerxauth/... ./precompiles/utils/ ./precompiles/common/ ./precompiles/addr/ ./precompiles/launchpad/... ./layerxproof/... ./storage/common/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxgov --path modules/layerxpay --path modules/launchpad --path modules/evm --path modules/xweb --path modules --path api --path precompiles --path precompiles/layerxauth --path precompiles/utils --path precompiles/common --path precompiles/addr --path precompiles/launchpad --path layerxproof/codec --path layerxproof/verify --path storage/common"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.248]
+title = "Repair the retired references of the node wiring"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.248"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path node on the merged main tree and record every finding (path, line, component, symbol) in node/repair_22_39_248.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["node/app.go", "node/precompiles.go", "node/upgrades.go"]
+tests = []
+planned_paths = ["node/repair_22_39_248.kvx"]
+build_cmd = "go vet ./node/"
+verify_cmd = "test -s node/repair_22_39_248.kvx && go test -count=1 ./node/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path node"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.242]
 title = "Re-record the launchpad producer packet manifest against the current deployment"
 status = "pending"
@@ -221966,6 +223049,7 @@ do_5 = "do_3 Decision 3004, gotcha 3701. TestRequestParsing of services/launchpa
 do_6 = "Attempt 2 (continue, gotcha 3746, decisions 2893, 2917, 2947, 2948, 3023, 3036 and 3050): start from the attempt-1 tree 933ff2d7d58e and first restore the two api entries of owner 22.39.154 it removed (TestDevelopmentTransactionStatusFromChainRPC and TestRepair_27_log_free_receipts of core/api/internal/app) exactly as main carries them. Then proceed module by module through the twelve modules: reproduce the public launchpad Go job environment with the fresh database service, run the module under the baseline-aware runner, bring its cases to green at the producer the way do_1, do_4 and do_5 state, and only then remove the entries whose retiring_task is 22.39.168 for that module. In tests/ci/test_launchpad_go_tests_wired.py change the expectations that name these twelve modules or their entries to the state after retirement: the total at line 213, the per-module counts at line 950 to zero, the user profile conflict case at line 1001 and the security canonical field case at line 1018 to assert the entries are gone and the repaired producer behaviour the attempt records, and the module qualification records case at line 1050 to name no remaining case; every expectation about entries of owners 22.39.117, 22.39.154 and 22.39.162 stays unchanged. The test file and the baseline file are in the touches from this round. Record per module the cases brought to green, the producer followed and the entries retired in services/launchpad/repair_22_39_168.kvx. Run the build once and the verification once at the final revision and record both by reference; if a case still fails, repair it within the one allowed cycle and rerun once."
 do_7 = "Attempt 3 (continue, gotcha 3756, decisions 2947, 2948, 3046 and 3060): the attempt-2 tree d6875dc1123f stands (the restored api entries, the snapshot fixture on the registered migration, the module records). Add a registered migration to launchpad/spec/production-system/integration/migrations (new file and registry entry; 190000.sql unchanged) replacing the check constraint on snapshots.category with the eight categories ranker.Categories declares, so TestProductionUniverseCompletesAndPublishes, TestNewServesAndRanks and TestRepairM_934_PublicationEveryCategoryAndRestartRecovery pass with their assertions unchanged; the migrations directory is in the touches from this round. Then continue module by module as do_6 states, reproducing the fresh database service before every run, bringing each module green at its producer and retiring its baseline entries only when green. Record per module the cases retired and the producer followed. Run the build once and the verification once at the final revision and record both by reference; if a later module fails, repair within the one allowed cycle and rerun once."
 do_8 = "do_8 Gotcha 3815: the connected encrypted export single-use download case of services/launchpad/user/internal/account/connected_integration_test.go (line 222) reads its bucket name from the environment and fails with NoSuchBucket because no step creates it; create the bucket in the connected test setup the way internaltest/containers.go line 199 does for container-based tests, remove the case from the account package BASELINE of services/launchpad/Makefile, and record the change in the task record."
+do_9 = "Attempt 4 (relaunch, decision 3099, gotcha 3935): attempt 3 built the tree 0ca51cadc0a4 (exit 0) and then stalled on the Go module download of the user module under model endpoint reconnects until the working-time limit; the tree stands and do_8 stands unchanged: create the bucket in the connected test setup of services/launchpad/user/internal/account/connected_integration_test.go the way internaltest/containers.go line 199 does, remove the baseline entries the task names, and run the verification once at the final revision; if a module download exceeds ten minutes, record the module and the elapsed time in the record and stop the attempt instead of waiting."
 
 [task.22.39.165]
 title = "Build the evmone 0.12.0 shared library the Giga executor loads with a make target from the pinned upstream source and run it in the node build check"
@@ -222295,6 +223379,7 @@ do_11 = "Attempt 10 (continue, gotcha 3815, decisions 2908 and 2917): the attemp
 do_12 = "Attempt 11 (continue, gotcha 3864, decisions 2908, 2917 and 3084): the attempt-10 tree f87ba784d3e1 stands (the errcheck repairs, the account baseline entry, the formatted generated pair). In sdk/launchpad/shared/config/deployment/current.json add stagedRuntimeHash to every surface entry with the committed runtime hash the gate node reports for the tree (0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f) and the upgrade name, keeping runtimeHash as the live pin; in sdk/launchpad/shared/chain/client.go let surfaceRuntimeHash become the set of the active and the staged hashes the manifest carries and make the preflight admit a surface whose committed runtime is either; extend attest_surface_test.go and generate.py for the staged field; keep every other assertion. Record the staged hash and the decision in the task record. Before every gate run reproduce the fresh database service as decision 2917 requires. Run the build once and the verification once at the final revision and record both by reference; if make ci fails at a case outside sdk/launchpad/shared, repair it within the one allowed cycle as decision 2908 requires and rerun once."
 do_13 = "Attempt 12 (continue, gotcha 3895, decision 3084): the attempt-11 tree 6a2415602ad6 stands (current.json with the staged entries, client.go, attest.go, the baseline retirements). In sdk/launchpad/shared/chain/pool_surface_test.go derive the staged runtime from the committed surface artifact in config/deployment/testdata/evm-artifacts.json (or the same source client.go reads) instead of the literal 0x363d3d37... bytes, and compare its keccak with the manifest; regenerate apps/launchpad/web/src/core/network/deployment.ts (now in touches) through its generator so that every role identity carries stagedRuntimeHash and stagedUpgrade exactly as current.json does; run the shared Go packages and make -C services/launchpad ci once."
 do_14 = "do_14 Decision 3100 (the owner ruling on decision 3084): set stagedRuntimeHash of sdk/launchpad/shared/config/deployment/current.json to the runtime hash of the committed surface artifact of the current main tree (the active value client.go reads from config/deployment/testdata/evm-artifacts.json), keep the upgrade name on the staged entry, and let the attestation test read both entries; the re-pin to the 7.0.0 runtime is a closure task when that build is cut. Run the build once and the verification once at the final revision."
+do_15 = "Attempt 13 (continue, gotcha 3941): the attempt-12 tree ef16d9ebde7a stands (the artifact-backed runtime fixture, the regenerated frontend identities, the staged pin of do_14, the record). In services/launchpad/api/internal/app/stream_relay_production_test.go make TestProductionStreamRelayPublishesCommittedFrames start a file-backed JetStream nats-server from NATS_SERVER_BINARY or the PATH on a loopback port, in a temporary store directory, when CORE_API_TEST_NATS_URL is empty, the way realBrokerProcess of sdk/launchpad/shared/delivery/natsdriver/driver_test.go:32 does, stopping it when the case ends; keep the URL override when it is set; keep the case content unchanged; add the site to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
@@ -302617,6 +303702,36 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.39.250]
+title = "Repair the retired references of the kernel host module and the executor precompile guard"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.250"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/lxphost --path engine/executor on the merged main tree and record every finding (path, line, component, symbol) in modules/lxphost/repair_22_39_250.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["modules/lxphost/host.go", "engine/executor/precompiles/failfast.go"]
+tests = []
+planned_paths = ["modules/lxphost/repair_22_39_250.kvx"]
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./engine/executor/..."
+verify_cmd = "test -s modules/lxphost/repair_22_39_250.kvx && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^(TestKernelArchiveSymbolsReadsLibrary)$' && go vet ./engine/executor/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/lxphost --path engine/executor"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1834.1]
 title = "Issue #1834: Enforce retired payer-grant symbol absence in the built archive"
 status = "done"
@@ -328527,7 +329642,7 @@ title = "Prove no retired caller remains on the merged revision"
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["17.2.7", "16.0.9", "22.39.214"]
+requires = ["17.2.7", "16.0.9", "22.39.214", "22.39.245", "22.39.246", "22.39.247", "22.39.248", "22.39.249", "22.39.250", "22.39.251", "22.39.252", "22.39.253", "22.39.254", "22.39.255", "22.39.256", "22.39.257", "22.39.258", "22.39.259", "22.39.260", "22.39.261", "22.39.262", "22.39.263", "22.39.264", "22.39.265", "22.39.266", "22.39.267", "22.39.268", "22.39.269", "22.39.270", "22.39.271", "22.39.272", "22.39.273", "22.39.274", "22.39.275", "22.39.276", "22.39.277", "22.39.278"]
 reqs = ["17052.1"]
 capabilities = ["17.2.8"]
 interfaces = []
@@ -347876,6 +348991,216 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.277]
+title = "Repair the retired references of the container files, the root Makefile and README, the site configuration and the API contract documents"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.277"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path docker/layerx --path docker/kernel --path docker/paxeer --path Makefile --path README.md --path docs/site --path contracts --path contracts/config on the merged main tree and record every finding (path, line, component, symbol) in docker/layerx/repair_22_39_277.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["docker/layerx/Dockerfile", "docker/layerx/Dockerfile.dockerignore", "docker/kernel/Dockerfile.dockerignore", "docker/paxeer/Dockerfile.paxd-node.dockerignore", "Makefile", "README.md", "docs/site/mkdocs.yml", "contracts/README.md", "contracts/address-inventory.md", "contracts/agent-api.md", "contracts/agent-formats.md", "contracts/agent-human-peer.md", "contracts/agent-rust-api.md", "contracts/platform-gateway.md", "contracts/platform-hosted.md", "contracts/platform-relay-archive.md", "contracts/config/checkpoint-settlement.json"]
+tests = []
+planned_paths = ["docker/layerx/repair_22_39_277.kvx"]
+build_cmd = "make -n build/liblayerx.a > /dev/null && python3 -m py_compile tests/ci/test_docs_make_targets_and_scripts.py"
+verify_cmd = "test -s docker/layerx/repair_22_39_277.kvx && python3 -m pytest -q tests/ci/test_docs_make_targets_and_scripts.py tests/ci/test_docs_shell_commands_resolve.py tests/ci/test_docs_spec_references_exist.py && python3 tools/paxeer-x/tests/retired_callers_test.py --path docker/layerx --path docker/kernel --path docker/paxeer --path Makefile --path README.md --path docs/site --path contracts --path contracts/config"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.276]
+title = "Repair the retired references of the release, ci, workspace and programme scripts and fixtures"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.276"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/jev --path tools/release --path tools/ci --path tools/workspace --path scripts/ci --path scripts/programs --path docs/build on the merged main tree and record every finding (path, line, component, symbol) in tools/jev/repair_22_39_276.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl", "tools/jev/checks/fixtures/repair_22_33_704/interop-advisories.jsonl", "tools/release/rehearsal/programme.py", "tools/ci/consensus_commit_gate.py", "tools/workspace/platform-dependency-roots.txt", "scripts/ci/audit_object_checks.py", "scripts/programs/dependency-policy.sh", "docs/build/build_wiki.py"]
+tests = []
+planned_paths = ["tools/jev/repair_22_39_276.kvx"]
+build_cmd = "python3 -m py_compile tools/release/rehearsal/programme.py tools/ci/consensus_commit_gate.py scripts/ci/audit_object_checks.py docs/build/build_wiki.py && bash -n scripts/programs/dependency-policy.sh"
+verify_cmd = "test -s tools/jev/repair_22_39_276.kvx && python3 -m pytest -q tests/ci/test_tools_python_suites_wired.py tests/ci/test_docs_make_targets_and_scripts.py && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/jev --path tools/release --path tools/ci --path tools/workspace --path scripts/ci --path scripts/programs --path docs/build"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.273]
+title = "Repair the retired references of the qualification suites and fixtures"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.273"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/qualification on the merged main tree and record every finding (path, line, component, symbol) in tools/qualification/repair_22_39_273.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json", "tools/qualification/paxeer-x/agent_operation_envelope.py", "tools/qualification/paxeer-x/fixtures/agentd_fixture.py", "tools/qualification/paxeer-x/fixtures/caps_fixture.py", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py", "tools/qualification/paxeer-x/human-movement-kms-assembly.py", "tools/qualification/paxeer-x/paid-web-contract.py", "tools/qualification/paxeer-x/program_fee_governance.py", "tools/qualification/paxeer-x/router-authority-schema.py", "tools/qualification/paxeer-x/router-complete-readiness.py", "tools/qualification/paxeer-x/unified-account-identity.py", "tools/qualification/paxeer-x/wallet-custody-recovery.py"]
+tests = []
+planned_paths = ["tools/qualification/repair_22_39_273.kvx"]
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pytest -q --collect-only tools/qualification > /dev/null"
+verify_cmd = "test -s tools/qualification/repair_22_39_273.kvx && python3 -m pytest -q tools/qualification && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/qualification"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.264]
+title = "Repair the retired references of the hosted human and node scripts of the platform"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.264"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/human --path services/platform/hosted/node on the merged main tree and record every finding (path, line, component, symbol) in services/platform/hosted/human/repair_22_39_264.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/platform/hosted/human/README.md", "services/platform/hosted/human/history_material.py", "services/platform/hosted/human/material.py", "services/platform/hosted/human/owner_native.py", "services/platform/hosted/human/repair_m1401_cases.py", "services/platform/hosted/node/generation_client.py"]
+tests = []
+planned_paths = ["services/platform/hosted/human/repair_22_39_264.kvx"]
+build_cmd = "python3 -m py_compile services/platform/hosted/human/history_material.py services/platform/hosted/human/material.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/repair_m1401_cases.py services/platform/hosted/node/generation_client.py"
+verify_cmd = "test -s services/platform/hosted/human/repair_22_39_264.kvx && python3 -m pytest -q services/platform/hosted/human && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/human --path services/platform/hosted/node"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.247]
+title = "Repair the retired references of the kernel modules and the replay tests"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.247"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path src/modules --path tests/replay on the merged main tree and record every finding (path, line, component, symbol) in src/modules/repair_22_39_247.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["src/modules/asset/README.md", "src/modules/governance/lxp_governance.c", "src/modules/programs/call.c", "src/modules/programs/fees.c", "src/modules/programs/occupancy.c", "tests/replay/golden/history.lxl", "tests/replay/lxp_test_golden_replay.c"]
+tests = []
+planned_paths = ["src/modules/repair_22_39_247.kvx"]
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "test -s src/modules/repair_22_39_247.kvx && make -C . build/tests/kernel/codec/lxp_test_result_codes && ./build/tests/kernel/codec/lxp_test_result_codes && python3 tools/paxeer-x/tests/retired_callers_test.py --path src/modules --path tests/replay"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.246]
+title = "Repair the retired references of the kernel headers, state, protocol and ledger sources"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.246"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path include --path src/state --path src/protocol --path src/ledger on the merged main tree and record every finding (path, line, component, symbol) in include/repair_22_39_246.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["include/layerx/lxp_authority.h", "include/layerx/lxp_module.h", "include/layerx/lxp_receipt.h", "include/layerx/programs.h", "src/state/lxp_authority.c", "src/state/lxp_identity.c", "src/protocol/lxp_genesis.c", "src/protocol/lxp_module_ctx.c", "src/protocol/lxp_receipt.c", "src/ledger/lx_account_id.c"]
+tests = []
+planned_paths = ["include/repair_22_39_246.kvx"]
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "test -s include/repair_22_39_246.kvx && make -C . build/tests/kernel/codec/lxp_test_result_codes && ./build/tests/kernel/codec/lxp_test_result_codes && python3 tools/paxeer-x/tests/retired_callers_test.py --path include --path src/state --path src/protocol --path src/ledger"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.245]
+title = "Scope the retired-caller catalogue to live code and make the scan runnable per package"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.245"]
+interfaces = []
+do_1 = "do_1 Decision 3104. In tools/paxeer-x/retired_callers.json add to documentation_paths, each with a one-sentence reason: spec/layerx-merge/programme, spec/release-v6-12-0, spec/monorepo-layout, every repair record file (the repair_*.kvx files across the tree, matched by the checker as record files, and the record directories of repairs 22.31.207 and 22.31.211), the vendored tree under tools, core/deps/geth/signer/fourbyte, programs/vendor and the charting library bundles under apps/launchpad/web/public; extend validate_catalogue so a documentation entry may name a file-name pattern as well as a path. Remove px_getUnifiedHistory, px_getNetwork and px_listAssets from the router-joins symbols because the replacement keeps those names. Add allowed_references for the own trees of the merge-disabled components (modules/layerxcustody, precompiles/layerxcustody, api/layerxcustody, modules/layerxanchor, precompiles/layerxanchor, api/layerxanchor, modules/layerxexchange, precompiles/layerxexchange, api/layerxexchange, precompiles/layerxverify and the ILayerX interfaces of contracts/src), each reason naming the removal that retires the tree."
+do_2 = "do_2 Decision 3104, gotcha 3939. Remove tests/daemon from the deleted trees of finality-authority (decision 542 retired only the C daemon cases; the Python cases are live) and services/agent/crates/layerx-wire from the deleted trees of wire-codec (decisions 910 and 921 keep the crate); move services/agent/crates/layerx-client/src/lni/repair_22_33_1544.kvx to services/agent/crates/layerx-client/repair_22_33_1544.kvx and delete the emptied directory so the lni deleted tree is absent. Keep the catalogue schema otherwise unchanged and keep the self-test of tools/paxeer-x/tests/retired_callers_test.py passing; update the build and gate files of tools/paxeer-x and the route catalogue only where they name a path or symbol this task changes."
+do_3 = "do_3 Record every catalogue change in tools/paxeer-x/repair_22_39_245.kvx with the finding counts before and after on the main tree. Run the build once and the verification once at the final revision; the verification runs the self-test and the --deleted scan over the documentation, vendored and disabled trees and over the three former deleted trees, and must report no finding."
+symbols = []
+touches = ["tools/paxeer-x/retired_callers.json", "tools/paxeer-x/tests/retired_callers_test.py", "tools/paxeer-x/build/104.30.2.mk", "tools/paxeer-x/build/104.32.4.mk", "tools/paxeer-x/gates/104.29.5.sh", "tools/paxeer-x/gates/104.32.4.sh", "tools/paxeer-x/route-catalogue.json", "services/agent/crates/layerx-client/src/lni/repair_22_33_1544.kvx"]
+tests = []
+planned_paths = ["tools/paxeer-x/repair_22_39_245.kvx", "services/agent/crates/layerx-client/repair_22_33_1544.kvx"]
+build_cmd = "python3 -m py_compile tools/paxeer-x/tests/retired_callers_test.py"
+verify_cmd = "test -s tools/paxeer-x/repair_22_39_245.kvx && test ! -e services/agent/crates/layerx-client/src/lni && python3 tools/paxeer-x/tests/retired_callers_test.py --self-test && python3 tools/paxeer-x/tests/retired_callers_test.py --deleted --path spec --path core/deps --path tools/paxeer-x --path tools/hyperfide --path modules/layerxcustody --path precompiles/layerxcustody --path api/layerxcustody --path modules/layerxanchor --path precompiles/layerxanchor --path api/layerxanchor --path modules/layerxexchange --path precompiles/layerxexchange --path api/layerxexchange --path precompiles/layerxverify --path contracts/src --path programs/vendor --path apps/launchpad/web/public --path tests/daemon --path services/agent/crates/layerx-wire --path services/agent/crates/layerx-client"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.239]
 title = "Regenerate the JVM SDK schema and contract from the platform generators"
@@ -413245,6 +414570,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.271]
+title = "Repair the retired references of the explorer backend and the signature provider sources"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.245"]
+reqs = ["22998.1"]
+capabilities = ["22.39.271"]
+interfaces = []
+do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_callers_test.py --path services/explorer/backend --path services/explorer/services on the merged main tree and record every finding (path, line, component, symbol) in services/explorer/backend/repair_22_39_271.kvx; the touched files are the ones the scan reports today outside the record files and the excluded trees."
+do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
+do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
+symbols = []
+touches = ["services/explorer/backend/README.md", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt.ex", "services/explorer/backend/apps/explorer/priv/repo/migrations/20261001000000_create_paxeer_x_tables.exs", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/common.ex", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/rpc.ex", "services/explorer/backend/config/runtime.exs", "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json", "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_historical.json"]
+tests = []
+planned_paths = ["services/explorer/backend/repair_22_39_271.kvx"]
+build_cmd = "cd services/explorer/backend && mix deps.get && mix compile"
+verify_cmd = "test -s services/explorer/backend/repair_22_39_271.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x && python3 -m json.tool services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json > /dev/null && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/explorer/backend --path services/explorer/services"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
