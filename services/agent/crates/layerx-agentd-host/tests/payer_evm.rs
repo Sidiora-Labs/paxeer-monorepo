@@ -306,7 +306,8 @@ impl RpcServer {
                                     &Keccak256::digest(b"nextSequence(bytes32,bytes32)")[..4]
                                 );
                                 assert_eq!(data.len(), 4 + 2 * 32);
-                                assert_eq!(&data[4..36], &[0x63; 32]);
+                                assert_eq!(&data[4..36], &recipient_account([0x42; 32]).1);
+                                assert_ne!(&data[4..36], &[0x63; 32]);
                                 assert_eq!(&data[36..68], &[0x42; 32]);
                                 let mut result = [0; 32];
                                 result[24..].copy_from_slice(&RECEIVER_SEQUENCE.to_be_bytes());

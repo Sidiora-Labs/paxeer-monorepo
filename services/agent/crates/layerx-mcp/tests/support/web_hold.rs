@@ -326,10 +326,19 @@ impl Recording {
                                     "nextSequence(bytes32,bytes32)",
                                 )
                             {
-                                assert_eq!(
-                                    &data[4..36],
-                                    &word(&ledger["ledger"]["receiverDidKey"])
-                                );
+                                let asset = hex(&data[36..68]);
+                                let recipient = ledger["ledger"]["grants"]
+                                    .as_array()
+                                    .expect("ledger grants")
+                                    .iter()
+                                    .find_map(|record| {
+                                        let canonical = record["canonical"].as_str()?;
+                                        (canonical.get(192..256) == Some(asset.as_str()))
+                                            .then(|| word(&json!(canonical[128..192].to_owned())))
+                                    })
+                                    .expect("canonical receiver account");
+                                assert_eq!(&data[4..36], &recipient);
+                                assert_ne!(recipient, word(&ledger["ledger"]["receiverDidKey"]));
                             }
                             ledger["endpoints"]["gateway"]["*"]
                                 .as_array()
