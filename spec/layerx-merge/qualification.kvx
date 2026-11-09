@@ -36530,3 +36530,11 @@ symbol = "test_receipt_order_golden.py::test_receipt_order_golden_passes"
 observed = "Attempt 1 at b484071f1a8e: build exit 0; verification exit 1: test_receipt_order_golden_passes failed because go test ./node for the two order cases could not link the kernel archive or the programs host archive under the mixed profile; log /out/logs/verify-1.log."
 assumption = "The golden entry and the test are complete; the profile alone prevented the link."
 severity = "high"
+
+[finding.22.39.212.1]
+task = "22.39.212"
+file = "tools/qualification/audit_repairs/test_repair_22_31_402.py"
+symbol = "test_repair_22_31_402.py"
+observed = "Attempt 1 at 57191557c5b1: build exit 0 twice; verification exit 1 twice: the manifest check, the record, the placeholder scan and 99 Python cases passed; go test failed in appenv (repair_277_test.go line 108, package viem not found) and proposals (repair_270_test.go line 173, module solc not found); log /out/logs/verify-2.log."
+assumption = "The two helper packages are correct and only uninstalled; the configuration alignment of the attempt is complete."
+severity = "high"
