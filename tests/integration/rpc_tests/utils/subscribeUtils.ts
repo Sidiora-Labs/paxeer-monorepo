@@ -12,6 +12,8 @@ interface PendingCall {
     method: string;
 }
 
+class NotificationTimeoutError extends Error {}
+
 export class WsClient {
     private nextId = 1;
     private readonly pending = new Map<number, PendingCall>();
@@ -147,7 +149,9 @@ export class WsClient {
             if (!buf) throw new Error('WsClient.waitFor: unknown subscription');
             if (buf.length >= want) return buf.splice(0, want);
             if (Date.now() >= deadline) {
-                throw new Error(`WsClient.waitFor: got ${buf.length}/${want} notifications before timeout`);
+                throw new NotificationTimeoutError(
+                    `WsClient.waitFor: got ${buf.length}/${want} notifications before timeout`,
+                );
             }
             await sleep(Math.min(25, Math.max(1, deadline - Date.now())));
         }
@@ -165,6 +169,21 @@ export class WsClient {
         this.fail(new Error('WsClient: connection closed'));
         this.socket.close();
     }
+}
+
+export async function assertNoAdditionalNotifications(
+    client: WsClient,
+    subId: string,
+    timeoutMs = 2_000,
+    context = 'no additional subscription notifications',
+): Promise<void> {
+    try {
+        await client.waitFor(subId, 1, timeoutMs);
+    } catch (error) {
+        if (error instanceof NotificationTimeoutError) return;
+        throw error;
+    }
+    assert.fail(`${context}: unexpected additional notification for subscription ${subId}`);
 }
 
 /** Subscription ids are opaque random hex, not minimally-encoded quantities. */
