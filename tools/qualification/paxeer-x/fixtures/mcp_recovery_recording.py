@@ -25,7 +25,7 @@ RECORDING = Path(__file__).with_name("mcp_recovery_transcript.json")
 sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 
-TRANSCRIPT_SHA256 = "6fdc46bf3275c6ef2c7cf9d24010bea6e925e3e8190ffa8470ed2135e916fb67"
+TRANSCRIPT_SHA256 = "13f66434d409100458fcae8fd963520a53fa5f5c4b09088db1fb7414baa2042a"
 # Public recording coordinates, never operational credentials.
 CREDENTIAL = {
     "tenant": "recorded-mcp-tenant",
@@ -56,8 +56,8 @@ def produce_recording():
             int(key["firstHeight"], 16), int(key["lastHeight"], 16),
         ),),
     )
-    # The dispatch vector supplies shapes; the real verifier supplies the reference.
-    recording["committed"]["submission"]["receipt_ref"] = verified.receipt_digest.hex()
+    if recording["committed"]["submission"]["receipt_ref"] != verified.receipt_digest.hex():
+        raise RuntimeError("native producer receipt reference differs from the SDK digest")
     return recording
 
 
@@ -247,7 +247,7 @@ def recorded_phase(module, peer, directory):
 
 
 def regenerate_recording():
-    """Capture the real qualifier's HTTP recovery path using the SDK-produced reference."""
+    """Capture the real qualifier's HTTP recovery path preserving the native reference."""
     spec = importlib.util.spec_from_file_location(
         "mcp_recovery_qualifier", Path(__file__).parents[1] / "mcp_daemon_revocation.py"
     )
@@ -265,7 +265,7 @@ def regenerate_recording():
             exchanges = [json.loads(path.read_text()) for path in sorted(phase.directory.glob("rpc-*.json"))]
             transcript = {
                 "source_transcript_sha256": TRANSCRIPT_SHA256,
-                "reference_producer": "layerx_sdk.verifier.verify_sequencer_receipt",
+                "reference_producer": "layerx-agentd::human_runtime::write_submission",
                 "recording": recording,
                 "requests": peer.requests,
                 "exchanges": exchanges,

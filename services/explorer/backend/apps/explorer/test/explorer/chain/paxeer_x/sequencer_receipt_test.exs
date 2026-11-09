@@ -3,7 +3,8 @@ Code.require_file("repair_gateway.exs", __DIR__)
 defmodule Explorer.Chain.PaxeerX.SequencerReceiptTest do
   use ExUnit.Case, async: false
 
-  alias Explorer.Chain.PaxeerX.SequencerReceipt
+  alias Explorer.Chain.PaxeerX.{ReceiptKeysConfig, SequencerReceipt}
+  alias Explorer.Chain.PaxeerX.Repair2233523.Transport
 
   @vectors Path.expand("../../../support/fixture/paxeer_x/receipt_vectors.json", __DIR__)
   @commits Path.expand("../../../support/fixture/paxeer_x/comet_commit.json", __DIR__)
@@ -16,6 +17,7 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceiptTest do
     {:ok,
      kernel: Map.new(vectors["receipts"], &{&1["name"], &1}),
      cases: Map.new(vectors["sequencer"]["cases"], &{&1["id"], &1}),
+     chain_id: Integer.to_string(vectors["sequencer"]["chainId"]),
      accepted_count: Enum.count(vectors["sequencer"]["cases"], &(&1["vector"] in ["V1", "V2"])),
      commits: commits}
   end
@@ -253,6 +255,170 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceiptTest do
 
   test "receipt_gateway_transport_proof" do
     Explorer.Chain.PaxeerX.Repair2233523.Gateway.receipt_gateway_transport_proof()
+  end
+
+  @tag :issue1806
+  test "issue1806_governed_receipt_keys", %{cases: cases, chain_id: chain_id, kernel: kernel} do
+    test_case = cases["V1-pax-transfer"]
+    wire_key = test_case["pinnedKey"]
+    [pin] = ReceiptKeysConfig.parse([wire_key])
+    refute pin.key_id == :crypto.hash(:sha256, pin.public_key)
+    assert test_case["receiptJson"]["receipt"] == test_case["signedReceipt"]
+    assert {:ok, receipt} = SequencerReceipt.verify_signature(bytes(test_case["signedReceipt"]), pin.public_key)
+    assert SequencerReceipt.encode(receipt) == bytes(test_case["signedReceipt"])
+    assert receipt.context_hash == pin.key_id
+
+    config = Application.get_env(:explorer, SequencerReceipt)
+    adapter = Application.get_env(:tesla, :adapter)
+    http_client = Application.get_env(:explorer, :http_client)
+
+    on_exit(fn ->
+      Transport.restore(:explorer, SequencerReceipt, config)
+      Transport.restore(:tesla, :adapter, adapter)
+      Transport.restore(:explorer, :http_client, http_client)
+    end)
+
+    Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
+    Application.put_env(:explorer, :http_client, Explorer.HttpClient.Tesla)
+    state = start_supervised!({Agent, fn -> [wire_key] end})
+    server = Bypass.open()
+    observer = self()
+
+    Bypass.expect(server, "POST", "/", fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      request = Jason.decode!(body)
+      assert request["jsonrpc"] == "2.0"
+      assert request["method"] == "px_getReceiptKeys"
+      assert request["params"] == []
+      send(observer, :issue1806_discovery)
+
+      response = %{
+        "jsonrpc" => "2.0",
+        "id" => request["id"],
+        "result" => %{"keys" => Agent.get(state, & &1)}
+      }
+
+      Plug.Conn.resp(conn, 200, Jason.encode!(response))
+    end)
+
+    url = "http://127.0.0.1:#{server.port}/"
+
+    configure = fn pins ->
+      Application.put_env(:explorer, SequencerReceipt, chain_id: chain_id, router_url: url, receipt_keys: pins)
+    end
+
+    for _ <- 1..2 do
+      Application.delete_env(:explorer, SequencerReceipt)
+      assert SequencerReceipt.receipt_keys(url) == {:error, :untrusted_receipt_keys}
+      assert verify_case(test_case, [pin]) == {:error, :r3}
+
+      [reloaded] = ReceiptKeysConfig.parse([wire_key])
+      configure.([reloaded])
+      assert {:ok, [^pin]} = SequencerReceipt.receipt_keys()
+      assert_received :issue1806_discovery
+      assert verify_case(test_case, [reloaded]) == {:receipted, pin}
+    end
+
+    [restricted] = ReceiptKeysConfig.parse([%{wire_key | "lastHeight" => 1_500}])
+    configure.([restricted])
+    assert {:ok, [^restricted]} = SequencerReceipt.receipt_keys()
+    assert verify_case(test_case, [pin]) == {:receipted, restricted}
+
+    for {first, last} <- [{1, 999}, {1_001, 1_999}] do
+      [outside] = ReceiptKeysConfig.parse([%{wire_key | "firstHeight" => first, "lastHeight" => last}])
+      configure.([outside])
+      Agent.update(state, fn _ -> [%{wire_key | "firstHeight" => 1, "lastHeight" => 1_999}] end)
+      assert {:ok, [^outside]} = SequencerReceipt.receipt_keys()
+      assert verify_case(test_case, [outside]) == {:error, :r3}
+    end
+
+    configure.([pin])
+
+    for uncovered <- [
+          %{wire_key | "firstHeight" => 1_001},
+          %{wire_key | "lastHeight" => 1_998}
+        ] do
+      Agent.update(state, fn _ -> [uncovered] end)
+      assert SequencerReceipt.receipt_keys() == {:error, :untrusted_receipt_keys}
+      {:ok, discovered} = SequencerReceipt.decode_receipt_keys([uncovered])
+      assert verify_case(test_case, discovered) == {:error, :r3}
+    end
+
+    other_public = bytes(kernel["valid-0"]["public_key"])
+    refute other_public == pin.public_key
+    substituted = %{pin | public_key: other_public}
+    unpinned = %{substituted | key_id: :crypto.hash(:sha256, other_public)}
+
+    for untrusted <- [substituted, unpinned] do
+      Agent.update(state, fn _ ->
+        [%{wire_key | "keyId" => hex(untrusted.key_id), "publicKey" => hex(untrusted.public_key)}]
+      end)
+
+      assert SequencerReceipt.receipt_keys() == {:error, :untrusted_receipt_keys}
+      assert verify_case(test_case, [untrusted]) == {:error, :r3}
+    end
+
+    configure.([substituted])
+    assert verify_case(test_case, [substituted]) == {:error, :r2}
+    configure.([unpinned])
+    assert verify_case(test_case, [unpinned]) == {:error, :r3}
+
+    for {id, expected} <- [
+          {hex(<<0::256>>), :untrusted_receipt_keys},
+          {"0x01", :malformed_receipt_keys},
+          {hex(<<1::264>>), :malformed_receipt_keys},
+          {"0x" <> String.duplicate("gg", 32), :malformed_receipt_keys},
+          {nil, :malformed_receipt_keys}
+        ] do
+      invalid = %{wire_key | "keyId" => id}
+      assert_raise ArgumentError, fn -> ReceiptKeysConfig.parse([invalid]) end
+      configure.([pin])
+      Agent.update(state, fn _ -> [invalid] end)
+      assert SequencerReceipt.receipt_keys() == {:error, expected}
+    end
+
+    for id <- [<<0::256>>, <<1::248>>, <<1::264>>, nil, 1] do
+      invalid = %{pin | key_id: id}
+      configure.([invalid])
+      assert verify_case(test_case, [invalid]) == {:error, :r3}
+    end
+
+    Agent.update(state, fn _ -> [wire_key] end)
+
+    for {field, wire_field, value} <- [
+          {:first_height, "firstHeight", 0},
+          {:first_height, "firstHeight", -1},
+          {:first_height, "firstHeight", @uint64_max + 1},
+          {:first_height, "firstHeight", "1000"},
+          {:first_height, "firstHeight", 1_000.0},
+          {:last_height, "lastHeight", 0},
+          {:last_height, "lastHeight", -1},
+          {:last_height, "lastHeight", @uint64_max + 1},
+          {:last_height, "lastHeight", "1999"},
+          {:last_height, "lastHeight", nil},
+          {:first_height, "firstHeight", 2_000}
+        ] do
+      assert_raise ArgumentError, fn -> ReceiptKeysConfig.parse([Map.put(wire_key, wire_field, value)]) end
+      invalid = Map.put(pin, field, value)
+      configure.([invalid])
+      assert SequencerReceipt.receipt_keys() == {:error, :untrusted_receipt_keys}
+      assert verify_case(test_case, [invalid]) == {:error, :r3}
+    end
+
+    [maximum] = ReceiptKeysConfig.parse([%{wire_key | "firstHeight" => 1, "lastHeight" => @uint64_max}])
+    configure.([maximum])
+    Agent.update(state, fn _ -> [%{wire_key | "firstHeight" => 1, "lastHeight" => @uint64_max}] end)
+    assert {:ok, [^maximum]} = SequencerReceipt.receipt_keys()
+    assert verify_case(test_case, [maximum]) == {:receipted, maximum}
+
+    configure.([pin])
+    signed = bytes(test_case["signedReceipt"])
+    prefix_size = byte_size(signed) - 1
+    <<prefix::binary-size(prefix_size), final_byte>> = signed
+    altered = hex(prefix <> <<Bitwise.bxor(final_byte, 1)>>)
+    altered_case = put_in(test_case, ["receiptJson", "receipt"], altered)
+    assert verify_case(altered_case, [pin]) == {:error, :r2}
+    assert verify_case(test_case, [pin]) == {:receipted, pin}
   end
 
   describe "router reads" do

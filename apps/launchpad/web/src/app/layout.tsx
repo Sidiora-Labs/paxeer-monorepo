@@ -1,13 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { cookieStorage, cookieToInitialState, createStorage } from 'wagmi';
-import { createWagmiConfig } from '@/core/wagmi-config';
-import AppProviders from '@/ui/providers/app-providers';
-import { PRIVATE_FIXTURE_WAGMI_STORAGE_KEY } from '@/core/network/deployment';
-import AppShell from '@/shell/app-shell';
-import PlatformRulesModal from '@/ui/shared/platform-rules-modal';
-import CookieBanner from '@/ui/shared/cookie-banner';
 import { BackendConfigurationError } from '@/ui/shared/backend-configuration-error';
 import { backendConfigurationProblems } from '@/core/backend-origins';
 import './globals.css';
@@ -46,6 +39,23 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </html>
     );
   }
+  const [
+    { cookieStorage, cookieToInitialState, createStorage },
+    { createWagmiConfig },
+    { default: AppProviders },
+    { PRIVATE_FIXTURE_WAGMI_STORAGE_KEY },
+    { default: AppShell },
+    { default: PlatformRulesModal },
+    { default: CookieBanner },
+  ] = await Promise.all([
+    import('wagmi'),
+    import('@/core/wagmi-config'),
+    import('@/ui/providers/app-providers'),
+    import('@/core/network/deployment'),
+    import('@/shell/app-shell'),
+    import('@/ui/shared/platform-rules-modal'),
+    import('@/ui/shared/cookie-banner'),
+  ]);
   const hdrs = await headers();
   const cookie = hdrs.get('cookie') ?? '';
   const config = createWagmiConfig();

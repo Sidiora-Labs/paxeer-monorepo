@@ -22,6 +22,9 @@ impl From<SequencerError> for CommitError {
     }
 }
 
+/// # Errors
+///
+/// Returns RPC, validator, header or commit verification errors, including a mismatch with the requested height or pinned validator set.
 pub fn acquire_committed_header(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -61,6 +64,9 @@ pub(crate) fn acquire_pinned_header(
     Ok(head)
 }
 
+/// # Errors
+///
+/// Returns invalid-material or proof errors for empty, malformed, mismatched or unsupported validators.
 pub fn decode_validators(value: &Value) -> Result<ValidatorSet, CommitError> {
     let entries = value["validators"].as_array().ok_or(CommitError::Invalid)?;
     if entries.is_empty() {
@@ -86,6 +92,9 @@ pub fn decode_validators(value: &Value) -> Result<ValidatorSet, CommitError> {
     ValidatorSet::new(validators).map_err(CommitError::Proof)
 }
 
+/// # Errors
+///
+/// Returns invalid-material or proof errors for malformed headers, timestamps, signatures or a commit that fails the pinned verifier.
 pub fn verify_commit_material(
     signed: &Value,
     verifier: &ChainProofVerifier,
@@ -233,7 +242,10 @@ fn timestamp(value: &serde_json::Value) -> Result<Timestamp, CommitError> {
         30,
         31,
     ];
-    if !(1..=12).contains(&month) || day < 1 || day > days[(month - 1) as usize] {
+    if !(1..=12).contains(&month)
+        || day < 1
+        || day > days[usize::try_from(month - 1).map_err(|_| bad())?]
+    {
         return Err(bad());
     }
     let (hour, minute, second) = (number(11, 13)?, number(14, 16)?, number(17, 19)?);
@@ -251,17 +263,18 @@ fn timestamp(value: &serde_json::Value) -> Result<Timestamp, CommitError> {
         {
             return Err(bad());
         }
-        fraction.parse::<u32>().map_err(|_| bad())? * 10_u32.pow(9 - fraction.len() as u32)
+        fraction.parse::<u32>().map_err(|_| bad())?
+            * 10_u32.pow(9 - u32::try_from(fraction.len()).map_err(|_| bad())?)
     };
     year -= i64::from(month <= 2);
     let era = year.div_euclid(400);
     let yoe = year - era * 400;
     let mp = month + if month > 2 { -3 } else { 9 };
     let doy = (153 * mp + 2) / 5 + day - 1;
-    let days = era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
     let timestamp = Timestamp {
-        seconds: days * 86400 + hour * 3600 + minute * 60 + second,
-        nanos: nanos as i32,
+        seconds: days * 86_400 + hour * 3_600 + minute * 60 + second,
+        nanos: i32::try_from(nanos).map_err(|_| bad())?,
     };
     if !(-62_135_596_800..=253_402_300_799).contains(&timestamp.seconds)
         || !(0..1_000_000_000).contains(&timestamp.nanos)

@@ -28,7 +28,9 @@ fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
 #[test]
 fn offline_export_verifies_receipts_and_inclusions_without_a_settlement_domain() {
     let receipt = must(decode(RECEIPT));
-    let protocol = receipt.protocol().expect("native withdrawal receipt");
+    let Some(protocol) = receipt.protocol() else {
+        panic!("native withdrawal receipt");
+    };
     let digest = must(receipt_digest(&must(encode_unsigned(&receipt))));
     let record = ReceiptRecord {
         reference: FactSelector::Receipt {

@@ -253,6 +253,26 @@ impl Harness {
         bytes: &[u8],
         roster: Presence<RosterDigest>,
     ) -> Vec<u8> {
+        if op == dispatch::PostBid {
+            let mut r = codec::Reader::new(bytes);
+            let room = r.digest32().unwrap();
+            let bid = r.digest32().unwrap();
+            r.take(48).unwrap();
+            let amount = r.u128().unwrap();
+            if layerx_programs_ai_market::bonds::bond_from_state(&self.current, bid)
+                .unwrap()
+                .is_none()
+            {
+                self.apply(
+                    dispatch::LockBond,
+                    actor,
+                    &layerx_programs_ai_market::bonds::LockBondRequest { room, bid, amount }
+                        .encode()
+                        .unwrap(),
+                    roster,
+                );
+            }
+        }
         let envelope = self.envelope(op, actor, bytes, roster);
         let (routed, result, _) = self.execute(actor, &envelope);
         assert!(

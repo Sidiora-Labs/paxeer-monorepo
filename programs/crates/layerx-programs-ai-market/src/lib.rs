@@ -35,6 +35,7 @@ pub mod reputation_codec;
 pub mod reputation_transition;
 pub mod reward_math;
 pub mod rewards;
+pub use rewards::bonds;
 pub mod rooms;
 pub mod roster;
 pub mod state;

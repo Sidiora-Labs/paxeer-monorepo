@@ -1,20 +1,16 @@
+use crate::option_assertion;
+use crate::result_assertion;
+
+use crate::test_clock;
 use layerx_types::clock::Clock as _;
-#[path = "clock.rs"]
-mod test_clock;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
-use std::time::Duration;
 
-use base64::{engine::general_purpose::STANDARD, Engine as _};
-use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::error::RequestId;
 use layerx_agent_api::identity::{AgentDid, ExplicitSet};
 use layerx_agent_api::subscription::{
@@ -29,26 +25,17 @@ use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
 use layerx_agentd::policy::approval::ApprovalRegistry;
-use layerx_agentd::prepare::evm::{PrecompileCall, PrecompileTarget};
 use layerx_agentd::prepare::PreparationLifecycle;
 use layerx_agentd::session::{open, OpenRequest, SessionCredential, SessionId, SessionRegistry};
 use layerx_agentd::session_control::{McpInvocationIdentity, SessionControl};
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::sequencer::{CallRequest, SequencerEndpoint, SequencerReceipt};
-use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
-use layerx_crypto::payments::{Grant, Payment};
-use layerx_mcp::binding::{Binding, WebAuthority};
+use layerx_mcp::binding::Binding;
 use layerx_mcp::boundary::{BoundaryRefusal, ToolBoundary};
 use layerx_mcp::catalogue::{self, SESSION_TOOLS};
 use layerx_mcp::server::{DeploymentMode, ReadOnly, Server, ToolDefinition, ToolKind};
 use layerx_mcp::stdio::{Bound, Session};
-use layerx_mcp::tools::web::{ExactPayment, GrantTerms, WebPayer, WebPayerError};
-use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::receipt::verify_sequencer_signature;
-use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_sdk::agent_envelope::{encode_envelope, EnvelopeCredential};
 use layerx_types::ids::Did;
-use layerx_types::payload::ModuleId;
 use layerx_types::verify::VerificationLevel;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -57,48 +44,40 @@ static NEXT: AtomicU64 = AtomicU64::new(1);
 const HEIGHT: u64 = 50;
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn unhex(value: &str) -> Vec<u8> {
-    let value = value.strip_prefix("0x").unwrap_or(value);
-    (0..value.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&value[i..i + 2], 16).expect("hex"))
-        .collect()
-}
-
-fn word(value: &Value) -> [u8; 32] {
-    unhex(value.as_str().expect("word string"))
-        .try_into()
-        .expect("word width")
+    layerx_programs::hex::encode(bytes)
 }
 
 struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {
-        let root = fs::canonicalize(std::env::temp_dir())
-            .expect("temporary root")
-            .join(format!(
-                "repair-22-33-1553-{}-{}-{}",
-                module_path!().replace("::", "-"),
-                std::process::id(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-        fs::create_dir(&root).expect("directory");
-        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).expect("directory mode");
+        let root =
+            result_assertion::required(fs::canonicalize(std::env::temp_dir()), "temporary root")
+                .join(format!(
+                    "repair-22-33-1553-{}-{}-{}",
+                    module_path!().replace("::", "-"),
+                    std::process::id(),
+                    NEXT.fetch_add(1, Ordering::Relaxed)
+                ));
+        result_assertion::required(fs::create_dir(&root), "directory");
+        result_assertion::required(
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o700)),
+            "directory mode",
+        );
         Self(root)
     }
     fn secret(&self, name: &str, contents: &str) -> PathBuf {
         let path = self.0.join(name);
-        fs::write(&path, contents).expect("protected file");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("file mode");
+        result_assertion::required(fs::write(&path, contents), "protected file");
+        result_assertion::required(
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)),
+            "file mode",
+        );
         path
     }
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove state");
+        result_assertion::required(fs::remove_dir_all(&self.0), "remove state");
     }
 }
 
@@ -119,26 +98,28 @@ struct Enrolled {
 impl Enrolled {
     fn new(scopes: &[&str], agent: &str) -> Self {
         let directory = Directory::new();
-        let tenant = TenantId::new("tenant-a").expect("tenant");
-        let mut store = Store::open(directory.0.join("store")).expect("store");
-        let capability = Capability::new(
-            CapabilityId([9; 32]),
-            tenant.clone(),
-            CapabilityDimensions {
-                activity_types: BTreeSet::from([7]),
-                counterparties: BTreeSet::from([[2; 32]]),
-                assets: BTreeSet::from([[3; 32]]),
-                amount_ceiling: 100,
-                rate_ceiling: RateCeiling {
-                    maximum_uses: 100,
-                    window_sequences: 10,
+        let tenant = result_assertion::required(TenantId::new("tenant-a"), "tenant");
+        let mut store = result_assertion::required(Store::open(directory.0.join("store")), "store");
+        let capability = result_assertion::required(
+            Capability::new(
+                CapabilityId([9; 32]),
+                tenant.clone(),
+                CapabilityDimensions {
+                    activity_types: BTreeSet::from([7]),
+                    counterparties: BTreeSet::from([[2; 32]]),
+                    assets: BTreeSet::from([[3; 32]]),
+                    amount_ceiling: 100,
+                    rate_ceiling: RateCeiling {
+                        maximum_uses: 100,
+                        window_sequences: 10,
+                    },
+                    purposes: BTreeSet::from(["service-payment".to_owned()]),
+                    expiry_sequence: 400,
                 },
-                purposes: BTreeSet::from(["service-payment".to_owned()]),
-                expiry_sequence: 400,
-            },
-        )
-        .expect("capability");
-        capability.persist(&mut store).expect("persist capability");
+            ),
+            "capability",
+        );
+        result_assertion::required(capability.persist(&mut store), "persist capability");
         let mut ledger = IdentityLedger(CoreIdentity {
             canonical_bytes: agent.as_bytes().to_vec(),
             head_sequence: 10,
@@ -147,40 +128,47 @@ impl Enrolled {
             frozen: false,
             authorities: vec![ProtocolAuthority::CapabilityGrant(capability.id.0)],
         });
-        let identity = register(
-            &mut store,
-            tenant.clone(),
-            Did::new(agent.as_bytes()).expect("DID"),
-            &mut ledger,
-        )
-        .expect("register");
+        let identity = result_assertion::required(
+            register(
+                &mut store,
+                tenant.clone(),
+                result_assertion::required(Did::new(agent.as_bytes()), "DID"),
+                &mut ledger,
+            ),
+            "register",
+        );
         let mut sessions = SessionRegistry::default();
-        let credential = open(
-            &mut store,
-            &mut sessions,
-            &identity,
-            OpenRequest {
-                session_id: SessionId([7; 32]),
-                token_id: [8; 32],
-                tenant,
-                agent: identity.did().clone(),
-                authority: ProtocolAuthority::CapabilityGrant(capability.id.0),
-                permitted_activity_types: BTreeSet::from([7]),
-                scopes: scopes.iter().map(|scope| (*scope).to_owned()).collect(),
-                expiry_seconds: None,
-                expiry_sequence: 300,
-                opening_client: "mcp".to_owned(),
-                policy_version: "policy-v1".to_owned(),
-            },
-            HEIGHT,
+        let credential = result_assertion::required(
+            open(
+                &mut store,
+                &mut sessions,
+                &identity,
+                OpenRequest {
+                    session_id: SessionId([7; 32]),
+                    token_id: [8; 32],
+                    tenant,
+                    agent: identity.did().clone(),
+                    authority: ProtocolAuthority::CapabilityGrant(capability.id.0),
+                    permitted_activity_types: BTreeSet::from([7]),
+                    scopes: scopes.iter().map(|scope| (*scope).to_owned()).collect(),
+                    expiry_seconds: None,
+                    expiry_sequence: 300,
+                    opening_client: "mcp".to_owned(),
+                    policy_version: "policy-v1".to_owned(),
+                },
+                HEIGHT,
+            ),
+            "open authenticated session",
         )
-        .expect("open authenticated session")
         .credential();
         let control = SessionControl::new(
             Arc::new(Mutex::new(store)),
             sessions,
             Arc::new(PreparationLifecycle::default()),
-            Arc::new(BudgetLimiter::new(vec![limit()]).expect("limiter")),
+            Arc::new(result_assertion::required(
+                BudgetLimiter::new(vec![limit()]),
+                "limiter",
+            )),
         );
         Self {
             directory,
@@ -200,27 +188,27 @@ impl Enrolled {
     }
     fn bound(&self, mode: DeploymentMode) -> Bound {
         if mode == DeploymentMode::Full {
-            Bound::Full(Box::new(
+            Bound::Full(Box::new(result_assertion::required(
                 Server::bind(
                     self.control.clone(),
                     self.credential.clone(),
                     CapabilityId([9; 32]),
                     HEIGHT,
                     self.directory.0.join("mcp-audit"),
-                )
-                .expect("full binding"),
-            ))
+                ),
+                "full binding",
+            )))
         } else {
-            Bound::ReadOnly(Box::new(
+            Bound::ReadOnly(Box::new(result_assertion::required(
                 ReadOnly::bind(
                     self.control.clone(),
                     self.credential.clone(),
                     CapabilityId([9; 32]),
                     HEIGHT,
                     self.directory.0.join("mcp-audit"),
-                )
-                .expect("read-only binding"),
-            ))
+                ),
+                "read-only binding",
+            )))
         }
     }
 }
@@ -243,24 +231,37 @@ struct SubscriptionBoundary {
 }
 impl SubscriptionBoundary {
     fn open(root: &Path) -> Self {
-        let tenant = TenantId::new("tenant-a").expect("tenant");
-        let mut store = SubscriptionStore::open(
-            Store::open(root.join("subscriptions")).expect("durable subscriptions"),
-            tenant,
-        )
-        .expect("subscription store");
+        let tenant = result_assertion::required(TenantId::new("tenant-a"), "tenant");
+        let mut store = result_assertion::required(
+            SubscriptionStore::open(
+                result_assertion::required(
+                    Store::open(root.join("subscriptions")),
+                    "durable subscriptions",
+                ),
+                tenant,
+            ),
+            "subscription store",
+        );
         let scope = SubscriptionScope {
-            tenant: layerx_agent_api::identity::TenantId::new("tenant-a").expect("tenant"),
-            agent: AgentDid::new("did:layerx:model").expect("agent"),
-            capability: layerx_agent_api::identity::CapabilityId::new("09".repeat(32))
-                .expect("capability"),
+            tenant: result_assertion::required(
+                layerx_agent_api::identity::TenantId::new("tenant-a"),
+                "tenant",
+            ),
+            agent: result_assertion::required(AgentDid::new("did:layerx:model"), "agent"),
+            capability: result_assertion::required(
+                layerx_agent_api::identity::CapabilityId::new("09".repeat(32)),
+                "capability",
+            ),
         };
         let target = SubscriptionTarget {
             scope: scope.clone(),
-            subscription_id: SubscriptionId::new("subscription-a").expect("id"),
+            subscription_id: result_assertion::required(
+                SubscriptionId::new("subscription-a"),
+                "id",
+            ),
         };
-        store
-            .create(
+        result_assertion::required(
+            store.create(
                 target.subscription_id.clone(),
                 SubscriptionCreate {
                     scope,
@@ -269,7 +270,10 @@ impl SubscriptionBoundary {
                         tx_index: 0,
                         log_index: 0,
                     },
-                    delivery_target: DeliveryTarget::new("uds://consumer-a").expect("target"),
+                    delivery_target: result_assertion::required(
+                        DeliveryTarget::new("uds://consumer-a"),
+                        "target",
+                    ),
                     filter: SubscriptionFilter {
                         agents: ExplicitSet::deny_all(),
                         accounts: ExplicitSet::deny_all(),
@@ -280,18 +284,20 @@ impl SubscriptionBoundary {
                         result_classes: ExplicitSet::deny_all(),
                     },
                 },
-            )
-            .expect("create subscription");
-        store
-            .mark_delivered(
+            ),
+            "create subscription",
+        );
+        result_assertion::required(
+            store.mark_delivered(
                 &target,
                 layerx_agentd::events::subscription::Cursor {
                     block_height: 12,
                     tx_index: 3,
                     log_index: 4,
                 },
-            )
-            .expect("deliver cursor");
+            ),
+            "deliver cursor",
+        );
         Self { store, target }
     }
     fn arguments(&self) -> Value {
@@ -322,21 +328,20 @@ impl ToolBoundary for SubscriptionBoundary {
     }
 }
 
-fn rpc<B: ToolBoundary>(session: &mut Session<B>, method: &str, params: Value) -> Value {
+fn rpc<B: ToolBoundary>(session: &mut Session<B>, method: &str, params: &Value) -> Value {
     let input = json!({"jsonrpc":"2.0", "id":1, "method":method, "params": params});
     let mut source = std::io::Cursor::new(format!("{input}\n"));
     let mut output = Vec::new();
-    session
-        .serve(&mut source, &mut output)
-        .expect("MCP line transport");
-    serde_json::from_slice(&output).expect("MCP response")
+    result_assertion::required(
+        session.serve(&mut source, &mut output),
+        "MCP line transport",
+    );
+    result_assertion::required(serde_json::from_slice(&output), "MCP response")
 }
 fn names(value: &Value) -> BTreeSet<String> {
-    value
-        .as_array()
-        .expect("tools")
+    option_assertion::required(value.as_array(), "tools")
         .iter()
-        .map(|tool| tool["name"].as_str().expect("tool name").to_owned())
+        .map(|tool| option_assertion::required(tool["name"].as_str(), "tool name").to_owned())
         .collect()
 }
 fn daemon_call<F>(
@@ -357,20 +362,29 @@ where
     let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
     let mut key = [1; 32];
     key[..8].copy_from_slice(&sequence.to_be_bytes());
-    let credential = EnvelopeCredential::new("tenant-a", [7; 32], fixture.credential.token_id(), 1)
-        .expect("SDK credential");
-    let wire = encode_envelope(
-        layerx_agent_api::Operation::McpInvoke,
-        RequestId(sequence),
-        &json!({"tool":tool,"arguments":arguments}),
-        Some(&credential),
-        Some(layerx_agent_api::idempotency::Key::new(key).expect("key")),
-    )
-    .expect("SDK envelope producer");
-    let bytes = serde_json::to_vec(&wire).expect("encode transport");
-    let decoded = layerx_agentd::agent_rpc::decode_mcp_invocation(&bytes)
-        .unwrap_or_else(|_| panic!("daemon envelope consumer"))
-        .expect("MCP operation");
+    let credential = result_assertion::required(
+        EnvelopeCredential::new("tenant-a", [7; 32], fixture.credential.token_id(), 1),
+        "SDK credential",
+    );
+    let wire = result_assertion::required(
+        encode_envelope(
+            layerx_agent_api::Operation::McpInvoke,
+            RequestId(sequence),
+            &json!({"tool":tool,"arguments":arguments}),
+            Some(&credential),
+            Some(result_assertion::required(
+                layerx_agent_api::idempotency::Key::new(key),
+                "key",
+            )),
+        ),
+        "SDK envelope producer",
+    );
+    let bytes = result_assertion::required(serde_json::to_vec(&wire), "encode transport");
+    let decoded = option_assertion::required(
+        layerx_agentd::agent_rpc::decode_mcp_invocation(&bytes)
+            .unwrap_or_else(|_| panic!("daemon envelope consumer")),
+        "MCP operation",
+    );
     assert_eq!(decoded.tool, tool);
     let result = binding
         .daemon_invocation(
@@ -388,12 +402,14 @@ where
             owner,
         )
         .unwrap_or_else(|error| panic!("daemon invocation: {error:?}"));
-    result
-        .release_current(HEIGHT, |value| Ok(value))
-        .expect("authorized release")
-        .expect("tool result")
+    result_assertion::required(
+        result_assertion::required(result.release_current(HEIGHT, Ok), "authorized release"),
+        "tool result",
+    )
 }
 
+/// # Panics
+/// Panics if the producer fixture, protocol assertion or required local resource is invalid.
 pub fn session_tools_bind_describe_and_acknowledge() {
     for mixed in [false, true] {
         let mut scopes = vec!["subscribe", "approve"];
@@ -401,8 +417,10 @@ pub fn session_tools_bind_describe_and_acknowledge() {
             scopes.push("read:balance");
         }
         let fixture = Enrolled::new(&scopes, "did:layerx:model");
-        let binding = Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string())
-            .expect("binding document");
+        let binding = result_assertion::required(
+            Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string()),
+            "binding document",
+        );
         let description = daemon_call(
             &fixture,
             &binding,
@@ -414,7 +432,7 @@ pub fn session_tools_bind_describe_and_acknowledge() {
         let target = boundary.target.clone();
         let arguments = boundary.arguments();
         let mut session = Session::new(fixture.bound(DeploymentMode::Full), boundary);
-        let listed = rpc(&mut session, "tools/list", json!({}));
+        let listed = rpc(&mut session, "tools/list", &json!({}));
         assert_eq!(
             names(&listed["result"]["tools"]),
             names(&description["tools"])
@@ -425,10 +443,11 @@ pub fn session_tools_bind_describe_and_acknowledge() {
                 "missing {}",
                 tool.name
             );
-            assert!(listed["result"]["tools"]
-                .as_array()
-                .expect("list")
-                .contains(&catalogue::listing(tool).expect("description")));
+            assert!(
+                option_assertion::required(listed["result"]["tools"].as_array(), "list").contains(
+                    &option_assertion::required(catalogue::listing(tool), "description")
+                )
+            );
         }
         assert_eq!(names(&description["tools"]).contains("balance.get"), mixed);
         for cursor in [
@@ -442,14 +461,14 @@ pub fn session_tools_bind_describe_and_acknowledge() {
             let response = rpc(
                 &mut session,
                 "tools/call",
-                json!({"name":"subscription.acknowledge", "arguments":invalid}),
+                &json!({"name":"subscription.acknowledge", "arguments":invalid}),
             );
             assert_eq!(response["result"]["isError"], true, "{response}");
         }
         let response = rpc(
             &mut session,
             "tools/call",
-            json!({"name":"subscription.acknowledge", "arguments":arguments}),
+            &json!({"name":"subscription.acknowledge", "arguments":arguments}),
         );
         assert_eq!(response["result"]["isError"], false, "{response}");
         assert_eq!(
@@ -458,17 +477,19 @@ pub fn session_tools_bind_describe_and_acknowledge() {
             arguments["cursor"]
         );
         drop(session);
-        let recovered = SubscriptionStore::open(
-            Store::open(fixture.directory.0.join("subscriptions"))
-                .expect("reopen durable component"),
-            TenantId::new("tenant-a").expect("tenant"),
-        )
-        .expect("restore component");
+        let recovered = result_assertion::required(
+            SubscriptionStore::open(
+                result_assertion::required(
+                    Store::open(fixture.directory.0.join("subscriptions")),
+                    "reopen durable component",
+                ),
+                result_assertion::required(TenantId::new("tenant-a"), "tenant"),
+            ),
+            "restore component",
+        );
         assert_eq!(
             position(
-                recovered
-                    .get(&target)
-                    .expect("recovered subscription")
+                result_assertion::required(recovered.get(&target), "recovered subscription")
                     .last_acknowledged
             ),
             arguments["cursor"]
@@ -476,6 +497,8 @@ pub fn session_tools_bind_describe_and_acknowledge() {
     }
 }
 
+/// # Panics
+/// Panics if the producer fixture, protocol assertion or required local resource is invalid.
 pub fn session_tools_read_only_filtering() {
     for mixed in [false, true] {
         let mut scopes = vec!["subscribe", "approve"];
@@ -483,12 +506,14 @@ pub fn session_tools_read_only_filtering() {
             scopes.push("read:balance");
         }
         let fixture = Enrolled::new(&scopes, "did:layerx:model");
-        let binding = Binding::parse(
-            &fixture
-                .binding_document("127.0.0.1:9", "read-only")
-                .to_string(),
-        )
-        .expect("read-only binding");
+        let binding = result_assertion::required(
+            Binding::parse(
+                &fixture
+                    .binding_document("127.0.0.1:9", "read-only")
+                    .to_string(),
+            ),
+            "read-only binding",
+        );
         let description = daemon_call(
             &fixture,
             &binding,
@@ -500,7 +525,7 @@ pub fn session_tools_read_only_filtering() {
             fixture.bound(DeploymentMode::ReadOnly),
             SubscriptionBoundary::open(&fixture.directory.0),
         );
-        let listed = rpc(&mut session, "tools/list", json!({}));
+        let listed = rpc(&mut session, "tools/list", &json!({}));
         assert_eq!(description["mode"], "read-only");
         assert_eq!(
             names(&description["tools"]),
@@ -521,30 +546,39 @@ pub fn session_tools_read_only_filtering() {
             let refused = rpc(
                 &mut session,
                 "tools/call",
-                json!({"name":tool.name,"arguments":{}}),
+                &json!({"name":tool.name,"arguments":{}}),
             );
-            assert_eq!(refused["error"]["code"], -32602, "{}: {refused}", tool.name);
+            assert_eq!(
+                refused["error"]["code"], -32_602,
+                "{}: {refused}",
+                tool.name
+            );
         }
         let listed = rpc(
             &mut session,
             "tools/call",
-            json!({"name":"subscription.list", "arguments":{"scope":{"tenant":"tenant-a","agent":"did:layerx:model","capability":"09".repeat(32)}}}),
+            &json!({"name":"subscription.list", "arguments":{"scope":{"tenant":"tenant-a","agent":"did:layerx:model","capability":"09".repeat(32)}}}),
         );
         assert_eq!(listed["result"]["isError"], false, "{listed}");
         assert_eq!(
-            listed["result"]["structuredContent"]["result"]["subscriptions"]
-                .as_array()
-                .expect("actual stored subscription")
-                .len(),
+            option_assertion::required(
+                listed["result"]["structuredContent"]["result"]["subscriptions"].as_array(),
+                "actual stored subscription"
+            )
+            .len(),
             1
         );
     }
 }
 
+/// # Panics
+/// Panics if the producer fixture, protocol assertion or required local resource is invalid.
 pub fn session_tools_authenticated_daemon_codec() {
     let fixture = Enrolled::new(&["subscribe", "approve"], "did:layerx:model");
-    let binding = Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string())
-        .expect("binding");
+    let binding = result_assertion::required(
+        Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string()),
+        "binding",
+    );
     let mut boundary = SubscriptionBoundary::open(&fixture.directory.0);
     let arguments = boundary.arguments();
     let output = daemon_call(
@@ -558,9 +592,10 @@ pub fn session_tools_authenticated_daemon_codec() {
                 layerx_agentd::tenant::Operation::SubscriptionAcknowledge
             );
             assert_eq!(credential, &fixture.credential);
-            Ok(boundary
-                .execute(SESSION_TOOLS[6], arguments)
-                .expect("actual store acknowledgement"))
+            Ok(result_assertion::required(
+                boundary.execute(SESSION_TOOLS[6], arguments),
+                "actual store acknowledgement",
+            ))
         },
     );
     assert_eq!(
@@ -568,7 +603,7 @@ pub fn session_tools_authenticated_daemon_codec() {
         arguments["cursor"]
     );
     let forged = SessionCredential::new(
-        TenantId::new("tenant-a").expect("tenant"),
+        result_assertion::required(TenantId::new("tenant-a"), "tenant"),
         SessionId([7; 32]),
         [99; 32],
         1,
@@ -591,8 +626,7 @@ pub fn session_tools_authenticated_daemon_codec() {
         .is_err());
 }
 
-#[path = "../approval.rs"]
-mod approval_fixture;
+use crate::approval_fixture;
 
 struct SessionOwners {
     subscriptions: SubscriptionBoundary,
@@ -604,7 +638,10 @@ struct SessionOwners {
 impl SessionOwners {
     fn open(root: &Path) -> Self {
         let store_path = root.join("approval-holds");
-        let store = Arc::new(Mutex::new(Store::open(&store_path).expect("hold store")));
+        let store = Arc::new(Mutex::new(result_assertion::required(
+            Store::open(&store_path),
+            "hold store",
+        )));
         let approvals = ApprovalRegistry::with_store(Arc::clone(&store));
         let limiter = approval_fixture::limiter();
         for id in [19, 20] {
@@ -613,25 +650,32 @@ impl SessionOwners {
         drop(approvals);
         drop(limiter);
         drop(store);
-        let reopened = Arc::new(Mutex::new(Store::open(&store_path).expect("reopen holds")));
+        let reopened = Arc::new(Mutex::new(result_assertion::required(
+            Store::open(&store_path),
+            "reopen holds",
+        )));
         let approvals = ApprovalRegistry::with_store(Arc::clone(&reopened));
         let limiter = approval_fixture::limiter();
         assert_eq!(
             approvals.replay_tenant(&approval_fixture::context(19).tenant, &limiter),
             Ok(2)
         );
-        approvals
-            .validate_registry(
+        result_assertion::required(
+            approvals.validate_registry(
                 &approval_fixture::context(19).tenant,
-                &layerx_types::payload::ModuleRegistry::new(&[]).expect("modules"),
-            )
-            .expect("recovered call and sender");
+                &result_assertion::required(
+                    layerx_types::payload::ModuleRegistry::new(&[]),
+                    "modules",
+                ),
+            ),
+            "recovered call and sender",
+        );
         Self {
             subscriptions: SubscriptionBoundary::open(root),
             approvals,
             limiter,
             decisions: ApprovalExpiry::from_shared_store(reopened),
-            queue: Default::default(),
+            queue: layerx_agentd::approval::ApprovalSubmissionQueue::default(),
         }
     }
 }
@@ -641,88 +685,28 @@ impl ToolBoundary for SessionOwners {
         tool: ToolDefinition,
         arguments: &Value,
     ) -> Result<Value, BoundaryRefusal> {
-        use layerx_agentd::approval::{ApprovalOutcome, DecisionKey, DecisionRequest};
-        use layerx_agentd::policy::approval::ApproverId;
         match tool.name {
-            "subscription.create" => {
-                assert_eq!(arguments["scope"], self.subscriptions.arguments()["scope"]);
-                assert_eq!(
-                    arguments["filter"],
-                    json!({"agents":[],"accounts":[],"activity_types":[],"modules":[],"assets":[],"counterparties":[],"result_classes":[]})
-                );
-                let cursor = &arguments["start"];
-                let request = SubscriptionCreate {
-                    scope: self.subscriptions.target.scope.clone(),
-                    start: Cursor {
-                        block_height: cursor["block_height"]
-                            .as_str()
-                            .expect("height")
-                            .parse()
-                            .expect("height integer"),
-                        tx_index: cursor["tx_index"]
-                            .as_str()
-                            .expect("transaction")
-                            .parse()
-                            .expect("transaction integer"),
-                        log_index: cursor["log_index"]
-                            .as_str()
-                            .expect("log")
-                            .parse()
-                            .expect("log integer"),
-                    },
-                    delivery_target: DeliveryTarget::new(
-                        arguments["delivery_target"].as_str().expect("delivery"),
-                    )
-                    .expect("target"),
-                    filter: SubscriptionFilter {
-                        agents: ExplicitSet::deny_all(),
-                        accounts: ExplicitSet::deny_all(),
-                        activity_types: ExplicitSet::deny_all(),
-                        modules: ExplicitSet::deny_all(),
-                        assets: ExplicitSet::deny_all(),
-                        counterparties: ExplicitSet::deny_all(),
-                        result_classes: ExplicitSet::deny_all(),
-                    },
-                };
-                let record = self
-                    .subscriptions
-                    .store
-                    .create(
-                        SubscriptionId::new("created-on-transport").expect("id"),
-                        request,
-                    )
-                    .expect("real subscription creation");
-                Ok(subscription_result(&record))
-            }
+            "subscription.create" => Ok(self.create_subscription(arguments)),
             "subscription.list" | "subscription.acknowledge" => {
                 self.subscriptions.execute(tool, arguments)
             }
-            "subscription.health" => Ok(subscription_result(
-                &self
-                    .subscriptions
-                    .store
-                    .get(&self.subscriptions.target)
-                    .expect("subscription health"),
-            )),
-            "subscription.pause" => Ok(subscription_result(
-                &self
-                    .subscriptions
-                    .store
-                    .pause(&self.subscriptions.target)
-                    .expect("pause"),
-            )),
-            "subscription.resume" => Ok(subscription_result(
-                &self
-                    .subscriptions
-                    .store
-                    .resume(&self.subscriptions.target)
-                    .expect("resume"),
-            )),
+            "subscription.health" => Ok(subscription_result(&result_assertion::required(
+                self.subscriptions.store.get(&self.subscriptions.target),
+                "subscription health",
+            ))),
+            "subscription.pause" => Ok(subscription_result(&result_assertion::required(
+                self.subscriptions.store.pause(&self.subscriptions.target),
+                "pause",
+            ))),
+            "subscription.resume" => Ok(subscription_result(&result_assertion::required(
+                self.subscriptions.store.resume(&self.subscriptions.target),
+                "resume",
+            ))),
             "subscription.delete" => {
-                self.subscriptions
-                    .store
-                    .delete(&self.subscriptions.target)
-                    .expect("delete");
+                result_assertion::required(
+                    self.subscriptions.store.delete(&self.subscriptions.target),
+                    "delete",
+                );
                 assert!(self
                     .subscriptions
                     .store
@@ -731,78 +715,7 @@ impl ToolBoundary for SessionOwners {
                 Ok(json!({"deleted":true}))
             }
             "approval.list" | "approval.get" | "approval.approve" | "approval.reject" => {
-                let tenant = approval_fixture::context(19).tenant;
-                let service = ApprovalService::new(&self.approvals, &self.limiter, &self.decisions);
-                match tool.name {
-                    "approval.list" => {
-                        let page = service
-                            .list(
-                                &tenant,
-                                None,
-                                100,
-                                HEIGHT,
-                                layerx_agent_api::TimestampSeconds(
-                                    test_clock::TestClock::new(HEIGHT).now(),
-                                ),
-                            )
-                            .expect("real approval list");
-                        Ok(
-                            json!({"approval_ids":page.approvals.iter().map(|r| hex(&r.approval_id)).collect::<Vec<_>>()}),
-                        )
-                    }
-                    "approval.get" => {
-                        catalogue::approval_get_tool(&service, &tenant, &BTreeMap::new(), arguments)
-                    }
-                    name => {
-                        let id = if name == "approval.approve" { 19 } else { 20 };
-                        assert_eq!(arguments["approval_id"], hex(&[id; 32]));
-                        let ticket = self
-                            .approvals
-                            .ticket([id; 32])
-                            .expect("ticket")
-                            .expect("held call");
-                        assert_eq!(arguments["held_digest"], hex(&ticket.disclosure_digest));
-                        let key = DecisionKey::new(format!("transport-{id}")).expect("key");
-                        let request = DecisionRequest {
-                            tenant: &tenant,
-                            approval_id: [id; 32],
-                            idempotency_key: &key,
-                            approver: ApproverId::new("human:reviewer").expect("approver"),
-                            current_sequence: HEIGHT,
-                            current_time: layerx_agent_api::TimestampSeconds(
-                                test_clock::TestClock::new(HEIGHT)
-                                    .sample(std::time::Duration::from_secs(1))
-                                    .expect("clock")
-                                    .unix_seconds(),
-                            ),
-                        };
-                        let decision = if id == 19 {
-                            service
-                                .approve(request, &approval_fixture::prepared(101, id), &self.queue)
-                                .expect("real approval")
-                        } else {
-                            service.reject(request).expect("real rejection")
-                        };
-                        assert_eq!(
-                            decision.outcome,
-                            if id == 19 {
-                                ApprovalOutcome::Granted
-                            } else {
-                                ApprovalOutcome::Rejected
-                            }
-                        );
-                        if id == 19 {
-                            assert_eq!(
-                                self.queue
-                                    .prepared(decision.submission_ref.expect("release")),
-                                Some(approval_fixture::prepared(101, id))
-                            );
-                        }
-                        Ok(
-                            json!({"approval_id":hex(&[id;32]), "state":format!("{:?}",decision.outcome)}),
-                        )
-                    }
-                }
+                self.execute_approval(tool, arguments)
             }
             _ => Err(BoundaryRefusal::NotServed(tool.name)),
         }
@@ -812,10 +725,14 @@ impl ToolBoundary for SessionOwners {
     }
 }
 
+/// # Panics
+/// Panics if the producer fixture, protocol assertion or required local resource is invalid.
 pub fn all_session_tools_through_daemon_and_mcp() {
     let fixture = Enrolled::new(&["subscribe", "approve"], "did:layerx:model");
-    let binding = Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string())
-        .expect("binding");
+    let binding = result_assertion::required(
+        Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string()),
+        "binding",
+    );
     let description = daemon_call(
         &fixture,
         &binding,
@@ -825,8 +742,8 @@ pub fn all_session_tools_through_daemon_and_mcp() {
     );
     let first_root = fixture.directory.0.join("daemon");
     let second_root = fixture.directory.0.join("mcp");
-    fs::create_dir(&first_root).expect("daemon owners");
-    fs::create_dir(&second_root).expect("MCP owners");
+    result_assertion::required(fs::create_dir(&first_root), "daemon owners");
+    result_assertion::required(fs::create_dir(&second_root), "MCP owners");
     let mut daemon = SessionOwners::open(&first_root);
     let mcp = SessionOwners::open(&second_root);
     let arguments = daemon.subscriptions.arguments();
@@ -834,7 +751,7 @@ pub fn all_session_tools_through_daemon_and_mcp() {
     let filter = json!({"agents":[],"accounts":[],"activity_types":[],"modules":[],"assets":[],"counterparties":[],"result_classes":[]});
     let create = json!({"scope":arguments["scope"],"filter":filter,"start":{"block_height":"0","tx_index":"0","log_index":"0"},"delivery_target":"uds://consumer-a"});
     let mut session = Session::new(fixture.bound(DeploymentMode::Full), mcp);
-    let listed = rpc(&mut session, "tools/list", json!({}));
+    let listed = rpc(&mut session, "tools/list", &json!({}));
     assert_eq!(
         names(&description["tools"]),
         names(&listed["result"]["tools"])
@@ -858,54 +775,36 @@ pub fn all_session_tools_through_daemon_and_mcp() {
         ),
         (
             "approval.approve",
-            json!({"approval_id":hex(&[19;32]),"current_sequence":"50","held_digest":hex(&daemon.approvals.ticket([19;32]).expect("ticket").expect("hold").disclosure_digest)}),
+            json!({"approval_id":hex(&[19;32]),"current_sequence":"50","held_digest":hex(&option_assertion::required(result_assertion::required(daemon.approvals.ticket([19;32]), "ticket"), "hold").disclosure_digest)}),
         ),
         (
             "approval.reject",
-            json!({"approval_id":hex(&[20;32]),"current_sequence":"50","held_digest":hex(&daemon.approvals.ticket([20;32]).expect("ticket").expect("hold").disclosure_digest)}),
+            json!({"approval_id":hex(&[20;32]),"current_sequence":"50","held_digest":hex(&option_assertion::required(result_assertion::required(daemon.approvals.ticket([20;32]), "ticket"), "hold").disclosure_digest)}),
         ),
     ] {
-        let tool = *SESSION_TOOLS
-            .iter()
-            .find(|tool| tool.name == name)
-            .expect("declared tool");
+        let tool = *option_assertion::required(
+            SESSION_TOOLS.iter().find(|tool| tool.name == name),
+            "declared tool",
+        );
         assert!(names(&description["tools"]).contains(name));
         let expected = daemon_call(&fixture, &binding, name, &args, |_, credential, args, _| {
             assert_eq!(credential, &fixture.credential);
-            Ok(daemon.execute(tool, args).expect("real daemon owner"))
+            Ok(result_assertion::required(
+                daemon.execute(tool, args),
+                "real daemon owner",
+            ))
         });
         let response = rpc(
             &mut session,
             "tools/call",
-            json!({"name":name,"arguments":args}),
+            &json!({"name":name,"arguments":args}),
         );
         assert_eq!(response["result"]["isError"], false, "{name}: {response}");
         assert_eq!(
             response["result"]["structuredContent"]["result"], expected,
             "{name}"
         );
-        if name == "subscription.acknowledge" {
-            assert_eq!(
-                expected["subscriptions"][0]["last_acknowledged"],
-                arguments["cursor"]
-            );
-        }
-        if name == "approval.get" {
-            assert_eq!(expected["approval_id"], hex(&[19; 32]));
-            assert_eq!(expected["state"], "AwaitingApproval");
-            for field in ["tx_hash", "rung"] {
-                assert!(expected.as_object().expect("facts").contains_key(field));
-                assert!(expected[field].is_null());
-            }
-            for field in [
-                "activity_id",
-                "resulting_activity_id",
-                "verification_level",
-                "level",
-            ] {
-                assert!(expected.get(field).is_none());
-            }
-        }
+        assert_session_tool_result(name, &expected, &arguments);
         exercised.insert(name);
     }
     assert_eq!(
@@ -914,11 +813,13 @@ pub fn all_session_tools_through_daemon_and_mcp() {
     );
     drop(session);
     for root in ["daemon-audit", "mcp-audit"] {
-        let audit = layerx_agentd::audit::Log::open(
-            fixture.directory.0.join(root),
-            &TenantId::new("tenant-a").expect("tenant"),
-        )
-        .expect("reopen and verify transport audit chain");
+        let audit = result_assertion::required(
+            layerx_agentd::audit::Log::open(
+                fixture.directory.0.join(root),
+                &result_assertion::required(TenantId::new("tenant-a"), "tenant"),
+            ),
+            "reopen and verify transport audit chain",
+        );
         assert_eq!(
             audit.entries(),
             2 * SESSION_TOOLS.len() as u64,
@@ -931,6 +832,8 @@ fn subscription_result(record: &layerx_agent_api::subscription::SubscriptionReco
     json!({"subscription_id":record.subscription_id.as_str(),"last_acknowledged":position(record.last_acknowledged),"paused":record.paused})
 }
 
+/// # Panics
+/// Panics if the producer fixture, protocol assertion or required local resource is invalid.
 pub fn approval_result_over_transport(
     service: &ApprovalService<'_>,
     tenant: &TenantId,
@@ -958,10 +861,12 @@ pub fn approval_result_over_transport(
     }
     let fixture = Enrolled::new(
         &["approve"],
-        expected["actor"].as_str().expect("held actor"),
+        option_assertion::required(expected["actor"].as_str(), "held actor"),
     );
-    let binding = Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string())
-        .expect("approval binding");
+    let binding = result_assertion::required(
+        Binding::parse(&fixture.binding_document("127.0.0.1:9", "full").to_string()),
+        "approval binding",
+    );
     let mut owner = ApprovalOwner {
         service,
         tenant,
@@ -975,9 +880,10 @@ pub fn approval_result_over_transport(
         |operation, credential, args, _| {
             assert_eq!(operation, layerx_agentd::tenant::Operation::ApprovalGet);
             assert_eq!(credential, &fixture.credential);
-            Ok(owner
-                .execute(SESSION_TOOLS[8], args)
-                .expect("approval owner"))
+            Ok(result_assertion::required(
+                owner.execute(SESSION_TOOLS[8], args),
+                "approval owner",
+            ))
         },
     );
     assert_eq!(&daemon, expected);
@@ -989,7 +895,7 @@ pub fn approval_result_over_transport(
         &json!({}),
         |_, _, _, _| panic!("daemon description"),
     );
-    let listed = rpc(&mut session, "tools/list", json!({}));
+    let listed = rpc(&mut session, "tools/list", &json!({}));
     assert_eq!(
         names(&described["tools"]),
         names(&listed["result"]["tools"])
@@ -1005,7 +911,7 @@ pub fn approval_result_over_transport(
     let response = rpc(
         &mut session,
         "tools/call",
-        json!({"name":"approval.get","arguments":arguments}),
+        &json!({"name":"approval.get","arguments":arguments}),
     );
     assert_eq!(response["result"]["isError"], false, "{response}");
     assert_eq!(&response["result"]["structuredContent"]["result"], expected);
@@ -1016,5 +922,170 @@ pub fn approval_result_over_transport(
         "level",
     ] {
         assert!(expected.get(field).is_none());
+    }
+}
+
+impl SessionOwners {
+    fn create_subscription(&mut self, arguments: &Value) -> Value {
+        assert_eq!(arguments["scope"], self.subscriptions.arguments()["scope"]);
+        assert_eq!(
+            arguments["filter"],
+            json!({"agents":[],"accounts":[],"activity_types":[],"modules":[],"assets":[],"counterparties":[],"result_classes":[]})
+        );
+        let cursor = &arguments["start"];
+        let request = SubscriptionCreate {
+            scope: self.subscriptions.target.scope.clone(),
+            start: Cursor {
+                block_height: result_assertion::required(
+                    option_assertion::required(cursor["block_height"].as_str(), "height").parse(),
+                    "height integer",
+                ),
+                tx_index: result_assertion::required(
+                    option_assertion::required(cursor["tx_index"].as_str(), "transaction").parse(),
+                    "transaction integer",
+                ),
+                log_index: result_assertion::required(
+                    option_assertion::required(cursor["log_index"].as_str(), "log").parse(),
+                    "log integer",
+                ),
+            },
+            delivery_target: result_assertion::required(
+                DeliveryTarget::new(option_assertion::required(
+                    arguments["delivery_target"].as_str(),
+                    "delivery",
+                )),
+                "target",
+            ),
+            filter: SubscriptionFilter {
+                agents: ExplicitSet::deny_all(),
+                accounts: ExplicitSet::deny_all(),
+                activity_types: ExplicitSet::deny_all(),
+                modules: ExplicitSet::deny_all(),
+                assets: ExplicitSet::deny_all(),
+                counterparties: ExplicitSet::deny_all(),
+                result_classes: ExplicitSet::deny_all(),
+            },
+        };
+        let record = result_assertion::required(
+            self.subscriptions.store.create(
+                result_assertion::required(SubscriptionId::new("created-on-transport"), "id"),
+                request,
+            ),
+            "real subscription creation",
+        );
+        subscription_result(&record)
+    }
+    fn execute_approval(
+        &mut self,
+        tool: ToolDefinition,
+        arguments: &Value,
+    ) -> Result<Value, BoundaryRefusal> {
+        use layerx_agentd::approval::{ApprovalOutcome, DecisionKey, DecisionRequest};
+        use layerx_agentd::policy::approval::ApproverId;
+
+        let tenant = approval_fixture::context(19).tenant;
+        let service = ApprovalService::new(&self.approvals, &self.limiter, &self.decisions);
+        match tool.name {
+            "approval.list" => {
+                let page = result_assertion::required(
+                    service.list(
+                        &tenant,
+                        None,
+                        100,
+                        HEIGHT,
+                        layerx_agent_api::TimestampSeconds(
+                            test_clock::TestClock::new(HEIGHT).now(),
+                        ),
+                    ),
+                    "real approval list",
+                );
+                Ok(
+                    json!({"approval_ids":page.approvals.iter().map(|r| hex(&r.approval_id)).collect::<Vec<_>>()}),
+                )
+            }
+            "approval.get" => {
+                catalogue::approval_get_tool(&service, &tenant, &BTreeMap::new(), arguments)
+            }
+            name => {
+                let id = if name == "approval.approve" { 19 } else { 20 };
+                assert_eq!(arguments["approval_id"], hex(&[id; 32]));
+                let ticket = option_assertion::required(
+                    result_assertion::required(self.approvals.ticket([id; 32]), "ticket"),
+                    "held call",
+                );
+                assert_eq!(arguments["held_digest"], hex(&ticket.disclosure_digest));
+                let key =
+                    result_assertion::required(DecisionKey::new(format!("transport-{id}")), "key");
+                let request = DecisionRequest {
+                    tenant: &tenant,
+                    approval_id: [id; 32],
+                    idempotency_key: &key,
+                    approver: result_assertion::required(
+                        ApproverId::new("human:reviewer"),
+                        "approver",
+                    ),
+                    current_sequence: HEIGHT,
+                    current_time: layerx_agent_api::TimestampSeconds(
+                        result_assertion::required(
+                            test_clock::TestClock::new(HEIGHT)
+                                .sample(std::time::Duration::from_secs(1)),
+                            "clock",
+                        )
+                        .unix_seconds(),
+                    ),
+                };
+                let decision = if id == 19 {
+                    result_assertion::required(
+                        service.approve(request, &approval_fixture::prepared(101, id), &self.queue),
+                        "real approval",
+                    )
+                } else {
+                    result_assertion::required(service.reject(request), "real rejection")
+                };
+                assert_eq!(
+                    decision.outcome,
+                    if id == 19 {
+                        ApprovalOutcome::Granted
+                    } else {
+                        ApprovalOutcome::Rejected
+                    }
+                );
+                if id == 19 {
+                    assert_eq!(
+                        self.queue.prepared(option_assertion::required(
+                            decision.submission_ref,
+                            "release"
+                        )),
+                        Some(approval_fixture::prepared(101, id))
+                    );
+                }
+                Ok(json!({"approval_id":hex(&[id;32]), "state":format!("{:?}",decision.outcome)}))
+            }
+        }
+    }
+}
+
+fn assert_session_tool_result(name: &str, expected: &Value, arguments: &Value) {
+    if name == "subscription.acknowledge" {
+        assert_eq!(
+            expected["subscriptions"][0]["last_acknowledged"],
+            arguments["cursor"]
+        );
+    }
+    if name == "approval.get" {
+        assert_eq!(expected["approval_id"], hex(&[19; 32]));
+        assert_eq!(expected["state"], "AwaitingApproval");
+        for field in ["tx_hash", "rung"] {
+            assert!(option_assertion::required(expected.as_object(), "facts").contains_key(field));
+            assert!(expected[field].is_null());
+        }
+        for field in [
+            "activity_id",
+            "resulting_activity_id",
+            "verification_level",
+            "level",
+        ] {
+            assert!(expected.get(field).is_none());
+        }
     }
 }

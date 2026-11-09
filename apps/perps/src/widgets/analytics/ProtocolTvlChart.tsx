@@ -14,8 +14,10 @@ import {
   ANALYTICS_CHART_COLORS,
   ANALYTICS_AXIS_FORMATTERS,
   TRACK_B_STRINGS,
+  COLLATERAL_TOKENS,
 } from "@/core/perps/config";
 import { useProtocolSnapshots } from "@/hooks/perps/useAnalytics";
+import type { ProtocolSnapshotRecord } from "@/types/perps";
 
 interface ProtocolTvlChartProps {
   isMobile: boolean;
@@ -26,14 +28,31 @@ interface ChartPoint {
   tvl: number;
 }
 
-function parse18(val: string | null | undefined): number {
+function parseTvlUsd(val: string | null | undefined): number {
   if (!val) return 0;
-  return parseFloat(val) / 1e18;
+  return parseFloat(val) / 10 ** COLLATERAL_TOKENS.usdl.decimals;
 }
 
 export function ProtocolTvlChart({ isMobile }: ProtocolTvlChartProps) {
   const { data, isLoading } = useProtocolSnapshots();
+  return (
+    <ProtocolTvlChartContent
+      data={data}
+      isLoading={isLoading}
+      isMobile={isMobile}
+    />
+  );
+}
 
+export function ProtocolTvlChartContent({
+  data,
+  isLoading,
+  isMobile,
+}: {
+  data: ProtocolSnapshotRecord[] | undefined;
+  isLoading: boolean;
+  isMobile: boolean;
+}) {
   if (isLoading || !data) {
     return (
       <div className="rounded-card bg-surface-1 p-5 shadow-04 transition-colors ease-data duration-200">
@@ -63,7 +82,7 @@ export function ProtocolTvlChart({ isMobile }: ProtocolTvlChartProps) {
 
   const chartData: ChartPoint[] = data.map((s) => ({
     date: ANALYTICS_AXIS_FORMATTERS.shortDate(s.blockTimestamp),
-    tvl: parse18(s.tvlUsd),
+    tvl: parseTvlUsd(s.tvlUsd),
   }));
 
   return (
@@ -73,7 +92,10 @@ export function ProtocolTvlChart({ isMobile }: ProtocolTvlChartProps) {
       </h3>
       <div style={{ width: "100%", height: isMobile ? 200 : 300 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <AreaChart
+            data={chartData}
+            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          >
             <XAxis
               dataKey="date"
               tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}

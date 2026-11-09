@@ -51,7 +51,31 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueue do
   def run(data, _json_rpc_named_arguments) when is_list(data) do
     prepared_export_data = prepare_export_data(data)
 
-    export_data_to_multichain(prepared_export_data)
+    case export_data_to_multichain(prepared_export_data) do
+      {:retry, retry} ->
+        failed_balances =
+          MapSet.new(
+            Enum.map(retry.address_coin_balances, &{&1.address_hash, "native", nil, &1.value}) ++
+              Enum.map(retry.address_token_balances, &{&1.address_hash, &1.token_address_hash, &1.token_id, &1.value})
+          )
+
+        {:retry,
+         Enum.filter(data, fn entry ->
+           token =
+             case entry.token_contract_address_hash_or_native do
+               "native" -> "native"
+               bytes -> to_string(%Hash{byte_count: 20, bytes: bytes})
+             end
+
+           MapSet.member?(
+             failed_balances,
+             {to_string(entry.address_hash), token, Map.get(entry, :token_id), entry.value}
+           )
+         end)}
+
+      :ok ->
+        :ok
+    end
   end
 
   defp export_data_to_multichain(prepared_export_data) do

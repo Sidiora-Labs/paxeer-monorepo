@@ -1,7 +1,9 @@
 "use client";
 
+import React from "react";
 import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { Button } from "@/ui/atoms/button";
+import type { PortfolioBalanceSnapshot } from "@/page-modules/portfolio/balances";
 import type { PortfolioNavKey } from "./PortfolioSideNav";
 
 /**
@@ -31,9 +33,28 @@ export interface PortfolioTopBarProps {
   hasVault: boolean;
   /** True once the on-chain vault lookup has resolved. Suppresses CTA flicker. */
   vaultResolved: boolean;
+  accountStatus: PortfolioBalanceSnapshot["account"]["status"];
+  walletStatus: PortfolioBalanceSnapshot["wallet"]["status"];
+  onRetryBalances: () => void;
   onDeposit: () => void;
   onWithdraw: () => void;
   onConnect: () => void;
+}
+
+export function portfolioTopBarBalanceProps(
+  snapshot: PortfolioBalanceSnapshot,
+  onRetryBalances: () => void,
+): Pick<
+  PortfolioTopBarProps,
+  "vaultResolved" | "accountStatus" | "walletStatus" | "onRetryBalances"
+> {
+  return {
+    vaultResolved:
+      snapshot.account.status === "ready" && snapshot.wallet.status === "ready",
+    accountStatus: snapshot.account.status,
+    walletStatus: snapshot.wallet.status,
+    onRetryBalances,
+  };
 }
 
 export function PortfolioTopBar({
@@ -41,10 +62,17 @@ export function PortfolioTopBar({
   isConnected,
   hasVault,
   vaultResolved,
+  accountStatus,
+  walletStatus,
+  onRetryBalances,
   onDeposit,
   onWithdraw,
   onConnect,
 }: PortfolioTopBarProps) {
+  const balanceFailed = accountStatus === "error" || walletStatus === "error";
+  const balancePending =
+    accountStatus === "loading" || walletStatus === "loading";
+
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap">
       <div>
@@ -58,20 +86,50 @@ export function PortfolioTopBar({
 
       <div className="flex items-center gap-2">
         {!isConnected ? (
-          <Button onClick={onConnect} className="h-9 rounded-[var(--radius-md)]">
+          <Button
+            onClick={onConnect}
+            className="h-9 rounded-[var(--radius-md)]"
+          >
             Connect wallet
           </Button>
+        ) : balanceFailed ? (
+          <div
+            role="alert"
+            aria-busy={balancePending}
+            className="flex items-center gap-2 text-xs"
+          >
+            <span>Portfolio balances are unavailable.</span>
+            <Button
+              type="button"
+              onClick={onRetryBalances}
+              disabled={balancePending}
+              variant="outline"
+              className="h-9 rounded-[var(--radius-md)]"
+            >
+              Retry balances
+            </Button>
+          </div>
         ) : !vaultResolved ? (
-          <div className="h-9 px-3 rounded-[var(--radius-md)] bg-surface-1 border border-white/[0.04] flex items-center text-xs text-muted-foreground">
-            Resolving vault…
+          <div
+            role="status"
+            aria-busy={balancePending}
+            className="h-9 px-3 rounded-[var(--radius-md)] bg-surface-1 border border-white/[0.04] flex items-center text-xs text-muted-foreground"
+          >
+            {balancePending ? "Resolving vault…" : "Waiting for wallet…"}
           </div>
         ) : !hasVault ? (
-          <Button onClick={onDeposit} className="h-9 rounded-[var(--radius-md)]">
+          <Button
+            onClick={onDeposit}
+            className="h-9 rounded-[var(--radius-md)]"
+          >
             Create vault
           </Button>
         ) : (
           <>
-            <Button onClick={onDeposit} className="h-9 rounded-[var(--radius-md)]">
+            <Button
+              onClick={onDeposit}
+              className="h-9 rounded-[var(--radius-md)]"
+            >
               <ArrowDownToLine className="h-4 w-4 mr-1.5" />
               Deposit
             </Button>
