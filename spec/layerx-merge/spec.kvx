@@ -12598,6 +12598,12 @@ value = "A .NET case over a published vector file selects a case by its id and c
 basis = "Gotcha 4174, decisions 3046, 3130, 3183 and 3211."
 affects = ["22.39.361", "17.5.7"]
 
+[decision.3248]
+title = "The lint verification of the first group of agent daemon test targets keeps going"
+value = "Decision 3242 holds for task 22.39.226 as for the three later groups: its verification passes the keep going option, so one run reports the lints of every target of the group, and an attempt runs the verification command outside the counted gates and repairs at the source until it is clean before the counted run. No allow attribute and no lint level change (decisions 3052 and 3053)."
+basis = "Gotcha 4176, decisions 3052, 3053 and 3242."
+affects = ["22.39.226"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -196322,7 +196328,7 @@ touches = ["services/agent/crates/layerx-agentd/tests"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls [a-h]*.rs | sed 's/.rs$//; s/^/--test /')"
-verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [a-h]*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx && cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [a-h]*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -196336,6 +196342,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4142, decisions 3183 and 3215): the attempt-1 tree da8f9919a12f stands (the repaired lints of the test targets a to h and of tests/support, the record). The second verification ends with 20 errors in seven targets, all inside the paths; the build now compiles the test targets a to h, so a compile error shows in the build. Repair them: tests/approval.rs:85 and :87 (E0507, clone or borrow the actor and the authority instead of moving them out of the shared reference), tests/support/real_authority.rs:108 and :109 and tests/support/mod.rs:401 and :403 (E0308, give the callers the types the repaired helpers now take or return), tests/balance.rs:103, :107, :131, :135 and :160 and tests/availability.rs:287 and :307 (use the returned value in an assertion or bind it with a reason; do not remove the must_use attribute), tests/human_projection_facts.rs:317 (imports the target does not use), :339, :861 and :1256, tests/budget_mutations_layerxpay.rs:10 and tests/checkpoint.rs:95 (read the three fields in an assertion or remove them from the test type). A support item that one target uses and another does not is allowed on the item with a reason that names the targets using it (decision 3057). No test assertion changes its meaning. Before the verification run the clippy command of the verification once and repair what it lists. Reduce the record to product facts. Run the build once and the verification once at the final revision."
 do_5 = "Attempt 3 (continue after 22.39.353 lands, gotcha 4159, decision 3232): the attempt-2 tree 18dabb06132d stands; build 3 compiled the library and the test targets named a to h, and no verification saw the tree. The check of the dependent packages stopped only in the host binary, at three sites of src/inference_market/deals.rs that task 22.39.353 repairs; the task now requires it. Rebase on main once that task is on it and change nothing under src. Run the build once and the verification once on the tree as it is. When the verification still reports a lint, repair it at source within the one allowed cycle (decision 3053: no lint level change, no allowance at crate or module level; decision 3230 for a case over the line bound). After a change of a file that a target of the host package includes by path, keep cargo check of the package layerx-agentd-host with all targets green (decision 3218). Keep tests/repair_22_39_226.kvx to product facts."
+do_6 = "Attempt 4 (continue, gotcha 4176, decision 3248): the attempt-3 tree 5f4a514b235f stands (the lint repairs in the test files a to h, the record). The verification now passes the keep going option, so one run reports the lints of every target of the group. Before the counted gates run the verification command and repair every lint it reports in the files of this task until it is clean: the five in tests/bootstrap_bind_layerx.rs at :199, :463, :584, :607 and :710 (four arguments passed by value and not consumed, one last statement without a semicolon) and any in the targets the earlier runs did not reach. Repair at the source: no allow attribute and no lint level change (decisions 3052 and 3053). An item reported unused is first searched in every target that includes the file (decision 3242). Extend the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.225]
 title = "Bring the layerx-sdk crate and its test targets under the workspace lints"
