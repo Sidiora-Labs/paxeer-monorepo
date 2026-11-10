@@ -12520,6 +12520,24 @@ value = "A site that the target framework marks obsolete is repaired at the site
 basis = "Gotcha 4161, decisions 3053, 3130 and 3211."
 affects = ["22.39.354", "22.39.342", "17.5.7"]
 
+[decision.3235]
+title = "The host defines the frames of the signalling socket and the inference peer speaks them"
+value = "The signalling service of the agent daemon is the producer of the frames on the signalling socket of a room: the request line, the text frames of JSON, their type names and member names, the order challenge, hello, offer, the signing bytes of the hello and of the deal acknowledgement, and the error codes. The inference peer, in the browser and on the command line, speaks exactly these frames and waits for the challenge before it sends a hello. The binary codec of the peer remains for the data channels between peers and is not sent on the signalling socket. The peer package holds one vector for every frame of the socket; a stand-in host of a peer case sends and accepts only what the host sends and accepts; a case of the agent daemon reads the same vectors with the host frame types (decision 3046). A member the peer needs and the host does not serve is recorded and is not invented on either side. The lap frames and the canary frames follow the same rule when their host tasks land. The other direction, the host adopting the binary codec of the peer, would change two landed host tasks and their cases and is not taken."
+basis = "Gotcha 4162, decisions 3046 and 3211."
+affects = ["22.39.355", "22.39.356", "22.38.27", "22.38.28", "22.38.29"]
+
+[decision.3236]
+title = "Every candle of a candle page carries the snapshot identifier of the page"
+value = "On the candle route of the launchpad API the snapshot identifier of an item equals the snapshot identifier of the page, in the development path as in the production read model. The identifier of the page, its cursor and its refusal of a changed snapshot keep their derivation. A candle on a topic keeps the identifier the projection derived for it, and a comparison of the candle of the route with the candle of the topic compares every member apart from the snapshot identifier. The integrity check of the web application is not changed. Task 22.39.357 owns the repair in the API and task 22.39.95 follows it (decisions 3130 and 3211)."
+basis = "Gotcha 4163, decisions 3046, 3130 and 3211."
+affects = ["22.39.357", "22.39.95"]
+
+[decision.3237]
+title = "A stand-in node that accepts the sending of a call answers the gas estimate of the same call"
+value = "A test transcript that stands in for a node and answers eth_sendTransaction for a set of actions also answers eth_estimateGas for exactly those actions: it decodes the call the same way, refuses every other call the same way, and answers the gas used that its own receipt of the action records, so no new quantity enters the transcript. Completing a stand-in in this way is no new fabricated response; the estimate of the provider, its headroom and every assertion of the cases stay as they are."
+basis = "Gotcha 4163, decisions 2829 and 3183."
+affects = ["22.39.95"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42180,6 +42198,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.357]
+title = "Serve every candle of a development candle page with the snapshot identifier of the page"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/store/development_candles.go", "services/launchpad/api/internal/app/repair_22_39_314_test.go"]
+tests = ["services/launchpad/api/internal/app::TestRepair_22_39_357_candle_page_items_carry_the_page_snapshot"]
+verification_contract = "test -s services/launchpad/api/repair_22_39_357.kvx && cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/app/ -run 'TestRepair_22_39_314|TestRepair_22_39_357|DevStream'"
+do_1 = "do_1 Decision 3236, gotcha 4163. DevelopmentCandlePage of services/launchpad/api/internal/store/development_candles.go derives the snapshot identifier of the page at :45 and appends the stored payloads unchanged, each with the identifier that internal/rest/dev_candles.go:148 derived from the candle alone. The production read model writes the identifier of the page into every item (internal/store/accounting_readmodel.go:466), and the web application refuses a page whose item carries another identifier. Make every item of the development page carry the identifier of the page; every other member of the item keeps its value, and the item is validated as a Candle after the change. Do not change the derivation of the page identifier, the cursor, the refusal of a changed snapshot, the stored payload or the payload of the topic."
+symbols = ["DevelopmentCandlePage"]
+
+[capability.22.39.356]
+title = "Read the signalling vectors of the inference peer with the host frame types"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer", "services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs::hello_and_acknowledgement_signatures_verify"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_peer_vectors"
+do_1 = "do_1 Decisions 3235, 3046 and 3231. Add the test target services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs. It reaches the host frame types the way tests/inference_deals.rs does and loads apps/inference-peer/test/fixtures/host-signal-frames.json through a path counted from the directory of its own file."
+symbols = ["ClientFrame", "ServerFrame", "DealClientFrame"]
+
+[capability.22.39.355]
+title = "Speak the signalling frames of the host in the inference peer"
+reqs = ["22998.1"]
+touches = ["apps/inference-peer"]
+tests = ["apps/inference-peer/test/signal.test.mjs::hello_is_signed_over_the_challenge_of_the_host", "apps/inference-peer/test/signal.test.mjs::every_vector_round_trips_through_the_codec"]
+verification_contract = "test -s apps/inference-peer/repair-22-39-355.kvx && test -s apps/inference-peer/test/fixtures/host-signal-frames.json && npm --prefix apps/inference-peer test"
+do_1 = "do_1 Decision 3235, gotcha 4162. Read the producer first, in services/agent/crates/layerx-agentd/src/inference_market: in signal.rs the request line the host accepts (:777), HelloFrame and its signing bytes (:24 and :33), RoomOffer and LayerAssignment (:70 and :78), SignalError (:131), SessionDescription and IceCandidate (:159 and :167), ClientFrame (:175), ServerFrame (:189), the frame bound MAX_FRAME_BYTES and the order of a session; in deals.rs DealFrame (:180), the acknowledgement bytes (:302), DealAcknowledgement (:311), DealServerFrame (:321) and DealClientFrame (:1285). The frames are text frames of JSON, the member type holds the name in snake case, an unknown member is refused, and a byte array is a JSON list of integers from 0 to 255. Change no file outside apps/inference-peer."
+symbols = ["SignalClient", "signHello", "DealClient"]
 
 [capability.22.39.354]
 title = "Load the test certificate of the .NET platform SDK with the loader of the target framework"
@@ -161863,6 +161908,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.355]
+title = "Speak the signalling frames of the host in the inference peer"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.30"]
+reqs = ["22998.1"]
+capabilities = ["22.39.355"]
+interfaces = []
+do_1 = "do_1 Decision 3235, gotcha 4162. Read the producer first, in services/agent/crates/layerx-agentd/src/inference_market: in signal.rs the request line the host accepts (:777), HelloFrame and its signing bytes (:24 and :33), RoomOffer and LayerAssignment (:70 and :78), SignalError (:131), SessionDescription and IceCandidate (:159 and :167), ClientFrame (:175), ServerFrame (:189), the frame bound MAX_FRAME_BYTES and the order of a session; in deals.rs DealFrame (:180), the acknowledgement bytes (:302), DealAcknowledgement (:311), DealServerFrame (:321) and DealClientFrame (:1285). The frames are text frames of JSON, the member type holds the name in snake case, an unknown member is refused, and a byte array is a JSON list of integers from 0 to 255. Change no file outside apps/inference-peer."
+do_2 = "do_2 Add apps/inference-peer/src/signal.mjs, the codec of the signalling socket: it encodes hello, description, candidate and deal_ack and decodes challenge, offer, description, candidate, deal, deal_live and error, with exactly the member names of the host. It refuses an unknown type, an unknown or missing member, a byte array of the wrong length and a frame over 65536 bytes. The room id, the peer key and the nonce are 32 bytes each. Keep src/wire.mjs for the data channels and send none of its frames on the signalling socket."
+do_3 = "do_3 Bring the signalling client of src/transport.mjs to the session of the host: it opens the request target the host accepts, sends text frames, waits for the challenge, signs the signing bytes of the host hello (the domain text of signal.rs:33, the room id and the nonce of the challenge) with the key of the identity, sends hello, and expects offer. It keeps no sequence counter on the socket. It relays a description and a candidate with the member to and reads them with the member from; it reads deal and deal_live, answers deal_ack with deal_id, digest and the signature over the acknowledgement bytes of the host, and reports an error frame with its code. Bring src/identity.mjs, src/deal.mjs and src/cli.mjs to the same frames: the hello bytes of the identity follow the host, the deal reader takes the deal frame of the host, and the command-line peer opens the same request target."
+do_4 = "do_4 Add apps/inference-peer/test/fixtures/host-signal-frames.json: one vector for every frame of the socket in both directions, each with its name, its direction and its JSON text, the fixed test key of the vectors, and for hello and deal_ack the signing bytes in hexadecimal and the signature. Add apps/inference-peer/test/signal.test.mjs with the cases every_vector_round_trips_through_the_codec, hello_is_signed_over_the_challenge_of_the_host, unknown_member_is_refused and binary_frame_on_the_socket_is_refused. Change the stand-in hosts of test/transport.test.mjs, test/identity.test.mjs, test/deal.test.mjs and test/cli.test.mjs so that each sends the challenge first, verifies the hello the way the host does, speaks only the vectors and refuses what the host refuses. Keep every assertion that does not name the retired frame form."
+do_5 = "do_5 Record in apps/inference-peer/repair-22-39-355.kvx every difference found between the peer and the host with file and line on both sides, and every member the peer needs that the host does not serve; invent no member for it. Update the signalling part of apps/inference-peer/README.md. Run the build once and the verification once at the final revision."
+symbols = ["SignalClient", "signHello", "DealClient"]
+touches = ["apps/inference-peer"]
+tests = ["apps/inference-peer/test/signal.test.mjs::hello_is_signed_over_the_challenge_of_the_host", "apps/inference-peer/test/signal.test.mjs::every_vector_round_trips_through_the_codec"]
+planned_paths = ["apps/inference-peer/src/signal.mjs", "apps/inference-peer/test/signal.test.mjs", "apps/inference-peer/test/fixtures/host-signal-frames.json", "apps/inference-peer/repair-22-39-355.kvx"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "test -s apps/inference-peer/repair-22-39-355.kvx && test -s apps/inference-peer/test/fixtures/host-signal-frames.json && npm --prefix apps/inference-peer test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.352]
 title = "Build the Next example of the integration SDK beside an own install of the agent SDK"
 status = "done"
@@ -163630,7 +163707,7 @@ title = "Repair the failing launchpad web and mobile test files"
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["22.39.94", "22.39.295", "22.39.313", "22.39.314"]
+requires = ["22.39.94", "22.39.295", "22.39.313", "22.39.314", "22.39.357"]
 reqs = ["22998.1"]
 capabilities = ["22.39.95"]
 interfaces = []
@@ -163649,7 +163726,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 120
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -163664,6 +163741,7 @@ do_10 = "Attempt 10 (continue, gotcha 3822, decisions 2908 and 2917): the attemp
 do_11 = "Attempt 11 (continue, gotchas 4013 and 4014, decision 3134): the attempt-10 tree d2f11027a8 stands for its test repairs, and its deployment rewiring is dropped: delete apps/launchpad/web/src/core/network/reviewed-deployment.json and scripts/regenerate-reviewed-deployment.cjs, restore the attestation program under src/core/repair-22-31-22 to deployment.Current(), restore deployment-generation.cjs, deployment.ts and the recorded authority fixture under src/core/test-fixtures/authority-production to their main content. The task now follows 22.39.295, which returns the manifest surface identities to the installed runtime hash 0x6302ff80, so the recorded-authority cases and surface-authority.test.ts (whose 41 byte runtime hashes to that value) pass without edits; rebase on main after it lands. Then repair what remains of the attempt-9 list: start the trading charts origin of the chart cases with its candle store so src/widgets/trading/chart-datafeed-recovery.test.ts and coin-failure-frames.test.tsx see canonical candles instead of HTTP 503 DEPENDENCY_UNAVAILABLE, and the cases named in the attempt-10 note. Keep the record of failing names before and after. Run the build once and the verification once at the final revision."
 do_12 = "Attempt 12 (continue, gotchas 4079 and 4080, decisions 3160 and 3161): the attempt-11 tree 8155a13897b7 stands (the test repairs through attempt 11, the authority producer that awaits the real head, the estimated route gas with its headroom, the jsdom initialisation before imports, the ordered preparation, the record). The attempt starts after 22.39.313 and 22.39.314 land: rebase on main and take the settled manifest digest and the development candle path from it; drop any local copy of files those tasks changed. Then run the verification once and compare with the attempt-11 inventory: the four deployment regeneration cases follow the settled digest without an edit here; the chart recovery cases and the coin failure frame case read the canonical candles the development path now writes, started through the joined preparation of the suite; the creation journey and the connected journey are covered by the repairs attempt 11 made after its verification (the stale activation head, the route gas estimate). Repair what remains red inside the touches without weakening an assertion, keep the list of failing names before and after in the record, and reach the mobile suite. Run the build once and the verification once at the final revision."
 do_13 = "do_13 Decision 3177, gotcha 4099: the PublicConfiguration manifestDigest pin of apps/launchpad/mobile/test/vitest/proof_launchpad_mobile_app.test.ts:385 still names a35ff7c6f532d2f9, while the mobile runtime apps/launchpad/mobile/src/runtime/quote-transaction.ts follows the deployment record since bcaaa5ef93. Bring the pin to the digest sdk/launchpad/shared/config/deployment/current.json names, reading it from the record or from the generated helper where the case can import it, and name the change in the record of the task."
+do_14 = "Attempt 13 (continue after 22.39.357 lands, gotcha 4163, decisions 3236 and 3237): the attempt-12 tree 99ad934826d3 stands (the ordered producers, the warmed coin route, the repaired mobile digest, authority, chat and connected journey cases, the record). Eight cases in three files are red and the time limit is now 240 minutes. First, rebase on main once task 22.39.357 is on it: the development candle page then serves every item with the identifier of the page, so change nothing in fetchCanonicalCandlePage and run src/widgets/trading/chart-datafeed-recovery.test.ts alone; a case that still fails is repaired at the site its first failing message names. Second, in src/widgets/meta-ag/repair-22-33-987.fixtures.ts make openRpcTranscript answer eth_estimateGas for exactly the actions it accepts in eth_sendTransaction: decode the call the same way, refuse every other call the same way, and answer the gas used that the receipt of the transcript records for that action (decision 3237); keep the estimate of the provider, its headroom and the assertions of advanced_broadcast_recovery_best_route, advanced_broadcast_recovery_custom_route and advanced_signature_failure_recovery, and run that file alone. Third, run src/widgets/trading/coin-failure-frames.test.tsx alone and find the condition of :80 that is not met while the page shows updates off and no prices: the case keeps its assertions, and the cause is repaired in the web source or in the fixture of the case, whichever departs from the producer. Then run the gate once, so that the mobile suite is reached. A cause outside the paths is recorded with the case, the first failing message, the file and the line. Extend the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.94]
 title = "Run the launchpad and sdk/wallet test jobs under their own pnpm workspace roots"
@@ -164249,14 +164327,14 @@ title = "Ship the browser peer page"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.26"]
+requires = ["22.38.26", "22.39.355"]
 reqs = ["22380.4"]
 capabilities = ["22.38.29"]
 interfaces = []
 do_1 = "do_1 Add index.html and src/page.mjs: a single page that shows the WebGPU adapter and measured manifest, lets the visitor paste a host signalling address and a room id, joins the room with the persisted identity, shows the assigned layer range, lap count, countersigned receipts and the earnings read from the host status frame, and leaves cleanly with bye on unload; no bundler, plain ES modules served by npm run serve (a static file server script in scripts/serve.mjs)."
 do_2 = "do_2 Write test/page.test.mjs with jsdom: the join flow sends hello with the stored key, the status panel renders a deal frame, and unload sends bye."
 symbols = ["PeerPage", "renderStatus"]
-touches = ["docs/MONOREPO.md"]
+touches = ["docs/MONOREPO.md", "apps/inference-peer/package.json", "apps/inference-peer/package-lock.json"]
 tests = ["apps/inference-peer/test/page.test.mjs"]
 planned_paths = ["apps/inference-peer/index.html", "apps/inference-peer/src/page.mjs", "apps/inference-peer/scripts/serve.mjs", "apps/inference-peer/test/page.test.mjs"]
 build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
@@ -164272,22 +164350,23 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 3 (continue after 22.39.355 lands, gotcha 4162, decision 3235): the attempt-2 tree 3badf29fc311 stands (index.html, scripts/serve.mjs, src/page.mjs, test/page.test.mjs, the entry of docs/MONOREPO.md). The verification stops because the page case imports jsdom, which the package does not declare. The touches now name apps/inference-peer/package.json and apps/inference-peer/package-lock.json: add jsdom as a development dependency with an exact version, add the script serve that runs scripts/serve.mjs, and bring the lock in line with npm install; add no other dependency. The task now requires task 22.39.355: rebase on main once it is on it and bring src/page.mjs to the signalling client and the codec src/signal.mjs of that task. The page shows only what the frames of the host carry: the offer with the assigned range of layers, the deal, deal_live and the code of an error frame. The host sends no status frame and none is invented; a state the page needs and no host frame carries is recorded with the place of the page that needs it. The stand-in host of test/page.test.mjs sends the challenge first and speaks only the vectors of test/fixtures/host-signal-frames.json. Run the build once and the verification once at the final revision."
 
 [task.22.38.28]
 title = "Answer canary prompts inside the lap"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.26", "22.38.19"]
+requires = ["22.38.26", "22.38.19", "22.39.355"]
 reqs = ["22380.4"]
 capabilities = ["22.38.28"]
 interfaces = []
 do_1 = "do_1 Add src/canary.mjs: a canary position arrives as an ordinary activation; the peer processes it as any other and, when the host asks through a canary-answer request, returns the top-8 logits of that position as fixed-point i32 with 16 fractional bits in the same layout the program compares (22.38.5)."
 do_2 = "do_2 Write test/canary.test.mjs: the fixed-point encoding of a fixture logit vector equals the program fixture bytes, and an answer for an unknown position refuses."
 symbols = ["canaryAnswer", "encodeFixedPointLogits"]
-touches = ["docs/MONOREPO.md"]
+touches = ["docs/MONOREPO.md", "apps/inference-peer/src", "apps/inference-peer/test"]
 tests = ["apps/inference-peer/test/canary.test.mjs"]
-planned_paths = ["apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs"]
+planned_paths = ["apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs", "apps/inference-peer/test/fixtures/host-canary-frames.json"]
 build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
 verify_cmd = "node --test apps/inference-peer/test/canary.test.mjs"
 gate_kind = "planned"
@@ -164301,22 +164380,23 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3235, gotcha 4162: the host sends the canary frames of task 22.38.19 on the signalling socket in the frame form of the host, text frames of JSON with the member type in snake case. Read the producer on main (the canary module beside signal.rs and deals.rs in services/agent/crates/layerx-agentd/src/inference_market) and speak exactly its type names and member names through the codec src/signal.mjs of task 22.39.355; the binary kind of src/wire.mjs for a canary answer is not sent on the socket. Add apps/inference-peer/test/fixtures/host-canary-frames.json with one vector for every canary frame in both directions and make the stand-in host of test/canary.test.mjs speak only these vectors. The touches now name the source and test directories of the peer."
 
 [task.22.38.27]
 title = "Countersign lap receipts the peer contributed to"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.26", "22.38.18"]
+requires = ["22.38.26", "22.38.18", "22.39.355"]
 reqs = ["22380.4"]
 capabilities = ["22.38.27"]
 interfaces = []
 do_1 = "do_1 Add src/laps.mjs: on a lap-receipt frame the peer checks the lap index continuity, that its layer range digest in the receipt equals the digest of the activations it processed, and that the cumulative token count advanced by the generated count; it then returns a countersign frame with its ed25519 signature over the receipt digest, or a refusal with the reason."
 do_2 = "do_2 Write test/laps.test.mjs: a matching receipt is countersigned, a receipt with a foreign range digest is refused, a lap index gap is refused, and the signature verifies against the program lap codec fixture of 22.38.4."
 symbols = ["countersignLap", "LapTracker"]
-touches = ["docs/MONOREPO.md"]
+touches = ["docs/MONOREPO.md", "apps/inference-peer/src", "apps/inference-peer/test"]
 tests = ["apps/inference-peer/test/laps.test.mjs"]
-planned_paths = ["apps/inference-peer/src/laps.mjs", "apps/inference-peer/test/laps.test.mjs"]
+planned_paths = ["apps/inference-peer/src/laps.mjs", "apps/inference-peer/test/laps.test.mjs", "apps/inference-peer/test/fixtures/host-lap-frames.json"]
 build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
 verify_cmd = "node --test apps/inference-peer/test/laps.test.mjs"
 gate_kind = "planned"
@@ -164330,6 +164410,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3235, gotcha 4162: the host sends the lap frames of task 22.38.18 on the signalling socket in the frame form of the host, text frames of JSON with the member type in snake case. Read the producer on main (the lap module beside signal.rs and deals.rs in services/agent/crates/layerx-agentd/src/inference_market) and speak exactly its type names and member names through the codec src/signal.mjs of task 22.39.355; the binary kinds of src/wire.mjs for a lap receipt and a countersignature are not sent on the socket. Sign the countersignature over the bytes the host verifies. Add apps/inference-peer/test/fixtures/host-lap-frames.json with one vector for every lap frame in both directions and make the stand-in host of test/laps.test.mjs speak only these vectors. The touches now name the source and test directories of the peer."
 
 [task.22.38.26]
 title = "Run the assigned layer range as a deal client"
@@ -184787,6 +184868,7 @@ do_5 = "Attempt 2 (continue, gotcha 4140, decision 3217): the attempt-1 tree 0e1
 do_6 = "Attempt 3 (continue, gotcha 4145, decision 3220): the attempt-2 tree 22deb9aa1bdd stands (the single entry per provider uuid in WalletProvider.tsx, its case, the lossless helper of the send case, the record). The send case now stops at apps/wallet/e2e/send.spec.ts:1106 because the result page reads the node with a plain parse. The paths now name apps/wallet/src/components/TransferSuccess.tsx and apps/wallet/src/components/TransferSuccess.test.tsx. In TransferSuccess.tsx replace the request function at :109 with a JsonRpcClient of the wallet SDK built for the retained RPC URL of the transfer, the way apps/wallet/src/account/StatusLadder.tsx:128 builds its client, and hand observeTransfer at :181 the call of that client; keep the timeout of ten seconds per request, the retained network and every state of the page. Add to TransferSuccess.test.tsx the case transfer_observation_keeps_the_full_range_heights_of_the_receipt_keys: an endpoint that answers px_getReceiptKeys with a raw body whose lastHeight is 9223372036854775807 and whose firstHeight is a small number; the read of the page returns both heights exactly, and readReceiptKeyPins of the wallet SDK accepts the answer. The case must fail on the tree before the change. Search apps/wallet/src outside the test files for a further request function that sends a JSON-RPC method of the node and parses the answer with response.json(), and list each site with file and line in the record; repair one inside the paths and record one outside them. Change no assertion and no locator of the send case, and change nothing under sdk/wallet. The verification now runs both case files and then the send case to its end. do_3 keeps its rule for a cause outside the paths. Extend apps/wallet/src/wallet/repair-22-39-346.kvx with the reader, the change and the result. Restore apps/wallet/next-env.d.ts before the commit. Run the build once and the verification once at the final revision."
 do_7 = "Attempt 4 (continue, gotcha 4153, decision 3226): the attempt-3 tree 6e98157ed545 stands (one entry per announced wallet in WalletProvider.tsx, the reader of TransferSuccess.tsx through JsonRpcClient, the unit cases, the two helper changes of the send case, the record). The send case now passes through :1116 and stops at :1117, because the page cannot save an observation with an authenticated receipt: saveTransferObservation of apps/wallet/src/components/transferOrigin.ts:76 copies through JSON.stringify, which refuses the big integer authentication.height. The touches now name the directory apps/wallet/src/components. In saveTransferObservation write a big integer as a string of its decimal digits and keep every other member. Add to apps/wallet/src/components/TransferSuccess.test.tsx the case transfer_observation_with_an_authenticated_receipt_is_saved: an observation with the truth included and a receipt whose authentication.height is 9223372036854775807 as a big integer is saved, the stored record holds that height as the string 9223372036854775807, and the case records what recoverTransferObservation of the wallet SDK returns for the stored record. A refusal of the recovery whose cause sits in the wallet SDK is recorded with file and line and is not repaired here. In apps/wallet/e2e/send.spec.ts change only the expectation of the saved observation, before and after the reload: compare with the stored form of the receipt of the helper, the same members with the big integer height as its decimal digits, and remove no member from the comparison. Change no locator and no page assertion. A further failure of the send case whose cause sits in the wallet source under the paths is repaired in this attempt within the allowed cycle; a cause outside the paths is recorded with the first failing assertion and its line. Restore apps/wallet/next-env.d.ts before the commit and extend the record. Run the build once and the verification once at the final revision."
 do_8 = "Attempt 5 (continue, gotcha 4158, decisions 3231 and 3226): the attempt-4 tree 7729d7911128 stands (saveTransferObservation writes a big integer as its decimal digits, the new unit case, the expectation of the saved observation in the send case, the earlier changes, the record). Eight of nine unit cases pass. The case transfer_observation_with_an_authenticated_receipt_is_saved of apps/wallet/src/components/TransferSuccess.test.tsx fails at :30 before any assertion, because the path at :33 holds five parent segments and resolves sdk/platform/conformance/fixtures/sequencer-receipt-v1.json above the root of the repository. Use four parent segments from the directory of the file and change nothing else in the setup of the case. The send case has not run against this tree: when it fails, the first failing assertion decides. A cause in the wallet source under the paths is repaired within the allowed cycle; an expectation of the saved observation is compared with the stored form of the receipt (decision 3226) and keeps every member; a cause outside the paths is recorded with the assertion and its line. Change no locator and no page assertion. Restore apps/wallet/next-env.d.ts before the commit and extend the record. Run the build once and the verification once at the final revision."
+do_9 = "Attempt 6 (continue, gotcha 4164, decisions 3183 and 3226): the attempt-5 tree 23fca4456ebc stands (the corrected fixture path, the save function, the unit cases, the expectation of the saved observation in the send case, the earlier changes, the record). The case transfer_observation_with_an_authenticated_receipt_is_saved stops at apps/wallet/src/components/TransferSuccess.test.tsx:88, because the receipt it signs is refused by the wallet SDK. The setup of this case belongs to the task and every line of it may change; the limit of the earlier ruling to one change is withdrawn. Pass concatBytes one list of byte arrays at :59, and make the digest the case signs equal to the digest sdk/wallet/src/receipt.ts:255 verifies: the domain text, the encoded receipt up to the signature and one zero byte. Compare the bytes before signing and keep the key whose public key the pin of the fixture names. Change nothing in sdk/wallet. When the SDK still refuses the receipt, print the refused field, repair the setup and record the cause. The send case has not run against this tree: when it fails, the first failing assertion decides. A cause in the wallet source under the paths is repaired within the allowed cycle; an expectation of the saved observation is compared with the stored form of the receipt (decision 3226) and keeps every member; a cause outside the paths is recorded with the assertion and its line. Change no locator and no page assertion. Restore apps/wallet/next-env.d.ts before the commit and extend the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.340]
 title = "Bind the payment account of an identity destination in the programs runtime and write the version 2 account-bound evidence"
@@ -185236,7 +185318,7 @@ title = "Issue #1749: Prove Claim and RefundFree replay preserves recipient bala
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["22.33.223", "22.39.333", "22.39.336", "22.39.340"]
+requires = ["22.33.223", "22.39.333", "22.39.336", "22.39.340", "22.39.353"]
 reqs = ["181749.1"]
 capabilities = ["18.1749.1"]
 interfaces = []
@@ -185267,6 +185349,7 @@ do_7 = "Attempt 6 (continue after 22.33.223 lands, gotcha 3947): the attempt-5 t
 do_8 = "Attempt 7 (continue after 22.39.333 lands, gotcha 4114, decision 3192): the attempt-6 tree 557742ea3eb0 stands (the reopen case, the boundary operation, the repaired reward replay). Its build stopped at the size test of the target for the guest of main, before the harness and the case ran. The task now requires 22.39.333; merge main once that task is on it, change nothing for the size or the recipe, run the build once and the verification once at the final revision; if the case fails, record the first failing assertion and stop."
 do_9 = "Attempt 8 (continue after 22.39.336 lands, gotcha 4124, decision 3200): the attempt-7 tree aa64b3a9fa82 stands (the reopen case, the boundary operation, the repaired reward replay). The case now runs through enrolment, funding and aggregation and stops at the Claim, which the kernel refuses with -736 because the destination the guest names is the identity of the participant and no account has that id. Task 22.39.336 makes the kernel resolve such a destination to the payment account of the identity, and the task now requires it: merge main once that task is on it and change nothing in the guest, in the fixture or in the assertions for the destination. The proof operation already expects the payment account of the principal at tests/programs/test_ai_host_boundary.c:980 to :984. Run the build once and the verification once at the final revision; if the case fails, record the first failing assertion and stop."
 do_10 = "Attempt 9 (continue after 22.39.340 lands, gotcha 4131, decision 3209): the attempt-8 tree 934b544b6f52 stands (the reopen case, the boundary operation, the repaired reward replay). The kernel now pays the payment account of the identity and the runtime refuses the Claim because its root is computed from the bytes the program wrote. Task 22.39.340 binds the resolved account in the runtime and the task now requires it: merge main once that task is on it and change nothing in the guest, in the fixture or in the assertions for the destination. Run the build once and the verification once at the final revision; if the case fails, record the first failing assertion with the result code and stop."
+do_11 = "Attempt 10 (continue after 22.39.353 lands, gotchas 4165 and 4159, decision 3232): the attempt-9 tree d50fc669d866 stands (tests/repair_22_33_261.rs and tests/rewards_native.rs of the AI market crate and tests/programs/test_ai_host_boundary.c). The build passes and the check of the dependent packages stops on the three errors of src/inference_market/deals.rs in the host package of the agent daemon, which task 22.39.353 repairs; the task now requires it. Rebase on main once that task is on it and change nothing for the agent daemon. Run the build once and the verification once on the tree as it is. When the verification fails, the first failing assertion decides: a cause inside the paths is repaired within the allowed cycle, and a cause outside the paths is recorded with the case, the message, the file and the line."
 
 [task.18.1724.1]
 title = "Issue #1724: Prove nonzero restart accounting with node-produced transaction receipts"
@@ -194018,6 +194101,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.356]
+title = "Read the signalling vectors of the inference peer with the host frame types"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.39.355"]
+reqs = ["22998.1"]
+capabilities = ["22.39.356"]
+interfaces = []
+do_1 = "do_1 Decisions 3235, 3046 and 3231. Add the test target services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs. It reaches the host frame types the way tests/inference_deals.rs does and loads apps/inference-peer/test/fixtures/host-signal-frames.json through a path counted from the directory of its own file."
+do_2 = "do_2 The case host_types_read_every_vector_of_the_peer reads every vector with the host type of its direction (ClientFrame and DealClientFrame for the frames of the peer, ServerFrame and DealServerFrame for the frames of the host), writes it back and compares the JSON values. The case hello_and_acknowledgement_signatures_verify computes the signing bytes of the hello and the acknowledgement bytes of the deal with the host functions, compares them with the bytes of the vectors and verifies both signatures with the key of the vectors. The case a_frame_of_the_retired_form_is_refused shows that the host types refuse a binary frame and a hello with an unknown member."
+do_3 = "do_3 A vector the host types refuse is a defect of the peer: record the vector, the type and the message, and stop; change no host source for it. Run cargo clippy for the new target once with warnings denied and repair every site in the new file; a site in an included source file is recorded with file and line and is not changed (decision 3218). Run the build once and the verification once at the final revision."
+symbols = ["ClientFrame", "ServerFrame", "DealClientFrame"]
+touches = ["services/agent/crates/layerx-agentd/tests"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer", "services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs::hello_and_acknowledgement_signatures_verify"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test inference_peer_vectors"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_peer_vectors"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.353]
 title = "Compile the deal listener of the agent daemon outside the test build"
 status = "pending"
@@ -196062,7 +196175,7 @@ title = "Bring the agent daemon test targets named i-q under the workspace lints
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.222"]
+requires = ["22.39.222", "22.39.353"]
 reqs = ["22998.1"]
 capabilities = ["22.39.227"]
 interfaces = []
@@ -196088,6 +196201,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotchas 4149 and 4147, decisions 3222 and 3218): the attempt-1 tree 12bf6e0d70d7 stands; it built at that revision and no verification saw it. The build now compiles the library and every test target the verification lints. Run the build once and the verification once on the tree as it is. The last verification, one revision earlier, stopped in seven test targets: program_adapters_rungs, prepare_expiry, proof_agentd_env, proof_serve_errors, issue_1752, operator and protocol2_restart; the attempt reports all of them repaired. When the verification still reports a lint, repair it at source within the one allowed cycle (decision 3053: no lint level change, no allowance at crate or module level). The file tests/proof_serve_errors.rs is also compiled by the two targets of the host package that include it by path, so keep cargo check of the package layerx-agentd-host with all targets green after every change of that file. A file of another workspace that a test target includes by path is not changed (decision 3218). Reduce tests/repair_22_39_227.kvx to product facts: the lints by kind with their counts, the files changed, the two type errors with their causes, and the result; remove the sections that list one diagnostic each."
 do_5 = "Attempt 3 (continue, gotcha 4157, decisions 3230, 3222 and 3053): the attempt-2 tree 313617fcd332 stands; it builds, and the check of the dependent packages passes. Before the build repair the three known sites. In services/agent/crates/layerx-agentd/tests/protocol2_restart.rs pass the path itself to Store::open at :183 and at :258. In tests/metrics_rungs.rs divide the case degraded_state_labels_name_node_conditions at :58 into functions of the same file so that no function exceeds 100 lines: keep the name of the case, every assertion and their order, and add no allowance. Then run the build once and the verification once. The lint command stopped at these two targets, so other targets of the list may still report lints: repair each at source within the allowed cycles (no lint level change, no allowance at crate or module level). Keep cargo check of the package layerx-agentd-host with all targets green after a change of a file that the host package includes by path, and change no file of another workspace (decision 3218). Rebase on main first; where main now holds a newer form of a file of the tests directory, keep the form of main and apply the lint repair to it. Keep the record at product facts and add the three repairs."
+do_6 = "Attempt 4 (continue after 22.39.353 lands, gotchas 4165 and 4159, decision 3232): the attempt-3 tree a4de4e99f562 stands (the lint repairs of the test targets named i to q, the three known lint sites, the reduced record). The build passes and the check of the dependent packages stops on the three errors of src/inference_market/deals.rs in the host package, which task 22.39.353 repairs; the task now requires it. Rebase on main once that task is on it and change nothing in deals.rs or signal.rs. Run the build once and the verification once on the tree as it is. When the verification still reports a lint, repair it at source within the one allowed cycle (decision 3053: no lint level change, no allowance at crate or module level), keep cargo check of the package layerx-agentd-host with all targets green, and change no file of another workspace that a test target includes by path (decision 3218)."
 
 [task.22.39.226]
 title = "Bring the agent daemon test targets named a-h under the workspace lints"
@@ -224815,6 +224929,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.357]
+title = "Serve every candle of a development candle page with the snapshot identifier of the page"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.314"]
+reqs = ["22998.1"]
+capabilities = ["22.39.357"]
+interfaces = []
+do_1 = "do_1 Decision 3236, gotcha 4163. DevelopmentCandlePage of services/launchpad/api/internal/store/development_candles.go derives the snapshot identifier of the page at :45 and appends the stored payloads unchanged, each with the identifier that internal/rest/dev_candles.go:148 derived from the candle alone. The production read model writes the identifier of the page into every item (internal/store/accounting_readmodel.go:466), and the web application refuses a page whose item carries another identifier. Make every item of the development page carry the identifier of the page; every other member of the item keeps its value, and the item is validated as a Candle after the change. Do not change the derivation of the page identifier, the cursor, the refusal of a changed snapshot, the stored payload or the payload of the topic."
+do_2 = "do_2 Add services/launchpad/api/internal/app/repair_22_39_357_test.go with the case TestRepair_22_39_357_candle_page_items_carry_the_page_snapshot: over the fixture of the case of task 22.39.314, a page of two candles in one window answers 200, every item carries data.snapshotId of the page, and the page read through its cursor carries the same identifier. In internal/app/repair_22_39_314_test.go the comparison of the candle of the route with the candle of the topic compares every member apart from the snapshot identifier and asserts that the item of the route carries the identifier of the page; change no other assertion."
+do_3 = "do_3 Record in services/launchpad/api/repair_22_39_357.kvx the cause, the change and the result. A failure of the verification whose cause sits outside the paths is recorded with the case, the first failing message and its file, and the task stops. Run the build once and the verification once at the final revision."
+symbols = ["DevelopmentCandlePage"]
+touches = ["services/launchpad/api/internal/store/development_candles.go", "services/launchpad/api/internal/app/repair_22_39_314_test.go"]
+tests = ["services/launchpad/api/internal/app::TestRepair_22_39_357_candle_page_items_carry_the_page_snapshot"]
+planned_paths = ["services/launchpad/api/repair_22_39_357.kvx", "services/launchpad/api/internal/app/repair_22_39_357_test.go"]
+build_cmd = "cd services/launchpad/api && go build ./... && go vet ./internal/app/ ./internal/store/ ./internal/rest/"
+verify_cmd = "test -s services/launchpad/api/repair_22_39_357.kvx && cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/app/ -run 'TestRepair_22_39_314|TestRepair_22_39_357|DevStream'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.341]
 title = "Verify the version 2 account-bound evidence in the Go SDK"
