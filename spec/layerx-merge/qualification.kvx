@@ -40394,3 +40394,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 20 at 367b142573e2 on base 7cbe7a57367d: the build exits 0 and the verification exits 1; make workspace-build exits 2 at Makefile:1742 with No space left on device, 1451708416 bytes free before the first command and 643072 bytes at the stop; log /out/logs/verify-1.log."
 assumption = "The temporary checkout and a measurement run outside the counted gates left the first command of the gate 1.4 GiB of the volume."
 severity = "high"
+
+[finding.22.39.365.3]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+symbol = "f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+observed = "Attempt 3 at 1c4cb68f2dce on base 6e3abf0ebe49: the build exits 0 at 4393fe1ca9f1 and the check of the dependent packages exits 101 at 4393fe1ca9f1, services/agent/crates/layerx-agentd/tests/inference_laps.rs:1282 fails with E0005; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The red test target of the agent daemon is outside the paths, and the helper module of the native F11 targets was outside the paths as well."
+severity = "high"
