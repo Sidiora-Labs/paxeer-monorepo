@@ -149,6 +149,7 @@ mod tests {
 
     #[test]
     fn lx_names_answer_method_not_found() {
+        // Keep the complete historical method list to prove refusal without backend I/O.
         use std::collections::BTreeMap;
         use std::net::TcpListener;
         use std::sync::Arc;

@@ -679,6 +679,29 @@
       "citation": "Decisions 3104 and 3122 permit this retained AnchorReader adapter and its custody types for the merge-disabled anchor (11002) and custody-deposit (11004) surfaces that still ship."
     },
     {
+      "path": "services/platform/hosted/gateway",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the optional hosted backend diagnostic identifier in the gateway OpenRPC contract and backend roster; native receipt verification uses governed chain keys and block commitment."
+    },
+    {
+      "path": "services/platform/hosted/gateway/src",
+      "symbols": [
+        "/v1/programs/call",
+        "/v1/programs/deploy",
+        "/v1/programs/upgrade",
+        "/v1/programs/wind-down",
+        "RouteBinding",
+        "lx_getProgramEvents",
+        "lx_getSequence",
+        "lx_getWalletCaps",
+        "paxeer-x/anchors",
+        "paxeer-x/receipts"
+      ],
+      "citation": "Decision 3125 retains these retired method and route literals as refusal-test inputs and the live hosted upstream RouteBinding configuration type, which is independent of execution intent events."
+    },
+    {
       "path": "tools/paxeer-x/retired_callers.json",
       "symbols": [
         "/v1/agent/authorized-batch",

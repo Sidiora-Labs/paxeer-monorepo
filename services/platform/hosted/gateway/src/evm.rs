@@ -1,6 +1,6 @@
-//! The EVM half of the unified network endpoint: which Paxeer JSON-RPC
-//! methods the public endpoint relays, and the ABI of the native precompiles
-//! the `px_*` namespace reads.
+//! Native Paxeer JSON-RPC relay policy and precompile ABI for hosted reads.
+//! Signed transactions execute in the single chain; the gateway reads the
+//! native precompiles through the `px_*` namespace.
 //!
 //! Every selector and layout here is the one declared by the precompiles'
 //! own `abi.json`: addr, bank, exchange, bridge, launchpad, and the merged

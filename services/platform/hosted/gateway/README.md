@@ -106,7 +106,9 @@ verify the receipt's sequence-batch inclusion and coverage under that header.
 A transaction hash, a `receipted` response or an unverified `px_getCommit`
 response alone is not block-commit evidence. No separate sequencer trust anchor,
 custody credit, periodic checkpoint or guarantor join establishes finality.
-See the [receipt authority](../authority/README.md)
+The optional hosted authority backend retains its compatibility diagnostics;
+it does not establish native receipt finality. See the
+[receipt verification service](../authority/README.md)
 and [reference applications](../../examples/README.md) for consumers and their
 verification limits.
 

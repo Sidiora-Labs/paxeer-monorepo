@@ -1,0 +1,231 @@
+[meta]
+task = "22.39.262"
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+status = "implemented_pending_qualification"
+qualification_base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+continued_from = "61b4846d84"
+remaining_findings_allowed = 23
+inventory = "Read-only invocation of retired_callers_test.scan with the unchanged catalogue and gateway path; the complete verify_cmd is reserved for hf-done."
+findings = 24
+decision = "Decision 3125 admits the catalogue in attempt 2: one symbol allowance per directory, inserted in path order, preserves live compatibility identifiers and refusal-test inputs without renaming them or weakening assertions."
+qualification = "The gate runner records the candidate revision, exact command, exit code and private log path in /out/run/gates.jsonl; no passing gate is claimed here."
+
+[finding.1]
+path = "services/platform/hosted/gateway/openrpc.json"
+line = 80
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway"
+repair = "The directory receipt_authority allowance retains the optional hosted backend diagnostic identifier; native sequencer receipts use governed chain keys and block commitment."
+
+[finding.2]
+path = "services/platform/hosted/gateway/openrpc.json"
+line = 628
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway"
+repair = "The directory receipt_authority allowance retains the optional hosted backend diagnostic identifier; native sequencer receipts use governed chain keys and block commitment."
+
+[finding.3]
+path = "services/platform/hosted/gateway/openrpc.json"
+line = 1443
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway"
+repair = "The directory receipt_authority allowance retains the optional hosted backend diagnostic identifier; native sequencer receipts use governed chain keys and block commitment."
+
+[finding.4]
+path = "services/platform/hosted/gateway/src/backend_availability.rs"
+line = 23
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway"
+repair = "The directory receipt_authority allowance retains the optional hosted backend diagnostic identifier; native sequencer receipts use governed chain keys and block commitment."
+
+[finding.5]
+path = "services/platform/hosted/gateway/src/explorer_proxy.rs"
+line = 411
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.6]
+path = "services/platform/hosted/gateway/src/explorer_proxy.rs"
+line = 414
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.7]
+path = "services/platform/hosted/gateway/src/explorer_proxy.rs"
+line = 450
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.8]
+path = "services/platform/hosted/gateway/src/explorer_proxy.rs"
+line = 451
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.9]
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 774
+component = "wallet-two-domain"
+symbol = "sign-custody"
+disposition = "repaired"
+repair = "Remove the dead wallet signing match arm: the merged route catalogue has no such route, and native wallet signing uses the EVM transaction routes."
+
+[finding.10]
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1409
+component = "websearch-kernel-relay"
+symbol = "lx_getSequence"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.11]
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1411
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.12]
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1422
+component = "wallet-caps"
+symbol = "lx_getWalletCaps"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.13]
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1482
+component = "programs-ingress"
+symbol = "/v1/programs/call"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.14]
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1485
+component = "programs-ingress"
+symbol = "/v1/programs/deploy"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.15]
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1486
+component = "programs-ingress"
+symbol = "/v1/programs/upgrade"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.16]
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1487
+component = "programs-ingress"
+symbol = "/v1/programs/wind-down"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.17]
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 3898
+component = "programs-ingress"
+symbol = "/v1/programs/call"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.18]
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 5565
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway"
+repair = "The directory receipt_authority allowance retains the optional hosted backend diagnostic identifier; native sequencer receipts use governed chain keys and block commitment."
+
+[finding.19]
+path = "services/platform/hosted/gateway/src/routes.rs"
+line = 26
+component = "intent-vocabulary"
+symbol = "RouteBinding"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory RouteBinding allowance retains the live private hosted upstream configuration type, which is unrelated to the removed intents precompile type."
+
+[finding.20]
+path = "services/platform/hosted/gateway/src/routes.rs"
+line = 50
+component = "intent-vocabulary"
+symbol = "RouteBinding"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory RouteBinding allowance retains the live private hosted upstream configuration type, which is unrelated to the removed intents precompile type."
+
+[finding.21]
+path = "services/platform/hosted/gateway/src/routes.rs"
+line = 65
+component = "intent-vocabulary"
+symbol = "RouteBinding"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory RouteBinding allowance retains the live private hosted upstream configuration type, which is unrelated to the removed intents precompile type."
+
+[finding.22]
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 214
+component = "websearch-kernel-relay"
+symbol = "lx_getSequence"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.23]
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 216
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[finding.24]
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 229
+component = "wallet-caps"
+symbol = "lx_getWalletCaps"
+disposition = "allowed_reference"
+allowed_path = "services/platform/hosted/gateway/src"
+repair = "The directory symbol allowance preserves this refusal-test input and its assertions that the retired method or route cannot dispatch to a backend."
+
+[qualification]
+runner = "hf-build followed by hf-done on the unchanged candidate; the final evidence row in /out/run/gates.jsonl names the verified revision without creating a self-referential revision inside this record."
+build_command = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --lib --bins"
+verify_command = "test -s services/platform/hosted/gateway/repair_22_39_262.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/platform/hosted/gateway"

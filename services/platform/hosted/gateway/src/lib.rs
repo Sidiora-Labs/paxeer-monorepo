@@ -771,7 +771,6 @@ pub fn unified_service_route(method: &str, target: &str) -> Option<&'static serd
         | "/v1/wallet/sponsored/submit"
         | "/v1/wallet/sponsored/status"
         | "/v1/wallet/sign-digest"
-        | "/v1/wallet/sign-custody"
         | "/v1/wallet/lx/review"
         | "/v1/wallet/lx/approve"
         | "/v1/wallet/lx/sign" => Some(method == "POST" && query.is_none()),
