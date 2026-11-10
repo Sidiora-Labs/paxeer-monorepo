@@ -40546,3 +40546,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 25 at 256c1389b92f on base 88db70aa0187: the build exits 0 (log /out/logs/build-1.log) and no verification ran; make workspace-install, run outside the counted gates, exits 2, sh scripts/workspace/check-paxeer-manifests.sh exits 1 with no message in the target workspace-inventory-check; the attempt ended with files changed outside the paths: services/platform/hosted/dashboard/web/node_modules."
 assumption = "The inventory checks of the workspace are stale on main and the link of the dashboard install is not ignored."
 severity = "high"
+
+[finding.22.38.13.10]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 10 at 52b3dca95be5 on base 134b9c7b6d94: the build exits 0 and the dependents exit 0; the verification exits 1 at 52b3dca95be5 with 19 cases of target fuel_budget passed and f11_fuel_table failed at tests/fuel_budget.rs:4050, selector 0x0b01, kernel status -3, program replay record refused, capture witness bytes observed 1049276 permitted 1048576 at step 456; log /out/logs/verify-1.log."
+assumption = "The acceptance text asked every F11 operation on the full state for a whole replay record, which the form of the record cannot hold."
+severity = "high"
