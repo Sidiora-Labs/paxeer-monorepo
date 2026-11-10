@@ -40562,3 +40562,11 @@ symbol = "merged_runtime_fixture.py"
 observed = "Attempt 5 at d361e917edb0 on base 08f298a6371b: the build exits 0 and the dependents exit 0; the verification exits 1 at d361e917edb0, the room proof stops at inference_market_room.py:906 with execution reverted: LXP_NOT_FOUND: getCurrentMeteringSchedule: LXP_ERR_UNKNOWN_FIELD; log /out/logs/verify-1.log."
 assumption = "A chain started from the default genesis of the node holds no schedule of Programs and the fixture of the driver stated none."
 severity = "high"
+
+[finding.22.39.377.1]
+task = "22.39.377"
+file = "scripts/workspace"
+symbol = "workspace"
+observed = "Attempt 1 at f2764a63469d on base 4454df22eb4c: the build exits 0 at f2764a63469d, log /out/logs/build-1.log; no verification ran; outside the counted gates make workspace-install exits 2 at cargo fetch for tools/benchmark/loadtest/contracts/mars/Cargo.toml, no matching package named pax-cosmwasm found, and make platform-dependencies-install exits 2 at services/platform/Makefile.inc:27 for want of cargo-deny."
+assumption = "Three manifests outside the paths of the task ask the registry for a crate that only the repository holds, and the environment lacked the policy tool."
+severity = "high"
