@@ -12544,6 +12544,24 @@ value = "A probe case reads the case file that the envelope program of the quali
 basis = "Gotcha 4166, decisions 3052, 3130, 3183 and 3211."
 affects = ["22.39.358", "22.39.354", "17.5.7"]
 
+[decision.3239]
+title = "An attempt stopped only by a red package outside its paths continues on its tree once the owner task has landed"
+value = "When the build of an attempt passes and the check of the dependent packages stops only on errors that were on the base of the attempt, in files outside its paths, and an owner task has since repaired them on main, the next attempt continues on the same tree: it rebases on main, changes nothing in the repaired files and runs the build once and the verification once. The build of task 22.38.21 checks the host package with all targets after the build of the agent daemon, as decision 3212 requires of every task that changes the entry file of the agent daemon."
+basis = "Gotchas 4167 and 4159, decisions 3212, 3130 and 3232."
+affects = ["22.38.21"]
+
+[decision.3240]
+title = "A complete tree left by an attempt that the model endpoint ended is continued, and its gates run first"
+value = "Decision 3044 relaunches from main an attempt that the model endpoint ended before it changed anything of use. When such an attempt leaves a tree that already holds the deliverable of the task and only its gates are missing, the next attempt continues on that tree: it runs the build once and the verification once on the tree as it is, before any edit, and changes the tree only for a failure that a gate reports. The reports of the attempt name files, lines, cases and results and repeat no source text of the cases."
+basis = "Gotcha 4168, decisions 3044 and 3183."
+affects = ["18.1750.1"]
+
+[decision.3241]
+title = "A case that pins a script of a package manifest follows the manifest"
+value = "The script of the manifest is the producer and a case that pins its text is the consumer (decision 3046). The test script of apps/inference-peer runs every test file of the package, node --test test/*.test.mjs, and stays so; the case standalonePackageMetadata expects that text. A task that changes a script of a manifest changes the cases that pin it in the same commit. The red case sits under the paths of task 22.39.355 and inside its verification, so that task repairs it (decision 3183)."
+basis = "Gotcha 4169, decisions 3046, 3183 and 3130."
+affects = ["22.39.355", "22.38.29"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -161954,6 +161972,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotcha 4169, decisions 3241 and 3183): the attempt-1 tree 4fcc000f4f5c stands (src/signal.mjs, the changes of cli.mjs, deal.mjs, identity.mjs and transport.mjs, the fixture test/fixtures/host-signal-frames.json, the test files, the README and the record). 60 of 61 cases pass. The one red case, standalonePackageMetadata of apps/inference-peer/test/vendored_engine.test.mjs:156, expects the test script node --test test/vendored_engine.test.mjs while package.json holds node --test test/*.test.mjs since task 22.39.85. The case is under the paths of this task and inside its verification, so it belongs to this task: change the expected text at :156 to the script that package.json holds, and change no other assertion of that case, no script of package.json and nothing of the vendored engine. Correct the record: the case was red on main since task 22.39.85 and is repaired here. Run the build once and the verification once at the final revision."
 
 [task.22.39.352]
 title = "Build the Next example of the integration SDK beside an own install of the agent SDK"
@@ -185327,6 +185346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "do_6 Gotcha 3827: attempt 1 ended without a change in scope; the deliverable stands as do_1 to do_5 describe it, implemented in tests/programs/test_ai_host_boundary.c and programs/crates/layerx-programs-ai-market/tests/rewards_native.rs only, built with make paxai-host-boundary-build and verified with the exact rewards_native case the verify command names."
 do_6 = "Attempt 2 (relaunch, decision 3044, gotcha 3856): attempt 1 made no change because the model endpoint refused its only turn and nothing in scope changed; the task stands as written from the current main: extend tests/programs/test_ai_host_boundary.c and the rewards_native cases as do_1 and do_2 describe, with reward_signed_replay_authentication as the verified case. Run the build once and the verification once at the final revision and record both by reference; if a case fails, repair it within the one allowed cycle and rerun once."
 do_7 = "do_7 Attempt 3 (relaunch, decision 3044, gotcha 3918): attempt 2 ended when the model endpoint failed the turn on a content flag after one partial edit (the array sizes of tests/programs/test_ai_host_boundary.c); that edit is discarded and the task stands as written from the current main: extend the host boundary case and the rewards_native cases as do_1 and do_2 describe, with reward_signed_replay_authentication as the verified case, describing the signing keys and principals of the case in the words the file already uses. Run the build once and the verification once at the final revision."
+do_8 = "Attempt 5 (continue, gotcha 4168, decision 3240): the attempt-4 tree 26f0461cc2e4 stands. It holds the whole deliverable: the changed tests/programs/test_ai_host_boundary.c and, in programs/crates/layerx-programs-ai-market/tests/rewards_native.rs, the case reward_signed_replay_authentication at :3450 with native_recovery_and_capacity at :2658 connected to it. Do not rewrite either file and do not read them through again in full. Rebase on main, then run the build once and the verification once on the tree as it is, before any edit. The build takes many minutes: wait for it without commenting on the content of the log. When a gate fails, repair exactly the first failing diagnostic or assertion in one of the two files within the allowed cycle and rerun once. A cause outside the two files is recorded with file, line and message and is not repaired here. Keep every message short: name files, lines, cases and results, and repeat no source text of the cases."
 
 [task.18.1749.1]
 title = "Issue #1749: Prove Claim and RefundFree replay preserves recipient balances after reopen"
@@ -197960,7 +197980,7 @@ symbols = ["ServeRoutes", "chat_completions", "messages", "AskGate"]
 touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/node_rpc.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/inference_serve.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/serve.rs", "services/agent/crates/layerx-agentd/tests/inference_serve.rs"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
 verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_serve"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -197973,6 +197993,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3239, gotcha 4167: the tree of attempt 1, dc746500755b, stands (serve.rs, main.rs, node_rpc.rs and tests/inference_serve.rs of the agent daemon). Its build passed and the check of the dependent packages stopped on three errors of src/inference_market/deals.rs in the host package that task 22.39.353 has repaired on main. Rebase on main and change nothing in deals.rs or signal.rs. The build now checks the host package with all targets; keep it green after every change of main.rs. Run the build once and the verification once. When the verification fails, the first failing assertion decides: a cause inside the paths is repaired within the allowed cycle, and a cause outside the paths is recorded with the case, the message, the file and the line."
 
 [task.22.38.20]
 title = "Recover a room from peer loss by re-planning the layer split"
