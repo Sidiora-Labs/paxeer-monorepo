@@ -136,22 +136,6 @@ impl RetainedBudgetContext {
             purpose_hash: c.purpose_hash,
         }
     }
-    #[cfg(test)]
-    fn actual(&self) -> BudgetStateContext {
-        BudgetStateContext {
-            budget_id: self.budget_id,
-            owner: self.owner,
-            budget_account: self.budget_account,
-            asset: self.asset,
-            source_account: self.source_account,
-            native_source: self.native_source,
-            revocation_sequence: self.revocation_sequence,
-            balance: self.balance,
-            state_digest: self.state_digest,
-            observed_head_sequence: self.observed_head_sequence,
-            purpose_hash: self.purpose_hash,
-        }
-    }
 }
 
 impl NativeEffectApprovalCarrier {
@@ -472,10 +456,6 @@ impl NativeEffectApprovalCarrier {
             }
             _ => Err(NativeEffectError::Binding),
         }
-    }
-    #[cfg(test)]
-    pub(crate) fn principal(&self) -> &str {
-        &self.principal
     }
     pub(crate) fn session_id(&self) -> [u8; 32] {
         self.session

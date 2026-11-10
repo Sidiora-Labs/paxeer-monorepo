@@ -70,15 +70,16 @@ fn assert_terminal_approvals(
             tenant.clone(),
             crate::store::ObjectKind::PreparedActivity,
             [b"approval-terminal-v1:".as_slice(), id].concat(),
-        )
-        .expect("terminal key");
-        assert!(!store
-            .lock()
-            .unwrap_or_else(|_| panic!("store lock"))
-            .get(&key)
-            .expect("retained terminal record")
-            .bytes()
-            .is_empty());
+        );
+        let Ok(key) = key else {
+            panic!("terminal key");
+        };
+        let locked = store.lock().unwrap_or_else(|_| panic!("store lock"));
+        let Some(retained) = locked.get(&key) else {
+            panic!("retained terminal record");
+        };
+        assert!(!retained.bytes().is_empty());
+        drop(locked);
         assert_eq!(
             recovered
                 .ticket(*id)
@@ -142,7 +143,7 @@ mod receipt_settlement_tests {
     }
 
     fn hex(bytes: [u8; 32]) -> String {
-        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+        layerx_programs::hex::encode(&bytes)
     }
 
     fn prepared(id: u8) -> Prepared {
@@ -638,13 +639,8 @@ mod lock_order_tests {
                 asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
                 fee_limit: Amount(2),
                 expiry: TimestampSeconds(40),
-                idempotency_key: IdempotencyRef::new(
-                    [id; 32]
-                        .iter()
-                        .map(|byte| format!("{byte:02x}"))
-                        .collect::<String>(),
-                )
-                .unwrap_or_else(|error| panic!("activity key: {error:?}")),
+                idempotency_key: IdempotencyRef::new(layerx_programs::hex::encode(&[id; 32]))
+                    .unwrap_or_else(|error| panic!("activity key: {error:?}")),
             },
             expiry: TimestampSeconds(40),
         }
@@ -970,13 +966,8 @@ mod reject_persist_tests {
                 asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
                 fee_limit: Amount(2),
                 expiry: TimestampSeconds(40),
-                idempotency_key: IdempotencyRef::new(
-                    [id; 32]
-                        .iter()
-                        .map(|byte| format!("{byte:02x}"))
-                        .collect::<String>(),
-                )
-                .unwrap_or_else(|error| panic!("activity key: {error:?}")),
+                idempotency_key: IdempotencyRef::new(layerx_programs::hex::encode(&[id; 32]))
+                    .unwrap_or_else(|error| panic!("activity key: {error:?}")),
             },
             expiry: TimestampSeconds(40),
         }
@@ -1308,13 +1299,8 @@ mod defective_persist_tests {
                 asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
                 fee_limit: Amount(2),
                 expiry: TimestampSeconds(40),
-                idempotency_key: IdempotencyRef::new(
-                    [id; 32]
-                        .iter()
-                        .map(|byte| format!("{byte:02x}"))
-                        .collect::<String>(),
-                )
-                .unwrap_or_else(|error| panic!("activity key: {error:?}")),
+                idempotency_key: IdempotencyRef::new(layerx_programs::hex::encode(&[id; 32]))
+                    .unwrap_or_else(|error| panic!("activity key: {error:?}")),
             },
             expiry: TimestampSeconds(40),
         }
@@ -1655,7 +1641,7 @@ mod reject_no_store_tests {
     };
     use crate::budget::{
         create_daemon_limit, daemon_limit_id, reserve, BudgetLimiter, CoreTimestampMs,
-        DaemonLimitRecord, LimitId, LimitRefusal, ReservationRequest,
+        DaemonLimitRecord, LimitId, ReservationRequest,
     };
     use crate::capability::CapabilityId;
     use crate::policy::approval::{
@@ -1666,7 +1652,6 @@ mod reject_no_store_tests {
 
     struct Shared {
         root: PathBuf,
-        store: Arc<Mutex<Store>>,
         registry: ApprovalRegistry,
         limiter: BudgetLimiter,
         expiry: ApprovalExpiry,
@@ -1720,13 +1705,8 @@ mod reject_no_store_tests {
                 asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
                 fee_limit: Amount(2),
                 expiry: TimestampSeconds(40),
-                idempotency_key: IdempotencyRef::new(
-                    [id; 32]
-                        .iter()
-                        .map(|byte| format!("{byte:02x}"))
-                        .collect::<String>(),
-                )
-                .unwrap_or_else(|error| panic!("activity key: {error:?}")),
+                idempotency_key: IdempotencyRef::new(layerx_programs::hex::encode(&[id; 32]))
+                    .unwrap_or_else(|error| panic!("activity key: {error:?}")),
             },
             expiry: TimestampSeconds(40),
         }
@@ -1796,7 +1776,6 @@ mod reject_no_store_tests {
             root,
             registry: ApprovalRegistry::default(),
             expiry: ApprovalExpiry::from_shared_store(Arc::clone(&store)),
-            store,
             limiter,
             limits,
         }
