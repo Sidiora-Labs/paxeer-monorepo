@@ -184239,7 +184239,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.333]
 title = "Give the AI market guest one packaging recipe, bring it under the deployment bound and regenerate its fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -417404,7 +417404,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.332]
 title = "Bring the signature and status route cases of the explorer web application to the governed key guard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
