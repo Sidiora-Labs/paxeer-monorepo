@@ -1,0 +1,3122 @@
+[meta]
+task = "22.39.229"
+baseline_revision = "75ee49ee6bdc497ef5e3462c68bc5855a047dc7e"
+status = "ready_for_qualification"
+baseline_main_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [s-z]*.rs | sed 's/.rs$//; s/^/--test /') --test native-reads-http --test limits-exactly-once -- -D warnings"
+baseline_main_exit = 101
+baseline_main_log = "/out/logs/preflight-main-1.log"
+baseline_main_count = 292
+baseline_shared_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test repair_22_33_1571 -- -D warnings"
+baseline_shared_exit = 101
+baseline_shared_log = "/out/logs/preflight-shared-1.log"
+baseline_shared_count = 32
+
+[lint.1]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 25
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.2]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 26
+column = 16
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.3]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 27
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.4]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 77
+column = 18
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.5]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 79
+column = 14
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.6]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 85
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.7]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 85
+column = 33
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.8]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 87
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.9]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 102
+column = 34
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.10]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 106
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.11]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 109
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.12]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 112
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.13]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 121
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.14]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 121
+column = 33
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.15]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 124
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.16]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 128
+column = 22
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.17]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 131
+column = 15
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.18]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 137
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.19]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 137
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.20]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 144
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.21]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 152
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.22]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 156
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.23]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 162
+column = 18
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.24]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 163
+column = 14
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.25]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 165
+column = 15
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.26]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 179
+column = 14
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.27]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 188
+column = 10
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.28]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 200
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.29]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 201
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.30]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 205
+column = 17
+lint = "expect_used"
+observed = "used `expect_err()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.31]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 205
+column = 41
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.32]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 213
+column = 19
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.33]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 214
+column = 16
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.34]
+file = "services/agent/crates/layerx-agentd/tests/subscription_cursor_v3.rs"
+line = 216
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.35]
+file = "services/agent/crates/layerx-agentd/tests/session_grants_layerxauth.rs"
+line = 224
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (111/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.36]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 203
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.37]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 345
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (103/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.38]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 345
+column = 37
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+log = "/out/logs/preflight-main-1.log"
+repair = "Borrow the raw transaction bytes in the private helper."
+
+[lint.39]
+file = "services/agent/crates/layerx-agentd/tests/session_grants_layerxauth.rs"
+line = 353
+column = 5
+lint = "manual_let_else"
+observed = "this could be rewritten as `let...else`"
+log = "/out/logs/preflight-main-1.log"
+repair = "Use let-else for the same error branch."
+
+[lint.40]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 151
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.41]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 152
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.42]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 161
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.43]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 168
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.44]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 170
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.45]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 176
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.46]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 188
+column = 23
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.47]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 454
+column = 42
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+log = "/out/logs/preflight-main-1.log"
+repair = "Borrow the raw transaction bytes in the private helper."
+
+[lint.48]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 312
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.49]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 356
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.50]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 370
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.51]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 550
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.52]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 588
+column = 17
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.53]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 595
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.54]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 598
+column = 17
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.55]
+file = "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs"
+line = 486
+column = 5
+lint = "single_element_loop"
+observed = "for loop over a single element"
+log = "/out/logs/preflight-main-1.log"
+repair = "Bind the sole operation in its existing block."
+
+[lint.56]
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+line = 549
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (139/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.57]
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+line = 635
+column = 18
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.58]
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+line = 640
+column = 16
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.59]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 20
+column = 18
+lint = "dead_code"
+observed = "constant `HEADER_LIMIT` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.60]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 21
+column = 7
+lint = "dead_code"
+observed = "constant `BODY_LIMIT` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.61]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 22
+column = 7
+lint = "dead_code"
+observed = "constant `PROGRAM_WORKERS` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.62]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 23
+column = 7
+lint = "dead_code"
+observed = "constant `PROGRAM_QUEUE` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.63]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 24
+column = 18
+lint = "dead_code"
+observed = "constant `REQUEST_DEADLINE` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.64]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 25
+column = 7
+lint = "dead_code"
+observed = "constant `IO_CEILING` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.65]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 26
+column = 18
+lint = "dead_code"
+observed = "constant `SUPERVISION_INTERVAL` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.66]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 28
+column = 19
+lint = "dead_code"
+observed = "struct `DeadlineStream` is never constructed"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.67]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 34
+column = 8
+lint = "dead_code"
+observed = "associated items `new` and `remaining` are never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.68]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 73
+column = 8
+lint = "dead_code"
+observed = "struct `HttpAdmissions` is never constructed"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.69]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 81
+column = 19
+lint = "dead_code"
+observed = "struct `HttpPool` is never constructed"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.70]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 87
+column = 19
+lint = "dead_code"
+observed = "associated items `start` and `check` are never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.71]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 367
+column = 15
+lint = "dead_code"
+observed = "function `response` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.72]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 379
+column = 4
+lint = "dead_code"
+observed = "function `refresh_native_receipt_keys` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.73]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 388
+column = 17
+lint = "dead_code"
+observed = "enum `Parsed` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.74]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 394
+column = 4
+lint = "dead_code"
+observed = "function `declared_body` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.75]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 418
+column = 15
+lint = "dead_code"
+observed = "function `parse_request` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.76]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 480
+column = 4
+lint = "dead_code"
+observed = "function `route_request` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.77]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 538
+column = 15
+lint = "dead_code"
+observed = "function `serve_read_routes` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.78]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 587
+column = 8
+lint = "dead_code"
+observed = "function `must` is never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.79]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 591
+column = 23
+lint = "dead_code"
+observed = "struct `LocalNode` is never constructed"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.80]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 598
+column = 23
+lint = "dead_code"
+observed = "associated items `start` and `native_read_route` are never used"
+log = "/out/logs/preflight-main-1.log"
+repair = "Retain shared HTTP support and colocate the real HTTP proof tests that exercise it; preserve host consumers."
+
+[lint.81]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 3
+column = 55
+lint = "doc_markdown"
+observed = "item in documentation is missing backticks"
+log = "/out/logs/preflight-main-1.log"
+repair = "Mark code references as code in documentation."
+
+[lint.82]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 87
+column = 5
+lint = "too_many_lines"
+observed = "this function has too many lines (103/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.83]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 130
+column = 25
+lint = "single_match_else"
+observed = "you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`"
+log = "/out/logs/preflight-main-1.log"
+repair = "Use if-let for the same clone success/error branches."
+
+[lint.84]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 185
+column = 29
+lint = "semicolon_if_nothing_returned"
+observed = "consider adding a `;` to the last statement for consistent formatting"
+log = "/out/logs/preflight-main-1.log"
+repair = "Terminate the sleep statement."
+
+[lint.85]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 334
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.86]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 357
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.87]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 362
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.88]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 599
+column = 24
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.89]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 632
+column = 26
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.90]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 646
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.91]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 696
+column = 30
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.92]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 709
+column = 33
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.93]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 720
+column = 25
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.94]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 728
+column = 29
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.95]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 739
+column = 25
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.96]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 126
+column = 9
+lint = "match_wild_err_arm"
+observed = "`Err(_)` matches all errors"
+log = "/out/logs/preflight-main-1.log"
+repair = "Use let-else for the same failing branch."
+
+[lint.97]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 213
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (117/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.98]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 358
+column = 13
+lint = "expect_used"
+observed = "used `expect_err()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.99]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 367
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.100]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1196
+column = 9
+lint = "manual_let_else"
+observed = "this could be rewritten as `let...else`"
+log = "/out/logs/preflight-main-1.log"
+repair = "Use let-else for the same error branch."
+
+[lint.101]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1198
+column = 13
+lint = "match_wild_err_arm"
+observed = "`Err(_)` matches all errors"
+log = "/out/logs/preflight-main-1.log"
+repair = "Use let-else for the same failing branch."
+
+[lint.102]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1223
+column = 21
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.103]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1223
+column = 45
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.104]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1224
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.105]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1242
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.106]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1249
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.107]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1250
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.108]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1258
+column = 21
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.109]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1258
+column = 45
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.110]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1259
+column = 16
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.111]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1260
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.112]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1267
+column = 16
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.113]
+file = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+line = 1269
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.114]
+file = "services/agent/crates/layerx-agentd/tests/sdk_owner_credential_envelope.rs"
+line = 11
+column = 22
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.115]
+file = "services/agent/crates/layerx-agentd/tests/sdk_owner_credential_envelope.rs"
+line = 13
+column = 15
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.116]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 127
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (106/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.117]
+file = "services/agent/crates/layerx-agentd/tests/sdk_owner_credential_envelope.rs"
+line = 17
+column = 20
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.118]
+file = "services/agent/crates/layerx-agentd/tests/sdk_owner_credential_envelope.rs"
+line = 25
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.119]
+file = "services/agent/crates/layerx-agentd/tests/sdk_owner_credential_envelope.rs"
+line = 26
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.120]
+file = "services/agent/crates/layerx-agentd/tests/sdk_owner_credential_envelope.rs"
+line = 30
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.121]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 740
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.122]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 743
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.123]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 748
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.124]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 757
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.125]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 766
+column = 27
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.126]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 770
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.127]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 776
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.128]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 780
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.129]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 799
+column = 19
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.130]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 801
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.131]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 810
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.132]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1045
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (121/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.133]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 25
+column = 20
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.134]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 28
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.135]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 32
+column = 25
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.136]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 43
+column = 19
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.137]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 44
+column = 30
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.138]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 47
+column = 20
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.139]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 48
+column = 34
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.140]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 62
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.141]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 67
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (153/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.142]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 74
+column = 15
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.143]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 87
+column = 20
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.144]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 88
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.145]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 90
+column = 36
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.146]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1205
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.147]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1222
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.148]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1222
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.149]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 113
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.150]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 116
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.151]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 123
+column = 28
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.152]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 128
+column = 35
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.153]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 131
+column = 26
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.154]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 134
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.155]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 135
+column = 34
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.156]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1266
+column = 30
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.157]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 137
+column = 32
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.158]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1347
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.159]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 152
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.160]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 153
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.161]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 159
+column = 16
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.162]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 160
+column = 16
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.163]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 163
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.164]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 167
+column = 17
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.165]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 179
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.166]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 185
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.167]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 185
+column = 29
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.168]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 191
+column = 33
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.169]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 193
+column = 33
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.170]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1390
+column = 5
+lint = "too_many_lines"
+observed = "this function has too many lines (322/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.171]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 195
+column = 33
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.172]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 196
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.173]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 197
+column = 20
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.174]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1401
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.175]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 200
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.176]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 201
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.177]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 201
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.178]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 211
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.179]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 215
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.180]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 216
+column = 32
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.181]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1478
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.182]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 219
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.183]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1500
+column = 33
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.184]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1554
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.185]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 229
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.186]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 233
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.187]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 235
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.188]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 235
+column = 43
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.189]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 241
+column = 16
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.190]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1610
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.191]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 249
+column = 20
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.192]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 257
+column = 30
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.193]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 259
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.194]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 265
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.195]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 266
+column = 18
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.196]
+file = "services/agent/crates/layerx-agentd/tests/webhook.rs"
+line = 251
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (101/100)"
+log = "/out/logs/preflight-main-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.197]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 275
+column = 34
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.198]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1649
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.199]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 291
+column = 6
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.200]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 298
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.201]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 300
+column = 26
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.202]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1667
+column = 25
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.203]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 304
+column = 19
+lint = "unwrap_used"
+observed = "used `unwrap_err()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.204]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 309
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.205]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 312
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.206]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 316
+column = 32
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.207]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 323
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.208]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 331
+column = 27
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.209]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 334
+column = 18
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.210]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 344
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.211]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 347
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.212]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 351
+column = 33
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.213]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 353
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.214]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 358
+column = 16
+lint = "unwrap_used"
+observed = "used `unwrap_err()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.215]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 369
+column = 23
+lint = "unwrap_used"
+observed = "used `unwrap_err()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.216]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 375
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.217]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 399
+column = 5
+lint = "missing_panics_doc"
+observed = "docs for function which may panic missing `# Panics` section"
+log = "/out/logs/preflight-main-1.log"
+repair = "Document fixture panic conditions."
+
+[lint.218]
+file = "services/agent/crates/layerx-agentd/tests/signature_binding.rs"
+line = 86
+column = 23
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.219]
+file = "services/agent/crates/layerx-agentd/tests/signature_binding.rs"
+line = 118
+column = 24
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.220]
+file = "services/agent/crates/layerx-agentd/tests/signature_binding.rs"
+line = 119
+column = 26
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.221]
+file = "services/agent/crates/layerx-agentd/tests/signature_binding.rs"
+line = 121
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.222]
+file = "services/agent/crates/layerx-agentd/tests/signature_binding.rs"
+line = 123
+column = 20
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.223]
+file = "services/agent/crates/layerx-agentd/tests/signature_binding.rs"
+line = 146
+column = 24
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.224]
+file = "services/agent/crates/layerx-agentd/tests/signature_binding.rs"
+line = 147
+column = 26
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.225]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 512
+column = 12
+lint = "must_use_candidate"
+observed = "this function could have a `#[must_use]` attribute"
+log = "/out/logs/preflight-main-1.log"
+repair = "Mark fixture return values must_use."
+
+[lint.226]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 526
+column = 12
+lint = "must_use_candidate"
+observed = "this function could have a `#[must_use]` attribute"
+log = "/out/logs/preflight-main-1.log"
+repair = "Mark fixture return values must_use."
+
+[lint.227]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 538
+column = 5
+lint = "missing_panics_doc"
+observed = "docs for function which may panic missing `# Panics` section"
+log = "/out/logs/preflight-main-1.log"
+repair = "Document fixture panic conditions."
+
+[lint.228]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 538
+column = 12
+lint = "must_use_candidate"
+observed = "this function could have a `#[must_use]` attribute"
+log = "/out/logs/preflight-main-1.log"
+repair = "Mark fixture return values must_use."
+
+[lint.229]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 413
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.230]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 445
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.231]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 455
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.232]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 456
+column = 23
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.233]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 462
+column = 17
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.234]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 465
+column = 21
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.235]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 467
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.236]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 469
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.237]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 472
+column = 17
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.238]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 473
+column = 20
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.239]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 475
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.240]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 39
+column = 22
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.241]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 41
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.242]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 42
+column = 20
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.243]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 43
+column = 25
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.244]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 45
+column = 18
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.245]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 47
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.246]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 47
+column = 37
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.247]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 49
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.248]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 64
+column = 38
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.249]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 80
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.250]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 86
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.251]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 86
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.252]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 92
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.253]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 97
+column = 29
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.254]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 98
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.255]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 99
+column = 22
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.256]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 100
+column = 28
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.257]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 103
+column = 24
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.258]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 113
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.259]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 122
+column = 25
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.260]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 124
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.261]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 147
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.262]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 155
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.263]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 196
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.264]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 202
+column = 21
+lint = "expect_used"
+observed = "used `expect_err()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.265]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 219
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.266]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 227
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.267]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 236
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.268]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 263
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.269]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 267
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.270]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 271
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.271]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 284
+column = 25
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.272]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 287
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.273]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 288
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.274]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 289
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.275]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 294
+column = 19
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.276]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 294
+column = 19
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.277]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 301
+column = 39
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.278]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 303
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.279]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 310
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.280]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 316
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.281]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 322
+column = 15
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.282]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 323
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.283]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 328
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.284]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 342
+column = 25
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.285]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 343
+column = 24
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.286]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 344
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.287]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 345
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.288]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 351
+column = 5
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.289]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 362
+column = 16
+lint = "unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.290]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 366
+column = 9
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.291]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 367
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.292]
+file = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+line = 368
+column = 13
+lint = "unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+log = "/out/logs/preflight-main-1.log"
+repair = "Preserve failure with unwrap_or_else and an explicit diagnostic panic."
+
+[lint.293]
+file = "services/agent/tests/repair_22_33_1571.rs"
+line = 2
+column = 12
+lint = "doc_markdown"
+observed = "item in documentation is missing backticks"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Outside scope: retain wrapper unchanged and report the pre-existing documentation lint."
+
+[lint.294]
+file = "services/agent/tests/repair_22_33_1571.rs"
+line = 3
+column = 9
+lint = "doc_markdown"
+observed = "item in documentation is missing backticks"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Outside scope: retain wrapper unchanged and report the pre-existing documentation lint."
+
+[lint.295]
+file = "services/agent/tests/repair_22_33_1571.rs"
+line = 7
+column = 47
+lint = "doc_markdown"
+observed = "item in documentation is missing backticks"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Outside scope: retain wrapper unchanged and report the pre-existing documentation lint."
+
+[lint.296]
+file = "services/agent/tests/repair_22_33_1571.rs"
+line = 7
+column = 72
+lint = "doc_markdown"
+observed = "item in documentation is missing backticks"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Outside scope: retain wrapper unchanged and report the pre-existing documentation lint."
+
+[lint.297]
+file = "services/agent/tests/repair_22_33_1571.rs"
+line = 8
+column = 72
+lint = "doc_markdown"
+observed = "item in documentation is missing backticks"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Outside scope: retain wrapper unchanged and report the pre-existing documentation lint."
+
+[lint.298]
+file = "services/agent/tests/repair_22_33_1571.rs"
+line = 14
+column = 21
+lint = "doc_markdown"
+observed = "item in documentation is missing backticks"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Outside scope: retain wrapper unchanged and report the pre-existing documentation lint."
+
+[lint.299]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 127
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (106/100)"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.300]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 740
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.301]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 743
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.302]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 748
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.303]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 757
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.304]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 766
+column = 27
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.305]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 770
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.306]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 776
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.307]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 780
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.308]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 799
+column = 19
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.309]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 801
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.310]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 810
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.311]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1045
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (121/100)"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.312]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1205
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.313]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1222
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.314]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1222
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.315]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1266
+column = 30
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.316]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1347
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.317]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1390
+column = 5
+lint = "too_many_lines"
+observed = "this function has too many lines (322/100)"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Extract sequential phases into helpers in the same file, retaining all assertions in order."
+
+[lint.318]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1401
+column = 23
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.319]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1478
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.320]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1500
+column = 33
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.321]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1554
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.322]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1610
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.323]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1649
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[lint.324]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1667
+column = 25
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+log = "/out/logs/preflight-shared-1.log"
+repair = "Preserve failure and its context with unwrap_or_else and an explicit panic."
+
+[finding.shared_wrapper]
+file = "services/agent/tests/repair_22_33_1571.rs"
+observed = "The unchanged shared-target sweep reports six doc_markdown lints in the wrapper outside scope."
+action = "Retain the wrapper unchanged; repair the 26 findings inside limits/exactly_once.rs."
+command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test repair_22_33_1571 -- -D warnings"
+exit = 101
+log = "/out/logs/preflight-shared-1.log"
+
+[preflight.2]
+command_ref = "meta.baseline_main_command"
+exit = 101
+log = "/out/logs/preflight-main-2.log"
+
+[lint.325]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 77
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (110/100)"
+log = "/out/logs/preflight-main-2.log"
+repair = "Extract the remaining setup, restoration or report phase into a same-file helper; keep assertion order."
+
+[lint.326]
+file = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+line = 408
+column = 5
+lint = "missing_panics_doc"
+observed = "docs for function which may panic missing `# Panics` section"
+log = "/out/logs/preflight-main-2.log"
+repair = "Document that the public fixture helper panics with the operation error."
+
+[lint.327]
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+line = 549
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (101/100)"
+log = "/out/logs/preflight-main-2.log"
+repair = "Extract the remaining setup, restoration or report phase into a same-file helper; keep assertion order."
+
+[lint.328]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 127
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (103/100)"
+log = "/out/logs/preflight-main-2.log"
+repair = "Extract the remaining setup, restoration or report phase into a same-file helper; keep assertion order."
+
+[lint.329]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1620
+column = 43
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler"
+log = "/out/logs/preflight-main-2.log"
+repair = "Pass the already borrowed recorded case directly."
+
+[lint.330]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 1843
+column = 49
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler"
+log = "/out/logs/preflight-main-2.log"
+repair = "Pass the already borrowed recorded case directly."
+
+[lint.331]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 558
+column = 51
+lint = "implicit_clone"
+observed = "implicitly cloning a `Vec` by calling `to_owned` on its dereferenced type"
+log = "/out/logs/preflight-main-2.log"
+repair = "Clone the owned raw byte vector explicitly."
+
+[lint.332]
+file = "services/agent/crates/layerx-agentd/tests/webhook.rs"
+line = 440
+column = 15
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+log = "/out/logs/preflight-main-2.log"
+repair = "Borrow the socket listener and timeout receiver in the extracted receiver helper."
+
+[lint.333]
+file = "services/agent/crates/layerx-agentd/tests/webhook.rs"
+line = 442
+column = 19
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+log = "/out/logs/preflight-main-2.log"
+repair = "Borrow the socket listener and timeout receiver in the extracted receiver helper."
+
+[lint.334]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 791
+column = 9
+lint = "rustc"
+observed = "unresolved import `super`"
+log = "/out/logs/preflight-main-2.log"
+repair = "Import the parent disposable_node module directly and consistently name the Service pool field."
+
+[lint.335]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 1003
+column = 30
+lint = "rustc"
+observed = "no method named `clone` found for type `str` in the current scope"
+log = "/out/logs/preflight-main-2.log"
+repair = "Import the parent disposable_node module directly and consistently name the Service pool field."
+
+[lint.336]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 1014
+column = 35
+lint = "rustc"
+observed = "mismatched types"
+log = "/out/logs/preflight-main-2.log"
+repair = "Import the parent disposable_node module directly and consistently name the Service pool field."
+
+[preflight.3]
+command_ref = "meta.baseline_main_command"
+exit = 101
+log = "/out/logs/preflight-main-3.log"
+
+[lint.337]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 1031
+column = 18
+lint = "rustc"
+observed = "no field `_pool` on type `&proof::Service`"
+log = "/out/logs/preflight-main-3.log"
+repair = "Import the parent disposable_node module directly and consistently name the Service pool field."
+
+[structure]
+test_functions_before = 71
+test_functions_after = 71
+assertion_macros_before = 741
+assertion_macros_after = 741
+http_proof = "The existing HTTP proof module is colocated with the shared native HTTP implementation; proof_serve_errors includes that implementation, preserving its tests and the host entry points."
+unused_item_search = "Rust path/module consumers are proof_serve_errors.rs, host-tests/node_integration.rs and src/main.rs; all shared items are retained."
+
+[gotcha.error_convenience_methods]
+observed = "The initial diagnostic parser omitted unwrap_err calls and stopped before making edits."
+repair = "Include unwrap_err and expect_err in the inventory and preserve their failure branches."
+
+[gotcha.parent_module_import]
+observed = "A direct use super as daemon import is rejected when the proof is colocated at a test target root."
+repair = "Import super::disposable_node directly; preserve the existing module's entry points."
+
+[gotcha.pool_field]
+observed = "The extracted proof's pool field and its formatted multiline access must be renamed together."
+repair = "Use pool consistently; the service checks the real pool health before each HTTP exchange."
+
+[preflight.4]
+command_ref = "meta.baseline_main_command"
+exit = 101
+log = "/out/logs/preflight-main-4.log"
+
+[lint.338]
+file = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+line = 825
+column = 19
+lint = "trivially_copy_pass_by_ref"
+observed = "this argument (1 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)"
+log = "/out/logs/preflight-main-4.log"
+repair = "Pass the private Copy error-code receiver by value."
+
+[final_lints]
+count = 0
+command_ref = "meta.baseline_main_command"
+exit = 0
+log = "/out/logs/preflight-main-5.log"
+shared_file_count = 0
+shared_file = "services/agent/tests/limits/exactly_once.rs"
+shared_file_evidence = "The final declared sweep compiles the same shared file and resolves all 26 source findings also inventoried through repair_22_33_1571."
+outside_scope_wrapper_remaining = 6
+outside_scope_wrapper_log = "/out/logs/preflight-shared-1.log"
+
+[host_compatibility]
+command = "cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
+exit = 0
+log = "/out/logs/host-check-2.log"
+source = "Final touched Rust sources; only this repair record was completed afterward."
+
+[qualification]
+revision_ref = "/out/run/gates.jsonl: revision fields of the final successful build and verify rows must match"
+build_command_ref = "task.22.39.229.build_cmd"
+build_evidence_ref = "/out/run/gates.jsonl: final build row contains exact revision, command, exit and private log"
+verify_command = "cg spec done 22.39.229 -f layerx-merge --root /work/paxeer-monorepo"
+verify_evidence_ref = "/out/run/gates.jsonl: final verify row contains exact revision, command, exit and private log"
+policy = "Only passing gate receipts qualify this source; results are recorded by reference so no edit after building changes the verified candidate."
