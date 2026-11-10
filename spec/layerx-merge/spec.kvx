@@ -184519,7 +184519,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.338]
 title = "Remove the two historical deployment scripts of the Paxeer compatibility root with their pins"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
