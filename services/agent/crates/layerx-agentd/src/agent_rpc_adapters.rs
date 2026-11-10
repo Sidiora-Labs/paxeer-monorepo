@@ -2695,6 +2695,7 @@ mod tests {
 
     #[test]
     fn wait_request_refuses_retired_level_names_and_field() {
+        // These wire spellings are negative inputs, never requested policy levels.
         for retired in [
             "batch-included",
             "Unverified",

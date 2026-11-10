@@ -1775,6 +1775,7 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         activity: &[u8],
         expected: [u8; 32],
     ) -> Result<AuthorizedBatch, HumanOperationError> {
+        // The shipped Human authority still serves this subject-bound historical lookup.
         if peer.subject.is_none() {
             return self.authorized_batch(peer, expected);
         }
@@ -18055,6 +18056,7 @@ fn verification_level(value: &Value) -> Result<VerificationLevel, IdentityError>
         .get("verification_level")
         .and_then(Value::as_str)
         .ok_or(IdentityError::Unverified)?;
+    // Decode retained authority observations; this does not construct proof-owned evidence.
     let label = match label {
         "checkpoint_finalised" | "settlement_anchored" => VerificationLevel::COMMITTED.wire_label(),
         label => label,
