@@ -40442,3 +40442,11 @@ symbol = "tests"
 observed = "Attempt 3 at 6eadec21e97b on base 96827b7c7207: build 3 exits 101 at 6eadec21e97b with cannot find value held_digest in this scope at services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs:1722; builds 1 and 2 exit 101 on other unresolved names of divided functions; no verification ran; log /out/logs/build-3.log."
 assumption = "The attempt met the compile errors of its divided functions in counted builds."
 severity = "high"
+
+[finding.17.5.7.22]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 22 at 1b83b5c1cf7a on base c769be3dac5d: the build exits 0; the verification exits 1, the gate runner refuses make workspace-build before it runs with exit 125 and status source-identity-refusal phase=before on four ignored paths; log /out/logs/verify-1.log."
+assumption = "The checkout of the qualification environment held ignored bookkeeping of the spec tool that the gate runner lists."
+severity = "high"
