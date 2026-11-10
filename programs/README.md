@@ -115,10 +115,8 @@ Registry reads use [`protocol_evidence.rs`](crates/layerx-programs-registry/src/
 and [`chain_proof/`](crates/layerx-programs-registry/src/chain_proof) to verify deployment,
 lifecycle and state evidence against chain commitments. `VerifiedProgramCatalog` in
 [`resolver.rs`](crates/layerx-programs-registry/src/resolver.rs) admits executable
-programs from verified bundles. The former protocol-adapter crate is retired.
-Any retained adapter sources are historical, not a deployed read interface.
-The former `layerx-programs-protocol-adapter` crate is retired. Current integration
-uses the registry chain-proof APIs below; do not add the retired adapter as a dependency.
+programs from verified bundles. Integrations use these registry chain-proof APIs
+for authenticated program state and the Programs precompile for balance reads.
 
 Callers obtain program balances through node-root JSON-RPC `eth_call` to the Programs
 precompile at `0x101D` (`0x000000000000000000000000000000000000101D`). ABI-encode

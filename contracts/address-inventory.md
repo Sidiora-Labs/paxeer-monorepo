@@ -99,6 +99,14 @@ empty contract. See [retirement helpers](../precompiles/common/retire.go) and
 [custody retirement state](../modules/layerxcustody/keeper/retire.go).
 These compatibility ABIs do not define the network's current finality rule.
 
+Current funding is a [bank send](../precompiles/bank/Bank.sol) to the derived
+[program or account address](../modules/lxphost/accountmap.go). Read asset
+metadata through bank `0x1001` and pointerview `0x100a`. Verify finality from the
+committed block and CometBFT commit; native state queries use per-key ICS23
+proofs at that height, while EVM storage uses `eth_getProof`. Historical ABI
+rows below identify compatibility sources, not replacement funding or proof
+endpoints.
+
 ## Precompile Go API
 
 `GetPrecompileInfoE` resolves ABI metadata; `GetCustomPrecompilesE` constructs
@@ -254,7 +262,6 @@ references absent from this tree and must not be used as deployment targets.
 | <a id="sol-callerchecker"></a>`sol-callerchecker` | Retired reference: `contracts/libraries/CallerChecker.sol` is absent |
 | <a id="sol-canonicalcheckpoint"></a>`sol-canonicalcheckpoint` | Retired reference: `contracts/libraries/CanonicalCheckpoint.sol` is absent |
 | <a id="sol-checkpointchallengemanager"></a>`sol-checkpointchallengemanager` | Retired reference: `contracts/challenge/CheckpointChallengeManager.sol` is absent |
-| <a id="sol-checkpointregistry"></a>`sol-checkpointregistry` | Retired reference: `contracts/CheckpointRegistry.sol` is absent |
 | <a id="sol-constants"></a>`sol-constants` | [contracts/libraries/Constants.sol](../contracts/libraries/Constants.sol) |
 | <a id="sol-cryptographyprimitives"></a>`sol-cryptographyprimitives`, <a id="sol-ierc1271minimal"></a>`sol-ierc1271minimal` | Retired reference: `contracts/libraries/CryptographyPrimitives.sol` is absent |
 | <a id="sol-cw1155erc1155pointer"></a>`sol-cw1155erc1155pointer` | [contracts/src/CW1155ERC1155Pointer.sol](../contracts/src/CW1155ERC1155Pointer.sol) |
@@ -273,12 +280,10 @@ references absent from this tree and must not be used as deployment targets.
 | <a id="sol-evmcompatibilitytester"></a>`sol-evmcompatibilitytester` | [contracts/src/EVMCompatibilityTester.sol](../contracts/src/EVMCompatibilityTester.sol) |
 | <a id="sol-features"></a>`sol-features` | Retired reference: `contracts/config/Features.sol` is absent |
 | <a id="sol-governed"></a>`sol-governed` | [contracts/security/Governed.sol](../contracts/security/Governed.sol) |
-| <a id="sol-guarantorbond"></a>`sol-guarantorbond` | Retired reference: `contracts/GuarantorBond.sol` is absent |
 | <a id="sol-hashing"></a>`sol-hashing` | Retired reference: `contracts/libraries/Hashing.sol` is absent |
 | <a id="sol-iaddr"></a>`sol-iaddr` | [contracts/src/precompiles/IAddr.sol](../contracts/src/precompiles/IAddr.sol) |
 | <a id="sol-ibank"></a>`sol-ibank` | [contracts/src/precompiles/IBank.sol](../contracts/src/precompiles/IBank.sol) |
 | <a id="sol-iblueprintpredictor"></a>`sol-iblueprintpredictor`, <a id="sol-predeploys"></a>`sol-predeploys` | Retired reference: `contracts/deployment/Predeploys.sol` is absent |
-| <a id="sol-icheckpointregistryauthority"></a>`sol-icheckpointregistryauthority`, <a id="sol-iguarantorbondaccounting"></a>`sol-iguarantorbondaccounting`, <a id="sol-layerxvault"></a>`sol-layerxvault` | Retired reference: `contracts/custody/LayerXVault.sol` is absent |
 | <a id="sol-ierc20minimal"></a>`sol-ierc20minimal` | Retired reference: `contracts/interfaces/IERC20Minimal.sol` is absent |
 | <a id="sol-igenesisbond"></a>`sol-igenesisbond`, <a id="sol-igenesischeckpointregistry"></a>`sol-igenesischeckpointregistry`, <a id="sol-igenesisvault"></a>`sol-igenesisvault`, <a id="sol-managercontainer"></a>`sol-managercontainer` | Retired reference: `contracts/manager/ManagerContainer.sol` is absent |
 | <a id="sol-iguarantoreligibility"></a>`sol-iguarantoreligibility` | Retired reference: `contracts/interfaces/IGuarantorEligibility.sol` is absent |
@@ -292,7 +297,6 @@ references absent from this tree and must not be used as deployment targets.
 | <a id="sol-iwasmd"></a>`sol-iwasmd` | [contracts/src/precompiles/IWasmd.sol](../contracts/src/precompiles/IWasmd.sol) |
 | <a id="sol-layerxbetatimelock"></a>`sol-layerxbetatimelock` | Retired reference: `contracts/governance/LayerXBetaTimelock.sol` is absent |
 | <a id="sol-layerxcomponent"></a>`sol-layerxcomponent` | Retired reference: `contracts/security/LayerXComponent.sol` is absent |
-| <a id="sol-layerxcustody"></a>`sol-layerxcustody` | Retired reference: `contracts/LayerXCustody.sol` is absent |
 | <a id="sol-layerxtimelockcore"></a>`sol-layerxtimelockcore` | Retired reference: `contracts/governance/LayerXTimelock.sol` is absent |
 | <a id="sol-managermigrator"></a>`sol-managermigrator` | Retired reference: `contracts/manager/ManagerMigrator.sol` is absent |
 | <a id="sol-merklelib"></a>`sol-merklelib` | Retired reference: `contracts/libraries/MerkleLib.sol` is absent |

@@ -14,7 +14,7 @@ use layerx_crypto::disclosure::{
 };
 use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::payments::Payment;
-use layerx_crypto::signer::SignError;
+use layerx_crypto::signer::{self, SignError};
 use layerx_types::clock::{Clock, ClockError, ClockReading, Deadline};
 use layerx_types::payload::ModuleId;
 use rustls::pki_types::CertificateDer;
@@ -1038,8 +1038,7 @@ impl AttestorSigner {
             session: approval.session_id,
             result: Mutex::new(None),
         };
-        let mut future =
-            layerx_crypto::signer::sign_disclosed_call(&signer, call, disclosure, from);
+        let mut future = signer::sign_disclosed_call(&signer, call, disclosure, from);
         let mut context = std::task::Context::from_waker(std::task::Waker::noop());
         let signature = match future.as_mut().poll(&mut context) {
             std::task::Poll::Ready(result) => result,

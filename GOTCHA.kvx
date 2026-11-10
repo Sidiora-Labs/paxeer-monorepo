@@ -20065,3 +20065,103 @@ fix = "Decision 3145: task 22.39.302 repairs the site; 22.39.300 compiles its te
 title = "Ten retired-reference repairs waited on one live task because every one of them touches the catalogue"
 symptom = "Tasks 22.39.269 to 22.39.278 were admissible by their requirements but waited on the live task 22.39.248 because tools/paxeer-x/retired_callers.json is in the touches of each; with decision 3142 the catalogue merges by union and concurrent repairs of it are safe."
 fix = "Decision 3146: the catalogue is not an exclusive path; repairs that touch it are admitted together."
+
+[gotcha.4049]
+title = "A recursive merge of the retired-callers catalogue presents a base stage that carries conflict markers"
+symptom = "Task 22.39.299 attempt 2 and task 22.39.288 attempt 3: integrating the qualified commit of 22.39.297 (a3bd3021da71) onto main at 8742bd00eb conflicted on tools/paxeer-x/retired_callers.json and the three-way union of decision 3142 stopped with a JSON decode error at line 674 of the base stage. The two commits share two merge bases, so the base stage is a virtual merge of those bases and carried the marker line Temporary merge branch 1 where the two bases disagree on the allowed references list; both real sides parsed and held every entry."
+fix = "The union reads the catalogue at a real merge base of the two commits when the base stage carries markers and falls back to an empty base when no merge base is readable; the same guard applies to the union of GOTCHA.kvx and the qualification ledger. Both tasks resume from main."
+
+[gotcha.4050]
+title = "The restart accounting of the agent daemon sums receipt amounts that a pay spend never carries"
+symptom = "Task 18.1724.1 attempt 11 at b7dbe7cd8e73: with the node-produced capture committed (transaction value 0, receipt amount 0, committed budget spend 25, as decision 3128 defines them) the daemon recovery case startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence fails at services/agent/crates/layerx-agentd/tests/outbox_recover.rs:261 with receipt_consumed 0, want 25: src/budget/hold.rs:149-153 adds the amount of every successful receipt and :177-182 reconciles only when the record spend lies between that sum and the sum plus the unresolved holds, so a budgetSpend receipt whose amount is the zero transaction value leaves the committed spend of 25 unreconciled and src/human_runtime.rs:2439-2453 refuses writes. The spend of such an activity is the amount the daemon itself requested in the calldata of the transaction it signed."
+fix = "Decision 3147: the restart accounting counts the spend the daemon requested for each successful receipt (task 22.39.303); 18.1724.1 continues after it lands."
+
+[gotcha.4051]
+title = "The restored boundary manifest pin was left behind by the network-policy restoration"
+symptom = "Task 22.39.248 attempt 2 at 62c2fc2869a8 (a tree that changes only its record and the retired-callers catalogue): go test ./node/ fails TestRepairM_1319_RestoredBoundaryManifest at node/repair_m1319_test.go:25, SHA-256 ba84aff353486b744f3b9759fb158219b9de90558366485b483e4793c60dc9a2 of services/platform/hosted/paxeer/deployment.yaml, want 7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066. The manifest on main changed at 9e17ec8e4d (task 18.1790.1, the network-policy connectivity between the gateway and its hosted peers) after 22.31.483 pinned it at 7435b17141, and the pin did not follow; the case is red on main for every task that runs the node package."
+fix = "Decision 3149 and task 22.39.304 re-pin the test to the manifest on main and name its producer; 22.39.248 verifies with the case skipped (decision 3130)."
+
+[gotcha.4052]
+title = "The first aggregation chunk still scales with the roster because the native state decode scales with the state bytes"
+symptom = "Task 22.33.223 attempt 23 at e0e47a0e9645: roster_state_fuel_scaling fails at programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:3344, a chunk fuel must remain within ten percent across rosters: 16/4=102546, 32/8=117890 (attempt 22 measured 109008 and 130979). The chunk-restricted projection of attempt 22 removed the per-evaluator work from the chunk, and the remaining difference follows the state bytes the operation decodes (62330 at 16 participants and 4 evaluators, 87836 at 32 and 8, as the fixture prints for every native call), a cost no chunk restriction removes."
+fix = "Decision 3148: the cross-roster bound compares the chunk work net of the state decode baseline the same fixture measures; attempt 24 applies it."
+
+[gotcha.4053]
+title = "A qualified lint repair of the agent daemon conflicts with the production state export that landed meanwhile"
+symptom = "Task 22.39.222 attempt 6 at f1b5e7751ec1 passed its build and the clippy verification of the daemon library but could not be integrated: services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs conflicts with the production state export landing of 18.1752.1 at 5484ea469e, which changed the same adapter functions the lint repair rewrote (stages b0d75844a00c, 8a3cde29111e and db5385d0035b). The attempt ended so that the next one can rebase."
+fix = "Attempt 7 rebases the tree onto main, resolves the adapters so both changes stand, and requalifies."
+
+[gotcha.4054]
+title = "The web application unit suite is red on main in ten cases outside the retired-reference repair"
+symptom = "Task 22.39.269 attempt 2 at 31d19566a52b: pnpm --dir apps/web run test fails fourteen cases, ten of them in files the task does not touch and red on main independent of the tree: e2e/activity.spec.ts:447 (explorerPath returns undefined for the class layerx-receipt, want /explorer/receipts/rcpt_001), e2e/api-client.test.ts:103 (the golden vector binding.rebind.action.failure.json belongs to no generated operation) and :208 (src/support/conversation.ts fetches input, not a same-origin app route), e2e/explorer-account.test.ts:95 and :132 (unified_account.layerx_activity must be an object), e2e/launchpad-reads.test.ts:264 (the market rows carry currentFeeBps 5n where the expectation differs), :323 (launchpad_market_failure_degrades_only_its_row) and :443 (four price cases: the live launchpad page must contain its Markets table). The four cases of e2e/gas-station.test.ts (:73, :86, :102 asserting an undefined expression; :191 importing the wallet SDK sources through the file-linked package under node_modules, which the test runner cannot strip types from) belong to the task."
+fix = "Decision 3130: task 22.39.305 repairs the ten cases on main; 22.39.269 verifies its own two test files and repairs the four gas station cases."
+
+[gotcha.4055]
+title = "The refreshed committed vector carries an absent commit signature that the receipt verification case did not model"
+symptom = "Task 22.39.299 attempt 3 at f0d853dce44a: with services/agent/sdk/typescript/test/fixtures/repair-22-33-24/committed.json refreshed from daemon/committed-fixture/vectors/vector-v4-committed.json on main, verify_committed_receipt_recorded_inclusion at test/sequencer-receipt-verify.test.ts:140 failed first with a TypeError on a null Signature (the recorded commit holds one signature with BlockIDFlag 1, an empty validator address, the zero timestamp and a null signature, log /out/logs/verify-1.log), and after the loader of test/recorded-committed.ts modelled the absent flag it fails at the assertion that the signed power equals the total power (7000000000n, want 7000000001n, log /out/logs/verify-2.log): the previous recording had every validator sign and the case froze that fact."
+fix = "Decision 3150: the case asserts the signed power the recording carries (the sum of the powers of the validators whose flag is a commit) and the two-thirds threshold, not equality with the total power."
+
+[gotcha.4056]
+title = "The V1 Programs genesis authority of the committed fixture still uses the fixture account that the V4 recorder binds as DID 0"
+symptom = "Task 18.1667.1 attempt 13 at 60474c5e3cd1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:388 with record vector-v4-committed: bind DID 0 reverted LXP_ADDR_LAYERX_ADDRESS_BOUND (evm address is already bound to a did). The attempt derived the authority from the keyring entry named fixture in main.go (v1ProgramsGenesisAuthority exports its private key), so the authority DID is bound to the EVM address of the fixture account, which is the payer the V4 recorder binds first at vector_v4.go:158 to :175; the collision do_15 named stands."
+fix = "Attempt 14 gives the authority a generated DID key pair and its own EVM key funded from the fixture account, binds the two, and signs the Programs calls with that EVM key, so the fixture account stays unbound until the recorders bind it."
+
+[gotcha.4057]
+title = "The platform command line suite needs the boundary binary that the task build does not produce"
+symptom = "Task 22.39.266 attempt 2 at d25367086cfb: cargo test -p layerx-platform-cli -p layerx-platform-release passes every module except public_http_uses_system_trust_and_checks_server_identity, which panics at services/platform/tests/support/tls_boundary.rs:186 with the producer input of decision 2325: build layerx-paxeer-boundary from services/platform/Cargo.toml before the case. The build of the task compiles only the two platform crates and their tests (log /out/logs/verify-1.log)."
+fix = "The build of 22.39.266 also builds layerx-paxeer-boundary from services/platform/Cargo.toml; attempt 3 changes nothing in the tree."
+
+[gotcha.4058]
+title = "Two unwrap_err sites of the program status replay case fail the unwrap lint of the programs runtime"
+symptom = "Task 22.39.235 attempt 9 at 693a252c2d98: with the inclusive range repaired, cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-deps --all-targets -- -D warnings fails on two sites of programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs, :128 and :160 (result.as_ref().unwrap_err(), clippy::unwrap_used, denied by the crate manifest), exit 101, log /out/logs/verify-2.log. The case landed at d7e7f8e839 after the attempt-8 base. The dead-code warnings the log prints for sdk/rust/src belong to the build script of layerx-program-sdk and are warnings of a dependency, not errors of the gate."
+fix = "Attempt 10 binds the error with a let-else that panics with the unexpected value and changes nothing else."
+
+[gotcha.4059]
+title = "The recorded market creation proof carries the deployment id of the former manifest"
+symptom = "Task 22.39.242 attempt 8 at adf2a52050f1: after the rebase on main every launchpad indexer case that rehydrates the recorded market fails with receipt qualification rejected: rehydrate historical creation (repair_m999_test.go:371, repair_m995_test.go:321, repair_53_test.go:517, :518 and :578; log /out/logs/verify-1.log). proveHistoricalMarket at services/launchpad/indexer/internal/receipt/identity.go:749 to :752 refuses a creation proof whose Provenance.DeploymentID differs from Manifest.DeploymentVersion, and SourceProvenance at rpc.go:1418 derives that id from the manifest version. The packet testdata/repair53-producer.json now names deploymentVersion paxeer125-v6.12.0 while Markets[0].Creation.Provenance.deploymentId still reads paxeer125-a35ff7c6f532d2f9, the id of the manifest the packet carried before the task re-recorded it; the recorded market lies below the activation height 37220320, so the historical path runs."
+fix = "Attempt 9 re-records the creation provenance of the market with the values the current derivation yields over the recorded responses."
+
+[gotcha.4060]
+title = "The node route catalogue omits the canonical origin the gateway document and the wallet SDK read"
+symptom = "Task 22.39.278 attempt 2 at e2a082f7cf79: go test ./rpc/ -run TestPxNodeRoot fails TestPxNodeRoot_Account_CommittedReadsAndParity at rpc/px_node_root_account_test.go:711 (via :188 and :291) with result lacks canonical_origin: the case checks the px_getRouteCatalogue answer against services/platform/hosted/gateway/openrpc.json, where canonical_origin is a required constant https://api-mainnet-beta.paxeer.network since f89360b04b, and the wallet SDK decodes the field since 18.1810.1; GetRouteCatalogue at rpc/px_discovery.go:61 to :78 projects tools/paxeer-x/route-catalogue.json, adds readiness and rpc_paths and never writes canonical_origin. The handler is outside the touches of the task, whose own repairs (the regenerated catalogue without the retired programs ingress routes, the subscribe case, the allowance entries) stand; log /out/logs/verify-1.log."
+fix = "Decision 3151: task 22.39.306 serves canonical_origin from the node; 22.39.278 verifies with the parity case skipped."
+
+[gotcha.4061]
+title = "Two verification commands ran the retired-reference scan from the changed directory"
+symptom = "Task 22.39.270 attempt 2 at e0a022007b7a: the explorer suites pass (14 files, 64 cases) and the verification then fails with exit 2 because its python3 tools/paxeer-x/tests/retired_callers_test.py step runs after cd apps/explorer, where the path does not exist (log /out/logs/verify-1.log). The verification of 22.39.271 carries the same shape after cd services/explorer/backend for its json.tool step and its scan step."
+fix = "Both verifications return to the repository root before the steps that take root-relative paths."
+
+[gotcha.4062]
+title = "The launchpad client suites receive the bare invalid request text in place of the validation message"
+symptom = "Task 22.39.249 attempt 2 at 6ba915fa4d32 (and attempt 1 before it): go test ./modules/launchpad/... fails TestCmdQueryAirdropNetwork (modules/launchpad/client/cli/query_airdrop_test.go:187, the error rpc error: code = InvalidArgument desc = invalid request does not contain invalid address), TestCmdQueryFeeRightNetwork (query_feeright_test.go:178, missing must be a 0x-prefixed 40-hex-digit address), TestRepair_35_QuoteUint256 (repair_35_test.go:189, missing amount_in must be a positive base-10 integer) and TestRESTRegistryRoutes (modules/launchpad/client/rest/grpc_query_registry_test.go:216, malformed_address); log /out/logs/verify-1.log. The keeper still returns the validation text (invalidAddressQueryError.GRPCStatus at modules/launchpad/keeper/grpc_query.go:32, grpc_query_quote.go:19 and :24); the client path of the test network delivers only the registered text of the abci code 18 error. The attempt changed nothing under modules/launchpad."
+fix = "Decision 3152: task 22.39.307 restores the message on the client paths; 22.39.249 verifies the launchpad module packages without the client packages."
+
+[gotcha.4063]
+title = "Seventeen explorer receipt verification cases refuse at the key guard since the governed key id change"
+symptom = "Task 22.39.271 attempt 2 at 72d646417636: mix test apps/explorer/test/explorer/chain/paxeer_x reports 171 cases and 17 failures, all answering {:error, :r3} where a committed, receipted, r2, r4, r5, r7 or r8 outcome is expected: committed_vectors_test.exs:8, status_committed_test.exs (two cases), status_test.exs (four cases of the receipted rung) and sequencer_receipt_test.exs (ten cases, among them the landing block signed by four of four validators at :228 and :231); log /out/logs/verify-1.log. The key guard of apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex changed at 6c6128318f (18.1806.1: the digest equality of key id and public key dropped, first_height above zero, last_height bounded) and that task verified only its own tagged cases. The attempt changed only documentation lines of receipt.ex and the signature provider sources."
+fix = "Decision 3153: task 22.39.308 restores the cases against the governed key guard and the fixtures; 22.39.271 verifies the thirteen other files of the directory."
+
+[gotcha.4064]
+title = "The launchpad package export check still expects the string form of the exports map"
+symptom = "Task 22.39.273 attempt 2 at 5dc5c523ab1e: python3 -m pytest tools/qualification passes 4221 cases and fails test_repair_22_33_1053.py::test_finding_27_complete_provenance_without_deployment_defaults at tools/qualification/audit_repairs/test_repair_22_33_1053.py:76, which asserts the exports map of sdk/launchpad/packages/sidiora-launchpad-v3/package.json as the two strings ./src/index.ts and ./src/abis.ts while the package carries the conditional form with types and default since 1caf032cb4 (18.1823.1); log /out/logs/verify-1.log. The case is not in the touches of the task."
+fix = "The touches list names the case; attempt 3 asserts the conditional form the package carries (gotcha 3046)."
+
+[gotcha.4065]
+title = "The JVM program activity and receipt transports name eth_getLogs while the retained record names eth_getTransactionByHash"
+symptom = "Task 17.5.7 attempt 10 at aaee77f2eb55: the wave 6 gate fails inside the JVM dependency installation at GeneratedCatalogueProgramsTest.programOperationsNameLayerxprogramsCalls with six assertions for program.activity and program.receipt: expected eth_getTransactionByHash but was eth_getLogs, expected an empty destination but was 0x000000000000000000000000000000000000101d, expected no calls but was [ProgramCallOutcome]; log /out/logs/verify-1.log. The case reads the retained transaction method from sdk/platform/conformance/operations.json (eth_getTransactionByHash since ef56c71945) while sdk/platform/generators/generate_jvm.py:24 and :29 still map the two operations to an eth_getLogs read of the ProgramCallOutcome event (a90ab0390c), and the dotnet SDK already resolves program.receipt by eth_getTransactionByHash. Task 22.39.301, which the attempt took, repaired the native activity record of the same class, not these transports."
+fix = "Decision 3154: task 22.39.309 aligns the JVM generator and the generated schema with the retained record; 17.5.7 requires it."
+
+[gotcha.4066]
+title = "The committed recording of the agent SDK pins the digest of the former daemon vector"
+symptom = "Task 22.39.288 attempt 4 at 6214136f2301: with the fresh build the self-contained suites pass except repair_22_33_24_preserves_recorded_producer_provenance (dist/test/repair-22-33-24.test.js), which hashes daemon/committed-fixture/vectors/vector-v4-committed.json and compares the digest with the one test/fixtures/repair-22-33-24/committed.json pins: the file on main hashes 5013cd232ee9 while the recording pins fc3fe1494c91; log /out/logs/verify-2.log. Task 22.39.299 refreshes that recording from the vector and carries the new digest; its attempt 4 runs."
+fix = "22.39.288 requires 22.39.299 and continues after it lands."
+
+[gotcha.4067]
+title = "A persisted-receipt construction outside the touches of the requested-spend task breaks the build"
+symptom = "Task 22.39.303 attempt 1 at d89a01cab119: cargo build -p layerx-agentd --lib --tests fails with E0063 missing field requested_amount in initializer of PersistedReceipt in services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs, a case the touches list of the task did not name; log /out/logs/build-1.log."
+fix = "The touches list names the case; attempt 2 fills the field there and verifies."
+
+[gotcha.4068]
+title = "The boundary binary is a target of the hosted paxeer package, and the command line suite looks for it in its own target directory"
+symptom = "Task 22.39.266 attempt 3 at e183fb31228b: the build of 772 fails with package ID specification layerx-paxeer-boundary did not match any packages (log /out/logs/build-1.log): services/platform/hosted/paxeer/Cargo.toml names the package layerx-platform-paxeer-boundary and layerx-paxeer-boundary is its binary target. The case public_http_uses_system_trust_and_checks_server_identity (services/platform/tests/support/tls_boundary.rs:174 to :186) takes the executable from LAYERX_PAXEER_BOUNDARY_BIN or from the target directory of the running test, which belongs to the tools/platform workspace, not to services/platform where the binary is built."
+fix = "The build names the package and the binary target; the verification passes the binary path through LAYERX_PAXEER_BOUNDARY_BIN under the active target directory."
