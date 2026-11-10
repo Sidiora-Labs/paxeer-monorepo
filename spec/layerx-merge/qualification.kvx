@@ -40474,3 +40474,11 @@ symbol = "inference_recovery.rs"
 observed = "Attempt 2 at ab347c7cae95 on base 1c3198620972: build 3 exits 101 at ab347c7cae95, the host package stops with no method named excluded found for the deal engine at src/inference_market/recovery.rs:547 and :677; no verification ran; log /out/logs/build-3.log."
 assumption = "The read of the exclusion set is compiled in test builds only and its file sat outside the paths of the task."
 severity = "high"
+
+[finding.22.39.356.1]
+task = "22.39.356"
+file = "services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer"
+symbol = "inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer"
+observed = "Attempt 1 at 40c075b323bc on base b00ccbc0e0ba: the build exits 0 and the verification exits 1 at 40c075b323bc; three cases pass and the lint command stops with 35 errors in src/inference_market/signal.rs and src/inference_market/deals.rs (missing_errors_doc 26, must_use_candidate 5, dead_code 3, return_self_not_must_use 1); log /out/logs/verify-1.log."
+assumption = "The new target declared the module of the included sources public and carried no allowance, against decisions 3273 and 3276."
+severity = "high"

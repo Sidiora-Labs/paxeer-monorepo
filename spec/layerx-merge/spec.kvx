@@ -12862,6 +12862,12 @@ value = "The function excluded of the deal engine (src/inference_market/deals.rs
 basis = "Gotcha 4219, decisions 3046, 3211, 3212, 3286 and 3287."
 affects = ["22.38.20", "22.38.37"]
 
+[decision.3292]
+title = "A new test target of the daemon takes in source files under a private module with the one allowance"
+value = "A test target of the agent daemon that takes in a file under src/inference_market by path declares the outer module private and carries one dead_code allowance with a reason on that module item, as tests/inference_deals.rs:1 to :5 does (decisions 3273 and 3276). A finding that appears in an included file only because a target declares the outer module public or omits that allowance is a finding of the target and is repaired in the target; no host source changes for it. Decision 3218 keeps its meaning for a finding that remains in an included file under the private form: it is recorded with file, line and lint and is not changed. A task leaves no record of its own qualification in the tests directory."
+basis = "Gotcha 4220, decisions 3218, 3245, 3273 and 3276."
+affects = ["22.39.356", "22.39.228"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -194898,6 +194904,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decision 3245, gotcha 4173: the verification now also runs the lint command over the new target with warnings as errors. Write tests/inference_peer_vectors.rs to the workspace lints from the start: no function over 100 lines, documented items with backticks around code names, no unused item, and no allowance at crate or module level. Run the lint command over the target yourself before the counted gates."
+do_5 = "Attempt 2 (continue, gotcha 4220, decisions 3292, 3273 and 3276): the attempt-1 tree 40c075b323bc stands (tests/inference_peer_vectors.rs with three cases, which pass). The lint command stops with 35 errors in src/inference_market/signal.rs and src/inference_market/deals.rs only because the target declares the module signal public at tests/inference_peer_vectors.rs:1 and carries no allowance. Declare that module private and put one dead_code allowance with a reason on the module item, the form of tests/inference_deals.rs:1 to :5 on main; adjust the visibility of the function inside the module at :8 and of what the cases use so that the target compiles. Change no host source. Delete tests/inference_peer_vectors.qualification.kvx. Rebase on main; where another task changed files of the tests directory, keep the side of main. Run the lint command of the verification outside the counted gates until it reports nothing (decision 3286) and repair every remaining site in the new file. A site that remains in an included file under the private form is not changed: name file, line and lint and stop. Run the build once and the verification once at the final revision."
 
 [task.22.39.353]
 title = "Compile the deal listener of the agent daemon outside the test build"
