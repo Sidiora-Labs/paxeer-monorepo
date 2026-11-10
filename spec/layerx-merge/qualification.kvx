@@ -40170,3 +40170,11 @@ symbol = "tests"
 observed = "Attempt 3 at 5f4a514b235f on base d1a7d785eead: both builds exit 0; verification 2 exits 1 at 6eb8de750002 with five lints in services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs and could not compile layerx-agentd (test bootstrap_bind_layerx); log /out/logs/verify-2.log."
 assumption = "The verification stopped at the first failing target, so the attempt could not see every lint of the group in one run."
 severity = "high"
+
+[finding.22.39.358.1]
+task = "22.39.358"
+file = "services/platform/Makefile.inc"
+symbol = "Makefile.inc"
+observed = "Attempt 2 at 7c86fa9f9cd7 on base 9947d89636be: the build exits 0; verification 1 exits 1 at 7c86fa9f9cd7, the verification command passes and the completion check reports symbol platform-verify-sdks not defined in the graph; log /out/logs/verify-1.log."
+assumption = "The symbols list of the task named a recipe target that the code graph does not index."
+severity = "high"
