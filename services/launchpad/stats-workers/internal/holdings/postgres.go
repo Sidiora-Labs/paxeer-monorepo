@@ -303,7 +303,7 @@ func (r *Repository) Snapshot(ctx context.Context, token string, limit int) (s S
 			return s, err
 		}
 	}
-	rows, err := tx.Query(ctx, "SELECT address,balance::text,category FROM "+r.schema+".balances WHERE token=$1 ORDER BY balance DESC,address ASC LIMIT $2", token, limit)
+	rows, err := tx.Query(ctx, "SELECT address,balance::text,category FROM "+r.schema+".balances b WHERE token=$1 ORDER BY b.balance DESC,address ASC LIMIT $2", token, limit)
 	if err != nil {
 		return s, err
 	}

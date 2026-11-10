@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -22,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/config"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/ranker"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -81,7 +81,8 @@ func repairM934VisibilityPeer(t *testing.T, pki *testPKI, social, client leaf, p
 
 type repairM934Fixture struct {
 	cfg       config.Config
-	path      string
+	dsn       string
+	evidence  *store.HTTPCanonicalEvidence
 	cutoff    time.Time
 	gateway   leaf
 	roots     *x509.CertPool
@@ -126,13 +127,30 @@ func repairM934NewFixture(t *testing.T) *repairM934Fixture {
 	cfg.RankingRuntimeSHA256 = writeBound(t, cfg.RankingRuntimeFile, raw)
 	roots := x509.NewCertPool()
 	roots.AddCert(pki.caCert)
-	f := &repairM934Fixture{cfg: cfg, path: filepath.Join(dir, "publication.json"), cutoff: cutoff, gateway: gateway, roots: roots, authority: authority}
-	state := repairM934State{Snapshots: map[string]*repairM934Stored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}, Cutoff: f.cutoff.Unix()}
-	raw, err = json.Marshal(state)
-	if err != nil {
-		t.Fatal(err)
+	db := internaltest.NewRankingRuntimeDatabase(t)
+	f := &repairM934Fixture{cfg: cfg, dsn: db.AdminDSN, cutoff: cutoff, gateway: gateway, roots: roots, authority: authority}
+	repairM934Seed(t, db.AdminDSN, cutoff)
+	// The publication fixture carries explicit canonical pause observations,
+	// just as the store's production-universe fixture does. An observation for
+	// another height, block or time must never make a pool eligible here.
+	observations := map[string]store.CanonicalPoolEvidence{}
+	for address := range pools {
+		paused := false
+		observations[address] = store.CanonicalPoolEvidence{Paused: &paused, PauseEvidence: strings.Repeat("a", 64)}
 	}
-	if err = os.WriteFile(f.path, raw, 0600); err != nil {
+	evidence := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Query().Get("cutoffHeight") != "200" || request.URL.Query().Get("cutoffTime") != strconv.FormatInt(cutoff.Unix(), 10) || request.URL.Query().Get("blockHash") != "0x"+strings.Repeat("c8", 32) {
+			t.Error("evidence request is not bound to frozen cutoff")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(store.CanonicalRankingEvidence{Revision: strings.Repeat("d", 64), CutoffHeight: 200, CutoffTime: cutoff.Unix(), BlockHash: "0x" + strings.Repeat("c8", 32), Pools: observations}); err != nil {
+			t.Errorf("canonical evidence response: %v", err)
+		}
+	}))
+	t.Cleanup(evidence.Close)
+	f.evidence, err = store.NewHTTPCanonicalEvidence(evidence.URL, evidence.Client())
+	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(f.close)
@@ -142,7 +160,7 @@ func repairM934NewFixture(t *testing.T) *repairM934Fixture {
 
 func (f *repairM934Fixture) open(t *testing.T) {
 	t.Helper()
-	pool := repairM934OpenPool(t, f.path)
+	pool := repairM934OpenPool(t, f.dsn)
 	// Cache loss must leave durable publication readable. A closed production
 	// client exercises that existing path without requiring a Redis process.
 	cache := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
@@ -154,6 +172,7 @@ func (f *repairM934Fixture) open(t *testing.T) {
 		pool.Close()
 		t.Fatalf("native application prerequisites: %v", err)
 	}
+	a.native.reader.Evidence = f.evidence
 	f.app = a
 	f.server = httptest.NewUnstartedServer(a.Router)
 	f.server.TLS = a.native.serverTLS.Clone()
@@ -291,7 +310,7 @@ func TestRepairM_934_PublicationEveryCategoryAndRestartRecovery(t *testing.T) {
 	}
 	assertRecovered()
 	assertCount("ranking.publication_outbox WHERE published_at IS NULL", len(ranker.Categories))
-	// Reopen every application component and the persisted storage peer before
+	// Reopen every application component and its PostgreSQL connection pool before
 	// publication, proving that durable intents and heads survive shutdown.
 	f.close()
 	f.open(t)

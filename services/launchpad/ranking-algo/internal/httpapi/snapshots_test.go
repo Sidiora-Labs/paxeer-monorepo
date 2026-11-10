@@ -74,6 +74,12 @@ func TestSnapshotErrorUsesFrozenEnvelope(t *testing.T) {
 }
 
 func TestPhase3ActualReadHandlersRedisLossAndExpiredCursor(t *testing.T) {
+	for _, name := range []string{"L19_PHASE3_HTTP_SCHEMA", "L19_VISIBILITY_URL", "L19_PHASE3_EXPIRED_RUN_ID", "L19_PHASE3_EMPTY_CATEGORY", "L19_PHASE3_STALE_CATEGORY"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	dsn, schema := os.Getenv("L19_POSTGRES_DSN"), os.Getenv("L19_PHASE3_HTTP_SCHEMA")
 	visibilityURL, expiredID := os.Getenv("L19_VISIBILITY_URL"), os.Getenv("L19_PHASE3_EXPIRED_RUN_ID")
 	emptyCategory, staleCategory := os.Getenv("L19_PHASE3_EMPTY_CATEGORY"), os.Getenv("L19_PHASE3_STALE_CATEGORY")
@@ -216,6 +222,12 @@ func TestPhase3ActualReadHandlersRedisLossAndExpiredCursor(t *testing.T) {
 }
 
 func TestPhase3DuplicateModerationUsesActualOwnerReplay(t *testing.T) {
+	for _, name := range []string{"L19_MODERATION_REPLAY_URL", "L19_MODERATION_EVENT_FILE", "L19_MODERATION_EVENT_SHA256", "L19_MODERATION_TARGET_POOL", "L19_MODERATION_REPLAY_AUTH_FILE"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint, eventPath := os.Getenv("L19_MODERATION_REPLAY_URL"), os.Getenv("L19_MODERATION_EVENT_FILE")
 	eventSHA, target := os.Getenv("L19_MODERATION_EVENT_SHA256"), os.Getenv("L19_MODERATION_TARGET_POOL")
 	authorityPath := os.Getenv("L19_MODERATION_REPLAY_AUTH_FILE")

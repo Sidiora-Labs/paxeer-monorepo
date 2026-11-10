@@ -14,7 +14,6 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/store"
 )
 
 // subscribeConfirmed subscribes to channel and blocks until the subscription is
@@ -69,7 +68,7 @@ func TestReactionVotePublishesReactionsUpdate(t *testing.T) {
 // platform:update (a global event) carrying the same metrics it cached.
 func TestPrecomputePublishesPlatformUpdate(t *testing.T) {
 	ctx := context.Background()
-	st := store.New(internaltest.NewPostgres(t))
+	st := newPlatformStore(t)
 	rdb := internaltest.NewRedis(t)
 
 	sub := subscribeConfirmed(t, ctx, rdb, constants.ChannelPlatformUpdate)

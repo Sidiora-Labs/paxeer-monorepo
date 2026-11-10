@@ -35,6 +35,12 @@ func TestPersistedCheckpointIndependentDigest(t *testing.T) {
 	}
 }
 func TestRetainedCanonicalReplay(t *testing.T) {
+	for _, name := range []string{"L14_ARCHIVE_TOKEN", "L14_ARCHIVE_START", "L14_ARCHIVE_END", "L14_ARCHIVE_STREAM", "L14_ARCHIVE_EXPECTED_DIGEST", "L14_ARCHIVE_DECIMALS"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	ctx, r := phase2Repository(t)
 	token, start, end, stream, want := os.Getenv("L14_ARCHIVE_TOKEN"), os.Getenv("L14_ARCHIVE_START"), os.Getenv("L14_ARCHIVE_END"), os.Getenv("L14_ARCHIVE_STREAM"), os.Getenv("L14_ARCHIVE_EXPECTED_DIGEST")
 	decimals, err := strconv.ParseUint(os.Getenv("L14_ARCHIVE_DECIMALS"), 10, 8)
@@ -48,6 +54,12 @@ func TestRetainedCanonicalReplay(t *testing.T) {
 }
 
 func TestCanonicalCatchupMatchesIndependentArchiveDigest(t *testing.T) {
+	for _, name := range []string{"L14_ARCHIVE_TOKEN", "L14_ARCHIVE_STREAM", "L14_ARCHIVE_END", "L14_ARCHIVE_EXPECTED_DIGEST"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	ctx, r := phase2Repository(t)
 	token, stream, end, want := os.Getenv("L14_ARCHIVE_TOKEN"), os.Getenv("L14_ARCHIVE_STREAM"), os.Getenv("L14_ARCHIVE_END"), os.Getenv("L14_ARCHIVE_EXPECTED_DIGEST")
 	if token == "" || stream == "" || end == "" || len(want) != 64 {
@@ -81,6 +93,12 @@ func TestCanonicalCatchupMatchesIndependentArchiveDigest(t *testing.T) {
 }
 
 func TestCanonicalActorProvenance(t *testing.T) {
+	for _, name := range []string{"L14_ARCHIVE_TOKEN", "L14_ARCHIVE_STREAM", "L14_ARCHIVE_END", "L14_ACTOR_FILL_ID", "L14_ACTOR_TRANSACTION_HASH", "L14_ACTOR_TRANSFER_LOG_INDEX", "L14_ACTOR_EXPECTED_ADDRESS"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	ctx, r := phase2Repository(t)
 	token, stream, end := os.Getenv("L14_ARCHIVE_TOKEN"), os.Getenv("L14_ARCHIVE_STREAM"), os.Getenv("L14_ARCHIVE_END")
 	fillID, transaction, logIndex, want := os.Getenv("L14_ACTOR_FILL_ID"), os.Getenv("L14_ACTOR_TRANSACTION_HASH"), os.Getenv("L14_ACTOR_TRANSFER_LOG_INDEX"), os.Getenv("L14_ACTOR_EXPECTED_ADDRESS")
@@ -156,6 +174,12 @@ func TestCanonicalActorProvenance(t *testing.T) {
 }
 
 func TestCanonicalArchiveReplayExactlyOnceAndRejectsConflicts(t *testing.T) {
+	for _, name := range []string{"L14_ARCHIVE_TOKEN", "L14_ARCHIVE_STREAM", "L14_ARCHIVE_END"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	ctx, r := phase2Repository(t)
 	token, stream, end := os.Getenv("L14_ARCHIVE_TOKEN"), os.Getenv("L14_ARCHIVE_STREAM"), os.Getenv("L14_ARCHIVE_END")
 	if token == "" || stream == "" || end == "" {

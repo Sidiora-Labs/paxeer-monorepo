@@ -113,10 +113,10 @@ func (s DevelopmentCanonicalSource) ResolveTokenInTx(ctx context.Context, tx pgx
 }
 
 func (d *DevelopmentV2Reads) persistedToken(ctx context.Context, row developmentPoolRow) (iface.Token, bool, error) {
-	if d.Connected == nil || d.Connected.Metadata.Store == nil {
-		return iface.Token{}, false, nil
+	if d.CanonicalStore == nil {
+		return iface.Token{}, false, ErrChainUnavailable
 	}
-	store := d.Connected.Metadata.Store
+	store := d.CanonicalStore
 	var raw []byte
 	e := store.Pool.QueryRow(ctx, "SELECT token_json FROM "+store.table("development_canonical_tokens")+" WHERE token=$1 AND pool=$2 AND creator=$3 AND tx_hash=$4", row.Token, row.Pool, row.Creator, row.TxHash).Scan(&raw)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -134,14 +134,14 @@ func (d *DevelopmentV2Reads) persistedToken(ctx context.Context, row development
 
 // persistToken retains canonical identities before they enter the reusable cache.
 func (d *DevelopmentV2Reads) persistToken(ctx context.Context, row developmentPoolRow, token iface.Token) error {
-	if d.Connected == nil || d.Connected.Metadata.Store == nil {
+	if d.CanonicalStore == nil {
 		return ErrChainUnavailable
 	}
 	raw, err := json.Marshal(token)
 	if err != nil {
 		return err
 	}
-	store := d.Connected.Metadata.Store
+	store := d.CanonicalStore
 	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	tag, err := store.Pool.Exec(bounded, "INSERT INTO "+store.table("development_canonical_tokens")+"(token,pool,creator,tx_hash,token_json) VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(token) DO UPDATE SET token_json=EXCLUDED.token_json WHERE "+store.table("development_canonical_tokens")+".pool=EXCLUDED.pool AND "+store.table("development_canonical_tokens")+".creator=EXCLUDED.creator AND "+store.table("development_canonical_tokens")+".tx_hash=EXCLUDED.tx_hash", row.Token, row.Pool, row.Creator, row.TxHash, string(raw))

@@ -49,7 +49,7 @@ func v2OwnerFixture(t *testing.T) Store {
 
 func v2OwnerDeletionFixture(t *testing.T) Store {
 	t.Helper()
-	return connectedLegacyFixture(t)
+	return connectedLegacyFixture(t, true)
 }
 
 func requireV2OwnerResponse(t *testing.T, response *httptest.ResponseRecorder, status int, schema string) {
@@ -215,7 +215,7 @@ func TestPostgresHTTPV2OwnerExportsAndDeletion(t *testing.T) {
 		reauthHash := sha256.Sum256([]byte(reauthProof))
 		_, err = s.DB.Exec(context.Background(), `INSERT INTO identity_reauth(proof_hash,account_id,session_id,action,issued_at,expires_at) VALUES($1,$2,$3,'account.delete',clock_timestamp(),clock_timestamp()+interval '5 minutes')`, reauthHash[:], accountID, session)
 		must(t, err)
-		_, err = s.DB.Exec(context.Background(), sharedauth.LedgerDDL)
+		_, err = s.DB.Exec(context.Background(), `SELECT actor,action,nonce,envelope_digest,body_digest,request_id,response,response_digest,created_at,retain_until FROM operation_ledger LIMIT 0`)
 		must(t, err)
 		ddl, err := delivery.SchemaDDL("public")
 		must(t, err)

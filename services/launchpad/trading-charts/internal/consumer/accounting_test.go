@@ -869,6 +869,12 @@ func TestFaultCommitBeforeAckThenRealBrokerRedelivery(t *testing.T) {
 }
 
 func TestFaultPoisonQuarantineAndAuditedReprocessing(t *testing.T) {
+	for _, name := range []string{"L10_TEST_RPC_URL"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	ctx, pool, st := faultFixture(t, "poison")
 	broker := newFaultBroker(t)
 	nc := broker.start()

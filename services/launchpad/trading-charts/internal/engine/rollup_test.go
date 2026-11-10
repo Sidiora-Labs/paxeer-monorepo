@@ -20,6 +20,12 @@ import (
 )
 
 func TestArchive96HourReconstructionPostgres(t *testing.T) {
+	for _, name := range []string{"L10_ARCHIVE_CHART_SCHEMA", "L10_ARCHIVE_MANIFESTS", "L10_ARCHIVE_POOL", "L10_ARCHIVE_FROM", "L10_ARCHIVE_TO", "L10_ARCHIVE_EXPECTED_DIGEST", "L10_TEST_RPC_URL", "L10_TEST_S3_BUCKET"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	required := []string{"DELIVERY_TEST_DSN", "L10_ARCHIVE_CHART_SCHEMA", "L10_ARCHIVE_MANIFESTS", "L10_ARCHIVE_POOL", "L10_ARCHIVE_FROM", "L10_ARCHIVE_TO", "L10_ARCHIVE_EXPECTED_DIGEST", "L10_TEST_RPC_URL", "L10_TEST_S3_ENDPOINT", "L10_TEST_S3_BUCKET", "L10_TEST_S3_ACCESS_KEY_ID", "L10_TEST_S3_SECRET_ACCESS_KEY"}
 	for _, name := range required {
 		if os.Getenv(name) == "" {
