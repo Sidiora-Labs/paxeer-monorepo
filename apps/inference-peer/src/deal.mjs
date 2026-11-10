@@ -1,4 +1,5 @@
 import { MAX_FRAME_BYTES } from "./wire.mjs";
+import { signalHex, validateSignalFrame } from "./signal.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -100,7 +101,8 @@ function validatePlan(plan) {
 
 export async function dealDigest(deal) {
   validatePlan(deal.plan);
-  if (BigInt(deal.price) <= 0n) throw new Error("Deal price must be positive");
+  if (BigInt(deal.price) <= 0n)
+    throw new Error("Deal price must be positive");
   const fields = [encoder.encode("PAXAI/inference-deal/v1\0")];
   for (const name of [
     "chain",
@@ -166,7 +168,8 @@ async function download(url, limit, signal) {
       const { value, done } = await reader.read();
       if (done) break;
       size += value.length;
-      if (size > limit) throw new Error("Model download exceeds declared size");
+      if (size > limit)
+        throw new Error("Model download exceeds declared size");
       chunks.push(value);
     }
   } finally {
@@ -182,8 +185,13 @@ export async function loadLayerRange({
   endLayer,
   runtime,
   signal,
+  modelSource,
 }) {
-  const manifestURL = sourceURL(offer.model_source?.manifest_url);
+  if (!modelSource?.manifest_url)
+    throw new Error(
+      "Model source must be configured locally; the host offer does not serve it",
+    );
+  const manifestURL = sourceURL(modelSource.manifest_url);
   const bytes = await download(manifestURL, 1048576, signal);
   if (hex(await sha256(bytes)) !== hex(digestBytes(offer.model_digest)))
     throw new Error("Model manifest digest mismatch");
@@ -349,6 +357,7 @@ export class DealClient extends EventTarget {
   #closedListener;
   #model;
   #digest;
+  #dealId;
   #range;
   #next;
   #previous;
@@ -363,6 +372,9 @@ export class DealClient extends EventTarget {
     hostPeerKey,
     acknowledge,
     validateDeal,
+    modelSource,
+    lapTracker,
+    countersign,
   }) {
     super();
     if (
@@ -379,12 +391,25 @@ export class DealClient extends EventTarget {
       );
     digestBytes(identity.peerKey);
     digestBytes(hostPeerKey);
+    if (
+      lapTracker !== undefined &&
+      (typeof lapTracker?.recordActivation !== "function" ||
+        typeof lapTracker?.validateDeal !== "function" ||
+        typeof lapTracker?.countersign !== "function" ||
+        typeof countersign !== "function")
+    )
+      throw new TypeError(
+        "Lap tracking requires a tracker and countersign callback",
+      );
     this.roomId = roomId;
     this.identity = identity;
     this.offer = structuredClone(offer);
     this.runtime = runtime;
+    this.modelSource = structuredClone(modelSource);
     this.mesh = mesh;
     this.hostPeerKey = hostPeerKey;
+    this.lapTracker = lapTracker;
+    this.countersign = countersign;
     this.acknowledge = acknowledge;
     this.validateDeal = validateDeal;
     this.#listener = ({ detail: { peerKey, frame } }) => {
@@ -416,17 +441,19 @@ export class DealClient extends EventTarget {
 
   async #handle(frame, peerKey) {
     if (this.#state === "closed") throw new Error("Deal client is closed");
-    if (frame.roomId !== this.roomId) throw new Error("Wrong deal room");
-    if (frame.kind === "deal") {
+    if (frame.type === "deal") {
+      validateSignalFrame(frame);
       if (peerKey !== this.hostPeerKey || this.#state !== "idle")
         throw new Error("Unexpected deal");
       this.#state = "loading";
       try {
-        const deal = structuredClone(frame.payload.deal ?? frame.payload);
+        const deal = structuredClone(frame.deal);
         const digest = await dealDigest(deal);
+        await this.lapTracker?.validateDeal(deal);
         for (const name of ["model_digest", "runtime_digest"])
           if (
-            hex(digestBytes(deal[name])) !== hex(digestBytes(this.offer[name]))
+            hex(digestBytes(deal[name])) !==
+            hex(digestBytes(this.offer[name]))
           )
             throw new Error("Deal differs from offer");
         if (hex(digestBytes(deal.room_id)) !== this.roomId)
@@ -434,12 +461,14 @@ export class DealClient extends EventTarget {
         if ((await this.validateDeal(deal)) !== true)
           throw new Error("Deal validation refused");
         const index = deal.plan.layers.findIndex(
-          (split) => hex(digestBytes(split.peer_key)) === this.identity.peerKey,
+          (split) =>
+            hex(digestBytes(split.peer_key)) === this.identity.peerKey,
         );
         if (index < 0) throw new Error("Peer is not assigned to this deal");
         const split = deal.plan.layers[index];
         const loaded = await loadLayerRange({
           offer: this.offer,
+          modelSource: this.modelSource,
           firstLayer: split.first_layer,
           endLayer: split.end_layer,
           runtime: this.runtime,
@@ -472,6 +501,7 @@ export class DealClient extends EventTarget {
         if (this.#abort.signal.aborted)
           throw new Error("Deal client closed during acknowledgement");
         this.#digest = digest;
+        this.#dealId = signalHex(deal.deal_id);
         this.#range = {
           first: split.first_layer,
           end: split.end_layer,
@@ -485,16 +515,49 @@ export class DealClient extends EventTarget {
           index === deal.plan.layers.length - 1
             ? this.hostPeerKey
             : hex(digestBytes(deal.plan.layers[index + 1].peer_key));
-        this.#state = "ready";
-        this.dispatchEvent(
-          new CustomEvent("ready", { detail: { digest: digest.slice() } }),
-        );
+        this.#state = "acknowledged";
       } catch (error) {
         this.close();
         throw error;
       }
       return;
     }
+    if (frame.type === "deal_live") {
+      validateSignalFrame(frame);
+      if (
+        peerKey !== this.hostPeerKey ||
+        this.#state !== "acknowledged" ||
+        signalHex(frame.deal_id) !== this.#dealId
+      )
+        throw new Error("Unexpected live deal");
+      this.#state = "ready";
+      this.dispatchEvent(
+        new CustomEvent("ready", {
+          detail: { digest: this.#digest.slice() },
+        }),
+      );
+      return;
+    }
+    if (frame.type === "lap_receipt") {
+      validateSignalFrame(frame);
+      if (
+        peerKey !== this.hostPeerKey ||
+        this.#state !== "ready" ||
+        !this.lapTracker
+      )
+        throw new Error("Unexpected lap receipt");
+      const result = await this.lapTracker.countersign(frame);
+      if (result.type === "refusal") {
+        this.dispatchEvent(
+          new CustomEvent("lap-refusal", { detail: result }),
+        );
+      } else {
+        await this.countersign(result);
+        this.dispatchEvent(new CustomEvent("lap", { detail: result }));
+      }
+      return result;
+    }
+    if (frame.roomId !== this.roomId) throw new Error("Wrong deal room");
     if (frame.kind === "bye") {
       if (peerKey !== this.hostPeerKey)
         throw new Error("Only host may end a request");
@@ -508,7 +571,9 @@ export class DealClient extends EventTarget {
         this.#requests.delete(id);
         this.#ended.add(id);
       }
-      this.dispatchEvent(new CustomEvent("bye", { detail: { requestId: id } }));
+      this.dispatchEvent(
+        new CustomEvent("bye", { detail: { requestId: id } }),
+      );
       return;
     }
     if (frame.kind !== "activation")
@@ -550,11 +615,13 @@ export class DealClient extends EventTarget {
       });
       if (this.#abort.signal.aborted)
         throw new Error("Deal client closed during activation");
-      await this.mesh.send(
-        this.#next,
-        "activation",
-        encodeActivation({ ...next, values, layer: this.#range.end }),
-      );
+      const output = encodeActivation({
+        ...next,
+        values,
+        layer: this.#range.end,
+      });
+      await this.mesh.send(this.#next, "activation", output);
+      await this.lapTracker?.recordActivation(output);
       request.pending.delete(request.position++);
       this.dispatchEvent(
         new CustomEvent("activation", {
@@ -588,9 +655,8 @@ export function createDenseRuntime({ device, maxSeq = 512 }) {
       )
         throw new Error("Unsupported dense model manifest");
       const { DenseEngine } = await import("../engine/engine/dense.js");
-      const { parseSafetensors } = await import(
-        "../engine/engine/safetensors.js"
-      );
+      const { parseSafetensors } =
+        await import("../engine/engine/safetensors.js");
       const tensors = {};
       for (const shard of shards) {
         for (const [name, tensor] of Object.entries(
@@ -658,7 +724,10 @@ export function createDenseRuntime({ device, maxSeq = 512 }) {
             )
               return;
             seen.add(value);
-            if (typeof GPUBuffer !== "undefined" && value instanceof GPUBuffer)
+            if (
+              typeof GPUBuffer !== "undefined" &&
+              value instanceof GPUBuffer
+            )
               value.destroy();
             else for (const child of Object.values(value)) release(child);
           }

@@ -410,7 +410,10 @@ fn sequencer_receipt(raw: &[u8], success: bool) -> (Value, ReceiptKeyEntry) {
     let bytes = encoded_receipt(tx_hash, sender, nonce, success, Some(signature));
     let decoded = receipt_value(layerx_wire::receipt::decode(&bytes));
     assert_eq!(
-        decoded.protocol().unwrap().asset(),
+        decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("test value missing"))
+            .asset(),
         sha256(PAYMENT_DENOM.as_bytes())
     );
     let key = ReceiptKeyEntry {
@@ -442,7 +445,10 @@ fn missing_or_changed_payment_denomination_never_resolves_unknown() {
         let (mut store, mut outbox, exact, hash) = unknown_outbox(&root, 5);
         let (mut receipt, key) = sequencer_receipt(&exact, true);
         if missing {
-            receipt.as_object_mut().unwrap().remove("paymentDenom");
+            receipt
+                .as_object_mut()
+                .unwrap_or_else(|| panic!("test value missing"))
+                .remove("paymentDenom");
         } else {
             receipt["paymentDenom"] = json!("upax");
         }
@@ -451,27 +457,49 @@ fn missing_or_changed_payment_denomination_never_resolves_unknown() {
             json!([rpc_hex(&hash)]),
             Some(receipt),
         )]);
-        let result =
-            resolve_unknown(&mut outbox, &mut store, hash, 1_000, &[key], &mut endpoint).unwrap();
-        let traffic = server.join().unwrap();
+        let result = resolve_unknown(&mut outbox, &mut store, hash, 1_000, &[key], &mut endpoint)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+        let traffic = server
+            .join()
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
         assert_eq!(result.state, SubmissionState::Unknown);
         assert_eq!(result.observation, ResolutionObservation::UnverifiedReceipt);
         assert_eq!(result.resend, ResendObservation::NotWarranted);
         assert_eq!(traffic.lookups, 1);
         assert!(traffic.transmitted.is_empty());
-        assert!(outbox.status(hash).unwrap().evidence.is_none());
+        assert!(outbox
+            .status(hash)
+            .unwrap_or_else(|| panic!("test value missing"))
+            .evidence
+            .is_none());
         drop(outbox);
         drop(store);
-        let store = Store::open(&root).unwrap();
+        let store =
+            Store::open(&root).unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
         let mut restored = Outbox::default();
-        restored.restore(&store, tenant(), hash).unwrap();
+        restored
+            .restore(&store, tenant(), hash)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
         assert_eq!(
-            restored.status(hash).unwrap().state,
+            restored
+                .status(hash)
+                .unwrap_or_else(|| panic!("test value missing"))
+                .state,
             SubmissionState::Unknown
         );
-        assert!(restored.status(hash).unwrap().evidence.is_none());
-        assert_eq!(restored.exact_signed_bytes(hash).unwrap(), exact);
+        assert!(restored
+            .status(hash)
+            .unwrap_or_else(|| panic!("test value missing"))
+            .evidence
+            .is_none());
+        assert_eq!(
+            restored
+                .exact_signed_bytes(hash)
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+            exact
+        );
         drop(store);
-        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(root)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     }
 }

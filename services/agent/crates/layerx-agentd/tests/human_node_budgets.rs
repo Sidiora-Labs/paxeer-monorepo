@@ -224,9 +224,12 @@ fn published_key(key: ReceiptKeyEntry) -> Value {
     }]})
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the fixed fixture tenant identifier is invalid.
 pub fn request() -> BudgetRequest {
     BudgetRequest {
-        tenant: TenantId::new("budget-owner").expect("tenant"),
+        tenant: assert_ok(TenantId::new("budget-owner"), "tenant"),
         request_id: [9; 32],
         kind: BudgetKind::ProtocolBudget,
         asset: [3; 32],
@@ -238,6 +241,7 @@ pub fn request() -> BudgetRequest {
     }
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn identity() -> BudgetCreateIdentity {
     BudgetCreateIdentity {
         encoding_version: 1,
@@ -259,23 +263,27 @@ pub fn identity() -> BudgetCreateIdentity {
     }
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if budget calldata cannot be encoded or the fixture key cannot sign the call.
 pub fn signed_call(request: &BudgetRequest, identity: &BudgetCreateIdentity) -> Vec<u8> {
-    let prepared = request
-        .create_protocol_budget(identity)
-        .expect("budget calldata");
-    Eip1559Call {
-        chain_id: 125,
-        nonce: 7,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 3,
-        gas_limit: 100_000,
-        to: prepared.target.address(),
-        data: prepared.encode().expect("ABI encoding"),
-    }
-    .sign(&[0xa5; 32])
-    .expect("real secp256k1 signature")
+    let prepared = assert_ok(request.create_protocol_budget(identity), "budget calldata");
+    assert_ok(
+        Eip1559Call {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 3,
+            gas_limit: 100_000,
+            to: prepared.target.address(),
+            data: assert_ok(prepared.encode(), "ABI encoding"),
+        }
+        .sign(&[0xa5; 32]),
+        "real secp256k1 signature",
+    )
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn budget_result() -> Vec<u8> {
     let mut result = vec![0; 20 * 32];
     for (index, value) in [
@@ -364,34 +372,41 @@ fn send_payload() -> Vec<u8> {
 }
 
 fn prepared() -> SigningPreparation {
-    let key = k256::ecdsa::SigningKey::from_slice(&[0xa5; 32]).unwrap();
-    let actor_address = layerx_crypto::secp256k1::evm_address(
-        key.verifying_key().to_encoded_point(false).as_bytes(),
-    )
-    .unwrap();
-    let transaction = layerx_agentd::prepare::prepare_bound(
-        layerx_agentd::prepare::EvmPreparationState {
-            chain_id: 17,
-            pending_nonce: 5,
-            base_fee_per_gas: 3,
-            head_height: 88,
-        },
-        layerx_agentd::prepare::EvmPreparationDefaults {
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 7,
-            maximum_payload_bytes: 1_024,
-        },
-        layerx_agentd::prepare::EvmPrepareRequest {
-            from: actor_address,
-            call: layerx_agentd::prepare::PrecompileCall::ledger_transfer(send_payload()),
-            expected_nonce: Some(5),
-            max_priority_fee_per_gas: None,
-            max_fee_per_gas: None,
-            declared_payload_limit: 1_024,
-        },
-        100_000,
-    )
-    .unwrap();
+    let key = assert_ok(
+        k256::ecdsa::SigningKey::from_slice(&[0xa5; 32]),
+        "unexpected error",
+    );
+    let actor_address = assert_ok(
+        layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
+        ),
+        "unexpected error",
+    );
+    let transaction = assert_ok(
+        layerx_agentd::prepare::prepare_bound(
+            layerx_agentd::prepare::EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: 5,
+                base_fee_per_gas: 3,
+                head_height: 88,
+            },
+            layerx_agentd::prepare::EvmPreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 7,
+                maximum_payload_bytes: 1_024,
+            },
+            layerx_agentd::prepare::EvmPrepareRequest {
+                from: actor_address,
+                call: layerx_agentd::prepare::PrecompileCall::ledger_transfer(send_payload()),
+                expected_nonce: Some(5),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 1_024,
+            },
+            100_000,
+        ),
+        "unexpected error",
+    );
     SigningPreparation {
         transaction,
         actor_address,
@@ -493,11 +508,8 @@ fn budget_pipeline_submits_raw_transaction_and_reads_get_budget() {
     let requests = must(server.join());
     assert_eq!(requests.len(), 10);
     assert_eq!(requests[1]["params"], json!([rpc_hex(&raw)]));
-    for index in 2..=4 {
-        assert_eq!(
-            requests[index]["params"],
-            json!([rpc_hex(&transaction_hash(&raw))])
-        );
+    for request in &requests[2..=4] {
+        assert_eq!(request["params"], json!([rpc_hex(&transaction_hash(&raw))]));
     }
     let mut calldata = transaction_hash(b"getBudget(bytes32)")[..4].to_vec();
     calldata.extend_from_slice(&identity().budget_id);
@@ -518,14 +530,14 @@ fn receipt_payment_denomination_is_required_and_bound_to_signed_asset() {
     let (view, bytes, _) = signed_receipt(hash, sender, true);
     let decoded = must(layerx_wire::receipt::decode(&bytes));
     assert_eq!(
-        decoded.protocol().unwrap().asset(),
+        assert_some(decoded.protocol(), "expected Some value").asset(),
         sha256(PAYMENT_DENOM.as_bytes())
     );
     for alteration in ["unchanged", "missing", "changed"] {
         let mut response = view.clone();
         match alteration {
             "missing" => {
-                response.as_object_mut().unwrap().remove("paymentDenom");
+                assert_some(response.as_object_mut(), "expected Some value").remove("paymentDenom");
             }
             "changed" => response["paymentDenom"] = json!("another-denom"),
             _ => {}
@@ -553,5 +565,21 @@ fn receipt_payment_denomination_is_required_and_bound_to_signed_asset() {
             );
         }
         assert_eq!(must(server.join())[1]["params"], json!([rpc_hex(&hash)]));
+    }
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
     }
 }

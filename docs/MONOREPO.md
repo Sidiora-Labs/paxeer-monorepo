@@ -438,6 +438,54 @@ enrolment HTTP adapters and uses different signalling envelopes, as noted
 above. These tests do not qualify a live chain, native WebRTC/GPU execution,
 lap countersigning or canary integration.
 
+## Inference peer browser page
+
+[`apps/inference-peer/index.html`](../apps/inference-peer/index.html) loads
+[`src/page.mjs`](../apps/inference-peer/src/page.mjs) as a plain ES module.
+Start its loopback static server from the repository root with
+`npm --prefix apps/inference-peer run serve`, then open
+`http://127.0.0.1:4173`. `PORT` overrides 4173. The server supplies JavaScript
+module MIME types, cross-origin isolation headers and a bounded 64 KiB `/probe`
+for manifest measurement. It serves only the page, `src/` and `engine/`;
+participant keys, package metadata and local tests are not served.
+
+The page opens the existing browser IndexedDB identity, displays the WebGPU
+adapter, and measures a v2 manifest from the operator's canonical v1 hex bytes,
+two-letter region and bandwidth probe URL. Browser measurement requires
+`navigator.deviceMemory`; a failed probe or unavailable measurement is shown
+explicitly and prevents joining with stale capabilities. Paste the host's
+`ws://` or `wss://` signalling origin (request target `/`) and 32-byte room ID
+as 64 lowercase hex characters after measurement. `SignalClient` waits for
+the host challenge and signs its hello with the persisted Ed25519 identity.
+Signalling uses bounded JSON text frames from `src/signal.mjs`.
+
+`PeerPage` and `renderStatus` display the host offer, the assigned layer range
+with an exclusive end, the deal, `deal_live` and the exact host error code.
+The offer/deal price is shown as an exact string, with no earnings calculation.
+The host's `ServerFrame` in
+`services/agent/crates/layerx-agentd/src/inference_market/signal.rs` and
+`DealServerFrame` in its `deals.rs` publish no status frame. Consequently the
+page's `#laps`, `#receipts` and `#earnings` fields explicitly display unavailable
+state. No countersigned receipt or income is inferred from a received deal.
+The page does not automatically accept a deal: the browser still lacks the
+chain validation and trusted model-source/host-key integration required to
+acknowledge it and start GPU work. `renderStatus` can display `deal_live` once
+an acknowledged session supplies it; the page does not fabricate acceptance.
+
+Leaving, pagehide and unload close the signalling socket once. The host accepts
+no signalling `bye` (the `ClientFrame` and `DealClientFrame` enums have no such
+variant); the old page's signalling-bye requirement therefore has no producer
+interface at `PeerPage.leave`. Data-channel bye remains in the mesh protocol,
+which this page does not start before deal validation.
+
+The jsdom test uses the declared, exactly pinned development dependency. It
+exercises persisted identity reopening, challenge-first signed hellos over real
+loopback WebSockets using the existing host-frame vectors, measured memory and
+a real HTTP probe, offer/deal/error rendering, the `deal_live` renderer, unload
+closure and static-server boundaries. It uses the existing native identity
+store because jsdom has no IndexedDB or WebGPU. It does not qualify browser GPU
+execution, chain admission, deal acceptance or lap countersigning.
+
 ## Trees that move under core in a later release
 
 These are planned directory moves, not additional deployments. In particular, the current kernel sources still live at the repository root.
@@ -478,3 +526,86 @@ Workflows live in `.github/workflows/`. `node-build.yml` builds native libraries
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md): contribution guidelines
 - [`QUALIFICATION.md`](QUALIFICATION.md): evidence levels and qualification gates
 - [`paxeer-network.md`](paxeer-network.md): merged runtime, root node endpoints and tenant domains
+
+## Inference peer lap countersignatures
+
+[`src/laps.mjs`](../apps/inference-peer/src/laps.mjs) exports `LapTracker`,
+`countersignLap` and the program-compatible receipt and countersign digest
+functions. Construct a tracker with `{ identity, deal, hostMeterKey }`, using
+the accepted deal and independently trusted host meter key. Pass it to
+`DealClient` as `lapTracker`, with `countersign: ack => signal.countersignLap(ack)`.
+Forward `lap_receipt` signalling events to `DealClient.handleFrame`, alongside
+`deal` and `deal_live`. The client records each successfully forwarded encoded
+output activation in processing order. A range digest is SHA-256 of the
+concatenated activation payloads for that lap; the host supplies these digests
+through `LapInput.layer_range_digests`, in deal-plan order.
+
+The tracker starts at lap zero and checks the deal binding, pinned meter key,
+host signature, deadline, continuous lap index, its assigned range digest and
+local activation count. Cumulative tokens include prompt tokens on the first
+lap and advance only by generated tokens thereafter. Refusals preserve the
+activation evidence and return `{ type: "refusal", reason }` locally, surfaced
+as `lap-refusal` events. The host has no refusal message on its socket. Identical
+receipt retransmissions return the cached countersignature without advancing
+accounting; conflicting retransmissions refuse. Activations already processed
+for a later lap remain buffered, up to a total of 64 MiB. Tracker state is
+in memory and requires the original processing evidence to countersign.
+
+The socket carries JSON text `{ type: "lap_receipt", lap }` and
+`{ type: "lap_countersign", deal_id, lap_index, digest, signature }` through
+`src/signal.mjs`, using the Rust host's exact snake-case members and byte arrays.
+The peer signs the SHA-256 digest of `PAXAI/lap-countersign/v1`, a zero byte,
+deal digest, host meter key, big-endian deadline and program receipt digest.
+The program receipt encoding and its two hash domains match task 22.38.4;
+the binary lap kinds in `src/wire.mjs` are not sent on signalling sockets.
+
+[`test/laps.test.mjs`](../apps/inference-peer/test/laps.test.mjs) exercises these
+checks with the fixed vectors in `test/fixtures/host-lap-frames.json`, the real
+signalling client over loopback WebSockets, encoded activations over TCP and
+the CPU model's assigned layers loaded from verified HTTP shards. Its fixture
+recipe is `test/fixtures/generate-host-lap-frames.mjs`; it independently encodes
+the Rust layouts, including `f11_lap_settlement.rs::batch(0, 1, 0)`.
+The declared gate runs `node --test apps/inference-peer/test/laps.test.mjs`.
+
+## Inference peer canary answers
+
+[`src/canary.mjs`](../apps/inference-peer/src/canary.mjs) provides
+`encodeFixedPointLogits`, `CanaryTracker` and `canaryAnswer`. Encoding selects
+the eight greatest finite logits in descending order, rounds to Q16 with
+halfway values away from zero, and writes eight signed big-endian i32 values
+in the program's `canary::encode_logits` layout. Values that overflow i32 refuse.
+The fixture uses the program's `f11_canary_challenge.rs::EXPECTED` vector.
+
+Construct a tracker with `{ identity, deal }` and record actual model-head
+output with `recordLogits({ lapIndex, position, logits })`. The tracker copies
+the encoded values, retains at most 8192 positions, refuses conflicting
+records and clears them on `close()`. `canaryAnswer(plan, tracker)` consumes
+the host's existing `CanaryPlan` payload, checks the deal, selected peer,
+frozen binding, lap and prompt context, and returns its `CanaryAnswer` payload.
+It signs the SHA-256 domain `PAXAI/canary-answer/v1` over the 248-byte host
+context and the `PAXAI/canary-logits/q16/v1` digest. Unknown positions return
+`{ type: "refusal", reason: "unknown_position" }` locally.
+
+The signalling codec accepts the host's text JSON frames
+`{ "type": "canary_request", "plan": ... }` and
+`{ "type": "canary_answer", "answer": ... }`, matching `LapServerFrame` and
+`LapAcknowledgement` in the daemon's `inference_market/laps.rs`. The socket
+client calls `canaryAnswer` for the requested peer key and sends only successful
+answers. Refusals, including unknown positions, emit a local `canary-refusal`
+event and send no frame. A successful answer emits `canary`. The binary canary
+kind in `src/wire.mjs` is not used on the signalling socket.
+
+`SignalClient` creates a tracker when a deal arrives and clears it when the
+next deal arrives or the socket closes. A caller with an already bound deal
+can supply `{ canaryTracker }` at construction; it must use the socket's peer
+identity. Record outputs with `signal.recordCanaryLogits({ lapIndex, position,
+logits })`. The logits come from the runtime of the peer. Hidden layer
+activations are not logits; a runtime that has not supplied actual model-head
+logits leaves the position unknown and the request refuses locally. Canary
+positions use the ordinary activation path without a special binary request.
+
+[`test/fixtures/host-canary-frames.json`](../apps/inference-peer/test/fixtures/host-canary-frames.json)
+keeps the host's producer-defined vectors unchanged and carries the program
+encoding vector in `program_codec`. The declared `test/canary.test.mjs` gate
+checks encoding, signing, refusals, strict frame members and both directions
+of a real loopback WebSocket exchange against those vectors.
