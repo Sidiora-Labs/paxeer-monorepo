@@ -236,6 +236,36 @@ static int transfer_destination_case(enum transfer_destination destination)
             asset.asset_id, ctx.protocol_version, &resolved) == expected);
         if (settled) CHECK(resolved == opened[paid_index]);
     }
+    {
+        uint8_t fee_account[32];
+        lxp_result length = layerx_programs_call_destination_name_byte(token,
+            read_u64(to), read_u64(to + 8U), read_u64(to + 16U), read_u64(to + 24U),
+            read_u64(asset.asset_id), read_u64(asset.asset_id + 8U),
+            read_u64(asset.asset_id + 16U), read_u64(asset.asset_id + 24U), UINT32_MAX);
+        CHECK(length == (destination == DESTINATION_ACCOUNT ? 0 : settled ?
+            (lxp_result)strlen(names[paid_index]) : expected));
+        if (destination == DESTINATION_PRINCIPAL) {
+            for (uint32_t offset = 0U; offset <= (uint32_t)length; ++offset) {
+                CHECK(layerx_programs_call_destination_name_byte(token,
+                    read_u64(to), read_u64(to + 8U), read_u64(to + 16U), read_u64(to + 24U),
+                    read_u64(asset.asset_id), read_u64(asset.asset_id + 8U),
+                    read_u64(asset.asset_id + 16U), read_u64(asset.asset_id + 24U), offset) ==
+                    (offset == (uint32_t)length ? LXP_ERR_TRUNCATED :
+                        (lxp_result)(uint8_t)names[paid_index][offset]));
+            }
+        }
+        CHECK(web_fee_account_id(asset.asset_id, fee_account) == LXP_OK);
+        CHECK(account_by_id(&accounts, fee_account) == NULL);
+        for (size_t i = 0U; i < 2U; ++i) {
+            CHECK(layerx_programs_call_destination_name_byte(token,
+                read_u64(fee_account), read_u64(fee_account + 8U),
+                read_u64(fee_account + 16U), read_u64(fee_account + 24U),
+                read_u64(asset.asset_id), read_u64(asset.asset_id + 8U),
+                read_u64(asset.asset_id + 16U), read_u64(asset.asset_id + 24U),
+                i == 0U ? UINT32_MAX : 0U) == (i == 0U ? 0 : LXP_ERR_TRUNCATED));
+        }
+        CHECK(accounts.count == account_count);
+    }
     CHECK(layerx_programs_call_transfer_begin(token, 0U, 1U) == LXP_OK);
     status = layerx_programs_call_transfer_leg(token, 0U,
         PROGRAM_TRANSFER_SOURCE_PRINCIPAL,
