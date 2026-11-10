@@ -39650,3 +39650,11 @@ symbol = "event_producer_tls.rs"
 observed = "Attempt 3 at 9dd4f10d7f0f: build exit 0, dependents exit 0; verification exit 1 (the test run exits 101): the subject coordinate case passes and the TLS case panics at services/platform/hosted/internal/src/producer_test_support.rs:340 with webhook exited before listening after 0.89 seconds; log /out/logs/verify-1.log."
 assumption = "The delivery process fails at its start inside the fixture and the fixture hides the cause."
 severity = "high"
+
+[finding.22.39.316.1]
+task = "22.39.316"
+file = "programs/crates/layerx-programs-ai-market/tests/settlement_capacity.rs"
+symbol = "settlement_capacity.rs"
+observed = "Attempt 1 at aa1dd32ca674 on base dc2b45b72dcc: build exit 0 (log /out/logs/build-3.log), dependents exit 0; verification exit 1 (the test run exits 101): 2 of 3 cases of tests/settlement_capacity.rs pass and funded_reward_state_and_all_room_book_capacities_fit_together panics at tests/support/f11_rooms.rs:285 with the RecordDeal operation refused by application error index 20 (CONFLICT) at revision 345; log /out/logs/verify-1.log."
+assumption = "The refusal comes from the fixture of the case reusing two bids for every deal, not from the raised bounds."
+severity = "high"
