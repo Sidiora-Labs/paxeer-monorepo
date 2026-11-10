@@ -12724,6 +12724,42 @@ value = "Decision 3218 is applied to the five outside files of gotcha 4196. The 
 basis = "Gotcha 4196, decisions 3053, 3183, 3211, 3218 and 3257."
 affects = ["22.39.228", "22.39.229"]
 
+[decision.3269]
+title = "The wave gate runs inside a stated disk budget"
+value = "The wave gate runs the same six commands with the same targets, packages, features and cases; nothing is left out for space. Its disk use is bounded in three ways. First, run_wave of spec/layerx-merge/programme/gates.py sets in the environment of the commands that Cargo keeps no incremental state and that the development and test profiles carry no debug information, through the CARGO_INCREMENTAL and CARGO_PROFILE variables of Cargo; no manifest changes for it. Second, scripts/gates/run_gate.py writes the free space of the volume to the gate log before and after every command. Third, when a setting names a bound in GiB and the free space is under that bound before a command starts, run_gate.py first removes the Cargo build output of the gate and the build cache of Go and logs what it removed and the space gained. Nothing is removed without the setting, nothing while a command runs, and an output that a later command reads and does not rebuild is kept. run_wave sets the bound for the gate run. A command that cannot finish from an empty target directory inside the volume is reported with the measured sizes per workspace and put before the owner; it is not shortened. The file scripts/gates/run_gate.py joins the paths of task 17.5.7 (decision 3211)."
+basis = "Gotcha 4198, decisions 3157, 3183 and 3211."
+affects = ["17.5.7"]
+
+[decision.3270]
+title = "The committed AI read is served by a source process of the hosted indexer package"
+value = "The route that the AI projection of the indexer polls is served by the executable layerx-ai-source, a second binary target of the package layerx-indexer. It reads one node over interfaces the node already has: the signed header and the commit of a height and the proved store entries that poll_finalized_market of the client library reads. It answers a poll with the document of encode_committed_read, and with 204 and an empty body only when it has read the node up to its latest height and found nothing newer than the cursor of the poll. It holds no key and confers no authority: the indexer verifies the header, the commit and the store proof against its configured validators exactly as today, so a false source can only withhold. No node source, no node interface and no validator changes, and the px_ family stays as decision 2521 states. The package gains no dependency for it. This follows the ruling that the chain verifies, pays and connects and that the services around it run beside the nodes. The other placement, a read of the node inside the indexer process with no separate route, stays open to the owner; the document and its verification would be the same."
+basis = "Gotcha 4199, decisions 2521, 3046 and 3130."
+affects = ["22.39.369", "22.38.36"]
+
+[decision.3271]
+title = "The host serves the enrolment of a peer on its signalling listener"
+value = "The signalling listener of the host serves POST /enrol_peer. The body is one enrolment document in the form the host reads for its own enrolment in main.rs: both manifest forms, the signed records enroll, accept, publish, lock_bond and post_bid, and the expiry. The host checks chain and program as it does for its own document and relays the records through EnrolmentRelay::enrol_peer; it signs nothing for the peer and holds no key of the peer. The join command of the peer package sends that document from a file named by an option and no longer sends the Ed25519 body, which no host function can use. Without the option the command sends no enrolment request and the acceptance of the hello frame decides as today. The call of the route bind_peer is removed: no operation of the program takes an attestation binding, so the local check of the attestation stays and the attestation family byte of the manifest remains the claim on the wire. Both sides read one vector file for the request and the answers (decision 3046). Decision 3259 stands for task 22.38.36; from task 22.38.37 on the room driver enrols its peers through this route with the enrolment function of the peer package. Who prepares the signed document for the owner of a peer outside a proof is not ruled here and is put before the owner."
+basis = "Gotcha 4200, decisions 3046, 3235 and 3259."
+affects = ["22.39.370", "22.38.37", "22.38.36"]
+
+[decision.3272]
+title = "The room proof reads availability through the product path"
+value = "The room proof starts the source process of decision 3270, the indexer with its AI configuration pinned to the validator of the isolated chain, and the hosted gateway with its AI views and a key for the daemon, all built from the revision under test, and the daemon reads availability through that gateway. No stand-in replaces the source process, the indexer or the gateway; the services the gateway itself needs for its keys may be the support programs of the gateway tests. The source check of the driver asks the source process and not the node. A process that the qualification environment cannot start is recorded with its first message and the proof stops; it is not skipped. The build step of the driver builds the three executables. Task 22.38.36 follows tasks 22.39.368 and 22.39.369 and its time limit is 420 minutes; tasks 22.38.37 and 22.38.38 use the same build step."
+basis = "Gotcha 4199, decisions 3046, 3259 and 3270."
+affects = ["22.38.36", "22.38.37", "22.38.38"]
+
+[decision.3273]
+title = "Every test target of the agent daemon that takes in an inference market source by path carries the allowance of decision 3218"
+value = "A test target of the agent daemon that takes in a file under src/inference_market by path reports as unused the items that the host binary uses and the target does not. The outer module item of each such target carries one allowance of dead_code with a reason that says so. A list of such targets in a step of a task is an example and never closes the rule. Every other lint of an included file is repaired at source by the task whose paths hold the file, and decision 3053 holds everywhere else."
+basis = "Gotcha 4201, decisions 3053, 3218 and 3250."
+affects = ["22.39.227", "22.39.229", "22.39.356", "22.39.228"]
+
+[decision.3274]
+title = "The host asks the selected peer for its canary answer on the signalling socket"
+value = "The canary travels like the lap receipt. The host sends the server frame canary_request with the member plan to the connection of the peer that the plan names, and that peer returns the client frame canary_answer with the member answer; both are text frames of JSON with the member type, and plan and answer hold CanaryPlan and CanaryAnswer in the form the host serialises them today. The host sends the request only after the lap output of that lap has arrived from the runtime, so that a peer learns the position after it has processed it, and before the audit of the lap; it waits for the answer for a bound that a setting states, and an answer that does not arrive is treated as the engine treats a missing answer today. A frame from another peer, for another deal or lap, or a second answer is refused. The two internal requests stay as they are. The host task writes the vector file apps/inference-peer/test/fixtures/host-canary-frames.json with one vector for each frame under the member vectors, a case of the agent daemon reads it with the host frame types and the peer package reads the same file (decisions 3046 and 3235). Task 22.39.371 owns the host side and task 22.38.28 follows it. Two points are not ruled here and are put before the owner: whether a peer that stays silent is challenged on the chain, and how the runtime of a peer that serves layers of a model obtains the logits of a position; the peer package takes the logits from its runtime and derives none from activations."
+basis = "Gotcha 4202, decisions 3046, 3211 and 3235."
+affects = ["22.39.371", "22.38.28", "22.38.37"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42384,6 +42420,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.371]
+title = "Carry the canary request and the canary answer on the signalling socket of the host"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/inference_market", "services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_canary_frames.rs::canary_frames_match_the_vectors"]
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx && test -s apps/inference-peer/test/fixtures/host-canary-frames.json && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test inference_canary_frames --test inference_canary && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_canary_frames -- -D warnings && (cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short > ${TMPDIR:-/tmp}/lint-22-39-371-bin.log 2>&1 || true) && ! grep -F inference_market/canary.rs ${TMPDIR:-/tmp}/lint-22-39-371-bin.log"
+do_1 = "do_1 Decision 3274, gotcha 4202. Read the producer: CanaryPlan, CanaryAnswer, prepare, accept_answer and audit_answer of services/agent/crates/layerx-agentd/src/inference_market/canary.rs (:127, :156, :287, :385, :448), the lap output handler of src/main.rs with its canary calls (:2578 to :2630), and how the lap receipt and its countersignature travel on the socket: LapAcknowledgement, the client frame and LapServerFrame of src/inference_market/laps.rs (:828 to :841), issue_lap (:1008) and the handling of a client frame (:1177)."
+symbols = []
+
+[capability.22.39.370]
+title = "Serve the enrolment of a peer on the host and send it from the peer command"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/inference_market", "services/agent/crates/layerx-agentd/src/main.rs", "apps/inference-peer/src", "apps/inference-peer/test", "apps/inference-peer/README.md", "docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/enrol.test.mjs", "services/agent/crates/layerx-agentd/tests/inference_enrol_route.rs"]
+verification_contract = "test -s apps/inference-peer/repair-22-39-370.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test inference_enrol_route && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_enrol_route -- -D warnings && node --test apps/inference-peer/test/enrol.test.mjs apps/inference-peer/test/cli.test.mjs apps/inference-peer/test/identity.test.mjs"
+do_1 = "do_1 Decision 3271, gotcha 4200. Read the host side: EnrolmentRelay::enrol_peer, SignedManifest, PriceQuote and read_enrolment_file of services/agent/crates/layerx-agentd/src/inference_market/enrol.rs (:529), the function inference_enrol_host of src/main.rs (:2775) with the members of the enrolment document it reads and its checks of chain and program, and the request handling of the signalling listener in src/inference_market/signal.rs (:758). Read the peer side: joinCommand of apps/inference-peer/src/cli.mjs (:275, the calls at :321 and :324) and enrolPeer of src/identity.mjs."
+symbols = []
+
+[capability.22.39.369]
+title = "Serve the committed AI read from a source process beside the indexer"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer"]
+tests = ["services/platform/hosted/indexer/tests/ai_source.rs::committed_read_reaches_the_projection"]
+verification_contract = "test -s services/platform/hosted/indexer/repair_22_39_369.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test ai_source --test env_example && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-deps --lib --bin layerx-ai-source --test ai_source -- -D warnings"
+do_1 = "do_1 Decision 3270, gotcha 4199. Read the consumer first: AiRuntime::poll and the ingest of services/platform/hosted/indexer/src/ai_runtime.rs (:393), encode_committed_read (:212) with the members of its document, RuntimeConfig (:446) and BlockCommitProof of src/ai_market.rs:321. Then read how the client library reads the same facts from a node: poll_finalized_market of services/agent/crates/layerx-client/src/ai_market.rs:593, its artifact reader at :692 with the store path, the key forms and the state height one under the header height, and acquire_committed_header of src/rpc/commit.rs:28. List the requests a node must answer for one committed read."
+symbols = []
 
 [capability.22.39.368]
 title = "Compile the test target repair_22_31_549 of the agent daemon again"
@@ -164674,7 +164737,7 @@ title = "Answer canary prompts inside the lap"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.26", "22.38.19", "22.39.355"]
+requires = ["22.38.26", "22.38.19", "22.39.355", "22.39.371"]
 reqs = ["22380.4"]
 capabilities = ["22.38.28"]
 interfaces = []
@@ -164698,6 +164761,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3235, gotcha 4162: the host sends the canary frames of task 22.38.19 on the signalling socket in the frame form of the host, text frames of JSON with the member type in snake case. Read the producer on main (the canary module beside signal.rs and deals.rs in services/agent/crates/layerx-agentd/src/inference_market) and speak exactly its type names and member names through the codec src/signal.mjs of task 22.39.355; the binary kind of src/wire.mjs for a canary answer is not sent on the socket. Add apps/inference-peer/test/fixtures/host-canary-frames.json with one vector for every canary frame in both directions and make the stand-in host of test/canary.test.mjs speak only these vectors. The touches now name the source and test directories of the peer."
+do_4 = "Attempt 2 (continue after 22.39.371 lands, gotcha 4202, decision 3274): the attempt-1 tree dc3ef44a142e stands (src/canary.mjs with the encoding, the tracker and the signed answer, the seven passing cases, the section of docs/MONOREPO.md). The missing socket frames are right and are now produced by task 22.39.371, which the task requires: the server frame canary_request with the member plan and the client frame canary_answer with the member answer. Rebase on main once that task is on it. The vector file apps/inference-peer/test/fixtures/host-canary-frames.json then exists on main: keep the file of main, add the member program_codec of the attempt tree to it and drop the members status and observed. Teach the codec src/signal.mjs the two frame types with exactly the type names and member names of the vectors, and let the socket client of the peer answer a canary_request for its own key with the result of canaryAnswer and send it as canary_answer; an unknown position or a refused plan sends no frame and is reported locally. The case host_canary_socket_vectors_cover_both_directions reads the vectors of main in both directions, and the stand-in host of the test file speaks only these vectors. The binary kind of src/wire.mjs for a canary answer is still not sent on the socket. Bring the section of docs/MONOREPO.md to what is now served; keep its sentence that the logits come from the runtime of the peer. Change no file of the agent daemon. Run the build once and the verification once at the final revision."
 
 [task.22.38.27]
 title = "Countersign lap receipts the peer contributed to"
@@ -185121,6 +185185,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.370]
+title = "Serve the enrolment of a peer on the host and send it from the peer command"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.28"]
+reqs = ["22998.1"]
+capabilities = ["22.39.370"]
+interfaces = []
+do_1 = "do_1 Decision 3271, gotcha 4200. Read the host side: EnrolmentRelay::enrol_peer, SignedManifest, PriceQuote and read_enrolment_file of services/agent/crates/layerx-agentd/src/inference_market/enrol.rs (:529), the function inference_enrol_host of src/main.rs (:2775) with the members of the enrolment document it reads and its checks of chain and program, and the request handling of the signalling listener in src/inference_market/signal.rs (:758). Read the peer side: joinCommand of apps/inference-peer/src/cli.mjs (:275, the calls at :321 and :324) and enrolPeer of src/identity.mjs."
+do_2 = "do_2 Host: the signalling listener serves POST /enrol_peer. The body is one JSON enrolment document with the members the host reads for its own enrolment, bounded at 262144 bytes; the listener reads the length first and refuses a larger or a malformed body before any submission. The document is parsed and checked by the code that checks the own document of the host, moved into the library where needed so that both callers share it, and the records are relayed through EnrolmentRelay::enrol_peer with the relay of the host. The answer is a JSON object with the outcome on success, and a refusal with a stable reason and a matching status otherwise. A request counts against the connection bound of the listener, and GET /healthz and the upgrade keep their behaviour. The host signs nothing for the peer. A host that runs without its enrolment settings answers the route with a refusal that says so."
+do_3 = "do_3 Peer: the join command gains an option that names the enrolment file; enrolPeer sends its content to the route and reads the answers of the host; the Ed25519 body and the quote argument of the old form are retired together with their cases. Without the option the command sends no enrolment request. Remove the call of the route bind_peer and keep the local attestation check. Bring apps/inference-peer/README.md and docs/MONOREPO.md:200 to :211 to what is now served and what remains open, the preparation of the signed document for the owner of a peer."
+do_4 = "do_4 Tests. One vector file apps/inference-peer/test/fixtures/host-enrol-route.json holds the request body and the answers, and both sides read it. The Rust target tests/inference_enrol_route.rs drives the listener with the chain stand-in of tests/inference_enrol.rs: an accepted document reaches the relay with every record in order, and an oversized body, a wrong chain, a wrong program, a missing record and an expired document are refused with no submission. The target takes in signal.rs by path with the allowance of decisions 3218 and 3273 on the outer module item and lints clean. apps/inference-peer/test/enrol.test.mjs covers the option, the request and each answer of the vector file against a loopback listener, and the absence of any request without the option. Member names in both tests come from the vector file (decision 3046). Record in apps/inference-peer/repair-22-39-370.kvx the route, the document, the answers and the open point. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/inference_market", "services/agent/crates/layerx-agentd/src/main.rs", "apps/inference-peer/src", "apps/inference-peer/test", "apps/inference-peer/README.md", "docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/enrol.test.mjs", "services/agent/crates/layerx-agentd/tests/inference_enrol_route.rs"]
+planned_paths = ["apps/inference-peer/test/enrol.test.mjs", "apps/inference-peer/test/fixtures/host-enrol-route.json", "services/agent/crates/layerx-agentd/tests/inference_enrol_route.rs", "apps/inference-peer/repair-22-39-370.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test inference_enrol_route && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "test -s apps/inference-peer/repair-22-39-370.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test inference_enrol_route && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_enrol_route -- -D warnings && node --test apps/inference-peer/test/enrol.test.mjs apps/inference-peer/test/cli.test.mjs apps/inference-peer/test/identity.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.365]
 title = "Accept a further deal of the room host for a matched ask"
 status = "pending"
@@ -186133,7 +186228,7 @@ title = "Prove that a canary failure slashes the faulty peer bond"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.38.36", "22.38.28", "22.38.7", "22.31.620"]
+requires = ["22.38.36", "22.38.28", "22.38.7", "22.31.620", "22.39.370"]
 reqs = ["22380.6"]
 capabilities = ["22.38.37"]
 interfaces = []
@@ -186155,13 +186250,14 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_2 = "do_2 Decisions 3271 and 3272, gotcha 4200: the task now requires task 22.39.370. In the canary proof the peers enrol through the route POST /enrol_peer of the host with the enrolment function of the peer package and an enrolment document that the driver prepares and signs for each peer; the driver submits no enrolment record of a peer itself in this proof. The room proof keeps its own writes (decision 3259). The driver starts the source process, the indexer and the gateway as the room proof does."
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["22.38.21", "22.38.27", "22.31.620"]
+requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369"]
 reqs = ["22380.6"]
 capabilities = ["22.38.36"]
 interfaces = ["interface.22.cli-inference-market-room-driver"]
@@ -186181,12 +186277,13 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 180
+time_limit_minutes = 420
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4181, decision 3253): the attempt-1 tree 44a85acfb957 stands (the room driver, the chain writer of the runtime fixture, the process owner of the envelope program). The build command now builds the bin target layerx-agentd of the package layerx-agentd-host, so the executable the driver requires at inference_market_room.py:392 exists. In tools/qualification/paxeer-x/agent_operation_envelope.py:252 change only the package name of the daemon build step to layerx-agentd-host and keep the target name layerx-agentd that :254 requires; the verification of this task does not run that step, so record that it was changed and not run. Tasks 22.38.21 and 22.38.27 are on main: rebase on it. The room proof has never run: after the build run the driver with the room proof once outside the counted gates, repair what it shows inside the paths, and record a cause outside the paths with file, line and the first failing message. Run the build once and the verification once at the final revision."
 do_5 = "Attempt 3 (continue, gotcha 4187, decision 3259): the attempt-2 tree 343df2fde0b1 stands (the room driver, the chain writer of the runtime fixture, the process owner and the package name of the envelope program). The proof stops before its first assertion, because the function configuration at inference_market_room.py:431 asks for a prepared file with signed chain writes that nothing produces. Remove that input: the driver generates every key of the run into protected files of its private evidence directory, funds the accounts on the isolated chain, and builds the room identifiers, the peer manifests and the agreed price itself. First list for the six phases at :51 which write a product process makes itself (the agent daemon in the inference market mode, the peer package) and let that process make it; the driver observes it on the chain. Encode every other write with a product encoder: the Python SDK under services/agent/sdk/python where it holds the operation, otherwise the encoders of services/agent/crates/layerx-client through the planned example target services/agent/crates/layerx-client/examples/inference_room_writes.rs, which prints the payload of a named operation and which the build step of the driver builds with cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --example inference_room_writes; the manifest of the client library is in the paths for the case that the example needs an entry. Sign with sign_transaction of tools/qualification/paxeer-x/fixtures/xweb_native_evm.py. Write no second encoder of a program payload in the driver. Lint the example with warnings denied outside the counted gates and repair its lints in the file. Keep the checks of the driver on every signed write (chain 125, the target and the digest of the calldata). Run the room proof outside the counted gates until the completion answer equals the scripted output token for token and a deal with two peers is recorded, repair what it shows inside the paths, and record a cause outside the paths with file, line and the first failing message and stop. Run the build once and the verification once at the final revision."
+do_6 = "Attempt 4 (continue after 22.39.368 and 22.39.369 land, gotcha 4199, decisions 3270 and 3272): the attempt-3 tree 96837d75c253 stands (the room driver, the example inference_room_writes, the record). The check of the dependent packages stopped at the target repair_22_31_549, which task 22.39.368 repairs; the task now requires it and task 22.39.369, which adds the executable layerx-ai-source. Rebase on main once both are on it. Then bring the driver to the product path of decision 3272. Its build step also builds the executables layerx-indexer and layerx-ai-source of the package layerx-indexer and layerx-gateway of the package layerx-platform-gateway with the locked option. Its configuration step writes what the support processes need, so that the run reads no member that nothing writes. The run starts, in this order and each with a readiness check and a log file: the source process against the node of the isolated chain; the indexer with LAYERX_INDEXER_AI_CONFIG naming a configuration with the chain, the program, the consensus chain id, the validator of the isolated chain with its voting power and the source; the services the gateway needs for its keys, as the gateway tests start them (tests/chain_only_readiness.rs, tests/support and tests/key-store.py of services/platform/hosted/gateway); and the gateway with the AI views configured through LAYERX_GATEWAY_AI_PROJECTION_DB, LAYERX_GATEWAY_AI_CURSOR_KEY_FILE and LAYERX_GATEWAY_AI_CURSOR_GENERATION, a TLS certificate made in the run whose authority file the daemon gets through LAYERX_AGENT_INFERENCE_GATEWAY_CA_FILE, and a key for the daemon. The source check of the driver asks the source process and not the node RPC. No stand-in replaces the source process, the indexer or the gateway. A process that cannot start in the qualification environment is recorded with its first message and the proof stops. Decision 3259 stands: the driver prepares the chain writes of the peers itself. The time limit is now 420 minutes. Run the room proof outside the counted gates until it passes or a cause outside the paths is found and recorded with file and line; then run the build once and the verification once at the final revision."
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
@@ -194454,6 +194551,68 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.371]
+title = "Carry the canary request and the canary answer on the signalling socket of the host"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.371"]
+interfaces = []
+do_1 = "do_1 Decision 3274, gotcha 4202. Read the producer: CanaryPlan, CanaryAnswer, prepare, accept_answer and audit_answer of services/agent/crates/layerx-agentd/src/inference_market/canary.rs (:127, :156, :287, :385, :448), the lap output handler of src/main.rs with its canary calls (:2578 to :2630), and how the lap receipt and its countersignature travel on the socket: LapAcknowledgement, the client frame and LapServerFrame of src/inference_market/laps.rs (:828 to :841), issue_lap (:1008) and the handling of a client frame (:1177)."
+do_2 = "do_2 Add the server frame canary_request with the member plan and the client frame canary_answer with the member answer, tagged by the member type in snake case as the lap frames are, with unknown members refused. When the lap output of a lap arrives from the runtime and the stored plan of that deal and lap names a position and a peer and holds no answer, the host sends canary_request to the connection of that peer, waits for canary_answer and passes it to accept_answer before the audit of the lap. The wait is bounded by a setting with a default of 5000 ms and holds no lock that the answer needs; when no answer arrives the handler goes on as it does today for a missing answer. A canary_answer from a peer the plan does not name, for an unknown deal or lap, or after an accepted answer is refused with a stable error and changes nothing. A lap without a canary position sends no frame. The two internal requests keep their behaviour, and no other frame, signing byte or case expectation changes."
+do_3 = "do_3 Write apps/inference-peer/test/fixtures/host-canary-frames.json: under the member vectors one entry for each of the two frames with its direction, server or client, and its exact JSON text as the host serialises it, built from real values, a plan from prepare and an answer signed with the key of the peer. Add tests/inference_canary_frames.rs: the case canary_frames_match_the_vectors decodes and encodes both vectors with the host frame types; the case canary_answer_reaches_the_audit drives a lap whose plan names a position through the socket of a connected peer and shows the accepted answer in the audit; further cases cover a lap without a position, a wrong peer, a second answer and the bound. The target takes in the sources by path as tests/inference_laps.rs does, with the allowance of decisions 3218 and 3273 on the outer module item, and lints clean."
+do_4 = "do_4 Record in services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx the two frames with their members, the moment of the request, the setting of the bound and what the handler does without an answer. Lint the new target and the host binary outside the counted gates first and repair every lint in the lines of this task at its source. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/inference_market", "services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_canary_frames.rs::canary_frames_match_the_vectors"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/inference_canary_frames.rs", "apps/inference-peer/test/fixtures/host-canary-frames.json", "services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test inference_canary_frames --test inference_canary && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx && test -s apps/inference-peer/test/fixtures/host-canary-frames.json && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test inference_canary_frames --test inference_canary && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_canary_frames -- -D warnings && (cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short > ${TMPDIR:-/tmp}/lint-22-39-371-bin.log 2>&1 || true) && ! grep -F inference_market/canary.rs ${TMPDIR:-/tmp}/lint-22-39-371-bin.log"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.369]
+title = "Serve the committed AI read from a source process beside the indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.368"]
+reqs = ["22998.1"]
+capabilities = ["22.39.369"]
+interfaces = []
+do_1 = "do_1 Decision 3270, gotcha 4199. Read the consumer first: AiRuntime::poll and the ingest of services/platform/hosted/indexer/src/ai_runtime.rs (:393), encode_committed_read (:212) with the members of its document, RuntimeConfig (:446) and BlockCommitProof of src/ai_market.rs:321. Then read how the client library reads the same facts from a node: poll_finalized_market of services/agent/crates/layerx-client/src/ai_market.rs:593, its artifact reader at :692 with the store path, the key forms and the state height one under the header height, and acquire_committed_header of src/rpc/commit.rs:28. List the requests a node must answer for one committed read."
+do_2 = "do_2 Add the executable layerx-ai-source as a second binary target of the package layerx-indexer: the entry in src/bin/ai_source.rs and the logic in the library module src/ai_source.rs, so that a test can call it. Settings come from the environment: the listen address, the endpoint of one node with an optional trust anchor file, plaintext only for a loopback endpoint, the chain domain and the program. It serves GET of the route that AiRuntime::poll requests: 200 with the document of encode_committed_read when the node holds a publication newer than the cursor, 204 with an empty body only when it has read the node up to its latest height and found nothing newer, 404 for another program or path, 400 for a malformed cursor and 502 when the read of the node fails. Read the node with the request code of the package (Endpoint of src/transport.rs) over the consensus RPC of the node. The manifest gains the binary entry and no dependency, and no lock file changes. The process holds no key, writes nothing to a chain, bounds every request and every response it reads and serves a bounded number of connections. Change nothing outside the package. When a member of the document cannot be read over an interface the node already has, record the member and the missing interface and stop; do not change node source."
+do_3 = "do_3 Add tests/ai_source.rs. The case committed_read_reaches_the_projection starts the built executable against a loopback listener of the test that answers the node requests with material built by real code, as tests/repair_22_33_1444.rs builds its evidence; a real AiRuntime opened from a RuntimeConfig with the validator of that material polls the executable, the projection then holds the market, and the next poll gets 204. The case source_refuses_what_it_cannot_serve covers 404, 400 and 502. The names of members and routes in the test come from the source of the producer and of the consumer (decision 3046)."
+do_4 = "do_4 Record in services/platform/hosted/indexer/repair_22_39_369.kvx the settings, the node requests, the answers and the placement of the process in a deployment, beside the indexer and one per node endpoint. Add the settings to the environment example of the package as far as tests/env_example.rs allows and keep that target green. Search tests/ci, tools/containers, tools/release and the public workflows for a pin of the executables of the package and record each with file and line; a pin inside the paths is repaired and one outside is recorded. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer"]
+tests = ["services/platform/hosted/indexer/tests/ai_source.rs::committed_read_reaches_the_projection"]
+planned_paths = ["services/platform/hosted/indexer/src/ai_source.rs", "services/platform/hosted/indexer/src/bin/ai_source.rs", "services/platform/hosted/indexer/tests/ai_source.rs", "services/platform/hosted/indexer/repair_22_39_369.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --bins --test ai_source"
+verify_cmd = "test -s services/platform/hosted/indexer/repair_22_39_369.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test ai_source --test env_example && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-deps --lib --bin layerx-ai-source --test ai_source -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.368]
 title = "Compile the test target repair_22_31_549 of the agent daemon again"
 status = "pending"
@@ -196653,6 +196812,7 @@ do_6 = "Attempt 4 (continue after 22.39.353 lands, gotchas 4165 and 4159, decisi
 do_7 = "Attempt 5 (continue, gotcha 4170, decisions 3242 and 3053): the attempt-4 tree 28a087e45c65 stands; it built at that revision and no verification saw it. The verification command now passes the keep going option, so one run reports every target of the list. Before the counted gates, run the lint command of the verification yourself and repair what it reports at source, as often as needed, until it reports nothing for the whole list; the six targets of the last verification were ingest, proof_serve_errors, native_send_preview_evm, ingest_eth_subscribe, proof_agentd_startup and operator_route. Before an item reported as never used is removed, search every target that includes its file by path or by module: an item that another target uses stays, in the file of the target that uses it or in a module both include, as the function that issue_1752 needs showed in build 2. A function over the line bound is divided into functions of the same file with every assertion kept in order (decision 3230). No lint level change, no allowance at crate or module level, no assertion change. Keep cargo check of the package layerx-agentd-host with all targets green. Then run the build once and the verification once at the final revision, and keep the record to the lints by kind with their counts, the files changed and the result."
 do_8 = "Attempt 6 (continue after 22.39.362 lands, gotcha 4178, decisions 3250 and 3218): the attempt-5 tree 8292a93a5eef stands (the lint repairs of the test files named i to q, the record). The test files report nothing; the verification stops in four targets on files they include by path. The task now requires task 22.39.362, which repairs the lints of deals.rs and laps.rs under src/inference_market. Rebase on main once that task is on it. Change no file under src/inference_market and no file of the crate layerx-programs-registry. Then place the allowances of decision 3218 and nothing more. On the module items that include the support files of the registry crate, at tests/program_balances_eth_call.rs:24 and tests/program_chain_head.rs:37 and :41 on main, replace the allowance that stands there with one allowance with a reason that names exactly the lints the file reports in that target; on the last run these were too_many_lines and manual_let_else for chain.rs and unused_imports, too_many_lines and expect_used for mod.rs, beside dead_code. On the outer module item that includes signal.rs in tests/inference_deals.rs and in tests/inference_laps.rs, place one allowance for dead_code with a reason that says the host binary uses the items. Write each allowance in the form the workspace lints accept. No other module item gains an allowance (decision 3053). Before the counted gates run the lint command of the verification yourself until it reports nothing for the whole list (decision 3242). A lint of an included file under src/inference_market that is not an item never used and that remains after the rebase is recorded with file, line and lint, and is not repaired here. Keep cargo check of the package layerx-agentd-host with all targets green. Add the allowances with their reasons to the record. Run the build once and the verification once at the final revision."
 do_9 = "Attempt 7 (continue after 22.39.364 lands, gotcha 4188, decision 3257): the attempt-6 tree 63b9465a7d49 stands (38 files of the tests directory and the record). Its build passes and no test target was linted, because the library stopped at the two lints of src/node_rpc.rs that task 22.39.364 repairs; the task now requires it. Rebase on main once that task is on it and change nothing in src. The build now also names the targets repair_22_31_545 and repair_22_31_560, which take in tests/native_send_preview_evm.rs with include!: a member or a function that those two targets or tests/issue_1752.rs read stays in the file, with one allowance and a reason on the item when the own target does not read it, and the two including files follow a changed signature. Do not repair the target repair_22_31_549; task 22.39.228 holds it. Lint to clean outside the counted gates with the keep going option before the counted run (decision 3242). Run the build once and the verification once at the final revision."
+do_10 = "Attempt 8 (continue, gotcha 4201, decision 3273): the attempt-7 tree 9e6b4a42b5bb stands (the files of the tests directory and the record). Every target is clean except inference_serve. Place one allowance of dead_code with a reason, that the host binary uses the items and the target does not, on the outer module item of tests/inference_serve.rs:1 and on the outer module item of every other target of the list that takes in a file under src/inference_market by path and still reports dead_code for it. The list of two targets in step do_8 was an example; its sentence that no other module item gains an allowance is withdrawn for such targets. Place nothing else, change no file under src, and repair any other lint of the tests directory at source. Lint to clean outside the counted gates with the keep going option before the counted run (decision 3242), then extend the record and run the build once and the verification once at the final revision."
 
 [task.22.39.226]
 title = "Bring the agent daemon test targets named a-h under the workspace lints"
@@ -198447,7 +198607,7 @@ do_4 = "Attempt 2 (continue after 22.39.365 lands, gotchas 4185 and 4186, decisi
 
 [task.22.38.19]
 title = "Inject canary prompts and audit peer answers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.5", "22.38.17", "22.31.620", "22.39.353", "22.38.21", "22.39.364"]
@@ -334667,7 +334827,7 @@ do_1 = "Run gates.run_wave(6, root) from spec/layerx-merge/programme/gates.py (p
 do_2 = "Record the evidence line in logs/waves/6 named by [wave.6] of spec/layerx-merge/programme/data/wave-gates.kvx (planned); a nonzero exit fails the wave and files a finding in spec/layerx-merge/qualification.kvx:1 format."
 do_3 = "Create spec/layerx-merge/programme/tests/test_wave_6_gate.py (planned) with the test named below; it runs the real script, never --list alone."
 symbols = ["test_wave_6_gate_passes"]
-touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json", "Makefile"]
+touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json", "Makefile", "scripts/gates/run_gate.py"]
 tests = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_6_gate.py"
@@ -334703,6 +334863,7 @@ do_20 = "do_20 Decision 3238, gotcha 4166: the task now requires task 22.39.358,
 do_21 = "do_21 Decisions 3246 and 3247, gotchas 4174 and 4175: the task now requires tasks 22.39.360 and 22.39.361. With the probe cases left out, the .NET test project still held four red cases over the published receipt vectors and the Go module one red case over the terminal corpus; those two tasks repair them. Change nothing for those cases in this task."
 do_22 = "Attempt 18 (continue after 22.39.363 lands, gotcha 4183, decision 3255): the attempt-17 tree 2f4ba76f0aa9 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes the Rust builds of make workspace-build and stops in make platform-sdk-check at an undeclared record under the generated Go root, which task 22.39.363 declares together with five more; the task now requires it. Rebase on main once that task is on it and change nothing under sdk/platform. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 do_23 = "Attempt 19 (continue after 22.39.366 lands, gotcha 4192, decision 3263): the attempt-18 tree 742c81986034 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now builds the Next example of the integration SDK and stops in the same command, npm run build of platform-build-all, at the last package of the root list: the sample @sidiora/layerx-doc-paid-route-next under services/platform/examples/samples, with the same message as the example had. Its directory is outside the paths of this task and task 22.39.366 repairs it; the task now requires it. Rebase on main once that task is on it and change nothing for the sample or for the install targets. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
+do_24 = "Attempt 20 (continue, gotcha 4198, decision 3269): the attempt-19 tree 7fee52329677 stands. The gate did not stop at a red command this time: the volume ran full inside make workspace-build at the target interop-build. The paths now hold scripts/gates/run_gate.py. First measure outside the counted gates: the free space at the start and, for each of the six commands of scripts/gates/wave-6.sh, the size of the Cargo target directory per workspace and of the Go build cache after it; note every command that is red for another cause with its first failing message. Then make the three changes of decision 3269 and no other. In run_wave of gates.py add to the environment of the commands CARGO_INCREMENTAL=0, CARGO_PROFILE_DEV_DEBUG=0 and CARGO_PROFILE_TEST_DEBUG=0 and the setting that names the bound. In run_gate.py write the free space before and after every command to the gate log and, only when the setting is present and the free space is under its bound before a command, remove the Cargo build output of the gate and the Go build cache and log what was removed and the space gained; list first every output that a later command reads and does not rebuild, and keep those. Change no command, target, package, feature or case of the gate and no manifest. Add to spec/layerx-merge/programme/tests/test_wave_6_gate.py a case for the logging and for the removal with and without the setting, on a temporary directory. When a command cannot finish from an empty target directory inside the volume, report the measured sizes and the command and stop. A command that is red for a cause outside the paths is reported with its first failing message and its file. Run the build once and the verification once at the final revision."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"

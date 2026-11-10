@@ -207,6 +207,17 @@ pub struct CanaryEngine {
     host: Arc<HostMeterKey>,
     table: CanaryTable,
 }
+pub struct CanaryRuntime {
+    pub engine: Arc<CanaryEngine>,
+    pub state: Vec<u8>,
+}
+pub type CanarySessions = Arc<std::sync::Mutex<Option<CanaryRuntime>>>;
+
+pub const DEFAULT_CANARY_ANSWER_TIMEOUT_MS: u64 = 5000;
+pub fn default_canary_answer_timeout_ms() -> u64 {
+    DEFAULT_CANARY_ANSWER_TIMEOUT_MS
+}
+
 impl CanaryEngine {
     pub fn open(
         directory: &Path,
@@ -382,6 +393,44 @@ impl CanaryEngine {
         }
         Ok(plan)
     }
+    pub fn pending_request(
+        &self,
+        deal: [u8; 32],
+        lap: u64,
+    ) -> Result<Option<CanaryPlan>, CanaryError> {
+        let pending = match self.load(deal, lap) {
+            Ok(pending) => pending,
+            Err(CanaryError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        };
+        Ok((pending.plan.position.is_some()
+            && pending.plan.peer_key.is_some()
+            && pending.answer.is_none())
+        .then_some(pending.plan))
+    }
+
+    pub fn accept_peer_answer(
+        &self,
+        peer: [u8; 32],
+        answer: CanaryAnswer,
+    ) -> Result<(), CanaryError> {
+        let pending = match self.load(answer.deal_id, answer.lap_index) {
+            Err(CanaryError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Err(CanaryError::Invalid("unknown canary plan"));
+            }
+            other => other?,
+        };
+        if pending.plan.position.is_none() || pending.plan.peer_key != Some(peer) {
+            return Err(CanaryError::Invalid("wrong canary peer"));
+        }
+        if pending.answer.is_some() {
+            return Err(CanaryError::Invalid("canary answer already accepted"));
+        }
+        self.accept_answer(answer)
+    }
+
     pub fn accept_answer(&self, answer: CanaryAnswer) -> Result<(), CanaryError> {
         let mut pending = self.load(answer.deal_id, answer.lap_index)?;
         verify_answer(&pending.plan, &answer)?;

@@ -40314,3 +40314,35 @@ symbol = "tests"
 observed = "Attempt 2 at 3864ee686cb0 on base c9e42b221901: build 1 exits 101 at e3d8584fcd88, build 2 exits 101 at 3960bdec88b5 and build 3 exits 101 at 3864ee686cb0 with twelve errors in the target repair_22_31_549; no verification ran; log /out/logs/build-3.log."
 assumption = "The red target is older than the task and the attempt ran its counted builds before the tree compiled."
 severity = "high"
+
+[finding.17.5.7.19]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 19 at 7fee52329677 on base 98cfec2ce764: the build exits 0 and the verification exits 1; make workspace-build exits 2 at interop-build (Makefile:2782) with No space left on device; log /out/logs/verify-1.log."
+assumption = "The gate needs more disk than the volume holds when every workspace builds with debug information into one target directory."
+severity = "high"
+
+[finding.22.38.36.3]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 3 at 96837d75c253 on base a452366a00dd: build 3 exits 0; the check of the dependent packages exits 101 with twelve errors in the test target repair_22_31_549 of the agent daemon; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The room proof needs a producer of the committed read that the repository does not hold yet."
+severity = "high"
+
+[finding.22.39.227.7]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 7 at 9e6b4a42b5bb on base 7cc619fab1cd: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1 with 61 reports of dead_code in the target inference_serve; log /out/logs/verify-1.log."
+assumption = "Step do_8 closed the list of including targets at two and a third target exists."
+severity = "high"
+
+[finding.22.38.28.1]
+task = "22.38.28"
+file = "apps/inference-peer/test/canary.test.mjs"
+symbol = "canary.test.mjs"
+observed = "Attempt 1 at dc3ef44a142e on base 9a170ec2b4e5: the build exits 0 and the verification exits 1 with seven cases passed and the case host_canary_socket_vectors_cover_both_directions failed for an empty vector list; log /out/logs/verify-1.log."
+assumption = "The host task landed the canary as internal requests only and the step of the task assumed socket frames."
+severity = "high"
