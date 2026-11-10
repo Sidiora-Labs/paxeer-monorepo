@@ -164783,7 +164783,7 @@ do_3 = "Attempt 3 (continue after 22.39.355 lands, gotcha 4162, decision 3235): 
 
 [task.22.38.28]
 title = "Answer canary prompts inside the lap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.26", "22.38.19", "22.39.355", "22.39.371"]
