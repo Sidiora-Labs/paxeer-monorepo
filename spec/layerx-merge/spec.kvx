@@ -12286,6 +12286,12 @@ value = "modules/xweb/ATTESTATION.md states that types/testdata/preimage-vectors
 basis = "Gotcha 4118, decisions 3046 and 3130."
 affects = ["22.39.334", "22.39.249"]
 
+[decision.3196]
+title = "An altered or malformed gateway batch fails R8 on the status and signature routes of the explorer and the web cases assert the refusal"
+value = "Since task 22.31.411 a receipt whose committed evidence is missing or altered is not reported at a lower rung: SequencerReceipt.verify returns the R8 error and the routes /api/v2/transactions/:hash/status and /api/v2/transactions/:hash/signature answer status 404 with the message Not found. The receipted rung is reported only when the gateway serves no committed evidence for the hash. The cases of apps/block_scout_web follow the producer (decision 3046): for each altered batch they assert the 404 answer and the RPC calls the route makes, the valid request keeps its committed answer, and a case name that states the removed fallback is renamed together with every record that lists it. sequencer_receipt.ex, receipt_evidence.ex and the controllers stay as they are."
+basis = "Gotcha 4119, decisions 3046, 3183 and 3190."
+affects = ["22.39.332"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -417411,6 +417417,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 4119, decision 3196): the attempt-1 tree 7cf8745ee354 stands (the governed configuration of transaction_signature_controller_test.exs and transaction_status_controller_test.exs; 19 of 21 cases pass). The two red cases assert a fallback that task 22.31.411 removed at bd50fa0d6a, so they follow the producer and no route defect is involved. In transaction_status_committed_test.exs keep the valid request and its committed answer, and in the loop at :45 assert for each of the four altered batches status 404 with the message Not found together with the RPC calls the route makes. In transaction_signature_committed_test.exs do the same in the loop at :122 for the four malformed batches, rename the case and its helper to signature_route_refuses_malformed_gateway_batch and bring the tests list at repair_22_31_396.kvx:25 of the same directory to the new name where it lists the case. Change no file under lib. In services/explorer/backend/repair_22_39_332.kvx replace the two route findings by the cause and the repair, and remove the database finding and every sentence about the environment, a local path or a qualification tool. Run the build once and the verification once at the final revision."
 
 [task.22.39.308]
 title = "Restore the explorer receipt verification cases against the governed key guard"
