@@ -350,6 +350,94 @@ and signalling integration before this client can join a live room; a caller
 must transport the signed acknowledgement explicitly rather than route it
 through the unsigned acknowledgement method.
 
+## Native inference peer CLI
+
+Run the native peer directly with Node.js 22 or newer:
+
+```sh
+node apps/inference-peer/bin/inference-peer.mjs join https://host.example ROOM_HEX \
+  --manifest /private/participant-v2.bin --nonce HOST_CHALLENGE
+node apps/inference-peer/bin/inference-peer.mjs status
+PAXAI_ASK_BEARER=ASK_STREAM_TOKEN node apps/inference-peer/bin/inference-peer.mjs serve \
+  --host https://host.example
+```
+
+[`src/cli.mjs`](../apps/inference-peer/src/cli.mjs) exports `parseCLI`,
+`joinCommand`, `serveCommand`, `statusCommand` and `runCLI`. `join` takes the host
+base URL and a lowercase 32-byte room ID. `--manifest` is the canonical binary
+v2 manifest with native runtime kind 1; create and measure it through the identity
+API above. `--identity` overrides the persistent owner-only identity file and
+`--nonce` supplies the host's challenge. The host must consume that challenge.
+The command POSTs the signed manifest to `enrol_peer`, then sends the signed
+hello over the existing binary room codec to `rooms/ROOM_HEX/signal` (WebSocket).
+Host base path prefixes are retained. Hosts require HTTPS; HTTP is accepted only
+on IP loopback. Redirects and HTTP refusals fail explicitly.
+
+To bind an attestation, add `--attestation /private/quote.pxve`,
+`--model-digest MODEL_HEX` and `--runtime-digest RUNTIME_HEX`. The file contains
+the complete signed binary PXVE development envelope accepted by `bindPeer` at
+`0x0907`, including its 96-byte header and 65-byte signatures. The CLI checks
+its family/version/length and compares bytes 39–70 against
+`keccak256(peerKey || modelDigest || runtimeDigest)` **before any network send**.
+A matching report is POSTed to `bind_peer` as
+`{ family, envelope, peerKey, modelDigest, runtimeDigest }`, with lowercase hex
+byte fields. The host must submit `bindPeer` and return `{ "bound": true }`
+only after successful chain execution. Only then does the CLI enrol and send
+hello. Local matching does not verify attestor trust, signatures, freshness or
+hardware evidence; these remain chain checks. JSON claims about report data
+cannot replace the bytes inside the envelope.
+
+Deal execution additionally requires `--deal /private/accepted-deal.json` and
+`--host-key HOST_PEER_HEX`. The file is the complete Rust `DealFrame` whose
+chain authority and terms the operator has already checked. Its exact deal
+digest pins incoming terms; it also supplies attestation model/runtime digests
+when their flags are omitted. Execution refuses a deal without this pin and
+host key. The host's binary deal payload must contain `{ dealId, deal }`:
+`deal` is the full frame, and `dealId` is the signalling acknowledgement ID.
+Its offer must include the matching model/runtime digests and model-source
+manifest URL described above. The CLI verifies/downloads its assigned range
+through `DealClient`, POSTs the signed acknowledgement to
+`rooms/ROOM_HEX/deal_ack`, then uses `PeerMesh` in native mode for WebRTC.
+Provision `node-datachannel` and its native binary so it resolves from this
+package; it is required when a deal starts and is not bundled by the CLI.
+
+When the optional `webgpu` package resolves, native execution uses its adapter
+and device with the vendored `DenseEngine`. An installed but broken GPU backend
+fails explicitly. If the package is absent, the CPU dense path uses the vendored
+safetensors parser/converter and executes RMSNorm, grouped causal attention,
+RoPE, residuals and SiLU feed-forward layers. Both paths keep per-request KV
+caches and leave embeddings and the head on the host. CPU support covers
+`safetensors-dense-v1` with F32/BF16 tensors, standard RoPE and SiLU; unsupported
+formats, extra bias/head-normalisation tensors and scaled RoPE refuse. It is a
+correctness path for compatible models, not a throughput guarantee.
+
+`join` prints a JSON snapshot and keeps a loopback status listener on port 8788;
+`--status-port` overrides it (0 chooses a free port). `status --port PORT` reads
+`GET /status` and prints room, peer key, state, backend, assigned layer range,
+processed activation count and any error. No signing key or bearer is exposed.
+SIGINT/SIGTERM closes the signalling connection, mesh, model caches and local
+listener. An asynchronous transport or execution failure closes the session and
+makes the CLI exit unsuccessfully.
+
+`serve --host URL` listens on `127.0.0.1:8787`; `--port` overrides it. It forwards
+`POST /v1/chat/completions` and `POST /v1/completions` to those same paths below
+the host base URL, replacing incoming authorization with the ask bearer from
+`PAXAI_ASK_BEARER` or `--ask-bearer`. The host must support the requested route.
+Requests are bounded to 1 MiB. Responses preserve upstream status, content type,
+retry hints and bytes, including SSE chunks and `[DONE]`, with backpressure.
+Disconnecting the local client cancels the upstream request. Host refusals such
+as 402 remain refusals; unavailable hosts return 502. Other local routes return
+404. The bridge does not open or fund an ask stream.
+
+The task gate is `node --test apps/inference-peer/test/cli.test.mjs`. It exercises
+the executable's signed hello over real loopback HTTP/WebSocket, identity-bound
+PXVE refusal before any send, binding-before-enrolment ordering, a separate
+status process, CPU dense attention/cache isolation and a streamed completion
+against a stand-in host. The existing Rust host still lacks the binding and
+enrolment HTTP adapters and uses different signalling envelopes, as noted
+above. These tests do not qualify a live chain, native WebRTC/GPU execution,
+lap countersigning or canary integration.
+
 ## Trees that move under core in a later release
 
 These are planned directory moves, not additional deployments. In particular, the current kernel sources still live at the repository root.
