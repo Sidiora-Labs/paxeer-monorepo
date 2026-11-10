@@ -28,6 +28,9 @@ type invalidAddressQueryError struct {
 
 func (e invalidAddressQueryError) Error() string { return e.cause.Error() }
 func (e invalidAddressQueryError) Unwrap() error { return e.cause }
+
+// GRPCStatus retains validation details for direct gRPC callers. BaseApp's
+// non-debug ABCI conversion deliberately exposes only sdk/18/invalid request.
 func (e invalidAddressQueryError) GRPCStatus() *status.Status {
 	return status.New(codes.InvalidArgument, e.cause.Error())
 }
