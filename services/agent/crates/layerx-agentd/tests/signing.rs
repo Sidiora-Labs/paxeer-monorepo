@@ -148,8 +148,9 @@ impl RegistryDirectory {
             std::process::id(),
             NEXT_REGISTRY.fetch_add(1, Ordering::Relaxed),
         ));
-        fs::create_dir(&path).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::create_dir(&path).unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
         Self(path)
     }
 
@@ -158,22 +159,29 @@ impl RegistryDirectory {
             self.0.clone(),
             vec![0x61; 32],
             17,
-            fs::metadata(&self.0).unwrap().uid(),
+            fs::metadata(&self.0)
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}"))
+                .uid(),
         )
         .unwrap_or_else(|error| panic!("registry: {error:?}"))
     }
 
     fn provision(&self, seed: [u8; 32], issued: &IssuedSessionKey) -> ProvisionedSessionKey {
         let registry = self.open();
-        registry.provision(issued.grant_id, &seed, issued).unwrap();
+        registry
+            .provision(issued.grant_id, &seed, issued)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
         drop(registry);
-        self.open().load(issued.grant_id, issued.clone()).unwrap()
+        self.open()
+            .load(issued.grant_id, issued.clone())
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"))
     }
 }
 
 impl Drop for RegistryDirectory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     }
 }
 
@@ -207,7 +215,7 @@ fn prepared() -> SigningPreparation {
         },
         100_000,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     SigningPreparation {
         transaction,
         actor_address,
@@ -309,7 +317,8 @@ fn session_key_self_signing_is_distinct_and_audited() {
     assert_eq!(call, prepared.transaction.call);
     assert_eq!(signature.as_bytes(), &signed.signature);
     assert_eq!(
-        recover_sender(&call, &signature).unwrap(),
+        recover_sender(&call, &signature)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
         session_address(seed)
     );
     assert_eq!(signed.signer_address, session_address(seed));
@@ -353,7 +362,9 @@ fn durable_revocation_refuses_loaded_signers_and_survives_reopen() {
     );
     assert!(ready(self_sign(Some(&loaded), &prepared, &registry(), 1_000, 5)).is_ok());
     let registry_store = directory.open();
-    registry_store.revoke(issued.grant_id).unwrap();
+    registry_store
+        .revoke(issued.grant_id)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(
         ready(self_sign(Some(&loaded), &prepared, &registry(), 1_000, 5)),
         Err(SigningError::Revoked)
@@ -372,7 +383,7 @@ fn durable_revocation_refuses_loaded_signers_and_survives_reopen() {
                 .0
                 .join(format!("{}.revoked", hex::encode(issued.grant_id)))
         )
-        .unwrap(),
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
         b"LXSRV1"
     );
 }
