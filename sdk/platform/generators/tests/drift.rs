@@ -793,6 +793,58 @@ fn repository_conformance_root_declares_every_shipped_handwritten_file() {
 }
 
 #[test]
+fn repository_retired_reference_repair_is_regenerated() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let source = fs::read_to_string(lock_path(&root))
+        .unwrap_or_else(|error| panic!("read repository pipeline: {error}"));
+    let committed =
+        parse_lock(&source).unwrap_or_else(|error| panic!("parse repository pipeline: {error}"));
+    let output = committed
+        .outputs
+        .iter()
+        .find(|output| output.name == "agent-compatibility")
+        .unwrap_or_else(|| panic!("missing agent-compatibility output"));
+    assert_eq!(output.root, "services/agent/sdk");
+    for relative in [
+        "repair_22_39_258.kvx",
+        "repair_22_39_288.kvx",
+        "repair_22_39_297.kvx",
+        "repair_22_39_299.kvx",
+    ] {
+        assert!(root.join(&output.root).join(relative).is_file());
+        assert!(
+            output.handwritten.iter().any(|path| path == relative),
+            "repair record {relative} must be declared handwritten"
+        );
+        assert!(
+            !output.files.iter().any(|(path, _)| path == relative),
+            "repair record {relative} must not be generated"
+        );
+    }
+    let sections = schema_sections(&root.join("services/agent/schema/agent-api"))
+        .unwrap_or_else(|error| panic!("read live agent schema: {error}"));
+    for operation in [
+        "program.call",
+        "program.deploy",
+        "program.upgrade",
+        "program.wind-down",
+    ] {
+        let entries = &sections[&format!("operation.{operation}")];
+        assert_eq!(entries["transport"], "\"evm_json_rpc\"", "{operation}");
+        assert_eq!(
+            entries["rpc_method"], "\"eth_sendRawTransaction\"",
+            "{operation}"
+        );
+        assert!(
+            !entries.contains_key("path"),
+            "{operation} has a retired REST path"
+        );
+    }
+    check(&root, &lock_path(&root))
+        .unwrap_or_else(|error| panic!("retired-reference repair left pipeline drift: {error}"));
+}
+
+#[test]
 fn repository_python_discovery_files_are_declared() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let live =
