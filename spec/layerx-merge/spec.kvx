@@ -12544,6 +12544,12 @@ value = "A probe case reads the case file that the envelope program of the quali
 basis = "Gotcha 4166, decisions 3052, 3130, 3183 and 3211."
 affects = ["22.39.358", "22.39.354", "17.5.7"]
 
+[decision.3239]
+title = "An attempt stopped only by a red package outside its paths continues on its tree once the owner task has landed"
+value = "When the build of an attempt passes and the check of the dependent packages stops only on errors that were on the base of the attempt, in files outside its paths, and an owner task has since repaired them on main, the next attempt continues on the same tree: it rebases on main, changes nothing in the repaired files and runs the build once and the verification once. The build of task 22.38.21 checks the host package with all targets after the build of the agent daemon, as decision 3212 requires of every task that changes the entry file of the agent daemon."
+basis = "Gotchas 4167 and 4159, decisions 3212, 3130 and 3232."
+affects = ["22.38.21"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197960,7 +197966,7 @@ symbols = ["ServeRoutes", "chat_completions", "messages", "AskGate"]
 touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/node_rpc.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/inference_serve.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/serve.rs", "services/agent/crates/layerx-agentd/tests/inference_serve.rs"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
 verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_serve"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -197973,6 +197979,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3239, gotcha 4167: the tree of attempt 1, dc746500755b, stands (serve.rs, main.rs, node_rpc.rs and tests/inference_serve.rs of the agent daemon). Its build passed and the check of the dependent packages stopped on three errors of src/inference_market/deals.rs in the host package that task 22.39.353 has repaired on main. Rebase on main and change nothing in deals.rs or signal.rs. The build now checks the host package with all targets; keep it green after every change of main.rs. Run the build once and the verification once. When the verification fails, the first failing assertion decides: a cause inside the paths is repaired within the allowed cycle, and a cause outside the paths is recorded with the case, the message, the file and the line."
 
 [task.22.38.20]
 title = "Recover a room from peer loss by re-planning the layer split"
