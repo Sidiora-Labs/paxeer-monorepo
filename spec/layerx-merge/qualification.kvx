@@ -40490,3 +40490,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 23 at 3e225f080e0d on base cb8c8ad4b426: the build exits 0 and the verification exits 1 at 3e225f080e0d after 1932 s; make workspace-build exits 2, evmone-lib of chain.mk:111 stops with cmake: not found, Error 127; free space after the command 4071649280 bytes; log /out/logs/verify-1.log."
 assumption = "The gate shell held no cmake, which the build of the native libraries of the node needs."
 severity = "high"
+
+[finding.22.39.228.5]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 5 at 7c3b4384ab51 on base 7eeb5ae0336d: the build exits 0 and the verification exits 1 at 7c3b4384ab51; the lint command stops with exit 101 before any lint, no test target named proof_native_reads in the package layerx-agentd; log /out/logs/verify-1.log."
+assumption = "The verification command named a test target by its file name where the manifest declares another name."
+severity = "high"
