@@ -161634,7 +161634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.337]
 title = "Remove the unreachable anchors page module of the explorer with its components"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225836,7 +225836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.162]
 title = "Bring the launchpad indexer Go module tests to green and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.75", "22.39.242", "22.39.328"]
