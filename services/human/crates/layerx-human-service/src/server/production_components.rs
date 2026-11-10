@@ -7627,6 +7627,7 @@ impl AttestorKms {
         if let Some(raw) = journal.reserve(payload, now)? {
             return Ok(raw);
         }
+        // The attestor signs the disclosure-checked EIP-1559 bank-send transaction.
         let transaction_signer = DisclosedAttestorSigner(signer);
         let signature = super::executor::poll_once_ready(sign_disclosed_call(
             &transaction_signer,

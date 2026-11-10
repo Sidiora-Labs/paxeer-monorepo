@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { keccak_256 } from "@noble/hashes/sha3.js";
 import { test, type TestContext } from "node:test";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { encodeSequencerReceipt } from "../src/sequencer-receipt-codec.js";
@@ -10,6 +11,12 @@ import { WebSearchClient, WebSearchError, decodePayerGrant, WEB_SEARCH_PAYER_HEA
 import { buyer, exactRecording, meteredRules, recordedSeller, recordedWebRpc, sellerExchange,
   unhex, webConfig, webReceiptKeys, type SellerStep } from "./recorded-web-search.js";
 
+// Exact payments were re-recorded by the Rust producer after the local metered capture.
+const exactExchange = (JSON.parse(readFileSync(new URL(
+  "../../../../../../services/interop/crates/x-websearch/tests/fixtures/client-exchange.json",
+  import.meta.url,
+), "utf8")) as { exchange: SellerStep[] }).exchange;
+
 const hex = (bytes: Uint8Array): string => Buffer.from(bytes).toString("hex");
 type Json = Record<string, unknown>;
 const layerx = (paid: SellerStep): Json => ((paid.response.headers["PAYMENT-RESPONSE"] as Json)["extensions"] as Json)["layerx"] as Json;
@@ -18,14 +25,20 @@ const digest = (receipt: Uint8Array): string => createHash("sha256").update("LXP
 
 function recording(scheme: WebSearchScheme, currency: WebSearchCurrency = "SID") {
   const index = scheme === "metered" ? 1 : { SID: 3, PAX: 5, USDC: 7, USDL: 9 }[currency];
-  const challenge = structuredClone(sellerExchange[index - 1]!);
-  const paid = structuredClone(sellerExchange[index]!);
+  const exchange = scheme === "metered" ? sellerExchange : exactExchange;
+  const challenge = structuredClone(exchange[index - 1]!);
+  const paid = structuredClone(exchange[index]!);
   const settlement = paid.response.headers["PAYMENT-RESPONSE"] as Json;
   const receipt = new Uint8Array(Buffer.from(String(layerx(paid)["receipt"]), "base64"));
   const payment = paid.request.headers["PAYMENT-SIGNATURE"] as { readonly payload: { readonly idempotencyKey: string } };
   const transactionHash = String(settlement["transaction"]);
   const submission = meteredRules.find(rule => rule.method === "eth_sendRawTransaction" && rule.result === transactionHash);
   const raw = unhex(scheme === "metered" ? String(submission!.params[0]) : exactRecording.payments[currency].rawTransaction);
+  assert.equal(`0x${hex(keccak_256(raw))}`, transactionHash);
+  if (scheme === "exact") {
+    assert.equal(transactionHash, exactRecording.payments[currency].txHash);
+    assert.equal(payment.payload.idempotencyKey, exactRecording.payments[currency].idempotencyKey);
+  }
   return { challenge, paid, receipt, raw, payment, transactionHash, currency, scheme };
 }
 
