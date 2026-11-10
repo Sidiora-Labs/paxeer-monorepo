@@ -83,14 +83,16 @@ pub(super) fn invoke_guest(
                 composition: CompositionContext::isolated(),
                 response_capacity: 70,
             },
-            crate::ResourceBudget::declared(),
-            None,
-            Some(
-                crate::ExecutionContext::authenticated(1, 1, 1, 2, 1)
-                    .unwrap_or_else(|e| panic!("{e:?}")),
-            ),
-            crate::AccessDeclaration::absent(),
-            None,
+            super::AuthorizedV2Budget {
+                active_budget: crate::ResourceBudget::declared(),
+                activity_binding: None,
+                execution_context: Some(
+                    crate::ExecutionContext::authenticated(1, 1, 1, 2, 1)
+                        .unwrap_or_else(|e| panic!("{e:?}")),
+                ),
+                access_declaration: crate::AccessDeclaration::absent(),
+                committed: None,
+            },
         )
         .unwrap_or_else(|e| panic!("execute {name}: {e}"))
 }

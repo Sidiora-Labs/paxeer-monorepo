@@ -49,9 +49,7 @@ function createDeploymentGenerator(base) {
   }
 
   function renderHelper(data) {
-    return base.renderHelper(data) + '\n' +
-      "export const CORE_TRADE_EXECUTION_ROLES = Object.freeze(['router', 'quoter', 'poolRegistry', 'eventEmitter'] as const);\n" +
-      "export const PRIVATE_FIXTURE_WAGMI_STORAGE_KEY = 'kindle-private-qualification-v1';\n";
+    return base.renderHelper(data);
   }
 
   function checkClient(clientRoot, data, helper) {

@@ -70,6 +70,7 @@ pub use mutate::{
     verify_committed_budget_mutation, BudgetMutation, BudgetMutationPipeline,
     ConfirmedBudgetMutation,
 };
+pub(crate) use recovery::requested_amount;
 pub use recovery::{
     BudgetReceiptEvidence, PersistedReceipt, RestartAccounting, RestartError, UnknownOutcome,
     UnknownReservation,

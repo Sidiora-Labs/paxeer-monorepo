@@ -1,3 +1,5 @@
+Code.require_file("../../../support/fixture/paxeer_x/governed_receipt_fixtures.exs", __DIR__)
+
 defmodule Explorer.Chain.PaxeerX.StatusTest do
   use Explorer.DataCase, async: false
 
@@ -6,7 +8,14 @@ defmodule Explorer.Chain.PaxeerX.StatusTest do
   alias Explorer.Chain.PaxeerX.Finality
   alias Explorer.Chain.PaxeerX.Finality.Heights
   alias Explorer.Chain.PaxeerX.SequencerReceipt
+  alias Explorer.Chain.PaxeerX.GovernedReceiptFixtures
   alias Explorer.Chain.PaxeerX.Status
+
+  setup do
+    GovernedReceiptFixtures.restore_on_exit()
+    GovernedReceiptFixtures.configure_receipted()
+    :ok
+  end
 
   @vectors Path.expand("../../../support/fixture/paxeer_x/receipt_vectors.json", __DIR__)
   @uint64_max 18_446_744_073_709_551_615
@@ -356,9 +365,11 @@ defmodule Explorer.Chain.PaxeerX.StatusTest do
     key = %{
       key_id: receipt.context_hash,
       public_key: bytes(vector["public_key"]),
-      first_height: 0,
+      first_height: 1,
       last_height: @uint64_max
     }
+
+    GovernedReceiptFixtures.configure_keys([key])
 
     answer = %{"rung" => "receipted", "receipt" => "0x" <> vector["receipt"], "txHash" => hex(receipt.activity_id)}
 

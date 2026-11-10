@@ -188,6 +188,7 @@ mod tests {
 
     #[test]
     fn retired_and_unknown_level_names_are_refused() {
+        // Keep the historical wire names here to prove the major-two decoder rejects them.
         for level in [
             "CheckpointFinalised",
             "SettlementAnchored",

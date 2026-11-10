@@ -683,6 +683,33 @@
   ],
   "allowed_references": [
     {
+      "path": "README.md",
+      "symbols": [
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxVerify",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decisions 3125 and 3173 retain the retirement and archive statements pinned by tools/qualification/audit_repairs/test_repair_22_33_404.py and the five other README digest cases (508, 581, 592, 707 and 894), rather than invoking retired executors."
+    },
+    {
+      "path": "contracts/config/checkpoint-settlement.json",
+      "symbols": [
+        "settlement_domain"
+      ],
+      "citation": "Decisions 3125 and 3173 retain the historical settlement schema and vectors whose finality_policy.certificate_threshold is pinned by tools/qualification/test_retired_callers_17.py::RetiredCallers17Test::test_checkpoint_settlement_schema_is_retained through tests/bridge/retired/kernel_retirement.py."
+    },
+    {
+      "path": "programs/README.md",
+      "symbols": [
+        "layerx-programs-protocol-adapter",
+        "protocol-adapter"
+      ],
+      "citation": "Decisions 3125 and 3173 retain the adapter retirement paragraph pinned by tools/qualification/audit_repairs/test_repair_22_33_238.py::test_programs_readme_adapter_is_retired, which forbids adding the retired adapter as a dependency."
+    },
+    {
       "path": "programs/crates/layerx-programs-ai-market/src/queries.rs",
       "symbols": [
         "FINALIZED_RANK"
@@ -700,28 +727,49 @@
       "citation": "Decision 3125 and task 22.39.277 retain the live golden replay source and fixture plus the regression targets that assert retired credit symbols are absent and state feeds are unbound."
     },
     {
-      "path": "contracts/launchpad/contracts/core",
+      "path": "apps/launchpad/web/src/widgets/profile/activity-transport.ts",
+      "symbols": [
+        "statusOf"
+      ],
+      "citation": "Decision 3125 retains the live local HTTP error status extractor used by explorer transfer pagination, which does not call the retired mirror checkpoint status method."
+    },
+    {
+      "path": "sdk/launchpad/protocol/catalog/reviewed.json",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 retains the frozen reviewed launchpad Treasury ABI for authorized accounting of prior fee transfers, which is independent of the retired exchange intent store."
+    },
+    {
+      "path": "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 retains the frozen launchpad chain catalogue Treasury fee accounting signature and selector, which are independent of the retired exchange intent store."
+    },
+    {
+      "path": "contracts/launchpad/contracts/core/SidioraFactory.sol",
       "symbols": [
         "recordDeposit"
       ],
       "citation": "Decision 3125 permits the live factory call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
     },
     {
-      "path": "contracts/launchpad/contracts/interfaces",
+      "path": "contracts/launchpad/contracts/interfaces/ITreasury.sol",
       "symbols": [
         "recordDeposit"
       ],
       "citation": "Decision 3125 permits the live ITreasury.recordDeposit interface for launchpad fee accounting, which is distinct from the retired exchange-intents method."
     },
     {
-      "path": "contracts/launchpad/contracts/periphery",
+      "path": "contracts/launchpad/contracts/periphery/Router.sol",
       "symbols": [
         "recordDeposit"
       ],
       "citation": "Decision 3125 permits the live router call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
     },
     {
-      "path": "contracts/launchpad/contracts/protocol",
+      "path": "contracts/launchpad/contracts/protocol/Treasury.sol",
       "symbols": [
         "recordDeposit"
       ],
@@ -927,6 +975,17 @@
       "citation": "Retired component names and symbols in this catalogue are inventory data"
     },
     {
+      "path": "node",
+      "symbols": [
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decision 3125 retains the anchor and custody module trees behind the merge switch and their store names for upgrade deletion, while the verify precompile remains registered to return the required disabled-module error (11001)."
+    },
+    {
       "path": "precompiles/setup.go",
       "lines": [
         "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor\"",
@@ -942,6 +1001,29 @@
       "lines": [
         "custodytypes \"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types\""
       ]
+    },
+    {
+      "path": "services/human/crates/layerx-human-service/src/audit",
+      "symbols": [
+        "EvmPayoutBinding"
+      ],
+      "citation": "Task 22.39.259, decision 3125: the signing-audit variant and its stable wire tag 4 remain live to encode and decode retained journal records."
+    },
+    {
+      "path": "services/human/crates/layerx-human-service/src/custody",
+      "symbols": [
+        "EvmPayoutBinding",
+        "sign_disclosed"
+      ],
+      "citation": "Task 22.39.259, decision 3125: wallet rebinding retains its tag-4 audit mapping, and sign_disclosed_call is the live disclosure-checked secp256k1 EIP-1559 signer carrying the retired helper name as a prefix."
+    },
+    {
+      "path": "services/human/crates/layerx-human-service/src/server",
+      "symbols": [
+        "settlement_domain",
+        "sign_disclosed"
+      ],
+      "citation": "Task 22.39.259, decision 3125: settlement_domain strips the retired field from older journal records, and sign_disclosed_call remains the live disclosure-checked EIP-1559 attestor transaction signer."
     },
     {
       "path": "services/human/tools/boundary-check/src/lib.rs",
@@ -1535,6 +1617,35 @@
       "citation": "Decision 3125 permits the live kernel identifier lxp_verified_receipt_authority_facts on the ramp surface because its receipt_authority prefix does not denote the retired finality service."
     },
     {
+      "path": "services/agent/sdk/python/layerx_sdk",
+      "symbols": [
+        "FINALIZED_RANK"
+      ],
+      "citation": "Decision 3125 retains the AI projection wire rank used by the live market program; OperationJournal.finalize independently authenticates transaction inclusion through CommitTrust.verify before recording Rung.COMMITTED."
+    },
+    {
+      "path": "services/agent/sdk/python/layerx_sdk",
+      "symbols": [
+        "LXP_DA_"
+      ],
+      "citation": "Decision 3125 retains the generated LXP_DA_MISSING service-delivery error from the result-code registry, which remains part of layerxpay and is independent of the retired kernel DA implementation."
+    },
+    {
+      "path": "services/agent/sdk/python/layerx_sdk",
+      "symbols": [
+        "requestSettlement",
+        "request_settlement"
+      ],
+      "citation": "Decision 3125 retains the historical exchange ABI helpers because the catalogue explicitly preserves the selector as an ErrRetired rejection surface after v6.12.0."
+    },
+    {
+      "path": "services/agent/sdk/typescript/src",
+      "symbols": [
+        "requestSettlement"
+      ],
+      "citation": "Decision 3125 retains the historical exchange ABI helper because the catalogue explicitly preserves the selector as an ErrRetired rejection surface after v6.12.0."
+    },
+    {
       "path": "services/agent/crates/layerx-types/src",
       "symbols": [
         "SETTLEMENT_ANCHORED",
@@ -1602,6 +1713,20 @@
       "citation": "The upgrade replay harness retains the historical anchor, custody and verify modules and precompiles to prove activation, exact retirement refusals and committed state recovery across upgrades."
     },
     {
+      "path": "programs/crates/layerx-programs-runtime/src",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains read_native_receipt_authority, decode_native_receipt_authority and native_receipt_authority_length for the live native CALL V2 receipt projection bound to block height and digest, with V1 explicitly refused."
+    },
+    {
+      "path": "programs/crates/layerx-programs-runtime/src",
+      "symbols": [
+        "SETTLEMENT_DOMAIN"
+      ],
+      "citation": "Decision 3125 retains SANDBOX_SETTLEMENT_DOMAIN for the live sandbox usage-receipt envelope authenticated by attach_sandbox_settlement and decoded by terminal::unwrap, preserving its public name and wire bytes."
+    },
+    {
       "path": "engine/executor",
       "symbols": [
         "layerxanchor",
@@ -1632,6 +1757,263 @@
         "fee_governance"
       ],
       "citation": "Decision 3125 permits the live lxp_programs_fee_governance_resolve_runtime identifier, which reads protocol-state fee schedules for emulator occupancy admission and snapshot restoration rather than submitting the retired relay activity."
+    },
+    {
+      "path": "rpc/config/config.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_listAssets as a node-root RPC method, with PxIndexerURL configuring its live single-indexer asset enumeration."
+    },
+    {
+      "path": "rpc/px_account.go",
+      "symbols": [
+        "px_getNetwork"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_getNetwork as the node-root discovery method backed by the committed EVM head and optional consensus status."
+    },
+    {
+      "path": "rpc/px_assets.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_listAssets backed by the single indexer for enumeration and pinned node state for asset metadata."
+    },
+    {
+      "path": "rpc/px_history.go",
+      "symbols": [
+        "px_getUnifiedHistory"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_getUnifiedHistory backed by the single indexer for accounts resolved from pinned node state."
+    },
+    {
+      "path": "rpc/px_params.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the px_listAssets parameter guard that rejects explicit null cursors before pointer decoding."
+    },
+    {
+      "path": "rpc/px_route_catalogue.json",
+      "symbols": [
+        "px_getNetwork",
+        "px_getUnifiedHistory",
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain these live node-root RPC method names projected from the canonical route catalogue rather than retiring their public contracts."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx",
+      "lines": [
+        "    expect(container.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx",
+      "lines": [
+        "    expect(container.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx",
+      "lines": [
+        "    expect(row.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
+    },
+    {
+      "path": "services/explorer/backend/README.md",
+      "symbols": [
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 retains settlement_anchored as a frozen archive verification value for persisted historical receipts, without advancing native transaction finality."
+    },
+    {
+      "path": "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex",
+      "symbols": [
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 retains settlement_anchored as a frozen archive verification value for persisted historical receipts, without advancing native transaction finality."
+    },
+    {
+      "path": "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt.ex",
+      "symbols": [
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 retains settlement_anchored as a frozen archive verification value for persisted historical receipts, without advancing native transaction finality."
+    },
+    {
+      "path": "services/explorer/backend/apps/explorer/priv/repo/migrations/20261001000000_create_paxeer_x_tables.exs",
+      "symbols": [
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 retains settlement_anchored as a frozen archive verification value for persisted historical receipts, without advancing native transaction finality."
+    },
+    {
+      "path": "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/common.ex",
+      "symbols": [
+        "fetch_batch"
+      ],
+      "citation": "Decision 3125 retains fetch_batch_details_by_batch_number and its caller for the live zkSync zks_getL1BatchDetails interface, which is independent of retired Paxeer kernel batch availability."
+    },
+    {
+      "path": "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/rpc.ex",
+      "symbols": [
+        "fetch_batch"
+      ],
+      "citation": "Decision 3125 retains fetch_batch_details_by_batch_number and its caller for the live zkSync zks_getL1BatchDetails interface, which is independent of retired Paxeer kernel batch availability."
+    },
+    {
+      "path": "services/explorer/backend/config/runtime.exs",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the native SequencerReceipt governed receipt-key and CometBFT validator pins loaded from the operator file, independently of the retired kernel authority process."
+    },
+    {
+      "path": "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json",
+      "symbols": [
+        "CheckpointSubmitted",
+        "ILayerXAnchor",
+        "ILayerXVerify",
+        "depositRootAuthority",
+        "depositToken",
+        "executeForcedExit",
+        "finaliseWithdrawal",
+        "getIntent",
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxVerify",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify",
+        "registerDepositRoot",
+        "requestForcedExit",
+        "requestSettlement",
+        "requestWithdrawal",
+        "statusOf"
+      ],
+      "citation": "Decision 3125 retains these disabled producer identifiers and historical ABI signatures for selector and event decoding in the exact producer/historical union generated by generate_precompiles.py; they do not invoke retired execution."
+    },
+    {
+      "path": "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_historical.json",
+      "symbols": [
+        "getIntent",
+        "requestSettlement"
+      ],
+      "citation": "Decision 3125 retains these disabled producer identifiers and historical ABI signatures for selector and event decoding in the exact producer/historical union generated by generate_precompiles.py; they do not invoke retired execution."
+    },
+    {
+      "path": "services/agent/crates/layerx-mcp/src/tools/wallet.rs",
+      "lines": [
+        "use layerx_crypto::signer::sign_disclosed_call;",
+        "let signature = run(sign_disclosed_call("
+      ],
+      "citation": "Decisions 3104 and 3130 retain sign_disclosed_call as the live disclosure-bound secp256k1 EIP-1559 replacement, with recovered sender and transaction hash checks before receipt tracking."
+    },
+    {
+      "path": "services/agent/crates/layerx-proof/src/state.rs",
+      "lines": [
+        "b\"system:paxeer-reserve\".as_slice(),",
+        "b\"system:paxeer-reserve:pax\","
+      ],
+      "citation": "Decisions 3104 and 3130 retain these historical reserve names solely as negative inputs asserting that native account decoding rejects them for every account-kind byte."
+    },
+    {
+      "path": "services/agent/crates/layerx-sdk/src/rpc_sign.rs",
+      "lines": [
+        "\"SettlementAnchored\","
+      ],
+      "citation": "Decisions 3104 and 3130 retain this historical verification label solely as a negative input asserting that the major-two signed-observation decoder refuses it."
+    },
+    {
+      "path": "services/agent/crates/layerx-sdk/src/wallet.rs",
+      "lines": [
+        "use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};",
+        "let signature = sign_disclosed_call("
+      ],
+      "citation": "Decisions 3104 and 3130 retain sign_disclosed_call as the live disclosure-bound secp256k1 EIP-1559 signer, preserving sender recovery and exact transaction receipt binding."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/host-tests/retired_env.rs",
+      "lines": [
+        "\"LAYERX_AGENT_HANDOVER_FINALITY\",",
+        "\"LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN\","
+      ],
+      "citation": "Decisions 3104 and 3130 retain these exact obsolete environment names as negative inputs that prove startup rejects stale trust configuration."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/agent_rpc.rs",
+      "lines": [
+        "\"SettlementAnchored\","
+      ],
+      "citation": "Decision 3104 retains the retired wire spelling solely as a rejection input to the current public request decoder."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs",
+      "lines": [
+        "\"SettlementAnchored\","
+      ],
+      "citation": "Decision 3104 retains the retired wire spelling solely to prove the current wait-request decoder refuses incompatible protocol levels."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs",
+      "lines": [
+        "crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),"
+      ],
+      "citation": "Decision 3104 retains the shipped archive-only verification constant solely to assert that the current receipt encoder refuses it."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/capability/effects.rs",
+      "lines": [
+        "\"EvmPayoutBinding\""
+      ],
+      "citation": "Decision 3104 retains the shipped disclosure kind name solely to report an unsupported-kind refusal without authorizing the retired operation."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/human_runtime.rs",
+      "lines": [
+        "\"/v1/agent/authorized-batch?tenant={}&principal={}&activity_id={}&signed_activity={}\",",
+        "\"/v1/agent/authorized-batch?tenant={}&principal={}&activity_id={}\",",
+        "\"checkpoint_finalised\" | \"settlement_anchored\" => VerificationLevel::COMMITTED.wire_label(),",
+        "for name in [\"committed\", \"checkpoint_finalised\", \"settlement_anchored\"] {"
+      ],
+      "citation": "Decisions 3104 and 3130 retain the shipping subject-bound historical activity endpoint and archive observation labels with their compatibility coverage, without granting current proof-owned evidence."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/main.rs",
+      "lines": [
+        "authority_replica_id: [u8; 32],",
+        "authority_replica_id: parse_digest(\"LAYERX_AGENT_AUTHORITY_REPLICA_ID\")?,",
+        "replica_id: config.authority_replica_id,",
+        "authority_replica_id: [1; 32],"
+      ],
+      "citation": "Decision 3104 retains the live independent program-authority replica identity in configuration and its consumers because that connection still ships."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/node_rpc.rs",
+      "lines": [
+        "\"LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN\",",
+        "\"LAYERX_AGENT_HANDOVER_FINALITY\","
+      ],
+      "citation": "Decision 3104 retains the exact obsolete environment names solely to refuse their presence before startup, including empty and non-Unicode values."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/protocol_evidence.rs",
+      "lines": [
+        "fn committed_time_requires_the_handshake_network_and_receipt_authority() {"
+      ],
+      "citation": "Decision 3104 retains the live handshake receipt-key test name and its network and key refusal assertions because it does not consume the retired finality service."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/read/program_node.rs",
+      "lines": [
+        "replica_id: authority_replica_id,",
+        "|| authority_replica_id == [0; 32]"
+      ],
+      "citation": "Decision 3104 retains the live independent program-authority replica identity and its mandatory nonzero validation because that program reader still ships."
     }
   ]
 }

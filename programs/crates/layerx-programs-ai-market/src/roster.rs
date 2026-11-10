@@ -15,7 +15,7 @@ use crate::{
     registry::{market_clock, MarketHeader},
     registry_ops::{PolicySection, ACTIVE, REGISTERED, SUSPENDED},
     rewards::{decode_reward_state, Disposition, EpochStatus, RewardState, REWARD_STATE_BYTES},
-    state::{self, ActorSlot, Control, Section, SharedState},
+    state::{self, ActorSlot, Section, SharedState},
     types::{Amount, Digest32, EpochPhase, WorkerId, WorkerRosterEntry},
     workers::{decode_manifest, CapabilityFields, WorkerState, WorkerTable},
 };
@@ -174,6 +174,7 @@ fn roll(
     }
     let mut next = *table;
     let (mut removed, mut expired, mut installed, mut rotated) = (0u8, 0u8, 0u8, 0u8);
+    let mut next_index = 0;
     for m in table.iter() {
         if m.pending_exit.is_some_and(|exit| exit.epoch <= epoch) {
             if retained(m)? {
@@ -187,6 +188,8 @@ fn roll(
             if approval.effective_epoch < epoch {
                 next.remove(m.participant)?;
                 bump(&mut expired)?;
+            } else {
+                next_index += 1;
             }
             continue;
         }
@@ -198,6 +201,7 @@ fn roll(
         match (m.admitted_epoch, previous) {
             (None, _) => {
                 let Some(g) = generation.filter(|_| m.immunity_until_epoch <= epoch) else {
+                    next_index += 1;
                     continue;
                 };
                 m.admitted_epoch = Some(epoch);
@@ -224,7 +228,8 @@ fn roll(
         if m.pending_exit.is_none() && !m.revoked() {
             m.membership_flags &= !FLAG_DRAINING;
         }
-        next.replace(m)?;
+        next.replace_at(next_index, m)?;
+        next_index += 1;
     }
     next.begin_epoch(epoch);
     let digest = roster_digest(&next, epoch)?;
@@ -267,7 +272,7 @@ pub struct RosterOpened {
 /// Committed F06 reward state at the head of the joint F05/F06 section, bound to the
 /// market reserve; an empty section means rewards were never initialized.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn reward_state<'a>(
+pub(crate) fn reward_state<'a>(
     section: &'a [u8],
     market: &MarketHeader,
 ) -> CodecResult<Option<RewardState<'a>>> {
@@ -275,6 +280,25 @@ fn reward_state<'a>(
         return Ok(None);
     }
     let rewards = decode_reward_state(section.get(..REWARD_STATE_BYTES).ok_or(NON_CANONICAL)?)?;
+    check_reward_binding(rewards, market).map(Some)
+}
+
+pub(crate) fn committed_reward_state<'a>(
+    section: &'a [u8],
+    market: &MarketHeader,
+) -> CodecResult<Option<RewardState<'a>>> {
+    if section.is_empty() {
+        return Ok(None);
+    }
+    let rewards =
+        crate::rewards::committed_state(section.get(..REWARD_STATE_BYTES).ok_or(NON_CANONICAL)?)?;
+    check_reward_binding(rewards, market).map(Some)
+}
+
+fn check_reward_binding<'a>(
+    rewards: RewardState<'a>,
+    market: &MarketHeader,
+) -> CodecResult<RewardState<'a>> {
     let ledger = rewards.ledger()?;
     if ledger.asset != market.funding_asset || ledger.account != market.rewards_account {
         return Err(ACCOUNT_BINDING);
@@ -282,7 +306,7 @@ fn reward_state<'a>(
     if ledger.active_reserve {
         return Err(WRONG_PHASE);
     }
-    Ok(Some(rewards))
+    Ok(rewards)
 }
 
 /// Unclaimed TERMINAL entitlements still owed to `worker` through its frozen recipient.
@@ -330,7 +354,7 @@ fn opening_epoch(market: &MarketHeader, height: u64) -> CodecResult<u64> {
 /// evaluator keeps its F08 generation.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn authorized(
-    workers: &WorkerTable,
+    workers: &crate::workers::OpeningCursor<'_>,
     m: &AdmissionMeta,
     height: u64,
     epoch: u64,
@@ -338,7 +362,7 @@ fn authorized(
     let Participant::Worker(worker) = m.participant else {
         return Ok(Some(m.delegate_generation));
     };
-    let record = workers.get(worker).ok_or(NON_CANONICAL)?;
+    let record = workers.get(worker)?.ok_or(NON_CANONICAL)?;
     if record.owner != m.owner {
         return Err(NON_CANONICAL);
     }
@@ -442,10 +466,19 @@ pub(crate) fn rollover_roster_parts<'c: 's, 's>(
         .guest_index(Section::ReputationAdmission.index());
     let table = crate::reputation_transition::joint_table(joint)?;
     let admission = AdmissionTable::decode(table)?;
+    let epoch = opening_epoch(&market, height)?;
+    if admission
+        .current_epoch()
+        .is_some_and(|previous| epoch <= previous)
+    {
+        return Err(WRONG_EPOCH);
+    }
+    let rewards = reward_state(state.section(Section::SettlementClaims)?, &market)?;
     rollover_roster_prepared(
         state,
         &market,
         admission,
+        rewards,
         height,
         expected_revision,
         scratch,
@@ -456,7 +489,8 @@ pub(crate) fn rollover_roster_parts<'c: 's, 's>(
 pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
     state: &SharedState<'c>,
     market: &MarketHeader,
-    mut admission: AdmissionTable,
+    admission: AdmissionTable,
+    rewards: Option<RewardState<'c>>,
     height: u64,
     expected_revision: u64,
     scratch: &'s mut [u8],
@@ -471,10 +505,139 @@ pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
     if state.revision != expected_revision {
         return Err(F08_STALE_STATE);
     }
-    let sections = state.feature_sections;
+    let prepared = prepare_roster_sections(
+        state.feature_sections,
+        market,
+        admission,
+        rewards,
+        height,
+        scratch,
+        &|slot| Ok(state.control.replay.actor(slot)),
+    )?;
+    let mut control = state.control.clone();
+    for slot in prepared.retired.iter().flatten() {
+        control.replay.retire(*slot)?;
+    }
+    let opened = SharedState {
+        revision: state.revision,
+        feature_sections: prepared.feature_sections,
+        control,
+    };
+    let summary = prepared.summary.with_len(opened.encoded_len()?)?;
+    let workers = WorkerTable::decode(
+        split_identity_section(opened.feature_sections[Section::IdentityRoster.index()])?.0,
+    )?;
+    Ok((
+        summary,
+        opened,
+        rewards,
+        prepared.admission,
+        workers,
+        prepared.control_out,
+    ))
+}
+
+// Opening keeps replay bytes verbatim unless an actual departing worker changes
+// a slot. Retention checks materialize replay only for that affected operation.
+pub(crate) fn rollover_roster_framed<'c: 's, 's>(
+    reader: &state::SectionReader<'c>,
+    market: &MarketHeader,
+    admission: AdmissionTable,
+    rewards: Option<RewardState<'c>>,
+    height: u64,
+    scratch: &'s mut [u8],
+) -> CodecResult<(
+    RosterOpened,
+    codec::StateFrame<'s>,
+    AdmissionTable,
+    crate::workers::OpeningWorkers<'s>,
+)> {
+    let original = reader.frame();
+    let prepared = prepare_roster_sections(
+        core::array::from_fn(|i| original.sections[i]),
+        market,
+        admission,
+        rewards,
+        height,
+        scratch,
+        &|slot| reader.with_state(|state| Ok(state.control.replay.actor(slot))),
+    )?;
+    let control = if prepared.retired.iter().any(Option::is_some) {
+        let control = reader.with_state(|state| {
+            let mut control = state.control.clone();
+            for slot in prepared.retired.iter().flatten() {
+                control.replay.retire(*slot)?;
+            }
+            Ok(control)
+        })?;
+        let len = state::encode_control(&control, prepared.control_out)?;
+        &prepared.control_out[..len]
+    } else {
+        original.sections[Section::Control.index()]
+    };
+    let opened = codec::StateFrame {
+        revision: original.revision,
+        sections: [
+            prepared.feature_sections[0],
+            prepared.feature_sections[1],
+            prepared.feature_sections[2],
+            prepared.feature_sections[3],
+            prepared.feature_sections[4],
+            control,
+        ],
+    };
+    let summary = prepared.summary.with_len(opened.encoded_len()?)?;
+    let workers = crate::workers::OpeningWorkers::read(
+        split_identity_section(opened.sections[Section::IdentityRoster.index()])?.0,
+    )?;
+    Ok((summary, opened, prepared.admission, workers))
+}
+
+struct RolloverSummary {
+    rollover: Rollover,
+    previous: Option<u64>,
+    skipped: u64,
+    preserved_entitlements: u16,
+    preserved_amount: Amount,
+}
+impl RolloverSummary {
+    fn with_len(self, state_len: usize) -> CodecResult<RosterOpened> {
+        Ok(RosterOpened {
+            rollover: self.rollover,
+            previous: self.previous,
+            skipped: self.skipped,
+            workers: self
+                .rollover
+                .members
+                .checked_sub(self.rollover.health.roster_evaluators)
+                .ok_or(ARITHMETIC)?,
+            evaluators: self.rollover.health.roster_evaluators,
+            preserved_entitlements: self.preserved_entitlements,
+            preserved_amount: self.preserved_amount,
+            state_len,
+        })
+    }
+}
+struct PreparedRollover<'s> {
+    summary: RolloverSummary,
+    feature_sections: [&'s [u8]; 5],
+    admission: AdmissionTable,
+    retired: [Option<ActorSlot>; crate::MAX_WORKERS],
+    control_out: &'s mut [u8],
+}
+
+fn prepare_roster_sections<'c: 's, 's>(
+    sections: [&'c [u8]; 5],
+    market: &MarketHeader,
+    mut admission: AdmissionTable,
+    rewards: Option<RewardState<'c>>,
+    height: u64,
+    scratch: &'s mut [u8],
+    retained_actor: &dyn Fn(ActorSlot) -> CodecResult<Option<state::ActorReplay>>,
+) -> CodecResult<PreparedRollover<'s>> {
     let epoch = opening_epoch(market, height)?;
     let joint = *sections.guest_index(Section::ReputationAdmission.index());
-    let table = crate::reputation_transition::joint_table(joint)?;
+    let table = crate::reputation_transition::framed_admission_table(joint)?;
     let prefix = joint
         .get(..joint.len() - table.len())
         .ok_or(NON_CANONICAL)?;
@@ -484,37 +647,32 @@ pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
         Some(p) => epoch - p - 1,
         None => epoch,
     };
-    let rewards = reward_state(
-        *sections.guest_index(Section::SettlementClaims.index()),
-        &market,
-    )?;
     let (worker_bytes, region) =
         split_identity_section(*sections.guest_index(Section::IdentityRoster.index()))?;
-    let mut workers = WorkerTable::decode(worker_bytes)?;
-    let replay = &state.control.replay;
+    let opening_workers = crate::workers::OpeningWorkers::read(worker_bytes)?;
     let before = admission;
-    let rollover = roll(
-        &mut admission,
-        epoch,
-        |m| {
-            let Participant::Worker(worker) = m.participant else {
-                return Ok(false);
-            };
-            let record = workers.get(worker).ok_or(NON_CANONICAL)?;
-            let slot = ActorSlot::worker(usize::from(record.slot))?;
-            Ok(replay
-                .actor(slot)
-                .and_then(|actor| actor.last)
-                .is_some_and(|last| last.expiry_height > height))
-        },
-        |m| authorized(&workers, m, height, epoch),
-    )?;
-    let mut control = Control {
-        replay: state.control.replay.clone(),
-        feature_bytes: state.control.feature_bytes,
+    let rollover = {
+        let worker_reader = opening_workers.ordered();
+        roll(
+            &mut admission,
+            epoch,
+            |m| {
+                let Participant::Worker(worker) = m.participant else {
+                    return Ok(false);
+                };
+                let record = worker_reader.get(worker)?.ok_or(NON_CANONICAL)?;
+                let slot = ActorSlot::worker(usize::from(record.slot))?;
+                Ok(retained_actor(slot)?
+                    .and_then(|actor| actor.last)
+                    .is_some_and(|last| last.expiry_height > height))
+            },
+            |m| authorized(&worker_reader, m, height, epoch),
+        )?
     };
+    let mut retired = [None; crate::MAX_WORKERS];
+    let mut retired_count = 0;
     let (mut preserved_entitlements, mut preserved_amount) = (0u16, 0);
-    let mut workers_changed = false;
+    let mut changed_workers: Option<WorkerTable> = None;
     for m in before
         .iter()
         .filter(|m| m.pending_exit.is_some_and(|exit| exit.epoch <= epoch))
@@ -522,11 +680,15 @@ pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
         let Participant::Worker(worker) = m.participant else {
             continue;
         };
-        let record = workers.remove(worker)?;
-        control
-            .replay
-            .retire(ActorSlot::worker(usize::from(record.slot))?)?;
-        workers_changed = true;
+        if changed_workers.is_none() {
+            changed_workers = Some(WorkerTable::decode(worker_bytes)?);
+        }
+        let record = changed_workers
+            .as_mut()
+            .ok_or(NON_CANONICAL)?
+            .remove(worker)?;
+        retired[retired_count] = Some(ActorSlot::worker(usize::from(record.slot))?);
+        retired_count += 1;
         if let Some(rewards) = &rewards {
             let (count, amount) = outstanding(rewards, worker)?;
             preserved_entitlements = preserved_entitlements
@@ -549,7 +711,7 @@ pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
     let table_len = admission.encode(admission_out)?;
     *feature_sections.guest_index_mut(Section::ReputationAdmission.index()) =
         table_out.guest_index(..prefix.len().checked_add(table_len).ok_or(ARITHMETIC)?);
-    if workers_changed {
+    if let Some(workers) = changed_workers {
         let workers_len = workers.encode(identity_out)?;
         let identity_len = workers_len.checked_add(region.len()).ok_or(ARITHMETIC)?;
         identity_out
@@ -559,26 +721,19 @@ pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
         *feature_sections.guest_index_mut(Section::IdentityRoster.index()) =
             identity_out.guest_index(..identity_len);
     }
-    let opened = SharedState {
-        revision: state.revision,
+    Ok(PreparedRollover {
+        summary: RolloverSummary {
+            rollover,
+            previous,
+            skipped,
+            preserved_entitlements,
+            preserved_amount,
+        },
         feature_sections,
-        control,
-    };
-    let state_len = opened.encoded_len()?;
-    let roster = RosterOpened {
-        rollover,
-        previous,
-        skipped,
-        workers: rollover
-            .members
-            .checked_sub(rollover.health.roster_evaluators)
-            .ok_or(ARITHMETIC)?,
-        evaluators: rollover.health.roster_evaluators,
-        preserved_entitlements,
-        preserved_amount,
-        state_len,
-    };
-    Ok((roster, opened, rewards, admission, workers, control_out))
+        admission,
+        retired,
+        control_out,
+    })
 }
 
 /// Digest over the frozen roster sorted by role then stable participant ID.

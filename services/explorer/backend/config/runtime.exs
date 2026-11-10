@@ -296,6 +296,8 @@ config :ethereum_jsonrpc, EthereumJSONRPC.PaxeerX,
 
 # Governed authority is loaded from an operator-managed file on every application boot.
 # RPC discovery never writes this file or supplies a replacement trust anchor.
+# These pins verify native sequencer receipts and CometBFT inclusion evidence at
+# the receipt height; they do not configure the retired kernel authority process.
 paxeer_x_receipt_authority =
   case System.get_env("PAXEER_X_RECEIPT_AUTHORITY_FILE") do
     nil ->

@@ -308,15 +308,16 @@ impl RewardLedger {
         I: Iterator<Item = CodecResult<RewardEpoch>> + Clone,
     {
         self.validate()?;
-        let total = epochs.clone().count();
-        if total > MAX_RETAINED_EPOCHS + 1 {
-            return Err(CAPACITY);
-        }
+        let mut total = 0usize;
         let mut previous: Option<u64> = None;
         let mut active = 0usize;
         let mut reserved = 0u128;
         let mut liability = 0u128;
         for epoch in epochs {
+            total = total.checked_add(1).ok_or(ARITHMETIC)?;
+            if total > MAX_RETAINED_EPOCHS + 1 {
+                return Err(CAPACITY);
+            }
             let epoch = epoch?;
             if previous.is_some_and(|p| p >= epoch.epoch) {
                 return Err(F06_LEDGER_INVARIANT_VIOLATION);
@@ -509,13 +510,24 @@ impl<'a> RecipientDictionary<'a> {
     /// # Errors
     /// `NON_CANONICAL` for a malformed slot.
     pub fn find(&self, worker: WorkerId, recipient: AccountId) -> CodecResult<Option<u16>> {
-        for (index, _) in self.raw() {
-            if self
-                .get(index)?
-                .is_some_and(|s| s.worker == worker && s.recipient == recipient)
-            {
-                return Ok(Some(index));
+        let mut index = 0usize;
+        while index < MAX_PAYOUT_IDENTITIES {
+            if self.bytes[index * SLOT_BYTES] == 0 {
+                let start = index;
+                index += 1;
+                while index < MAX_PAYOUT_IDENTITIES && self.bytes[index * SLOT_BYTES] == 0 {
+                    index += 1;
+                }
+                if !unused(&self.bytes[start * SLOT_BYTES..index * SLOT_BYTES]) {
+                    return Err(NON_CANONICAL);
+                }
+                continue;
             }
+            let slot = self.get(index as u16)?;
+            if slot.is_some_and(|s| s.worker == worker && s.recipient == recipient) {
+                return Ok(Some(index as u16));
+            }
+            index += 1;
         }
         Ok(None)
     }
@@ -530,13 +542,6 @@ impl<'a> RecipientDictionary<'a> {
     pub fn validate(&self, reserve: AccountId) -> CodecResult<()> {
         let mut flagged: [&[u8]; MAX_PAYOUT_IDENTITIES] = [&[]; MAX_PAYOUT_IDENTITIES];
         let mut count = 0;
-        for (_, bytes) in self.raw() {
-            if *bytes.guest_index(0) == 1 {
-                *flagged.guest_index_mut(count) = bytes.guest_index(1..65);
-                count += 1;
-            }
-        }
-        let mut seen = 0;
         let mut index = 0;
         while index < MAX_PAYOUT_IDENTITIES {
             let bytes = self
@@ -560,20 +565,26 @@ impl<'a> RecipientDictionary<'a> {
             }
             let slot = self.slot(u16::try_from(index).map_err(|_| NON_CANONICAL)?)?;
             index += 1;
-            seen += 1;
             if slot.recipient == reserve {
                 return Err(ACCOUNT_BINDING);
             }
             if slot.references == 0 || slot.references > MAX_SLOT_REFERENCES {
                 return Err(NON_CANONICAL);
             }
-            if flagged
-                .guest_index(seen..count)
-                .iter()
-                .any(|other| *other == bytes.guest_index(1..65))
-            {
-                return Err(NON_CANONICAL);
+            let identity = bytes.guest_index(1..65);
+            let mut left = 0;
+            let mut right = count;
+            while left < right {
+                let mid = left + (right - left) / 2;
+                match flagged.guest_index(mid).cmp(&identity) {
+                    core::cmp::Ordering::Less => left = mid + 1,
+                    core::cmp::Ordering::Equal => return Err(NON_CANONICAL),
+                    core::cmp::Ordering::Greater => right = mid,
+                }
             }
+            flagged.guest_copy_within(left..count, left + 1);
+            *flagged.guest_index_mut(left) = identity;
+            count += 1;
         }
         Ok(())
     }
@@ -905,6 +916,29 @@ pub fn encode_epoch(v: &RewardEpoch, out: &mut [u8]) -> CodecResult<usize> {
 /// `CAPACITY`, `NON_CANONICAL` for malformed bytes, or any row validation error.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_epoch(bytes: &[u8]) -> CodecResult<RewardEpoch> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        static DECODED: crate::guest_cell::GuestCell<
+            crate::guest_cell::Cached<([u8; EPOCH_MAX_BYTES], usize, RewardEpoch)>,
+        > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if let Some((input, len, row)) = decoded.as_ref() {
+            if crate::codec::equal_bytes(&input[..*len], bytes) {
+                return Ok(*row);
+            }
+        }
+        let row = decode_epoch_uncached(bytes)?;
+        let mut snapshot = [0; EPOCH_MAX_BYTES];
+        snapshot[..bytes.len()].copy_from_slice(bytes);
+        *decoded = crate::guest_cell::Cached::Value((snapshot, bytes.len(), row));
+        return Ok(row);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    decode_epoch_uncached(bytes)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn decode_epoch_uncached(bytes: &[u8]) -> CodecResult<RewardEpoch> {
     if bytes.len() > EPOCH_MAX_BYTES {
         return Err(CAPACITY);
     }
@@ -977,13 +1011,26 @@ pub fn allocation_digest(
     w.put(asset.as_bytes())?;
     w.u128(allocation.budget())?;
     w.u16(u16::try_from(allocation.len()).map_err(|_| ARITHMETIC)?)?;
+    let canonical_roster = roster
+        .windows(2)
+        .all(|pair| pair[0].worker < pair[1].worker);
     for i in 0..allocation.len() {
         let (worker, amount) = allocation.entitlement(i)?;
-        let recipient = roster
-            .iter()
-            .find(|e| e.worker == worker)
-            .ok_or(F06_UNKNOWN_WORKER_ENTITLEMENT)?
-            .recipient;
+        // Allocations produced from a frozen roster retain its order. Public callers
+        // may supply another roster order, so retain the identity lookup in that case.
+        let recipient = match roster
+            .get(i)
+            .filter(|entry| canonical_roster && entry.worker == worker)
+        {
+            Some(entry) => entry.recipient,
+            None => {
+                roster
+                    .iter()
+                    .find(|entry| entry.worker == worker)
+                    .ok_or(F06_UNKNOWN_WORKER_ENTITLEMENT)?
+                    .recipient
+            }
+        };
         crate::codec::write_fields!(w;
             id32: worker.as_bytes();
             id32: recipient.as_bytes();
@@ -1526,8 +1573,127 @@ pub fn decode_reward_state(bytes: &[u8]) -> CodecResult<RewardState<'_>> {
         return Err(NON_CANONICAL);
     }
     let state = RewardState { bytes };
-    state.check()?;
+    #[cfg(target_arch = "wasm32")]
+    {
+        static INPUT: crate::guest_cell::GuestCell<crate::guest_cell::Cached<&'static [u8]>> =
+            crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        static OUTPUT: crate::guest_cell::GuestCell<
+            crate::guest_cell::Cached<[u8; REWARD_STATE_BYTES]>,
+        > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        let mut input = INPUT.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if input.as_ref().is_some_and(|saved| {
+            core::ptr::eq(*saved, bytes) || crate::codec::equal_bytes(saved, bytes)
+        }) {
+            return Ok(state);
+        }
+        if let Some(frozen) = crate::state::current_slice(bytes) {
+            state.check()?;
+            *input = crate::guest_cell::Cached::Value(frozen);
+            return Ok(state);
+        }
+        let mut output = OUTPUT.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if output
+            .as_ref()
+            .is_some_and(|saved| crate::codec::equal_bytes(saved, bytes))
+        {
+            return Ok(state);
+        }
+        state.check()?;
+        // Own the proof's bytes: scratch can be changed by subsequent producers.
+        if !output.is_some() {
+            *output = crate::guest_cell::Cached::Value([0; REWARD_STATE_BYTES]);
+        }
+        if let crate::guest_cell::Cached::Value(saved) = &mut *output {
+            saved.copy_from_slice(bytes);
+        }
+        return Ok(state);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        state.check()?;
+        Ok(state)
+    }
+}
+
+// Internal section reader for operations over the authoritative committed cell.
+// The producer checked the complete state; reservation and terminalization
+// validate the ledger and every row/recipient binding they change. The public
+// decoder above remains the strict boundary for untrusted serialized input.
+pub(crate) fn committed_state(bytes: &[u8]) -> CodecResult<RewardState<'_>> {
+    if bytes.len() != REWARD_STATE_BYTES {
+        return Err(NON_CANONICAL);
+    }
+    let state = RewardState { bytes };
+    state.ledger()?;
     Ok(state)
+}
+
+/// One row read from a committed section. This does not claim that unrelated
+/// rows, payouts or dictionary slots have been decoded.
+pub(crate) struct CommittedRow<'a> {
+    pub row: RewardEpoch,
+    pub dictionary: RecipientDictionary<'a>,
+}
+
+/// Immutable reserve header consumed by chunk processing. Entries and recipient
+/// bindings are read by Begin/Finalize; a chunk only needs the count and digest.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn committed_epoch_header(
+    section: &[u8],
+    epoch: u64,
+) -> CodecResult<(EpochStatus, RosterDigest, u16, Amount)> {
+    let bytes = section.get(..REWARD_STATE_BYTES).ok_or(NON_CANONICAL)?;
+    let rows = EpochRows::new(bytes.guest_index(ROWS_AT..LAST_REFUND_AT))?;
+    for bytes in rows
+        .bytes
+        .chunks_exact(EPOCH_MAX_BYTES)
+        .take(rows.row_capacity())
+    {
+        let mut r = Reader::new(bytes);
+        let found = r.u64()?;
+        let status = r.u8()?;
+        if status == 0 {
+            break;
+        }
+        let status = EpochStatus::decode(status)?;
+        if found == epoch {
+            r.take(19)?;
+            let budget = r.u128()?;
+            r.take(32)?;
+            let roster = r.roster_digest()?;
+            r.take(64)?;
+            let count = r.u16()?;
+            if usize::from(count) > MAX_WORKERS {
+                return Err(CAPACITY);
+            }
+            return Ok((status, roster, count, budget));
+        }
+        if found > epoch {
+            break;
+        }
+    }
+    Err(NOT_FOUND)
+}
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn committed_row(section: &[u8], epoch: u64) -> CodecResult<CommittedRow<'_>> {
+    let bytes = section.get(..REWARD_STATE_BYTES).ok_or(NON_CANONICAL)?;
+    let rows = EpochRows {
+        bytes: &bytes[ROWS_AT..LAST_REFUND_AT],
+    };
+    for row in rows.records() {
+        let row = row?;
+        if row.epoch == epoch {
+            let dictionary = RecipientDictionary {
+                bytes: &bytes[DICTIONARY_AT..ROWS_AT],
+            };
+            row.check_dictionary(&dictionary)?;
+            return Ok(CommittedRow { row, dictionary });
+        }
+        if row.epoch > epoch {
+            break;
+        }
+    }
+    Err(NOT_FOUND)
 }
 
 /// Next-state buffer of one transition: a copy of the committed bytes and the
@@ -1576,6 +1742,39 @@ impl<'b> Draft<'b> {
         encode_ledger(&ledger, bytes.guest_index_mut(..DICTIONARY_AT))?;
         Ok((decode_reward_state(bytes)?, effect))
     }
+
+    fn commit_row(
+        self,
+        row: &RewardEpoch,
+        effect: RewardEffect,
+    ) -> CodecResult<(RewardState<'b>, RewardEffect)> {
+        // Draft starts from committed state. This transition changes the ledger,
+        // one row, and exactly the recipient references named by that row.
+        // Check those bindings without revisiting preserved padding and journals.
+        let extra = (RewardState { bytes: self.bytes })
+            .payout_credits()
+            .try_fold(0u128, |sum, credit| {
+                sum.checked_add(credit?.1.liability()).ok_or(ARITHMETIC)
+            })?;
+        let mut row_ledger = self.ledger;
+        row_ledger.liability = row_ledger
+            .liability
+            .checked_sub(extra)
+            .ok_or(F06_LEDGER_INVARIANT_VIOLATION)?;
+        row_ledger.tracked_deposits = row_ledger
+            .tracked_deposits
+            .checked_sub(extra)
+            .ok_or(F06_LEDGER_INVARIANT_VIOLATION)?;
+        row_ledger.check_row_iter(self.rows().records())?;
+        let dictionary = self.dictionary();
+        row.check_dictionary(&dictionary)?;
+        if dictionary.occupied() != usize::from(self.ledger.recipient_count) {
+            return Err(F06_LEDGER_INVARIANT_VIOLATION);
+        }
+        let Self { ledger, bytes } = self;
+        encode_ledger(&ledger, bytes.guest_index_mut(..DICTIONARY_AT))?;
+        Ok((RewardState { bytes }, effect))
+    }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn release(&mut self, index: u16) -> CodecResult<()> {
         let mut slot = self.dictionary().slot(index)?;
@@ -1600,7 +1799,22 @@ impl<'b> Draft<'b> {
         if recipient == self.ledger.account {
             return Err(ACCOUNT_BINDING);
         }
-        if let Some(index) = self.dictionary().find(worker, recipient)? {
+        let dictionary = self.dictionary();
+        let mut found = None;
+        for (index, bytes) in dictionary.raw() {
+            match bytes[0] {
+                0 => {} // padding was checked before Draft::start; setters only write canonical slots
+                1 => {
+                    let slot = dictionary.slot(index)?;
+                    if slot.worker == worker && slot.recipient == recipient {
+                        found = Some(index);
+                        break;
+                    }
+                }
+                _ => return Err(NON_CANONICAL),
+            }
+        }
+        if let Some(index) = found {
             let mut slot = self.dictionary().slot(index)?;
             if slot.references >= MAX_SLOT_REFERENCES {
                 return Err(CAPACITY);
@@ -1624,6 +1838,75 @@ impl<'b> Draft<'b> {
             .checked_add(1)
             .ok_or(ARITHMETIC)?;
         Ok(index)
+    }
+    /// Preflight the bounded frozen roster with one validated dictionary traversal.
+    /// Each new pair still takes the lowest free slot, in frozen worker order.
+    fn admit_roster(&mut self, roster: &[WorkerRosterEntry]) -> CodecResult<[u16; MAX_WORKERS]> {
+        let mut existing = [None; MAX_WORKERS];
+        let mut free = [0u16; MAX_WORKERS];
+        let mut free_len = 0;
+        let dictionary = self.dictionary();
+        for (index, bytes) in dictionary.raw() {
+            let slot = match bytes[0] {
+                0 => None, // unchanged padding was validated by the current RewardState
+                1 => Some(dictionary.slot(index)?),
+                _ => return Err(NON_CANONICAL),
+            };
+            match slot {
+                Some(slot) => {
+                    if let Some(at) = codec::frozen_worker_index(roster, slot.worker) {
+                        if slot.recipient == roster.guest_index(at).recipient {
+                            *existing.guest_index_mut(at) = Some((index, slot));
+                        }
+                    }
+                }
+                None if free_len < MAX_WORKERS => {
+                    free[free_len] = index;
+                    free_len += 1;
+                }
+                None => {}
+            }
+        }
+        let mut slots = [0; MAX_WORKERS];
+        let mut used_free = 0;
+        for ((out, found), entry) in slots.iter_mut().zip(existing).zip(roster) {
+            if entry.recipient == self.ledger.account {
+                return Err(ACCOUNT_BINDING);
+            }
+            let (index, slot) = match found {
+                Some((index, mut slot)) => {
+                    if slot.references >= MAX_SLOT_REFERENCES {
+                        return Err(CAPACITY);
+                    }
+                    slot.references = slot.references.checked_add(1).ok_or(ARITHMETIC)?;
+                    (index, slot)
+                }
+                None => {
+                    let index = *free
+                        .get(..free_len)
+                        .ok_or(CAPACITY)?
+                        .get(used_free)
+                        .ok_or(CAPACITY)?;
+                    used_free += 1;
+                    self.ledger.recipient_count = self
+                        .ledger
+                        .recipient_count
+                        .checked_add(1)
+                        .ok_or(ARITHMETIC)?;
+                    (
+                        index,
+                        RecipientSlot {
+                            worker: entry.worker,
+                            recipient: entry.recipient,
+                            references: 1,
+                        },
+                    )
+                }
+            };
+            self.set_slot(index, Some(&slot))?;
+            *out = index;
+        }
+        Ok(slots)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn set_payout_credit(
@@ -2042,10 +2325,7 @@ impl<'a> RewardState<'a> {
                 }
             })?);
         }
-        let mut slots = [0u16; MAX_WORKERS];
-        for (slot, entry) in slots.iter_mut().zip(roster) {
-            *slot = draft.admit(entry.worker, entry.recipient)?;
-        }
+        let slots = draft.admit_roster(roster)?;
         draft.ledger = draft.ledger.reserve(budget)?;
         let index = draft.rows().used();
         let row = RewardEpoch::reserved(
@@ -2055,7 +2335,7 @@ impl<'a> RewardState<'a> {
             slots.guest_index(..roster.len()),
         )?;
         draft.set_row(index, Some(&row))?;
-        draft.commit(effect)
+        draft.commit_row(&row, effect)
     }
 
     /// `TerminalizeRewards`: internal to `FinalizeAggregation`, bound to the
@@ -2127,7 +2407,7 @@ impl<'a> RewardState<'a> {
             RewardOutcome::Undecided => return Err(F06_AGGREGATION_MISMATCH),
         }
         draft.set_row(index, Some(&terminal))?;
-        draft.commit(RewardEffect::NoTransfer)
+        draft.commit_row(&terminal, RewardEffect::NoTransfer)
     }
 
     /// `DeclinePendingEpoch`: only an epoch that never opened may be declined;
@@ -3693,6 +3973,29 @@ pub(crate) fn finish_feature_transition<'a>(
     crate::registry::check_f01_capacity(p, shared.encoded_len()?)?;
     let state_len = encode_shared_state(&shared, next, control)?;
     Ok((revision, state_len))
+}
+
+/// Object-local transitions carry the committed control section unchanged.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn finish_feature_frame<'a>(
+    mut frame: codec::StateFrame<'a>,
+    policy: crate::registry_ops::PolicySection<'_>,
+    section: Section,
+    replacement: &'a [u8],
+    policy_out: &'a mut [u8],
+    next: &mut [u8],
+) -> CodecResult<(u64, usize)> {
+    let revision = frame.revision.checked_add(1).ok_or(ARITHMETIC)?;
+    let p = policy.encode_revision(
+        frame.sections[Section::PolicyLifecycle.index()],
+        revision,
+        policy_out,
+    )?;
+    frame.revision = revision;
+    frame.sections[Section::PolicyLifecycle.index()] = policy_out.get(..p).ok_or(CAPACITY)?;
+    frame.sections[section.index()] = replacement;
+    crate::registry::check_f01_capacity(p, frame.encoded_len()?)?;
+    Ok((revision, codec::encode_state(&frame, next)?))
 }
 
 #[cfg(test)]

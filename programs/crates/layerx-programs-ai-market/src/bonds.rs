@@ -115,6 +115,14 @@ pub fn bond_from_state(current: &[u8], bid: Digest32) -> CodecResult<Option<Bond
     RoomBook::decode(state::decode_shared_state(current)?.room_market()?.1)?.bond(bid)
 }
 
+/// Principal held by live bonds, independently of the reward ledger.
+///
+/// # Errors
+/// Propagates shared-state, room-book and checked balance refusals.
+pub fn held_from_state(current: &[u8]) -> CodecResult<u128> {
+    RoomBook::decode(state::decode_shared_state(current)?.room_market()?.1)?.held()
+}
+
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_bid(
     ctx: &CallContext,
@@ -252,7 +260,7 @@ fn rewards<'a>(state: &SharedState<'a>) -> CodecResult<RewardState<'a>> {
     state::settlement_rewards(state, None)
 }
 
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 pub fn apply_lock_bond(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -266,7 +274,7 @@ pub fn apply_lock_bond(
     }
     apply(ctx, envelope, current, next, scratch, event)
 }
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 pub fn apply_slash_bond(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -280,7 +288,7 @@ pub fn apply_slash_bond(
     }
     apply(ctx, envelope, current, next, scratch, event)
 }
-#[cfg_attr(target_arch = "wasm32", inline(never))]
+#[cfg_attr(target_arch = "wasm32", inline(always))]
 pub fn apply_refund_bond(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

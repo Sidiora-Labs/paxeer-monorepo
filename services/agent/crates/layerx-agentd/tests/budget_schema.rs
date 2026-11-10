@@ -100,6 +100,7 @@ fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
     let verifier = support::pinned_evidence_verifier();
     let receipts = [PersistedReceipt {
         expected_activity_id: [0x61; 32],
+        requested_amount: 25,
         evidence: support::raw_receipt([0x61; 32], 0, 25),
     }];
     let retained = verifier
@@ -141,6 +142,7 @@ fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
         .into_iter()
         .map(|record| PersistedReceipt {
             expected_activity_id: record.activity_id,
+            requested_amount: 25,
             evidence: record.evidence,
         })
         .collect();
