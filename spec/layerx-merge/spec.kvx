@@ -223357,7 +223357,7 @@ do_3 = "Attempt 2 (continue, gotcha 4036, decision 3143): the attempt-1 tree 4b5
 
 [task.22.39.291]
 title = "Give the pay module its stream ask activity entry and a canonical escrow genesis fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.298"]
