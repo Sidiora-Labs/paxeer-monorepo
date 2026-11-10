@@ -192848,7 +192848,7 @@ do_4 = "Attempt 2 (continue, gotchas 3984 and 3987, decisions 3125 and 3126): th
 
 [task.22.39.265]
 title = "Repair the retired references of the ramps, examples and tools of the platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -192910,7 +192910,7 @@ do_4 = "Attempt 2 (continue, gotcha 4010, decision 3125): the attempt-1 tree 9b8
 
 [task.22.39.262]
 title = "Repair the retired references of the platform gateway crate and its document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -193065,7 +193065,7 @@ do_4 = "Attempt 2 (continue, gotcha 4004, decisions 3129 and 3130): the attempt-
 
 [task.22.39.256]
 title = "Repair the retired references of the agent client crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -193096,7 +193096,7 @@ do_4 = "Attempt 2 (continue, gotcha 4010, decision 3125): the attempt-1 tree a14
 
 [task.22.39.255]
 title = "Repair the retired references of the agent crypto crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -223228,7 +223228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.298]
 title = "Bring the pay module keeper and types suites to the escrow receipt genesis producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -280293,7 +280293,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.39.301]
 title = "Align the JVM catalogue programs test with the regenerated native preparation record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -350293,7 +350293,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.277]
 title = "Repair the retired references of the container files, the root Makefile and README, the site configuration and the API contract documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -350385,7 +350385,7 @@ do_4 = "Attempt 2 (continue, gotcha 4011, decisions 3125 and 3130): the attempt-
 
 [task.22.39.264]
 title = "Repair the retired references of the hosted human and node scripts of the platform"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
