@@ -1134,6 +1134,15 @@
       "citation": "The verify removal (11001) retires this component at merge while its own disabled implementation or contract interface retains these names."
     },
     {
+      "path": "tools/chain/upgrade-replay",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "The upgrade replay harness retains the historical anchor, custody and verify modules and precompiles to prove activation, exact retirement refusals and committed state recovery across upgrades."
+    },
+    {
       "path": "tools/paxeer-x/build/104.30.2.mk",
       "lines": [
         "\tcontracts/config/checkpoint-settlement.json"
