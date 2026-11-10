@@ -376,11 +376,14 @@ impl FeeOnlyLifecycle<'_> {
         Ok(())
     }
     #[cfg(test)]
-    fn decode(ordinal: u16, payload: &'a [u8]) -> Result<Self, ProgramSettlementError> {
+    fn decode<'a>(
+        ordinal: u16,
+        payload: &'a [u8],
+    ) -> Result<FeeOnlyLifecycle<'a>, ProgramSettlementError> {
         use layerx_types::program_lifecycle::{NativeProgramDeploy, NativeProgramUpgrade};
         match ordinal {
-            1 => NativeProgramDeploy::decode(payload).map(Self::Deploy),
-            2 => NativeProgramUpgrade::decode(payload).map(Self::Upgrade),
+            1 => NativeProgramDeploy::decode(payload).map(FeeOnlyLifecycle::Deploy),
+            2 => NativeProgramUpgrade::decode(payload).map(FeeOnlyLifecycle::Upgrade),
             7 => NativeProgramWindDown::decode(payload).and_then(|value| {
                 if matches!(
                     value.operation,
@@ -389,7 +392,7 @@ impl FeeOnlyLifecycle<'_> {
                 ) {
                     Err(layerx_types::program_lifecycle::InvalidNativeLifecycle)
                 } else {
-                    Ok(Self::WindDown(value))
+                    Ok(FeeOnlyLifecycle::WindDown(value))
                 }
             }),
             _ => return Err(ProgramSettlementError::UnsupportedOperation),
@@ -1309,7 +1312,7 @@ mod tests {
         );
         let key = (debit.asset, debit.source, debit.kind, debit.destination);
         assert_eq!(
-            add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 36)]), debit),
+            add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 36)]), &debit),
             Err(ProgramSettlementError::UnreservedDebit)
         );
         state.balances.as_mut().expect("balances").accounts[0].amount = 41;
@@ -1384,7 +1387,7 @@ mod tests {
         must(add_actual(&mut actual, &expected, &fee.clone()));
         assert_eq!(actual.get(&key), Some(&5));
         assert_eq!(
-            add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 4)]), fee),
+            add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 4)]), &fee),
             Err(ProgramSettlementError::UnreservedDebit)
         );
         state.balances.as_mut().expect("balances").freshness.height = 3;
@@ -1418,7 +1421,7 @@ mod tests {
         let mut actual = BTreeMap::new();
         must(add_actual(&mut actual, &expected, &debit.clone()));
         assert_eq!(actual.get(&key), Some(&37));
-        assert!(add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 30)]), debit).is_err());
+        assert!(add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 30)]), &debit).is_err());
         assert!(exit_debit(
             &records,
             &accounts,
