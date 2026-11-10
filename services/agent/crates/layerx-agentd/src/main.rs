@@ -4,6 +4,9 @@ mod inference_signal {
     include!("inference_market/signal.rs");
     pub mod deals {
         include!("inference_market/deals.rs");
+        pub mod laps {
+            include!("inference_market/laps.rs");
+        }
     }
 }
 
@@ -2052,7 +2055,7 @@ fn program_reader(
 
 struct InferenceSupervision {
     market: layerx_agentd::boot::inference_market::InferenceMarket,
-    signal: inference_signal::deals::DealSignalListener,
+    signal: Arc<Mutex<inference_signal::deals::laps::LapSignalListener>>,
     deals: InferenceDealRuntime,
     completion: HttpPool,
     reader: LayerxdProgramBalanceReader,
@@ -2075,6 +2078,7 @@ struct InferenceDealTerms {
     max_fee_per_gas: u128,
     max_priority_fee_per_gas: u128,
     resources: [u64; 7],
+    laps: InferenceLapTerms,
 }
 
 struct InferenceDealRuntime {
@@ -2084,7 +2088,407 @@ struct InferenceDealRuntime {
     journal: layerx_client::ai_market::OperationJournal,
     signer: layerx_human_kms::attestor::AttestorSigner,
     terms: InferenceDealTerms,
+    laps: InferenceLapRuntime,
     program: layerx_client::ai_market::market_program::types::ProgramId,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InferenceEvidenceSignerTerms {
+    signer: layerx_human_kms::attestor::AttestorSignerConfig,
+    assertion_source: PathBuf,
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InferenceLapTerms {
+    batch_size: usize,
+    host_meter_seed_source: PathBuf,
+    evidence_signers: Vec<InferenceEvidenceSignerTerms>,
+}
+struct InferenceLapRuntime {
+    batch_size: usize,
+    host: Arc<layerx_client::ai_market::inference_market::HostMeterKey>,
+    evidence_signers: Vec<layerx_human_kms::attestor::AttestorSigner>,
+}
+impl InferenceLapRuntime {
+    fn open(terms: &InferenceLapTerms) -> Result<Self, String> {
+        if !(1..=64).contains(&terms.batch_size)
+            || terms.evidence_signers.is_empty()
+            || terms.evidence_signers.len() > 8
+        {
+            return Err("invalid inference lap batch or evidence authorities".to_owned());
+        }
+        let seed = zeroize::Zeroizing::new(
+            layerx_agentd::config::read_protected_source(&terms.host_meter_seed_source, 32)
+                .map_err(|_| "host meter key unavailable")?,
+        );
+        let seed: &[u8; 32] = seed
+            .as_slice()
+            .try_into()
+            .map_err(|_| "host meter key must contain 32 bytes")?;
+        let host =
+            Arc::new(layerx_client::ai_market::inference_market::HostMeterKey::from_seed(seed));
+        let mut evidence_signers = Vec::new();
+        let mut seen = BTreeSet::new();
+        for source in &terms.evidence_signers {
+            let mut signer =
+                layerx_human_kms::attestor::AttestorSigner::from_config(&source.signer)
+                    .map_err(|_| "evidence signer unavailable")?;
+            let assertion = zeroize::Zeroizing::new(
+                layerx_agentd::config::read_protected_source(&source.assertion_source, 8192)
+                    .map_err(|_| "evidence assertion unavailable")?,
+            );
+            signer
+                .set_evm_assertion(
+                    std::str::from_utf8(&assertion)
+                        .map_err(|_| "invalid evidence assertion")?
+                        .trim(),
+                )
+                .map_err(|_| "invalid evidence assertion")?;
+            if !seen.insert(signer.evm_address()) {
+                return Err("duplicate evidence signer".to_owned());
+            }
+            evidence_signers.push(signer);
+        }
+        Ok(Self {
+            batch_size: terms.batch_size,
+            host,
+            evidence_signers,
+        })
+    }
+}
+struct InferenceLapTransport<'a>(&'a InferenceDealRuntime);
+impl InferenceLapTransport<'_> {
+    fn deliver(
+        &self,
+        identity: &[u8],
+        create: impl FnOnce() -> Result<
+            layerx_client::ai_market::OperationRecord,
+            inference_signal::deals::laps::LapError,
+        >,
+    ) -> Result<layerx_client::ai_market::OperationRecord, inference_signal::deals::laps::LapError>
+    {
+        use inference_signal::deals::laps::LapError;
+        use layerx_client::ai_market::{OperationRecord, OperationState};
+        use sha2::Digest as _;
+        use std::os::unix::fs::OpenOptionsExt as _;
+        let key = sha2::Sha256::digest(identity);
+        let path = self.0.terms.journal.join(format!(
+            "lap-operation-{}.json",
+            layerx_programs::hex::encode(&key)
+        ));
+        let registry = layerx_types::payload::ModuleRegistry::new(&[])
+            .map_err(|_| LapError::Invalid("registry unavailable"))?;
+        let signed = if path.exists() {
+            OperationRecord::decode(&fs::read(&path)?, &registry)?
+        } else {
+            let signed = create()?;
+            let bytes = signed.encode()?;
+            let mut file = fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .mode(0o600)
+                .open(&path)?;
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            fs::File::open(&self.0.terms.journal)?.sync_all()?;
+            signed
+        };
+        self.0.journal.record_signed(&signed)?;
+        let mut record = self.0.journal.load(&signed.activity_id(), &registry)?;
+        match record.state() {
+            OperationState::Signed => {
+                self.0.journal.submit(&mut record, &self.0.endpoint)?;
+            }
+            OperationState::Unknown => {
+                self.0.journal.resend_exact(&mut record, &self.0.endpoint)?;
+            }
+            OperationState::Pending | OperationState::Executed | OperationState::Finalized => {}
+            _ => return Err(LapError::Invalid("lap transaction cannot advance")),
+        }
+        Ok(record)
+    }
+    fn terms<'a>(
+        &'a self,
+        signer: &'a layerx_human_kms::attestor::AttestorSigner,
+        nonce: u64,
+        expiry: u64,
+        request: [u8; 32],
+    ) -> layerx_client::ai_market::NativeTerms<'a> {
+        let terms = &self.0.terms;
+        layerx_client::ai_market::NativeTerms {
+            network_id: 125,
+            actor_did: terms.actor_did.as_bytes(),
+            owner_public_key: signer.public_key(),
+            account_sequence: nonce,
+            idempotency_key: request,
+            not_before: 0,
+            not_after: expiry,
+            fee_limit: terms.fee_limit,
+            capabilities: &[],
+            access_declaration: &[],
+            response_capacity: 16_384,
+            resources: layerx_types::program_call::Resources(terms.resources),
+            gas_limit: terms.gas_limit,
+            max_fee_per_gas: terms.max_fee_per_gas,
+            max_priority_fee_per_gas: terms.max_priority_fee_per_gas,
+        }
+    }
+}
+impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
+    fn state(&mut self) -> Result<Vec<u8>, inference_signal::deals::laps::LapError> {
+        self.0
+            .snapshot()
+            .map(|s| s.state_bytes().to_vec())
+            .map_err(|_| {
+                inference_signal::deals::laps::LapError::Invalid("finalized lap state unavailable")
+            })
+    }
+    fn submit(
+        &mut self,
+        operation: &layerx_client::ai_market::inference_market::MarketOperation,
+    ) -> Result<(), inference_signal::deals::laps::LapError> {
+        use inference_signal::deals::laps::LapError;
+        use layerx_client::ai_market::{inference_market as client, market_program as market};
+        use sha2::Digest as _;
+        let snapshot = self
+            .0
+            .snapshot()
+            .map_err(|_| LapError::Invalid("finalized lap state unavailable"))?;
+        let shared = market::state::decode_shared_state(snapshot.state_bytes())?;
+        let frozen = market::epoch::captured_roster(&shared)?
+            .ok_or(LapError::Invalid("missing frozen roster"))?
+            .binding;
+        let signer = if operation.operation() == market::dispatch::SealEvidence {
+            let region = market::evaluators::authority::evaluator_region(
+                shared.section(market::state::Section::IdentityRoster)?,
+            )?;
+            let roster = region
+                .snapshot()
+                .ok_or(LapError::Invalid("missing evaluator snapshot"))?;
+            let seals = market::evidence::SealRegion::decode(shared.control.feature_bytes)?;
+            self.0
+                .laps
+                .evidence_signers
+                .iter()
+                .find(|signer| {
+                    let mut actor = [0; 32];
+                    actor[12..].copy_from_slice(&signer.evm_address());
+                    roster.entries().any(|entry| {
+                        entry.entry.owner.bytes() == actor
+                            && !seals.seals(frozen.epoch).any(|seal| {
+                                seal.is_ok_and(|seal| seal.evaluator == entry.entry.evaluator)
+                            })
+                    })
+                })
+                .ok_or(LapError::Invalid(
+                    "no unsealed admitted evaluator available",
+                ))?
+        } else {
+            &self.0.signer
+        };
+        let mut actor = [0; 32];
+        actor[12..].copy_from_slice(&signer.evm_address());
+        let mut identity = operation.operation().selector().to_be_bytes().to_vec();
+        identity.extend_from_slice(&actor);
+        identity.extend_from_slice(operation.payload());
+        let request: [u8; 32] = sha2::Sha256::digest(&identity).into();
+        self.deliver(&identity, || {
+            let height = self
+                .0
+                .endpoint
+                .block_number()
+                .map_err(|_| LapError::Invalid("lap head unavailable"))?;
+            let expiry = height
+                .checked_add(self.0.terms.validity_blocks)
+                .ok_or(LapError::Invalid("lap expiry overflow"))?;
+            let envelope = client::lap_envelope(
+                &snapshot,
+                operation,
+                market::types::PrincipalId::new(actor)?,
+                frozen.roster,
+                market::types::RequestId::new(request)?,
+                expiry,
+            )?;
+            let nonce = self
+                .0
+                .endpoint
+                .pending_nonce(&signer.evm_address())
+                .map_err(|_| LapError::Invalid("lap nonce unavailable"))?;
+            Ok(inference_wait(
+                layerx_client::ai_market::sign_market_envelope(
+                    &envelope,
+                    &self.terms(signer, nonce, expiry, request),
+                    &InferenceDealSigner(signer),
+                ),
+            )?)
+        })?;
+        Ok(())
+    }
+    fn meter(
+        &mut self,
+        report: &inference_signal::deals::laps::MeterReport,
+    ) -> Result<bool, inference_signal::deals::laps::LapError> {
+        use inference_signal::deals::laps::LapError;
+        use sha2::Digest as _;
+        let calldata = report.calldata()?;
+        let mut identity = b"streamMeter".to_vec();
+        identity.extend_from_slice(&calldata);
+        let request: [u8; 32] = sha2::Sha256::digest(&identity).into();
+        let signer = &self.0.signer;
+        let record = self.deliver(&identity, || {
+            let nonce = self
+                .0
+                .endpoint
+                .pending_nonce(&signer.evm_address())
+                .map_err(|_| LapError::Invalid("meter nonce unavailable"))?;
+            let height = self
+                .0
+                .endpoint
+                .block_number()
+                .map_err(|_| LapError::Invalid("meter head unavailable"))?;
+            let expiry = height
+                .checked_add(self.0.terms.validity_blocks)
+                .ok_or(LapError::Invalid("meter expiry overflow"))?;
+            Ok(inference_wait(
+                layerx_client::ai_market::inference_market::sign_stream_meter(
+                    &calldata,
+                    &self.terms(signer, nonce, expiry, request),
+                    &InferenceDealSigner(signer),
+                ),
+            )?)
+        })?;
+        let Some(receipt) = self
+            .0
+            .endpoint
+            .transaction_receipt(&record.activity_id())
+            .map_err(|_| LapError::Invalid("meter receipt unavailable"))?
+        else {
+            return Ok(false);
+        };
+        if !receipt.status {
+            return Err(LapError::Invalid("streamMeter reverted"));
+        }
+        let finalized = self
+            .0
+            .snapshot()
+            .map_err(|_| LapError::Invalid("meter finality unavailable"))?;
+        Ok(receipt.block_number <= finalized.binding().execution_height)
+    }
+}
+
+fn inference_serve_lap_output(
+    stream: &mut (impl Read + Write),
+    gate: &Arc<Mutex<layerx_agentd::boot::InferenceBootGate>>,
+    listener: &Arc<Mutex<inference_signal::deals::laps::LapSignalListener>>,
+    host: &layerx_client::ai_market::inference_market::HostMeterKey,
+    bearer: &str,
+) -> Result<(), String> {
+    let mut head = Vec::new();
+    while !head.ends_with(b"\r\n\r\n") {
+        if head.len() == 16_384 {
+            return Err("inference request headers exceeded their bound".to_owned());
+        }
+        let mut byte = [0];
+        stream
+            .read_exact(&mut byte)
+            .map_err(|_| "inference headers unavailable")?;
+        head.push(byte[0]);
+    }
+    if !head.starts_with(b"POST ") {
+        struct HealthRequest<'a, S> {
+            head: std::io::Cursor<Vec<u8>>,
+            stream: &'a mut S,
+        }
+        impl<S: Read> Read for HealthRequest<'_, S> {
+            fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+                if self.head.position() < self.head.get_ref().len() as u64 {
+                    self.head.read(bytes)
+                } else {
+                    self.stream.read(bytes)
+                }
+            }
+        }
+        impl<S: Write> Write for HealthRequest<'_, S> {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.stream.write(bytes)
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                self.stream.flush()
+            }
+        }
+        return layerx_agentd::boot::inference_market::serve_health(
+            &mut HealthRequest {
+                head: std::io::Cursor::new(head),
+                stream,
+            },
+            gate,
+        );
+    }
+    let result = (|| {
+        if head.len() > 8192 {
+            return Err("lap headers exceed bound");
+        }
+        let head = std::str::from_utf8(&head).map_err(|_| "invalid lap headers")?;
+        let mut lines = head.split("\r\n");
+        if lines.next() != Some("POST /internal/inference/laps HTTP/1.1") {
+            return Err("unknown lap route");
+        }
+        let mut length = None;
+        let mut authorized = false;
+        for line in lines.filter(|line| !line.is_empty()) {
+            let (name, value) = line.split_once(':').ok_or("invalid lap header")?;
+            if name.eq_ignore_ascii_case("authorization") {
+                if authorized || value.trim() != format!("Bearer {bearer}") {
+                    return Err("lap authentication refused");
+                }
+                authorized = true;
+            } else if name.eq_ignore_ascii_case("content-length") {
+                if length.is_some() {
+                    return Err("duplicate lap length");
+                }
+                length = Some(
+                    value
+                        .trim()
+                        .parse::<usize>()
+                        .map_err(|_| "invalid lap length")?,
+                );
+            } else if name.eq_ignore_ascii_case("transfer-encoding") {
+                return Err("lap transfer encoding refused");
+            }
+        }
+        let length = length
+            .filter(|length| *length <= 65_536)
+            .ok_or("lap body exceeds bound")?;
+        if !authorized || bearer.is_empty() {
+            return Err("lap authentication required");
+        }
+        if gate
+            .lock()
+            .map_err(|_| "lap gate unavailable")?
+            .status()
+            .mode
+            != layerx_agentd::degraded::Mode::Healthy
+        {
+            return Err("lap gate degraded");
+        }
+        let mut body = vec![0; length];
+        stream
+            .read_exact(&mut body)
+            .map_err(|_| "lap body unavailable")?;
+        let input = serde_json::from_slice(&body).map_err(|_| "invalid lap output")?;
+        let frame = listener
+            .lock()
+            .map_err(|_| "lap listener unavailable")?
+            .issue_lap(input, now_ms().map_err(|_| "lap clock unavailable")?, host)
+            .map_err(|_| "lap output refused")?;
+        serde_json::to_vec(&frame).map_err(|_| "lap response encoding")
+    })();
+    let (status, body) = match result {
+        Ok(body) => (200, body),
+        Err(_) => (409, b"{\"error\":\"lap_output_refused\"}".to_vec()),
+    };
+    write_rpc_response(stream, &AgentRpcResponse { status, body })
 }
 
 #[derive(Debug)]
@@ -2221,7 +2625,9 @@ impl InferenceDealRuntime {
             config.probe_program.bytes(),
         )
         .map_err(|error| error.to_string())?;
+        let laps = InferenceLapRuntime::open(&terms.laps)?;
         Ok(Self {
+            laps,
             engine: Arc::new(Mutex::new(engine)),
             endpoint,
             verifier,
@@ -2506,7 +2912,7 @@ fn inference_boot(
         .map_err(|_| "inference deal engine unavailable")?
         .poll(snapshot, now_ms()?)
         .map_err(|error| error.to_string())?;
-    let signal = inference_signal::deals::DealSignalListener::start(
+    let signal = inference_signal::deals::laps::LapSignalListener::start(
         market
             .signal_listener
             .try_clone()
@@ -2515,7 +2921,12 @@ fn inference_boot(
         signal_authority,
         Arc::clone(&deals.engine),
         now_ms,
+        Arc::new(Mutex::new(BTreeMap::new())),
     )?;
+    let signal = Arc::new(Mutex::new(signal));
+    let completion_signal = Arc::clone(&signal);
+    let completion_host = Arc::clone(&deals.laps.host);
+    let completion_bearer = config.bearer.clone();
     let completion_gate = Arc::clone(&market.gate);
     let completion = HttpPool::start(
         market
@@ -2523,7 +2934,13 @@ fn inference_boot(
             .try_clone()
             .map_err(|error| error.to_string())?,
         move |mut stream| {
-            let _ = inference_market::serve_health(&mut stream, &completion_gate);
+            let _ = inference_serve_lap_output(
+                &mut stream,
+                &completion_gate,
+                &completion_signal,
+                &completion_host,
+                &completion_bearer,
+            );
         },
     )?;
     Ok(InferenceSupervision {
@@ -2634,7 +3051,11 @@ fn serve(config: Config) -> Result<(), String> {
             program.check()?;
         }
         if let Some(inference) = &mut inference {
-            inference.signal.check()?;
+            inference
+                .signal
+                .lock()
+                .map_err(|_| "inference signal unavailable")?
+                .check()?;
             inference.completion.check()?;
             if Instant::now() >= inference.next_check {
                 let observation =
@@ -2645,10 +3066,33 @@ fn serve(config: Config) -> Result<(), String> {
                 );
                 let result = observed.and_then(|()| {
                     let snapshot = inference.deals.snapshot()?;
-                    inference
+                    let mut signal = inference
                         .signal
-                        .tick(snapshot, now_ms()?)
+                        .lock()
+                        .map_err(|_| "inference signal unavailable")?;
+                    signal
+                        .tick(
+                            snapshot,
+                            now_ms()?,
+                            &inference.deals.terms.journal,
+                            &inference.deals.laps.host,
+                            inference.deals.laps.batch_size,
+                        )
                         .map_err(|error| error.to_string())?;
+                    let mut sessions = signal
+                        .laps
+                        .lock()
+                        .map_err(|_| "inference laps unavailable")?;
+                    for engine in sessions.values_mut() {
+                        engine
+                            .seal_and_settle(
+                                &mut InferenceLapTransport(&inference.deals),
+                                &inference.deals.laps.host,
+                            )
+                            .map_err(|error| error.to_string())?;
+                    }
+                    drop(sessions);
+                    drop(signal);
                     inference.deals.submit_ready()
                 });
                 if let Err(error) = result {
