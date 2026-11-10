@@ -223974,7 +223974,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.324]
 title = "Repair the Rust signer vector case of the address precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
