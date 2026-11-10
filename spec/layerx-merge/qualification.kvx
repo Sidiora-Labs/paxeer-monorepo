@@ -40410,3 +40410,11 @@ symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
 observed = "Attempt 19 at a26f513fc045 on base 75ee49ee6bdc: no counted gate ran; the test target of services/launchpad/Makefile, run outside the counted gates, exits 2 at services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:217 with producer RPC transcript differs from its committed checksum; log /out/logs/launchpad-test-prequalification.log."
 assumption = "The replay case of the profit tracker is outside the paths and pins a transcript that another task extended."
 severity = "high"
+
+[finding.22.39.227.9]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 9 at fb2641be2e56 on base 8bee059f929f: the build, the check of the dependent packages and the verification exit 0; the tree does not merge with main, with conflicts in services/agent/crates/layerx-agentd/tests/proof_native_reads.rs and tests/proof_serve_errors.rs against commit 1f455e08df of task 22.39.229; log /out/logs/verify-1.log."
+assumption = "Task 22.39.229 restructured the two proof files on main after the base of the attempt."
+severity = "high"
