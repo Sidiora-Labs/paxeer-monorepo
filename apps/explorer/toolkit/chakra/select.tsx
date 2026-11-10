@@ -247,20 +247,21 @@ export interface SelectProps extends SelectRootProps {
   loading?: boolean;
   errorText?: string;
   contentProps?: SelectContentProps;
+  triggerProps?: ChakraSelect.TriggerProps;
   contentHeader?: React.ReactNode;
   itemFilter?: (item: SelectOption) => boolean;
   mode?: ViewMode;
 }
 
 export const Select = React.forwardRef<HTMLDivElement, SelectProps>((props, ref) => {
-  const { collection, placeholder, portalled = true, loading, errorText, contentProps, contentHeader, itemFilter, mode, ...rest } = props;
+  const { collection, placeholder, portalled = true, loading, errorText, contentProps, triggerProps, contentHeader, itemFilter, mode, ...rest } = props;
   return (
     <SelectRoot
       ref={ ref }
       collection={ collection }
       { ...rest }
     >
-      <SelectControl loading={ loading }>
+      <SelectControl loading={ loading } triggerProps={ triggerProps }>
         <SelectValueText
           placeholder={ placeholder }
           size={ props.size }

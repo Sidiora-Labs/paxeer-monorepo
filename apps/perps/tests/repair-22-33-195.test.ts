@@ -6,7 +6,7 @@ import { isMainThread, parentPort, Worker, workerData } from "node:worker_thread
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient } from "@tanstack/react-query";
-import { decodeFunctionData, encodeFunctionData, encodeFunctionResult, type Address, type Hex } from "viem";
+import { decodeFunctionData, encodeFunctionData, encodeFunctionResult, createPublicClient, http, formatUnits, type Address, type Hex } from "viem";
 
 const WAD = 10n ** 18n;
 const UNIT = 10n ** 6n;
@@ -71,6 +71,14 @@ async function exerciseRemoval(scenario: Scenario) {
     assert.equal(call.to.toLowerCase(), PRECOMPILES.perps.toLowerCase());
     assert.equal(block, `0x${store.block.toString(16)}`, "all risk reads use the same fresh block");
     const decoded = decodeFunctionData({ abi, data: call.data });
+    if (decoded.functionName === "removeCollateral") {
+      assert.equal(decoded.args[0], 42n);
+      const headroom = store.equityUsd - 60_000n * WAD;
+      const safe = headroom > 0n ? (headroom - 1n) / 10n ** 12n : 0n;
+      return decoded.args[1] <= store.withdrawable && decoded.args[1] <= safe
+        ? response("0x")
+        : { jsonrpc: "2.0", id: request.id, error: { code: 3, message: "execution reverted", data: "0x" } };
+    }
     reads.push({ name: decoded.functionName, block });
     if (decoded.functionName === "getPositionDetails") {
       assert.deepEqual(decoded.args, [42n]);
@@ -174,6 +182,128 @@ async function exerciseRemoval(scenario: Scenario) {
   }
 }
 
+// This test is driven by the Go gate. Its transport serves the real keeper and
+// executes the calldata emitted by the production builder against real USDL.
+async function collateralRemovalSettlementParity() {
+  const origin = process.env.PERPS_SETTLEMENT_RPC;
+  assert.ok(origin, "run through TestPositionsCollateralRemovalSettlementParity");
+  process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL = origin;
+  process.env.NEXT_PUBLIC_PAXSCAN_BASE_URL = origin;
+  process.env.NEXT_PUBLIC_PAXSCAN_API_URL = `${origin}/api/v2`;
+  process.env.NEXT_PUBLIC_PAXSCAN_WS_URL = origin.replace("http:", "ws:");
+  process.env.NEXT_PUBLIC_PAXEER_RPC_URLS = origin;
+  const client = createPublicClient({ transport: http(origin, { retryCount: 0 }) });
+  let requestId = 0;
+  async function control<T>(method: string, params: unknown[] = []): Promise<T> {
+    const response = await fetch(origin!, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++requestId, method, params }),
+    });
+    const body = await response.json() as { result: T; error?: unknown };
+    assert.equal(body.error, undefined);
+    return body.result;
+  }
+  const {
+    readCollateralRemovalRisk, canRemoveCollateral, prepareCollateralRemoval,
+    remainingRemovalEquity,
+  } = await import("../src/widgets/trading/modals/collateralRemoval");
+  const { buildRemoveCollateral, buildGetAccount } = await import("../src/core/perps/calls");
+  const { CollateralRemovalPreview } = await import("../src/widgets/trading/modals/AdjustCollateralModal");
+  type Oracle = { max: string; collateral: string; equity: string };
+  type Snapshot = { owner: Address; positionId: string; settled: Oracle };
+  type Outcome = { ok: boolean; collateral: string; wallet: string };
+  async function execute(call: ReturnType<typeof buildRemoveCollateral>, account: Address, commit = false) {
+    return control<Outcome>("parity_execute", [{ to: call.address, from: account, data: encodeFunctionData(call) }, commit]);
+  }
+  const scenarios = [
+    "profit", "loss", "funding-payment", "funding-receipt", "round-credit",
+    "round-debit", "round-funding-payment", "round-funding-receipt", "round-both",
+    "positions", "orders", "floor", "initial", "tier-below", "tier-at", "tier-above", "zero", "deficit",
+  ];
+  for (const scenario of scenarios) {
+    const snapshot = await control<Snapshot>("parity_reset", [scenario]);
+    const account = snapshot.owner;
+    const id = BigInt(snapshot.positionId);
+    const oracle = snapshot.settled;
+    const risk = await readCollateralRemovalRisk(id, account, client);
+    const maximum = BigInt(oracle.max);
+    assert.equal(risk.maxRemoval, maximum, `${scenario}: maximum equals settled keeper limit`);
+    const unsettled = await client.readContract({ ...buildGetAccount(account), blockNumber: risk.blockNumber });
+    assert.ok(unsettled.withdrawable >= maximum, "settlement only spends rounding residue");
+    const roundingLoss = risk.equityUsd - BigInt(oracle.equity);
+    assert.ok(roundingLoss >= 0n && roundingLoss < 2n * unsettled.positionCount * 10n ** 12n,
+      `${scenario}: equity changes only by actual per-position settlement rounding`);
+    if (scenario === "profit") {
+      assert.equal(unsettled.collateral, 250n * UNIT);
+      assert.equal(unsettled.equityUsd, 500n * WAD);
+      assert.equal(unsettled.withdrawable, 375n * UNIT);
+      assert.equal(maximum, 375n * UNIT);
+      assert.equal(canRemoveCollateral(risk, 300n * UNIT), true);
+    }
+    if (scenario === "floor") assert.equal(maximum, 250n * UNIT);
+    if (scenario === "initial") assert.equal(maximum, 250n * UNIT);
+    if (scenario === "orders") assert.equal(maximum, 175n * UNIT);
+    if (scenario === "zero") assert.equal(maximum, 0n);
+    const html = renderToStaticMarkup(createElement(CollateralRemovalPreview, { risk, amount: maximum + 1n, loading: false }));
+    assert.ok(html.includes(`Maximum removal: $${formatUnits(maximum, 6)}`), scenario);
+    assert.match(html, /role="alert"/);
+    assert.equal(canRemoveCollateral(risk, maximum + 1n), false);
+    await assert.rejects(prepareCollateralRemoval(id, maximum + 1n, account, client), /current account margin/);
+    const rejected = await execute(buildRemoveCollateral(id, maximum + 1n), account);
+    assert.equal(rejected.ok, false, `${scenario}: keeper rejects one native unit above maximum`);
+    if (maximum > 0n) {
+      assert.equal(canRemoveCollateral(risk, maximum), true);
+      const call = await prepareCollateralRemoval(id, maximum, account, client);
+      const accepted = await execute(call, account);
+      assert.equal(accepted.ok, true, `${scenario}: production calldata succeeds at maximum`);
+      assert.equal(BigInt(accepted.collateral), BigInt(oracle.collateral) - maximum);
+      assert.equal(BigInt(accepted.wallet), maximum);
+    } else {
+      assert.equal(canRemoveCollateral(risk, maximum), false);
+      await assert.rejects(prepareCollateralRemoval(id, 1n, account, client), /current account margin/);
+    }
+    // Re-read after actual settlement at unchanged mark and funding; all
+    // admission decisions and the displayed maximum must be unchanged.
+    await control("parity_settle");
+    const settled = await readCollateralRemovalRisk(id, account, client);
+    assert.equal(settled.maxRemoval, maximum, scenario);
+    assert.equal(settled.equityUsd, BigInt(oracle.equity));
+    assert.equal(remainingRemovalEquity(settled, maximum), BigInt(oracle.equity) - maximum * 10n ** 12n);
+    assert.equal(canRemoveCollateral(settled, maximum), maximum > 0n);
+    assert.equal(canRemoveCollateral(settled, maximum + 1n), false);
+    assert.match(renderToStaticMarkup(createElement(CollateralRemovalPreview, { risk: settled, amount: maximum + 1n, loading: false })), /role="alert"/);
+    assert.equal((await execute(buildRemoveCollateral(id, maximum + 1n), account)).ok, false);
+    if (maximum > 0n) assert.equal((await execute(await prepareCollateralRemoval(id, maximum, account, client), account)).ok, true);
+  }
+  const snapshot = await control<Snapshot>("parity_reset", ["profit"]);
+  const account = snapshot.owner;
+  const id = BigInt(snapshot.positionId);
+  const before = await readCollateralRemovalRisk(id, account, client);
+  const removal = await execute(await prepareCollateralRemoval(id, 300n * UNIT, account, client), account, true);
+  assert.equal(removal.ok, true);
+  assert.equal(BigInt(removal.collateral), 200n * UNIT);
+  assert.equal(BigInt(removal.wallet), 300n * UNIT);
+  const refreshed = await readCollateralRemovalRisk(id, account, client);
+  assert.equal(refreshed.equityUsd, 200n * WAD);
+  assert.equal(refreshed.maxRemoval, before.maxRemoval - 300n * UNIT);
+  for (const change of ["price", "funding"]) {
+    await control("parity_reset", ["profit"]);
+    const preview = await readCollateralRemovalRisk(id, account, client);
+    assert.equal(canRemoveCollateral(preview, 300n * UNIT), true);
+    await control("parity_move", [change]);
+    await assert.rejects(prepareCollateralRemoval(id, 300n * UNIT, account, client), /current account margin/);
+    assert.equal((await execute(buildRemoveCollateral(id, 300n * UNIT), account)).ok, false);
+    assert.ok((await readCollateralRemovalRisk(id, account, client)).blockNumber > preview.blockNumber);
+  }
+  await control("parity_reset", ["profit"]);
+  await assert.rejects(readCollateralRemovalRisk(id, foreign, client), /unavailable for this account/);
+  await control("parity_move", ["unavailable"]);
+  await assert.rejects(readCollateralRemovalRisk(id, account, client));
+  await assert.rejects(prepareCollateralRemoval(id, 1n, account, client));
+  assert.equal(canRemoveCollateral(undefined, 1n), false);
+  assert.match(renderToStaticMarkup(createElement(CollateralRemovalPreview, { risk: undefined, amount: 1n, loading: false })), /Removal is disabled/);
+}
+
 async function runScenario(t: TestContext, scenario: Scenario) {
   const worker = new Worker(new URL(import.meta.url), { execArgv: ["--import", "tsx"], workerData: scenario });
   t.after(async () => { await worker.terminate(); });
@@ -195,6 +325,7 @@ async function f017RefreshBeforeSubmissionAndUnavailableRisk(t: TestContext) {
 }
 
 if (isMainThread) {
+  if (process.env.PERPS_SETTLEMENT_RPC) test(collateralRemovalSettlementParity);
   test(f017TieredMaintenanceAndAccountRisk);
   test(f017RefreshBeforeSubmissionAndUnavailableRisk);
 } else {

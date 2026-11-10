@@ -82,6 +82,9 @@ type Manifest struct {
 	CoreOracleRequired   bool            `json:"coreOracleRequired"`
 }
 
+// StagedSurfaceRuntimeHash identifies the guarded keeper runtime awaiting installation.
+const StagedSurfaceRuntimeHash = "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+
 // Current returns an independent copy; callers cannot mutate process-wide identity.
 func Current() Manifest {
 	m, err := Parse(currentJSON)

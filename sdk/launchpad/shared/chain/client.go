@@ -1045,9 +1045,10 @@ func (a *ReadAdapter) Snapshot(ctx context.Context, pin BlockPin, pool common.Ad
 	return PoolSnapshot{ChainID: "125", PoolAddress: pool, BlockNumber: new(big.Int).SetUint64(pin.Number).String(), BlockHash: pin.Hash, DeploymentVersion: pin.DeploymentVersion, ManifestHash: a.binding.ManifestHash, InterfaceHash: a.binding.InterfaceHash, CapabilityHash: a.binding.CapabilityHash, ConfigurationRevision: a.configurationRevision, ObservedAt: pin.ObservedAt, VirtualUSDLReserve: raw[0], RealUSDLBalance: raw[1], TokenReserve: raw[2], FeeBps: uint16(new(big.Int).SetBytes(values[3]).Uint64())}, nil
 }
 
-// surfaceRuntimeHash is keccak256 of the launchpad precompile SurfaceRuntime,
-// the runtime written at every surface pool address.
+// surfaceRuntimeHash identifies the runtime installed at the v6.12.0 activation.
 var surfaceRuntimeHash = common.HexToHash("0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f")
+
+var stagedSurfaceRuntimeHash = common.HexToHash(deployment.StagedSurfaceRuntimeHash)
 
 // identifyPool requires PoolRegistry membership at pin, then the pool code: a
 // surface runtime is identified by its code hash alone; a pool proxy runtime
@@ -1079,7 +1080,7 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 				return errors.New("pool proxy runtime identity mismatch")
 			}
 			switch crypto.Keccak256Hash(code) {
-			case surfaceRuntimeHash:
+			case surfaceRuntimeHash, stagedSurfaceRuntimeHash:
 				return nil
 			case a.poolProxyRuntimeHash:
 			default:

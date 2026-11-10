@@ -17,6 +17,9 @@ const balanceOf: [u8; 4] = [0xb1, 0xff, 0xc0, 0x3e];
 pub struct Requested(Rung);
 
 impl Requested {
+    /// # Errors
+    ///
+    /// Returns `ReadError::Submitted` when the requested rung cannot support state reads.
     pub const fn new(rung: Rung) -> Result<Self, ReadError> {
         match rung {
             Rung::Submitted => Err(ReadError::Submitted),
@@ -49,6 +52,9 @@ impl From<SequencerError> for ReadError {
     }
 }
 
+/// # Errors
+///
+/// Returns RPC errors or `ReadError::MalformedValue` unless the response is one word holding a 128-bit amount.
 pub fn balance(
     endpoint: &SequencerEndpoint,
     account: [u8; 32],

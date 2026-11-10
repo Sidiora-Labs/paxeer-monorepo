@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import strictAssert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { LayerXAgentTransport, LayerXBudgetLedger, LayerXReceiptResolver, LayerXRemoteSigner, LayerXServiceEndpoint, authenticatedAgentTransport } from "@sidiora/layerx-agent-integrations";
@@ -17,7 +18,7 @@ import {
   LayerXPaymentHttpTransport,
   accountIdentifiers,
 } from "@sidiora/layerx-buyer-middleware";
-import { ProductionClient, SecretBytes, decodePxResolvedIdentities, decodeRawEip1559, eip1559SigningHash, keccak256 } from "@sidiora/layerx-sdk";
+import { ProductionClient, SecretBytes, decodePxResolvedIdentities, decodeRawEip1559, eip1559SigningHash, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
   ConformanceSequencer,
   buildSignedReceipt,
@@ -525,16 +526,18 @@ async function merchantStateSnapshot(workDir) {
 
 export async function runAgentServiceScenarios(suite) {
   const transcript = JSON.parse(await readFile(new URL("./fixtures/daemon-submission.json", import.meta.url), "utf8"));
+  const receiptKeys = [{ keyId: Buffer.from(transcript.receipt_key.keyId.slice(2), "hex"),
+    publicKey: Buffer.from(transcript.receipt_key.publicKey.slice(2), "hex"),
+    first_height: BigInt(transcript.receipt_key.firstHeight), last_height: BigInt(transcript.receipt_key.lastHeight) }];
+  const verified = await verifySequencerReceipt(Buffer.from(transcript.submit.signed_receipt, "hex"),
+    Buffer.from(transcript.raw_transaction, "hex"), receiptKeys);
   const receipt = {
     format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
     txHash: `0x${transcript.submit.tx_hash}`, rawTransaction: `0x${transcript.raw_transaction}`,
     signedReceipt: `0x${transcript.submit.signed_receipt}`,
-    receiptDigest: `0x${toHex(keccak256(Buffer.from(transcript.submit.signed_receipt, "hex")))}`,
+    receiptDigest: `0x${toHex(verified.receiptDigest)}`,
     receiptKey: transcript.receipt_key,
   };
-  const receiptKeys = [{ keyId: Buffer.from(receipt.receiptKey.keyId.slice(2), "hex"),
-    publicKey: Buffer.from(receipt.receiptKey.publicKey.slice(2), "hex"),
-    first_height: BigInt(receipt.receiptKey.firstHeight), last_height: BigInt(receipt.receiptKey.lastHeight) }];
   const transaction = decodeRawEip1559(Buffer.from(receipt.rawTransaction.slice(2), "hex"));
   const asset = transaction.data.slice(68, 100);
   const payTo = transaction.data.slice(36, 68);
@@ -812,18 +815,64 @@ export async function runAgentServiceWalkthrough(environment, resume) {
       keyId: Buffer.from(key.keyId, "hex"), publicKey: Buffer.from(key.publicKey, "hex"),
       first_height: BigInt(key.first_height), last_height: BigInt(key.last_height),
     }));
+    const transport = new AuthenticatedObservationTransport(
+      new LayerXAgentTransport(authenticated.transport), receiptKeys, resume?.rawTransaction,
+    );
     const middleware = new AgentMiddleware({
-      client: new ProductionClient(new LayerXAgentTransport(authenticated.transport)),
+      client: new ProductionClient(transport),
       receiptKeys, budgets: providers.budgets, signer: providers.signer, receipts: providers.receipts,
       maximumTrackPolls: 0,
     });
     const request = JSON.parse(environment.LAYERX_SPEND_REQUEST_JSON);
     const result = resume === undefined ? await middleware.spend(request)
       : await middleware.resume(request, resume.rawTransaction, resume.submissionRef);
+    if (result.submission !== undefined && transport.observation !== undefined) {
+      return { ...result, submission: { ...result.submission, observation: transport.observation } };
+    }
     return result;
   } finally {
     authenticated.destroy();
     providers.destroy();
+  }
+}
+
+class AuthenticatedObservationTransport {
+  constructor(transport, receiptKeys, rawTransaction) {
+    this.transport = transport;
+    this.receiptKeys = receiptKeys;
+    this.rawTransaction = rawTransaction;
+  }
+
+  async call(call) {
+    const value = await this.transport.call(call);
+    if (call.operation !== "track" || value.receipt === null) return value;
+    const receipt = value.receipt;
+    strictAssert.match(receipt.canonical_bytes, /^(?:[0-9a-f]{2})+$/u);
+    strictAssert.match(this.rawTransaction, /^0x(?:[0-9a-f]{2})+$/u);
+    const signed = Buffer.from(receipt.canonical_bytes, "hex");
+    const verified = await verifySequencerReceipt(signed,
+      Buffer.from(this.rawTransaction.slice(2), "hex"), this.receiptKeys);
+    const facts = verified.receipt;
+    const portable = {
+      tx_hash: toHex(facts.activityId), canonical_bytes: toHex(signed),
+      authorised_batch: {
+        batch_id: toHex(facts.batchId), asset: toHex(facts.asset),
+        previous_state_root: toHex(facts.previousStateRoot), resulting_state_root: toHex(facts.resultingStateRoot),
+        sequencer_public_key: toHex(verified.receiptKey.publicKey),
+      },
+      rung: value.submission.rung,
+    };
+    strictAssert.deepEqual(receipt, {
+      ...portable, verification_level: "1",
+      receipt_hash: createHash("sha256").update(signed).digest("hex"),
+      block_height: verified.height.toString(), signed_receipt: toHex(signed),
+      receipt_key_id: toHex(verified.receiptKey.keyId), public_key: toHex(verified.receiptKey.publicKey),
+      first_height: verified.receiptKey.first_height.toString(), last_height: verified.receiptKey.last_height.toString(),
+      inclusion_height: verified.height.toString(),
+    });
+    strictAssert.equal(value.submission.receipt_ref, toHex(verified.receiptDigest));
+    this.observation = structuredClone(value);
+    return { ...value, receipt: portable };
   }
 }
 

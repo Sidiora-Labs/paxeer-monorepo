@@ -13,7 +13,7 @@ export function usePriceFreshness(rows: readonly MarketSnapshot[]): number {
     let deadline = Infinity;
     for (const row of rows) {
       const expires = row.price_updated_at + PRICE_FRESHNESS_MS;
-      if (row.price > 0 && Number.isFinite(expires) && expires > now) {
+      if (row.price !== null && row.price > 0 && Number.isFinite(expires) && expires > now) {
         deadline = Math.min(deadline, expires);
       }
     }

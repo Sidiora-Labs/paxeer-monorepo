@@ -47,11 +47,10 @@ fn captures() -> Vec<Capture> {
     let path = must(std::env::var("LAYERX_NATIVE_TERMINAL_RECORDS"));
     let inventory = must(fs::read_to_string(path));
     let mut lines = inventory.lines();
-    let pins = lines
-        .next()
-        .expect("retained native sequencer pins")
-        .split('\t')
-        .collect::<Vec<_>>();
+    let Some(pins) = lines.next() else {
+        panic!("retained native sequencer pins");
+    };
+    let pins = pins.split('\t').collect::<Vec<_>>();
     assert_eq!(pins.len(), 4);
     let authorization = SequencerAuthorization::new(
         hex32(pins[0]),
@@ -74,7 +73,9 @@ fn captures() -> Vec<Capture> {
             let checked = must(verify_header(&header, &signature, &authorization));
             let signed = checked.header();
             let decoded = must(decode(&receipt));
-            let protocol = decoded.protocol().expect("real native protocol receipt");
+            let Some(protocol) = decoded.protocol() else {
+                panic!("real native protocol receipt");
+            };
             let record = must(layerx_wire::batch_maintenance::decode_maintenance(
                 &maintenance,
             ));
@@ -155,12 +156,13 @@ impl Capture {
 #[test]
 fn genuine_native_preexecution_rejection_preserves_existing_guest_refusal() {
     let captures = captures();
-    let terminal = captures
-        .iter()
-        .find(|capture| capture.name == "terminal-0")
-        .expect("native terminal");
+    let Some(terminal) = captures.iter().find(|capture| capture.name == "terminal-0") else {
+        panic!("native terminal");
+    };
     let decoded = must(decode(&terminal.receipt));
-    let protocol = decoded.protocol().expect("native protocol");
+    let Some(protocol) = decoded.protocol() else {
+        panic!("native protocol");
+    };
     assert_eq!(protocol.result_code(), KnownResult::IdentityFrozen.raw());
     assert!(protocol.program_outcome().is_none());
     assert!(protocol.effects().is_empty());
@@ -187,14 +189,10 @@ fn genuine_native_preexecution_rejection_preserves_existing_guest_refusal() {
     ));
     assert_eq!(verified.canonical_bytes(), terminal.receipt);
     assert_eq!(verified.level(), VerificationLevel::SEQUENCER_SIGNED);
-    assert_eq!(
-        verified
-            .receipt()
-            .protocol()
-            .expect("verified protocol")
-            .result_code(),
-        -206
-    );
+    let Some(protocol) = verified.receipt().protocol() else {
+        panic!("verified protocol");
+    };
+    assert_eq!(protocol.result_code(), -206);
     for capture in captures
         .iter()
         .filter(|capture| capture.name != "terminal-0")
@@ -217,10 +215,12 @@ fn genuine_native_preexecution_rejection_preserves_existing_guest_refusal() {
 
 #[test]
 fn native_terminal_result_domain_is_closed_and_excludes_replay_and_success() {
-    let terminal = captures()
+    let Some(terminal) = captures()
         .into_iter()
         .find(|capture| capture.name == "terminal-0")
-        .expect("terminal");
+    else {
+        panic!("terminal");
+    };
     let batch = terminal.activity_batch();
     assert_eq!(terminal.receipt.len(), 610);
     for known in KnownResult::ALL {
@@ -263,10 +263,12 @@ fn native_terminal_result_domain_is_closed_and_excludes_replay_and_success() {
 
 #[test]
 fn signed_terminal_mutations_cannot_invent_execution_effects_or_identity() {
-    let terminal = captures()
+    let Some(terminal) = captures()
         .into_iter()
         .find(|capture| capture.name == "terminal-0")
-        .expect("terminal");
+    else {
+        panic!("terminal");
+    };
     let batch = terminal.activity_batch();
     for offset in [
         166_usize, 233, 265, 285, 317, 333, 349, 361, 393, 409, 429, 465, 501,
@@ -334,7 +336,18 @@ fn signed_terminal_mutations_cannot_invent_execution_effects_or_identity() {
 #[test]
 fn complete_native_maintenance_authority_and_tamper_refusals_remain_required() {
     let captures = captures();
-    for capture in &captures {
+    assert_complete_maintenance_receipts(&captures);
+    let Some(terminal) = captures.iter().find(|capture| capture.name == "terminal-0") else {
+        panic!("terminal");
+    };
+    let activity = terminal.activity_batch();
+    assert_terminal_receipt_tamper_refused(terminal, &activity);
+    assert_terminal_batch_binding_refused(terminal, &activity);
+    assert_maintenance_authority_tamper_refused(terminal);
+}
+
+fn assert_complete_maintenance_receipts(captures: &[Capture]) {
+    for capture in captures {
         let mut omitted = capture.receipts.clone();
         omitted.pop();
         assert!(verify_program_preexecution_rejection_maintained_chain(
@@ -365,34 +378,32 @@ fn complete_native_maintenance_authority_and_tamper_refusals_remain_required() {
             .is_err());
         }
     }
-    let terminal = captures
-        .iter()
-        .find(|capture| capture.name == "terminal-0")
-        .expect("terminal");
-    let activity = terminal.activity_batch();
+}
+
+fn assert_terminal_receipt_tamper_refused(terminal: &Capture, activity: &AuthorizedBatch) {
     let mut forged = terminal.receipt.clone();
     let signature = forged.len() - 1;
     forged[signature] ^= 1;
     assert_eq!(
-        verify_program_preexecution_rejection(&forged, &activity)
+        verify_program_preexecution_rejection(&forged, activity)
             .err()
             .map(|failure| failure.check),
         Some(ReceiptCheck::SequencerSignature)
     );
     for count in [0_usize, 4, 158, terminal.receipt.len() - 1] {
         assert!(
-            verify_program_preexecution_rejection(&terminal.receipt[..count], &activity).is_err()
+            verify_program_preexecution_rejection(&terminal.receipt[..count], activity).is_err()
         );
     }
     let mut trailing = terminal.receipt.clone();
     trailing.push(0);
-    assert!(verify_program_preexecution_rejection(&trailing, &activity).is_err());
+    assert!(verify_program_preexecution_rejection(&trailing, activity).is_err());
     let mut unsupported = terminal.receipt.clone();
     unsupported[1] = 2;
     unsupported[5] = 2;
     terminal.resign(&mut unsupported);
     assert_eq!(
-        verify_program_preexecution_rejection(&unsupported, &activity)
+        verify_program_preexecution_rejection(&unsupported, activity)
             .err()
             .map(|failure| failure.check),
         Some(ReceiptCheck::ProtocolVersion)
@@ -400,13 +411,16 @@ fn complete_native_maintenance_authority_and_tamper_refusals_remain_required() {
     let mut unsigned = must(encode_unsigned(&must(decode(&terminal.receipt))));
     assert_eq!(unsigned.last(), Some(&0));
     assert_eq!(
-        verify_program_preexecution_rejection(&unsigned, &activity)
+        verify_program_preexecution_rejection(&unsigned, activity)
             .err()
             .map(|failure| failure.check),
         Some(ReceiptCheck::MissingSignature)
     );
     unsigned[10] ^= 1;
-    assert!(verify_program_preexecution_rejection(&unsigned, &activity).is_err());
+    assert!(verify_program_preexecution_rejection(&unsigned, activity).is_err());
+}
+
+fn assert_terminal_batch_binding_refused(terminal: &Capture, activity: &AuthorizedBatch) {
     for replacement in [
         AuthorizedBatch::new(
             [1; 32],
@@ -446,6 +460,9 @@ fn complete_native_maintenance_authority_and_tamper_refusals_remain_required() {
     ] {
         assert!(verify_program_preexecution_rejection(&terminal.receipt, &replacement).is_err());
     }
+}
+
+fn assert_maintenance_authority_tamper_refused(terminal: &Capture) {
     let mut evidence = terminal.evidence();
     let mut bad_signature = terminal.signature;
     bad_signature[0] ^= 1;
