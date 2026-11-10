@@ -40146,3 +40146,19 @@ symbol = "signal.test.mjs::hello_is_signed_over_the_challenge_of_the_host"
 observed = "Attempt 1 at 4fcc000f4f5c on base 7210fa174996: both builds exit 0; verification 2 exits 1 at 4fcc000f4f5c with 60 of 61 cases passed and standalonePackageMetadata failed at test/vendored_engine.test.mjs:156, actual node --test test/*.test.mjs, expected node --test test/vendored_engine.test.mjs; log /out/logs/verify-2.log."
 assumption = "The red case is under the paths of the task and inside its verification."
 severity = "high"
+
+[finding.22.39.117.17]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 17 at 8208dbd824f8 on base 7618069d673f: the build exits 0 and the verification exits 1 at 285805e4cd48 in make -C services/launchpad ci; the indexer module fails in internal/config at repair_m999_test.go:342 and :367 with explicit positive bounded delivery lag budget required, in internal/decode at repair_m995_test.go:383 and in internal/receipt at repair_53_test.go:571, :572, :592, :641 and :734; log /out/logs/verify-1.log."
+assumption = "Two of the three causes sit in files under the paths or now joined to them, and the third is a setup step the new case of the attempt lacks."
+severity = "high"
+
+[finding.22.39.227.4]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 4 at 28a087e45c65 on base 7210fa174996: verification 1 exits 1 at f86febec1c44 with 35 lint errors in six test targets; build 2 exits 101 at bb5d5c95096a with E0425 in the target issue_1752; build 3 exits 0 at 28a087e45c65 (log /out/logs/build-3.log); the final tree was not verified; log /out/logs/verify-1.log."
+assumption = "The lint command reports only the targets that fail first, so every attempt meets new targets after its last allowed verification."
+severity = "high"
