@@ -161970,7 +161970,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.355]
 title = "Speak the signalling frames of the host in the inference peer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.30"]
@@ -284212,7 +284212,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.342]
 title = "Verify the version 2 account-bound evidence in the .NET SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.340", "22.39.354"]
