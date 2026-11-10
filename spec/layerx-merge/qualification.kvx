@@ -40482,3 +40482,11 @@ symbol = "inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer"
 observed = "Attempt 1 at 40c075b323bc on base b00ccbc0e0ba: the build exits 0 and the verification exits 1 at 40c075b323bc; three cases pass and the lint command stops with 35 errors in src/inference_market/signal.rs and src/inference_market/deals.rs (missing_errors_doc 26, must_use_candidate 5, dead_code 3, return_self_not_must_use 1); log /out/logs/verify-1.log."
 assumption = "The new target declared the module of the included sources public and carried no allowance, against decisions 3273 and 3276."
 severity = "high"
+
+[finding.17.5.7.23]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 23 at 3e225f080e0d on base cb8c8ad4b426: the build exits 0 and the verification exits 1 at 3e225f080e0d after 1932 s; make workspace-build exits 2, evmone-lib of chain.mk:111 stops with cmake: not found, Error 127; free space after the command 4071649280 bytes; log /out/logs/verify-1.log."
+assumption = "The gate shell held no cmake, which the build of the native libraries of the node needs."
+severity = "high"
