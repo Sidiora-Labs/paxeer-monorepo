@@ -1313,6 +1313,22 @@
         "receipt_authority"
       ],
       "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "services/agent/crates/layerx-client/src/ai_market.rs",
+      "symbols": [
+        "FINALIZED_RANK"
+      ],
+      "citation": "Decision 3125 retains the live FINALIZED_RANK from programs/crates/layerx-programs-ai-market/src/queries.rs because ObservedSnapshot::finalize assigns it only after matching the verified Comet block commit and ICS23 program-state witness to the captured state."
+    },
+    {
+      "path": "services/agent/crates/layerx-crypto/src",
+      "symbols": [
+        "KeystoreSigner",
+        "RemoteSigner",
+        "sign_disclosed"
+      ],
+      "citation": "Decision 3125 retains KeystoreSigner and RemoteSigner for typed bind consent and native payer authorization with activity signing refused before I/O, and sign_disclosed_call is the live secp256k1 EIP-1559 replacement matched by the retired sign_disclosed prefix."
     }
   ]
 }

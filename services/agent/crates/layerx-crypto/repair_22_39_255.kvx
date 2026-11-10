@@ -1,0 +1,214 @@
+[repair.22.39.255]
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+requirement = "22998.1"
+decisions = [3101, 3104, 3125]
+status = "implemented_pending_qualification"
+scope = "The three inherited source/documentation edits and this record are retained; the authorized catalogue now allows the live signer identifiers in services/agent/crates/layerx-crypto/src."
+qualification = "No passing gate is claimed in this record; the bounded gate ledger supplies the exact result on the candidate including this record."
+verified_revision_reference = "The last kind=verify row in /out/run/gates.jsonl identifies the candidate revision; qualification requires exit zero and the same revision in the passing build row."
+build_evidence = "/out/run/gates.jsonl kind=build: exact revision, command, exit and private log."
+verify_evidence = "/out/run/gates.jsonl kind=verify: exact revision, command, exit and private log."
+
+[baseline]
+revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-crypto"
+exit = 1
+findings = 16
+source = "Required do_1 inventory on the unmodified task paths; line numbers below refer to this baseline."
+
+[finding.1]
+continuation_line = 15
+path = "services/agent/crates/layerx-crypto/src/api-contract.md"
+line = 15
+component = "envelope-signing"
+symbol = "KeystoreSigner"
+classification = "live_ssh"
+repair = "The SSH custodian remains live for typed bind consent and native payer authorizations, refuses activity requests before I/O, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.2]
+path = "services/agent/crates/layerx-crypto/src/api-contract.md"
+line = 33
+component = "envelope-signing"
+symbol = "sign_disclosed"
+classification = "stale_docs"
+repair = "Remove the obsolete claim that sign_disclosed remains available; document audit-only activity requests, refusal at every key boundary, and the separate v2 remote bind frame."
+disposition = "repaired_in_api_contract"
+
+[finding.3]
+continuation_line = 44
+path = "services/agent/crates/layerx-crypto/src/api-contract.md"
+line = 44
+component = "envelope-signing"
+symbol = "sign_disclosed"
+classification = "live_evm"
+repair = "The matched identifier is sign_disclosed_call, which validates disclosure and sender before signing the replacement secp256k1 EIP-1559 transaction and verifying recovery."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.4]
+continuation_line = 74
+path = "services/agent/crates/layerx-crypto/src/remote.rs"
+line = 72
+component = "envelope-signing"
+symbol = "RemoteSigner"
+classification = "live_remote"
+repair = "The mutually authenticated remote custodian remains live for v2 bind consent and v1 native payer authorizations, refuses activity requests before transport, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.5]
+continuation_line = 82
+path = "services/agent/crates/layerx-crypto/src/remote.rs"
+line = 80
+component = "envelope-signing"
+symbol = "RemoteSigner"
+classification = "live_remote"
+repair = "The mutually authenticated remote custodian remains live for v2 bind consent and v1 native payer authorizations, refuses activity requests before transport, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.6]
+continuation_line = 155
+path = "services/agent/crates/layerx-crypto/src/remote.rs"
+line = 153
+component = "envelope-signing"
+symbol = "RemoteSigner"
+classification = "live_remote"
+repair = "The mutually authenticated remote custodian remains live for v2 bind consent and v1 native payer authorizations, refuses activity requests before transport, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.7]
+continuation_line = 157
+path = "services/agent/crates/layerx-crypto/src/remote.rs"
+line = 155
+component = "envelope-signing"
+symbol = "RemoteSigner"
+classification = "live_remote"
+repair = "The mutually authenticated remote custodian remains live for v2 bind consent and v1 native payer authorizations, refuses activity requests before transport, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.8]
+continuation_line = 161
+path = "services/agent/crates/layerx-crypto/src/remote.rs"
+line = 159
+component = "envelope-signing"
+symbol = "RemoteSigner"
+classification = "live_remote"
+repair = "The mutually authenticated remote custodian remains live for v2 bind consent and v1 native payer authorizations, refuses activity requests before transport, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.9]
+continuation_line = 174
+path = "services/agent/crates/layerx-crypto/src/remote.rs"
+line = 172
+component = "envelope-signing"
+symbol = "RemoteSigner"
+classification = "live_remote"
+repair = "The mutually authenticated remote custodian remains live for v2 bind consent and v1 native payer authorizations, refuses activity requests before transport, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.10]
+continuation_line = 356
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 351
+component = "envelope-signing"
+symbol = "sign_disclosed"
+classification = "live_evm"
+repair = "The matched identifier is sign_disclosed_call, which validates disclosure and sender before signing the replacement secp256k1 EIP-1559 transaction and verifying recovery."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.11]
+continuation_line = 382
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 375
+component = "envelope-signing"
+symbol = "KeystoreSigner"
+classification = "live_ssh"
+repair = "The SSH custodian remains live for typed bind consent and native payer authorizations, refuses activity requests before I/O, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.12]
+continuation_line = 389
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 382
+component = "envelope-signing"
+symbol = "KeystoreSigner"
+classification = "live_ssh"
+repair = "The SSH custodian remains live for typed bind consent and native payer authorizations, refuses activity requests before I/O, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.13]
+continuation_line = 431
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 424
+component = "envelope-signing"
+symbol = "KeystoreSigner"
+classification = "live_ssh"
+repair = "The SSH custodian remains live for typed bind consent and native payer authorizations, refuses activity requests before I/O, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.14]
+continuation_line = 433
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 426
+component = "envelope-signing"
+symbol = "KeystoreSigner"
+classification = "live_ssh"
+repair = "The SSH custodian remains live for typed bind consent and native payer authorizations, refuses activity requests before I/O, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.15]
+continuation_line = 437
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 430
+component = "envelope-signing"
+symbol = "KeystoreSigner"
+classification = "live_ssh"
+repair = "The SSH custodian remains live for typed bind consent and native payer authorizations, refuses activity requests before I/O, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[finding.16]
+continuation_line = 439
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 432
+component = "envelope-signing"
+symbol = "KeystoreSigner"
+classification = "live_ssh"
+repair = "The SSH custodian remains live for typed bind consent and native payer authorizations, refuses activity requests before I/O, and reports EvmKeyUnavailable for transaction signing."
+disposition = "allowed_live_reference"
+allowed_reference_path = "services/agent/crates/layerx-crypto/src"
+
+[continuation]
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+source_attempt_revision = "f1f5c7f04c914dd0df4d2a734fdfc7541d90b662"
+inventory_source = "Attempt 1 baseline and its final verification output supplied by the runner; the inventory is preserved rather than rerun before implementation."
+remaining_findings = 15
+resolution = "Decision 3125 and the attempt-2 scope authorize the catalogue allowance previously blocked by scope; preserve every live identifier and the inherited documentation repair."
+
+[allowed_reference.signer_surface]
+catalogue = "tools/paxeer-x/retired_callers.json"
+path = "services/agent/crates/layerx-crypto/src"
+symbols = ["KeystoreSigner", "RemoteSigner", "sign_disclosed"]
+reason = "KeystoreSigner and RemoteSigner remain live for typed bind consent and native payer authorization with activity signing refused before I/O, while sign_disclosed_call is the live secp256k1 EIP-1559 replacement matched by the retired prefix."
+ordering = "Inserted before the existing layerx-wire entry, after the layerx-client entries, in agent-crate path order without moving unrelated allowances."
+coverage = "Findings 1 and 3 through 16 are covered by this single directory allowance; finding 2 remains repaired in the API contract."
+
+[gotcha.retired_symbol_prefix]
+observed = "The scanner treats underscore as a symbol boundary, so sign_disclosed also matches the live replacement sign_disclosed_call."
+repair = "Preserve the public replacement and its tests; decision 3125 authorizes the directory symbol allowance that covers the prefix match."
+
+[gotcha.remote_bind_contract]
+observed = "The previous API contract claimed raw remote bind consent was unavailable even though BindSigner::sign_bind sends v2 frames and decode_bind_request validates them."
+repair = "Describe the existing v2 bind path and distinguish it from the v1 payer transport; no protocol or validation changes."
