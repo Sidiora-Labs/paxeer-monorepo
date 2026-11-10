@@ -87,28 +87,6 @@ func newHostedProgramsABIFixture(t *testing.T) *hostedProgramsABIFixture {
 	f.authority.Actor, f.authority.Principal = actor, actor
 	f.authority.AuthorityHash = sha256.Sum256(f.authority.VerifiedKey[:])
 	store := f.ctx.KVStore(f.app.GetKey(LayerXHostStoreKey))
-	moduleKey := func(key []byte) []byte { return append([]byte{1, 0, 9}, key...) }
-	metering := binary.BigEndian.AppendUint32([]byte("LXMR1"), 1)
-	for _, coefficient := range []uint64{1, 1, 1, 1, 1, 8, 8, 64, 8} {
-		metering = binary.BigEndian.AppendUint64(metering, coefficient)
-	}
-	metering = binary.BigEndian.AppendUint64(metering, 1)
-	metering = append(metering, 1)
-	metering = append(metering, actor[:]...)
-	store.Set(moduleKey([]byte("progmet/active/v1")), metering)
-	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progmet/history/v1/"), 1)), metering)
-	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
-	for i := 0; i < 7; i++ {
-		fee = binary.BigEndian.AppendUint64(fee, 1)
-	}
-	fee = append(fee, bytes.Repeat([]byte{0x91}, 32)...)
-	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
-		fee = binary.BigEndian.AppendUint64(fee, value)
-	}
-	fee = append(fee, actor[:]...)
-	fee = append(fee, make([]byte, 16)...)
-	store.Set(moduleKey([]byte("progfee/active/v1")), fee)
-	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
 
 	register := append([]byte{0x71, 1, 0, 2}, actor[:]...)
 	register = append(register, f.authority.VerifiedKey[:]...)
@@ -126,9 +104,15 @@ func newHostedProgramsABIFixture(t *testing.T) *hostedProgramsABIFixture {
 	mint := append(append([]byte{0, 1}, asset[:]...), payer[:]...)
 	mint = binary.BigEndian.AppendUint64(binary.BigEndian.AppendUint64(mint, 0), 500000000)
 	require.Zero(t, f.execute(t, 0x0001000a, mint).ResultCode)
-	copy(fee[65:97], asset[:])
-	store.Set(moduleKey([]byte("progfee/active/v1")), fee)
-	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
+	// This chain begins before the merge and needs schedules for its legacy ABI
+	// deployment. The same product installer supplies them without raw rows.
+	installed, err := lxphost.InstallProgramsSchedules(f.ctx, f.app.GetKey(LayerXHostStoreKey), lxphost.ProgramsScheduleParameters{
+		FeePrices: [7]uint64{1, 1, 1, 1, 1, 1, 1}, MeteringCoefficients: [9]uint64{1, 1, 1, 1, 1, 8, 8, 64, 8},
+		OccupancyAssetID: asset, AuthorityKey: f.authority.VerifiedKey, TargetOccupancy: 1000,
+		ResponseDenominator: 8, MaxChangeNumerator: 1, MaxChangeDenominator: 8, MinFee: 1, MaxFee: 100,
+	})
+	require.NoError(t, err)
+	require.Equal(t, lxphost.ProgramsSchedulesInstalled{Fee: true, Metering: true}, installed)
 	treasury, err := codec.DeriveAccountID([]byte("system:fees"))
 	require.NoError(t, err)
 	field := func(out, value []byte) []byte {
