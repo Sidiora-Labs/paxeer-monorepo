@@ -667,6 +667,10 @@
     {
       "pattern": "apps/launchpad/web/public/charting_library/**",
       "reason": "The third-party charting library bundles contain vendor vocabulary rather than retired product callers."
+    },
+    {
+      "path": "services/platform/examples/marketplace/repair-22-31-349.kvx",
+      "reason": "Decision 3125 classifies this historical repair record, including its lx_getSequence test-contract finding, as documentation rather than a live caller."
     }
   ],
   "allowed_references": [
@@ -1322,6 +1326,20 @@
         "paxeer-reserve"
       ],
       "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "services/platform/tools/dependency-policy.sh",
+      "symbols": [
+        "layerx-paxeer-client"
+      ],
+      "citation": "Decision 3125 preserves the explicit retired crate name in both the full dependency graph ban and the ramp transitive dependency ban so the policy continues to reject it."
+    },
+    {
+      "path": "services/platform/ramps",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifier lxp_verified_receipt_authority_facts on the ramp surface because its receipt_authority prefix does not denote the retired finality service."
     }
   ]
 }
