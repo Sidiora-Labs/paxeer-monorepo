@@ -1,3 +1,7 @@
+#[allow(
+    dead_code,
+    reason = "The host binary uses these signalling, deal and lap items; this test target exercises a subset."
+)]
 mod signal {
     include!("../src/inference_market/signal.rs");
     pub mod deals {
@@ -199,6 +203,44 @@ impl ProgramNode {
         }
     }
 
+    fn deal_view(&self, request: &Value) -> Value {
+        let text = request["params"][0]
+            .as_str()
+            .unwrap_or_else(|| panic!("deal id"));
+        let id = must(hex::decode(text.strip_prefix("0x").unwrap_or(text)));
+        let mut bytes = vec![0; queries::DEAL_VIEW_BYTES];
+        let length = must(queries::answer_deal_view(
+            &self.fixture.state,
+            &id,
+            &mut bytes,
+        ));
+        let view = must(client::decode_deal_view(&bytes[..length]));
+        let deal = view.deal;
+        let layers = deal
+            .layers
+            .iter()
+            .flatten()
+            .map(|split| {
+                json!({
+                    "bid_id": hex::encode(split.bid_id.as_bytes()),
+                    "first_layer": split.first_layer,
+                    "end_layer": split.end_layer,
+                })
+            })
+            .collect::<Vec<_>>();
+        json!({
+            "room_id": hex::encode(deal.room_id.as_bytes()),
+            "deal_id": hex::encode(deal.deal_id.as_bytes()),
+            "ask_id": hex::encode(deal.ask_id.as_bytes()),
+            "agreed_price_per_thousand_tokens": deal.agreed_price_per_thousand_tokens.to_string(),
+            "roster_digest": hex::encode(deal.roster_digest.as_bytes()),
+            "state": deal.state as u8,
+            "layers": layers,
+            "settled_tokens": view.settled_tokens.to_string(),
+            "settled_amount_owed": view.settled_amount_owed.to_string(),
+        })
+    }
+
     fn rpc(&mut self, request: &Value) -> Value {
         let result = match request["method"]
             .as_str()
@@ -211,43 +253,7 @@ impl ProgramNode {
                 self.commit().material
             }
             "px_getValidators" => self.commit().validators,
-            "px_getInferenceDeal" => {
-                let text = request["params"][0]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("deal id"));
-                let id = must(hex::decode(text.strip_prefix("0x").unwrap_or(text)));
-                let mut bytes = vec![0; queries::DEAL_VIEW_BYTES];
-                let length = must(queries::answer_deal_view(
-                    &self.fixture.state,
-                    &id,
-                    &mut bytes,
-                ));
-                let view = must(client::decode_deal_view(&bytes[..length]));
-                let deal = view.deal;
-                let layers = deal
-                    .layers
-                    .iter()
-                    .flatten()
-                    .map(|split| {
-                        json!({
-                            "bid_id": hex::encode(split.bid_id.as_bytes()),
-                            "first_layer": split.first_layer,
-                            "end_layer": split.end_layer,
-                        })
-                    })
-                    .collect::<Vec<_>>();
-                json!({
-                    "room_id": hex::encode(deal.room_id.as_bytes()),
-                    "deal_id": hex::encode(deal.deal_id.as_bytes()),
-                    "ask_id": hex::encode(deal.ask_id.as_bytes()),
-                    "agreed_price_per_thousand_tokens": deal.agreed_price_per_thousand_tokens.to_string(),
-                    "roster_digest": hex::encode(deal.roster_digest.as_bytes()),
-                    "state": deal.state as u8,
-                    "layers": layers,
-                    "settled_tokens": view.settled_tokens.to_string(),
-                    "settled_amount_owed": view.settled_amount_owed.to_string(),
-                })
-            }
+            "px_getInferenceDeal" => self.deal_view(request),
             "abci_query" => {
                 let params = &request["params"];
                 assert_eq!(params["path"], "/store/lxphost/key");
@@ -341,8 +347,10 @@ impl NodeServer {
                                 line.split_once(':')
                                     .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
                             })
-                            .map(|(_, value)| must(value.trim().parse::<usize>()))
-                            .unwrap_or_else(|| panic!("HTTP content length"));
+                            .map_or_else(
+                                || panic!("HTTP content length"),
+                                |(_, value)| must(value.trim().parse::<usize>()),
+                            );
                         assert!(length <= 1_048_576);
                         let mut body = vec![0; length];
                         must(stream.read_exact(&mut body));
@@ -351,7 +359,7 @@ impl NodeServer {
                         must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{result}", result.len()));
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(2))
+                        thread::sleep(Duration::from_millis(2));
                     }
                     Err(error) => panic!("node listener failed: {error:?}"),
                 }
@@ -377,7 +385,7 @@ impl NodeServer {
             now_ms(),
         ))
     }
-    fn manifest(&self, index: u8) -> Vec<u8> {
+    fn manifest(index: u8) -> Vec<u8> {
         // The publication envelope in the real program fixture retains the exact emitted manifest.
         let mut fixture = chain_fixture::Fixture::program();
         fixture.published_manifest(index)
@@ -545,7 +553,7 @@ fn setup(server: &NodeServer, directory: &Directory) -> (DealEngine, Vec<WirePee
     for index in 0..3 {
         peers.push(WirePeer::admitted(
             index,
-            server.manifest(index),
+            NodeServer::manifest(index),
             &mut engine,
         ));
     }
@@ -910,6 +918,9 @@ pub struct NodeCommit {
     pub material: Value,
     pub validators: Value,
 }
+/// # Panics
+/// Panics if the supplied height or signed fixture material is invalid.
+#[must_use]
 pub fn node_commit(height: u64, app_hash: [u8; 32], data_hash: [u8; 32]) -> NodeCommit {
     let signer = SigningKey::from_bytes(&[0x74; 32]);
     let validator = TrustedValidator::new(signer.verifying_key().to_bytes(), 100);
@@ -1020,6 +1031,7 @@ fn membership(key: &[u8], value: &[u8], prefix: &[u8]) -> (Vec<u8>, [u8; 32]) {
 }
 pub type NamespaceProof = (Vec<u8>, Vec<u8>, Vec<ProofOp>, [u8; 32], [u8; 32]);
 
+#[must_use]
 pub fn namespace_proof(state: &[u8], program: [u8; 32]) -> NamespaceProof {
     let mut manifest = vec![0, 1];
     manifest.extend_from_slice(&1_u32.to_be_bytes());
@@ -1213,8 +1225,7 @@ mod chain_fixture {
                 dispatch::CREATE,
                 &payload,
                 fixture.header.owner_principal,
-                1,
-                0,
+                (1, 0),
                 &fixture.owner,
                 false,
             );
@@ -1258,8 +1269,7 @@ mod chain_fixture {
                 dispatch::OpenRoom,
                 &payload,
                 fixture.header.owner_principal,
-                fixture.next_sequence(fixture.header.owner_principal),
-                20,
+                (fixture.next_sequence(fixture.header.owner_principal), 20),
                 &fixture.owner,
                 false,
             );
@@ -1362,7 +1372,14 @@ mod chain_fixture {
             } else {
                 self.next_sequence(actor)
             };
-            let record = self.sign(operation, payload, actor, sequence, sequence, signer, false);
+            let record = self.sign(
+                operation,
+                payload,
+                actor,
+                (sequence, sequence),
+                signer,
+                false,
+            );
             self.apply_signed(&record, height);
         }
 
@@ -1412,8 +1429,7 @@ mod chain_fixture {
                 dispatch::ApproveAdmission,
                 &payload,
                 self.header.owner_principal,
-                sequence,
-                sequence,
+                (sequence, sequence),
                 &owner_signer,
                 false,
             );
@@ -1519,12 +1535,7 @@ mod chain_fixture {
             bootstrap.call(dispatch::AdmitWorker, &payload, &peer, publication + 1);
         }
 
-        fn bootstrap_roster(&mut self) {
-            let mut bootstrap = Self::new(1);
-            bootstrap.state = self.state.clone();
-            bootstrap.header = self.header;
-            bootstrap.bootstrap_peer(0);
-            let owner = LocalSigner::from_derived_account(&must(derive_from_seed(&[11; 32], 0)));
+        fn admit_bootstrap_evaluators(&mut self, owner: &LocalSigner) {
             for nonce in [2_u8, 3, 4] {
                 let signer =
                     LocalSigner::from_derived_account(&must(derive_from_seed(&[nonce; 32], 0)));
@@ -1532,14 +1543,13 @@ mod chain_fixture {
                 let key = SigningKey::from_bytes(&[nonce; 32]);
                 let public = PublicKey32(key.verifying_key().to_bytes());
                 let rubric = must(PolicySection::decode(must(
-                    must(state::decode_shared_state(&bootstrap.state))
-                        .section(Section::PolicyLifecycle),
+                    must(state::decode_shared_state(&self.state)).section(Section::PolicyLifecycle),
                 )))
                 .current
                 .commitments
                 .rubric;
                 let grant = must(market::evaluators::model::EvaluatorGrant::nominate(
-                    bootstrap.header.market_id,
+                    self.header.market_id,
                     actor,
                     [nonce; 32],
                     market::evaluators::model::GrantTerms {
@@ -1558,14 +1568,14 @@ mod chain_fixture {
                 for value in [1_u64, 1, 0, 32] {
                     payload.extend_from_slice(&value.to_be_bytes());
                 }
-                bootstrap.call(dispatch::ScheduleEvaluator, &payload, &owner, 151);
+                self.call(dispatch::ScheduleEvaluator, &payload, owner, 151);
                 let mut bytes = [0; 256];
                 let length = must(market::evaluators::codec::encode_grant(&grant, &mut bytes));
                 let identity = must(codec::domain_hash(
                     "PAXAI/evaluator-grant/v1",
                     &bytes[..length],
                 ));
-                let approval = bootstrap.approve(
+                let approval = self.approve(
                     Participant::Evaluator(grant.evaluator),
                     actor,
                     public,
@@ -1575,11 +1585,11 @@ mod chain_fixture {
                 );
                 let mut request = [1; 32];
                 request[..2].copy_from_slice(&dispatch::AdmitEvaluator.selector().to_be_bytes());
-                request[2..10].copy_from_slice(&bootstrap.next_sequence(actor).to_be_bytes());
+                request[2..10].copy_from_slice(&self.next_sequence(actor).to_be_bytes());
                 let consent = EvaluatorConsent {
-                    chain: bootstrap.header.deployment_chain_domain,
-                    program: bootstrap.header.program_id,
-                    market: bootstrap.header.market_id,
+                    chain: self.header.deployment_chain_domain,
+                    program: self.header.program_id,
+                    market: self.header.market_id,
                     evaluator: grant.evaluator,
                     owner: actor,
                     signing_key: public,
@@ -1597,8 +1607,17 @@ mod chain_fixture {
                 must(consent.encode(&mut body));
                 let mut payload = body.to_vec();
                 payload.extend_from_slice(&key.sign(must(consent.digest()).as_bytes()).to_bytes());
-                bootstrap.call(dispatch::AdmitEvaluator, &payload, &signer, 151);
+                self.call(dispatch::AdmitEvaluator, &payload, &signer, 151);
             }
+        }
+
+        fn bootstrap_roster(&mut self) {
+            let mut bootstrap = Self::new(1);
+            bootstrap.state.clone_from(&self.state);
+            bootstrap.header = self.header;
+            bootstrap.bootstrap_peer(0);
+            let owner = LocalSigner::from_derived_account(&must(derive_from_seed(&[11; 32], 0)));
+            bootstrap.admit_bootstrap_evaluators(&owner);
             let mut funding = 1000_u128.to_be_bytes().to_vec();
             funding.extend_from_slice(bootstrap.header.refund_recipient_account.as_bytes());
             funding.extend_from_slice(&1_u64.to_be_bytes());
@@ -1723,8 +1742,7 @@ mod chain_fixture {
             operation: Operation,
             payload: &[u8],
             actor: PrincipalId,
-            sequence: u64,
-            nonce: u64,
+            (sequence, nonce): (u64, u64),
             signer: &LocalSigner,
             delegate: bool,
         ) -> OperationRecord {
@@ -1874,8 +1892,7 @@ mod chain_fixture {
                     dispatch::EnrollWorker,
                     &proposal,
                     self.header.owner_principal,
-                    owner_sequence,
-                    owner_sequence - 1,
+                    (owner_sequence, owner_sequence - 1),
                     &self.owner,
                     false,
                 ),
@@ -1883,8 +1900,7 @@ mod chain_fixture {
                     dispatch::AcceptEnrollment,
                     &acceptance,
                     self.peer_principal,
-                    1,
-                    0,
+                    (1, 0),
                     &self.peer,
                     false,
                 ),
@@ -1892,8 +1908,7 @@ mod chain_fixture {
                     dispatch::PublishMetadata,
                     &publication,
                     self.peer_principal,
-                    2,
-                    1,
+                    (2, 1),
                     &self.peer,
                     true,
                 ),

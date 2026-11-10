@@ -21,7 +21,10 @@ fn native_rpc_availability_refusals() {
             if requested == ahead && observed >= head && observed < ahead
     ));
     let available = must(route.read(&format!("/v1/reads/availability/{head}")));
-    let block = must(client.block_by_number(head)).expect("real node retains its head block");
+    let block = lint_present(
+        must(client.block_by_number(head)),
+        "real node retains its head block",
+    );
     assert_eq!(available["height"], head);
     assert_eq!(available["complete"], true);
     assert_eq!(
@@ -37,20 +40,10 @@ fn native_rpc_availability_refusals() {
     let hash = native_routes_rpc::receipt_hash();
     let account = format!("0x{}", layerx_programs::hex::encode(&hash));
     let page = must(route.read(&format!("/v1/reads/history/{account}?limit=2")));
+    assert!(lint_present(page["items"].as_array(), "bounded history items").len() <= 2);
     assert!(
-        page["items"]
-            .as_array()
-            .expect("bounded history items")
-            .len()
-            <= 2
-    );
-    assert!(
-        page["freshness"]["value_height"]
-            .as_u64()
-            .expect("indexed height")
-            <= page["freshness"]["chain_head"]
-                .as_u64()
-                .expect("chain height")
+        lint_present(page["freshness"]["value_height"].as_u64(), "indexed height")
+            <= lint_present(page["freshness"]["chain_head"].as_u64(), "chain height")
     );
     assert!(page["rung"].is_null());
     assert!(matches!(
@@ -68,5 +61,13 @@ fn native_rpc_availability_refusals() {
             matches!(route.read(path), Err(NativeReadError::InvalidRequest)),
             "malformed native read selector must be refused: {path}"
         );
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
     }
 }
