@@ -160,16 +160,39 @@ pub fn committed_budget(
     budget_id: [u8; 32],
     spent: u128,
 ) -> (ProtocolBudgetState, ServedCheckpoint) {
-    let checkpoint = signed_checkpoint(150, 1_700_000_000, 123_000_000);
+    committed_budget_with_period(
+        budget_id,
+        spent,
+        80,
+        1_000,
+        signed_checkpoint(150, 1_700_000_000, 123_000_000),
+    )
+}
+
+pub fn committed_budget_with_period(
+    budget_id: [u8; 32],
+    spent: u128,
+    period_start_ms: u64,
+    period_length_ms: u64,
+    checkpoint: ServedCheckpoint,
+) -> (ProtocolBudgetState, ServedCheckpoint) {
     let mut result = vec![0; 20 * 32];
     for (index, amount) in [
         (0, 32),
         (5, 1000),
         (6, 1000),
         (8, spent),
-        (10, 1000),
-        (11, 80),
-        (12, 5000),
+        (10, u128::from(period_length_ms)),
+        (11, u128::from(period_start_ms)),
+        (
+            12,
+            u128::from(
+                period_start_ms
+                    .checked_add(period_length_ms)
+                    .expect("budget expiry fits milliseconds")
+                    .max(5_000),
+            ),
+        ),
         (14, 1),
         (17, 576),
     ] {
@@ -183,20 +206,24 @@ pub fn committed_budget(
     let mut calldata =
         layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4].to_vec();
     calldata.extend(budget_id);
-    let params = json!([{"to": rpc_hex(&pay), "data": rpc_hex(&calldata)}, "0x96"]);
-    let block = json!({"number":"0x96", "hash":rpc_hex(&checkpoint.block_hash),
+    let params = json!([{"to": rpc_hex(&pay), "data": rpc_hex(&calldata)}, format!("{:#x}", checkpoint.height)]);
+    let block = json!({"number":format!("{:#x}", checkpoint.height), "hash":rpc_hex(&checkpoint.block_hash),
         "parentHash":rpc_hex(&checkpoint.header.last_block_id.expect("parent").hash),
-        "timestamp":"0x6553f100", "transactionsRoot":rpc_hex(&[4;32]),
+        "timestamp":format!("{:#x}", checkpoint.header.time.seconds), "transactionsRoot":rpc_hex(&[4;32]),
         "receiptsRoot":rpc_hex(&[7;32]), "stateRoot":rpc_hex(&checkpoint.app_hash), "transactions":[]});
     let (endpoint, server) = serve(vec![
         ("eth_call", params.clone(), Some(json!(rpc_hex(&result)))),
         ("eth_call", params, Some(json!(rpc_hex(&result)))),
         (
             "eth_getBlockByNumber",
-            json!(["0x96", true]),
+            json!([format!("{:#x}", checkpoint.height), true]),
             Some(block.clone()),
         ),
-        ("eth_getBlockByNumber", json!(["0x96", false]), Some(block)),
+        (
+            "eth_getBlockByNumber",
+            json!([format!("{:#x}", checkpoint.height), false]),
+            Some(block),
+        ),
     ]);
     let reads = must(CommittedReads::at_checkpoint(&endpoint, &checkpoint));
     let call = must(reads.budget_state(pay, &calldata));
