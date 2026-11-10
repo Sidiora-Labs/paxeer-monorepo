@@ -1,5 +1,51 @@
 //! Deterministic WASM binary construction for validation and execution tests.
 
+/// Returns every ABI version admitted by the production policy.
+#[must_use]
+pub fn supported_abi_versions() -> Vec<u16> {
+    (0..=u16::MAX)
+        .filter(|version| crate::admit_abi_version(*version).is_ok())
+        .collect()
+}
+
+/// An explicit success assertion shared by runtime qualification fixtures.
+/// Both implementations fail immediately on the same cases as the original checks.
+pub trait AssertSuccess {
+    type Value;
+
+    /// Extracts the asserted successful value.
+    ///
+    /// # Panics
+    /// Panics when a result is an error or an option is absent.
+    #[track_caller]
+    fn assert_success(self, message: &str) -> Self::Value;
+}
+
+impl<T, E: core::fmt::Debug> AssertSuccess for Result<T, E> {
+    type Value = T;
+
+    #[track_caller]
+    fn assert_success(self, message: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{message}: {error:?}"),
+        }
+    }
+}
+
+impl<T> AssertSuccess for Option<T> {
+    type Value = T;
+
+    #[track_caller]
+    fn assert_success(self, message: &str) -> T {
+        if let Some(value) = self {
+            value
+        } else {
+            panic!("{message}: absent value")
+        }
+    }
+}
+
 /// Counts actual host-linker registrations on this test thread.
 #[must_use]
 pub fn host_linker_constructions_on_current_thread() -> usize {

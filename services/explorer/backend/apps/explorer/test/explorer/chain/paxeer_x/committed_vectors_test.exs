@@ -1,7 +1,16 @@
+Code.require_file("../../../support/fixture/paxeer_x/governed_receipt_fixtures.exs", __DIR__)
+
 defmodule Explorer.Chain.PaxeerX.CommittedVectorsTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Explorer.Chain.PaxeerX.SequencerReceipt
+  alias Explorer.Chain.PaxeerX.GovernedReceiptFixtures
+
+  setup do
+    GovernedReceiptFixtures.restore_on_exit()
+    GovernedReceiptFixtures.configure_committed()
+    :ok
+  end
 
   @vectors Path.expand("../../../support/fixture/paxeer_x/committed_vectors.json", __DIR__)
 
@@ -16,8 +25,11 @@ defmodule Explorer.Chain.PaxeerX.CommittedVectorsTest do
 
     {:ok, [key]} = SequencerReceipt.decode_receipt_keys([hd(cases)["pinnedKey"]])
 
+    assert key.key_id == :crypto.hash(:sha256, key.public_key)
+    assert {key.first_height, key.last_height} == {10, 10}
+
     assert Enum.map(cases, &committed_vectors_drive_verify/1) == [
-             {:committed, key, 1_000},
+             {:committed, key, 10},
              {:error, :r7},
              {:error, :r8}
            ]
@@ -27,15 +39,12 @@ defmodule Explorer.Chain.PaxeerX.CommittedVectorsTest do
     "0x" <> raw_transaction = test_case["rawTransaction"]
     tx_hash = raw_transaction |> Base.decode16!(case: :mixed) |> ExKeccak.hash_256()
     {:ok, keys} = SequencerReceipt.decode_receipt_keys([test_case["pinnedKey"]])
-    %{"from_seq" => from_seq, "to_seq" => to_seq} = test_case["batch"]
 
-    SequencerReceipt.verify(tx_hash, test_case["receiptJson"], keys,
-      prev_seq_hash: test_case["prevSeqHash"],
-      eth_receipt: test_case["eth_receipt"],
-      batch: %{from_seq: from_seq, to_seq: to_seq},
-      chain_id: test_case["chain_id"],
-      commit: test_case["commit"],
-      validators: test_case["validators"]
+    SequencerReceipt.verify(
+      tx_hash,
+      test_case["receiptJson"],
+      keys,
+      GovernedReceiptFixtures.committed_opts(test_case)
     )
   end
 end

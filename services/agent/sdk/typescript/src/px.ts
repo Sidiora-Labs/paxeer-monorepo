@@ -41,6 +41,7 @@ const HEX_QUANTITY = /^0x[0-9a-f]{1,64}$/u;
 /** The joined asset ceiling the gateway answers within. */
 export const PX_MAXIMUM_JOINED_ASSETS = 1024;
 
+/** Exact method names published by the hosted gateway OpenRPC contract. */
 export const PX_METHODS = [
   "px_resolveAccount",
   "px_getAccount",
@@ -55,6 +56,14 @@ export const PX_METHODS = [
   "px_getInferenceDeal",
   "px_getInferencePeer",
   "px_getInferenceReceipts",
+  "px_register",
+  "px_getCommit",
+  "px_getValidators",
+  "px_getSequenceBatch",
+  "px_requestFunds",
+  "px_listHolderRecords",
+  "px_getCapabilities",
+  "px_getRouteCatalogue",
 ] as const;
 export type PxMethod = (typeof PX_METHODS)[number];
 

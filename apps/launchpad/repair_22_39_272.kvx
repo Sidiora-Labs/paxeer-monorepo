@@ -1,0 +1,183 @@
+[meta]
+task = "22.39.272"
+mode = "BUILD"
+status = "implemented"
+source_revision = "04cbe6eed48d4fbcec838b732b266c7b59ad77be"
+decisions = ["3101", "3104", "3125", "3130"]
+finding_count = 12
+scan_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad"
+scan_exit = 1
+scan_log = "/out/logs/retired-callers-inventory.log"
+qualification = "UNRUN; the bounded gate ledger records the exact candidate revision, command, exit and private log when qualification executes."
+
+[history.blocker.scope]
+file = "tools/paxeer-x/retired_callers.json"
+observed = "Task do_2 requires allowed_references for live symbols, but the task SCOPE excludes the catalogue containing allowed_references."
+assumption = "The path-specific allowances below require an explicit scope change; no catalogue or checker change is authorized by the current scope."
+severity = "blocker"
+
+[history.blocker.touches]
+observed = "The task graph requires all seven source and generated catalogue paths to change, although all findings are live names unrelated to the retired components."
+assumption = "Preserving the live source and frozen ABI requires allowances, rather than equivalent renames, dead-path deletion or hand edits to generated files."
+severity = "blocker"
+
+[allowance.activity]
+path = "apps/launchpad/web/src/widgets/profile/activity-transport.ts"
+symbols = ["statusOf"]
+citation = "The private HTTP error status extractor serves explorer transfer pagination and does not call the retired mirror checkpoint status method."
+evidence = "fetchActivityPage calls this helper after an explorer error; activity-transport.test.ts asserts the real first-page HTTP 503 becomes ActivityUnavailableError with status 503."
+disposition = "Implemented exact-file allowed_references entry in tools/paxeer-x/retired_callers.json under decision 3125."
+
+[allowance.factory]
+path = "contracts/launchpad/contracts/core/SidioraFactory.sol"
+symbols = ["recordDeposit"]
+citation = "The live launchpad factory credits creation fees through ITreasury and has no dependency on the retired exchange intent store."
+disposition = "Implemented exact-file allowed_references entry in tools/paxeer-x/retired_callers.json under decision 3125."
+
+[allowance.interface]
+path = "contracts/launchpad/contracts/interfaces/ITreasury.sol"
+symbols = ["recordDeposit"]
+citation = "The launchpad treasury interface declares its live fee accounting method, distinct from the retired layerxExchange deposit method."
+disposition = "Implemented exact-file allowed_references entry in tools/paxeer-x/retired_callers.json under decision 3125."
+
+[allowance.router]
+path = "contracts/launchpad/contracts/periphery/Router.sol"
+symbols = ["recordDeposit"]
+citation = "The live launchpad router atomically accounts for transferred creation fees through ITreasury, independently of the retired exchange intent store."
+disposition = "Implemented exact-file allowed_references entry in tools/paxeer-x/retired_callers.json under decision 3125."
+
+[allowance.treasury]
+path = "contracts/launchpad/contracts/protocol/Treasury.sol"
+symbols = ["recordDeposit"]
+citation = "The live launchpad treasury restricts transferred fee accounting to DEPOSITOR_ROLE and actual token backing, independently of the retired exchange intent store."
+evidence = "contracts/launchpad/test/protocol/Treasury.test.js:149-151 asserts crediting and insufficient backing; line 166 asserts unauthorized accounting is rejected; contracts/launchpad/scripts/deploy.js:253 grants DEPOSITOR_ROLE to the fee producers."
+disposition = "Implemented exact-file allowed_references entry in tools/paxeer-x/retired_callers.json under decision 3125."
+
+[allowance.reviewed]
+path = "sdk/launchpad/protocol/catalog/reviewed.json"
+symbols = ["recordDeposit"]
+citation = "The frozen reviewed launchpad ABI records the live Treasury fee accounting signature and selector, not a retired layerxExchange method."
+disposition = "Implemented exact-file allowed_references entry in tools/paxeer-x/retired_callers.json; preserve the frozen generated ABI and provenance byte-for-byte."
+
+[allowance.abi_catalog]
+path = "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json"
+symbols = ["recordDeposit"]
+citation = "The launchpad chain ABI catalogue records the live Treasury fee accounting signature and selector, not a retired layerxExchange method."
+disposition = "Implemented exact-file allowed_references entry in tools/paxeer-x/retired_callers.json; preserve the frozen generated ABI and provenance byte-for-byte."
+
+[finding.1]
+path = "apps/launchpad/web/src/widgets/profile/activity-transport.ts"
+line = 75
+component = "mirror"
+symbol = "statusOf"
+repair = "allowance.activity; local HTTP error helper declaration is live."
+
+[finding.2]
+path = "apps/launchpad/web/src/widgets/profile/activity-transport.ts"
+line = 88
+component = "mirror"
+symbol = "statusOf"
+repair = "allowance.activity; explorer failure handling reaches this call."
+
+[finding.3]
+path = "contracts/launchpad/contracts/core/SidioraFactory.sol"
+line = 82
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.factory; createMarket reaches this fee accounting call."
+
+[finding.4]
+path = "contracts/launchpad/contracts/interfaces/ITreasury.sol"
+line = 18
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.interface; preserve the callable Treasury ABI."
+
+[finding.5]
+path = "contracts/launchpad/contracts/periphery/Router.sol"
+line = 166
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.router; market creation reaches this fee accounting call."
+
+[finding.6]
+path = "contracts/launchpad/contracts/protocol/Treasury.sol"
+line = 79
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.treasury; preserve the authorized, balance-backed implementation and existing regression tests."
+
+[finding.7]
+path = "sdk/launchpad/protocol/catalog/reviewed.json"
+line = 9102
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.reviewed; preserve the live Treasury ABI function entry."
+
+[finding.8]
+path = "sdk/launchpad/protocol/catalog/reviewed.json"
+line = 9449
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.reviewed; preserve the live Treasury method name."
+
+[finding.9]
+path = "sdk/launchpad/protocol/catalog/reviewed.json"
+line = 9450
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.reviewed; preserve recordDeposit(address,uint256) and selector 0x1e578bae."
+
+[finding.10]
+path = "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json"
+line = 9102
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.abi_catalog; preserve the live Treasury ABI function entry."
+
+[finding.11]
+path = "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json"
+line = 9449
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.abi_catalog; preserve the live Treasury method name."
+
+[finding.12]
+path = "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json"
+line = 9450
+component = "exchange-intents"
+symbol = "recordDeposit"
+repair = "allowance.abi_catalog; preserve recordDeposit(address,uint256) and selector 0x1e578bae."
+
+[history.continuation_attempt_2]
+base_revision = "7c65ca246479ea68169faf54cef98cfeb9e66537"
+prior_attempt_revision = "775c80605006cdcfbfc4f35f77e2d21dc906c404"
+decisions = ["3101", "3104", "3130"]
+status = "blocked_by_scope"
+observed = "The current retired-callers catalogue still contains no allowed_references entries for the seven launchpad paths above; all twelve recorded source occurrences retain their recorded lines."
+implementation = "Preserve the attempt-1 findings, the live explorer error handling, the authorized balance-backed Treasury accounting and the reviewed ABI selector; their seven proposed path-specific allowances remain necessary."
+scope_conflict = "Task do_2 requires editing tools/paxeer-x/retired_callers.json, which is outside the explicit task scope; no equivalent rename, generated-file hand edit or check suppression is permitted."
+graph_conflict = "All seven source paths remain declared touches although the required repair belongs to the out-of-scope allowed_references catalogue."
+build_command = "pnpm --dir apps/launchpad/web run typecheck && python3 -m json.tool sdk/launchpad/protocol/catalog/reviewed.json > /dev/null"
+verify_command = "test -s apps/launchpad/repair_22_39_272.kvx && pnpm --dir apps/launchpad/web run typecheck && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad"
+qualification = "UNRUN for this continuation; hf-build and hf-done record the exact candidate revision, command, exit and private evidence location in /out/run/gates.jsonl."
+
+[continuation.attempt_3]
+base_revision = "7c02f42054af0d5f3cb5837370f40e69e05c54fa"
+prior_attempt_revision = "026eda712c3fb2db0303d10317b73facedcb55f3"
+decisions = ["3101", "3104", "3125", "3130"]
+status = "implemented"
+finding_count = 12
+scope_resolution = "The current task admits tools/paxeer-x/retired_callers.json; all seven recorded allowances are now implemented there with exact file paths, symbol lists and one-sentence citations."
+main_line_evidence = "Main already allows the four launchpad contract directories for this live fee accounting method under decision 3125; this repair narrows those existing entries to the four finding files."
+activity_evidence = "activity-transport.ts:75 defines a private HTTP status extractor and :88 invokes it in the explorer error path; neither occurrence invokes a checkpoint or mirror module."
+treasury_evidence = "SidioraFactory.sol:82 and Router.sol:166 account a just-completed token transfer through ITreasury.sol:18, implemented by Treasury.sol:79 with DEPOSITOR_ROLE and actual token balance checks."
+catalogue_evidence = "Both frozen catalogue files contain the Treasury ABI function, method name and recordDeposit(address,uint256) signature with selector 0x1e578bae; these six occurrences describe the live launchpad interface."
+generated_files = "No generated catalogue is edited or regenerated because the allowed live ABI, selector and source provenance are unchanged."
+implementation = "Resolve findings 1-2 with allowance.activity, 3 with allowance.factory, 4 with allowance.interface, 5 with allowance.router, 6 with allowance.treasury, 7-9 with allowance.reviewed and 10-12 with allowance.abi_catalog."
+qualification = "UNRUN at implementation: hf-build and hf-done will record the exact verified candidate revision, command, exit code and private log in /out/run/gates.jsonl; final task evidence is the last hf-done JSON row."
+evidence_location = "/out/run/gates.jsonl"
+
+[gotcha.attempt_3]
+observed = "The carried attempt-2 record describes an earlier base without contract allowances, but the merged main base already allows four contract directories and still needs the activity helper and the two frozen ABI file allowances."
+repair = "Retain the twelve original finding records, narrow the inherited contract allowances to exact files and add the three missing exact-file allowances without renaming live functions or editing frozen generated files."

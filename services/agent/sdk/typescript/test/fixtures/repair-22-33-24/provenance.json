@@ -5,7 +5,9 @@
     "services/agent/sdk/typescript/src/sequencer-receipt-codec.ts": "709687755debb632587daf77c81bbf51d05151e67af5aedd1a78d9f94596ca2f",
     "services/agent/sdk/typescript/src/sequencer-log.ts": "1bddfec9dee8b0d771e8ab00530d760c088ea4808f0d4ab1d43806165a38bca4",
     "services/agent/sdk/typescript/src/ledger-payment.ts": "80c64cb26442ae3d05fffc03f96e5fd6c7dea5882aedafae757d2a17051237ae",
-    "services/agent/sdk/typescript/src/evm-transaction.ts": "8b8d73bde8f3921fbb0b1a85b56ad3416484a5bf40002ff4d29440c1995d808d"
+    "services/agent/sdk/typescript/src/evm-transaction.ts": "8b8d73bde8f3921fbb0b1a85b56ad3416484a5bf40002ff4d29440c1995d808d",
+    "services/interop/crates/x-websearch/tests/fixtures/client-exchange.json": "dff68cf1f27791de32875da2d5a8629632f5b5ac15252f10f0ccb1ea179c3f03",
+    "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json": "0e4d7fc043fba1c9bdfdca1543e25702b86661b0132305acc326c392dc6e2a82"
   },
   "recording": "Canonical SDK codec regeneration authorized by attempt 5; original exact evidence and metered raw transactions are unchanged. Metered log context comes from signed calldata. Recovery uses the shared type-2 draw signer and production receipt codec under the deterministic seller fixture pin."
 }

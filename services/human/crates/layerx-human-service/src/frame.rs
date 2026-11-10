@@ -33,7 +33,7 @@ pub enum TransportError {
     TlsConfiguration,
 }
 
-/// Required finite limits for every LNI connection.
+/// Required finite limits for every Unix-socket or mutual-TLS frame connection.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Limits {
     pub maximum_frame_bytes: usize,

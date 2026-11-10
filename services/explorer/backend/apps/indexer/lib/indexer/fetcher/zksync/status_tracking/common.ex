@@ -1,6 +1,9 @@
 defmodule Indexer.Fetcher.ZkSync.StatusTracking.CommonUtils do
   @moduledoc """
     Common functions for status changes trackers
+
+    Tracks zkSync L1 batch transactions through the zkSync RPC; these batches are
+    unrelated to the retired Paxeer kernel batch availability transport.
   """
 
   alias Explorer.Chain.ZkSync.Reader

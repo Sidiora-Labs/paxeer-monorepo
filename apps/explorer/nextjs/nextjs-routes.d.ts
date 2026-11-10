@@ -18,9 +18,11 @@ declare module "nextjs-routes" {
     | DynamicRoute<"/address/[hash]/contract-verification", { "hash": string }>
     | DynamicRoute<"/address/[hash]", { "hash": string }>
     | StaticRoute<"/advanced-filter">
+    | StaticRoute<"/api/assistant">
     | StaticRoute<"/api/config">
     | StaticRoute<"/api/csrf">
     | StaticRoute<"/api/healthz">
+    | StaticRoute<"/api/inference">
     | StaticRoute<"/api/log">
     | StaticRoute<"/api/metrics">
     | StaticRoute<"/api/monitoring/invalid-api-schema">
@@ -81,9 +83,7 @@ declare module "nextjs-routes" {
     | StaticRoute<"/ops">
     | StaticRoute<"/output-roots">
     | DynamicRoute<"/paxeer-x/account/[hash]", { "hash": string }>
-    | StaticRoute<"/paxeer-x/anchors">
-    | DynamicRoute<"/paxeer-x/receipts/[id]", { "id": string }>
-    | StaticRoute<"/paxeer-x/receipts">
+    | StaticRoute<"/paxeer-x/inference">
     | DynamicRoute<"/pools/[hash]", { "hash": string }>
     | StaticRoute<"/pools">
     | StaticRoute<"/public-tags/submit">

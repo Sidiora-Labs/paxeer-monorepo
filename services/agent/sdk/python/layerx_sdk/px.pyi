@@ -5,7 +5,20 @@ from .agent_http import LayerXKeyCredential
 
 PxMethod = Literal[
     "px_resolveAccount", "px_getAccount", "px_getBalances", "px_listAssets", "px_getNetwork",
-    "px_getHistory", "px_getUnifiedHistory",
+    "px_getReceiptKeys", "px_getHistory", "px_getUnifiedHistory",
+    "px_getInferenceRooms",
+    "px_getInferenceRoom",
+    "px_getInferenceDeal",
+    "px_getInferencePeer",
+    "px_getInferenceReceipts",
+    "px_register",
+    "px_getCommit",
+    "px_getValidators",
+    "px_getSequenceBatch",
+    "px_requestFunds",
+    "px_listHolderRecords",
+    "px_getCapabilities",
+    "px_getRouteCatalogue",
 ]
 
 HISTORY_DEFAULT_LIMIT: int
@@ -149,6 +162,127 @@ class PxRpcError(Exception):
     data: object
     def __init__(self, code: int, message: str, data: object = ...) -> None: ...
 
+class InferenceRoomProfile:
+    minimum_bond: int
+    canary_ratio_bps: int
+    lap_size_tokens: int
+    challenge_window_blocks: int
+    slash_fraction_bps: int
+    host_share_bps: int
+    protocol_share_bps: int
+    settlement_account: str
+    def __init__(self, minimum_bond: int, canary_ratio_bps: int, lap_size_tokens: int, challenge_window_blocks: int, slash_fraction_bps: int, host_share_bps: int, protocol_share_bps: int, settlement_account: str) -> None: ...
+
+class InferenceAskStreamRecord:
+    payer: str
+    stream_account: str
+    recipient: str
+    asset_id: str
+    mode: int
+    rate: int
+    rate_unit: int
+    start_ms: int
+    last_accrual_ms: int
+    end_ms: int
+    total_cap: int
+    accrued_total: int
+    settled_total: int
+    remainder_carry: int
+    cumulative_meter: int
+    meter_authorities: tuple[str, ...]
+    underfunded: bool
+    paused: bool
+    closed: bool
+    def __init__(self, payer: str, stream_account: str, recipient: str, asset_id: str, mode: int, rate: int, rate_unit: int, start_ms: int, last_accrual_ms: int, end_ms: int, total_cap: int, accrued_total: int, settled_total: int, remainder_carry: int, cumulative_meter: int, meter_authorities: tuple[str, ...], underfunded: bool, paused: bool, closed: bool) -> None: ...
+
+class InferenceAskStream:
+    ask_id: str
+    stream_id: str
+    stream: InferenceAskStreamRecord | None
+    def __init__(self, ask_id: str, stream_id: str, stream: InferenceAskStreamRecord | None) -> None: ...
+
+class InferenceRoom:
+    room_id: str
+    host_key: str
+    model_digest: str
+    runtime_digest: str
+    profile: InferenceRoomProfile
+    state: Literal[0, 1]
+    opened_at_epoch: int
+    open_asks: tuple[str, ...]
+    open_bids: tuple[str, ...]
+    ask_streams: tuple[InferenceAskStream, ...]
+    def __init__(self, room_id: str, host_key: str, model_digest: str, runtime_digest: str, profile: InferenceRoomProfile, state: Literal[0, 1], opened_at_epoch: int, open_asks: tuple[str, ...], open_bids: tuple[str, ...], ask_streams: tuple[InferenceAskStream, ...]) -> None: ...
+
+class InferenceLayerSplit:
+    bid_id: str
+    first_layer: int
+    end_layer: int
+    def __init__(self, bid_id: str, first_layer: int, end_layer: int) -> None: ...
+
+class InferenceDeal:
+    room_id: str
+    deal_id: str
+    ask_id: str
+    agreed_price_per_thousand_tokens: int
+    roster_digest: str
+    layers: tuple[InferenceLayerSplit, ...]
+    state: Literal[0, 1]
+    settled_tokens: int
+    settled_amount_owed: int
+    def __init__(self, room_id: str, deal_id: str, ask_id: str, agreed_price_per_thousand_tokens: int, roster_digest: str, layers: tuple[InferenceLayerSplit, ...], state: Literal[0, 1], settled_tokens: int, settled_amount_owed: int) -> None: ...
+
+class InferencePeerCapabilities:
+    accelerator_memory_mib: int
+    system_memory_mib: int
+    bandwidth_class: int
+    region_code: str
+    attestation_family: int
+    runtime_kind: int
+    def __init__(self, accelerator_memory_mib: int, system_memory_mib: int, bandwidth_class: int, region_code: str, attestation_family: int, runtime_kind: int) -> None: ...
+
+class InferenceAttestationBinding:
+    family: int
+    model_digest: str
+    runtime_digest: str
+    block_height: int
+    def __init__(self, family: int, model_digest: str, runtime_digest: str, block_height: int) -> None: ...
+
+class InferencePeer:
+    peer_key: str
+    worker: str
+    delegate: str
+    metadata: str
+    generation: int
+    key_version: int
+    metadata_revision: int
+    valid_from: int
+    expiry: int
+    state: Literal[1, 2, 3, 4, 5, 6]
+    enrolled: bool
+    capabilities_status: Literal[1, 4]
+    capabilities: InferencePeerCapabilities | None
+    bond_status: Literal[2]
+    fault_count: int
+    attestation_binding: InferenceAttestationBinding
+    def __init__(self, peer_key: str, worker: str, delegate: str, metadata: str, generation: int, key_version: int, metadata_revision: int, valid_from: int, expiry: int, state: Literal[1, 2, 3, 4, 5, 6], enrolled: bool, capabilities_status: Literal[1, 4], capabilities: InferencePeerCapabilities | None, bond_status: Literal[2], fault_count: int, attestation_binding: InferenceAttestationBinding) -> None: ...
+
+class InferenceReceiptBatch:
+    deal_id: str
+    first_lap_index: int
+    last_lap_index: int
+    cumulative_tokens: int
+    batch_digest: str
+    countersign_quorum: int
+    def __init__(self, deal_id: str, first_lap_index: int, last_lap_index: int, cumulative_tokens: int, batch_digest: str, countersign_quorum: int) -> None: ...
+
+class PxReceiptKeyEntry:
+    key_id: str
+    public_key: str
+    first_height: int
+    last_height: int
+    def __init__(self, key_id: str, public_key: str, first_height: int, last_height: int) -> None: ...
+
 class PxClient:
     endpoint: str
     def __init__(self, endpoint: str, *, credential: LayerXKeyCredential | None = ..., timeout: float = ..., maximum_response_bytes: int = ...) -> None: ...
@@ -157,6 +291,12 @@ class PxClient:
     def get_balances(self, account: str) -> PxAccountBalances: ...
     def list_assets(self) -> PxAssetTable: ...
     def get_network(self) -> PxNetworkHead: ...
+    def get_receipt_keys(self) -> tuple[PxReceiptKeyEntry, ...]: ...
+    def get_inference_rooms(self) -> tuple[InferenceRoom, ...]: ...
+    def get_inference_room(self, room_id: str) -> InferenceRoom: ...
+    def get_inference_deal(self, deal_id: str) -> InferenceDeal: ...
+    def get_inference_peer(self, peer_key: str) -> InferencePeer: ...
+    def get_inference_receipts(self, deal_id: str) -> tuple[InferenceReceiptBatch, ...]: ...
     def get_history(self, account: str, *, cursor: str | None = ..., limit: int | None = ..., kind: str | None = ...) -> HistoryPage: ...
     def get_unified_history(self, account: str, *, cursor: str | None = ..., limit: int | None = ..., kind: str | None = ...) -> UnifiedHistoryPage: ...
     def call(self, method: str, params: list[object]) -> Mapping[str, object]: ...
@@ -178,3 +318,9 @@ def decode_paxeer_history_page(value: object, limit: int = ...) -> HistoryPage: 
 def decode_unified_history_page(value: object, limit: int = ...) -> UnifiedHistoryPage: ...
 def decode_history_row(value: object, unified: bool = ...) -> HistoryRow: ...
 def decode_history_asset_metadata(value: object, asset: str | None = ...) -> HistoryAssetMetadata | None: ...
+
+def decode_px_receipt_keys(value: object) -> tuple[PxReceiptKeyEntry, ...]: ...
+def decode_inference_room(value: object) -> InferenceRoom: ...
+def decode_inference_deal(value: object) -> InferenceDeal: ...
+def decode_inference_peer(value: object) -> InferencePeer: ...
+def decode_inference_receipt(value: object) -> InferenceReceiptBatch: ...

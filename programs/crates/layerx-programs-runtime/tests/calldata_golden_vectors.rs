@@ -385,6 +385,8 @@ fn canonical_variable_array_roundtrip() {
 
 #[test]
 fn generated_boundary_decodes_exact_published_bytes() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/vectors/calldata/boundaries/depth_and_size.json");
     let vectors = load_vectors(&path);
@@ -396,27 +398,35 @@ fn generated_boundary_decodes_exact_published_bytes() {
     let vector = generated[0];
     assert_eq!(vector.expected, "pass");
     assert!(run_vector(vector));
-    let bytes = generate_hex(vector.hex_generator.as_deref().unwrap());
+    let bytes = generate_hex(vector.hex_generator.as_deref().assert_success("test value"));
     assert_eq!(bytes.len(), 4102);
     assert_eq!(&bytes[..6], &[0x01, 0x20, 0, 0, 0x10, 0]);
     assert_eq!(&bytes[6..], &[0x42; 4096]);
-    let decoded = Calldata::from_bytes(&bytes).unwrap();
+    let decoded = Calldata::from_bytes(&bytes).assert_success("test value");
     assert_eq!(decoded.payload(), &bytes[1..]);
     assert_eq!(decoded.as_bytes(), bytes);
     let mut producer = Calldata::new();
-    producer.encode_bytes(&[0x42; 4096]).unwrap();
+    producer
+        .encode_bytes(&[0x42; 4096])
+        .assert_success("test value");
     assert_eq!(producer.as_bytes(), bytes);
 }
 
 #[test]
 fn unknown_generator_syntax_fails_explicitly() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     for syntax in [
         "unknown",
         "layerx_convention + bytes_tag + length(4096) + repeat(0x42, 4095)",
         "layerx_convention + bytes_tag + length(4294967295) + repeat(0x42, 4294967295)",
     ] {
-        let failure = std::panic::catch_unwind(|| generate_hex(syntax)).unwrap_err();
-        let message = failure.downcast_ref::<String>().unwrap();
+        let Err(failure) = std::panic::catch_unwind(|| generate_hex(syntax)) else {
+            panic!("unknown calldata generator syntax was accepted: {syntax}");
+        };
+        let message = failure
+            .downcast_ref::<String>()
+            .assert_success("test value");
         assert!(message.contains("Unknown calldata hex_generator syntax:"));
         assert!(message.contains(syntax));
     }

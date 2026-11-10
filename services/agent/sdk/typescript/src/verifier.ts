@@ -534,7 +534,9 @@ export async function verifySequencerReceipt(
   receiptKeys: readonly SequencerReceiptKey[],
 ): Promise<SequencerReceiptVerification> {
   const canonicalBytes = new Uint8Array(signedReceipt);
-  const transactionHash = keccak_256(new Uint8Array(rawTransaction));
+  const transactionBytes = new Uint8Array(rawTransaction);
+  const keys = structuredClone(receiptKeys);
+  const transactionHash = keccak_256(transactionBytes);
   let decoded: DecodedReceipt;
   try {
     decoded = decodeSequencerReceipt(canonicalBytes);
@@ -549,7 +551,7 @@ export async function verifySequencerReceipt(
     return sequencerReceiptFailure("bad_signature");
   }
   const height = new DataView(arrayBuffer(receipt.batchId)).getBigUint64(24, false);
-  const pinned = receiptKeys.filter((key) => equal(key.keyId, receipt.contextHash));
+  const pinned = keys.filter((key) => equal(key.keyId, receipt.contextHash));
   if (pinned.length === 0) return sequencerReceiptFailure("unpinned_key");
   const active = pinned.filter((key) => key.first_height >= 0n
     && key.last_height <= 0xffff_ffff_ffff_ffffn
@@ -563,8 +565,8 @@ export async function verifySequencerReceipt(
   if (signingKey === undefined) return sequencerReceiptFailure("bad_signature");
   if (!equal(receipt.activityId, transactionHash)) return sequencerReceiptFailure("hash_mismatch");
   const verified: SequencerReceiptVerification = Object.freeze({ level: "sequencer-signed", receipt, canonicalBytes, receiptDigest, height, receiptKey: structuredClone(signingKey) });
-  authenticatedReceipts.set(verified, { receipt: canonicalBytes.slice(), transaction: rawTransaction.slice(),
-    keys: receiptKeys.map(key => ({ ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice() })) });
+  authenticatedReceipts.set(verified, { receipt: canonicalBytes.slice(), transaction: transactionBytes,
+    keys });
   return verified;
 }
 
