@@ -428,7 +428,10 @@ public final class Committed {
             ObjectNode item = signatures.addObject();
             item.put("BlockIDFlag", signature.blockIdFlag());
             putBytes(item, "ValidatorAddress", signature.validatorAddress());
-            item.put("Timestamp", encodeTime(signature.timestamp())); putBytes(item, "Signature", signature.signature());
+            item.put("Timestamp", encodeTime(signature.timestamp()));
+            require(signature.signature() != null);
+            if (signature.signature().length == 0) item.putNull("Signature");
+            else putBytes(item, "Signature", signature.signature());
         }
         return node;
     }
