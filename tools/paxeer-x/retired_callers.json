@@ -617,6 +617,10 @@
   },
   "documentation_paths": [
     {
+      "pattern": "contracts/*.md",
+      "reason": "The reviewed API contracts document current interfaces, retained compatibility ABIs and retired source references without invoking the retired executors."
+    },
+    {
       "path": "spec/layerx-merge/spec.kvx",
       "reason": "reviewed merge specification: requirement, acceptance and task text names each retired component it retires"
     },
@@ -670,6 +674,44 @@
     }
   ],
   "allowed_references": [
+    {
+      "path": "Makefile",
+      "symbols": [
+        "bridge_credit",
+        "history.lxl",
+        "lxp_test_golden_replay",
+        "state_feed"
+      ],
+      "citation": "Decision 3125 and task 22.39.277 retain the live golden replay source and fixture plus the regression targets that assert retired credit symbols are absent and state feeds are unbound."
+    },
+    {
+      "path": "contracts/launchpad/contracts/core",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live factory call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/interfaces",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live ITreasury.recordDeposit interface for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/periphery",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live router call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/protocol",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live Treasury.recordDeposit implementation that accounts prior token transfers under DEPOSITOR_ROLE, which is distinct from the retired exchange-intents method."
+    },
     {
       "path": "modules/layerxanchor/keeper/custody_reader.go",
       "lines": [

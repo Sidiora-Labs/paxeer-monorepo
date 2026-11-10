@@ -43,9 +43,7 @@ ifneq ($(filter x86_64 i386 i486 i586 i686 aarch64 arm64,$(C_TARGET_ARCH)),)
 CONSENSUS_CFLAGS := -mgeneral-regs-only
 endif
 
-LIB_EXCLUDED_SOURCES := src/storage/lxp_projection.c \
-	src/network/lx_oracle_adapter.c src/sequencer/lx_oracle_root.c \
-	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c
+LIB_EXCLUDED_SOURCES := src/storage/lxp_projection.c
 LIB_SOURCES := $(filter-out $(LIB_EXCLUDED_SOURCES), \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
@@ -2000,7 +1998,7 @@ agent-lint:
 
 AGENT_WIRE_FUZZ_TARGETS := primitive_decode envelope_decode payload_decode \
 	receipt_decode proof_decode roundtrip
-AGENT_INTERFACE_FUZZ_TARGETS := lni_frame contract_request policy_loader tenant_key
+AGENT_INTERFACE_FUZZ_TARGETS := contract_request policy_loader tenant_key
 AGENT_FUZZ_TARGETS := $(AGENT_WIRE_FUZZ_TARGETS) $(AGENT_INTERFACE_FUZZ_TARGETS)
 AGENT_FUZZ_RUNS ?= 128
 AGENT_FUZZ_LONG_SECONDS ?= 300
