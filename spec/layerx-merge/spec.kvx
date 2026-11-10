@@ -161817,7 +161817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.352]
 title = "Build the Next example of the integration SDK beside an own install of the agent SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
