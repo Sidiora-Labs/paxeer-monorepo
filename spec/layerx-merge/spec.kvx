@@ -12754,6 +12754,12 @@ value = "A test target of the agent daemon that takes in a file under src/infere
 basis = "Gotcha 4201, decisions 3053, 3218 and 3250."
 affects = ["22.39.227", "22.39.229", "22.39.356", "22.39.228"]
 
+[decision.3274]
+title = "The host asks the selected peer for its canary answer on the signalling socket"
+value = "The canary travels like the lap receipt. The host sends the server frame canary_request with the member plan to the connection of the peer that the plan names, and that peer returns the client frame canary_answer with the member answer; both are text frames of JSON with the member type, and plan and answer hold CanaryPlan and CanaryAnswer in the form the host serialises them today. The host sends the request only after the lap output of that lap has arrived from the runtime, so that a peer learns the position after it has processed it, and before the audit of the lap; it waits for the answer for a bound that a setting states, and an answer that does not arrive is treated as the engine treats a missing answer today. A frame from another peer, for another deal or lap, or a second answer is refused. The two internal requests stay as they are. The host task writes the vector file apps/inference-peer/test/fixtures/host-canary-frames.json with one vector for each frame under the member vectors, a case of the agent daemon reads it with the host frame types and the peer package reads the same file (decisions 3046 and 3235). Task 22.39.371 owns the host side and task 22.38.28 follows it. Two points are not ruled here and are put before the owner: whether a peer that stays silent is challenged on the chain, and how the runtime of a peer that serves layers of a model obtains the logits of a position; the peer package takes the logits from its runtime and derives none from activations."
+basis = "Gotcha 4202, decisions 3046, 3211 and 3235."
+affects = ["22.39.371", "22.38.28", "22.38.37"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42414,6 +42420,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.371]
+title = "Carry the canary request and the canary answer on the signalling socket of the host"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/inference_market", "services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_canary_frames.rs::canary_frames_match_the_vectors"]
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx && test -s apps/inference-peer/test/fixtures/host-canary-frames.json && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test inference_canary_frames --test inference_canary && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_canary_frames -- -D warnings && (cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short > ${TMPDIR:-/tmp}/lint-22-39-371-bin.log 2>&1 || true) && ! grep -F inference_market/canary.rs ${TMPDIR:-/tmp}/lint-22-39-371-bin.log"
+do_1 = "do_1 Decision 3274, gotcha 4202. Read the producer: CanaryPlan, CanaryAnswer, prepare, accept_answer and audit_answer of services/agent/crates/layerx-agentd/src/inference_market/canary.rs (:127, :156, :287, :385, :448), the lap output handler of src/main.rs with its canary calls (:2578 to :2630), and how the lap receipt and its countersignature travel on the socket: LapAcknowledgement, the client frame and LapServerFrame of src/inference_market/laps.rs (:828 to :841), issue_lap (:1008) and the handling of a client frame (:1177)."
+symbols = []
 
 [capability.22.39.370]
 title = "Serve the enrolment of a peer on the host and send it from the peer command"
@@ -164722,7 +164737,7 @@ title = "Answer canary prompts inside the lap"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.26", "22.38.19", "22.39.355"]
+requires = ["22.38.26", "22.38.19", "22.39.355", "22.39.371"]
 reqs = ["22380.4"]
 capabilities = ["22.38.28"]
 interfaces = []
@@ -164746,6 +164761,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3235, gotcha 4162: the host sends the canary frames of task 22.38.19 on the signalling socket in the frame form of the host, text frames of JSON with the member type in snake case. Read the producer on main (the canary module beside signal.rs and deals.rs in services/agent/crates/layerx-agentd/src/inference_market) and speak exactly its type names and member names through the codec src/signal.mjs of task 22.39.355; the binary kind of src/wire.mjs for a canary answer is not sent on the socket. Add apps/inference-peer/test/fixtures/host-canary-frames.json with one vector for every canary frame in both directions and make the stand-in host of test/canary.test.mjs speak only these vectors. The touches now name the source and test directories of the peer."
+do_4 = "Attempt 2 (continue after 22.39.371 lands, gotcha 4202, decision 3274): the attempt-1 tree dc3ef44a142e stands (src/canary.mjs with the encoding, the tracker and the signed answer, the seven passing cases, the section of docs/MONOREPO.md). The missing socket frames are right and are now produced by task 22.39.371, which the task requires: the server frame canary_request with the member plan and the client frame canary_answer with the member answer. Rebase on main once that task is on it. The vector file apps/inference-peer/test/fixtures/host-canary-frames.json then exists on main: keep the file of main, add the member program_codec of the attempt tree to it and drop the members status and observed. Teach the codec src/signal.mjs the two frame types with exactly the type names and member names of the vectors, and let the socket client of the peer answer a canary_request for its own key with the result of canaryAnswer and send it as canary_answer; an unknown position or a refused plan sends no frame and is reported locally. The case host_canary_socket_vectors_cover_both_directions reads the vectors of main in both directions, and the stand-in host of the test file speaks only these vectors. The binary kind of src/wire.mjs for a canary answer is still not sent on the socket. Bring the section of docs/MONOREPO.md to what is now served; keep its sentence that the logits come from the runtime of the peer. Change no file of the agent daemon. Run the build once and the verification once at the final revision."
 
 [task.22.38.27]
 title = "Countersign lap receipts the peer contributed to"
@@ -194531,6 +194547,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.371]
+title = "Carry the canary request and the canary answer on the signalling socket of the host"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.371"]
+interfaces = []
+do_1 = "do_1 Decision 3274, gotcha 4202. Read the producer: CanaryPlan, CanaryAnswer, prepare, accept_answer and audit_answer of services/agent/crates/layerx-agentd/src/inference_market/canary.rs (:127, :156, :287, :385, :448), the lap output handler of src/main.rs with its canary calls (:2578 to :2630), and how the lap receipt and its countersignature travel on the socket: LapAcknowledgement, the client frame and LapServerFrame of src/inference_market/laps.rs (:828 to :841), issue_lap (:1008) and the handling of a client frame (:1177)."
+do_2 = "do_2 Add the server frame canary_request with the member plan and the client frame canary_answer with the member answer, tagged by the member type in snake case as the lap frames are, with unknown members refused. When the lap output of a lap arrives from the runtime and the stored plan of that deal and lap names a position and a peer and holds no answer, the host sends canary_request to the connection of that peer, waits for canary_answer and passes it to accept_answer before the audit of the lap. The wait is bounded by a setting with a default of 5000 ms and holds no lock that the answer needs; when no answer arrives the handler goes on as it does today for a missing answer. A canary_answer from a peer the plan does not name, for an unknown deal or lap, or after an accepted answer is refused with a stable error and changes nothing. A lap without a canary position sends no frame. The two internal requests keep their behaviour, and no other frame, signing byte or case expectation changes."
+do_3 = "do_3 Write apps/inference-peer/test/fixtures/host-canary-frames.json: under the member vectors one entry for each of the two frames with its direction, server or client, and its exact JSON text as the host serialises it, built from real values, a plan from prepare and an answer signed with the key of the peer. Add tests/inference_canary_frames.rs: the case canary_frames_match_the_vectors decodes and encodes both vectors with the host frame types; the case canary_answer_reaches_the_audit drives a lap whose plan names a position through the socket of a connected peer and shows the accepted answer in the audit; further cases cover a lap without a position, a wrong peer, a second answer and the bound. The target takes in the sources by path as tests/inference_laps.rs does, with the allowance of decisions 3218 and 3273 on the outer module item, and lints clean."
+do_4 = "do_4 Record in services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx the two frames with their members, the moment of the request, the setting of the bound and what the handler does without an answer. Lint the new target and the host binary outside the counted gates first and repair every lint in the lines of this task at its source. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/inference_market", "services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_canary_frames.rs::canary_frames_match_the_vectors"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/inference_canary_frames.rs", "apps/inference-peer/test/fixtures/host-canary-frames.json", "services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test inference_canary_frames --test inference_canary && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-371.kvx && test -s apps/inference-peer/test/fixtures/host-canary-frames.json && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test inference_canary_frames --test inference_canary && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_canary_frames -- -D warnings && (cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short > ${TMPDIR:-/tmp}/lint-22-39-371-bin.log 2>&1 || true) && ! grep -F inference_market/canary.rs ${TMPDIR:-/tmp}/lint-22-39-371-bin.log"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

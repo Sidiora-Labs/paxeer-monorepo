@@ -40338,3 +40338,11 @@ symbol = "tests"
 observed = "Attempt 7 at 9e6b4a42b5bb on base 7cc619fab1cd: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1 with 61 reports of dead_code in the target inference_serve; log /out/logs/verify-1.log."
 assumption = "Step do_8 closed the list of including targets at two and a third target exists."
 severity = "high"
+
+[finding.22.38.28.1]
+task = "22.38.28"
+file = "apps/inference-peer/test/canary.test.mjs"
+symbol = "canary.test.mjs"
+observed = "Attempt 1 at dc3ef44a142e on base 9a170ec2b4e5: the build exits 0 and the verification exits 1 with seven cases passed and the case host_canary_socket_vectors_cover_both_directions failed for an empty vector list; log /out/logs/verify-1.log."
+assumption = "The host task landed the canary as internal requests only and the step of the task assumed socket frames."
+severity = "high"
