@@ -75,7 +75,7 @@ fn budget_state_operation_reports_committed_rung() {
     assert_eq!(response["value"]["activity_id"], json!(null));
     let record = &response["value"]["record"];
     assert_eq!(record["achieved_verification_level"], "committed");
-    let encoded = serde_json::to_string(&response).expect("budget response JSON");
+    let encoded = lint_success(serde_json::to_string(&response), "budget response JSON");
     assert!(encoded.contains("\"achieved_verification_level\":\"committed\""));
     assert!(!encoded.contains("achieved_rung"));
 
@@ -89,7 +89,7 @@ fn budget_state_operation_reports_committed_rung() {
     let success = layerx_agent_api::verify::ApiSuccess {
         request_id: RequestId(9),
         value: must(serde_json::from_str(&encoded)),
-        verification_status: verification.expect("protocol budget verification"),
+        verification_status: lint_present(verification, "protocol budget verification"),
     };
     let decoded = must(layerx_sdk::rpc_budget::decode_budget_state_response(
         &request, &success,
@@ -225,4 +225,20 @@ fn capability_create_cannot_exceed_the_on_chain_grant() {
     let unavailable = capability_operation_error(RequestId(9), HumanOperationError::Unavailable);
     assert_eq!(unavailable.class, ErrorClass::UnavailableCapability);
     assert_eq!(unavailable.reason, "owner.unavailable");
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
 }
