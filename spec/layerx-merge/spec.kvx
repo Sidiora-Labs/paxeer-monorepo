@@ -161301,7 +161301,7 @@ do_5 = "Attempt 4 (continue, gotcha 4070): the attempt-3 tree 08501fd25a23 stand
 
 [task.22.39.288]
 title = "Bring the agent SDK px surfaces and receipt cases to the gateway contract and the inclusion evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.297", "22.39.299"]
@@ -223999,7 +223999,7 @@ do_5 = "Attempt 3 (continue, gotcha 4062, decision 3152): the attempt-2 tree 6ba
 
 [task.22.39.248]
 title = "Repair the retired references of the node wiring"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
