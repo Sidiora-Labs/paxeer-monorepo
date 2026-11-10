@@ -12826,6 +12826,12 @@ value = "The refusal of decision 3281 is not weakened: gates.py exempts no file 
 basis = "Gotcha 4213, decisions 3269 and 3281."
 affects = ["17.5.7"]
 
+[decision.3286]
+title = "Every part of a chained verification is run before the counted verification"
+value = "When the verification of a task chains several commands, cases of one language, a lint and cases of another language, the attempt runs each of them outside the counted gates until all are clean and only then spends a counted verification. A part that an earlier part hid is never met for the first time in a counted run. This extends decision 3242 from a lint over many targets to every chained verification. The two reports of the target inference_enrol_route are repaired at their source without an allowance (decision 3053)."
+basis = "Gotcha 4214, decisions 3053, 3183 and 3242."
+affects = ["22.39.370"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -185309,6 +185315,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 4214, decision 3286): the attempt-1 tree b3ea1c24541e stands (the route on the signalling listener, the peer command, the three cases of the target inference_enrol_route that now pass, the fixture, the documents, the record). Repair at their source the two reports of the lint in services/agent/crates/layerx-agentd/tests/inference_enrol_route.rs: at :356 assign through clone_from, and at :587 bring the function with eight arguments to seven or fewer by passing one structure that groups arguments belonging together. Add no allowance (decision 3053) and remove no assertion. Then run outside the counted gates, in this order and until each is clean: the cases of the target, the lint command of the verification, and the three test files of the peer command, which no run has reached yet. A red peer case whose cause sits inside the paths is repaired in this attempt; a cause outside the paths is recorded with file, line and message and the attempt stops. Extend the record with the two repairs and the result of the peer cases. Run the build once and the verification once at the final revision."
 
 [task.22.39.365]
 title = "Accept a further deal of the room host for a matched ask"

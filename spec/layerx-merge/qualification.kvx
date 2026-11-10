@@ -40426,3 +40426,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 21 at b08224f9547a on base c4c825fac5b7: the build exits 0; the verification exits 1, run_wave raises wave in-place checkout differs from HEAD: .cgignore at spec/layerx-merge/programme/gates.py:84 before any gate command; log /out/logs/verify-1.log."
 assumption = "The checkout of the qualification environment held changed bookkeeping files beside the revision under test."
 severity = "high"
+
+[finding.22.39.370.1]
+task = "22.39.370"
+file = "apps/inference-peer/test/enrol.test.mjs"
+symbol = "enrol.test.mjs"
+observed = "Attempt 1 at b3ea1c24541e on base 6e3abf0ebe49: both builds exit 0; verification 2 exits 1 at b3ea1c24541e, the three cases pass and the lint of the target inference_enrol_route reports assigning_clones at tests/inference_enrol_route.rs:356 and too_many_arguments at :587; log /out/logs/verify-2.log."
+assumption = "The lint and the peer cases were not run before the counted verifications."
+severity = "high"
