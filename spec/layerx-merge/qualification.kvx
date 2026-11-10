@@ -39722,3 +39722,11 @@ symbol = "src"
 observed = "Attempt 7 at 61803b32828f on base 64e201cff588: build exit 0 at 61803b32828f (log /out/logs/build-3.log); the only verification, at fe82a180db25, exits 1 (cargo clippy exits 101) with one error, this function has too many lines (115/100) at crates/layerx-agentd/src/human_runtime.rs:3903; log /out/logs/verify-1.log."
 assumption = "The function was shortened after the only verification and the allowed runs were used."
 severity = "high"
+
+[finding.18.1749.1.6]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 6 at 557742ea3eb0 on base 495cd70105ac: make paxai-host-boundary-build exits 2 at the size test, guest exceeds 524184 bytes after wasm-opt -Oz --strip-debug --strip-producers; no verification ran; log /out/logs/build-1.log."
+assumption = "The guest of main is over the bound under the pass list of the target and the attempt changes no source of the guest."
+severity = "high"

@@ -12262,6 +12262,18 @@ value = "While the lint task of a crate is open, a function of main that exceeds
 basis = "Gotcha 4113, decisions 3186 and 3183."
 affects = ["22.39.222"]
 
+[decision.3192]
+title = "The AI market guest has one packaging recipe, the one of its fixture script, and the make target, the Go helper and the fixture script all run it"
+value = "The deployment guest of programs/crates/layerx-programs-ai-market is packaged by one recipe kept in one file: the release profile with opt-level z, the compiler arguments, the crate type and the pass list of tests/fixtures/build-guest.sh, with optimizer version 133. The target paxai-host-boundary-build, the helper repair478Guests of rpc/repair_478_test.go and the fixture script run that recipe from the same file, and each refuses another optimizer version. The bound 524184 of decision 2675 stays, and the target keeps its chain domain check, its size test, its harness run and its manifest. This amends decision 2792 and the helper rule that follows the target on the recipe only. The headroom rule of decision 2927 stays: task 22.39.333 recovers headroom with the function metrics aiming at 504184 bytes, its verification bound is 524184, and its record states the bytes left under the bound."
+basis = "Gotcha 4114, decisions 2675, 2792 and 2927."
+affects = ["22.39.333", "18.1749.1", "22.38.13"]
+
+[decision.3193]
+title = "A task that changes the source of the AI market crate regenerates the committed guest fixtures in the same commit"
+value = "A task whose commit changes a file under programs/crates/layerx-programs-ai-market/src runs tests/fixtures/build-guest.sh for the deployment fixture and for the aggregation probe fixture after its last source change and commits the regenerated hex files and records, so the source_sha256 line of each record equals the digest tests/support/guest.rs computes. A task that changes no file under src leaves the fixtures alone."
+basis = "Gotcha 4115, decision 3046."
+affects = ["22.39.333"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41922,6 +41934,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.333]
+title = "Give the AI market guest one packaging recipe, bring it under the deployment bound and regenerate its fixtures"
+reqs = ["22998.1"]
+touches = ["Makefile", "programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests/fixtures", "programs/crates/layerx-programs-ai-market/tests/support/guest.rs", "rpc/repair_478_test.go", "tools/qualification/audit_repairs/test_repair_22_33_219.py", "tools/qualification/audit_repairs/test_repair_22_33_788.py", "programs/README.md"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs::fuel_guest_build_profile", "rpc/repair_478_test.go::TestRepair478_FundWithinProductionAllowance"]
+verification_contract = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_333.kvx && test $(wc -c < build/paxai-host-boundary/ai_market.wasm) -le 524184 && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test repair_22_33_223 --test settlement_capacity && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_219.py tools/qualification/audit_repairs/test_repair_22_33_788.py && go test -count=1 ./rpc/ -run '^TestRepair478_FundWithinProductionAllowance$'"
+do_1 = "do_1 Decision 3192, gotcha 4114. Measure before any change: run make -s paxai-host-boundary-build at the starting tree and record the byte count of build/paxai-host-boundary/ai_market.wasm that the size test refuses, then run programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh and record the byte count it writes. Record the optimizer version of each run."
+symbols = ["repair478Guests", "repair478PackageGuest"]
 
 [capability.22.39.332]
 title = "Bring the signature and status route cases of the explorer web application to the governed key guard"
@@ -184177,6 +184198,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.333]
+title = "Give the AI market guest one packaging recipe, bring it under the deployment bound and regenerate its fixtures"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.333"]
+interfaces = []
+do_1 = "do_1 Decision 3192, gotcha 4114. Measure before any change: run make -s paxai-host-boundary-build at the starting tree and record the byte count of build/paxai-host-boundary/ai_market.wasm that the size test refuses, then run programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh and record the byte count it writes. Record the optimizer version of each run."
+do_2 = "do_2 Keep the recipe in one file under programs/crates/layerx-programs-ai-market/tests/fixtures: the compiler arguments, the crate type, the pass list and the check for optimizer version 133 that build-guest.sh holds today. Make the target paxai-host-boundary-build of the Makefile build and package the guest through that file instead of its own cargo and wasm-opt lines, keeping its chain domain check, its size test against 524184, its harness run and its manifest. Make repair478RawGuest and repair478PackageGuest of rpc/repair_478_test.go (the compiler arguments at :134 and the packaging at :146 to :156) take the compiler arguments and the pass list from the same file for the historical and for the candidate source. The constants BUILD_OPT_LEVEL and BUILD_POSTPROCESS of tests/support/guest.rs keep describing the recipe."
+do_3 = "do_3 Bring the followers of the old pass list to the single recipe: the expectations of tools/qualification/audit_repairs/test_repair_22_33_219.py (the optimizer line at :80 and the list at :229) and of tools/qualification/audit_repairs/test_repair_22_33_788.py read the recipe from its file and keep asserting that the target refuses a missing optimizer, checks the size and runs the harness; correct the packaging sentence at programs/README.md:399."
+do_4 = "do_4 Recover headroom per decision 2927 with the function metrics of wasm-opt, aiming at 504184 bytes: dead code removal, one body per shared helper, status codes instead of formatting, shared region decoders and writers. Change no public operation, status code, query result, event or test, and stop when the remaining candidates would change behaviour. The verification bound is 524184."
+do_5 = "do_5 Decision 3193, gotcha 4115. After the last source change regenerate ai-market-opt-z and ai-market-aggregation-baseline (hex file and record each) with the fixture script, so the source_sha256 line of each record equals the digest tests/support/guest.rs computes and the wasm_bytes line states the packaged size."
+do_6 = "do_6 Record in programs/crates/layerx-programs-ai-market/repair_22_39_333.kvx the two starting measurements, the recipe file, each follower changed, each size step with its bytes, the final byte count and the bytes left under 524184. Run the build once and the verification once at the final revision."
+symbols = ["repair478Guests", "repair478PackageGuest"]
+touches = ["Makefile", "programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests/fixtures", "programs/crates/layerx-programs-ai-market/tests/support/guest.rs", "rpc/repair_478_test.go", "tools/qualification/audit_repairs/test_repair_22_33_219.py", "tools/qualification/audit_repairs/test_repair_22_33_788.py", "programs/README.md"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs::fuel_guest_build_profile", "rpc/repair_478_test.go::TestRepair478_FundWithinProductionAllowance"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/repair_22_39_333.kvx"]
+build_cmd = "make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_333.kvx && test $(wc -c < build/paxai-host-boundary/ai_market.wasm) -le 524184 && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test repair_22_33_223 --test settlement_capacity && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_219.py tools/qualification/audit_repairs/test_repair_22_33_788.py && go test -count=1 ./rpc/ -run '^TestRepair478_FundWithinProductionAllowance$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.326]
 title = "Regenerate the native witness and host transcript fixtures of the proof library and settle the module tree width verdict"
 status = "done"
@@ -184523,7 +184577,7 @@ title = "Issue #1749: Prove Claim and RefundFree replay preserves recipient bala
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["22.33.223"]
+requires = ["22.33.223", "22.39.333"]
 reqs = ["181749.1"]
 capabilities = ["18.1749.1"]
 interfaces = []
@@ -184551,6 +184605,7 @@ do_4 = "Attempt 3 (continue, gotcha 3859): the attempt-2 tree ed01692a65d5 stand
 do_5 = "Attempt 4 (continue, gotcha 3913): the attempt-3 tree 7b5c49a06f71 stands (the reopen case, the boundary operation, the repaired reward replay, the host boundary case). In native_reward_calls of programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs trace the deadline the generator writes into the participant enrolment it emits at height 66 against the F02 deadline check of the enrol path (the refusal is 0x0211 F02_DEADLINE_INVALID at errors.rs:205) and make the deadline follow the height the generator submits at, as the in-memory cases of the same file that pass do; then check the native setup line of type 0x90003 that returned -601 GAS_EXHAUSTED during Native::start and, if the reopen depends on that activity, fund it as native_recovery_and_capacity funds its setup. The time limit is now 45 minutes because the case runs about two minutes after the dependents compile. Run the build once and the verification once at the final revision."
 do_6 = "Attempt 5 (continue, gotcha 3923): the attempt-4 tree 5e4ecdb9c872 stands (the generated enrolment deadline, the funded setup, the reopen case). BeginAggregation of reward_reopen_preserves_recipient_balances (programs/crates/layerx-programs-ai-market/tests/rewards_native.rs:2662) fails BudgetExceeded Cpu 1000009: use the smallest roster that exercises the reopen, as the in-memory reopen case of the same file does, so the aggregation stays inside the cap; the per-participant cost of the operation belongs to task 22.33.223 and is not widened here. Run the build once and the verification once at the final revision."
 do_7 = "Attempt 6 (continue after 22.33.223 lands, gotcha 3947): the attempt-5 tree d6bc790807e3 stands (the enrolment deadline, the reopen case, the boundary operation, the repaired reward replay). The task now requires 22.33.223 and sits in wave 3; merge main once that task is on it so the roster CPU cap it sets admits the minimum roster of the case, change nothing in the case for the cap, run the build once and the verification once at the final revision; if the case still fails, record the first failing assertion and stop."
+do_8 = "Attempt 7 (continue after 22.39.333 lands, gotcha 4114, decision 3192): the attempt-6 tree 557742ea3eb0 stands (the reopen case, the boundary operation, the repaired reward replay). Its build stopped at the size test of the target for the guest of main, before the harness and the case ran. The task now requires 22.39.333; merge main once that task is on it, change nothing for the size or the recipe, run the build once and the verification once at the final revision; if the case fails, record the first failing assertion and stop."
 
 [task.18.1724.1]
 title = "Issue #1724: Prove nonzero restart accounting with node-produced transaction receipts"
