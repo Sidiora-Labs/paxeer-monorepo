@@ -1571,6 +1571,23 @@
         "layerxverify"
       ],
       "citation": "The upgrade replay harness retains the historical anchor, custody and verify modules and precompiles to prove activation, exact retirement refusals and committed state recovery across upgrades."
+    },
+    {
+      "path": "engine/executor",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decision 3125 retains the fail-fast refusal list for retired precompiles 0x1012 through 0x1014 so accelerated execution aborts and ordinary execution enforces their upgrade-height and module-disabled behavior."
+    },
+    {
+      "path": "modules/lxphost",
+      "symbols": [
+        "receipt_authority",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits live kernel receipt-authority validation and fee-governance runtime resolution, whose identifiers carry retired names as prefixes while supplying canonical receipt facts and recorded fee schedules to Programs execution."
     }
   ]
 }
