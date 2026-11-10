@@ -24,6 +24,7 @@ static int contains_marker(const uint8_t *bytes, size_t length,
     return 0;
 }
 
+/* Preserve the system namespace shared with canonical genesis accounts. */
 static int account_namespace_valid(const uint8_t *name, size_t length)
 {
     size_t i;

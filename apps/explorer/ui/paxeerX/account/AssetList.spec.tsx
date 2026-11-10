@@ -23,9 +23,19 @@ function assetTestRetiredCopy() {
 
 describe('AssetList', () => {
   it('shows an empty message when the account holds nothing', () => {
-    render(<AssetList items={ paxeerXMock.unifiedAccountEvmOnly.balances }/>);
+    const { container } = render(<AssetList items={ [] }/>);
 
-    expect(screen.getByText('No assets are held by this account.')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('No assets are held by this account.');
+    expect(container.querySelectorAll('[data-asset]')).toHaveLength(0);
+  });
+
+  it('renders a reported zero native balance without an empty message', () => {
+    const { container } = render(<AssetList items={ paxeerXMock.unifiedAccountEvmOnly.balances }/>);
+
+    expect(container.querySelectorAll('[data-asset]')).toHaveLength(1);
+    expect(container.querySelector(`[data-asset="${ paxeerXMock.nativeAsset.id }"] [data-label="total"]`)?.textContent).toBe('0');
+    expect(container.querySelector('[data-title]')?.textContent).toBe('A total of 1 assets found');
+    expect(screen.queryByText('No assets are held by this account.')).toBeNull();
   });
 
   it('renders one row with one total per asset', () => {
@@ -93,6 +103,7 @@ describe('AssetList', () => {
 
     expect(card.querySelector('[data-title]')?.textContent).toBe('A total of 0 assets found');
     expect(card.querySelector('[data-body]')?.textContent).toBe('No assets are held by this account.');
+    expect(card.querySelector('[data-body] [role="status"]')?.textContent).toBe('No assets are held by this account.');
   });
 
 });
