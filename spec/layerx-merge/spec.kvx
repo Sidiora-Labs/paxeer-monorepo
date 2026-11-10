@@ -186971,7 +186971,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.344]
 title = "Verify the version 2 account-bound evidence in the Swift SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.340"]
