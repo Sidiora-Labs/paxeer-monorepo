@@ -4022,6 +4022,30 @@ fn settle_retained_native_program_call_with_config(
         || witness.activity_id() != terminal.activity_id()
         || witness.terminal_receipt() != terminal.receipt_ref()
     {
+        #[cfg(test)]
+        {
+            if witness.reservation_id() != preparation_id {
+                eprintln!(
+                    "retained settlement witness.reservation_id differs: witness={}, prepared={}",
+                    hex::encode(witness.reservation_id()),
+                    hex::encode(preparation_id),
+                );
+            }
+            if witness.activity_id() != terminal.activity_id() {
+                eprintln!(
+                    "retained settlement witness.activity_id differs: witness={}, terminal={}",
+                    hex::encode(witness.activity_id()),
+                    hex::encode(terminal.activity_id()),
+                );
+            }
+            if witness.terminal_receipt() != terminal.receipt_ref() {
+                eprintln!(
+                    "retained settlement witness.terminal_receipt differs: witness={}, terminal={}",
+                    hex::encode(witness.terminal_receipt()),
+                    hex::encode(terminal.receipt_ref()),
+                );
+            }
+        }
         return Err(refused_at("witness_binding"));
     }
     let staged = budgets
@@ -24399,6 +24423,39 @@ mod retained_settlement_tests {
             let prepared = must(carrier.restore_prepared(&self.registry));
             assert_eq!(prepared.observed_head_height, 8);
             assert_eq!(prepared.signing_hash, prepared.call.signing_hash());
+        }
+    }
+
+    #[test]
+    fn retained_settlement_uses_the_protocol_receipt_reference() {
+        for failed in [false, true] {
+            let mut fixture = Fixture::new(failed);
+            let canonical = fixture.terminal.canonical_receipt();
+            let decoded = must(layerx_wire::receipt::decode(canonical));
+            let unsigned = must(layerx_wire::receipt::encode_unsigned(&decoded));
+            let reference = must(layerx_wire::hash::receipt_digest(&unsigned));
+            let signed_hash: [u8; 32] = Sha256::digest(canonical).into();
+            assert_ne!(signed_hash, reference);
+            assert_eq!(fixture.terminal.receipt_ref(), reference);
+            assert!(must(fixture.settle()));
+            assert!(fixture.settlement_recorded());
+            assert_eq!(
+                fixture.durable().extensions.get(&9),
+                Some(&reference.to_vec())
+            );
+            assert_eq!(
+                fixture.durable().state,
+                if failed {
+                    LifecycleState::Failed
+                } else {
+                    LifecycleState::Executed
+                }
+            );
+            assert_eq!(
+                fixture.budgets.consumed(fixture.limit),
+                Ok(if failed { 0 } else { 3 })
+            );
+            assert_eq!(fixture.budgets.held_exposure(fixture.limit), Ok(0));
         }
     }
 
