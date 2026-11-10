@@ -678,8 +678,9 @@ fn connect_bounded(
                 loop {
                     budget.check(stop)?;
                     match stream.take_error() {
-                        Ok(Some(error)) => return Err(EndpointIo::Unreachable(error.kind())),
-                        Err(error) => return Err(EndpointIo::Unreachable(error.kind())),
+                        Ok(Some(error)) | Err(error) => {
+                            return Err(EndpointIo::Unreachable(error.kind()))
+                        }
                         Ok(None) => {}
                     }
                     if stream.peer_addr().is_ok() {

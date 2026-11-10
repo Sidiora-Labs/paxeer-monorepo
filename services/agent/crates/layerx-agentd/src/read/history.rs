@@ -18,12 +18,16 @@ impl Cursor {
     const TEXT_LENGTH: usize = 32;
 
     #[must_use]
+    #[allow(
+        clippy::wrong_self_convention,
+        reason = "Preserve the public cursor method signature used by consumers."
+    )]
     pub fn to_hex(&self) -> String {
         let mut bytes = [0_u8; 16];
         bytes[..8].copy_from_slice(&self.block_height.to_be_bytes());
         bytes[8..12].copy_from_slice(&self.tx_index.to_be_bytes());
         bytes[12..].copy_from_slice(&self.log_index.to_be_bytes());
-        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+        layerx_programs::hex::encode(&bytes)
     }
 
     /// # Errors
@@ -55,6 +59,7 @@ impl Cursor {
         })
     }
 
+    #[cfg(test)]
     fn wire(self) -> Value {
         json!([
             self.block_height.to_string(),
@@ -63,6 +68,7 @@ impl Cursor {
         ])
     }
 
+    #[cfg(test)]
     fn from_wire(value: &Value) -> Result<Self, HistoryReadError> {
         let values = value
             .as_array()
@@ -181,6 +187,9 @@ impl HistoryPage {
 
     /// Decodes the hosted producer's ascending block-position page, including
     /// every row at its final position even when that group crosses the limit.
+    /// # Errors
+    /// Returns an error if the history range, cursor or page is invalid or oversized, the node
+    /// read fails, or an item lacks verified evidence.
     pub fn from_hosted(
         page: layerx_client::sequencer::HistoryPage,
         from_height: u64,
@@ -321,89 +330,7 @@ fn validate_request(
     Ok(())
 }
 
-fn decode_page_ordered(
-    result: &serde_json::Map<String, Value>,
-    from_height: u64,
-    to_height: u64,
-    cursor: Option<Cursor>,
-    limits: HistoryLimits,
-    response_bytes: usize,
-    newest_first: bool,
-) -> Result<HistoryPage, HistoryReadError> {
-    if result.len() != 3 {
-        return Err(HistoryReadError::Malformed);
-    }
-    let height = result
-        .get("height")
-        .and_then(decimal)
-        .ok_or(HistoryReadError::Malformed)?;
-    let rows = result
-        .get("items")
-        .and_then(Value::as_array)
-        .ok_or(HistoryReadError::Malformed)?;
-    if rows.len() > usize::from(limits.maximum_items) {
-        return Err(HistoryReadError::Oversized);
-    }
-    let mut items = Vec::with_capacity(rows.len());
-    let mut previous = cursor;
-    for row in rows {
-        let row = row
-            .as_object()
-            .filter(|row| row.len() == 6)
-            .ok_or(HistoryReadError::Malformed)?;
-        let position = Cursor::from_wire(&json!([
-            row.get("height"),
-            row.get("txIndex"),
-            row.get("logIndex")
-        ]))?;
-        if !(from_height..=to_height).contains(&position.block_height)
-            || position.block_height > height
-            || previous.is_some_and(|previous| {
-                if newest_first {
-                    position >= previous
-                } else {
-                    position <= previous
-                }
-            })
-        {
-            return Err(HistoryReadError::Cursor);
-        }
-        let kind = match row.get("kind").and_then(Value::as_str) {
-            Some("Activity") => HistoryKind::Activity,
-            Some("Receipt") => HistoryKind::Receipt,
-            Some("Event") => HistoryKind::Event,
-            _ => return Err(HistoryReadError::Malformed),
-        };
-        let canonical = hex_bytes(row.get("canonical").ok_or(HistoryReadError::Malformed)?)?;
-        let proof = match row.get("proof") {
-            Some(Value::Null) => None,
-            Some(value) => Some(hex_bytes(value)?),
-            None => return Err(HistoryReadError::Malformed),
-        };
-        items.push(HistoryItem {
-            position,
-            kind,
-            canonical,
-            proof,
-        });
-        previous = Some(position);
-    }
-    let next_cursor = match result.get("cursor") {
-        Some(Value::Null) => None,
-        Some(value) => Some(Cursor::from_wire(value)?),
-        None => return Err(HistoryReadError::Malformed),
-    };
-    if next_cursor.is_some_and(|next| items.last().map(|item| item.position) != Some(next)) {
-        return Err(HistoryReadError::Cursor);
-    }
-    Ok(HistoryPage {
-        items,
-        next_cursor,
-        height,
-        response_bytes,
-    })
-}
-
+#[cfg(test)]
 fn decimal(value: &Value) -> Option<u64> {
     let text = value.as_str()?;
     if text.is_empty()
@@ -415,6 +342,7 @@ fn decimal(value: &Value) -> Option<u64> {
     text.parse().ok()
 }
 
+#[cfg(test)]
 fn hex_bytes(value: &Value) -> Result<Vec<u8>, HistoryReadError> {
     let text = value.as_str().ok_or(HistoryReadError::Malformed)?;
     if text.len() % 2 != 0 {
@@ -432,6 +360,7 @@ fn hex_bytes(value: &Value) -> Result<Vec<u8>, HistoryReadError> {
 }
 
 impl HistoryReadError {
+    #[cfg(test)]
     pub(crate) const fn code(&self) -> &'static str {
         match self {
             Self::ItemUnproven => "read.history_item_unproven",
@@ -441,23 +370,30 @@ impl HistoryReadError {
 }
 
 impl HistoryPage {
+    /// # Errors
+    /// Returns an error if the history range, cursor or page is invalid or oversized, the node
+    /// read fails, or an item lacks verified evidence.
     pub fn read_newest(
         endpoint: &SequencerEndpoint,
         account: &str,
         cursor: Option<Cursor>,
         limits: HistoryLimits,
     ) -> Result<HistoryPage, HistoryReadError> {
+        const INITIAL_WINDOW: u64 = 64;
+
+        const MAX_REQUESTS: usize = 128;
+
         const MAX_SCANNED_ROWS: usize = 4096;
         const MAX_SCANNED_BYTES: usize = 16 * 1024 * 1024;
         validate_request(0, u64::MAX, cursor, limits)?;
-        const MAX_REQUESTS: usize = 128;
-        const INITIAL_WINDOW: u64 = 64;
+
         let head = endpoint
             .block_number()
             .map_err(HistoryReadError::Sequencer)?;
-        if head == 0 || cursor.is_some_and(|cursor| cursor.block_height > head) {
-            return Err(HistoryReadError::InvalidRange);
-        }
+        crate::reject_if(
+            head == 0 || cursor.is_some_and(|cursor| cursor.block_height > head),
+            || HistoryReadError::InvalidRange,
+        )?;
         let mut upper = cursor.map_or(head.saturating_add(1), |cursor| {
             cursor.block_height.saturating_add(1)
         });
@@ -475,9 +411,7 @@ impl HistoryPage {
             });
             loop {
                 requests += 1;
-                if requests > MAX_REQUESTS {
-                    return Err(HistoryReadError::Oversized);
-                }
+                crate::reject_if(requests > MAX_REQUESTS, || HistoryReadError::Oversized)?;
                 let cursor_text = forward.map(|cursor| cursor.to_hex());
                 // The producer accepts ascending, exclusive block-position cursors.
                 let page = endpoint
@@ -487,9 +421,10 @@ impl HistoryPage {
                         u64::from(limits.maximum_items.min(100)),
                     )
                     .map_err(HistoryReadError::Sequencer)?;
-                if page.indexed_height != Some(head) || page.chain_height != Some(head) {
-                    return Err(HistoryReadError::InvalidRange);
-                }
+                crate::reject_if(
+                    page.indexed_height != Some(head) || page.chain_height != Some(head),
+                    || HistoryReadError::InvalidRange,
+                )?;
                 let page = Self::from_hosted(
                     page,
                     0,
@@ -536,6 +471,14 @@ impl HistoryPage {
             span = span.saturating_mul(2);
             lower = upper.saturating_sub(span);
         }
+        Self::newest_receipt_page(endpoint, rows, limits, head)
+    }
+    fn newest_receipt_page(
+        endpoint: &SequencerEndpoint,
+        mut rows: Vec<HistoryItem>,
+        limits: HistoryLimits,
+        head: u64,
+    ) -> Result<Self, HistoryReadError> {
         rows.sort_by(|left, right| right.position.cmp(&left.position));
         let mut selected = Vec::new();
         let mut groups = std::collections::BTreeSet::new();
@@ -570,9 +513,10 @@ impl HistoryPage {
             if let Some(previous) =
                 seen.insert(hash, (item.position.block_height, item.position.tx_index))
             {
-                if previous != (item.position.block_height, item.position.tx_index) {
-                    return Err(HistoryReadError::ItemUnproven);
-                }
+                crate::reject_if(
+                    previous != (item.position.block_height, item.position.tx_index),
+                    || HistoryReadError::ItemUnproven,
+                )?;
                 continue;
             }
             let layerx_client::rpc::receipt::Lookup::Verified(receipt) =
@@ -587,11 +531,11 @@ impl HistoryPage {
             else {
                 return Err(HistoryReadError::ItemUnproven);
             };
-            if receipt.height() != item.position.block_height
-                || receipt.execution().index != u64::from(item.position.tx_index)
-            {
-                return Err(HistoryReadError::ItemUnproven);
-            }
+            crate::reject_if(
+                receipt.height() != item.position.block_height
+                    || receipt.execution().index != u64::from(item.position.tx_index),
+                || HistoryReadError::ItemUnproven,
+            )?;
             evidence_bytes = evidence_bytes
                 .checked_add(receipt.canonical_bytes().len())
                 .filter(|bytes| *bytes <= limits.maximum_response_bytes)

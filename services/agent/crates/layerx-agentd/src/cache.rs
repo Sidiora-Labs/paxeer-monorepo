@@ -44,10 +44,22 @@ impl CacheValue {
             observed_head_sequence,
             observed_checkpoint,
         )
-        .expect("cached receipt must be the exact verified receipt")
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "cached receipt must be the exact verified receipt"
+            )
+        })
     }
 
     /// Refuses bytes other than the complete canonical receipt that passed verification.
+    /// # Errors
+    /// Returns an error if cache limits are invalid or exceeded, or the supplied bytes do not
+    /// match their verified evidence.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn try_from_receipt(
         core_bytes: Vec<u8>,
         evidence: &VerifiedReceipt,
@@ -82,7 +94,8 @@ impl CacheValue {
         observed_head_sequence: u64,
         observed_checkpoint: [u8; 32],
     ) -> Self {
-        let proof = Proof::new(0, 1, Vec::new()).expect("single-leaf path");
+        let proof = Proof::new(0, 1, Vec::new())
+            .unwrap_or_else(|error| panic!("single-leaf path: {error:?}"));
         Self::try_from_inclusion(
             core_bytes,
             evidence,
@@ -90,10 +103,18 @@ impl CacheValue {
             observed_head_sequence,
             observed_checkpoint,
         )
-        .expect("cached inclusion bytes must reproduce the authenticated root")
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "cached inclusion bytes must reproduce the authenticated root"
+            )
+        })
     }
 
     /// Checks the supplied leaf and path against the root carried by verified inclusion.
+    /// # Errors
+    /// Returns an error if cache limits are invalid or exceeded, or the supplied bytes do not
+    /// match their verified evidence.
     pub fn try_from_inclusion(
         core_bytes: Vec<u8>,
         evidence: &InclusionEvidence,
@@ -194,6 +215,9 @@ impl EvidenceCache {
     }
 
     /// Sets both per-tenant storage ceilings and global tenant/key bounds.
+    /// # Errors
+    /// Returns an error if cache limits are invalid or exceeded, or the supplied bytes do not
+    /// match their verified evidence.
     pub fn with_limits(
         maximum_entries_per_tenant: usize,
         maximum_bytes_per_tenant: usize,
@@ -222,6 +246,13 @@ impl EvidenceCache {
 
     /// Admits bounded metadata even for tenants that only perform cache misses.
     /// Inserts also use this admission; reads never admit an unknown tenant.
+    /// # Errors
+    /// Returns an error if cache limits are invalid or exceeded, or the supplied bytes do not
+    /// match their verified evidence.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn register_tenant(&mut self, tenant: TenantId) -> Result<(), CacheError> {
         if self.metrics.contains_key(&tenant) {
             return Ok(());
@@ -336,6 +367,10 @@ pub enum CacheError {
 /// Returns `Missing` for an unknown key, `InsufficientEvidence` when the held or refreshed level
 /// is below the requested one, and `RevalidationMismatch` when a refresh does not observe the
 /// current head and checkpoint; a stale entry propagates the refusal raised by `fetch_verified`.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn revalidate<F>(
     cache: &mut EvidenceCache,
     tenant: TenantId,

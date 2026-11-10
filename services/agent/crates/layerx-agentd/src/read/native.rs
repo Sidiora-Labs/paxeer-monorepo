@@ -43,6 +43,9 @@ impl NativeReadRoute {
 
     /// Installs the protected validator authority; RPC-published validators
     /// never establish their own trust for a checkpoint response.
+    /// # Errors
+    /// Returns an error if the configured native read trust or checkpoint evidence cannot be
+    /// verified.
     pub fn with_checkpoint_trust(
         mut self,
         chain_id: String,
@@ -71,6 +74,7 @@ impl NativeReadRoute {
         Ok(self)
     }
 
+    #[must_use]
     pub fn with_result_source(mut self, source: super::NativeResultSource) -> Self {
         self.result_source = Some(source);
         self
@@ -234,7 +238,7 @@ impl NativeReadRoute {
             evidence::checkpoint(&self.client, height).map_err(NativeReadError::Evidence)?;
         let (checkpoint, signed_header) = if let Some(source) = &self.result_source {
             let material = source
-                .rpc("commit", json!({"height":height.to_string()}))
+                .rpc("commit", &json!({"height":height.to_string()}))
                 .map_err(|_| NativeReadError::Verification)?;
             let checkpoint = ServedCheckpoint::from_comet_json(
                 height,

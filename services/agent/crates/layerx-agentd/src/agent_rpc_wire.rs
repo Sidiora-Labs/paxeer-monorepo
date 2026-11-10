@@ -645,23 +645,40 @@ pub(crate) fn native_effect_human_prepare(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct NativeSendPurposeV1Wire {
-    version: String,
-    tenant: String,
-    agent_did: String,
-    owner_did: String,
-    owner_public_key: String,
-    session_id: String,
-    generation: String,
-    expires_at_ms: String,
-    capability_id: String,
-    protocol_version: String,
-    network_id: String,
-    activity: NativeActivityV1Wire,
-    preparation_id: String,
-    canonical_digest: String,
-    economic_action: String,
-    idempotency_key: String,
-    commitment: String,
+    #[serde(rename = "version")]
+    _version: String,
+    #[serde(rename = "tenant")]
+    _tenant: String,
+    #[serde(rename = "agent_did")]
+    _agent_did: String,
+    #[serde(rename = "owner_did")]
+    _owner_did: String,
+    #[serde(rename = "owner_public_key")]
+    _owner_public_key: String,
+    #[serde(rename = "session_id")]
+    _session_id: String,
+    #[serde(rename = "generation")]
+    _generation: String,
+    #[serde(rename = "expires_at_ms")]
+    _expires_at_ms: String,
+    #[serde(rename = "capability_id")]
+    _capability_id: String,
+    #[serde(rename = "protocol_version")]
+    _protocol_version: String,
+    #[serde(rename = "network_id")]
+    _network_id: String,
+    #[serde(rename = "activity")]
+    _activity: NativeActivityV1Wire,
+    #[serde(rename = "preparation_id")]
+    _preparation_id: String,
+    #[serde(rename = "canonical_digest")]
+    _canonical_digest: String,
+    #[serde(rename = "economic_action")]
+    _economic_action: String,
+    #[serde(rename = "idempotency_key")]
+    _idempotency_key: String,
+    #[serde(rename = "commitment")]
+    _commitment: String,
 }
 
 impl NativeSendPurposeV1Wire {
@@ -669,6 +686,7 @@ impl NativeSendPurposeV1Wire {
         self,
         id: RequestId,
     ) -> Result<layerx_agent_api::identity::NativeSendPurposeV2, Rejection> {
+        drop(self);
         Err(malformed(id))
     }
 }
@@ -677,8 +695,10 @@ impl NativeSendPurposeV1Wire {
 #[serde(deny_unknown_fields)]
 pub(crate) struct SignedNativeSendPurposeV1Wire {
     purpose: NativeSendPurposeV1Wire,
-    owner_public_key: String,
-    signature: String,
+    #[serde(rename = "owner_public_key")]
+    _owner_public_key: String,
+    #[serde(rename = "signature")]
+    _signature: String,
 }
 
 impl SignedNativeSendPurposeV1Wire {
