@@ -1,0 +1,246 @@
+[repair.22.39.266]
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/platform"
+inventory_exit = 1
+finding_count = 19
+disposition = "The 19 findings are refusal-test literals and a live protocol-state fee reader; directory allowances in tools/paxeer-x/retired_callers.json preserve their checks and behavior under decision 3125."
+scope_resolution = "Attempt 2 admits the catalogue and CLI OpenRPC fixture under decisions 3125 and 3126; the attempt-1 source repairs and inventory below are retained."
+release_tooling = "The initial scan reports no finding under tools/platform/release."
+source_changes = "Document current nonce/event interfaces, strengthen malformed-event refusal to the exact unavailable error, explain the emulator's retained schedule-reader binding, copy the published gateway contract verbatim to the CLI fixture, and allow the ruled-live references by directory."
+qualification = "No passing gate is claimed here; the runner ledger records the candidate revision, exact commands, exit codes and private evidence locations."
+
+[evidence.rpc]
+source = "tools/platform/cli/src/rpc.rs::positional_requests_match_published_contract, program_event_queries_are_bounded_before_transport, program_event_pages_decode_only_when_they_match_the_query"
+observed = "Each inventoried method literal asserts local refusal; request rejects the entire lx_ namespace before transport and decode_response rejects successful lx_ responses."
+replacement = "Runtime callers use eth_getTransactionCount for EVM nonces, and eth_getLogs plus LXP Query/ProgramEvents for program events; these refusal cases are not runtime callers."
+
+[evidence.fees]
+source = "src/modules/programs/fees.c::lxp_programs_fee_governance_resolve_runtime; include/layerx/programs.h"
+observed = "The declared and implemented reader selects active or exact-version protocol-state schedules, propagates errors and checks replay versions; the kernel host still binds it as an occupancy resolver."
+replacement = "MsgUpdateFeeSchedule replaces the retired governance relay write; it does not replace this read-only selector needed for occupancy admission and snapshot restore."
+constraint = "Renaming or duplicating the reader, deleting refusal tests, or disguising method literals would silence findings without repairing a retired caller."
+
+[finding.1]
+path = "tools/platform/cli/src/rpc.rs"
+line = 682
+component = "websearch-kernel-relay"
+symbol = "lx_getSequence"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.2]
+path = "tools/platform/cli/src/rpc.rs"
+line = 683
+component = "websearch-kernel-relay"
+symbol = "lx_getSequence"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.3]
+path = "tools/platform/cli/src/rpc.rs"
+line = 711
+component = "websearch-kernel-relay"
+symbol = "lx_getSequence"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.4]
+path = "tools/platform/cli/src/rpc.rs"
+line = 760
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.5]
+path = "tools/platform/cli/src/rpc.rs"
+line = 761
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.6]
+path = "tools/platform/cli/src/rpc.rs"
+line = 789
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.7]
+path = "tools/platform/cli/src/rpc.rs"
+line = 791
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.8]
+path = "tools/platform/cli/src/rpc.rs"
+line = 795
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.9]
+path = "tools/platform/cli/src/rpc.rs"
+line = 817
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.10]
+path = "tools/platform/cli/src/rpc.rs"
+line = 818
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.11]
+path = "tools/platform/cli/src/rpc.rs"
+line = 820
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.12]
+path = "tools/platform/cli/src/rpc.rs"
+line = 851
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.13]
+path = "tools/platform/cli/src/rpc.rs"
+line = 855
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.14]
+path = "tools/platform/cli/src/rpc.rs"
+line = 858
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.15]
+path = "tools/platform/cli/src/rpc.rs"
+line = 860
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.16]
+path = "tools/platform/cli/src/rpc.rs"
+line = 868
+component = "program-events"
+symbol = "lx_getProgramEvents"
+disposition = "Allowed by the tools/platform/cli/src entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This exact literal is negative coverage proving retired RPC requests or responses are refused before transport, not a live retired-method caller."
+
+[finding.17]
+path = "tools/platform/emulator/core/emulator_core.c"
+line = 1038
+component = "fee-relay"
+symbol = "fee_governance"
+disposition = "Allowed by the tools/platform/emulator/core entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This call uses the live protocol-state fee schedule selector for emulator occupancy admission or snapshot restore, not the retired governance relay activity."
+
+[finding.18]
+path = "tools/platform/emulator/core/emulator_core.c"
+line = 1308
+component = "fee-relay"
+symbol = "fee_governance"
+disposition = "Allowed by the tools/platform/emulator/core entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This call uses the live protocol-state fee schedule selector for emulator occupancy admission or snapshot restore, not the retired governance relay activity."
+
+[finding.19]
+path = "tools/platform/emulator/core/emulator_core.c"
+line = 1788
+component = "fee-relay"
+symbol = "fee_governance"
+disposition = "Allowed by the tools/platform/emulator/core entry in tools/paxeer-x/retired_callers.json under decision 3125."
+reason = "This call uses the live protocol-state fee schedule selector for emulator occupancy admission or snapshot restore, not the retired governance relay activity."
+
+[history.attempt_1.failure]
+task = "22.39.266"
+file = "tools/platform/cli/src/rpc.rs"
+symbol = "positional_requests_match_published_contract"
+observed = "At revision f5d5ff20d243df593aed298cc838ee4eded8c205, cg spec done 22.39.266 -f layerx-merge --root /work/paxeer-monorepo exited 1; cargo test exited 101 at the unchanged fixture-versus-gateway OpenRPC equality assertion, with 23 passed, 1 failed and 0 ignored; private log /out/logs/verify-1.log."
+assumption = "The pre-existing OpenRPC fixture drift belongs to its contract owner because both compared JSON files are outside this task's scope; the failure is recorded without repair or rerun."
+severity = "blocker"
+
+[history.attempt_1.build]
+revision = "f5d5ff20d243df593aed298cc838ee4eded8c205"
+command = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[history.attempt_1.limitations]
+verification_scan = "Not reached because cargo test failed before the trailing retired-caller scan."
+completion = "Not qualified; no task completion, commit or push was performed by the agent."
+record_update = "This failure evidence was appended after the gates; the recorded revision identifies the candidate actually built and verified, not a passing qualification of this later record update."
+
+[continuation.attempt_2]
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+retained_attempt_revision = "574ea4cc57b320582b95674e223071e562fa9f9d"
+inventory = "The 19 path, line, component and symbol tuples above preserve the attempt-1 scan; line numbers refer to that inventory before formatting and the retained source repairs."
+main_line = "The supplied task branch already starts at origin/main revision 8742bd00eb3acc490f28e5d26038636590216955; no additional rebase is needed."
+fixture_source = "services/platform/hosted/gateway/openrpc.json"
+fixture_repair = "Copy the producer contract verbatim, including sequence-batch activityIds and the composed native/EVM history schema; the published method names and order are unchanged, so assert_published_methods retains its exact list assertion."
+refusal_allowance = "tools/platform/cli/src: lx_getSequence and lx_getProgramEvents remain exact refusal-test literals; no runtime allowlist, assertion or test is removed or weakened."
+fee_allowance = "tools/platform/emulator/core: fee_governance occurs only inside the live lxp_programs_fee_governance_resolve_runtime identifier, which reads the active or recorded schedule and validates restored state."
+build_command = "hf-build"
+verify_command = "hf-done"
+qualification_evidence = "The private /out/run/gates.jsonl ledger and /out/logs/build-1.log and /out/logs/verify-1.log name the exact candidate revision, command and exit for this record; only a passing hf-done qualifies it."
+
+[qualification.attempt_2.build]
+revision = "6a08e5fd7129f39a845cbc1516536b65b95be850"
+command = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_2.failure]
+task = "22.39.266"
+file = "services/platform/tests/support/tls_boundary.rs"
+symbol = "public_http_uses_system_trust_and_checks_server_identity"
+observed = "At revision 6a08e5fd7129f39a845cbc1516536b65b95be850, cg spec done 22.39.266 -f layerx-merge --root /work/paxeer-monorepo exited 1 with cargo test exit 101 because tls_boundary.rs:186 requires the missing layerx-paxeer-boundary producer binary; private evidence /out/logs/verify-1.log."
+assumption = "The declared build gate omits the services/platform boundary producer required by this unchanged TLS test, and adding that build or changing the test is outside the permitted scope and gates."
+severity = "blocker"
+
+[qualification.attempt_2.limitations]
+repaired_contract_test = "positional_requests_match_published_contract passed in the recorded verification."
+verification_scan = "Not reached because cargo test stopped at the missing external TLS producer before the trailing retired-caller scan."
+completion = "Implemented, not qualified; the unrelated producer prerequisite is recorded without changing or skipping the TLS assertion or chasing an undeclared build."
+record_update = "This failure evidence was appended after the gates; the recorded revision identifies the candidate actually built and verified, not a passing qualification of this later record update."
+
+[continuation.attempt_3]
+base_revision = "5a7cab8cd9a24af7c32d40ef715bd4c09f7aae5c"
+retained_attempt_revision = "d25367086cfb"
+catalogue_merge = "Retain all current allowed references and append the seed CLI refusal-test and emulator fee-reader allowances; remove the merge markers."
+fixture_repair = "Refresh the fixture verbatim from services/platform/hosted/gateway/openrpc.json after main added three optional-backend diagnostic descriptions; the exact published-method assertion remains unchanged."
+build_prerequisite = "The declared hf-build now also builds layerx-paxeer-boundary from services/platform/Cargo.toml for public_http_uses_system_trust_and_checks_server_identity."
+qualification_evidence = "The runner ledger records this final candidate revision, exact build and verify commands, exits and private log paths; this record claims no unexecuted gate."
+
+[qualification.attempt_3.failure]
+task = "22.39.266"
+file = "services/platform/hosted/paxeer/Cargo.toml"
+symbol = "layerx-platform-paxeer-boundary"
+observed = "At revision 5073bc8205ccf289f68a05738f3657d9713beb62, cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release --tests && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-paxeer-boundary exited 101 because the declared package layerx-paxeer-boundary does not exist; private evidence /out/logs/build-1.log."
+assumption = "The declared gate must select the existing layerx-platform-paxeer-boundary package, whose retained binary is named layerx-paxeer-boundary; the manifest and gate definition are outside this task scope."
+severity = "blocker"
+
+[qualification.attempt_3.limitations]
+verification = "hf-done exited 4 before verification with: hf-done: refused, run hf-build first and get it passing."
+completion = "Implemented, not qualified; no tests were skipped or weakened, and the out-of-scope gate/package mismatch was recorded without an unchanged rerun."
+record_update = "This failure record was appended after the gate; the ledger revision names the exact candidate built, and no passing qualification of the later record is claimed."
