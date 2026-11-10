@@ -40418,3 +40418,11 @@ symbol = "tests"
 observed = "Attempt 9 at fb2641be2e56 on base 8bee059f929f: the build, the check of the dependent packages and the verification exit 0; the tree does not merge with main, with conflicts in services/agent/crates/layerx-agentd/tests/proof_native_reads.rs and tests/proof_serve_errors.rs against commit 1f455e08df of task 22.39.229; log /out/logs/verify-1.log."
 assumption = "Task 22.39.229 restructured the two proof files on main after the base of the attempt."
 severity = "high"
+
+[finding.17.5.7.21]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 21 at b08224f9547a on base c4c825fac5b7: the build exits 0; the verification exits 1, run_wave raises wave in-place checkout differs from HEAD: .cgignore at spec/layerx-merge/programme/gates.py:84 before any gate command; log /out/logs/verify-1.log."
+assumption = "The checkout of the qualification environment held changed bookkeeping files beside the revision under test."
+severity = "high"
