@@ -180,6 +180,10 @@ func TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic(t *testing.T) {
 	if err = json.Unmarshal(entry.Payload, &streamed); err != nil {
 		t.Fatal(err)
 	}
+	if candle.SnapshotId != history.Data.SnapshotId {
+		t.Fatalf("route candle snapshot differs from page: %s", raw)
+	}
+	streamed.SnapshotId = candle.SnapshotId
 	streamCandle, _ := json.Marshal(streamed)
 	routeCandle, _ := json.Marshal(candle)
 	if entry.Topic != f.topics[0] || entry.Revision != "1" || entry.Sequence != "1" || len(entry.Watermark) == 0 || !bytes.Equal(streamCandle, routeCandle) {
