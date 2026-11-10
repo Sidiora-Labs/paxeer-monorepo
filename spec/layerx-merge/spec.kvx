@@ -12322,6 +12322,24 @@ value = "run_wave of spec/layerx-merge/programme/gates.py creates the parent of 
 basis = "Gotcha 4123, decision 3183."
 affects = ["17.5.7"]
 
+[decision.3202]
+title = "The retired callers catalogue follows the items that decisions retain"
+value = "An item that a decision retains is not a finding of the retired callers scan, and the catalogue states it. The history snapshot sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json carries the frozen Treasury ABI of reviewed.json and gets the same allowance for recordDeposit under decision 3125. The line that calls sign_disclosed_call at services/agent/crates/layerx-client/src/ai_market.rs:2711 joins the lines allowance of that file. The component replay-golden keeps its symbols and names no deleted tree, because decision 3125 and task 22.39.277 retain the live golden replay source and fixture, and the allowance of tests/replay names history.lxl and lxp_test_golden_replay. Task 17.2.8 makes these edits in tools/paxeer-x/retired_callers.json and in the component table of spec/layerx-merge/programme/retired.py. A task that adds a line using a retained symbol to a file with a lines allowance carries the catalogue in its touches and adds the line in the same commit."
+basis = "Gotcha 4125, decisions 3046, 3087 and 3125."
+affects = ["17.2.8"]
+
+[decision.3203]
+title = "The directory of the Paxeer boundary crate is a compatibility root and not a deleted tree of the retired callers catalogue"
+value = "Decisions 2524 and 2533 keep the crate layerx-platform-paxeer-boundary, its binary, its deployment manifest, the native tooling and the governance and upgrade commands under services/platform/hosted/paxeer, and the package metadata of the crate names the directory its compatibility root. The component eth-relay of the catalogue therefore keeps its symbols and names no deleted tree, and the contents of the directory are scanned like every other path. The two historical scripts custody-genesis.py and deploy-contracts.sh can only run against retired components and are removed with their digest pins by task 22.39.338 (decision 3194 applied to the directory). The names of the retired precompiles in the refusal probes of fork-rehearsal.sh and in the refusal case of src/comet.rs are allowances that cite this decision. The findings relay-retirement-15 to 18 of src/repair_22_33_1322.kvx are closed as retained under this decision. Retiring the crate itself stays a separate decision of the owner taken with every consumer listed, as decision 2524 states."
+basis = "Gotcha 4125, decisions 2524, 2533, 3101 and 3194."
+affects = ["17.2.8", "22.39.338"]
+
+[decision.3204]
+title = "An explorer module that no route reaches is removed with the components only it uses"
+value = "The page module ui/pages/PaxeerXAnchors.tsx of the explorer lost its route entry in task 22.39.270 and nothing imports it but its own spec. Task 22.39.337 removes the module, its spec and the directory ui/paxeerX/anchors, and with them every resource, stub and type that no module other than a spec uses afterwards. A removal task confirms with a search that no import of a removed path remains and records the search. No backend route is removed by an explorer task."
+basis = "Gotcha 4125, decisions 3051 and 3101."
+affects = ["22.39.337", "17.2.8"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41982,6 +42000,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.338]
+title = "Remove the two historical deployment scripts of the Paxeer compatibility root with their pins"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/paxeer", "services/platform/Makefile.inc"]
+tests = ["services/platform/hosted/paxeer/repair_467_test.go::TestRepair467_RestoredContent", "tests/ci/test_make_recipe_paths_exist.py"]
+verification_contract = "test -s services/platform/hosted/paxeer/repair_22_39_338.kvx && test ! -e services/platform/hosted/paxeer/custody-genesis.py && test ! -e services/platform/hosted/paxeer/deploy-contracts.sh && go test -count=1 ./services/platform/hosted/paxeer/ -run '^(TestRepair467_|TestRepairM_1319_)' && python3 -m pytest -q tests/ci/test_make_recipe_paths_exist.py tools/qualification/audit_repairs/test_repair_22_33_1320.py"
+do_1 = "do_1 Decision 3203, gotcha 4125. In services/platform/hosted/paxeer remove custody-genesis.py and deploy-contracts.sh: both can only run against retired components (the custody genesis section and the settlement suite whose contracts and deployment runner are absent from the tree), RunDeployment already refuses every phase of the deployer and init-chain.sh refuses the custody inputs. Remove tests/deployment_profile.py, which only drives the check-profile phase of the removed deployer, after a search confirms that no recipe or workflow runs it. Remove the entry of the deployer from the parse list of services/platform/Makefile.inc at :144 and keep the recipe valid."
+symbols = []
+
+[capability.22.39.337]
+title = "Remove the unreachable anchors page module of the explorer with its components"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/paxeerX", "apps/explorer/ui/pages", "apps/explorer/lib/api", "apps/explorer/stubs", "apps/explorer/types/api", "apps/explorer/ui/shared/pagination"]
+tests = ["apps/explorer/lib/api/services/general/paxeerX.spec.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts"]
+verification_contract = "test -s apps/explorer/repair_22_39_337.kvx && test ! -e apps/explorer/ui/paxeerX/anchors && test ! -e apps/explorer/ui/pages/PaxeerXAnchors.tsx && cd apps/explorer && yarn vitest run ui/paxeerX/chains ui/paxeerX/feed ui/paxeerX/receipts lib/api/services/general/paxeerX.spec.ts lib/api/services/general/paxeerXLists.spec.ts && cd ../.. && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
+do_1 = "do_1 Decision 3204, gotcha 4125. In apps/explorer remove ui/pages/PaxeerXAnchors.tsx, ui/pages/PaxeerXAnchors.spec.tsx and the directory ui/paxeerX/anchors (the list item, the table, the table item, their specs and the files repair-22-33-503.kvx and repair-22-33-503.spec.ts). Before removing, confirm with a search over apps/explorer that no route entry, navigation item or other module imports the page module or a file of the directory; when one does, record it as a finding and stop instead of removing."
+symbols = []
 
 [capability.22.39.336]
 title = "Resolve a program transfer destination that names an identity to the payment account of that identity"
@@ -161503,6 +161539,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.337]
+title = "Remove the unreachable anchors page module of the explorer with its components"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.337"]
+interfaces = []
+do_1 = "do_1 Decision 3204, gotcha 4125. In apps/explorer remove ui/pages/PaxeerXAnchors.tsx, ui/pages/PaxeerXAnchors.spec.tsx and the directory ui/paxeerX/anchors (the list item, the table, the table item, their specs and the files repair-22-33-503.kvx and repair-22-33-503.spec.ts). Before removing, confirm with a search over apps/explorer that no route entry, navigation item or other module imports the page module or a file of the directory; when one does, record it as a finding and stop instead of removing."
+do_2 = "do_2 The resource paxeer_x_anchors of lib/api/services/general/paxeerXLists.ts, the stub PAXEER_X_ANCHORS_ITEM of stubs/paxeerXLists.ts and the anchor types of types/api/paxeerXArchive.ts lose their only rendering consumer. Remove each of them that no module other than a spec uses after do_1, together with the assertions of lib/api/services/general/paxeerX.spec.ts and lib/api/services/general/paxeerXLists.spec.ts that name it, and keep everything the receipts views use. Remove no backend route."
+do_3 = "do_3 Record in apps/explorer/repair_22_39_337.kvx each removed file, each removed resource, stub and type with the search that showed no consumer, and each item kept with its consumer. Run the build once and the verification once at the final revision; the scan must report no finding."
+symbols = []
+touches = ["apps/explorer/ui/paxeerX", "apps/explorer/ui/pages", "apps/explorer/lib/api", "apps/explorer/stubs", "apps/explorer/types/api", "apps/explorer/ui/shared/pagination"]
+tests = ["apps/explorer/lib/api/services/general/paxeerX.spec.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts"]
+planned_paths = ["apps/explorer/repair_22_39_337.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn lint:tsc"
+verify_cmd = "test -s apps/explorer/repair_22_39_337.kvx && test ! -e apps/explorer/ui/paxeerX/anchors && test ! -e apps/explorer/ui/pages/PaxeerXAnchors.tsx && cd apps/explorer && yarn vitest run ui/paxeerX/chains ui/paxeerX/feed ui/paxeerX/receipts lib/api/services/general/paxeerX.spec.ts lib/api/services/general/paxeerXLists.spec.ts && cd ../.. && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.313]
 title = "Settle the reviewed manifest digest of the launchpad deployment at its producer"
 status = "done"
@@ -184269,6 +184335,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.338]
+title = "Remove the two historical deployment scripts of the Paxeer compatibility root with their pins"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.338"]
+interfaces = []
+do_1 = "do_1 Decision 3203, gotcha 4125. In services/platform/hosted/paxeer remove custody-genesis.py and deploy-contracts.sh: both can only run against retired components (the custody genesis section and the settlement suite whose contracts and deployment runner are absent from the tree), RunDeployment already refuses every phase of the deployer and init-chain.sh refuses the custody inputs. Remove tests/deployment_profile.py, which only drives the check-profile phase of the removed deployer, after a search confirms that no recipe or workflow runs it. Remove the entry of the deployer from the parse list of services/platform/Makefile.inc at :144 and keep the recipe valid."
+do_2 = "do_2 In repair_467_test.go remove the two scripts from the digest table and from the lists of TestRepair467_RestoredContent and TestRepair467_PythonCompile, and remove TestRepair467_DeployerParses. In repair_m1319_test.go replace the restored content calls for the two scripts (at :231, :259 and :277) by assertions that the files are absent, keep the call for evm.py and keep every refusal assertion. Adjust any other case of the package that opens one of the two files. Change no assertion about deployment.yaml, evm.py or the boundary binary."
+do_3 = "do_3 Decision 3203 closes the findings relay-retirement-15 to 18 that src/repair_22_33_1322.kvx lists as open: set their state to retained under decision 3203, and when a case reads those state lines change the case in the same commit (decision 3046). Leave the refusal probes of fork-rehearsal.sh and the refusal case of src/comet.rs as they are; task 17.2.8 records their allowances."
+do_4 = "do_4 Record in services/platform/hosted/paxeer/repair_22_39_338.kvx each removed file with the search that showed no remaining caller, each changed case and the four closed findings. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/paxeer", "services/platform/Makefile.inc"]
+tests = ["services/platform/hosted/paxeer/repair_467_test.go::TestRepair467_RestoredContent", "tests/ci/test_make_recipe_paths_exist.py"]
+planned_paths = ["services/platform/hosted/paxeer/repair_22_39_338.kvx"]
+build_cmd = "go build ./services/platform/hosted/paxeer/... && go vet ./services/platform/hosted/paxeer/"
+verify_cmd = "test -s services/platform/hosted/paxeer/repair_22_39_338.kvx && test ! -e services/platform/hosted/paxeer/custody-genesis.py && test ! -e services/platform/hosted/paxeer/deploy-contracts.sh && go test -count=1 ./services/platform/hosted/paxeer/ -run '^(TestRepair467_|TestRepairM_1319_)' && python3 -m pytest -q tests/ci/test_make_recipe_paths_exist.py tools/qualification/audit_repairs/test_repair_22_33_1320.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -224430,6 +224527,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (requalify, gotcha 4101, decision 3179): the attempt-1 tree b7100338e975 stands (the development source and frame of the consumer, the development store and its migration, the candle reads and the stream of the api, the cases of both modules, the record). internal/migrate and the added cases passed; the seven failing cases are the ones tests/ci/data/launchpad_go_test_baseline.json lists for 22.39.168 with the same messages, and the verification now skips exactly those by name. Rebase on main, change nothing of the tree, and run the build once and the verification once at the final revision."
+do_5 = "Attempt 3 (continue, gotcha 4126, decision 3183): the attempt-2 tree 37d1740cb712 stands (the development source and frame of the consumer, the development store and its migration, the candle reads and the stream of the api, the cases of both modules, the record). The lists of the chart service pass and the case of the api fails only at services/launchpad/api/internal/app/repair_22_39_314_test.go:164, where the wait helper reads /v2/snapshots with a plain GET without an Origin header and the route answers 403. Make the wait for the committed candle snapshot read through the snapshot helper of the fixture with the allowed origin (dev_stream_test.go:385, as the uncommitted read of the same case does), keep the 15 second deadline and every assertion, and change no route and no origin rule. When the snapshot still fails with the origin set, record the status and the body in the record and stop. Run the build once and the verification once at the final revision."
 
 [task.22.39.307]
 title = "Restore the launchpad query validation text on the client paths"
@@ -332396,7 +332494,7 @@ title = "Prove no retired caller remains on the merged revision"
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["17.2.7", "16.0.9", "22.39.214", "22.39.245", "22.39.246", "22.39.247", "22.39.248", "22.39.249", "22.39.250", "22.39.251", "22.39.252", "22.39.253", "22.39.254", "22.39.255", "22.39.256", "22.39.257", "22.39.258", "22.39.259", "22.39.260", "22.39.261", "22.39.262", "22.39.263", "22.39.264", "22.39.265", "22.39.266", "22.39.267", "22.39.268", "22.39.269", "22.39.270", "22.39.271", "22.39.272", "22.39.273", "22.39.274", "22.39.275", "22.39.276", "22.39.277", "22.39.278", "22.39.284", "22.39.285", "22.39.286"]
+requires = ["17.2.7", "16.0.9", "22.39.214", "22.39.245", "22.39.246", "22.39.247", "22.39.248", "22.39.249", "22.39.250", "22.39.251", "22.39.252", "22.39.253", "22.39.254", "22.39.255", "22.39.256", "22.39.257", "22.39.258", "22.39.259", "22.39.260", "22.39.261", "22.39.262", "22.39.263", "22.39.264", "22.39.265", "22.39.266", "22.39.267", "22.39.268", "22.39.269", "22.39.270", "22.39.271", "22.39.272", "22.39.273", "22.39.274", "22.39.275", "22.39.276", "22.39.277", "22.39.278", "22.39.284", "22.39.285", "22.39.286", "22.39.337", "22.39.338"]
 reqs = ["17052.1"]
 capabilities = ["17.2.8"]
 interfaces = []
@@ -332424,6 +332522,7 @@ do_4 = "Attempt 2 (continue after 22.39.214 lands; gotcha 3747, decision 3051): 
 do_5 = "Attempt 3 (continue, gotcha 3828, decisions 3065 and 3079): the attempt-2 tree bb34d05cdf5b stands (the test module naming the owning domain of every reported caller). In tools/paxeer-x/tests/retired_callers_test.py add the pathspec :(top,exclude,literal)core/deps to the exclusions the scan passes to git grep, beside the catalogue, deleted-tree and retiring-tree entries, so the vendored upstream sources are never reported; the scanner is in the touches from this round and the owner map of retired.py stays unchanged. Record the excluded tree and the scan wall time by reference in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, treat every remaining caller as a finding against its owning domain as do_2 states and repair within the one allowed cycle."
 do_6 = "Attempt 4 (continue, gotcha 3846, decision 3081): the attempt-3 tree 24283a456abe stands (the owning-domain test, the core/deps exclusion). In spec/layerx-merge/programme/retired.py extend the owners function beside the api README rule so a README.md directly under modules, precompiles or api... belongs to domain 17; the owner map file is in the touches from this round. Then treat the modules/README.md reference the scan reports as the finding it is: retire the stale name from the README within the one allowed cycle as do_2 states, and record the reference and the repair in the task record. Run the build once and the verification once at the final revision and record both by reference; if the case still fails, treat every remaining caller as a finding against its owning domain and repair within the one allowed cycle."
 do_7 = "Attempt 5 (continue, gotcha 3877, decision 3087): the attempt-4 tree 980f5ade7d40 stands (the scan, the deleted-tree option, the gate case). The touches now include tools/paxeer-x/retired_callers.json. First, add GOTCHA.kvx, CHANGELOG.md and CODEMAP.md to documentation_paths of the catalogue with the reason that history records quote retired names by design, and make the scan honour documentation_paths for every suffix of a listed file (not only .kvx and .md under a listed directory). Second, rerun the scan and write one finding per owning domain into spec/layerx-merge/qualification.kvx (task 17.2.8, file and symbol of the largest hit, observed with the exact command, exit code and log path, the hit count of the domain, severity blocker for live code such as precompiles/layerxcustody and modules/layerxcustody and suspect for catalogues, generated clients, the Makefile and README.md), and list the per-file counts in spec/layerx-merge/programme/retired.py as the baseline the repairs must drive to zero. Third, run the build once and the verification once; the verification fails while the owning repairs are pending, so record the counts, mark the attempt implemented-not-qualified and stop."
+do_8 = "Attempt 7 (continue after 22.39.337 and 22.39.338 land, gotcha 4125, decisions 3202 to 3204): the attempt-6 tree 7d8aa76566c4 stands (the proof case, the scan, the catalogue and the component table). The task now requires 22.39.337 and 22.39.338; merge main once both are on it. Then make these edits in tools/paxeer-x/retired_callers.json and mirror them in the component table of spec/layerx-merge/programme/retired.py. (1) An allowance for sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json with the symbol recordDeposit, citing decision 3125 like the allowance of reviewed.json. (2) The exact line of services/agent/crates/layerx-client/src/ai_market.rs that task 22.38.15 added, at :2711 on main 2968a4aeb9, let signature = sign_disclosed_call(signer, &call, &disclosure, from).await?; with its indentation, joins the lines allowance of that file. (3) The component replay-golden keeps its symbols and names no deleted tree, and the allowance of tests/replay also names history.lxl and lxp_test_golden_replay, citing decision 3125 and task 22.39.277. (4) The component eth-relay keeps its symbols and names no deleted tree, with an allowance for services/platform/hosted/paxeer/fork-rehearsal.sh (symbols layerxCustody and layerxAnchor, the refusal probes) and one for services/platform/hosted/paxeer/src/comet.rs (symbol layerxcustody, the refusal case), both citing decision 3203. The deleted tree of explorer-kernel-views is gone after 22.39.337 and needs no edit. These edits together with both removals leave the scan without a finding over main at 2968a4aeb9. When the scan reports another reference after the merge: a reference inside an item that a decision retains becomes an allowance citing the decision, and any other reference is recorded as a finding with its owner and the attempt stops. Run the build once and the verification once at the final revision."
 
 [task.17.3.1]
 title = "Write the migration rehearsal plan from a v6.12.0 chain through v7.0"

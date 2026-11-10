@@ -39794,3 +39794,19 @@ symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
 observed = "Attempt 7 at aa64b3a9fa82 on base 8c1f9300585c: the verification exits 101, reward_reopen_preserves_recipient_balances fails after call.c:2215 reports transfer account absent (source present, destination absent) and the Claim returns -736; log /out/logs/verify-1.log."
 assumption = "The guest names the recipient by identity and the kernel looks a destination up by account id only."
 severity = "high"
+
+[finding.17.2.8.5]
+task = "17.2.8"
+file = "spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"
+symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
+observed = "Attempt 6 at 7d8aa76566c4 on base 24609687e674: the verification exits 1, python3 tools/paxeer-x/tests/retired_callers_test.py --deleted reports 8 references in 6 paths; log /out/logs/verify-2.log."
+assumption = "Three references are catalogue entries behind retained items and the other five need the two owner tasks and the ruling on the compatibility root."
+severity = "high"
+
+[finding.22.39.314.2]
+task = "22.39.314"
+file = "services/launchpad/trading-charts/internal/consumer/repair_22_39_314_test.go"
+symbol = "repair_22_39_314_test.go"
+observed = "Attempt 2 at 37d1740cb712 on base 1b4b14bd3e44: the verification exits 1, TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic fails at repair_22_39_314_test.go:164 with 403 FORBIDDEN on /v2/snapshots after the chart lists pass; log /out/logs/verify-1.log."
+assumption = "The wait helper of the case omits the origin that the snapshot route requires."
+severity = "high"
