@@ -222,6 +222,10 @@ pub struct AskStreamState {
 
 impl AskStreamState {
     /// Decode the canonical ABI answer of `getStream(bytes32)`.
+    ///
+    /// # Errors
+    /// Returns an error if the stream ID is zero, the ABI answer is malformed or noncanonical,
+    /// or the decoded values violate the metered stream constraints.
     pub fn decode(stream_id: [u8; 32], bytes: &[u8]) -> Result<Self, NodeRpcError> {
         let malformed = || NodeRpcError::from(SequencerError::Malformed);
         let word = |index: usize| -> Result<&[u8], NodeRpcError> {
@@ -406,6 +410,10 @@ impl NodeRpc {
     }
 
     /// Read the ask binding and stream at the same committed node height.
+    ///
+    /// # Errors
+    /// Returns an error if the ask ID is zero, a node transport or RPC request fails or exceeds
+    /// its deadline, or the returned binding or stream state is malformed or invalid.
     pub fn ask_stream(&self, ask: &[u8; 32]) -> Result<Option<AskStreamState>, NodeRpcError> {
         if *ask == [0; 32] {
             return Err(SequencerError::Malformed.into());
