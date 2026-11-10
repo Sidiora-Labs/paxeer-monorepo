@@ -683,6 +683,33 @@
   ],
   "allowed_references": [
     {
+      "path": "README.md",
+      "symbols": [
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxVerify",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decisions 3125 and 3173 retain the retirement and archive statements pinned by tools/qualification/audit_repairs/test_repair_22_33_404.py and the five other README digest cases (508, 581, 592, 707 and 894), rather than invoking retired executors."
+    },
+    {
+      "path": "contracts/config/checkpoint-settlement.json",
+      "symbols": [
+        "settlement_domain"
+      ],
+      "citation": "Decisions 3125 and 3173 retain the historical settlement schema and vectors whose finality_policy.certificate_threshold is pinned by tools/qualification/test_retired_callers_17.py::RetiredCallers17Test::test_checkpoint_settlement_schema_is_retained through tests/bridge/retired/kernel_retirement.py."
+    },
+    {
+      "path": "programs/README.md",
+      "symbols": [
+        "layerx-programs-protocol-adapter",
+        "protocol-adapter"
+      ],
+      "citation": "Decisions 3125 and 3173 retain the adapter retirement paragraph pinned by tools/qualification/audit_repairs/test_repair_22_33_238.py::test_programs_readme_adapter_is_retired, which forbids adding the retired adapter as a dependency."
+    },
+    {
       "path": "programs/crates/layerx-programs-ai-market/src/queries.rs",
       "symbols": [
         "FINALIZED_RANK"
