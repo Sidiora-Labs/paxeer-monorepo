@@ -206898,7 +206898,7 @@ do_11 = "Attempt 5 (requalify after 22.31.550, gotcha 3166, decision 2620): the 
 
 [task.22.33.223]
 title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx-programs-ai-market/tests (part 1 of 1): config-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550", "22.31.558", "22.31.478", "22.99.77"]
@@ -351513,7 +351513,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.330]
 title = "Restore the provenance line of the explorer OpenAPI document and bring two audit cases to the explorer as it stands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -351575,7 +351575,7 @@ do_4 = "Attempt 2 (requalify, gotcha 4106, decision 3184): the attempt-1 tree 9d
 
 [task.22.39.319]
 title = "Restore the retirement statements and retained fields that audit cases pin and register them as allowed references"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
