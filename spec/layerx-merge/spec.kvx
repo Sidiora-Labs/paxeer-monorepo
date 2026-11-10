@@ -306423,7 +306423,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.336]
 title = "Resolve a program transfer destination that names an identity to the payment account of that identity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
