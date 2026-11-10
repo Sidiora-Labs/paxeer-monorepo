@@ -308899,7 +308899,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.379]
 title = "Install the fee schedule and the metering schedule of Programs in the merge upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
