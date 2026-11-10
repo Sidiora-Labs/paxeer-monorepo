@@ -196922,7 +196922,7 @@ do_7 = "Attempt 4 (continue after 22.39.227 lands, gotcha 4215, decision 3287): 
 
 [task.22.39.227]
 title = "Bring the agent daemon test targets named i-q under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222", "22.39.353", "22.39.362", "22.39.364"]
