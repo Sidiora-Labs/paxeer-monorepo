@@ -1,11 +1,14 @@
 package layerxpay_test
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"testing"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	proofcodec "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
@@ -101,10 +104,24 @@ func TestPayAppModuleGenesisAndServices(t *testing.T) {
 	require.NoError(t, err)
 	enabled := make([]byte, 32)
 	enabled[31] = 1
+	escrow := types.EscrowRecord{
+		EscrowID: [32]byte{1}, Owner: [32]byte{2}, EscrowAccount: [32]byte{3},
+		Beneficiary: [32]byte{4}, Arbiter: [32]byte{5}, AssetID: [32]byte{6},
+		LockedAmount: proofcodec.U128{Lo: 100}, State: 1,
+		ExpiryMs: 1000000, DisputeWindowMs: 1000,
+		TermsHash: [32]byte{7}, AgreementReference: [32]byte{8},
+	}
+	var escrowBytes bytes.Buffer
+	require.NoError(t, binary.Write(&escrowBytes, binary.BigEndian, escrow))
+	require.Len(t, escrowBytes.Bytes(), types.EscrowRecordBytes)
+	decodedEscrow, err := types.DecodeEscrowRecord(escrowBytes.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, escrow, decodedEscrow)
+	escrowKey := types.KernelKVKey(types.EscrowModuleID, append([]byte("hold:"), escrow.EscrowID[:]...))
 	genesis := types.GenesisState{
 		Params: types.Params{Paused: false, EscrowEnabled: true},
 		KernelRecords: []kv.Pair{
-			{Key: types.KernelKVKey(types.EscrowModuleID, []byte("escrow-state")), Value: []byte{1, 2, 3}},
+			{Key: escrowKey, Value: escrowBytes.Bytes()},
 			{Key: enableKey, Value: enabled},
 		},
 	}
@@ -112,6 +129,10 @@ func TestPayAppModuleGenesisAndServices(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, basic.ValidateGenesis(cdc, nil, genesisJSON))
 	require.Empty(t, am.InitGenesis(ctx, cdc, genesisJSON))
+	storedEscrow, found, err := k.GetEscrow(ctx, escrow.EscrowID)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, escrow, storedEscrow)
 	require.Equal(t, genesis.Params, k.GetParams(ctx))
 	require.NotEmpty(t, ctx.KVStore(key).Get(types.ParamsKey))
 	for _, record := range genesis.KernelRecords {
@@ -131,6 +152,37 @@ func TestPayAppModuleGenesisAndServices(t *testing.T) {
 	restoredCtx := newContext()
 	require.Empty(t, am.InitGenesis(restoredCtx, cdc, am.ExportGenesis(ctx, cdc)))
 	require.Equal(t, k.ExportGenesis(ctx), k.ExportGenesis(restoredCtx))
+	for _, corrupt := range []struct {
+		name             string
+		key              []byte
+		wantGenesisError string
+	}{
+		{"unknown_key", types.KernelKVKey(types.EscrowModuleID, []byte("escrow-state")), keeper.ErrEscrowCorruptState.Error() + ": unknown escrow key: invalid genesis"},
+		{"hold", escrowKey, "invalid hold: record body: LXP_NON_CANONICAL: invalid genesis"},
+	} {
+		t.Run("placeholder/"+corrupt.name, func(t *testing.T) {
+			invalid := genesis
+			invalid.KernelRecords = []kv.Pair{
+				{Key: corrupt.key, Value: []byte{1, 2, 3}},
+				{Key: enableKey, Value: enabled},
+			}
+			invalidJSON, err := json.Marshal(invalid)
+			require.NoError(t, err)
+			err = k.InitGenesis(ctx, invalid)
+			require.ErrorIs(t, err, types.ErrInvalidGenesis)
+			require.EqualError(t, err, corrupt.wantGenesisError)
+			require.Panics(t, func() { am.InitGenesis(ctx, cdc, invalidJSON) })
+			require.JSONEq(t, string(genesisJSON), string(am.ExportGenesis(ctx, cdc)))
+			if corrupt.name == "hold" {
+				corruptCtx := newContext()
+				corruptCtx.KVStore(hostKey).Set(escrowKey, []byte{1, 2, 3})
+				record, found, err := k.GetEscrow(corruptCtx, escrow.EscrowID)
+				require.ErrorIs(t, err, keeper.ErrEscrowCorruptState)
+				require.False(t, found)
+				require.Equal(t, types.EscrowRecord{}, record)
+			}
+		})
+	}
 
 	malformed := json.RawMessage(`{"params":`)
 	err = basic.ValidateGenesis(cdc, nil, malformed)
