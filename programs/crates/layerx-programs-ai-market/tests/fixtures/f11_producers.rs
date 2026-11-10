@@ -1276,3 +1276,33 @@ fn prove_admissions() -> CodecResult<()> {
     assert_eq!(bytes, before);
     Ok(())
 }
+
+pub fn lap_batch(
+    deal: Digest32,
+    first: u64,
+    count: usize,
+    countersigners: u32,
+) -> CodecResult<layerx_programs_ai_market::laps::ReceiptBatch> {
+    use layerx_programs_ai_market::laps::{LapReceipt, ReceiptBatch};
+
+    let ranges = [Digest32::new([80; 32])?, Digest32::new([81; 32])?];
+    let key = SigningKey::from_bytes(&[12; 32]);
+    let receipts = (0..count)
+        .map(|index| {
+            let mut receipt = LapReceipt {
+                deal_id: deal,
+                lap_index: first + index as u64,
+                prompt_tokens: 10,
+                generated_tokens: 90,
+                cumulative_tokens: (first + index as u64 + 1) * 100,
+                layer_range_digests: &ranges,
+                host_signature: Signature64([1; 64]),
+                peer_countersignatures: countersigners,
+            };
+            receipt.host_signature =
+                Signature64(key.sign(receipt.signing_digest()?.as_bytes()).to_bytes());
+            Ok(receipt)
+        })
+        .collect::<CodecResult<Vec<_>>>()?;
+    ReceiptBatch::from_receipts(&receipts)
+}
