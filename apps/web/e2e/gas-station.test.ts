@@ -11,7 +11,7 @@ import ts from "typescript";
 import { BANNED_VOCABULARY, copyEntries } from "../copy/catalog.ts";
 import { copyEntry } from "../copy/runtime.ts";
 import type { SidioraGasQuote } from "../src/api/gas-station.ts";
-import type { SequencerReceiptAnswer, SponsoredAdapterRequest } from "@paxeer/wallet";
+import type { SponsoredAdapterRequest } from "@paxeer/wallet";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -50,28 +50,33 @@ const wallet = await import("../src/api/wallet.ts");
 const { WalletFeeController } = await import("../src/settings/wallet/model.ts");
 const { WalletFeeChoice } = await import("../src/settings/wallet/wallet-screen.tsx");
 
-function quoteFixture(): SidioraGasQuote {
-  return {
-    batch: {
-      chainId: 1325n,
-      account: `0x${"11".repeat(20)}`,
-      nonce: 0n,
-      calls: [{ to: `0x${"33".repeat(20)}`, value: 0n, data: "0x1234" }],
-      quote: {
-        sponsor: `0x${"22".repeat(20)}`, token: sdk.SIDIORA_TOKEN,
-        decimals: sdk.SIDIORA_DECIMALS,
-        tokenAmount: 2_000_001n, maxTokenAmount: 2_100_000n,
-        deadline: BigInt(Math.floor(Date.now() / 1000)) + 300n,
-        quoteNonce: 7n, gasCost: 10n ** 18n,
-      },
+async function quoteFixture(): Promise<SidioraGasQuote> {
+  const { privateKeyToAccount } = await import("viem/accounts");
+  const relayer = privateKeyToAccount(`0x${"0c".repeat(32)}`);
+  const batch: SidioraGasQuote["batch"] = {
+    chainId: 1325n,
+    account: `0x${"11".repeat(20)}`,
+    nonce: 0n,
+    calls: [{ to: `0x${"33".repeat(20)}`, value: 0n, data: "0x1234" }],
+    quote: {
+      sponsor: relayer.address.toLowerCase(), token: sdk.SIDIORA_TOKEN,
+      decimals: sdk.SIDIORA_DECIMALS,
+      tokenAmount: 2_000_001n, maxTokenAmount: 2_100_000n,
+      deadline: BigInt(Math.floor(Date.now() / 1000)) + 300n,
+      quoteNonce: 7n, gasCost: 10n ** 18n,
     },
+  };
+  const digest = sdk.gasQuoteDigest(batch.chainId, batch.account, batch.quote);
+  assert.ok(digest.ok);
+  return {
+    batch,
     paymaster: `0x${"44".repeat(20)}`,
-    relayerSignature: "0x",
+    relayerSignature: await relayer.sign({ hash: digest.value as `0x${string}` }),
   };
 }
 
-test("quote consent presents six decimals, the maximum and expiry before signing", () => {
-  const quoted = quoteFixture();
+test("quote consent presents six decimals, the maximum and expiry before signing", async () => {
+  const quoted = await quoteFixture();
   const review = wallet.sidioraQuotePresentation(quoted);
   assert.ok(review);
   assert.equal(review.amount, "2.000001");
@@ -84,7 +89,7 @@ test("quote consent presents six decimals, the maximum and expiry before signing
 });
 
 test("missing consent cancels before looking for a provider and changed consent is refused", async () => {
-  const quoted = quoteFixture();
+  const quoted = await quoteFixture();
   const review = wallet.sidioraQuotePresentation(quoted);
   assert.ok(review);
   assert.deepEqual(await wallet.sendWalletSponsoredBatch(quoted, undefined), { outcome: "cancelled" });
@@ -100,7 +105,7 @@ test("missing consent cancels before looking for a provider and changed consent 
 });
 
 test("expired, excessive and wrong-token quotes cannot reach signing", async () => {
-  const quoted = quoteFixture();
+  const quoted = await quoteFixture();
   const review = wallet.sidioraQuotePresentation(quoted);
   assert.ok(review);
   for (const changes of [
@@ -117,7 +122,7 @@ test("absent station configuration returns the wallet unavailable shape without 
   const previous = process.env.PAXEER_GAS_STATION_QUOTE_URL;
   delete process.env.PAXEER_GAS_STATION_QUOTE_URL;
   try {
-    const quoted = quoteFixture();
+    const quoted = await quoteFixture();
     const outcome = await sdk.requestSidioraGasQuote({
       account: quoted.batch.account, did: `did:layerx:${"55".repeat(32)}`, nonce: quoted.batch.nonce, calls: quoted.batch.calls,
       maxTokenAmount: quoted.batch.quote.maxTokenAmount, gasCost: quoted.batch.quote.gasCost,
@@ -189,8 +194,8 @@ test("Sidiora copy is generated from the catalogue and remains within vocabulary
 
 
 test("private sponsorship carries exact SDK constructions and binds every approved quote field", async () => {
-  const { PaxeerProvider, constructionDigest, toWireConstruction } = await import("@paxeer/wallet/provider");
-  const quoted = quoteFixture();
+  const { PaxeerProvider, constructionDigest, toWireConstruction } = await import("../../../sdk/wallet/src/provider.ts");
+  const quoted = await quoteFixture();
   const provider = new PaxeerProvider({ gatewayUrl: "http://127.0.0.1:1", rpcUrl: "http://127.0.0.1:1", token: () => null, chainId: Number(quoted.batch.chainId) });
   const module = wallet.sponsoredWalletModule(quoted, provider);
   const construction = module.construction(quoted.batch);
@@ -234,6 +239,24 @@ class MemoryStorage {
   removeItem(key: string): void { this.#items.delete(key); }
 }
 
+const NODE_ROOT_METHODS: ReadonlySet<string> = new Set([
+  "px_resolveAccount",
+  "px_getAccount",
+  "px_getBalances",
+  "px_listAssets",
+  "px_getNetwork",
+  "px_getCapabilities",
+  "px_getRouteCatalogue",
+  "px_getHistory",
+  "px_getUnifiedHistory",
+  "px_listHolderRecords",
+  "px_getCommit",
+  "px_getValidators",
+  "px_getReceiptKeys",
+  "px_getSequenceBatch",
+  "pax_sequencerReceipt",
+]);
+
 const ZERO_WORD = `0x${"0".repeat(64)}`;
 
 function walletWindow(answer: (method: string, params: readonly unknown[]) => unknown) {
@@ -253,7 +276,7 @@ test("a write never resumes another call's retained sponsored submission as its 
   const { privateKeyToAccount } = await import("viem/accounts");
   const signer = privateKeyToAccount(`0x${"0b".repeat(32)}`);
   const account = signer.address.toLowerCase();
-  const fixture = quoteFixture();
+  const fixture = await quoteFixture();
   const approveCall = { to: `0x${"66".repeat(20)}`, value: 0n, data: "0x095ea7b3" };
   const writeCall = { to: `0x${"77".repeat(20)}`, value: 0n, data: "0x12345678" };
   const approveHash = `0x${"aa".repeat(32)}`;
@@ -315,9 +338,9 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
   const relayer = privateKeyToAccount(`0x${"0c".repeat(32)}`);
   const account = signer.address.toLowerCase();
   const usdl = `0x${"88".repeat(20)}`;
-  const fixture = quoteFixture();
-  const recorded = JSON.parse(readFileSync(new URL("../../../sdk/wallet/test/fixtures/sequencer-receipt.json", import.meta.url), "utf8")) as { committed: SequencerReceiptAnswer };
-  const approveHash = recorded.committed.txHash;
+  const fixture = await quoteFixture();
+  const { committedReceipt, committedRecording } = await import("./repair-22-33-338-receipts.ts");
+  const approveHash = committedReceipt.txHash;
   const writeHash = `0x${"bb".repeat(32)}`;
   const order = { pool: `0x${"99".repeat(20)}`, amountIn: 5_000_000n, minOut: 1n, deadline: 2_000_000_000n };
   const approveCall = launchpadApproveCall(usdl, order.amountIn);
@@ -329,6 +352,18 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
   const events: string[] = [];
   let receiptChecks = 0;
   const methods = walletWindow(async (method, params) => {
+    if (NODE_ROOT_METHODS.has(method) || method === "eth_getRawTransactionByHash") {
+      const endpoint = process.env.LAYERX_NODE_ENDPOINT;
+      assert.ok(endpoint);
+      const response = await fetch(endpoint, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: method, method, params }),
+      });
+      assert.equal(response.ok, true);
+      const document = await response.json() as { result: unknown; error?: unknown };
+      assert.equal(document.error, undefined);
+      return document.result;
+    }
     switch (method) {
       case "eth_accounts": return [account];
       case "eth_chainId": return `0x${fixture.batch.chainId.toString(16)}`;
@@ -374,9 +409,6 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
             completion: { outcome: "included", transactionHash: approveHash, blockNumber: "1000", sidCollected: "2000001", paxSpent: "21000" },
           },
         };
-      case "pax_sequencerReceipt":
-        assert.deepEqual(params, [approveHash]);
-        return recorded.committed;
       default: throw new Error(`unexpected ${method}`);
     }
   });
@@ -406,18 +438,50 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ quote, relayerSignature, feeDenom: "sidiora" }, (_key, value: unknown) => typeof value === "bigint" ? value.toString() : value));
   });
-  const gateway = createServer(async (request, response) => {
+  const nodeCalls: string[] = [];
+  const hostedCalls: string[] = [];
+  const node = createServer(async (request, response) => {
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/");
     let body = "";
     for await (const chunk of request) body += String(chunk);
     const document = JSON.parse(body) as { id: string; method: string; params: unknown[] };
-    assert.ok(["px_resolveAccount", "eth_getTransactionReceipt"].includes(document.method));
-    if (document.method === "px_resolveAccount") assert.deepEqual(document.params, [account]);
-    else assert.ok([approveHash, writeHash].includes(String(document.params[0])));
-    const result = document.method === "px_resolveAccount"
-      ? { bound: true, evm_address: account, layerx_did: `did:layerx:${"55".repeat(32)}`, layerx_account: "55".repeat(32) }
-      : null;
+    nodeCalls.push(document.method);
+    let result: unknown;
+    switch (document.method) {
+      case "px_resolveAccount":
+        assert.deepEqual(document.params, [account]);
+        result = { bound: true, evm_address: account, layerx_did: `did:layerx:${"55".repeat(32)}`, layerx_account: "55".repeat(32) };
+        break;
+      case "pax_sequencerReceipt":
+        assert.deepEqual(document.params, [approveHash]);
+        result = committedReceipt;
+        break;
+      case "px_getReceiptKeys":
+        assert.deepEqual(document.params, []);
+        result = { keys: [committedRecording.pinnedKey] };
+        break;
+      case "eth_getRawTransactionByHash":
+        assert.deepEqual(document.params, [approveHash]);
+        result = committedRecording.rawTransaction;
+        break;
+      default: throw new Error(`unexpected node method ${document.method}`);
+    }
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ jsonrpc: "2.0", id: document.id, result }));
+  });
+  const gateway = createServer(async (request, response) => {
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/");
+    let body = "";
+    for await (const chunk of request) body += String(chunk);
+    const document = JSON.parse(body) as { id: string; method: string; params: unknown[] };
+    hostedCalls.push(document.method);
+    assert.equal(NODE_ROOT_METHODS.has(document.method), false, "no node-root method may reach the hosted gateway");
+    assert.equal(document.method, "eth_getTransactionReceipt");
+    assert.ok([approveHash, writeHash].includes(String(document.params[0])));
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ jsonrpc: "2.0", id: document.id, result: null }));
   });
   async function listen(server: Server): Promise<number> {
     await new Promise<void>((resolve, reject) => {
@@ -434,12 +498,15 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
     PAXEER_GAS_STATION_SPONSOR: relayer.address,
     PAXEER_GAS_STATION_PAYMASTER: fixture.paymaster,
     LAYERX_GATEWAY_URL: "",
+    LAYERX_NODE_ENDPOINT: "",
   };
   const previous = Object.fromEntries(Object.keys(environment).map((name) => [name, process.env[name]]));
   const previousCertificates = getCACertificates("default");
   try {
     environment.PAXEER_GAS_STATION_QUOTE_URL = `https://127.0.0.1:${await listen(quoteServer)}/quote`;
     environment.LAYERX_GATEWAY_URL = `http://127.0.0.1:${await listen(gateway)}`;
+    environment.LAYERX_NODE_ENDPOINT = `http://127.0.0.1:${await listen(node)}/`;
+    assert.notEqual(environment.LAYERX_NODE_ENDPOINT, `${environment.LAYERX_GATEWAY_URL}/`);
     setDefaultCACertificates([...previousCertificates, cert]);
     Object.assign(process.env, environment);
     assert.equal(wallet.chooseWalletFee("sidiora", "2.1"), true);
@@ -448,6 +515,11 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
       return writeCall;
     }, (active) => approving.push(active));
     assert.deepEqual(outcome, { outcome: "sent", transactionHash: writeHash });
+    assert.deepEqual(nodeCalls.filter((method) => method === "px_resolveAccount"), ["px_resolveAccount", "px_resolveAccount"]);
+    assert.deepEqual(nodeCalls.toSorted(), [
+      "eth_getRawTransactionByHash", "pax_sequencerReceipt", "px_getReceiptKeys", "px_resolveAccount", "px_resolveAccount",
+    ]);
+    assert.deepEqual(hostedCalls.filter((method) => NODE_ROOT_METHODS.has(method)), []);
     const expected = [approveCall, writeCall].map((call) => [{ ...call, value: call.value.toString() }]);
     assert.deepEqual(quotedCalls, expected);
     assert.deepEqual(submissions.map((request) => request.construction.calls), expected);
@@ -465,7 +537,7 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
       else process.env[name] = value;
     }
     setDefaultCACertificates(previousCertificates);
-    await Promise.all([quoteServer, gateway].map((server) => new Promise<void>((resolve, reject) => {
+    await Promise.all([quoteServer, gateway, node].map((server) => new Promise<void>((resolve, reject) => {
       if (!server.listening) return resolve();
       server.close((error) => error === undefined ? resolve() : reject(error));
       server.closeAllConnections();
@@ -476,7 +548,7 @@ async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promi
 test(launchpad_sponsored_fee_sends_the_approve_then_the_write);
 
 async function malformed_sponsored_quote_is_refused_at_review() {
-  const malformed = { ...quoteFixture(), batch: null } as unknown as SidioraGasQuote;
+  const malformed = { ...(await quoteFixture()), batch: null } as unknown as SidioraGasQuote;
   assert.equal(wallet.sidioraQuotePresentation(malformed), undefined);
   assert.deepEqual(await wallet.sendWalletSponsoredBatch(malformed, "invalid"), { outcome: "rejected" });
 }

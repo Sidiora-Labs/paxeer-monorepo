@@ -161,9 +161,9 @@ receipt and evidence-backed rung, and
 `/api/v2/transactions/:transaction_hash_param/status` for current transaction
 observations. A signed receipt alone is `receipted`; verified native inclusion
 establishes `committed`. Follow the archive's returned pagination parameters. An invalid or
-unknown receipt ID returns HTTP `404`. The old unprefixed
-`/api/v2/paxeer-x/anchors` and `/api/v2/paxeer-x/receipts` routes were removed
-and return not-found; use the explicit `/archive/` paths above.
+unknown receipt ID returns HTTP `404`. Use the explicit `/archive/` paths above
+for historical anchors and receipts; current transaction observations use the
+native status and signature endpoints.
 Archive items carry `frozen: true`; their historical verification fields do
 not establish a current transaction's rung. Live native receipts and feed
 submissions do not populate these frozen archives.

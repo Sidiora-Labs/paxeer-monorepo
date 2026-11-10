@@ -167,6 +167,9 @@ defmodule Indexer.Fetcher.ZkSync.Utils.Rpc do
   @doc """
     Retrieves batch details from the RPC endpoint using the `zks_getL1BatchDetails` call.
 
+    This is the zkSync L1 batch interface. Native Paxeer block history is read
+    through `eth_getBlockByNumber` and does not use this function.
+
     ## Parameters
     - `batch_number`: The batch number or identifier.
     - `json_rpc_named_arguments`: Configuration parameters for the JSON RPC connection.

@@ -50,10 +50,8 @@ const TEMPLATE_MAP: Record<Route['pathname'], string> = {
   '/feed': DEFAULT_TEMPLATE,
   '/feed/update/[hash]': DEFAULT_TEMPLATE,
   '/feed/market/[id]': DEFAULT_TEMPLATE,
+  '/paxeer-x/inference': DEFAULT_TEMPLATE,
   '/paxeer-x/account/[hash]': DEFAULT_TEMPLATE,
-  '/paxeer-x/anchors': DEFAULT_TEMPLATE,
-  '/paxeer-x/receipts': DEFAULT_TEMPLATE,
-  '/paxeer-x/receipts/[id]': DEFAULT_TEMPLATE,
   '/dispute-games': DEFAULT_TEMPLATE,
   '/batches': DEFAULT_TEMPLATE,
   '/batches/[number]': DEFAULT_TEMPLATE,
@@ -108,6 +106,8 @@ const TEMPLATE_MAP: Record<Route['pathname'], string> = {
   '/api/proxy': DEFAULT_TEMPLATE,
   '/api/csrf': DEFAULT_TEMPLATE,
   '/api/healthz': DEFAULT_TEMPLATE,
+  '/api/assistant': DEFAULT_TEMPLATE,
+  '/api/inference': DEFAULT_TEMPLATE,
   '/api/config': DEFAULT_TEMPLATE,
 };
 

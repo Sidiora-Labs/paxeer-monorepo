@@ -625,6 +625,102 @@ fn refuse_private_import_collision(module: &elements::Module) -> Result<(), Inje
     }
 }
 
+fn replace_element_section(wasm: &[u8], payload: &[u8]) -> Result<Vec<u8>, InjectionRefusal> {
+    let mut reader = wasmparser_nostd::BinaryReader::new(&wasm[8..]);
+    let mut output = wasm[..8].to_vec();
+    while !reader.eof() {
+        let start = reader.original_position() + 8;
+        let id = reader.read_u8().map_err(|error| branch_error(&error))?;
+        let length = reader
+            .read_var_u32()
+            .map_err(|error| branch_error(&error))? as usize;
+        reader
+            .read_bytes(length)
+            .map_err(|error| branch_error(&error))?;
+        let end = reader.original_position() + 8;
+        if id == 9 {
+            output.push(9);
+            output.extend(
+                elements::serialize(elements::VarUint32::from(
+                    u32::try_from(payload.len()).map_err(|error| {
+                        InjectionRefusal::Serialization {
+                            reason: error.to_string(),
+                        }
+                    })?,
+                ))
+                .map_err(|error| InjectionRefusal::Serialization {
+                    reason: error.to_string(),
+                })?,
+            );
+            output.extend_from_slice(payload);
+        } else {
+            output.extend_from_slice(&wasm[start..end]);
+        }
+    }
+    Ok(output)
+}
+
+fn parity_element_encoding(wasm: &[u8]) -> Result<Vec<u8>, InjectionRefusal> {
+    for payload in Parser::new(0).parse_all(wasm) {
+        if let wasmparser_nostd::Payload::ElementSection(section) =
+            payload.map_err(|error| branch_error(&error))?
+        {
+            let range = section.range();
+            let mut bytes = wasm[range.clone()].to_vec();
+            let mut removals = Vec::new();
+            for element in section {
+                let element = element.map_err(|error| branch_error(&error))?;
+                if matches!(element.kind, wasmparser_nostd::ElementKind::Passive) {
+                    let mut flags =
+                        wasmparser_nostd::BinaryReader::new(&wasm[element.range.clone()]);
+                    if flags.read_var_u32().map_err(|error| branch_error(&error))? != 1 {
+                        return Err(InjectionRefusal::UnsupportedInstruction);
+                    }
+                    removals.push(element.range.start + flags.original_position() - range.start);
+                }
+            }
+            for offset in removals.into_iter().rev() {
+                bytes.remove(offset);
+            }
+            return replace_element_section(wasm, &bytes);
+        }
+    }
+    Ok(wasm.to_vec())
+}
+
+fn canonical_element_encoding(wasm: &[u8]) -> Result<Vec<u8>, InjectionRefusal> {
+    let module = elements::deserialize_buffer::<elements::Module>(wasm).map_err(|error| {
+        InjectionRefusal::MalformedModule {
+            reason: error.to_string(),
+        }
+    })?;
+    let Some(section) = module.elements_section() else {
+        return Ok(wasm.to_vec());
+    };
+    let mut payload = elements::serialize(elements::VarUint32::from(
+        u32::try_from(section.entries().len()).map_err(|error| {
+            InjectionRefusal::Serialization {
+                reason: error.to_string(),
+            }
+        })?,
+    ))
+    .map_err(|error| InjectionRefusal::Serialization {
+        reason: error.to_string(),
+    })?;
+    for entry in section.entries() {
+        let mut bytes = elements::serialize(entry.clone()).map_err(|error| {
+            InjectionRefusal::Serialization {
+                reason: error.to_string(),
+            }
+        })?;
+        if entry.passive() {
+            bytes.insert(1, 0);
+        }
+        payload.extend(bytes);
+    }
+    replace_element_section(wasm, &payload)
+}
+
 #[cfg(test)]
 mod golden_vectors {
     use super::{analyze_branch_costs, BranchCost, FuelSchedule, MeterInjection};
@@ -840,91 +936,4 @@ mod golden_vectors {
             }]
         );
     }
-}
-
-fn replace_element_section(wasm: &[u8], payload: &[u8]) -> Result<Vec<u8>, InjectionRefusal> {
-    let mut reader = wasmparser_nostd::BinaryReader::new(&wasm[8..]);
-    let mut output = wasm[..8].to_vec();
-    while !reader.eof() {
-        let start = reader.original_position() + 8;
-        let id = reader.read_u8().map_err(|error| branch_error(&error))?;
-        let length = reader
-            .read_var_u32()
-            .map_err(|error| branch_error(&error))? as usize;
-        reader
-            .read_bytes(length)
-            .map_err(|error| branch_error(&error))?;
-        let end = reader.original_position() + 8;
-        if id == 9 {
-            output.push(9);
-            output.extend(
-                elements::serialize(elements::VarUint32::from(payload.len() as u32)).map_err(
-                    |error| InjectionRefusal::Serialization {
-                        reason: error.to_string(),
-                    },
-                )?,
-            );
-            output.extend_from_slice(payload);
-        } else {
-            output.extend_from_slice(&wasm[start..end]);
-        }
-    }
-    Ok(output)
-}
-
-fn parity_element_encoding(wasm: &[u8]) -> Result<Vec<u8>, InjectionRefusal> {
-    for payload in Parser::new(0).parse_all(wasm) {
-        if let wasmparser_nostd::Payload::ElementSection(section) =
-            payload.map_err(|error| branch_error(&error))?
-        {
-            let range = section.range();
-            let mut bytes = wasm[range.clone()].to_vec();
-            let mut removals = Vec::new();
-            for element in section {
-                let element = element.map_err(|error| branch_error(&error))?;
-                if matches!(element.kind, wasmparser_nostd::ElementKind::Passive) {
-                    let mut flags =
-                        wasmparser_nostd::BinaryReader::new(&wasm[element.range.clone()]);
-                    if flags.read_var_u32().map_err(|error| branch_error(&error))? != 1 {
-                        return Err(InjectionRefusal::UnsupportedInstruction);
-                    }
-                    removals.push(element.range.start + flags.original_position() - range.start);
-                }
-            }
-            for offset in removals.into_iter().rev() {
-                bytes.remove(offset);
-            }
-            return replace_element_section(wasm, &bytes);
-        }
-    }
-    Ok(wasm.to_vec())
-}
-
-fn canonical_element_encoding(wasm: &[u8]) -> Result<Vec<u8>, InjectionRefusal> {
-    let module = elements::deserialize_buffer::<elements::Module>(wasm).map_err(|error| {
-        InjectionRefusal::MalformedModule {
-            reason: error.to_string(),
-        }
-    })?;
-    let Some(section) = module.elements_section() else {
-        return Ok(wasm.to_vec());
-    };
-    let mut payload = elements::serialize(
-        elements::VarUint32::from(section.entries().len() as u32),
-    )
-    .map_err(|error| InjectionRefusal::Serialization {
-        reason: error.to_string(),
-    })?;
-    for entry in section.entries() {
-        let mut bytes = elements::serialize(entry.clone()).map_err(|error| {
-            InjectionRefusal::Serialization {
-                reason: error.to_string(),
-            }
-        })?;
-        if entry.passive() {
-            bytes.insert(1, 0);
-        }
-        payload.extend(bytes);
-    }
-    replace_element_section(wasm, &payload)
 }

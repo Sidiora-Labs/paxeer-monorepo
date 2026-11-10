@@ -1,0 +1,84 @@
+[repair.22.39.313]
+task = "22.39.313"
+decision = "3160"
+gotcha = "4079"
+base_revision = "7de3a905143685e242ede175b937de64e78a59df"
+verified_revision = "Exact candidate revision is pinned by hf-done in /out/run/gates.jsonl and the revision header of /out/logs/verify-1.log; the final gate receipt is authoritative."
+qualification = "hf-build then hf-done at the same unchanged candidate; no completion is claimed before the bounded gate receipt."
+baseline = "No prior hf-build/hf-done ledger exists for this attempt. The initial test was not rerun manually because the task Order permits verification only through hf-done after implementation and build."
+recorded_starting_failure = "GOTCHA.kvx gotcha.4079 records four of five deployment regeneration cases failing at revision 8155a13897b7 in /out/logs/verify-1.log of task 22.39.95 attempt 11; this is prior evidence, not a gate run by this task."
+cause = "22.39.62 (a2bf776a9fbdd7265c4a1dfcc89cb2fe8e755d13) sorted the contracts manifest keys without updating its raw-byte SHA-256 readers. The checked-out JSON is deeply equal to reviewed blob dd845c4ecc0802bef5548e086ef431ec99fe1f12, but its bytes changed. 22.39.295 (8863f01e6be0db97c4ad2c53f2d9bb745eaea56c) restored installed runtime identities while preserving the old manifest digest."
+source = "contracts/launchpad/deployments/paxeer-x-network-addresses.json"
+former_sha256 = "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a"
+current_sha256 = "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b"
+review = "Compared parsed checkout and immutable reviewed blob for full equality before reviewing the checkout byte digest. No deployment addresses, code identities, activation heights, governance or historical records changed."
+producer = "client-deployment.cjs generate emits sdk/launchpad/shared/config/deployment/client-deployment.json from the reviewed current manifest and role record. generate.py --source contracts/launchpad/deployments/paxeer-x-network-addresses.json --frozen-client sdk/launchpad/shared/config/deployment/client-deployment.json --output sdk/launchpad/shared/config/deployment/current.json reproduces the current record with all original identity checks."
+web_generation = "createDeploymentGenerator(base).renderHelper(createDeploymentGenerator(base).deriveDeployment(contractRoot)) from deployment-generation.cjs emits deployment.ts. Delegate rendering to the base generator, which already owns both execution-role and cookie-storage exports."
+treasury = "Validate Treasury_proxy through addRole before asserting the digest. The missing, pending, conflicting record and conflicting reviewed address cases retain their Treasury-specific refusal; byte-only manifest mutation must still fail the exact digest assertion."
+files = ["sdk/launchpad/shared/config/deployment/current.json", "sdk/launchpad/shared/config/deployment/client-deployment.json", "sdk/launchpad/shared/config/deployment/manifest_test.go", "sdk/launchpad/shared/config/deployment/tests/generate.test.sh", "apps/launchpad/web/src/core/network/deployment.ts", "apps/launchpad/web/src/core/network/deployment-generation.cjs", "apps/launchpad/web/src/core/network/repair-22-33-901.test.ts", "apps/launchpad/mobile/src/runtime/quote-transaction.ts", "tools/launchpad/production/interfaces/contracts/client-deployment.cjs", "apps/launchpad/web/src/core/network/repair_22_39_313.kvx"]
+
+[reader.mobile_runtime]
+path = "apps/launchpad/mobile/src/runtime/quote-transaction.ts"
+classification = "current digest"
+action = "Updated authority.revision inside scope."
+
+[reader.mobile_proof]
+path = "apps/launchpad/mobile/test/vitest/proof_launchpad_mobile_app.test.ts:configuration"
+classification = "current digest"
+owner = "launchpad mobile proof owner"
+action = "Outside scope; owner must update the PublicConfiguration manifestDigest pin alongside the runtime."
+
+[reader.tracker]
+path = "services/launchpad/pnl-tracker/internal/production/l18/domain.go:ManifestDigest"
+classification = "current digest"
+owner = "launchpad pnl-tracker owner"
+action = "Outside scope; owner must review and update the active fee/reward authority pin."
+
+[reader.capabilities]
+path = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/capabilities.json:sources.core-manifest.sha256"
+classification = "current source digest"
+owner = "launchpad production interfaces owner"
+action = "Outside scope; regenerate the capabilities evidence from its producer for current source bytes. Do not replace frozen readiness provenance."
+
+[reader.indexer_producer]
+path = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json:Options.Manifest and Options.CatalogJSON"
+classification = "frozen producer evidence of the current execution epoch at capture time, plus historical receipt replay"
+owner = "launchpad indexer receipt owner"
+action = "Historical captured evidence stays byte-identical, including embedded catalog and source pins. Owner must regenerate a new producer packet if a current-byte fixture is required."
+
+[reader.historical_manifest]
+path = "sdk/launchpad/shared/config/deployment/history/paxeer125-a35ff7c6f532d2f9.json"
+classification = "historical digest"
+action = "Retained; the original source bytes and historical Treasury epoch remain approved history."
+
+[reader.protocol_fixture]
+path = "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json"
+classification = "historical frozen protocol provenance"
+owner = "shared protocol contracts owner"
+action = "Retained outside scope. Current regeneration now uses the real producer output beside current.json; the protocol snapshot continues to identify the original reviewed bytes."
+
+[reader.current_manifest_tests]
+path = "sdk/launchpad/shared/config/deployment/manifest_test.go and tests/generate.test.sh"
+classification = "current digest with separate historical provenance assertion"
+action = "Use the producer-emitted current frozen input, assert the checkout digest against Current, preserve semantic equality and the historical blob digest, and regenerate the web helper and Go record from checkout bytes. Go and shell gates are outside the allowed qualification commands and were not run."
+
+[reader.authority_packet]
+path = "apps/launchpad/web/src/core/test-fixtures/authority-production/go-authority.json"
+classification = "frozen authority producer evidence"
+owner = "launchpad web authority fixture owner"
+action = "Retained outside scope; captured evidence stays unchanged. Regenerate through the authority producer when a current packet is needed."
+
+[reader.previous_repair]
+path = "sdk/launchpad/shared/config/deployment/repair_22_39_295.kvx"
+classification = "historical repair provenance"
+action = "Retained unchanged as the record of the earlier verified revision."
+
+[gotcha.byte_identity]
+symptom = "Equivalent manifest JSON with sorted keys has a different raw-byte digest."
+cause = "Current consumers compare byte provenance, while prior regeneration deliberately used an immutable historical blob."
+action = "Regenerate the producer record and current readers together; retain historical source and receipt digests."
+
+[gotcha.helper_exports]
+symptom = "The web wrapper emits duplicate execution-role and cookie-storage declarations."
+cause = "The base generator now emits the declarations previously added only by the wrapper."
+action = "Delegate renderHelper to the real base producer; retain the full helper and exported-symbol assertions."

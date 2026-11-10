@@ -2395,6 +2395,7 @@ mod tests {
 
     #[test]
     fn committed_time_requires_the_handshake_network_and_receipt_authority() {
+        // This checks the current handshake receipt key, with pinned committed validators.
         let (authority, actor, batch, observed) = captured_batch();
         let header = checked(decode_batch_header(batch.maintenance.canonical_header()));
         let wrong_network = checked(

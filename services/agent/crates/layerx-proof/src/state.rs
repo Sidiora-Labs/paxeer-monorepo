@@ -711,6 +711,7 @@ mod tests {
 
     #[test]
     fn custody_reserve_account_state_is_refused() -> Result<(), String> {
+        // Historical names are rejection inputs, never accepted native balance accounts.
         for name in [
             b"system:paxeer-reserve".as_slice(),
             b"system:paxeer-reserve:pax",

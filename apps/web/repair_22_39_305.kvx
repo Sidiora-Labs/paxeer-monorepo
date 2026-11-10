@@ -1,0 +1,85 @@
+[repair]
+task = "22.39.305"
+base_revision = "371771b25bc763c5a22d0255c42f4ab42c239f3d"
+inventory = "GOTCHA.kvx gotcha.4054; task do_1 lists the affected cases, including four exact price subcases."
+build_command = "pnpm --dir apps/web install --frozen-lockfile --ignore-scripts && pnpm --dir apps/web run typecheck"
+verify_command = "test -s apps/web/repair_22_39_305.kvx && pnpm --dir apps/web run test"
+verified_revision_reference = "/out/run/gates.jsonl: last passing kind=verify row revision must equal the passing kind=build row revision; the runner snapshots this record before both gates."
+evidence_reference = "/out/run/gates.jsonl: kind=build and kind=verify rows retain the exact revision, command, exit and private log paths. Qualification is claimed only when hf-done exits zero on the same candidate as hf-build."
+publication = "The runner publishes the qualified candidate; no task files are edited after the passing gate pair."
+
+[case.activity_explorer_path]
+file = "apps/web/e2e/activity.spec.ts"
+inventory_line = 447
+cause = "The explorer link model now requires resolved portable native receipt material and a configured explorer origin; evidence IDs and checkpoint IDs no longer identify live explorer routes."
+repair = "Exercise explorerPath with the existing producer-emitted vector-v5 portable receipt and assert the exact external /tx/keccak256(rawTransaction) URL; retain all evidence classes and assert refusal for unresolved, unverified, mismatched and unconfigured material."
+
+[case.api_golden_ownership]
+file = "apps/web/e2e/api-client.test.ts"
+inventory_line = 103
+cause = "Schema 1.10 retains retired binding, deposit, withdraw and exit declarations and their historical vectors while omitting their generated callable operations; supplemental and stream-push vectors also have schema ownership."
+repair = "Derive ownership from v1.kvx and its included operation declarations, require all three standard vectors and every declared supplement, and compare the full recursive file inventory exactly; require generated operation and conformance tables to equal precisely the active schema operations and every retired failure to remain HTTP 410 operation-retired with final retry."
+
+[case.api_transport_boundary]
+file = "apps/web/e2e/api-client.test.ts"
+inventory_line = 208
+cause = "SupportChatSession decorated the generated client with a raw fetch inside src/support/conversation.ts, violating the API transport boundary; that first failure hid direct generated imports in support/service.fixture.ts, settings/model.ts, states/report-schema.ts and states/error.tsx, and a native receipt fetch outside explorer/client.ts."
+repair = "Move the abortable transport into src/api/index.ts and call it from the support session with the current controller and original timeout; route all four direct imports through src/api/index.ts and relocate the unchanged native receipt reader into explorer/client.ts, preserving its route-module exports. Retain the source boundary assertion and exercise successful, cancelled and restarted generated-client requests over the existing real HTTP transport test."
+
+[qualification.first_candidate]
+revision = "04f94231571fe230c4008488ba3cde97907629aa"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+command = "cg spec done 22.39.305 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "160 of 161 tests passed; the API-boundary assertion reached the previously hidden direct generated import in support/service.fixture.ts."
+repair = "Complete the task-scoped transport-boundary repair for every source file checked by the same assertion, then rebuild and verify the resulting single candidate."
+
+[case.unified_account_both_halves]
+file = "apps/web/e2e/explorer-account.test.ts"
+inventory_line = 95
+cause = "The unified account producer and decoder now require layerx_activity and freshness, both absent from the older shared test document."
+repair = "Complete the document with native receipt activity, its cursor and freshness; preserve every prior identity, balance, settlement and Paxeer activity assertion and assert the exact decoded native activity and freshness."
+
+[case.unified_account_single_half]
+file = "apps/web/e2e/explorer-account.test.ts"
+inventory_line = 132
+cause = "The single-half case inherited the incomplete shared document instead of the producer's explicit empty native activity window."
+repair = "Use an explicit empty layerx_activity window with the required freshness, assert no native items or invented cursor, and add explicit rejection assertions for missing native activity and missing freshness while keeping all malformed-document cases."
+
+[case.launchpad_pinned_market_rows]
+file = "apps/web/e2e/launchpad-reads.test.ts"
+inventory_line = 264
+cause = "launchpadMarkets now carries currentFeeBps from getPoolStats, but the exact expected market page omitted that contract field."
+repair = "Include the exact 5n fee in every expected row; retain exact row equality, one pinned block, the exact read count and concurrency bound eight."
+
+[case.launchpad_row_failure]
+file = "apps/web/e2e/launchpad-reads.test.ts"
+inventory_line = 323
+cause = "The failure case reused fee-less expected rows and action props, and its page capability probe used the default node rather than the local server because only LAYERX_GATEWAY_URL was configured."
+repair = "Assert currentFeeBps in healthy rows and action props; configure and restore LAYERX_NODE_ENDPOINT alongside the existing gateway endpoint so the actual capability producer is reached. Retain exact failure messages, one unavailable row, healthy markets, action filtering, read counts and concurrency assertions."
+
+[case.launchpad_price_native]
+file = "apps/web/e2e/launchpad-reads.test.ts"
+inventory_line = 443
+cause = "The live page probes px_getCapabilities through LAYERX_NODE_ENDPOINT, which the test server setup did not configure."
+repair = "Configure the existing server as the node endpoint and retain the Markets table assertion, exact native price 10000000000000 rendering as 0.00001, exact supply, reserve, volume and creation fee cells, and capability/read observations."
+
+[case.launchpad_price_zero]
+file = "apps/web/e2e/launchpad-reads.test.ts"
+inventory_line = 443
+cause = "The same unconfigured node capability endpoint prevented the zero-price case from reaching the table."
+repair = "Use the corrected node endpoint setup and retain the exact 0 rendering and all amount and table assertions."
+
+[case.launchpad_price_smallest_unit]
+file = "apps/web/e2e/launchpad-reads.test.ts"
+inventory_line = 443
+cause = "The same unconfigured node capability endpoint prevented the smallest-unit price case from reaching the table."
+repair = "Use the corrected node endpoint setup and retain the exact 1 rendering as 0.000000000000000001 and all amount and table assertions."
+
+[case.launchpad_price_above_safe_integer]
+file = "apps/web/e2e/launchpad-reads.test.ts"
+inventory_line = 443
+cause = "The same unconfigured node capability endpoint prevented the large price case from reaching the table."
+repair = "Use the corrected node endpoint setup and retain the exact 9007199254740993123456789012345678 rendering as 9007199254740993.123456789012345678 and all amount and table assertions."

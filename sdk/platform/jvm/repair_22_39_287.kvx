@@ -1,0 +1,25 @@
+[repair.22.39.287]
+acceptance = "22998.1"
+decision = "3123"
+gotcha = "3980"
+base_revision = "4673f5c1e991deedcd4481789cb54f6f6bc8d530"
+test = "GeneratedCatalogueProgramsTest.nativePrepareCarriesThePreparationRecord"
+caller = "Repair22331391Test.programMetadataMatchesCanonicalRetainedTransactionContract"
+former_native_shape = ["chainId", "nonce", "gas", "to", "data"]
+former_prepare_shape = ["chainId", "nonce", "gas", "to", "data"]
+requested_native_shape = ["version", "preparation_id", "canonical_bytes", "signing_preimage", "approval_id"]
+regenerated_prepare_shape = ["preparation_ref", "unsigned_canonical_bytes", "signing_preimage", "disclosure", "expiry"]
+proof = "Exact record component names, exclusion of activity and moduleId, PREPARE response and McpNativeWriteV1 preparation bindings, Jackson field values and round trips, rejection of every missing required field, and rejection of kernel activity objects execute through grouped assertions."
+
+[gotcha.native-preparation-contract]
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:553"
+symbol = "NativePrepareResultV1"
+observed = "The checked-in generated record and services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs NativePrepareResultV1Wire both carry version, preparation_id, canonical_bytes, signing_preimage, activity, approval_required and approval_id; activity and approval_required are required JSON properties."
+assumption = "The task explicitly requires the five-field native shape to exclude activity; preserve that assertion and record the contradiction without modifying generated code or silently accepting a different contract."
+
+[qualification]
+build_command = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_command = "test -s sdk/platform/jvm/repair_22_39_287.kvx && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=GeneratedCatalogueProgramsTest+Repair22331391Test -Dsurefire.failIfNoSpecifiedTests=false"
+verified_revision = "/out/run/gates.jsonl: final verify row records the exact candidate revision with its command, exit and private log; it qualifies only if both gates pass on the same revision."
+build_evidence = "/out/run/gates.jsonl: build row matching the final verify revision."
+publication = "The task runner publishes the candidate; no manual commit or push."

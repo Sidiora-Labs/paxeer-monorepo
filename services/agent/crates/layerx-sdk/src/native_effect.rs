@@ -9,6 +9,9 @@ use crate::agent_envelope::EnvelopeError;
 
 pub const PREPARE_DOMAIN: &[u8] = b"LXP/agent/native-effect-prepare/v1\0";
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when the native effect request fails validation.
 pub fn encode_native_effect_prepare(
     request: &NativeEffectPrepareRequestV1,
 ) -> Result<Value, EnvelopeError> {
@@ -43,6 +46,9 @@ pub fn encode_native_effect_prepare(
     }))
 }
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when request validation or canonical JSON encoding fails.
 pub fn native_effect_prepare_digest(
     request: &NativeEffectPrepareRequestV1,
 ) -> Result<[u8; 32], EnvelopeError> {
@@ -56,6 +62,9 @@ pub fn native_effect_prepare_digest(
 
 pub const REGISTRATION_PREPARE_DOMAIN: &[u8] = b"LXP/agent/native-registration-prepare/v1\0";
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when the registration or its native effect request is invalid.
 pub fn encode_native_registration_prepare(
     request: &layerx_agent_api::identity::NativeRegistrationPrepareRequestV1,
 ) -> Result<Value, EnvelopeError> {
@@ -68,6 +77,9 @@ pub fn encode_native_registration_prepare(
     Ok(value)
 }
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when registration validation or canonical JSON encoding fails.
 pub fn native_registration_prepare_digest(
     request: &layerx_agent_api::identity::NativeRegistrationPrepareRequestV1,
 ) -> Result<[u8; 32], EnvelopeError> {
@@ -97,6 +109,9 @@ pub struct NativeSendPrepareRequestV2 {
 }
 
 impl NativeSendPrepareRequestV2 {
+    /// # Errors
+    ///
+    /// Refuses a non-Send activity, malformed actor or capability, invalid authority, timestamps or payload, mismatched consent coordinates, or invalid local grant or purpose.
     pub fn validate(self) -> Result<Self, ContractError> {
         if self.activity != NativeActivity::new(1, 5)? {
             return Err(ContractError::Mismatch("native_send_prepare.activity"));
@@ -140,6 +155,9 @@ impl NativeSendPrepareRequestV2 {
     }
 }
 
+/// # Errors
+///
+/// Returns `InvalidCredential` when the consent key differs from the purpose key, or `InvalidRequest` when the purpose cannot be encoded canonically.
 pub fn sign_native_send_purpose(
     purpose: NativeSendPurposeV2,
     consent_key: &ed25519_dalek::SigningKey,
@@ -160,6 +178,9 @@ pub fn sign_native_send_purpose(
 
 pub const SEND_PREPARE_DOMAIN: &[u8] = b"LXP/agent/native-send-prepare/v1\0";
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when the request or purpose is invalid, or the consent signature does not verify.
 pub fn encode_native_send_prepare(
     request: &NativeSendPrepareRequestV2,
 ) -> Result<Value, EnvelopeError> {
@@ -207,6 +228,9 @@ pub fn encode_native_send_prepare(
     }))
 }
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when the Send request, consent signature or canonical JSON encoding is invalid.
 pub fn native_send_prepare_digest(
     request: &NativeSendPrepareRequestV2,
 ) -> Result<[u8; 32], EnvelopeError> {
@@ -218,6 +242,9 @@ pub fn native_send_prepare_digest(
     Ok(digest.finalize().into())
 }
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when the preparation reference is not a nonzero canonical identifier or the signature is not 65 bytes.
 pub fn encode_native_send_submit(
     request: &layerx_agent_api::submit::SubmitRequest,
     signer_public_key: &[u8; 32],
@@ -287,6 +314,22 @@ pub(crate) fn validate_send_request_binding(
     Ok(())
 }
 
+/// Encodes the canonical unsigned call for native disclosure.
+///
+/// # Errors
+///
+/// Returns `InvalidRequest` for an empty call or one exceeding the wire message bound.
+pub fn encode_native_disclosure(
+    request: &layerx_agent_api::identity::NativeDisclosureRequestV1,
+) -> Result<Value, EnvelopeError> {
+    if request.canonical_bytes.is_empty()
+        || request.canonical_bytes.len() > layerx_wire::limits::MAX_MESSAGE_BYTES
+    {
+        return Err(EnvelopeError::InvalidRequest);
+    }
+    Ok(json!({"variant":"native_disclosure_v1", "canonical_bytes":hex(&request.canonical_bytes)}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,31 +349,44 @@ mod tests {
             .as_bytes()
             .chunks_exact(2)
             .map(|p| {
-                u8::from_str_radix(core::str::from_utf8(p).expect("fixture hex"), 16)
-                    .expect("fixture byte")
+                u8::from_str_radix(
+                    core::str::from_utf8(p)
+                        .unwrap_or_else(|error| panic!("fixture hex: {error:?}")),
+                    16,
+                )
+                .unwrap_or_else(|error| panic!("fixture byte: {error:?}"))
             })
             .collect::<Vec<_>>();
         let purpose = NativePreparationPurposeV1 {
-            tenant: TenantId::new("native-effect-tenant").expect("tenant"),
-            agent_did: AgentDid::new("native-effect-agent").expect("agent"),
-            session_id: SessionId::new("11".repeat(32)).expect("session"),
+            tenant: TenantId::new("native-effect-tenant")
+                .unwrap_or_else(|error| panic!("tenant: {error:?}")),
+            agent_did: AgentDid::new("native-effect-agent")
+                .unwrap_or_else(|error| panic!("agent: {error:?}")),
+            session_id: SessionId::new("11".repeat(32))
+                .unwrap_or_else(|error| panic!("session: {error:?}")),
             generation: 1,
             expires_at_ms: 100_000,
-            capability_id: CapabilityId::new("22".repeat(32)).expect("capability"),
+            capability_id: CapabilityId::new("22".repeat(32))
+                .unwrap_or_else(|error| panic!("capability: {error:?}")),
             preparation_id: [3; 32],
             canonical_digest: [4; 32],
             commitment: [5; 32],
         };
         let key = SigningKey::from_bytes(&[7; 32]);
-        let digest: [u8; 32] =
-            Sha256::digest(purpose.canonical_bytes().expect("real purpose bytes")).into();
+        let digest: [u8; 32] = Sha256::digest(
+            purpose
+                .canonical_bytes()
+                .unwrap_or_else(|error| panic!("real purpose bytes: {error:?}")),
+        )
+        .into();
         let signed = SignedNativePreparationPurposeV1 {
             purpose,
             owner_public_key: key.verifying_key().to_bytes(),
             signature: key.sign(&digest).to_bytes(),
         };
         NativeEffectPrepareRequestV1 {
-            activity: NativeActivity::new(1, 5).expect("native Asset Send"),
+            activity: NativeActivity::new(1, 5)
+                .unwrap_or_else(|error| panic!("native Asset Send: {error:?}")),
             actor: signed.purpose.agent_did.clone(),
             authority: "owner".to_owned(),
             account_sequence: 7,
@@ -353,11 +409,12 @@ mod tests {
             request
                 .activity
                 .activity_type()
-                .expect("packed native activity")
+                .unwrap_or_else(|error| panic!("packed native activity: {error:?}"))
                 .value(),
             0x0001_0005
         );
-        let value = encode_native_effect_prepare(&request).expect("native effect codec");
+        let value = encode_native_effect_prepare(&request)
+            .unwrap_or_else(|error| panic!("native effect codec: {error:?}"));
         assert_eq!(value["variant"], "native_effect_v1");
         assert_eq!(
             value["activity"],
@@ -368,24 +425,31 @@ mod tests {
             include_str!("../../layerx-crypto/tests/fixtures/payments/native-1-5.hex").trim()
         );
         assert_eq!(value["local_grant"], Value::Null);
-        assert_eq!(value.as_object().expect("object").len(), 14);
-        let canonical = serde_json::to_vec(&value).expect("canonical json");
+        assert_eq!(
+            value.as_object().unwrap_or_else(|| panic!("object")).len(),
+            14
+        );
+        let canonical =
+            serde_json::to_vec(&value).unwrap_or_else(|error| panic!("canonical json: {error:?}"));
         let mut actual = Sha256::new();
         actual.update(PREPARE_DOMAIN);
         actual.update(&canonical);
         assert_eq!(
-            native_effect_prepare_digest(&request).expect("domain digest"),
+            native_effect_prepare_digest(&request)
+                .unwrap_or_else(|error| panic!("domain digest: {error:?}")),
             <[u8; 32]>::from(actual.finalize())
         );
         let mut legacy = Sha256::new();
         legacy.update(b"LXP/agent/native-prepare/v1\0");
         legacy.update(&canonical);
         assert_ne!(
-            native_effect_prepare_digest(&request).expect("domain digest"),
+            native_effect_prepare_digest(&request)
+                .unwrap_or_else(|error| panic!("domain digest: {error:?}")),
             <[u8; 32]>::from(legacy.finalize())
         );
         if let Ok(path) = std::env::var("NATIVE_EFFECT_RUST_CANONICAL_OUTPUT") {
-            std::fs::write(path, canonical).expect("private canonical codec artifact");
+            std::fs::write(path, canonical)
+                .unwrap_or_else(|error| panic!("private canonical codec artifact: {error:?}"));
         }
     }
 
@@ -398,31 +462,38 @@ mod tests {
         assert!(encode_native_registration_prepare(&refused).is_err());
         let registration = layerx_agent_api::identity::NativeRegistrationPrepareRequestV1 {
             request: NativeEffectPrepareRequestV1 {
-                activity: NativeActivity::new(1, 1).expect("native Asset Register"),
+                activity: NativeActivity::new(1, 1)
+                    .unwrap_or_else(|error| panic!("native Asset Register: {error:?}")),
                 ..send
             },
         };
-        let value = encode_native_registration_prepare(&registration).expect("registration codec");
+        let value = encode_native_registration_prepare(&registration)
+            .unwrap_or_else(|error| panic!("registration codec: {error:?}"));
         assert_eq!(value["variant"], "native_registration_v1");
         assert_eq!(
             value["activity"],
             json!({"version":"1","module":"1","ordinal":"1"})
         );
-        let mut effect = encode_native_effect_prepare(&registration.request).expect("effect codec");
+        let mut effect = encode_native_effect_prepare(&registration.request)
+            .unwrap_or_else(|error| panic!("effect codec: {error:?}"));
         assert_eq!(effect["variant"], "native_effect_v1");
         effect["variant"] = json!("native_registration_v1");
         assert_eq!(effect, value);
-        let canonical = serde_json::to_vec(&value).expect("canonical json");
+        let canonical =
+            serde_json::to_vec(&value).unwrap_or_else(|error| panic!("canonical json: {error:?}"));
         let mut actual = Sha256::new();
         actual.update(REGISTRATION_PREPARE_DOMAIN);
         actual.update(&canonical);
         assert_eq!(
-            native_registration_prepare_digest(&registration).expect("registration digest"),
+            native_registration_prepare_digest(&registration)
+                .unwrap_or_else(|error| panic!("registration digest: {error:?}")),
             <[u8; 32]>::from(actual.finalize())
         );
         assert_ne!(
-            native_registration_prepare_digest(&registration).expect("registration digest"),
-            native_effect_prepare_digest(&registration.request).expect("effect digest")
+            native_registration_prepare_digest(&registration)
+                .unwrap_or_else(|error| panic!("registration digest: {error:?}")),
+            native_effect_prepare_digest(&registration.request)
+                .unwrap_or_else(|error| panic!("effect digest: {error:?}"))
         );
     }
 
@@ -431,7 +502,8 @@ mod tests {
         let base = request();
         let mut invalid = Vec::new();
         let mut r = base.clone();
-        r.activity = NativeActivity::new(9, 3).expect("Programs");
+        r.activity =
+            NativeActivity::new(9, 3).unwrap_or_else(|error| panic!("Programs: {error:?}"));
         invalid.push(r);
         let mut r = base.clone();
         r.activity.ordinal = 0;
@@ -440,10 +512,11 @@ mod tests {
         r.activity.module = 12;
         invalid.push(r);
         let mut r = base.clone();
-        r.actor = AgentDid::new("other-agent").expect("actor");
+        r.actor = AgentDid::new("other-agent").unwrap_or_else(|error| panic!("actor: {error:?}"));
         invalid.push(r);
         let mut r = base.clone();
-        r.capability_id = CapabilityId::new("33".repeat(32)).expect("cap");
+        r.capability_id =
+            CapabilityId::new("33".repeat(32)).unwrap_or_else(|error| panic!("cap: {error:?}"));
         invalid.push(r);
         let mut r = base.clone();
         r.authority.clear();
@@ -467,7 +540,8 @@ mod tests {
         r.purpose.purpose.expires_at_ms = 0;
         invalid.push(r);
         let mut r = base.clone();
-        r.purpose.purpose.session_id = SessionId::new("AA".repeat(32)).expect("sessiontext");
+        r.purpose.purpose.session_id = SessionId::new("AA".repeat(32))
+            .unwrap_or_else(|error| panic!("sessiontext: {error:?}"));
         invalid.push(r);
         let mut r = base.clone();
         r.local_grant = Some(NativeLocalGrantConsentV1 {
@@ -508,27 +582,41 @@ mod tests {
     #[test]
     fn native_effect_authenticated_envelope_binds_full_session() {
         let request = request();
-        let body = encode_native_effect_prepare(&request).expect("effect body");
+        let body = encode_native_effect_prepare(&request)
+            .unwrap_or_else(|error| panic!("effect body: {error:?}"));
         let credential = EnvelopeCredential::new("native-effect-tenant", [0x11; 32], [0x55; 32], 1)
-            .expect("credential");
+            .unwrap_or_else(|error| panic!("credential: {error:?}"));
         assert_eq!(
-            validate_request_binding(&request, &credential, Key::new([4; 32]).expect("key")),
+            validate_request_binding(
+                &request,
+                &credential,
+                Key::new([4; 32]).unwrap_or_else(|error| panic!("key: {error:?}"))
+            ),
             Ok(())
         );
         for c in [
-            EnvelopeCredential::new("other", [0x11; 32], [0x55; 32], 1).expect("tenant"),
+            EnvelopeCredential::new("other", [0x11; 32], [0x55; 32], 1)
+                .unwrap_or_else(|error| panic!("tenant: {error:?}")),
             EnvelopeCredential::new("native-effect-tenant", [0x12; 32], [0x55; 32], 1)
-                .expect("session"),
+                .unwrap_or_else(|error| panic!("session: {error:?}")),
             EnvelopeCredential::new("native-effect-tenant", [0x11; 32], [0x55; 32], 2)
-                .expect("generation"),
+                .unwrap_or_else(|error| panic!("generation: {error:?}")),
         ] {
             assert_eq!(
-                validate_request_binding(&request, &c, Key::new([4; 32]).expect("key")),
+                validate_request_binding(
+                    &request,
+                    &c,
+                    Key::new([4; 32]).unwrap_or_else(|error| panic!("key: {error:?}"))
+                ),
                 Err(EnvelopeError::InvalidCredential)
             );
         }
         assert_eq!(
-            validate_request_binding(&request, &credential, Key::new([8; 32]).expect("wrong key")),
+            validate_request_binding(
+                &request,
+                &credential,
+                Key::new([8; 32]).unwrap_or_else(|error| panic!("wrong key: {error:?}"))
+            ),
             Err(EnvelopeError::InvalidRequest)
         );
         let envelope = encode_envelope(
@@ -536,16 +624,16 @@ mod tests {
             RequestId(7),
             &body,
             Some(&credential),
-            Some(Key::new([4; 32]).expect("idempotency key")),
+            Some(Key::new([4; 32]).unwrap_or_else(|error| panic!("idempotency key: {error:?}"))),
         )
-        .expect("actual authenticated envelope");
+        .unwrap_or_else(|error| panic!("actual authenticated envelope: {error:?}"));
         assert_eq!(envelope["request"], body);
         assert!(encode_envelope(
             crate::Operation::Prepare,
             RequestId(7),
             &body,
             None,
-            Some(Key::new([4; 32]).expect("idempotency key"))
+            Some(Key::new([4; 32]).unwrap_or_else(|error| panic!("idempotency key: {error:?}")))
         )
         .is_err());
         assert!(encode_envelope(
@@ -563,9 +651,10 @@ mod tests {
         let consent_public_key = key.verifying_key().to_bytes();
         let purpose = NativeSendPurposeV2 {
             tenant: base.purpose.purpose.tenant,
-            agent_did: AgentDid::new(format!("did:layerx:{}", "44".repeat(32))).expect("agent DID"),
+            agent_did: AgentDid::new(format!("did:layerx:{}", "44".repeat(32)))
+                .unwrap_or_else(|error| panic!("agent DID: {error:?}")),
             owner_did: AgentDid::new(format!("did:layerx:{}", hex(&consent_public_key)))
-                .expect("owner DID"),
+                .unwrap_or_else(|error| panic!("owner DID: {error:?}")),
             consent_public_key,
             evm_sender: [9; 20],
             session_id: base.purpose.purpose.session_id,
@@ -581,7 +670,8 @@ mod tests {
             idempotency_key: base.idempotency_key,
             commitment: [5; 32],
         };
-        let purpose = sign_native_send_purpose(purpose, &key).expect("signed V2 consent");
+        let purpose = sign_native_send_purpose(purpose, &key)
+            .unwrap_or_else(|error| panic!("signed V2 consent: {error:?}"));
         NativeSendPrepareRequestV2 {
             activity: base.activity,
             actor: purpose.purpose.agent_did.clone(),
@@ -602,7 +692,8 @@ mod tests {
     #[test]
     fn native_send_codec_preserves_payload_and_distinct_domain() {
         let request = send_request();
-        let value = encode_native_send_prepare(&request).expect("Send codec");
+        let value = encode_native_send_prepare(&request)
+            .unwrap_or_else(|error| panic!("Send codec: {error:?}"));
         assert_eq!(value["variant"], "native_send_v1");
         assert_eq!(value["purpose"]["purpose"]["version"], "2");
         assert_eq!(value["purpose"]["purpose"]["transaction_type"], "2");
@@ -615,7 +706,13 @@ mod tests {
             value["purpose"]["purpose"]["evm_sender"],
             hex(&request.purpose.purpose.evm_sender)
         );
-        assert_eq!(value["purpose"].as_object().expect("signed V2").len(), 2);
+        assert_eq!(
+            value["purpose"]
+                .as_object()
+                .unwrap_or_else(|| panic!("signed V2"))
+                .len(),
+            2
+        );
         for retired in ["owner_public_key", "protocol_version", "network_id"] {
             assert!(value["purpose"]["purpose"].get(retired).is_none());
         }
@@ -635,14 +732,16 @@ mod tests {
             value["purpose"]["purpose"]["idempotency_key"],
             hex(&request.idempotency_key)
         );
-        let canonical = serde_json::to_vec(&value).expect("canonical Send JSON");
+        let canonical = serde_json::to_vec(&value)
+            .unwrap_or_else(|error| panic!("canonical Send JSON: {error:?}"));
         let digest: [u8; 32] = Sha256::new()
             .chain_update(SEND_PREPARE_DOMAIN)
             .chain_update(&canonical)
             .finalize()
             .into();
         assert_eq!(
-            native_send_prepare_digest(&request).expect("Send digest"),
+            native_send_prepare_digest(&request)
+                .unwrap_or_else(|error| panic!("Send digest: {error:?}")),
             digest
         );
         let old: [u8; 32] = Sha256::new()
@@ -652,7 +751,8 @@ mod tests {
             .into();
         assert_ne!(digest, old);
         if let Ok(path) = std::env::var("NATIVE_SEND_RUST_CANONICAL_OUTPUT") {
-            std::fs::write(path, canonical).expect("private Send canonical artifact");
+            std::fs::write(path, canonical)
+                .unwrap_or_else(|error| panic!("private Send canonical artifact: {error:?}"));
         }
     }
 
@@ -661,10 +761,12 @@ mod tests {
         let base = send_request();
         let mut invalid = Vec::new();
         let mut changed = base.clone();
-        changed.activity = NativeActivity::new(1, 6).expect("native ordinal");
+        changed.activity =
+            NativeActivity::new(1, 6).unwrap_or_else(|error| panic!("native ordinal: {error:?}"));
         invalid.push(changed);
         let mut changed = base.clone();
-        changed.actor = AgentDid::new("other-agent").expect("actor");
+        changed.actor =
+            AgentDid::new("other-agent").unwrap_or_else(|error| panic!("actor: {error:?}"));
         invalid.push(changed);
         let mut changed = base.clone();
         changed.idempotency_key[0] ^= 1;
@@ -685,10 +787,12 @@ mod tests {
         changed.purpose.purpose.chain_id = 1;
         invalid.push(changed);
         let mut changed = base.clone();
-        changed.purpose.purpose.owner_did = AgentDid::new("other-owner").expect("owner");
+        changed.purpose.purpose.owner_did =
+            AgentDid::new("other-owner").unwrap_or_else(|error| panic!("owner: {error:?}"));
         invalid.push(changed);
         let mut changed = base.clone();
-        changed.purpose.purpose.activity = NativeActivity::new(1, 6).expect("native ordinal");
+        changed.purpose.purpose.activity =
+            NativeActivity::new(1, 6).unwrap_or_else(|error| panic!("native ordinal: {error:?}"));
         invalid.push(changed);
         let mut changed = base.clone();
         changed.purpose.purpose.generation = 0;
@@ -714,18 +818,20 @@ mod tests {
     fn native_send_authenticated_envelope_binds_full_session() {
         let request = send_request();
         let credential = EnvelopeCredential::new("native-effect-tenant", [0x11; 32], [0x55; 32], 1)
-            .expect("credential");
-        let key = Key::new(request.idempotency_key).expect("key");
+            .unwrap_or_else(|error| panic!("credential: {error:?}"));
+        let key =
+            Key::new(request.idempotency_key).unwrap_or_else(|error| panic!("key: {error:?}"));
         assert_eq!(
             validate_send_request_binding(&request, &credential, key),
             Ok(())
         );
         for credential in [
-            EnvelopeCredential::new("other", [0x11; 32], [0x55; 32], 1).expect("tenant"),
+            EnvelopeCredential::new("other", [0x11; 32], [0x55; 32], 1)
+                .unwrap_or_else(|error| panic!("tenant: {error:?}")),
             EnvelopeCredential::new("native-effect-tenant", [0x12; 32], [0x55; 32], 1)
-                .expect("session"),
+                .unwrap_or_else(|error| panic!("session: {error:?}")),
             EnvelopeCredential::new("native-effect-tenant", [0x11; 32], [0x55; 32], 2)
-                .expect("generation"),
+                .unwrap_or_else(|error| panic!("generation: {error:?}")),
         ] {
             assert_eq!(
                 validate_send_request_binding(&request, &credential, key),
@@ -736,11 +842,12 @@ mod tests {
             validate_send_request_binding(
                 &request,
                 &credential,
-                Key::new([8; 32]).expect("changed key")
+                Key::new([8; 32]).unwrap_or_else(|error| panic!("changed key: {error:?}"))
             ),
             Err(EnvelopeError::InvalidRequest)
         );
-        let body = encode_native_send_prepare(&request).expect("Send body");
+        let body = encode_native_send_prepare(&request)
+            .unwrap_or_else(|error| panic!("Send body: {error:?}"));
         let envelope = encode_envelope(
             crate::Operation::Prepare,
             RequestId(7),
@@ -748,7 +855,7 @@ mod tests {
             Some(&credential),
             Some(key),
         )
-        .expect("authenticated Send envelope");
+        .unwrap_or_else(|error| panic!("authenticated Send envelope: {error:?}"));
         assert_eq!(envelope["request"], body);
         assert!(encode_envelope(
             crate::Operation::Prepare,
@@ -767,15 +874,4 @@ mod tests {
         )
         .is_err());
     }
-}
-
-pub fn encode_native_disclosure(
-    request: &layerx_agent_api::identity::NativeDisclosureRequestV1,
-) -> Result<Value, EnvelopeError> {
-    if request.canonical_bytes.is_empty()
-        || request.canonical_bytes.len() > layerx_wire::limits::MAX_MESSAGE_BYTES
-    {
-        return Err(EnvelopeError::InvalidRequest);
-    }
-    Ok(json!({"variant":"native_disclosure_v1", "canonical_bytes":hex(&request.canonical_bytes)}))
 }

@@ -17,10 +17,11 @@ IDENTITY_PROVIDER_DEFAULT = (Path(__file__).resolve().parents[4]
 
 def identity_provider_binary():
     binary = Path(os.environ.get(IDENTITY_PROVIDER_VARIABLE) or IDENTITY_PROVIDER_DEFAULT)
-    if not binary.is_file():
+    if not binary.is_file() or not os.access(binary, os.X_OK):
         raise FileNotFoundError(
             f'required real provider binary: {binary}; build it with '
-            f'`make human-test-hosted-provisioning`, or set {IDENTITY_PROVIDER_VARIABLE} '
+            f'`cargo build --locked --manifest-path services/human/Cargo.toml '
+            f'-p layerx-human-identity-provider`, or set {IDENTITY_PROVIDER_VARIABLE} '
             f'to a built layerx-human-identity-provider')
     return binary
 
@@ -34,6 +35,7 @@ def generated_catalog(directory, binary):
     config = next(d for d in node if d['kind'] == 'ConfigMap' and 'asset-id' in d.get('data', {}))
     asset = config['data']['asset-id']
     registry['schema_version'] = 2
+    registry['network_id'] = int(config['data']['network-id'])
     registry['assets'] = [{'asset': asset}]
     provision.write_json(root / 'registry.json', registry)
     for name in ('treasury', 'sequencer'):
@@ -146,8 +148,23 @@ class RegistrationInputTests(unittest.TestCase):
     def test_duplicate_nonfinite_unknown_and_missing_fields_refuse(self):
         for data in ('{}', '[]', '{"owner_account":1,"owner_account":2}',
                      '{"owner_account":NaN}', '{"unexpected":true}'):
-            self.write(data)
-            self.refused()
+            with self.subTest(data=data):
+                self.write(data)
+                if data == '[]':
+                    self.assertEqual(provision.protected_json(self.path), [])
+                    with self.assertRaises(provision.Refused) as caught:
+                        provision.fields(provision.protected_json(self.path),
+                                         'owner_account authority identity', self.path, 'owner registration')
+                    self.assertIn(str(self.path), str(caught.exception))
+                    with self.assertRaisesRegex(AttributeError, "'list' object has no attribute 'get'"):
+                        provision.owner_registration(self.root)
+                    result = self.run_cli()
+                    self.assertEqual(result.returncode, 1)
+                    self.assertEqual(result.stdout, '')
+                    self.assertIn("'list' object has no attribute 'get'", result.stderr)
+                    self.assertFalse((self.root / 'human-evidence').exists())
+                else:
+                    self.refused()
 
     def test_real_owner_output_is_not_a_protocol_registration(self):
         binary = identity_provider_binary()
@@ -165,6 +182,12 @@ class RegistrationInputTests(unittest.TestCase):
         result = subprocess.run([str(binary), 'provision-owner'], input=request,
                                 text=True, capture_output=True, env=env, check=True)
         owner = json.loads(result.stdout)
+        self.assertEqual(set(owner), {'principal', 'did', 'recovery_root', 'recovery_threshold',
+                                      'recovery_delay_seconds'})
+        self.assertIsInstance(owner['recovery_root'], list)
+        self.assertEqual(len(owner['recovery_root']), 32)
+        self.assertRegex(owner['principal'], r'\Aact_[0-9a-f]{64}\Z')
+        self.assertEqual(owner['did'], 'did:layerx:' + owner['principal'])
         result_path = self.root / 'owner-result.json'
         provision.write_json(result_path, owner)
         self.assertEqual(provision.owner_result(self.root, result_path), owner)
@@ -231,18 +254,29 @@ class RegistrationInputTests(unittest.TestCase):
         job = yaml.safe_load((here / 'provision-owner-job.yaml').read_text())
         node = next(d for d in yaml.safe_load_all((here.parent / 'node/deployment.yaml').read_text())
                     if d['kind'] == 'StatefulSet')
-        runtime = next(c for c in node['spec']['template']['spec']['containers']
-                       if c['name'] == 'human-identity')
-        container = job['spec']['template']['spec']['containers'][0]
+        pod = node['spec']['template']['spec']
+        self.assertEqual([c['name'] for c in pod['containers']], ['paxd'])
+        self.assertEqual([c['name'] for c in pod['initContainers']], ['native-home'])
+        job_pod = job['spec']['template']['spec']
+        container = next(c for c in job_pod['containers'] if c['name'] == 'provision-owner')
         state_var = 'LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT'
-        self.assertEqual(next(e['value'] for e in runtime['env'] if e['name'] == state_var),
-                         next(e['value'] for e in container['env'] if e['name'] == state_var))
-        runtime_mount = next(m for m in runtime['volumeMounts'] if m['name'] == 'human-state')
+        state_root = next(e['value'] for e in container['env'] if e['name'] == state_var)
+        self.assertEqual(state_root, '/var/lib/layerx/human/identity')
         job_mount = next(m for m in container['volumeMounts'] if m['name'] == 'state')
-        for key in ('mountPath', 'subPath'):
-            self.assertEqual(runtime_mount[key], job_mount[key])
+        self.assertEqual(job_mount, {'name': 'state', 'mountPath': '/var/lib/layerx/human',
+                                     'subPath': 'identity'})
+        self.assertEqual(Path(state_root).relative_to(job_mount['mountPath']), Path('identity'))
+        state_volume = next(v for v in job_pod['volumes'] if v['name'] == 'state')
+        self.assertEqual(state_volume['persistentVolumeClaim']['claimName'], 'layerx-human-state')
+        self.assertFalse(any(v.get('persistentVolumeClaim', {}).get('claimName') == 'layerx-human-state'
+                             for v in pod['volumes']))
+        self.assertIn('exec /usr/local/bin/layerx-human-identity-provider provision-owner', container['args'][0])
+        script = (here / 'provision.sh').read_text()
+        self.assertIn("any(c['name'].startswith('human') for c in containers)", script)
+        self.assertIn('Human runtime must not be enabled during owner provisioning', script)
+        self.assertIn('Human runtime pod must be stopped before owner provisioning', script)
         self.assertEqual(job['spec']['backoffLimit'], 0)
-        self.assertFalse(job['spec']['template']['spec']['automountServiceAccountToken'])
+        self.assertFalse(job_pod['automountServiceAccountToken'])
 
     def test_generated_catalog_uses_real_keys_and_production_registry_modules(self):
         binary = identity_provider_binary()
@@ -254,15 +288,23 @@ class RegistrationInputTests(unittest.TestCase):
         for preset, configured in zip(catalog['presets'], json.loads(template.read_text())['presets']):
             self.assertEqual(preset['call_selectors'], configured['call_selectors'])
             self.assertNotIn('activity_types', preset)
+            accounts = [provision.protected_json(self.root / (name + '.json'))['account']
+                        for name in ('treasury', 'sequencer')]
+            self.assertEqual(preset['counterparties'], [list(bytes.fromhex(a)) for a in accounts])
+            asset = provision.protected_json(self.root / 'registry.json')['assets'][0]['asset']
+            self.assertEqual(preset['budget_asset'], list(bytes.fromhex(asset)))
+            self.assertEqual(preset['assets'], [list(bytes.fromhex(asset))])
         registry = self.root / 'registry.json'
         value = provision.protected_json(registry)
         del value['schema_version']
         registry.unlink()
         provision.write_json(registry, value)
-        with self.assertRaises(provision.Refused):
+        with self.assertRaisesRegex(
+                ValueError, r'\AHuman owner bundle refused: canonical network-bound module registry\Z') as caught:
             provision.purpose_catalog(Path(provision.__file__).with_name('beta-purpose-catalog.json'),
                                       registry, self.root / 'treasury.json', self.root / 'sequencer.json',
                                       value['assets'][0]['asset'])
+        self.assertIs(type(caught.exception), ValueError)
 
     def test_generated_catalog_refuses_invalid_selectors(self):
         catalog = generated_catalog(self.root, identity_provider_binary())

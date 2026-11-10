@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { keccak256, type Hex } from "viem";
 
-import { HumanApiError, type ActivityEntry, type ActivityEntryDetail, type ActivityGroup, type ActivityPage, type ExportArtefact } from "../src/api/generated/index.ts";
+import { HumanApiError, type ActivityEntry, type ActivityEntryDetail, type ActivityGroup, type ActivityPage, type EvidenceMaterial, type ExportArtefact } from "../src/api/generated/index.ts";
 import { humanApi } from "../src/api/index.ts";
 import { copyEntry } from "../copy/catalog.ts";
 import {
@@ -444,22 +446,31 @@ test("stageView transforms JourneyStage into TimelineStageView", () => {
   assert.equal(view.evidence.length, 1);
 });
 
-test("explorerPath builds explorer URLs for receipts and checkpoints", () => {
+test("explorerPath resolves native receipts and refuses unresolved evidence and checkpoints", () => {
+  const fixture = JSON.parse(readFileSync(new URL(
+    "../../../sdk/platform/conformance/fixtures/vector-v5-portable.json", import.meta.url,
+  ), "utf8")) as { bundles: { rawTransaction: Hex }[] };
+  const portable = fixture.bundles[0]!;
+  const reference = mockActivityDetail.evidence[0]!;
+  const material: EvidenceMaterial = {
+    ...reference,
+    content_type: "application/vnd.layerx.receipt-proof-v2+json",
+    bytes_base64: Buffer.from(JSON.stringify(portable)).toString("base64"),
+  };
+  const origin = "https://explorer.example";
   assert.equal(
-    explorerPath({
-      class: "layerx-receipt",
-      evidence_id: "rcpt_001",
-      verification: "checkpoint-finalised",
-    }),
-    "/explorer/receipts/rcpt_001",
+    explorerPath(reference, material, origin),
+    `${origin}/tx/${keccak256(portable.rawTransaction)}`,
   );
+  assert.equal(explorerPath(reference), undefined);
+  assert.equal(explorerPath(reference, material), undefined);
+  assert.equal(explorerPath(reference, material, `${origin}/injected`), undefined);
+  assert.equal(explorerPath(reference, { ...material, verification: "unverified" }, origin), undefined);
+  assert.throws(() => explorerPath(reference, { ...material, evidence_id: "other" }, origin), /does not match/u);
+  const checkpoint = mockActivityDetail.stages[1]!.evidence[0]!;
   assert.equal(
-    explorerPath({
-      class: "checkpoint-proof",
-      evidence_id: "chkpt_001",
-      verification: "checkpoint-finalised",
-    }),
-    "/explorer/checkpoints/chkpt_001",
+    explorerPath(checkpoint, { ...material, ...checkpoint }, origin),
+    undefined,
   );
   assert.equal(
     explorerPath({

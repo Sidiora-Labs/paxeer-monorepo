@@ -32,6 +32,9 @@ type NativeGenesis struct {
 // receipt seed used by --sequencer.receipt-key-file. Module validation uses
 // the chain's real bank and sequencer validators; there is no LXGB producer.
 func ReadNativeGenesis(raw, receiptSeed []byte) (NativeGenesis, error) {
+	if e := uniqueJSON(raw); e != nil {
+		return NativeGenesis{}, e
+	}
 	doc, e := tmtypes.GenesisDocFromJSON(raw)
 	if e != nil {
 		return NativeGenesis{}, e

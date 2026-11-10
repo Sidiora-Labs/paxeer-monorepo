@@ -101,6 +101,7 @@ pub struct VerificationReport {
     pub verified_receipts: usize,
     pub verified_inclusions: usize,
     pub height: u64,
+    pub checkpoint_height: u64,
     pub block_hash: [u8; 32],
     pub achieved_rung: Rung,
 }
@@ -138,6 +139,10 @@ pub enum ExportProduceError {
     },
     Binding {
         fact: usize,
+    },
+    BindingAt {
+        fact: usize,
+        stage: &'static str,
     },
     MaintenanceLink {
         fact: usize,
@@ -197,11 +202,13 @@ pub fn verify(
     }
     let mut block = None;
     for (fact, (selector, bundle)) in selectors.iter().zip(&artifact.bundles).enumerate() {
-        let refusal = || ExportProduceError::Binding { fact };
-        if bundle.verification_level != Rung::Committed
-            || !trust.receipt_keys.contains(&bundle.receipt_key)
-        {
-            return Err(refusal());
+        let at = |stage| ExportProduceError::BindingAt { fact, stage };
+        let refusal = || at("receipt_payload");
+        if bundle.verification_level != Rung::Committed {
+            return Err(at("rung"));
+        }
+        if !trust.receipt_keys.contains(&bundle.receipt_key) {
+            return Err(at("receipt_key"));
         }
         let keys: Vec<_> = trust
             .receipt_keys
@@ -216,91 +223,126 @@ pub fn verify(
             })
             .collect();
         let receipt = verify_sequencer_signature(bundle.signed_receipt.as_bytes(), keys.as_slice())
-            .map_err(|_| refusal())?;
-        let protocol = receipt.protocol().ok_or_else(refusal)?;
+            .map_err(|_| at("sequencer_signature"))?;
+        let protocol = receipt.protocol().ok_or_else(|| at("protocol"))?;
         let mut height = [0; 32];
         height[24..].copy_from_slice(&artifact.height.to_be_bytes());
-        if protocol.activity_id() != selector.activity_id()
-            || transaction_hash(bundle.raw_transaction.as_bytes()) != protocol.activity_id()
-            || protocol.batch_id() != height
-            || protocol.context_hash() != bundle.receipt_key.key_id
-            || receipt_digest(&encode_unsigned(&receipt).map_err(|_| refusal())?)
-                .map_err(|_| refusal())?
-                != bundle.receipt_digest
-        {
-            return Err(refusal());
+        for (matches, stage) in [
+            (
+                protocol.activity_id() == selector.activity_id(),
+                "activity_id",
+            ),
+            (
+                transaction_hash(bundle.raw_transaction.as_bytes()) == protocol.activity_id(),
+                "raw_transaction",
+            ),
+            (protocol.batch_id() == height, "receipt_height"),
+            (
+                protocol.context_hash() == bundle.receipt_key.key_id,
+                "context_key",
+            ),
+        ] {
+            if !matches {
+                return Err(at(stage));
+            }
         }
-        let header = decode_header(required(&bundle.block_header)?)?;
-        let validators = decode_validators(required(&bundle.validator_set)?)?;
+        let unsigned = encode_unsigned(&receipt).map_err(|_| at("unsigned_receipt"))?;
+        if receipt_digest(&unsigned).map_err(|_| at("receipt_digest"))? != bundle.receipt_digest {
+            return Err(at("receipt_digest"));
+        }
+        let header = decode_header(required(&bundle.block_header).map_err(|_| at("block_header"))?)
+            .map_err(|_| at("block_header"))?;
+        let validators =
+            decode_validators(required(&bundle.validator_set).map_err(|_| at("validator_set"))?)
+                .map_err(|_| at("validator_set"))?;
         if validators != trust.validator_set {
-            return Err(refusal());
+            return Err(at("validator_set"));
         }
-        let commit = decode_commit(required(&bundle.commit)?, &validators)?;
+        let inclusion_bytes =
+            required(&bundle.receipt_inclusion).map_err(|_| at("receipt_inclusion"))?;
+        // Native reader bundles carry tagged JSON; retained Ethereum bundles
+        // carry an RLP list. A malformed native proof never takes the RLP path.
+        let native = inclusion_bytes.first() == Some(&b'{');
+        let commitment_height =
+            committed_checkpoint_height(artifact.height, inclusion_bytes).map_err(at)?;
+        let commit = decode_commit(
+            required(&bundle.commit).map_err(|_| at("commit"))?,
+            &validators,
+        )
+        .map_err(|_| at("commit"))?;
         let checkpoint = checkpoint(
-            artifact.height,
+            commitment_height,
             &header.chain_id,
             &header,
             &commit,
             &validators,
         )
-        .map_err(|_| refusal())?;
-        if block.is_some_and(|hash| hash != checkpoint.block_hash) {
+        .map_err(|_| at("checkpoint"))?;
+        let coordinate = (checkpoint.height, checkpoint.block_hash);
+        if block.is_some_and(|previous| previous != coordinate) {
             return Err(ExportProduceError::MixedSnapshot);
         }
-        block = Some(checkpoint.block_hash);
-        let inclusion = list_items(required(&bundle.receipt_inclusion)?)?;
-        if inclusion.len() != 2 {
-            return Err(refusal());
-        }
-        let evm_receipt = inclusion[0].bytes()?;
-        let proof: Vec<_> = list_items(inclusion[1].raw)?
-            .iter()
-            .map(|item| item.bytes().map(<[u8]>::to_vec))
-            .collect::<Result<_, _>>()?;
-        let summary = decode_summary(&receipt).map_err(|_| refusal())?;
-        let root = header.last_results_hash.ok_or_else(refusal)?;
-        if trie_value(root, &rlp_index(u64::from(summary.tx_index())), &proof)?.as_deref()
-            != Some(evm_receipt)
-        {
-            return Err(refusal());
-        }
-        let payload = match evm_receipt.first() {
-            Some(1..=4) => &evm_receipt[1..],
-            Some(0xc0..=0xff) => evm_receipt,
-            _ => return Err(refusal()),
-        };
-        let fields = list_items(payload)?;
-        if fields.len() != 4
-            || fields[0].bytes()?
-                != if protocol.result_code() == 0 {
-                    &[1][..]
-                } else {
-                    &[][..]
-                }
-            || word(fields[1].bytes()?)? != u64_word(summary.cumulative_gas_used())
-            || fields[2].bytes()?.len() != 256
-        {
-            return Err(refusal());
-        }
-        let mut logs = Vec::new();
-        for (index, log) in list_items(fields[3].raw)?.iter().enumerate() {
-            let fields = list_items(log.raw)?;
-            if fields.len() != 3 {
+        block = Some(coordinate);
+        let summary = decode_summary(&receipt).map_err(|_| at("receipt_summary"))?;
+        let logs = if native {
+            verify_native_inclusion(inclusion_bytes, artifact.height, &checkpoint, &receipt)
+                .map_err(|stage| at(stage))?
+        } else {
+            let inclusion = list_items(inclusion_bytes).map_err(|_| at("inclusion_encoding"))?;
+            if inclusion.len() != 2 {
+                return Err(at("inclusion_item_count"));
+            }
+            let evm_receipt = inclusion[0].bytes()?;
+            let proof: Vec<_> = list_items(inclusion[1].raw)?
+                .iter()
+                .map(|item| item.bytes().map(<[u8]>::to_vec))
+                .collect::<Result<_, _>>()?;
+
+            let root = header.last_results_hash.ok_or_else(refusal)?;
+            if trie_value(root, &rlp_index(u64::from(summary.tx_index())), &proof)?.as_deref()
+                != Some(evm_receipt)
+            {
+                return Err(at("results_trie_value"));
+            }
+            let payload = match evm_receipt.first() {
+                Some(1..=4) => &evm_receipt[1..],
+                Some(0xc0..=0xff) => evm_receipt,
+                _ => return Err(refusal()),
+            };
+            let fields = list_items(payload)?;
+            if fields.len() != 4
+                || fields[0].bytes()?
+                    != if protocol.result_code() == 0 {
+                        &[1][..]
+                    } else {
+                        &[][..]
+                    }
+                || word(fields[1].bytes()?)? != u64_word(summary.cumulative_gas_used())
+                || fields[2].bytes()?.len() != 256
+            {
                 return Err(refusal());
             }
-            let address = fields[0].bytes()?.try_into().map_err(|_| refusal())?;
-            let topics = list_items(fields[1].raw)?
-                .iter()
-                .map(|topic| topic.bytes()?.try_into().map_err(|_| refusal()))
-                .collect::<Result<_, _>>()?;
-            logs.push(SequencerLog::new(
-                address,
-                topics,
-                fields[2].bytes()?.to_vec(),
-                index as u64,
-            ));
-        }
-        verify_logs(&receipt, logs).map_err(|_| refusal())?;
+            let mut logs = Vec::new();
+            for (index, log) in list_items(fields[3].raw)?.iter().enumerate() {
+                let fields = list_items(log.raw)?;
+                if fields.len() != 3 {
+                    return Err(refusal());
+                }
+                let address = fields[0].bytes()?.try_into().map_err(|_| refusal())?;
+                let topics = list_items(fields[1].raw)?
+                    .iter()
+                    .map(|topic| topic.bytes()?.try_into().map_err(|_| refusal()))
+                    .collect::<Result<_, _>>()?;
+                logs.push(SequencerLog::new(
+                    address,
+                    topics,
+                    fields[2].bytes()?.to_vec(),
+                    index as u64,
+                ));
+            }
+            logs
+        };
+        verify_logs(&receipt, logs).map_err(|_| at("receipt_logs"))?;
         match selector {
             FactSelector::State { account_id, .. } => {
                 verify_account(
@@ -313,13 +355,179 @@ pub fn verify(
             _ => {}
         }
     }
+    let (checkpoint_height, block_hash) = block.ok_or(ExportProduceError::Contract)?;
     Ok(VerificationReport {
         verified_receipts: selectors.len(),
         verified_inclusions: selectors.len(),
         height: artifact.height,
-        block_hash: block.ok_or(ExportProduceError::Contract)?,
+        checkpoint_height,
+        block_hash,
         achieved_rung: Rung::Committed,
     })
+}
+
+pub(crate) fn committed_checkpoint_height(
+    receipt_height: u64,
+    inclusion: &[u8],
+) -> Result<u64, &'static str> {
+    match inclusion.first() {
+        Some(b'{') => receipt_height.checked_add(1).ok_or("checkpoint_height"),
+        Some(0xc0..=0xff) => Ok(receipt_height),
+        _ => Err("inclusion_encoding"),
+    }
+}
+
+fn verify_native_inclusion(
+    bytes: &[u8],
+    height: u64,
+    checkpoint: &crate::read::ServedCheckpoint,
+    receipt: &layerx_wire::receipt::Receipt,
+) -> Result<Vec<SequencerLog>, &'static str> {
+    use crate::read::abci_result::{fields, ProtoValue};
+    use sha2::{Digest, Sha256};
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Inclusion {
+        algorithm: String,
+        height: u64,
+        total: i64,
+        index: i64,
+        result: String,
+        leaf_hash: String,
+        aunts: Vec<String>,
+    }
+    let inclusion: Inclusion = serde_json::from_slice(bytes).map_err(|_| "inclusion_encoding")?;
+    if inclusion.algorithm != "comet-abci-results-v1" || inclusion.height != height {
+        return Err("inclusion_height_or_algorithm");
+    }
+    if inclusion.total <= 0
+        || inclusion.index < 0
+        || inclusion.index >= inclusion.total
+        || inclusion.aunts.len() > 64
+        || inclusion.result.len() > 524_288
+    {
+        return Err("inclusion_bounds");
+    }
+    let decode = |text: &str| {
+        if text.len() % 2 != 0
+            || !text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err("inclusion_hex");
+        }
+        layerx_programs::hex::decode(text).map_err(|_| "inclusion_hex")
+    };
+    let fixed = |text: &str| -> Result<[u8; 32], &'static str> {
+        decode(text)?.try_into().map_err(|_| "inclusion_hash")
+    };
+    let proof = crate::read::AbciResultProof {
+        result: decode(&inclusion.result)?,
+        proof: layerx_programs::chain_proof::merkle::SimpleProof {
+            total: inclusion.total,
+            index: inclusion.index,
+            leaf_hash: fixed(&inclusion.leaf_hash)?,
+            aunts: inclusion
+                .aunts
+                .iter()
+                .map(|aunt| fixed(aunt))
+                .collect::<Result<_, _>>()?,
+        },
+    };
+    let summary = decode_summary(receipt).map_err(|_| "receipt_summary")?;
+    proof
+        .verify_committed(
+            height,
+            u64::from(summary.tx_index()),
+            checkpoint,
+            &checkpoint.header.chain_id,
+            &checkpoint.validators,
+        )
+        .map_err(|_| "results_merkle_value")?;
+    let response =
+        crate::read::abci_result::evm_response(&proof.result).map_err(|_| "abci_result")?;
+    let mut gas = 0;
+    let mut vm_error = &[][..];
+    let mut returned = &[][..];
+    let mut tx_hash = None;
+    let mut logs = Vec::new();
+    let mut previous = 0;
+    for (number, value) in fields(response).map_err(|_| "abci_response")? {
+        if number < previous || number == previous && number != 5 {
+            return Err("abci_response_fields");
+        }
+        previous = number;
+        match (number, value) {
+            (1, ProtoValue::Integer(value)) => gas = value,
+            (2, ProtoValue::Bytes(value)) => vm_error = value,
+            (3, ProtoValue::Bytes(value)) => returned = value,
+            (4, ProtoValue::Bytes(value)) => tx_hash = Some(value),
+            (5, ProtoValue::Bytes(value)) => {
+                let mut address = None;
+                let mut topics = Vec::new();
+                let mut data = &[][..];
+                let mut index = 0;
+                let mut previous = 0;
+                let hex = |bytes| -> Result<Vec<u8>, &'static str> {
+                    let text = std::str::from_utf8(bytes).map_err(|_| "abci_log_hex")?;
+                    layerx_programs::hex::decode(text.strip_prefix("0x").unwrap_or(text))
+                        .map_err(|_| "abci_log_hex")
+                };
+                for (number, value) in fields(value).map_err(|_| "abci_log")? {
+                    if number < previous || number == previous && number != 2 {
+                        return Err("abci_log_fields");
+                    }
+                    previous = number;
+                    match (number, value) {
+                        (1, ProtoValue::Bytes(value)) => {
+                            address = Some(hex(value)?.try_into().map_err(|_| "abci_log_address")?)
+                        }
+                        (2, ProtoValue::Bytes(value)) => {
+                            topics.push(hex(value)?.try_into().map_err(|_| "abci_log_topic")?)
+                        }
+                        (3, ProtoValue::Bytes(value)) => data = value,
+                        (4, ProtoValue::Integer(value)) => index = value,
+                        (5, ProtoValue::Integer(0 | 1)) => {}
+                        _ => return Err("abci_log_fields"),
+                    }
+                }
+                logs.push(SequencerLog::new(
+                    address.ok_or("abci_log_address")?,
+                    topics,
+                    data.to_vec(),
+                    index,
+                ));
+            }
+            _ => return Err("abci_response_fields"),
+        }
+    }
+    let protocol = receipt.protocol().ok_or("protocol")?;
+    let tx_hash =
+        std::str::from_utf8(tx_hash.ok_or("abci_transaction")?).map_err(|_| "abci_transaction")?;
+    if fixed(tx_hash.strip_prefix("0x").ok_or("abci_transaction")?)? != protocol.activity_id() {
+        return Err("abci_transaction");
+    }
+    for (matches, stage) in [
+        (gas == summary.gas_used(), "abci_gas"),
+        (
+            vm_error.is_empty() == (protocol.result_code() == 0),
+            "abci_status",
+        ),
+        (
+            <[u8; 32]>::from(Sha256::digest(vm_error)) == summary.vm_error_hash(),
+            "abci_vm_error",
+        ),
+        (
+            returned.len() == summary.return_data_len() as usize
+                && <[u8; 32]>::from(Sha256::digest(returned)) == protocol.activity_root(),
+            "abci_return_data",
+        ),
+    ] {
+        if !matches {
+            return Err(stage);
+        }
+    }
+    Ok(logs)
 }
 
 fn required(value: &Option<CanonicalBytes>) -> Result<&[u8], ExportProduceError> {
@@ -408,15 +616,16 @@ pub fn produce_retained(
             })
         })?;
     let height = built.local_verification.height;
+    let checkpoint_height = built.local_verification.checkpoint_height;
     Ok(ProducedExport {
         response: VerifiedRead::new(
             built.artifact,
             Rung::Committed,
             Freshness {
-                chain_head: height,
+                chain_head: checkpoint_height,
                 value_height: height,
                 relative_to: RelativeTo::Block {
-                    height,
+                    height: checkpoint_height,
                     hash: built.local_verification.block_hash,
                 },
             },

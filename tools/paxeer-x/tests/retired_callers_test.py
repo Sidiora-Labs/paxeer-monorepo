@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import contextlib
+from fnmatch import fnmatchcase
 import io
 import json
 import os
@@ -92,7 +93,7 @@ def validate_catalogue(document):
             set(entry) <= {"symbols", "deleted_trees", "retiring_trees", "replacement", "req", "title"},
             "unknown component field: " + name,
         )
-        string_list(entry["symbols"], name + " symbols")
+        string_list(entry["symbols"], name + " symbols", empty=name == "router-joins")
         string_list(entry["deleted_trees"], name + " deleted trees", empty=True)
         for path in entry["deleted_trees"]:
             require(relative_path(path) == path, "noncanonical deleted tree: " + path)
@@ -140,25 +141,42 @@ def validate_catalogue(document):
     seen = set()
     for entry in documentation:
         require(
-            isinstance(entry, dict) and set(entry) == {"path", "reason"},
+            isinstance(entry, dict)
+            and set(entry) in ({"path", "reason"}, {"pattern", "reason"}),
             "invalid documentation path",
         )
-        path = entry["path"]
+        key = "pattern" if "pattern" in entry else "path"
+        path = entry[key]
         require(relative_path(path) == path, "noncanonical documentation path: " + path)
-        require(path not in seen, "duplicate documentation path: " + path)
-        seen.add(path)
+        if key == "pattern":
+            require(
+                any(char in path for char in "*?")
+                and not any(char in path for char in "\n\r[]\\"),
+                "invalid documentation pattern: " + path,
+            )
+        require((key, path) not in seen, "duplicate documentation path: " + path)
+        seen.add((key, path))
         require(
             isinstance(entry["reason"], str)
             and entry["reason"].strip()
             and "\n" not in entry["reason"],
             "documentation reason is missing: " + path,
         )
+        prefix = (
+            path.split("*", 1)[0].split("?", 1)[0].rsplit("/", 1)[0]
+            if key == "pattern" and "/" in path
+            else path
+        )
         require(
-            not any(below(path, tree) or below(tree, path) for tree in deleted_trees),
+            not any(below(prefix, tree) or below(tree, prefix) for tree in deleted_trees),
             "documentation path overlaps deleted tree: " + path,
         )
         require(
-            not below(CATALOGUE_PATH, path) and not below(CHECKER_PATH, path),
+            not any(
+                documentation_matches(candidate, entry)
+                or (key == "path" and below(candidate, path))
+                for candidate in (CATALOGUE_PATH, CHECKER_PATH)
+            ),
             "documentation path covers the checker: " + path,
         )
     return document
@@ -172,6 +190,16 @@ def load_catalogue(path):
 
 def below(path, tree):
     return path == tree or path.startswith(tree + "/")
+
+
+def documentation_matches(path, entry):
+    if "pattern" in entry:
+        pattern = entry["pattern"]
+        return fnmatchcase(path if "/" in pattern else PurePosixPath(path).name, pattern)
+    return (
+        PurePosixPath(path).suffix in DOCUMENTATION_SUFFIXES
+        and below(path, entry["path"])
+    )
 
 
 def is_test_file(path):
@@ -197,9 +225,11 @@ def allowed(path, text, symbol, allowances):
     if symbol in KEPT_CODES:
         return True
     for entry in allowances:
-        if path == entry["path"] and (
-            symbol in entry.get("symbols", [])
-            or " ".join(text.split())
+        if (
+            below(path, entry["path"]) and symbol in entry.get("symbols", [])
+        ) or (
+            path == entry["path"]
+            and " ".join(text.split())
             in {" ".join(line.split()) for line in entry.get("lines", [])}
         ):
             return True
@@ -268,12 +298,16 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
     require(all(name in components for name in selected), "unknown component")
     tracked = tracked_paths(root)
     filters = path_filters(root, paths, tracked)
-    documentation = [
-        entry["path"] for entry in catalogue.get("documentation_paths", [])
-    ]
-    for tree in documentation:
+    documentation = catalogue.get("documentation_paths", [])
+    for entry in documentation:
+        tree = entry.get("path", entry.get("pattern"))
         require(
-            any(below(candidate, tree) for candidate in tracked),
+            any(
+                documentation_matches(candidate, entry)
+                if "pattern" in entry
+                else below(candidate, tree)
+                for candidate in tracked
+            ),
             "documentation path has no tracked files: " + tree,
         )
     deleted_trees = {
@@ -304,10 +338,7 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
         if (not filters or any(not scope or below(path, scope) for scope in filters))
         and path != CATALOGUE_PATH
         and not is_test_file(path)
-        and not (
-            PurePosixPath(path).suffix in DOCUMENTATION_SUFFIXES
-            and any(below(path, tree) for tree in documentation)
-        )
+        and not any(documentation_matches(path, entry) for entry in documentation)
         and not any(below(path, tree) for tree in deleted_trees)
     }
     patterns = [
@@ -335,7 +366,15 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
         for tree in ("spec/layerx-merge", "docs")
         for suffix in sorted(DOCUMENTATION_SUFFIXES)
     )
-    for tree in documentation:
+    for entry in documentation:
+        if "pattern" in entry:
+            pattern = entry["pattern"]
+            pathspecs.append(
+                ":(top,exclude,glob)"
+                + (pattern if "/" in pattern else "**/" + pattern)
+            )
+            continue
+        tree = entry["path"]
         if PurePosixPath(tree).suffix in DOCUMENTATION_SUFFIXES:
             pathspecs.append(":(top,exclude,literal)" + tree)
         escaped_tree = re.sub(r"([\\*?\[\]])", r"\\\1", tree)
@@ -409,14 +448,21 @@ def write_tracked(root, files):
 
 
 def documentation_files(catalogue, text):
-    return {
-        (
-            entry["path"]
-            if PurePosixPath(entry["path"]).suffix
-            else entry["path"] + "/retirements.md"
-        ): text
-        for entry in catalogue.get("documentation_paths", [])
-    }
+    files = {}
+    for entry in catalogue.get("documentation_paths", []):
+        if "pattern" in entry:
+            pattern = entry["pattern"]
+            path = (
+                pattern[:-3] + "/retirements.md"
+                if pattern.endswith("/**")
+                else pattern.replace("*", "record").replace("?", "x")
+            )
+        else:
+            path = entry["path"]
+            if not PurePosixPath(path).suffix:
+                path += "/retirements.md"
+        files[path] = text
+    return files
 
 
 def refusal(function, *arguments):
@@ -474,13 +520,55 @@ def self_test(catalogue):
         "every retirement requirement represented",
     )
     check_equal(
-        [entry["path"] for entry in catalogue["documentation_paths"]],
+        [
+            entry.get("path", entry.get("pattern"))
+            for entry in catalogue["documentation_paths"]
+        ],
         [
             "spec/layerx-merge/spec.kvx",
             "spec/layerx-merge/qualification.kvx",
             "spec/layerx-merge/docs",
+            "spec/layerx-merge/programme/**",
+            "spec/release-v6-12-0/**",
+            "spec/monorepo-layout/**",
+            "repair_*.kvx",
+            "services/platform/hosted/authority/src/repair_22_31_207/**",
+            "services/platform/ramps/toolkit/src/repair_22_31_211/**",
+            "tools/hyperfide/**",
+            "core/deps/geth/signer/fourbyte/**",
+            "programs/vendor/**",
+            "apps/launchpad/web/public/charting_library/**",
         ],
         "reviewed documentation paths",
+    )
+    check_equal(
+        components["router-joins"]["symbols"],
+        [],
+        "replacement keeps router method names",
+    )
+    check_equal(
+        refusal(
+            validate_catalogue,
+            {
+                **catalogue,
+                "components": {
+                    **components,
+                    "verify": {**components["verify"], "symbols": []},
+                },
+            },
+        ),
+        "verify symbols must be a list",
+        "retired verifier symbols remain required",
+    )
+    check_equal(
+        "tests/daemon" in components["finality-authority"]["deleted_trees"],
+        False,
+        "recorded Python daemon cases remain live",
+    )
+    check_equal(
+        "services/agent/crates/layerx-wire" in components["wire-codec"]["deleted_trees"],
+        False,
+        "generic wire crate remains live",
     )
     check_equal(
         "layerxverify" in components["verify"]["symbols"], True, "real verifier symbol"
@@ -633,6 +721,35 @@ def self_test(catalogue):
         match_line("live.go", 260, verifier_import, all_patterns, allowances) != [],
         True,
         "kept verifier allowance is path scoped",
+    )
+    for path in (
+        "modules/layerxcustody/keeper/keeper.go",
+        "precompiles/layerxcustody/abi.json",
+        "api/layerxcustody/types.pb.go",
+        "contracts/src/precompiles/ILayerXCustody.sol",
+    ):
+        check_equal(
+            match_line(
+                path, 1, "layerxcustody requestWithdrawal", all_patterns, allowances
+            ),
+            [],
+            "own disabled custody tree " + path,
+        )
+        check_equal(
+            match_line(path + ".outside", 1, "layerxverify", all_patterns, allowances),
+            [(path + ".outside", 1, "verify", "layerxverify")],
+            "own tree cannot allow another removal " + path,
+        )
+    check_equal(
+        match_line(
+            "modules/layerxcustody-next/keeper.go",
+            1,
+            "layerxcustody",
+            all_patterns,
+            allowances,
+        ),
+        [("modules/layerxcustody-next/keeper.go", 1, "custody-deposit", "layerxcustody")],
+        "own tree allowance has a directory boundary",
     )
     for entry in allowances:
         for text in entry.get("lines", []):
@@ -911,6 +1028,110 @@ def self_test(catalogue):
             refusal(scan, root, missing, ["paxeer-verifier"], []),
             "documentation path has no tracked files: spec/absent",
             "untracked documentation path refused",
+        )
+    with tempfile.TemporaryDirectory(prefix="retired-callers-records-") as directory:
+        root = Path(directory)
+        git(root, ["init", "-q"])
+        write_tracked(
+            root,
+            {
+                **documentation_files(catalogue, "layerxverify\n"),
+                "repair_root.kvx": "layerxverify\n",
+                "pkg/src/repair_nested.kvx": "layerxverify\n",
+                "pkg/src/repair_live.rs": "layerxverify\n",
+                "pkg/src/live.kvx": "layerxverify\n",
+                "tools/hyperfide/vendor/parser.c": "layerxverify\n",
+                "tools/hyperfide-next/parser.c": "layerxverify\n",
+                "programs/vendor/library/src/lib.rs": "layerxverify\n",
+                "apps/launchpad/web/public/charting_library/bundles/vendor.js": "layerxverify\n",
+                "core/deps/geth/signer/fourbyte/4byte.json": "layerxverify\n",
+                "services/platform/hosted/authority/src/repair_22_31_207/producer.go": "layerxverify\n",
+                "services/platform/ramps/toolkit/src/repair_22_31_211/record.kvx": "layerxverify\n",
+                "services/agent/crates/layerx-wire/src/lib.rs": "use layerx_wire::activity;\n",
+                "live.rs": "px_getUnifiedHistory px_getNetwork px_listAssets\n",
+            },
+        )
+        expected = [
+            ("pkg/src/live.kvx", 1, "verify", "layerxverify"),
+            ("pkg/src/repair_live.rs", 1, "verify", "layerxverify"),
+            ("tools/hyperfide-next/parser.c", 1, "verify", "layerxverify"),
+        ]
+        check_equal(
+            scan(root, catalogue, ["verify"], []),
+            expected,
+            "records and vendored data excluded with live neighbors retained",
+        )
+        check_equal(
+            scan(root, catalogue, ["verify"], ["pkg"]),
+            expected[:2],
+            "record patterns support package-local scans",
+        )
+        check_equal(
+            scan(root, catalogue, ["router-joins"], ["live.rs"]),
+            [],
+            "retained router methods are callable",
+        )
+        check_equal(
+            scan(
+                root, catalogue, ["wire-codec"],
+                ["services/agent/crates/layerx-wire"], deleted=True,
+            ),
+            [(
+                "services/agent/crates/layerx-wire/src/lib.rs",
+                1, "wire-codec", "layerx_wire::activity",
+            )],
+            "live wire crate still detects the retired activity codec",
+        )
+        retired = components["paxeer-verifier"]["deleted_trees"][0]
+        write_tracked(root, {retired + "/repair_history.kvx": "layerxverify\n"})
+        check_equal(
+            scan(root, catalogue, ["paxeer-verifier"], [retired], deleted=True),
+            [(retired, 1, "paxeer-verifier", "deleted tree still exists")],
+            "record pattern never hides a deleted tree",
+        )
+        retiring, task = next(iter(components["lni"]["retiring_trees"].items()))
+        write_tracked(root, {retiring + "/repair_history.kvx": "layerxverify\n"})
+        check_equal(
+            scan(root, catalogue, ["lni"], [retiring], deleted=True),
+            [(retiring, 1, "lni", "tree retirement pending task " + task)],
+            "record pattern never hides a pending retirement",
+        )
+        missing = {
+            **catalogue,
+            "documentation_paths": [
+                {"pattern": "missing_*.kvx", "reason": "Historical records."}
+            ],
+        }
+        check_equal(
+            refusal(scan, root, missing, ["verify"], ["pkg"]),
+            "documentation path has no tracked files: missing_*.kvx",
+            "untracked documentation pattern refused",
+        )
+    for pattern, message in (
+        ("*", "documentation path covers the checker: *"),
+        ("tools/paxeer-x/**", "documentation path covers the checker: tools/paxeer-x/**"),
+        (
+            "services/agent/crates/layerx-paxeer-verifier/**",
+            "documentation path overlaps deleted tree: "
+            "services/agent/crates/layerx-paxeer-verifier/**",
+        ),
+        ("../repair_*.kvx", "path must name a repository-relative file or tree"),
+        ("/repair_*.kvx", "path must name a repository-relative file or tree"),
+        ("repair.kvx", "invalid documentation pattern: repair.kvx"),
+        ("repair_[a].kvx", "invalid documentation pattern: repair_[a].kvx"),
+    ):
+        check_equal(
+            refusal(
+                validate_catalogue,
+                {
+                    **catalogue,
+                    "documentation_paths": [
+                        {"pattern": pattern, "reason": "Historical records."}
+                    ],
+                },
+            ),
+            message,
+            "documentation pattern exact refusal " + pattern,
         )
     for path, reason, message in (
         (
