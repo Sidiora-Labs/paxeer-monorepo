@@ -12622,6 +12622,30 @@ value = "Every selector of the parity inventory names a case that exists in the 
 basis = "Gotcha 4179, decisions 3046, 3051 and 3210."
 affects = ["17.4.6"]
 
+[decision.3252]
+title = "The web chart accepts a candle price by the series model of its candle"
+value = "The web application of the launchpad accepts the source of a candle price by the series model of the candle. A candle of the series model development-positioned-candles-v1 carries in each of its four prices the source kind post_swap_spot and the amount basis effective_reserves with a position and a source event, and no source reference is required. A candle of every other series model keeps the present check: gross_execution, paid_input, a position, a source event and a source reference. A candle whose prices cross the two shapes, or whose shape does not belong to its series model, is refused with the present message. The checks of assets, chain, decimals, snapshot identifier and revision stay as they are, and the API is not changed. The same binding holds at every place of the web application that reads the source of a candle price."
+basis = "Gotcha 4180, decisions 3046, 3183 and 3236."
+affects = ["22.39.95"]
+
+[decision.3253]
+title = "A command that needs the executable of the agent daemon builds it from the host package"
+value = "The package layerx-agentd is a library. A build command of a task, a driver of the qualification tools and a recipe that needs the executable build the bin target layerx-agentd of the package layerx-agentd-host; the executable keeps its name and its place under the target directory. Decision 3212 holds for the checks of the entry file."
+basis = "Gotcha 4181, decisions 3183 and 3212."
+affects = ["22.38.36", "22.38.37", "22.38.38"]
+
+[decision.3254]
+title = "A task that adds a file to the inference market directory of the agent daemon lints it in its own verification"
+value = "A file a task adds under services/agent/crates/layerx-agentd/src/inference_market is linted in the host binary and in every test target that includes it by the verification of the adding task, and its lints are repaired in the file (decisions 3053 and 3250). The test target the task adds is linted the same way (decision 3245). An item the host binary uses and the test target does not is allowed on the including module item of the test target (decision 3218). Two tasks that change the entry file of the daemon one after the other are ordered by a requires entry (decision 3211)."
+basis = "Gotcha 4182, decisions 3053, 3211, 3218, 3242, 3245 and 3250."
+affects = ["22.38.19"]
+
+[decision.3255]
+title = "The record of a task sits outside the output roots of the generated SDKs"
+value = "A task that repairs a file under an output root of sdk/platform/pipeline.kvx writes its record into sdk/platform beside the roots, where no table of the lock classifies files, and a new task is planned that way. The six records that sit under the Go, .NET and JVM roots today stay where the verification commands of their tasks read them and are declared under the handwritten table of their output by task 22.39.363. The rule that a file added under a generated root is declared in the same change holds for every file that must sit inside a root. Task 17.5.7 follows task 22.39.363 (decisions 3130 and 3211)."
+basis = "Gotcha 4183, decisions 3130, 3183 and 3211."
+affects = ["22.39.363", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42282,6 +42306,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.363]
+title = "Declare the records under the output roots of the platform SDKs in the pipeline lock"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agent-api/src", "services/agent/crates/layerx-sdk/src", "services/agent/sdk", "apps/web/src/api/generated", "sdk/platform/go", "sdk/platform/jvm", "sdk/platform/conformance", "sdk/platform/swift/Sources/LayerXSDK", "sdk/platform/dotnet", "sdk/platform/generators", "sdk/platform/pipeline.kvx"]
+tests = []
+verification_contract = "test -s sdk/platform/repair_22_39_363.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift && make platform-sdk-check"
+do_1 = "do_1 Decision 3255, gotcha 4183. make platform-sdk-check refuses sdk/platform/go/repair_22_39_341.kvx as an unclassified file in the generated go root. Declare under the handwritten table of its output in sdk/platform/pipeline.kvx, without changing the file, each of: repair_22_39_341.kvx and repair_22_39_360.kvx (handwritten.platform-go), repair_22_39_342.kvx, repair_22_39_354.kvx and repair_22_39_361.kvx (handwritten.platform-dotnet), repair_22_39_343.kvx (handwritten.platform-jvm). Follow the form of the entry of cmd/conformance/repair_22_39_176.kvx in the Go table."
+symbols = []
 
 [capability.22.39.362]
 title = "Bring the inference market files of the host binary under the workspace lints"
@@ -163872,6 +163905,7 @@ do_11 = "Attempt 11 (continue, gotchas 4013 and 4014, decision 3134): the attemp
 do_12 = "Attempt 12 (continue, gotchas 4079 and 4080, decisions 3160 and 3161): the attempt-11 tree 8155a13897b7 stands (the test repairs through attempt 11, the authority producer that awaits the real head, the estimated route gas with its headroom, the jsdom initialisation before imports, the ordered preparation, the record). The attempt starts after 22.39.313 and 22.39.314 land: rebase on main and take the settled manifest digest and the development candle path from it; drop any local copy of files those tasks changed. Then run the verification once and compare with the attempt-11 inventory: the four deployment regeneration cases follow the settled digest without an edit here; the chart recovery cases and the coin failure frame case read the canonical candles the development path now writes, started through the joined preparation of the suite; the creation journey and the connected journey are covered by the repairs attempt 11 made after its verification (the stale activation head, the route gas estimate). Repair what remains red inside the touches without weakening an assertion, keep the list of failing names before and after in the record, and reach the mobile suite. Run the build once and the verification once at the final revision."
 do_13 = "do_13 Decision 3177, gotcha 4099: the PublicConfiguration manifestDigest pin of apps/launchpad/mobile/test/vitest/proof_launchpad_mobile_app.test.ts:385 still names a35ff7c6f532d2f9, while the mobile runtime apps/launchpad/mobile/src/runtime/quote-transaction.ts follows the deployment record since bcaaa5ef93. Bring the pin to the digest sdk/launchpad/shared/config/deployment/current.json names, reading it from the record or from the generated helper where the case can import it, and name the change in the record of the task."
 do_14 = "Attempt 13 (continue after 22.39.357 lands, gotcha 4163, decisions 3236 and 3237): the attempt-12 tree 99ad934826d3 stands (the ordered producers, the warmed coin route, the repaired mobile digest, authority, chat and connected journey cases, the record). Eight cases in three files are red and the time limit is now 240 minutes. First, rebase on main once task 22.39.357 is on it: the development candle page then serves every item with the identifier of the page, so change nothing in fetchCanonicalCandlePage and run src/widgets/trading/chart-datafeed-recovery.test.ts alone; a case that still fails is repaired at the site its first failing message names. Second, in src/widgets/meta-ag/repair-22-33-987.fixtures.ts make openRpcTranscript answer eth_estimateGas for exactly the actions it accepts in eth_sendTransaction: decode the call the same way, refuse every other call the same way, and answer the gas used that the receipt of the transcript records for that action (decision 3237); keep the estimate of the provider, its headroom and the assertions of advanced_broadcast_recovery_best_route, advanced_broadcast_recovery_custom_route and advanced_signature_failure_recovery, and run that file alone. Third, run src/widgets/trading/coin-failure-frames.test.tsx alone and find the condition of :80 that is not met while the page shows updates off and no prices: the case keeps its assertions, and the cause is repaired in the web source or in the fixture of the case, whichever departs from the producer. Then run the gate once, so that the mobile suite is reached. A cause outside the paths is recorded with the case, the first failing message, the file and the line. Extend the record. Run the build once and the verification once at the final revision."
+do_15 = "Attempt 14 (continue, gotcha 4180, decision 3252): the attempt-13 tree bef566e6c816 stands. First: in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts bind the source check of canonicalCandleToDisplayBar at :57 to the series model of the candle as decision 3252 states, and apply the same binding at every other place under apps/launchpad/web/src that compares the source kind or the amount basis of a candle price; change no other member of the check. Add unit cases beside the datafeed: a development candle with the development shape is accepted, a development candle with the execution shape is refused, a candle of another series model with the development shape is refused, a candle with crossed prices is refused, and the present accepted case stays. Second: run the chart recovery file alone outside the counted gates. For the case that stops with Canonical candles: HTTP 503 at :644 read the body of the 503 and the log of the API of the joined run and name the error code and the handler line; a cause in the web source or in the joined test support under the paths is repaired, a cause in the API is recorded with code, route, file and line and is not repaired here. Remove or widen the expectation of no case and raise no timeout to pass. Third: the creation journey case at src/widgets/create/creation-journey.integration.test.tsx:209 passes in one full run and fails in the next with Creation preflight is unavailable (src/widgets/create/cap-admission.ts:22 and :48). Find which input of creationPreflight is absent in the failing run (state shared between test files, an environment variable, a port or a file of another case) and make the case independent of the order of the files without changing the admission rule. Fourth: run the mobile suite alone outside the counted gates before the counted run and repair every red case whose cause sits under the paths. Fifth: reduce the record to product facts: remove the names of gate tools, of private ledgers and of working directories and keep files, lines, cases and results. Run the build once and the verification once at the final revision."
 
 [task.22.39.94]
 title = "Run the launchpad and sdk/wallet test jobs under their own pnpm workspace roots"
@@ -185895,7 +185929,7 @@ symbols = ["proof_settlement"]
 touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
-build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
 verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof settlement || { tail -n 150 $d/*/native.log; exit 1; }"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -185923,7 +185957,7 @@ symbols = ["proof_canary_slash"]
 touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
-build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
 verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof canary || { tail -n 150 $d/*/native.log; exit 1; }"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -185953,7 +185987,7 @@ symbols = ["InferenceRoomDriver"]
 touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
-build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
 verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof room || { tail -n 150 $d/*/native.log; exit 1; }"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -185966,6 +186000,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 4181, decision 3253): the attempt-1 tree 44a85acfb957 stands (the room driver, the chain writer of the runtime fixture, the process owner of the envelope program). The build command now builds the bin target layerx-agentd of the package layerx-agentd-host, so the executable the driver requires at inference_market_room.py:392 exists. In tools/qualification/paxeer-x/agent_operation_envelope.py:252 change only the package name of the daemon build step to layerx-agentd-host and keep the target name layerx-agentd that :254 requires; the verification of this task does not run that step, so record that it was changed and not run. Tasks 22.38.21 and 22.38.27 are on main: rebase on it. The room proof has never run: after the build run the driver with the room proof once outside the counted gates, repair what it shows inside the paths, and record a cause outside the paths with file, line and the first failing message. Run the build once and the verification once at the final revision."
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
@@ -198163,7 +198198,7 @@ title = "Inject canary prompts and audit peer answers"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.38.5", "22.38.17", "22.31.620", "22.39.353"]
+requires = ["22.38.5", "22.38.17", "22.31.620", "22.39.353", "22.38.21"]
 reqs = ["22380.3"]
 capabilities = ["22.38.19"]
 interfaces = []
@@ -198175,7 +198210,7 @@ touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/cr
 tests = ["services/agent/crates/layerx-agentd/tests/inference_canary.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/canary.rs", "services/agent/crates/layerx-agentd/tests/inference_canary.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client --tests && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
-verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_canary"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_canary && (cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short > ${TMPDIR:-/tmp}/lint-22-38-19-bin.log 2>&1 || true) && ! grep -F inference_market/canary.rs ${TMPDIR:-/tmp}/lint-22-38-19-bin.log && (cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_canary --message-format short > ${TMPDIR:-/tmp}/lint-22-38-19-test.log 2>&1 || true) && ! grep -E '(inference_market/canary|tests/inference_canary)[.]rs' ${TMPDIR:-/tmp}/lint-22-38-19-test.log"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -198187,6 +198222,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 4182, decision 3254): the attempt-1 tree e98b4b42ccdb stands (src/inference_market/canary.rs, the canary runtime of the entry file, tests/inference_canary.rs, the operations of layerx-client). Its build and its verification passed on a base without task 22.38.21, and the merge onto main conflicts in one hunk of services/agent/crates/layerx-agentd/src/main.rs, in the closure of the completion listener. Rebase on main and resolve the hunk by keeping the side of main whole (the read of the CompletionConnection and the completion branch through completion_routes) and passing the added argument completion_canaries in its call of inference_serve_lap_output; drop nothing of either task. The verification now lints the new file in the host binary and in the test target inference_canary. Lint both to clean outside the counted gates first (decision 3242), repair every lint in canary.rs and in tests/inference_canary.rs at its source, and where the test target does not use an item the host binary uses put one allowance with a reason on the including module item of the test file (decision 3218). Change no wire frame and no case expectation. Run the build once and the verification once at the final revision."
 
 [task.22.38.18]
 title = "Issue, countersign, seal and settle lap receipts"
@@ -284248,6 +284284,38 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.363]
+title = "Declare the records under the output roots of the platform SDKs in the pipeline lock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.363"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3255, gotcha 4183. make platform-sdk-check refuses sdk/platform/go/repair_22_39_341.kvx as an unclassified file in the generated go root. Declare under the handwritten table of its output in sdk/platform/pipeline.kvx, without changing the file, each of: repair_22_39_341.kvx and repair_22_39_360.kvx (handwritten.platform-go), repair_22_39_342.kvx, repair_22_39_354.kvx and repair_22_39_361.kvx (handwritten.platform-dotnet), repair_22_39_343.kvx (handwritten.platform-jvm). Follow the form of the entry of cmd/conformance/repair_22_39_176.kvx in the Go table."
+do_2 = "do_2 Run the build, which regenerates every declared output and writes the lock again; commit the lock and any regenerated output exactly as the generators write them and change no generated file by hand. Then find every file under every output root of the lock that no table declares (the check names one at a time) and declare each the same way. The generation needs gofmt on the PATH."
+do_3 = "do_3 Record in sdk/platform/repair_22_39_363.kvx every declared file with its table, any regenerated file and the result of the check. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agent-api/src", "services/agent/crates/layerx-sdk/src", "services/agent/sdk", "apps/web/src/api/generated", "sdk/platform/go", "sdk/platform/jvm", "sdk/platform/conformance", "sdk/platform/swift/Sources/LayerXSDK", "sdk/platform/dotnet", "sdk/platform/generators", "sdk/platform/pipeline.kvx"]
+tests = []
+planned_paths = ["sdk/platform/repair_22_39_363.kvx"]
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && make platform-sdk-generate"
+verify_cmd = "test -s sdk/platform/repair_22_39_363.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift && make platform-sdk-check"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.361]
 title = "Follow the published receipt vectors in the .NET SDK cases"
 status = "done"
@@ -334303,7 +334371,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -334346,6 +334414,7 @@ do_18 = "Attempt 16 (continue after 22.39.352 lands, gotcha 4154, decision 3227)
 do_19 = "Attempt 17 (continue after 22.39.353 and 22.39.354 land, gotchas 4159 and 4161, decisions 3232 and 3234): the attempt-16 tree 4b995a314b06 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes the build of the Next example and stops in make workspace-build at agent-build (Makefile:1717), where the host binary of the agent daemon does not compile; task 22.39.353 repairs it. The platform test target also runs the test project of the .NET platform SDK (services/platform/Makefile.inc:289), which does not build under its target framework; task 22.39.354 repairs it. The task now requires both. Rebase on main once both are on it and change nothing for either. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 do_20 = "do_20 Decision 3238, gotcha 4166: the task now requires task 22.39.358, which leaves the probe cases of the agent operation envelope out of the ordinary run of the .NET test project and of the Go module in platform-verify-sdks. Change nothing for those two recipe lines in this task."
 do_21 = "do_21 Decisions 3246 and 3247, gotchas 4174 and 4175: the task now requires tasks 22.39.360 and 22.39.361. With the probe cases left out, the .NET test project still held four red cases over the published receipt vectors and the Go module one red case over the terminal corpus; those two tasks repair them. Change nothing for those cases in this task."
+do_22 = "Attempt 18 (continue after 22.39.363 lands, gotcha 4183, decision 3255): the attempt-17 tree 2f4ba76f0aa9 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes the Rust builds of make workspace-build and stops in make platform-sdk-check at an undeclared record under the generated Go root, which task 22.39.363 declares together with five more; the task now requires it. Rebase on main once that task is on it and change nothing under sdk/platform. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
