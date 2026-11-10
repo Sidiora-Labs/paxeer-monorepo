@@ -201,6 +201,7 @@ func TestRESTRegistryRoutes(t *testing.T) {
 					_, grpcErr := tc.query(ctx, invalid.primary, invalid.other)
 					require.Error(t, grpcErr)
 					assert.Equal(t, codes.InvalidArgument, status.Code(grpcErr))
+					assert.Equal(t, "invalid request", status.Convert(grpcErr).Message())
 					url := baseURL + tc.path(invalid.primary, invalid.other)
 					body, err := testutil.GetRequestWithHeaders(url, headers)
 					require.NoError(t, err)
@@ -213,7 +214,7 @@ func TestRESTRegistryRoutes(t *testing.T) {
 					assert.Equal(t, int(codes.InvalidArgument), errorBody.Code)
 					assert.Equal(t, int(status.Code(grpcErr)), errorBody.Code)
 					assert.Equal(t, status.Convert(grpcErr).Message(), errorBody.Message)
-					assert.Contains(t, errorBody.Message, "40-hex-digit address")
+					assert.Equal(t, "invalid request", errorBody.Message)
 
 					req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 					require.NoError(t, err)

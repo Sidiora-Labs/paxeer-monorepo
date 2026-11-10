@@ -10,7 +10,9 @@ import (
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmed25519 "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
@@ -143,6 +145,17 @@ func repair181RestartRecovery(t *testing.T, streamed bool) {
 		require.NotPanics(t, func() { module.InitGenesis(ctx, cdc, ordinary) })
 	}
 	repair181AssertRecovered(t, &a.EvmKeeper, ctx, bindings)
+	// Persist the decided identity through the production pre-commit hook,
+	// just as BaseApp.Commit does before committing the multistore.
+	validators := tmtypes.NewValidatorSet([]*tmtypes.Validator{tmtypes.NewValidator(tmed25519.GenerateSecretKey().Public(), 1)})
+	block := tmtypes.MakeBlock(1, nil, &tmtypes.Commit{}, nil)
+	block.ChainID = "pax-test"
+	block.Time = time.Unix(1, 0)
+	block.ValidatorsHash = validators.Hash()
+	block.NextValidatorsHash = validators.Hash()
+	blockHash := block.Hash()
+	require.NotEmpty(t, blockHash)
+	require.NoError(t, a.HandlePreCommit(ctx.WithHeaderHash(blockHash)))
 	a.SetDeliverStateToCommit()
 	commit := a.WriteState().Commit(true)
 	require.Positive(t, commit.Version)
@@ -153,6 +166,7 @@ func repair181RestartRecovery(t *testing.T, streamed bool) {
 	reopened := repair181Open(db, home)
 	t.Cleanup(func() { require.NoError(t, reopened.Close()) })
 	require.Equal(t, commit, reopened.LastCommitID())
+	require.Equal(t, []byte(blockHash), reopened.LastBlockID().Hash)
 	ctx = reopened.NewUncachedContext(false, tmproto.Header{ChainID: "pax-test", Height: commit.Version})
 	repair181AssertRecovered(t, &reopened.EvmKeeper, ctx, bindings)
 }

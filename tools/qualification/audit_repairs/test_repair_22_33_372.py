@@ -99,10 +99,21 @@ def test_registry_contract_pages_missing_bridge_and_explorer_sources():
     assert "durable obligations" in contracts
     http = source("apps/explorer/public/openapi.yaml")
     assert http.startswith("# Generated through services/explorer/swagger.yaml; stored here for frontend container packaging.\n")
-    assert yaml.safe_load(http)["openapi"] == "3.0.3"
+    document = yaml.safe_load(http)
+    assert document["openapi"] == "3.0.3"
     assert (ROOT / "services/explorer/swagger.yaml").resolve() == (ROOT / "apps/explorer/public/openapi.yaml").resolve()
     assert "GET /api/v2/openapi" in http
     assert "paths:\n" in http and "responses:" in http
+    # a4ab550e6a moved frozen anchors and receipts to the archive controller.
+    for route, action in (
+        ("/api/v2/paxeer-x/archive/anchors", "anchors"),
+        ("/api/v2/paxeer-x/archive/receipts", "receipts"),
+        ("/api/v2/paxeer-x/archive/receipts/{id}", "receipt"),
+    ):
+        operation = document["paths"][route]["get"]
+        assert operation["operationId"] == f"V2_PaxeerX_ArchiveController_{action}"
+        assert operation["x-controller"] == f"BlockScoutWeb.V2.PaxeerX.ArchiveController.{action}"
+        assert "application/json" in operation["responses"]["200"]["content"]
     endpoint = source(
         "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/endpoint.ex"
     )

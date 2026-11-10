@@ -39666,3 +39666,67 @@ symbol = "module_test.go"
 observed = "Attempt 1 at 04ec4064819f, gates at 6817a46cdf41 on base 5df422806409: build exit 0; verification exit 1: TestRepair_181_OrdinaryRestartRecovery panics with committed block identity missing at height 1, TestGetChainID fails at keeper_test.go:62 (expected 1329, actual 125), TestLayerXBindWrongChainIDRefused at layerx_binding_test.go:119, TestLayerXBindRustSignerVectors at :272 (expected 0xae3f2, actual 0x7d) and TestResolutionFeeTokenRateAge at resolution_fee_test.go:118; the keeper package completes in 80.671 seconds; log /out/logs/verify-1.log."
 assumption = "The five cases state former producer values and lie inside the path of the task."
 severity = "high"
+
+[finding.22.39.329.1]
+task = "22.39.329"
+file = "tools/launchpad/production/interfaces/test_repair_22_33_963.py"
+symbol = "test_repair_22_33_963.py"
+observed = "Attempt 1 at 9d4cd4e08b56 on base d5614dd88e54: build exit 0; verification exit 1 with 17 failed and 13 passed: fifteen CapabilityTests cases of test_capability_check.py raise explicit bundle, catalog, chain bundle and fresh evidence bindings required, and test_compatibility_authority_path and test_compatibility_test_authority report source hash drift of five SDK packages; log /out/logs/verify-1.log."
+assumption = "All seventeen fail on the starting revision for causes other than the manifest digest."
+severity = "high"
+
+[finding.22.39.290.5]
+task = "22.39.290"
+file = "services/wallet/gateway/test"
+symbol = "test"
+observed = "Attempt 5 at 64529f6115eb on base 5df422806409: build exit 0 (log /out/logs/build-2.log); verification exit 1 with 1 failed and 435 passed: test/attestor.test.ts:1236 expects 200 from the send route and receives 500 send_failed, signature accounting request conflicts with another transaction; log /out/logs/verify-2.log."
+assumption = "The send route holds a second reservation for an operation the sign route already reserved."
+severity = "high"
+
+[finding.22.39.318.1]
+task = "22.39.318"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_39_318.rs"
+symbol = "repair_22_39_318.rs"
+observed = "Attempt 1 at 34cfa7c2917f on base ddcf9ecff380: build exit 0 at 34cfa7c2917f (log /out/logs/build-3.log); the only verification, at e1fcc0bd8531, exits 1 with 22 passed and 1 failed: current_receipt_without_time_uses_only_a_verified_header_at_its_height panics at tests/support/mod.rs:819; log /out/logs/verify-1.log."
+assumption = "The fixture expiry was corrected after the only verification and the allowed runs were used."
+severity = "high"
+
+[finding.22.39.311.4]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 4 at f09df5255d79 on base d5614dd88e54: build exit 0 at ce55c220236f (log /out/logs/build-1.log); the verification at ce55c220236f exits 1 (the test run exits 101) with 1 passed and 1 failed: human_journey_and_approval_cross_tls_and_recover_after_sink_loss panics at crates/layerx-human-service/src/event_producer_tls.rs:91 with observe ack: webhook-trigger refused; log /out/logs/verify-1.log."
+assumption = "The node and consensus endpoints of the fixture point at the event source, which serves neither readiness call."
+severity = "high"
+
+[finding.22.39.317.1]
+task = "22.39.317"
+file = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java"
+symbol = "SequencerReceiptTest.java"
+observed = "Attempt 1 at 91a2708e8ba4 on base 5df422806409: build exit 0 at 91a2708e8ba4 (log /out/logs/build-2.log); the second verification at 91a2708e8ba4 exits 1 with 122 cases run and 2 failures: PortableReceiptTest.portableExportMatchesPublishedVectorV5:240 and Repair22331391Test.portableNormalizationRemainsAnExplicitIndependentVectorTest:44 report array lengths differ, expected 13859 but was 13857; log /out/logs/verify-2.log."
+assumption = "The export writes an empty text for an absent signature and both repair cycles were used before it could be corrected."
+severity = "high"
+
+[finding.17.4.6.6]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 11 at 1a315827bebd on base 408cf9b7bf87: build exit 0 at 1a315827bebd (log /out/logs/build-2.log); the second verification at 1a315827bebd exits 1 after 2076 seconds with 47 of 50 rows passing: test_parity_rows_pass_on_merged_revision fails at spec/layerx-merge/programme/tests/test_parity_run.py:52 naming construct.existing-wallet-human-service-and-explorer-playwright, construct.new-explorer-signature and construct.new-signed-receipt-logs-new-case; log /out/logs/verify-2.log. The gate also reports a file changed outside the task paths, apps/wallet/next-env.d.ts."
+assumption = "The wallet rows need the local node of their owning task, the explorer row is red on main, and a row rewrites a tracked file."
+severity = "high"
+
+[finding.22.39.222.7]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 7 at 61803b32828f on base 64e201cff588: build exit 0 at 61803b32828f (log /out/logs/build-3.log); the only verification, at fe82a180db25, exits 1 (cargo clippy exits 101) with one error, this function has too many lines (115/100) at crates/layerx-agentd/src/human_runtime.rs:3903; log /out/logs/verify-1.log."
+assumption = "The function was shortened after the only verification and the allowed runs were used."
+severity = "high"
+
+[finding.18.1749.1.6]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 6 at 557742ea3eb0 on base 495cd70105ac: make paxai-host-boundary-build exits 2 at the size test, guest exceeds 524184 bytes after wasm-opt -Oz --strip-debug --strip-producers; no verification ran; log /out/logs/build-1.log."
+assumption = "The guest of main is over the bound under the pass list of the target and the attempt changes no source of the guest."
+severity = "high"
