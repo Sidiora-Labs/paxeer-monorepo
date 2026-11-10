@@ -40298,3 +40298,11 @@ symbol = "f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_ro
 observed = "Attempt 1 at 203bcd864cfb on base a452366a00dd: the build exits 0 at 2b97db43f473 and the check of the dependent packages exits 101 at 2b97db43f473, the test target repair_22_31_549 of the package layerx-agentd does not compile with 12 errors; no verification ran; log /out/logs/dependents-1.log."
 assumption = "The red test target is outside the paths of the task and sits in a package that depends on the changed crate."
 severity = "high"
+
+[finding.17.4.6.9]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 14 at 9595a4a873fb on base 9ef8418ad199: the build exits 0 and the verification exits 1 at 9595a4a873fb after 2892 seconds; 48 of 50 rows exit 0 and the two wallet rows exit 1 with no test run, v6120-node: bootstrap-peer did not stop; log /out/logs/verify-1.log."
+assumption = "The stall of the node process is intermittent and sits in the node source outside the paths of the parity task."
+severity = "high"
