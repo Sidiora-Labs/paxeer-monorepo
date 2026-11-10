@@ -2298,7 +2298,7 @@ pub enum RecoveryRefusal {
     Store(HumanOperationError),
     /// The protocol budget record could not be read or verified.
     BudgetState { budget_id: [u8; 32], reason: String },
-    /// Served receipts predate evidence persistence and cannot be re-verified.
+    /// Persisted receipts lack evidence or an authenticated block time.
     EvidenceMissing { budget_id: [u8; 32], count: usize },
     /// Durable recovery itself failed.
     Recovery { budget_id: [u8; 32], reason: String },
@@ -2337,6 +2337,85 @@ fn budget_receipt_records(
         .collect()
 }
 
+fn select_budget_period_receipts<E: Clone + Into<BudgetReceiptEvidence>>(
+    store: &Store,
+    tenant: &TenantId,
+    record: &ProtocolBudgetRecord,
+    with_evidence: &[ReceiptEvidenceRecord<E>],
+    without_evidence: &[ReceiptMetadata],
+    verifier: &EvidenceAuthority,
+    block_time_ms: &mut impl FnMut(u64) -> Option<u64>,
+) -> Result<(Vec<PersistedReceipt<BudgetReceiptEvidence>>, usize), crate::budget::RestartError> {
+    use crate::budget::RestartError;
+    let window_ms = record.period_start..record.period_end_ms();
+    // ReceiptMetadata has neither block time nor block height. Its period cannot
+    // be established, so every such record remains an admission hold.
+    let mut evidence_missing = without_evidence.len();
+    let mut receipts = Vec::new();
+    let mut header_times = BTreeMap::new();
+    for receipt in with_evidence {
+        let evidence: BudgetReceiptEvidence = receipt.evidence.clone().into();
+        let verified = evidence
+            .verify(verifier)
+            .map_err(|_| RestartError::UnverifiedReceipt)?;
+        if verified.activity_id() != receipt.activity_id
+            || verified.global_sequence() != receipt.global_sequence
+        {
+            return Err(RestartError::ReceiptActivityMismatch);
+        }
+        let timestamp_ms = match &evidence {
+            BudgetReceiptEvidence::Legacy(raw) => verifier
+                .verify_receipt(raw)
+                .map_err(|_| RestartError::UnverifiedReceipt)?
+                .block_time_ms(),
+            BudgetReceiptEvidence::Current(raw) => {
+                let decoded = layerx_wire::receipt::decode(&raw.canonical_receipt)
+                    .map_err(|_| RestartError::UnverifiedReceipt)?;
+                let timestamp_ms = decoded
+                    .protocol()
+                    .ok_or(RestartError::UnverifiedReceipt)?
+                    .timestamp();
+                if timestamp_ms > 0 {
+                    Some(timestamp_ms)
+                } else {
+                    *header_times
+                        .entry(raw.metadata.block_height)
+                        .or_insert_with(|| block_time_ms(raw.metadata.block_height))
+                }
+            }
+        };
+        let Some(timestamp_ms) = timestamp_ms.filter(|ms| *ms > 0) else {
+            evidence_missing += 1;
+            continue;
+        };
+        if window_ms.contains(&timestamp_ms) {
+            receipts.push(PersistedReceipt {
+                expected_activity_id: receipt.activity_id,
+                requested_amount: crate::budget::requested_amount(
+                    store,
+                    tenant,
+                    receipt.activity_id,
+                )?,
+                evidence,
+            });
+        }
+    }
+    Ok((receipts, evidence_missing))
+}
+
+fn committed_receipt_block_time_ms(
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    height: u64,
+) -> Option<u64> {
+    let reads = crate::read::CommittedReads::open(endpoint, height).ok()?;
+    let time = reads.checkpoint().header.time;
+    u64::try_from(time.seconds)
+        .ok()?
+        .checked_mul(1_000)?
+        .checked_add(u64::from(time.nanos / 1_000_000))
+        .filter(|ms| *ms > 0)
+}
+
 /// Inputs for recovering one tenant budget from the durable store.
 pub struct BudgetRecoveryRequest<'a, E = crate::protocol_evidence::RawReceiptEvidence> {
     pub budget_id: [u8; 32],
@@ -2373,6 +2452,20 @@ pub fn recover_tenant_budget_with_evidence<E: Clone + Into<BudgetReceiptEvidence
     tenant: &TenantId,
     request: &BudgetRecoveryRequest<'_, E>,
 ) -> Result<TenantBudgetRecovery, RecoveryRefusal> {
+    recover_tenant_budget_with_block_time(store, tenant, request, &mut |height| {
+        request
+            .protocol_budget
+            .evidence
+            .verified_block_time_ms(height, &request.verifier)
+    })
+}
+
+fn recover_tenant_budget_with_block_time<E: Clone + Into<BudgetReceiptEvidence>>(
+    store: &mut Store,
+    tenant: &TenantId,
+    request: &BudgetRecoveryRequest<'_, E>,
+    block_time_ms: &mut impl FnMut(u64) -> Option<u64>,
+) -> Result<TenantBudgetRecovery, RecoveryRefusal> {
     let budget_id = request.budget_id;
     let verified = request
         .verifier
@@ -2393,32 +2486,19 @@ pub fn recover_tenant_budget_with_evidence<E: Clone + Into<BudgetReceiptEvidence
             reason: "protocol budget record names another budget".to_owned(),
         });
     }
-    let window = record.period_start..record.window_end_sequence();
-    let budget_receipts: Vec<PersistedReceipt<BudgetReceiptEvidence>> = request
-        .receipts_with_evidence
-        .iter()
-        .filter(|receipt| window.contains(&receipt.global_sequence))
-        .map(|receipt| {
-            Ok(PersistedReceipt {
-                expected_activity_id: receipt.activity_id,
-                requested_amount: crate::budget::requested_amount(
-                    store,
-                    tenant,
-                    receipt.activity_id,
-                )
-                .map_err(|error| RecoveryRefusal::Recovery {
-                    budget_id,
-                    reason: format!("{error:?}"),
-                })?,
-                evidence: receipt.evidence.clone().into(),
-            })
-        })
-        .collect::<Result<_, RecoveryRefusal>>()?;
-    let evidence_missing = request
-        .receipts_without_evidence
-        .iter()
-        .filter(|receipt| window.contains(&receipt.global_sequence))
-        .count();
+    let (budget_receipts, evidence_missing) = select_budget_period_receipts(
+        store,
+        tenant,
+        &record,
+        request.receipts_with_evidence,
+        request.receipts_without_evidence,
+        &request.verifier,
+        block_time_ms,
+    )
+    .map_err(|error| RecoveryRefusal::Recovery {
+        budget_id,
+        reason: format!("{error:?}"),
+    })?;
     let mut unknown_budget_ids = Vec::new();
     for object_id in store.list_object_ids(tenant, ObjectKind::Budget) {
         let Some(id) = object_id.strip_prefix(b"unknown-budget:".as_slice()) else {
@@ -14614,33 +14694,23 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         {
             return Err(HumanOperationError::Refused);
         }
-        let window = record.period_start..record.window_end_sequence();
-        if without_evidence
-            .iter()
-            .any(|receipt| window.contains(&receipt.global_sequence))
-        {
-            return Ok(None);
-        }
         let store = self
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let receipts: Vec<PersistedReceipt<BudgetReceiptEvidence>> = with_evidence
-            .iter()
-            .filter(|receipt| window.contains(&receipt.global_sequence))
-            .map(|receipt| {
-                Ok(PersistedReceipt {
-                    expected_activity_id: receipt.activity_id,
-                    requested_amount: crate::budget::requested_amount(
-                        &store,
-                        tenant,
-                        receipt.activity_id,
-                    )
-                    .map_err(|_| HumanOperationError::Refused)?,
-                    evidence: receipt.evidence.clone(),
-                })
-            })
-            .collect::<Result<_, HumanOperationError>>()?;
+        let (receipts, evidence_missing) = select_budget_period_receipts(
+            &store,
+            tenant,
+            &record,
+            &with_evidence,
+            &without_evidence,
+            &verifier,
+            &mut |height| committed_receipt_block_time_ms(&self.node, height),
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        if evidence_missing > 0 {
+            return Ok(None);
+        }
         let accounting = {
             let mut unknown_budget_ids = Vec::new();
             for object_id in store.list_object_ids(tenant, ObjectKind::Budget) {
@@ -14671,11 +14741,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     evidence: receipt.evidence.clone(),
                 })
                 .collect();
-        let mut local = crate::budget::LocalAccounting {
-            consumed: accounting.receipt_consumed,
-            window_start_sequence: 0,
-            last_receipt: None,
-        };
+        let mut local =
+            crate::budget::LocalAccounting::at_period_start(accounting.receipt_consumed, 0, None);
         crate::budget::reconcile_with_evidence(&mut local, &protocol, &spend_receipts, &verifier)
             .map(Some)
             .map_err(|_| HumanOperationError::Refused)
@@ -15055,7 +15122,12 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     .store
                     .lock()
                     .map_err(|_| RecoveryRefusal::Store(HumanOperationError::Unavailable))?;
-                recover_tenant_budget_with_evidence(&mut store, context.tenant_id, &request)
+                recover_tenant_budget_with_block_time(
+                    &mut store,
+                    context.tenant_id,
+                    &request,
+                    &mut |height| committed_receipt_block_time_ms(&self.node, height),
+                )
             }
             Err(error) => Err(RecoveryRefusal::BudgetState {
                 budget_id,
