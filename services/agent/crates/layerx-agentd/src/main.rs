@@ -1,5 +1,9 @@
 #![forbid(unsafe_code)]
 
+mod inference_canary {
+    include!("inference_market/canary.rs");
+}
+
 mod inference_signal {
     include!("inference_market/signal.rs");
     pub mod deals {
@@ -2110,14 +2114,22 @@ struct InferenceLapTerms {
     batch_size: usize,
     host_meter_seed_source: PathBuf,
     evidence_signers: Vec<InferenceEvidenceSignerTerms>,
+    #[serde(default)]
+    canary_table_source: Option<PathBuf>,
 }
+struct InferenceCanaryRuntime {
+    engine: inference_canary::CanaryEngine,
+    state: Vec<u8>,
+}
+
 struct InferenceLapRuntime {
     batch_size: usize,
     host: Arc<layerx_client::ai_market::inference_market::HostMeterKey>,
     evidence_signers: Vec<layerx_human_kms::attestor::AttestorSigner>,
+    canaries: Arc<Mutex<Option<InferenceCanaryRuntime>>>,
 }
 impl InferenceLapRuntime {
-    fn open(terms: &InferenceLapTerms) -> Result<Self, String> {
+    fn open(terms: &InferenceLapTerms, directory: &Path) -> Result<Self, String> {
         if !(1..=64).contains(&terms.batch_size)
             || terms.evidence_signers.is_empty()
             || terms.evidence_signers.len() > 8
@@ -2156,11 +2168,56 @@ impl InferenceLapRuntime {
             }
             evidence_signers.push(signer);
         }
+        let canaries = terms
+            .canary_table_source
+            .as_ref()
+            .map(|source| {
+                let bytes = zeroize::Zeroizing::new(
+                    layerx_agentd::config::read_protected_source(source, 4 * 1024 * 1024)
+                        .map_err(|_| "canary table unavailable".to_owned())?,
+                );
+                let table = serde_json::from_slice(&bytes)
+                    .map_err(|_| "invalid canary table".to_owned())?;
+                let engine =
+                    inference_canary::CanaryEngine::open(directory, Arc::clone(&host), table)
+                        .map_err(|error| error.to_string())?;
+                Ok::<_, String>(InferenceCanaryRuntime {
+                    engine,
+                    state: Vec::new(),
+                })
+            })
+            .transpose()?;
         Ok(Self {
             batch_size: terms.batch_size,
             host,
             evidence_signers,
+            canaries: Arc::new(Mutex::new(canaries)),
         })
+    }
+
+    fn initialize_canaries(&self, state: &[u8], room_id: [u8; 32]) -> Result<(), String> {
+        use layerx_client::ai_market::market_program as program;
+        let shared =
+            program::state::decode_shared_state(state).map_err(|error| error.to_string())?;
+        let book = program::rooms::RoomBook::decode(
+            shared.room_market().map_err(|error| error.to_string())?.1,
+        )
+        .map_err(|error| error.to_string())?;
+        let room = book
+            .room(program::types::Digest32::new(room_id).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?
+            .ok_or("inference room missing")?;
+        let mut canaries = self
+            .canaries
+            .lock()
+            .map_err(|_| "canary engine unavailable")?;
+        if room.profile.canary_ratio_bps != 0 && canaries.is_none() {
+            return Err("room canary ratio requires a protected model canary table".to_owned());
+        }
+        if let Some(runtime) = canaries.as_mut() {
+            runtime.state = state.to_vec();
+        }
+        Ok(())
     }
 }
 struct InferenceLapTransport<'a>(&'a InferenceDealRuntime);
@@ -2383,12 +2440,41 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
     }
 }
 
+impl inference_canary::CanaryTransport for InferenceLapTransport<'_> {
+    fn view(&mut self) -> Result<inference_canary::CanaryView, inference_canary::CanaryError> {
+        let snapshot = self.0.snapshot().map_err(|_| {
+            inference_canary::CanaryError::Invalid("finalized canary state unavailable")
+        })?;
+        Ok(inference_canary::CanaryView {
+            state: snapshot.state_bytes().to_vec(),
+            height: snapshot.binding().execution_height,
+        })
+    }
+    fn submit(
+        &mut self,
+        operation: &layerx_client::ai_market::inference_market::MarketOperation,
+    ) -> Result<(), inference_canary::CanaryError> {
+        inference_signal::deals::laps::LapTransport::submit(self, operation).map_err(|error| {
+            match error {
+                inference_signal::deals::laps::LapError::Client(error) => {
+                    inference_canary::CanaryError::Client(error)
+                }
+                inference_signal::deals::laps::LapError::Io(error) => {
+                    inference_canary::CanaryError::Io(error)
+                }
+                _ => inference_canary::CanaryError::Invalid("canary submission refused"),
+            }
+        })
+    }
+}
+
 fn inference_serve_lap_output(
     stream: &mut (impl Read + Write),
     gate: &Arc<Mutex<layerx_agentd::boot::InferenceBootGate>>,
     listener: &Arc<Mutex<inference_signal::deals::laps::LapSignalListener>>,
     host: &layerx_client::ai_market::inference_market::HostMeterKey,
     bearer: &str,
+    canaries: &Arc<Mutex<Option<InferenceCanaryRuntime>>>,
 ) -> Result<(), String> {
     let mut head = Vec::new();
     while !head.ends_with(b"\r\n\r\n") {
@@ -2437,7 +2523,13 @@ fn inference_serve_lap_output(
         }
         let head = std::str::from_utf8(&head).map_err(|_| "invalid lap headers")?;
         let mut lines = head.split("\r\n");
-        if lines.next() != Some("POST /internal/inference/laps HTTP/1.1") {
+        let route = lines.next().ok_or("missing lap route")?;
+        if !matches!(
+            route,
+            "POST /internal/inference/laps HTTP/1.1"
+                | "POST /internal/inference/canaries/prepare HTTP/1.1"
+                | "POST /internal/inference/canaries/answers HTTP/1.1"
+        ) {
             return Err("unknown lap route");
         }
         let mut length = None;
@@ -2482,12 +2574,60 @@ fn inference_serve_lap_output(
         stream
             .read_exact(&mut body)
             .map_err(|_| "lap body unavailable")?;
-        let input = serde_json::from_slice(&body).map_err(|_| "invalid lap output")?;
+        let mut canaries = canaries.lock().map_err(|_| "canary engine unavailable")?;
+        if route == "POST /internal/inference/canaries/prepare HTTP/1.1" {
+            let request: inference_canary::CanaryLapRequest =
+                serde_json::from_slice(&body).map_err(|_| "invalid canary request")?;
+            let runtime = canaries.as_ref().ok_or("canary table required")?;
+            let plan = runtime
+                .engine
+                .prepare(
+                    &runtime.state,
+                    request.deal_id,
+                    request.lap_index,
+                    request.generated_tokens,
+                )
+                .map_err(|_| "canary preparation refused")?;
+            return serde_json::to_vec(&plan).map_err(|_| "canary plan encoding");
+        }
+        if route == "POST /internal/inference/canaries/answers HTTP/1.1" {
+            let answer = serde_json::from_slice(&body).map_err(|_| "invalid canary answer")?;
+            canaries
+                .as_ref()
+                .ok_or("canary table required")?
+                .engine
+                .accept_answer(answer)
+                .map_err(|_| "canary answer refused")?;
+            return Ok(b"{\"accepted\":true}".to_vec());
+        }
+        let input: inference_signal::deals::laps::LapInput =
+            serde_json::from_slice(&body).map_err(|_| "invalid lap output")?;
+        if let Some(runtime) = canaries.as_ref() {
+            runtime
+                .engine
+                .require_committed(
+                    &runtime.state,
+                    input.deal_id,
+                    input.lap_index,
+                    input.generated_tokens,
+                )
+                .map_err(|_| "canary commitment must finalize before lap receipt")?;
+        }
         let frame = listener
             .lock()
             .map_err(|_| "lap listener unavailable")?
             .issue_lap(input, now_ms().map_err(|_| "lap clock unavailable")?, host)
             .map_err(|_| "lap output refused")?;
+        if let Some(runtime) = canaries.as_mut() {
+            runtime
+                .engine
+                .audit_answer(
+                    &runtime.state,
+                    frame.receipt.deal_id,
+                    frame.receipt.lap_index,
+                )
+                .map_err(|_| "canary audit refused")?;
+        }
         serde_json::to_vec(&frame).map_err(|_| "lap response encoding")
     })();
     let (status, body) = match result {
@@ -2631,7 +2771,7 @@ impl InferenceDealRuntime {
             config.probe_program.bytes(),
         )
         .map_err(|error| error.to_string())?;
-        let laps = InferenceLapRuntime::open(&terms.laps)?;
+        let laps = InferenceLapRuntime::open(&terms.laps, &terms.journal)?;
         Ok(Self {
             laps,
             engine: Arc::new(Mutex::new(engine)),
@@ -2947,6 +3087,9 @@ fn inference_boot(
     let deals = InferenceDealRuntime::open(config, &offer)?;
     let snapshot = deals.snapshot()?;
     deals
+        .laps
+        .initialize_canaries(snapshot.state_bytes(), offer.room_id)?;
+    deals
         .engine
         .lock()
         .map_err(|_| "inference deal engine unavailable")?
@@ -2966,6 +3109,7 @@ fn inference_boot(
     let signal = Arc::new(Mutex::new(signal));
     let completion_signal = Arc::clone(&signal);
     let completion_host = Arc::clone(&deals.laps.host);
+    let completion_canaries = Arc::clone(&deals.laps.canaries);
     let completion_bearer = config.bearer.clone();
     let completion_gate = Arc::clone(&market.gate);
     let completion_routes = inference_completion_routes(config, &market, &offer, &deals)?;
@@ -2999,6 +3143,7 @@ fn inference_boot(
                     &completion_signal,
                     &completion_host,
                     &completion_bearer,
+                    &completion_canaries,
                 );
             }
         },
@@ -3126,6 +3271,23 @@ fn serve(config: Config) -> Result<(), String> {
                 );
                 let result = observed.and_then(|()| {
                     let snapshot = inference.deals.snapshot()?;
+                    let canaries_ready = {
+                        let mut canaries = inference
+                            .deals
+                            .laps
+                            .canaries
+                            .lock()
+                            .map_err(|_| "canary engine unavailable")?;
+                        if let Some(runtime) = canaries.as_mut() {
+                            runtime.state = snapshot.state_bytes().to_vec();
+                            runtime
+                                .engine
+                                .tick(&mut InferenceLapTransport(&inference.deals))
+                                .map_err(|error| error.to_string())?
+                        } else {
+                            true
+                        }
+                    };
                     let mut signal = inference
                         .signal
                         .lock()
@@ -3143,7 +3305,7 @@ fn serve(config: Config) -> Result<(), String> {
                         .laps
                         .lock()
                         .map_err(|_| "inference laps unavailable")?;
-                    for engine in sessions.values_mut() {
+                    for engine in sessions.values_mut().filter(|_| canaries_ready) {
                         engine
                             .seal_and_settle(
                                 &mut InferenceLapTransport(&inference.deals),

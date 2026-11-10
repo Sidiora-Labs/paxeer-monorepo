@@ -69,7 +69,9 @@ use layerx_programs_registry::chain_proof::{
 
 pub mod inference_market {
     pub use layerx_programs_ai_market as program;
-    pub use program::canary::{ChallengeLapPayload, ResolveChallengePayload};
+    pub use program::canary::{
+        CanaryLogits, CanaryReveal, CanaryTask, ChallengeLapPayload, ResolveChallengePayload,
+    };
     pub use program::laps::{LapReceipt, ReceiptBatch, SettleLapsRequest};
     pub use program::placement::BookView;
     pub use program::policy::RoomProfile;
@@ -214,6 +216,115 @@ pub mod inference_market {
         )?)
     }
 
+    /// Secret-keyed, deterministic sampling; the signature is never sent to peers.
+    #[must_use]
+    pub fn canary_sampling_key(host: &HostMeterKey, deal: [u8; 32], lap: u64) -> [u8; 32] {
+        let mut hash = sha2::Sha256::new();
+        hash.update(b"PAXAI/canary-sampling/v1\0");
+        hash.update(deal);
+        hash.update(lap.to_be_bytes());
+        let signature = host.sign(&hash.finalize().into());
+        sha2::Sha256::digest(signature).into()
+    }
+
+    #[must_use]
+    pub fn canary_answer_context(
+        binding: &program::types::FrozenBinding,
+        deal: Digest32,
+        lap: u64,
+        peer: program::types::WorkerId,
+        prompt: Digest32,
+    ) -> Vec<u8> {
+        let mut context = Vec::with_capacity(248);
+        context.extend_from_slice(binding.chain.as_bytes());
+        context.extend_from_slice(binding.program.as_bytes());
+        context.extend_from_slice(binding.market.as_bytes());
+        context.extend_from_slice(&binding.epoch.to_be_bytes());
+        context.extend_from_slice(&binding.config.get().to_be_bytes());
+        context.extend_from_slice(binding.roster.as_bytes());
+        context.extend_from_slice(deal.as_bytes());
+        context.extend_from_slice(&lap.to_be_bytes());
+        context.extend_from_slice(peer.as_bytes());
+        context.extend_from_slice(prompt.as_bytes());
+        context
+    }
+
+    /// Bind the peer's logits to the frozen deal, lap and prompt context.
+    ///
+    /// # Errors
+    /// Returns an error if the context length or logits encoding is noncanonical.
+    pub fn canary_answer_attestation(
+        context: &[u8],
+        answer: &CanaryLogits,
+    ) -> Result<Digest32, AiClientError> {
+        if context.len() != 248 {
+            return Err(program::errors::NON_CANONICAL.into());
+        }
+        let mut preimage = context.to_vec();
+        preimage.extend_from_slice(program::canary::logits_digest(answer)?.as_bytes());
+        Ok(program::codec::domain_hash(
+            "PAXAI/canary-answer/v1",
+            &preimage,
+        )?)
+    }
+
+    /// Prepare a canary expectation commitment for native submission.
+    ///
+    /// # Errors
+    /// Returns an error if the task cannot be encoded or its operation is invalid.
+    pub fn commit_canary(task: &CanaryTask) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::CommitScore, task.encode()?.to_vec())
+    }
+
+    /// Prepare the committed canary expectation for revelation.
+    ///
+    /// # Errors
+    /// Returns an error if the reveal cannot be encoded or its operation is invalid.
+    pub fn reveal_canary(reveal: &CanaryReveal) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::RevealScore, reveal.encode()?.to_vec())
+    }
+
+    /// Encode a market operation using its canonical ordinary or canary score framing.
+    ///
+    /// # Errors
+    /// Returns an error if the envelope is invalid or the output buffer is too small.
+    pub fn encode_operation_envelope(
+        envelope: &program::codec::Envelope<'_>,
+        out: &mut [u8],
+    ) -> Result<usize, AiClientError> {
+        if matches!(
+            envelope.operation,
+            dispatch::CommitScore | dispatch::RevealScore
+        ) && envelope
+            .payload
+            .starts_with(program::canary::CANARY_TASK_KIND)
+        {
+            Ok(program::commit_reveal::encode_canary_envelope(
+                envelope, out,
+            )?)
+        } else {
+            Ok(program::codec::encode_envelope(envelope, out)?)
+        }
+    }
+
+    /// Decode and validate ordinary and canary score operation envelopes.
+    ///
+    /// # Errors
+    /// Returns an error if the envelope or its request digest is noncanonical.
+    pub fn decode_operation_envelope(
+        bytes: &[u8],
+    ) -> Result<(program::codec::Envelope<'_>, program::types::RequestDigest), AiClientError> {
+        if program::commit_reveal::is_canary_score(bytes) {
+            let validated = program::commit_reveal::decode_canary_envelope(bytes)?;
+            let digest = validated.request_digest()?;
+            Ok((validated.envelope, digest))
+        } else {
+            let validated = program::codec::decode_envelope(bytes)?;
+            let digest = validated.request_digest()?;
+            Ok((validated.envelope, digest))
+        }
+    }
+
     pub fn seal_evidence(payload: &[u8]) -> Result<MarketOperation, AiClientError> {
         MarketOperation::new(dispatch::SealEvidence, payload.to_vec())
     }
@@ -239,7 +350,11 @@ pub mod inference_market {
             return Err(program::errors::WRONG_ROSTER.into());
         }
         let operation_roster = match operation.operation() {
-            dispatch::SealEvidence => roster,
+            dispatch::SealEvidence
+            | dispatch::CommitScore
+            | dispatch::RevealScore
+            | dispatch::ChallengeLap
+            | dispatch::ResolveChallenge => roster,
             dispatch::SettleLaps => {
                 let batch = program::laps::ReceiptBatch::decode(
                     operation
@@ -269,11 +384,17 @@ pub mod inference_market {
             .filter_map(|i| state.control.replay.actor(ActorSlot::from_index(i).ok()?))
             .find(|entry| entry.principal == actor)
             .ok_or(program::errors::UNAUTHORIZED)?;
-        let sequence = authority.last.map_or(Ok(1), |last| {
-            last.sequence
-                .checked_add(1)
-                .ok_or(program::errors::ARITHMETIC)
-        })?;
+        let sequence = if operation.operation().metadata().sequence
+            == program::dispatch::SequencePolicy::ObjectLocal
+        {
+            0
+        } else {
+            authority.last.map_or(Ok(1), |last| {
+                last.sequence
+                    .checked_add(1)
+                    .ok_or(program::errors::ARITHMETIC)
+            })?
+        };
         let envelope = Envelope {
             operation: operation.operation(),
             chain: snapshot.binding().chain,
@@ -290,7 +411,7 @@ pub mod inference_market {
             authentication: Authentication::Native,
         };
         let mut out = vec![0; program::MAX_ENVELOPE_BYTES];
-        let length = program::codec::encode_envelope(&envelope, &mut out)?;
+        let length = encode_operation_envelope(&envelope, &mut out)?;
         out.truncate(length);
         Ok(out)
     }
@@ -3123,11 +3244,11 @@ pub fn market_envelope(record: &OperationRecord) -> Result<Vec<u8>, AiClientErro
         return Err(AiClientError::NotNativeProgramCall);
     }
     let (native, _) = decode_program_call(&call.data)?;
-    let envelope = decode_envelope(&native.calldata)?;
+    let (envelope, _) = inference_market::decode_operation_envelope(&native.calldata)?;
     if native.guest_abi != GUEST_ABI
         || native.entrypoint != ENTRYPOINT
-        || native.program_id.bytes() != envelope.envelope.program.bytes()
-        || envelope.envelope.expiry != record.not_after()
+        || native.program_id.bytes() != envelope.program.bytes()
+        || envelope.expiry != record.not_after()
     {
         return Err(AiClientError::NotNativeProgramCall);
     }
@@ -3139,8 +3260,7 @@ pub async fn sign_market_envelope(
     terms: &NativeTerms<'_>,
     signer: &dyn Signer,
 ) -> Result<OperationRecord, AiClientError> {
-    let validated = decode_envelope(envelope)?;
-    let env = validated.envelope;
+    let (env, request_digest) = inference_market::decode_operation_envelope(envelope)?;
     if env.operation.metadata().boundary != CallBoundary::Mutation {
         return Err(AiClientError::NotMutation);
     }
@@ -3184,7 +3304,7 @@ pub async fn sign_market_envelope(
     let signature = sign_disclosed_call(signer, &call, &disclosure, from).await?;
     OperationRecord::from_signed_transaction(
         evm_transaction::assemble(&call, &signature),
-        validated.request_digest()?.bytes(),
+        request_digest.bytes(),
         env.expiry,
     )
 }
@@ -3195,7 +3315,8 @@ pub fn submit_market_operation(
     endpoint: &SequencerEndpoint,
 ) -> Result<OperationState, AiClientError> {
     let envelope = market_envelope(record)?;
-    let operation = decode_envelope(&envelope)?.envelope.operation;
+    let (envelope, _) = inference_market::decode_operation_envelope(&envelope)?;
+    let operation = envelope.operation;
     journal.record_signed(record)?;
     let registry = ModuleRegistry::new(&[])?;
     let retained = journal.load(&record.activity_id(), &registry)?;
