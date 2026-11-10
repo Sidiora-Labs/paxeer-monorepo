@@ -216,7 +216,7 @@ func TestQueryAirdropEpochABCICodes(t *testing.T) {
 				response, err := types.NewQueryClient(router).AirdropEpoch(context.Background(), request)
 				require.Nil(t, response)
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
-				require.Contains(t, status.Convert(err).Message(), "invalid address")
+				require.Equal(t, "pool must be a 0x-prefixed 40-hex-digit address: invalid address", status.Convert(err).Message())
 				response, err = querier.AirdropEpoch(sdk.WrapSDKContext(ctx), request)
 				require.Nil(t, response)
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
