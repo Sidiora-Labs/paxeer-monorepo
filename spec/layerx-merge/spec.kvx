@@ -194615,7 +194615,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.368]
 title = "Compile the test target repair_22_31_549 of the agent daemon again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225551,7 +225551,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.367]
 title = "End the node process after its close sequence when the termination signal arrives in block sync"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
