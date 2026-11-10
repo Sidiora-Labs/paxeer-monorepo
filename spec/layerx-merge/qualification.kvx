@@ -40354,3 +40354,35 @@ symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
 observed = "Attempt 15 at 8f4a368b8559 on base 8dfebd017729: the build exits 0; the verification exits 1 with 48 of 50 row commands at exit 0 and the two wallet rows at exit 1 with no test run, the test stops at spec/layerx-merge/programme/tests/test_parity_run.py:57; log /out/logs/verify-1.log."
 assumption = "The base of the attempt predates the repair of the node stop, which task 22.39.367 brought to main."
 severity = "high"
+
+[finding.22.39.227.8]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 8 at 6c33b18097ae on base 7cbe7a57367d: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1, the target inference_queue could not compile due to 47 previous errors, 41 of clippy::missing_errors_doc and 6 of clippy::must_use_candidate; log /out/logs/verify-1.log."
+assumption = "The outer module of the target is declared with pub, which exports the items of the included files."
+severity = "high"
+
+[finding.22.39.365.2]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+symbol = "f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+observed = "Attempt 2 at f8b859f1deec on base 7cbe7a57367d: the build exits 0 at feea516f4c18; the verification exits 1 at feea516f4c18, the target f11_lap_settlement ends with 9 passed and 4 failed, the four admission fixture cases of the module producers stop with ApplicationError(14) at the Heartbeat; log /out/logs/verify-1.log."
+assumption = "The fixture file is red on main since commit 951dde1f60 and sat outside the paths of the task."
+severity = "high"
+
+[finding.22.39.95.13]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 14 at f788bd3e84ce on base c9e42b221901: both builds exit 0; verification 2 exits 1 at f788bd3e84ce with 1289 web cases passed and 2 failed in src/widgets/trading/chart-datafeed-recovery.test.ts, the first with Canonical candles: HTTP 503 at :675; log /out/logs/verify-2.log."
+assumption = "Both red cases stop at reads of the development API, which sits outside the paths of the task."
+severity = "high"
+
+[finding.22.39.369.1]
+task = "22.39.369"
+file = "services/platform/hosted/indexer/tests/ai_source.rs::committed_read_reaches_the_projection"
+symbol = "ai_source.rs::committed_read_reaches_the_projection"
+observed = "Attempt 1 at c63a1ab475de on base 7cbe7a57367d: both builds exit 0; verification 2 exits 1 at c63a1ab475de with five cases passed and the lint step stopped, could not compile layerx-indexer (lib) due to 117 previous errors; log /out/logs/verify-2.log."
+assumption = "The verification named the whole library, which is red under the lint table of its workspace on main."
+severity = "high"
