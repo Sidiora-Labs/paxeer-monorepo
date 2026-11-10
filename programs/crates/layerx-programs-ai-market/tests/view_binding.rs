@@ -1319,7 +1319,7 @@ fn a13_full_state_reconstructs_from_24_pinned_chunks_without_effects() -> Checke
     let s = full_state()?;
     let before = s.clone();
     let bodies = read_all(&s)?;
-    assert_eq!(FULL_CAPTURE_CHUNKS, 24);
+    assert_eq!(FULL_CAPTURE_CHUNKS, 30);
     assert_eq!(bodies.len(), FULL_CAPTURE_CHUNKS);
     let request = RequestDigest::new([0x42; 32])?;
     let revision = state::decode_shared_state(&s)?.revision;
@@ -1332,7 +1332,7 @@ fn a13_full_state_reconstructs_from_24_pinned_chunks_without_effects() -> Checke
     }
     let (bytes, facts) = capture(&s, 0xA1)?;
     assert_eq!(bytes, s);
-    assert_eq!(facts.chunks, 24);
+    assert_eq!(facts.chunks, FULL_CAPTURE_CHUNKS);
     assert_eq!(
         usize::try_from(facts.total_bytes).ok(),
         Some(MAX_STATE_BYTES)
@@ -1363,7 +1363,7 @@ fn a13_selector_refuses_oversize_misaligned_and_stale_reads() -> Checked {
         Err(CAPACITY)
     );
     assert_eq!(codec::state_digest(&over), Err(CAPACITY));
-    for offset in [8193, 196_608] {
+    for offset in [8193, layerx_programs_ai_market::MAX_STATE_BYTES as u32] {
         assert_eq!(
             read_state_chunk(
                 &s,

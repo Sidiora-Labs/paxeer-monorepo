@@ -24,7 +24,7 @@ pub const fn participant_chunk_size(count: usize) -> usize {
 }
 pub const SECTION_CAP: usize = 9088;
 pub const JOINT_CAP: usize = 24576;
-pub const COMMON_CAP: usize = 196_608;
+pub const COMMON_CAP: usize = crate::MAX_STATE_BYTES;
 pub const UNIT: u32 = 1_000_000;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
