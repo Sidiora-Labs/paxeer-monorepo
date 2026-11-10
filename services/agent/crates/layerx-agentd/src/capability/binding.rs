@@ -1455,7 +1455,7 @@ mod tests {
     }
 
     fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+        layerx_programs::hex::encode(bytes)
     }
 
     fn uses(store: &Store, id: u8) -> usize {
@@ -2106,7 +2106,7 @@ mod tests {
             PurposeBinding::TextV1 { commitment }
         );
         assert!(matches!(
-            purpose_from_set(&[label.clone()], Some(commitment)),
+            purpose_from_set(std::slice::from_ref(&label), Some(commitment)),
             Err(BindingError::Refused(Dimension::Purpose))
         ));
         assert!(matches!(
@@ -2153,7 +2153,7 @@ mod tests {
         let text = hex(&PURPOSE);
         let member = must(Purpose::new(text.as_str()));
         assert!(matches!(
-            purpose_from_set(&[member.clone()], Some(PURPOSE)),
+            purpose_from_set(std::slice::from_ref(&member), Some(PURPOSE)),
             Err(BindingError::Refused(Dimension::Purpose))
         ));
         let hashed = must(purpose_commitment_v1(&text));
