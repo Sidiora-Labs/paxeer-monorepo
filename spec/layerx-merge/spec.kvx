@@ -194133,7 +194133,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.353]
 title = "Compile the deal listener of the agent daemon outside the test build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
