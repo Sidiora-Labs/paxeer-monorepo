@@ -351873,7 +351873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.273]
 title = "Repair the retired references of the qualification suites and fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245", "22.39.319", "22.39.330"]
