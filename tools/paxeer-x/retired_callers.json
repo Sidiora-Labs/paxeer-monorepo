@@ -1662,6 +1662,168 @@
         "let signature = sign_disclosed_call("
       ],
       "citation": "Decisions 3104 and 3130 retain sign_disclosed_call as the live disclosure-bound secp256k1 EIP-1559 signer, preserving sender recovery and exact transaction receipt binding."
+    },
+    {
+      "path": "tools/platform/cli/src",
+      "symbols": [
+        "lx_getSequence",
+        "lx_getProgramEvents"
+      ],
+      "citation": "Decision 3125 permits these refusal-test literals, which assert that retired RPC requests are rejected before transport and successful retired-method responses remain unavailable."
+    },
+    {
+      "path": "tools/platform/emulator/core",
+      "symbols": [
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live lxp_programs_fee_governance_resolve_runtime identifier, which reads protocol-state fee schedules for emulator occupancy admission and snapshot restoration rather than submitting the retired relay activity."
+    },
+    {
+      "path": "rpc/config/config.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_listAssets as a node-root RPC method, with PxIndexerURL configuring its live single-indexer asset enumeration."
+    },
+    {
+      "path": "rpc/px_account.go",
+      "symbols": [
+        "px_getNetwork"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_getNetwork as the node-root discovery method backed by the committed EVM head and optional consensus status."
+    },
+    {
+      "path": "rpc/px_assets.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_listAssets backed by the single indexer for enumeration and pinned node state for asset metadata."
+    },
+    {
+      "path": "rpc/px_history.go",
+      "symbols": [
+        "px_getUnifiedHistory"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_getUnifiedHistory backed by the single indexer for accounts resolved from pinned node state."
+    },
+    {
+      "path": "rpc/px_params.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the px_listAssets parameter guard that rejects explicit null cursors before pointer decoding."
+    },
+    {
+      "path": "rpc/px_route_catalogue.json",
+      "symbols": [
+        "px_getNetwork",
+        "px_getUnifiedHistory",
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain these live node-root RPC method names projected from the canonical route catalogue rather than retiring their public contracts."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx",
+      "lines": [
+        "    expect(container.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx",
+      "lines": [
+        "    expect(container.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx",
+      "lines": [
+        "    expect(row.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
+    },
+    {
+      "path": "services/explorer/backend/README.md",
+      "symbols": [
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 retains settlement_anchored as a frozen archive verification value for persisted historical receipts, without advancing native transaction finality."
+    },
+    {
+      "path": "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex",
+      "symbols": [
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 retains settlement_anchored as a frozen archive verification value for persisted historical receipts, without advancing native transaction finality."
+    },
+    {
+      "path": "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt.ex",
+      "symbols": [
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 retains settlement_anchored as a frozen archive verification value for persisted historical receipts, without advancing native transaction finality."
+    },
+    {
+      "path": "services/explorer/backend/apps/explorer/priv/repo/migrations/20261001000000_create_paxeer_x_tables.exs",
+      "symbols": [
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 retains settlement_anchored as a frozen archive verification value for persisted historical receipts, without advancing native transaction finality."
+    },
+    {
+      "path": "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/common.ex",
+      "symbols": [
+        "fetch_batch"
+      ],
+      "citation": "Decision 3125 retains fetch_batch_details_by_batch_number and its caller for the live zkSync zks_getL1BatchDetails interface, which is independent of retired Paxeer kernel batch availability."
+    },
+    {
+      "path": "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/rpc.ex",
+      "symbols": [
+        "fetch_batch"
+      ],
+      "citation": "Decision 3125 retains fetch_batch_details_by_batch_number and its caller for the live zkSync zks_getL1BatchDetails interface, which is independent of retired Paxeer kernel batch availability."
+    },
+    {
+      "path": "services/explorer/backend/config/runtime.exs",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the native SequencerReceipt governed receipt-key and CometBFT validator pins loaded from the operator file, independently of the retired kernel authority process."
+    },
+    {
+      "path": "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json",
+      "symbols": [
+        "CheckpointSubmitted",
+        "ILayerXAnchor",
+        "ILayerXVerify",
+        "depositRootAuthority",
+        "depositToken",
+        "executeForcedExit",
+        "finaliseWithdrawal",
+        "getIntent",
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxVerify",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify",
+        "registerDepositRoot",
+        "requestForcedExit",
+        "requestSettlement",
+        "requestWithdrawal",
+        "statusOf"
+      ],
+      "citation": "Decision 3125 retains these disabled producer identifiers and historical ABI signatures for selector and event decoding in the exact producer/historical union generated by generate_precompiles.py; they do not invoke retired execution."
+    },
+    {
+      "path": "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_historical.json",
+      "symbols": [
+        "getIntent",
+        "requestSettlement"
+      ],
+      "citation": "Decision 3125 retains these disabled producer identifiers and historical ABI signatures for selector and event decoding in the exact producer/historical union generated by generate_precompiles.py; they do not invoke retired execution."
     }
   ]
 }

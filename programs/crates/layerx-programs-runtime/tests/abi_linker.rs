@@ -1,5 +1,4 @@
-#[path = "support/abi_versions.rs"]
-mod abi_versions;
+use layerx_programs_runtime::test_support as abi_versions;
 
 use layerx_programs_runtime::test_support::{
     import_section, module, type_section, TYPE_I32, TYPE_I64,

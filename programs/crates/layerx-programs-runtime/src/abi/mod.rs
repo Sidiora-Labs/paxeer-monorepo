@@ -600,6 +600,9 @@ pub struct AbiEffects {
 
 impl AbiEffects {
     /// Decodes the full guest bytes carried by committed native receipt evidence.
+    /// # Errors
+    ///
+    /// Returns a decoding refusal for malformed, oversized, or inconsistent canonical state.
     pub fn decode_program_event_envelope(encoded: &[u8]) -> Result<Self, AbiError> {
         use crate::replay::ReplayCursor;
         let mut cursor = ReplayCursor::new(encoded);

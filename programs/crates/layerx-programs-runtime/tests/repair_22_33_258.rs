@@ -1,16 +1,16 @@
 //! Repair record 22.33.258, audit 22.30.130, finding scan-copying-cost.
-//! scan_copying_cost_maximum_page and scan_copying_cost_rejected_values prove
+//! `scan_copying_cost_maximum_page` and `scan_copying_cost_rejected_values` prove
 //! bounded allocation through the production store, planner and metered ABI.
-//! scan_copying_cost_cursor_overhead and scan_copying_cost_host_wire prove
+//! `scan_copying_cost_cursor_overhead` and `scan_copying_cost_host_wire` prove
 //! exact cursor/page bytes, continuation and unchanged host refusal/charging.
 //! Baseline verification was not run: the explicit implementation-first order
 //! and single verification budget prohibit the conflicting baseline instruction.
-//! Wiring request (domain 13): src/abi/storage_ops.rs and src/host/scan.rs under
-//! programs/crates/layerx-programs-runtime must pass output capacity and remaining
+//! Wiring request (domain 13): `src/abi/storage_ops.rs` and `src/host/scan.rs` under
+//! `programs/crates/layerx-programs-runtime` must pass output capacity and remaining
 //! storage-read budget into borrowed planning, preserving refusal precedence.
 //! Qualification repair: private failure finalization is observed through an exact
 //! full-budget public charge, which succeeds only if the refused scan charged zero.
-//! Qualification repair: ScanCeilingExceeded has the documented bounds status -3;
+//! Qualification repair: `ScanCeilingExceeded` has the documented bounds status -3;
 //! a malformed producer-issued cursor retains the distinct invalid status -2.
 //! The gate runner records the candidate revision and private evidence.
 
@@ -33,9 +33,11 @@ thread_local! {
 }
 
 fn count_allocation(bytes: usize) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let _ = ALLOCATED.try_with(|counter| {
         if let Some(total) = counter.get() {
-            counter.set(Some(total.checked_add(bytes).unwrap()));
+            counter.set(Some(total.checked_add(bytes).assert_success("test value")));
         }
     });
 }
@@ -65,21 +67,29 @@ unsafe impl GlobalAlloc for AllocationCounter {
 static ALLOCATOR: AllocationCounter = AllocationCounter;
 
 fn measured<T>(run: impl FnOnce() -> T) -> (T, usize) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     ALLOCATED.with(|counter| assert_eq!(counter.replace(Some(0)), None));
     let result = run();
-    let bytes = ALLOCATED.with(|counter| counter.replace(None).unwrap());
+    let bytes = ALLOCATED.with(|counter| counter.replace(None).assert_success("test value"));
     (result, bytes)
 }
 
 fn owner() -> ProgramId {
-    ProgramId::new([1; 32]).unwrap()
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    ProgramId::new([1; 32]).assert_success("test value")
 }
 
 fn actor() -> PrincipalId {
-    PrincipalId::new([2; 32]).unwrap()
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    PrincipalId::new([2; 32]).assert_success("test value")
 }
 
 fn abi(storage: Storage, shared: bool) -> Abi {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     Abi::new(
         ABI_VERSION,
         owner(),
@@ -90,12 +100,12 @@ fn abi(storage: Storage, shared: bool) -> Abi {
             } else {
                 Capability::StorageRead
             }])
-            .unwrap(),
+            .assert_success("test value"),
         ),
         storage,
         &UnavailableReceiptOracle,
     )
-    .unwrap()
+    .assert_success("test value")
 }
 
 fn meter(read_bytes: u64) -> Meter {
@@ -107,6 +117,8 @@ fn meter(read_bytes: u64) -> Meter {
 
 #[test]
 fn scan_copying_cost_maximum_page() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let namespace = StorageNamespace::principal(owner(), actor());
     let prefix = vec![b'p'; MAX_STORAGE_KEY_BYTES - 1];
     let mut storage = Storage::new();
@@ -117,7 +129,7 @@ fn scan_copying_cost_maximum_page() {
     for index in 0..65_u8 {
         key[MAX_STORAGE_KEY_BYTES - 1] = index;
         value.fill(index);
-        transaction.write(&key, &value).unwrap();
+        transaction.write(&key, &value).assert_success("test value");
     }
     assert_eq!(transaction.commit(), 65);
     let mut runtime = abi(storage, false);
@@ -125,7 +137,7 @@ fn scan_copying_cost_maximum_page() {
     let cursor_bytes = 14 + 65 + prefix.len() + MAX_STORAGE_KEY_BYTES;
     let expected_bytes =
         5 + 64 * (6 + MAX_STORAGE_KEY_BYTES + MAX_STORAGE_VALUE_BYTES) + cursor_bytes;
-    let mut budget = meter(u64::try_from(expected_bytes).unwrap());
+    let mut budget = meter(u64::try_from(expected_bytes).assert_success("test value"));
     let (result, allocated) = measured(|| {
         runtime.storage_scan_selected(
             &mut budget,
@@ -135,9 +147,12 @@ fn scan_copying_cost_maximum_page() {
             limits,
         )
     });
-    let page = result.unwrap();
+    let page = result.assert_success("test value");
     assert_eq!(page.entries().len(), 64);
-    assert_eq!(page.metered_bytes(), u64::try_from(expected_bytes).unwrap());
+    assert_eq!(
+        page.metered_bytes(),
+        u64::try_from(expected_bytes).assert_success("test value")
+    );
     assert!(page.metered_bytes() <= u64::from(limits.max_bytes()));
     // At most one owned copy of each accepted key/value, plus bounded metadata.
     assert!(
@@ -150,7 +165,7 @@ fn scan_copying_cost_maximum_page() {
         assert_eq!(entry.value.len(), MAX_STORAGE_VALUE_BYTES);
         assert!(entry.value.iter().all(|byte| usize::from(*byte) == index));
     }
-    let cursor = page.cursor().unwrap();
+    let cursor = page.cursor().assert_success("test value");
     assert_eq!(cursor.len(), cursor_bytes);
     assert_eq!(&cursor[..2], &[1, 65]);
     assert_eq!(&cursor[2..67], namespace.canonical_bytes());
@@ -160,15 +175,15 @@ fn scan_copying_cost_maximum_page() {
     assert_eq!(&cursor[328..332], &limits.max_bytes().to_be_bytes());
     assert_eq!(&cursor[332..334], &256_u16.to_be_bytes());
     assert_eq!(&cursor[334..], page.entries()[63].key);
-    let usage = budget.finish().unwrap();
+    let usage = budget.finish().assert_success("test value");
     assert_eq!(
         usage.storage_read_bytes,
-        u64::try_from(expected_bytes).unwrap()
+        u64::try_from(expected_bytes).assert_success("test value")
     );
     assert_eq!(usage.output_bytes, 0);
 
     let terminal_bytes = 5 + 6 + MAX_STORAGE_KEY_BYTES + MAX_STORAGE_VALUE_BYTES;
-    let mut budget = meter(u64::try_from(terminal_bytes).unwrap());
+    let mut budget = meter(u64::try_from(terminal_bytes).assert_success("test value"));
     let next = runtime
         .storage_scan_selected(
             &mut budget,
@@ -177,27 +192,39 @@ fn scan_copying_cost_maximum_page() {
             cursor,
             limits,
         )
-        .unwrap();
+        .assert_success("test value");
     assert_eq!(next.entries().len(), 1);
     assert!(next.entries()[0].value.iter().all(|byte| *byte == 64));
     assert_eq!(next.cursor(), None);
-    assert_eq!(next.metered_bytes(), u64::try_from(terminal_bytes).unwrap());
     assert_eq!(
-        budget.finish().unwrap().storage_read_bytes,
+        next.metered_bytes(),
+        u64::try_from(terminal_bytes).assert_success("test value")
+    );
+    assert_eq!(
+        budget
+            .finish()
+            .assert_success("test value")
+            .storage_read_bytes,
         next.metered_bytes()
     );
 }
 
 #[test]
 fn scan_copying_cost_rejected_values() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let namespace = StorageNamespace::principal(owner(), actor());
     let large = vec![0xa5; MAX_STORAGE_VALUE_BYTES];
     let mut storage = Storage::new();
     let mut transaction = storage.transaction(namespace);
-    transaction.write(b"a", &large).unwrap();
+    transaction.write(b"a", &large).assert_success("test value");
     assert_eq!(transaction.commit(), 1);
     let mut runtime = abi(storage, false);
-    for ceiling in [5, 12, u32::try_from(11 + MAX_STORAGE_VALUE_BYTES).unwrap()] {
+    for ceiling in [
+        5,
+        12,
+        u32::try_from(11 + MAX_STORAGE_VALUE_BYTES).assert_success("test value"),
+    ] {
         let mut budget = meter(u64::MAX);
         let (result, allocated) = measured(|| {
             runtime.storage_scan_selected(
@@ -205,7 +232,7 @@ fn scan_copying_cost_rejected_values() {
                 StorageSelector::Principal,
                 b"",
                 b"",
-                ScanLimits::new(64, ceiling).unwrap(),
+                ScanLimits::new(64, ceiling).assert_success("test value"),
             )
         });
         assert_eq!(
@@ -216,13 +243,19 @@ fn scan_copying_cost_rejected_values() {
             allocated < 16_384,
             "rejected value allocated {allocated} bytes"
         );
-        assert_eq!(budget.finish().unwrap().storage_read_bytes, 0);
+        assert_eq!(
+            budget
+                .finish()
+                .assert_success("test value")
+                .storage_read_bytes,
+            0
+        );
     }
 
     let mut storage = Storage::new();
     let mut transaction = storage.transaction(namespace);
-    transaction.write(b"a", b"x").unwrap();
-    transaction.write(b"b", &large).unwrap();
+    transaction.write(b"a", b"x").assert_success("test value");
+    transaction.write(b"b", &large).assert_success("test value");
     assert_eq!(transaction.commit(), 2);
     let mut runtime = abi(storage, false);
     let mut budget = meter(93);
@@ -232,24 +265,32 @@ fn scan_copying_cost_rejected_values() {
             StorageSelector::Principal,
             b"",
             b"",
-            ScanLimits::new(64, 93).unwrap(),
+            ScanLimits::new(64, 93).assert_success("test value"),
         )
     });
-    let page = result.unwrap();
+    let page = result.assert_success("test value");
     assert_eq!(page.entries().len(), 1);
     assert_eq!(page.entries()[0].key, b"a");
     assert_eq!(page.entries()[0].value, b"x");
-    assert_eq!(page.cursor().unwrap().len(), 80);
+    assert_eq!(page.cursor().assert_success("test value").len(), 80);
     assert_eq!(page.metered_bytes(), 93);
     assert!(
         allocated < 16_384,
         "rejected second value allocated {allocated} bytes"
     );
-    assert_eq!(budget.finish().unwrap().storage_read_bytes, 93);
+    assert_eq!(
+        budget
+            .finish()
+            .assert_success("test value")
+            .storage_read_bytes,
+        93
+    );
 }
 
 #[test]
 fn scan_copying_cost_cursor_overhead() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     for shared in [false, true] {
         let namespace = if shared {
             StorageNamespace::shared(owner())
@@ -267,24 +308,30 @@ fn scan_copying_cost_cursor_overhead() {
         let first_key = key.clone();
         let mut storage = Storage::new();
         let mut transaction = storage.transaction(namespace);
-        transaction.write(&key, b"").unwrap();
+        transaction.write(&key, b"").assert_success("test value");
         key[255] = 1;
-        transaction.write(&key, b"").unwrap();
+        transaction.write(&key, b"").assert_success("test value");
         assert_eq!(transaction.commit(), 2);
         let mut runtime = abi(storage, shared);
         let cursor_bytes = 14 + namespace.canonical_bytes().len() + 255 + 256;
-        let bytes = u32::try_from(5 + 262 + cursor_bytes).unwrap();
-        let limits = ScanLimits::new(1, bytes).unwrap();
+        let bytes = u32::try_from(5 + 262 + cursor_bytes).assert_success("test value");
+        let limits = ScanLimits::new(1, bytes).assert_success("test value");
         let mut budget = meter(u64::from(bytes));
         let page = runtime
             .storage_scan_selected(&mut budget, selector, &prefix, b"", limits)
-            .unwrap();
+            .assert_success("test value");
         assert_eq!(page.entries()[0].key, first_key);
         assert!(page.entries()[0].value.is_empty());
-        assert_eq!(page.cursor().unwrap().len(), cursor_bytes);
+        assert_eq!(
+            page.cursor().assert_success("test value").len(),
+            cursor_bytes
+        );
         assert_eq!(page.metered_bytes(), u64::from(bytes));
         assert_eq!(
-            budget.finish().unwrap().storage_read_bytes,
+            budget
+                .finish()
+                .assert_success("test value")
+                .storage_read_bytes,
             u64::from(bytes)
         );
         let mut budget = meter(u64::from(bytes));
@@ -294,25 +341,37 @@ fn scan_copying_cost_cursor_overhead() {
                 selector,
                 &prefix,
                 b"",
-                ScanLimits::new(1, bytes - 1).unwrap(),
+                ScanLimits::new(1, bytes - 1).assert_success("test value"),
             ),
             Err(AbiError::Storage(StorageError::ScanCeilingExceeded))
         );
-        assert_eq!(budget.finish().unwrap().storage_read_bytes, 0);
+        assert_eq!(
+            budget
+                .finish()
+                .assert_success("test value")
+                .storage_read_bytes,
+            0
+        );
         let mut budget = meter(267);
         let terminal = runtime
             .storage_scan_selected(
                 &mut budget,
                 selector,
                 &prefix,
-                page.cursor().unwrap(),
+                page.cursor().assert_success("test value"),
                 limits,
             )
-            .unwrap();
+            .assert_success("test value");
         assert_eq!(terminal.entries()[0].key, key);
         assert_eq!(terminal.cursor(), None);
         assert_eq!(terminal.metered_bytes(), 267);
-        assert_eq!(budget.finish().unwrap().storage_read_bytes, 267);
+        assert_eq!(
+            budget
+                .finish()
+                .assert_success("test value")
+                .storage_read_bytes,
+            267
+        );
         let mut budget = meter(u64::from(bytes - 1));
         let refusal = MeterRefusal::BudgetExceeded {
             resource: ResourceKind::StorageRead,
@@ -332,9 +391,11 @@ fn scan_copying_cost_cursor_overhead() {
 }
 
 fn push_i32(body: &mut Vec<u8>, mut value: i32) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     body.push(0x41);
     loop {
-        let byte = u8::try_from(value & 0x7f).unwrap();
+        let byte = u8::try_from(value & 0x7f).assert_success("test value");
         value >>= 7;
         let done = (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0);
         body.push(if done { byte } else { byte | 0x80 });
@@ -351,6 +412,8 @@ fn host_guest(
     response_bytes: i32,
     status: bool,
 ) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::test_support::{
         code_section, func_body, function_section, import_section, module, raw_section,
         type_section, unsigned_leb, TYPE_I32,
@@ -361,7 +424,9 @@ fn host_guest(
         ("layerx_call", 0, 3),
         ("memory", 2, 0),
     ] {
-        exports.extend(unsigned_leb(u64::try_from(name.len()).unwrap()));
+        exports.extend(unsigned_leb(
+            u64::try_from(name.len()).assert_success("test value"),
+        ));
         exports.extend_from_slice(name.as_bytes());
         exports.extend([kind, index]);
     }
@@ -371,7 +436,7 @@ fn host_guest(
         128,
         0,
         512,
-        i32::try_from(cursor.len()).unwrap(),
+        i32::try_from(cursor.len()).assert_success("test value"),
         64,
         ceiling,
         1024,
@@ -393,7 +458,9 @@ fn host_guest(
         data.push(0);
         push_i32(&mut data, offset);
         data.push(0x0b);
-        data.extend(unsigned_leb(u64::try_from(bytes.len()).unwrap()));
+        data.extend(unsigned_leb(
+            u64::try_from(bytes.len()).assert_success("test value"),
+        ));
         data.extend_from_slice(bytes);
     }
     module(&[
@@ -426,13 +493,17 @@ fn host_scan(
     response_bytes: i32,
     status: bool,
 ) -> (Vec<u8>, u64) {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::{
         AuthorizedExecutionRequest, CompositionContext, Executor, WasmEngine, WasmValue,
         CALL_ENTRY_EXPORT,
     };
-    let engine = WasmEngine::declared().unwrap();
+    let engine = WasmEngine::declared().assert_success("test value");
     let wasm = host_guest(cursor, ceiling, capacity, response_bytes, status);
-    let module = engine.validate_candidate_v2(&wasm).unwrap();
+    let module = engine
+        .validate_candidate_v2(&wasm)
+        .assert_success("test value");
     let record = Executor::new(ResourceBudget::declared(), FeeSchedule::declared())
         .execute_authorized_candidate(
             storage,
@@ -441,25 +512,30 @@ fn host_scan(
                 program: owner(),
                 authorization: AuthorizationContext::new(
                     actor(),
-                    CapabilitySet::new([Capability::StorageRead]).unwrap(),
+                    CapabilitySet::new([Capability::StorageRead]).assert_success("test value"),
                 ),
                 receipts: &UnavailableReceiptOracle,
                 entrypoint: CALL_ENTRY_EXPORT,
                 calldata: &[],
                 composition: CompositionContext::isolated(),
-                response_capacity: usize::try_from(response_bytes).unwrap(),
+                response_capacity: usize::try_from(response_bytes).assert_success("test value"),
             },
         )
-        .unwrap();
+        .assert_success("test value");
     assert_eq!(record.execution().outputs(), [WasmValue::I32(0)]);
     (
-        record.response().unwrap().bytes.clone(),
+        record.response().assert_success("test value").bytes.clone(),
         record.execution().usage().storage_read_bytes,
     )
 }
 
 fn expected_small_page(keys: &[u8], ceiling: u32, continuation: bool) -> Vec<u8> {
-    let mut page = u16::try_from(keys.len()).unwrap().to_be_bytes().to_vec();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let mut page = u16::try_from(keys.len())
+        .assert_success("test value")
+        .to_be_bytes()
+        .to_vec();
     for key in keys {
         page.extend_from_slice(&[0, 1, *key, 0, 0, 0, 1, *key]);
     }
@@ -471,7 +547,7 @@ fn expected_small_page(keys: &[u8], ceiling: u32, continuation: bool) -> Vec<u8>
         page.extend_from_slice(&0_u16.to_be_bytes());
         page.extend_from_slice(&64_u32.to_be_bytes());
         page.extend_from_slice(&ceiling.to_be_bytes());
-        page.extend([0, 1, *keys.last().unwrap()]);
+        page.extend([0, 1, *keys.last().assert_success("test value")]);
     } else {
         page.extend([0, 0, 0]);
     }
@@ -480,11 +556,15 @@ fn expected_small_page(keys: &[u8], ceiling: u32, continuation: bool) -> Vec<u8>
 
 #[test]
 fn scan_copying_cost_host_wire() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let namespace = StorageNamespace::principal(owner(), actor());
     let mut storage = Storage::new();
     let mut transaction = storage.transaction(namespace);
     for key in [b'd', b'b', b'a', b'c'] {
-        transaction.write(&[key], &[key]).unwrap();
+        transaction
+            .write(&[key], &[key])
+            .assert_success("test value");
     }
     assert_eq!(transaction.commit(), 4);
     let before = storage.clone();

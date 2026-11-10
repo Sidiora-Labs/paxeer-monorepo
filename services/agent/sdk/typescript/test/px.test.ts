@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import * as http from "node:http";
@@ -28,6 +28,11 @@ import {
   pxOptionalQuantity,
   pxQuantity,
 } from "../src/index.js";
+
+const gatewayPxMethods = (JSON.parse(readFileSync(new URL(
+  "../../../../../../services/platform/hosted/gateway/openrpc.json", import.meta.url,
+), "utf8")) as { methods: { name: string }[] }).methods
+  .map(({ name }) => name).filter(name => name.startsWith("px_"));
 
 const ACCOUNT = "bb".repeat(32);
 const DID = `did:layerx:${"aa".repeat(32)}`;
@@ -123,11 +128,9 @@ function px_amounts_decode_up_to_uint256() {
   const sdkPackage = JSON.parse(
     readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
   );
-  assert.ok(
-    sdkPackage.scripts.test
-      .split(" && ")
-      .includes("node scripts/run-tests.mjs self-contained"),
-  );
+  assert.equal(sdkPackage.scripts.test, "npm run test:ci");
+  assert.equal(sdkPackage.scripts["test:ci"], "npm run build && node scripts/run-tests.mjs ci");
+  assert.equal(sdkPackage.scripts["test:self-contained"], "npm run build && node scripts/run-tests.mjs self-contained");
   const testRunner = readFileSync(
     new URL("../../scripts/run-tests.mjs", import.meta.url),
     "utf8",
@@ -640,7 +643,21 @@ async function px_methods_list_is_the_hosted_gateway_px_set() {
     "px_getReceiptKeys",
     "px_getHistory",
     "px_getUnifiedHistory",
+    "px_getInferenceRooms",
+    "px_getInferenceRoom",
+    "px_getInferenceDeal",
+    "px_getInferencePeer",
+    "px_getInferenceReceipts",
+    "px_register",
+    "px_getCommit",
+    "px_getValidators",
+    "px_getSequenceBatch",
+    "px_requestFunds",
+    "px_listHolderRecords",
+    "px_getCapabilities",
+    "px_getRouteCatalogue",
   ]);
+  assert.deepEqual([...PX_METHODS].sort(), [...gatewayPxMethods].sort());
   const client = new PxClient({ endpoint: "http://127.0.0.1:1/" });
   const call = Reflect.get(client, "call");
   assert.equal(typeof call, "function");
@@ -797,7 +814,21 @@ function receipt_keys_shape() {
     "px_getReceiptKeys",
     "px_getHistory",
     "px_getUnifiedHistory",
+    "px_getInferenceRooms",
+    "px_getInferenceRoom",
+    "px_getInferenceDeal",
+    "px_getInferencePeer",
+    "px_getInferenceReceipts",
+    "px_register",
+    "px_getCommit",
+    "px_getValidators",
+    "px_getSequenceBatch",
+    "px_requestFunds",
+    "px_listHolderRecords",
+    "px_getCapabilities",
+    "px_getRouteCatalogue",
   ]);
+  assert.deepEqual([...PX_METHODS].sort(), [...gatewayPxMethods].sort());
   const keys = decodePxReceiptKeys(receiptKeyCases[1]);
   assert.deepEqual(keys, [
     { keyId: "0b".repeat(32), publicKey, firstHeight: 100n, lastHeight: 199n },
@@ -839,7 +870,7 @@ function receipt_keys_shape() {
 
 await test(receipt_keys_shape);
 
-await test("python_px_matches_ts", () => {
+function python_px_matches_ts() {
   const script = `
 import json
 import sys
@@ -850,6 +881,8 @@ document = json.load(sys.stdin)
 assert list(PX_METHODS) == document["methods"]
 assert callable(PxClient.get_network)
 assert callable(PxClient.get_receipt_keys)
+for name in ("get_inference_rooms", "get_inference_room", "get_inference_deal", "get_inference_peer", "get_inference_receipts"):
+    assert callable(getattr(PxClient, name))
 networks = []
 for value in document["networks"]:
     network = decode_px_network_head(value)
@@ -915,7 +948,78 @@ print(json.dumps({"networks": networks, "keys": keys}))
       ),
     ),
   );
-});
+}
+await test(python_px_matches_ts);
+
+
+async function python_px_inference_requests_match_contract() {
+  const requests: unknown[] = [];
+  const observer = http.createServer(async (request) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/");
+    requests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+    request.socket.destroy();
+  });
+  observer.listen(0, "127.0.0.1");
+  await once(observer, "listening");
+  const address = observer.address();
+  assert.ok(address && typeof address !== "string");
+  const id = "01".repeat(32);
+  const script = `
+import http.client
+import sys
+from layerx_sdk.px import PxClient, decode_inference_room, decode_inference_deal, decode_inference_peer, decode_inference_receipt
+client = PxClient(sys.argv[1], timeout=5)
+identifier = "01" * 32
+for method, args in [(client.get_inference_rooms, []), (client.get_inference_room, [identifier]), (client.get_inference_deal, [identifier]), (client.get_inference_peer, [identifier]), (client.get_inference_receipts, [identifier])]:
+    try:
+        method(*args)
+    except http.client.RemoteDisconnected:
+        pass
+    else:
+        raise AssertionError("observer closed without a response")
+for method in (client.get_inference_room, client.get_inference_deal, client.get_inference_peer, client.get_inference_receipts):
+    for invalid in ("00" * 32, "0x" + identifier, "AB" * 32, " " + identifier, identifier + "\\n"):
+        try:
+            method(invalid)
+        except ValueError as error:
+            assert str(error) == "invalid-inference-identifier"
+        else:
+            raise AssertionError("invalid inference identifier accepted")
+for decode in (decode_inference_room, decode_inference_deal, decode_inference_peer, decode_inference_receipt):
+    for invalid in (None, [], {}, {"state": True}):
+        try:
+            decode(invalid)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("incomplete inference document accepted")
+`;
+  try {
+    const child = spawn("python3", ["-B", "-c", script, `http://127.0.0.1:${address.port}`], {
+      env: { ...process.env, PYTHONPATH: fileURLToPath(new URL("../../../python/", import.meta.url)) },
+      timeout: 30_000,
+    });
+    let stderr = "";
+    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    const [code, signal] = await once(child, "close");
+    assert.equal(signal, null, stderr);
+    assert.equal(code, 0, stderr);
+    assert.deepEqual(requests, [
+      { method: "px_getInferenceRooms", params: [] },
+      { method: "px_getInferenceRoom", params: [id] },
+      { method: "px_getInferenceDeal", params: [id] },
+      { method: "px_getInferencePeer", params: [id] },
+      { method: "px_getInferenceReceipts", params: [id] },
+    ].map((entry, index) => ({ jsonrpc: "2.0", id: index + 1, ...entry })));
+  } finally {
+    observer.closeAllConnections();
+    await new Promise<void>((resolve, reject) => observer.close(error => error ? reject(error) : resolve()));
+  }
+}
+await test(python_px_inference_requests_match_contract);
 
 const requests: { readonly method: unknown; readonly params: unknown }[] = [];
 const gateway = http.createServer((request, response) => {
