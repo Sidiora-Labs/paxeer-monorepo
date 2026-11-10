@@ -948,6 +948,17 @@
       "citation": "Retired component names and symbols in this catalogue are inventory data"
     },
     {
+      "path": "node",
+      "symbols": [
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decision 3125 retains the anchor and custody module trees behind the merge switch and their store names for upgrade deletion, while the verify precompile remains registered to return the required disabled-module error (11001)."
+    },
+    {
       "path": "precompiles/setup.go",
       "lines": [
         "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor\"",
