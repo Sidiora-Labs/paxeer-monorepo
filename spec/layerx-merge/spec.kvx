@@ -12202,6 +12202,18 @@ value = "services/platform/hosted/internal/src/producer_test_support.rs starts r
 basis = "Gotcha 4103, decisions 3156 and 3130."
 affects = ["22.39.311"]
 
+[decision.3182]
+title = "A capacity case reaches its full book only through operations the producer accepts, and a refusal met on the way is traced to its condition before the fixture changes"
+value = "When the capacity case of 22.39.316 is refused while it fills the book, the attempt prints the index of the refused operation and reads the conditions of the producer (apply_record_deal of src/rooms.rs and the arm of the RecordDeal operation in the apply function of the same file) until one is shown to refuse. When the fixture breaks a rule of the program (an ask that is no longer open, a bid or a peer already bound, an identifier in use), the fixture changes: each deal takes its own ask and its own bids of the room so that DEAL_CAPACITY deals stand together. No refusal of the program is weakened or removed to let the case pass. When the program cannot hold DEAL_CAPACITY deals beside the other three capacities under any accepted sequence, the case asserts the largest book the producer accepts, the compile-time bound stays on the encoded maxima, and the difference is recorded as a finding with the refusing condition. The two runs of the whole crate that do_3 names are measurements for the record and not gates; they are made once on the starting revision and once at the final tree."
+basis = "Gotcha 4104, decisions 3046 and 3167."
+affects = ["22.39.316"]
+
+[decision.3183]
+title = "A red case inside the paths of a task and inside its verification belongs to the task, whenever it turned red"
+value = "Decision 3130 hands a red case to its own repair task only when it lies outside the paths of the task. Task 22.39.321 owns modules/evm and verifies both packages whole, so every red case of those packages is repaired in it at its cause (do_2). The cases that state a chain identifier follow the mapping of modules/evm/config since 846408dc54: every chain string yields 125, the foreign identifiers are not live, and a signature for another numeric identifier is refused; recorded signer vectors keep their bytes, a vector of chain 125 is accepted and a vector of another chain is asserted refused. The stale rate case asserts the message the producer yields since 854460656d and keeps its ErrorIs assertion. The restart case brings its fixture to a commit path that records the committed block identity the node requires since 1ee93282cb; the node is not changed."
+basis = "Gotcha 4105, decisions 3046, 3130 and 3174."
+affects = ["22.39.321"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -184157,6 +184169,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 4104, decision 3182): the attempt-1 tree aa1dd32ca674 stands (the settlement cap raised by 49152 to 131064 and the state bound to 245760, the compile-time assertion on SETTLEMENT_MAX_BYTES, the consumers of both bounds, the shared F11 support module, the three cases of tests/settlement_capacity.rs, the record). The bounds case and the guest case pass. funded_reward_state_and_all_room_book_capacities_fit_together panics at tests/support/f11_rooms.rs:285: the RecordDeal operation returns CONFLICT at revision 345. First make the refusal readable: in the loop over DEAL_CAPACITY of the case print or assert the index of the deal, and read apply_record_deal (src/rooms.rs) and the arm of the RecordDeal operation in the apply function of that file to find the condition that refuses (the ask of another room or model or no longer open, the price above the maximum of the ask, a bid of another room, two layers of one peer, a deal identifier or a bid already in use). The case gives every deal the bids 1 and 2 and a different ask; when the program binds a bid, a peer or an ask to one deal, give each deal its own ask and its own pair of bids of room 100 from two different peers, with the layer ranges within the layer capacity of the bids. Change no refusal of the program. If no accepted sequence holds DEAL_CAPACITY deals beside the other capacities, follow decision 3182: assert the largest accepted book, keep the compile-time bound, and record the finding. Make the two full runs of the crate that do_3 names (starting revision and final tree, with no-fail-fast) and record the failing names by target; they are measurements, not gates. Run the build once and the verification once at the final revision."
 
 [task.22.39.300]
 title = "Pin the Fund attribution boundaries to commits reachable from main"
@@ -223974,7 +223987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.324]
 title = "Repair the Rust signer vector case of the address precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224091,6 +224104,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 4105, decision 3183): the attempt-1 tree 04ec4064819f stands (the genesis export snapshot, the signed transactions of the ABCI case, the activation case, the PurgePrefix repair with its three cases, the record). The five remaining red cases lie in modules/evm and belong to this task. In keeper/keeper_test.go bring TestGetChainID to the mapping of modules/evm/config since 846408dc54: the default and every chain string yield config.DefaultChainID 125, and the case states that for pacific-1, atlantic-2 and arctic-1. In keeper/layerx_binding_test.go keep the first refusal of TestLayerXBindWrongChainIDRefused (a signature for the chain identifier plus one) and replace the second half, which assumed a test chain different from mainnet: assert that the test context and the hyperpax_125-1 context both report 125, that a signature for a foreign identifier such as 1329 is refused in both with ErrLayerXSignature and leaves the nonce at 0, and that a signature for 125 is accepted. In TestLayerXBindRustSignerVectors keep the recorded vector file byte for byte: a vector of chain 125 is accepted as before, a vector of another chain identifier is asserted refused with ErrLayerXSignature, and the accepted count stays above zero; when no vector of chain 125 exists, record a finding instead of editing the vectors. In keeper/resolution_fee_test.go:118 assert the message GetFeeTokenCharge yields since 854460656d (the detail, then fee-token rate is stale) and keep the ErrorIs assertion. In modules/evm/repair_181_test.go make the fixture of TestRepair_181_OrdinaryRestartRecovery commit through the path that records the committed block identity which node/app.go:1428 requires since 1ee93282cb, as the restart cases of the node package do, so that the reopened application starts; keep every recovery assertion and do not change the node. Move the five findings of the record to repaired cases with their producer commits. Run the build once and the verification once at the final revision."
 
 [task.22.39.320]
 title = "Repair the genesis and proof error cases of the launchpad types package"
