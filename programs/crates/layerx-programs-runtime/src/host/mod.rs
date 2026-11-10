@@ -325,6 +325,176 @@ struct SupplementHostState {
     isolated: Option<crate::abi::HostStateCommitment>,
 }
 
+struct RestoredRuntimeMetadata {
+    failure_subtree_fuel: Option<u64>,
+    legacy_reference_engine_committed: u64,
+    metering_schedule: crate::FuelSchedule,
+    legacy_reference_fuel: bool,
+    protocol_context: Option<ExecutionContext>,
+}
+
+struct PreparedSupplement {
+    host_state_bytes: u64,
+    host_identity: Option<crate::abi::HostStateIdentity>,
+    isolated_host_state: Option<crate::abi::HostStateCommitment>,
+    host_preimage: Vec<u8>,
+    storage_overlay: SupplementOverlay,
+}
+impl RuntimeState {
+    fn prepare_retained_supplement(
+        &self,
+        canonical_charge: &mut wasmi::ObservationCharge,
+        charge: &mut wasmi::ObservationCharge,
+    ) -> Result<PreparedSupplement, wasmi::ExecutionObserverError> {
+        let (overlay_entries, overlay_bytes) = if let Some(abi) = self.abi.as_ref() {
+            abi.storage_commitment_delta_metrics(&self.trace_storage_baseline)
+                .ok_or_else(|| self.reject_supplement("execution_supplement.storage_delta"))?
+        } else {
+            crate::storage::Storage::new()
+                .commitment_delta_metrics(&self.trace_storage_baseline)
+                .ok_or_else(|| {
+                    self.reject_supplement("execution_supplement.isolated_storage_delta")
+                })?
+        };
+        canonical_charge.storage_overlay_bytes = overlay_bytes;
+        let SupplementHostState {
+            bytes: host_state_bytes,
+            identity: host_identity,
+            isolated: isolated_host_state,
+        } = self.measure_supplement_host(canonical_charge)?;
+        let host_preimage = if let Some(abi) = &self.abi {
+            use sha2::{Digest, Sha256};
+            let mut bytes = abi
+                .replay_host_preimage(crate::MAX_ARBITRATION_HOST_STATE_BYTES)
+                .map_err(|_| self.reject_supplement("execution_supplement.host_preimage"))?;
+            let abi_state = crate::abi::HostStateCommitment {
+                root: Sha256::digest(&bytes).into(),
+                canonical_bytes: bytes.len() as u64,
+            };
+            self.write_v2_runtime_state(&abi_state, &mut |part| {
+                if bytes
+                    .len()
+                    .checked_add(part.len())
+                    .is_none_or(|len| len > crate::MAX_ARBITRATION_HOST_STATE_BYTES)
+                {
+                    return Err(AbiError::InvalidEncoding);
+                }
+                bytes.extend_from_slice(part);
+                Ok(())
+            })
+            .map_err(|_| self.reject_supplement("execution_supplement.runtime_preimage"))?;
+            bytes
+        } else {
+            b"LayerX/programs/v2/isolated-host-state\0".to_vec()
+        };
+        if host_preimage.len() as u64 != host_state_bytes {
+            return Err(self.reject_supplement("execution_supplement.host_preimage_bytes"));
+        }
+        let storage_overlay = self.supplement_storage_overlay(overlay_entries);
+        charge.host_state_bytes = canonical_charge.host_state_bytes;
+        charge.storage_overlay_bytes = overlay_bytes;
+        if let Some((previous_host, previous_overlay)) = &self.retained_supplement {
+            charge.host_state_bytes =
+                wasmi::ObservationCharge::changed_bytes(previous_host, &host_preimage, 4096)
+                    .and_then(|bytes| bytes.checked_mul(3))
+                    .ok_or_else(|| self.reject_supplement("execution_supplement.host_delta"))?;
+            charge.storage_overlay_bytes = 0;
+            for (key, value) in &storage_overlay {
+                if !previous_overlay
+                    .iter()
+                    .any(|old| old.0 == *key && old.1 == *value)
+                {
+                    charge.storage_overlay_bytes = charge
+                        .storage_overlay_bytes
+                        .checked_add(key.len() as u64)
+                        .and_then(|bytes| {
+                            bytes.checked_add(value.as_ref().map_or(0, Vec::len) as u64)
+                        })
+                        .and_then(|bytes| bytes.checked_add(1))
+                        .ok_or_else(|| {
+                            self.reject_supplement("execution_supplement.overlay_delta")
+                        })?;
+                }
+            }
+            for (key, _) in previous_overlay {
+                if !storage_overlay.iter().any(|entry| entry.0 == *key) {
+                    charge.storage_overlay_bytes = charge
+                        .storage_overlay_bytes
+                        .checked_add(key.len() as u64)
+                        .and_then(|bytes| bytes.checked_add(1))
+                        .ok_or_else(|| {
+                            self.reject_supplement("execution_supplement.overlay_removal")
+                        })?;
+                }
+            }
+        }
+        Ok(PreparedSupplement {
+            host_state_bytes,
+            host_identity,
+            isolated_host_state,
+            host_preimage,
+            storage_overlay,
+        })
+    }
+}
+impl RuntimeState {
+    fn restore_runtime_metadata(
+        cursor: &mut crate::replay::ReplayCursor<'_>,
+        meter: &crate::Meter,
+        commitment: &crate::abi::HostStateCommitment,
+    ) -> Result<RestoredRuntimeMetadata, crate::replay::ReplayWitnessError> {
+        use crate::replay::ReplayWitnessError as E;
+        if cursor.take(b"LayerX/programs/v2/runtime-host-state\0".len())?
+            != b"LayerX/programs/v2/runtime-host-state\0"
+            || cursor.array::<32>()? != commitment.root
+            || cursor.u64()? != commitment.canonical_bytes
+        {
+            return Err(E::Binding);
+        }
+        let usage = crate::MeteredUsage {
+            cpu_fuel: cursor.u64()?,
+            memory_bytes: cursor.u64()?,
+            storage_read_bytes: cursor.u64()?,
+            storage_write_bytes: cursor.u64()?,
+            output_values: cursor.u32()?,
+            output_bytes: cursor.u64()?,
+            occupancy_byte_batches: cursor.u128()?,
+            occupancy_fee_units: cursor.u128()?,
+            fee_units: cursor.u128()?,
+        };
+        if usage
+            != meter
+                .execution_trace_usage()
+                .map_err(|_| E::StateUnavailable)?
+            || cursor.u64()? != meter.cpu_remaining()
+        {
+            return Err(E::Binding);
+        }
+        let failure_subtree_fuel = if cursor.boolean()? {
+            Some(cursor.u64()?)
+        } else {
+            None
+        };
+        let legacy_reference_engine_committed = cursor.u64()?;
+        let metering_schedule =
+            crate::FuelSchedule::from_protocol_bytes(cursor.take(76)?).map_err(|_| E::Encoding)?;
+        let legacy_reference_fuel = cursor.boolean()?;
+        let protocol_context = if cursor.boolean()? {
+            Some(ExecutionContext::from_untrusted_canonical_bytes(
+                cursor.take(24)?,
+            )?)
+        } else {
+            None
+        };
+        Ok(RestoredRuntimeMetadata {
+            failure_subtree_fuel,
+            legacy_reference_engine_committed,
+            metering_schedule,
+            legacy_reference_fuel,
+            protocol_context,
+        })
+    }
+}
 impl RuntimeState {
     fn reject_supplement(&self, site: &'static str) -> wasmi::ExecutionObserverError {
         self.record_supplement_refusal(site, wasmi::ExecutionObserverError::SupplementRejected)
@@ -349,9 +519,7 @@ impl RuntimeState {
                 if let Some((retained, remaining_bytes, remaining_work)) =
                     self.supplement_retained_refusal.get()
                 {
-                    use core::fmt::Write;
-                    write!(&mut reason, " retained_bytes={retained} remaining_bytes={remaining_bytes} remaining_work={remaining_work}")
-                        .expect("writing a String cannot fail");
+                    reason = format!("{reason} retained_bytes={retained} remaining_bytes={remaining_bytes} remaining_work={remaining_work}");
                 }
                 reason
             }
@@ -758,88 +926,13 @@ impl RuntimeState {
         if !charge.collect {
             return self.uncollected_supplement();
         }
-        let (overlay_entries, overlay_bytes) = if let Some(abi) = self.abi.as_ref() {
-            abi.storage_commitment_delta_metrics(&self.trace_storage_baseline)
-                .ok_or_else(|| self.reject_supplement("execution_supplement.storage_delta"))?
-        } else {
-            crate::storage::Storage::new()
-                .commitment_delta_metrics(&self.trace_storage_baseline)
-                .ok_or_else(|| {
-                    self.reject_supplement("execution_supplement.isolated_storage_delta")
-                })?
-        };
-        canonical_charge.storage_overlay_bytes = overlay_bytes;
-        let SupplementHostState {
-            bytes: host_state_bytes,
-            identity: host_identity,
-            isolated: isolated_host_state,
-        } = self.measure_supplement_host(&mut canonical_charge)?;
-        let host_preimage = if let Some(abi) = &self.abi {
-            use sha2::{Digest, Sha256};
-            let mut bytes = abi
-                .replay_host_preimage(crate::MAX_ARBITRATION_HOST_STATE_BYTES)
-                .map_err(|_| self.reject_supplement("execution_supplement.host_preimage"))?;
-            let abi_state = crate::abi::HostStateCommitment {
-                root: Sha256::digest(&bytes).into(),
-                canonical_bytes: bytes.len() as u64,
-            };
-            self.write_v2_runtime_state(&abi_state, &mut |part| {
-                if bytes
-                    .len()
-                    .checked_add(part.len())
-                    .is_none_or(|len| len > crate::MAX_ARBITRATION_HOST_STATE_BYTES)
-                {
-                    return Err(AbiError::InvalidEncoding);
-                }
-                bytes.extend_from_slice(part);
-                Ok(())
-            })
-            .map_err(|_| self.reject_supplement("execution_supplement.runtime_preimage"))?;
-            bytes
-        } else {
-            b"LayerX/programs/v2/isolated-host-state\0".to_vec()
-        };
-        if host_preimage.len() as u64 != host_state_bytes {
-            return Err(self.reject_supplement("execution_supplement.host_preimage_bytes"));
-        }
-        let storage_overlay = self.supplement_storage_overlay(overlay_entries);
-        charge.host_state_bytes = canonical_charge.host_state_bytes;
-        charge.storage_overlay_bytes = overlay_bytes;
-        if let Some((previous_host, previous_overlay)) = &self.retained_supplement {
-            charge.host_state_bytes =
-                wasmi::ObservationCharge::changed_bytes(previous_host, &host_preimage, 4096)
-                    .and_then(|bytes| bytes.checked_mul(3))
-                    .ok_or_else(|| self.reject_supplement("execution_supplement.host_delta"))?;
-            charge.storage_overlay_bytes = 0;
-            for (key, value) in &storage_overlay {
-                if !previous_overlay
-                    .iter()
-                    .any(|old| old.0 == *key && old.1 == *value)
-                {
-                    charge.storage_overlay_bytes = charge
-                        .storage_overlay_bytes
-                        .checked_add(key.len() as u64)
-                        .and_then(|bytes| {
-                            bytes.checked_add(value.as_ref().map_or(0, Vec::len) as u64)
-                        })
-                        .and_then(|bytes| bytes.checked_add(1))
-                        .ok_or_else(|| {
-                            self.reject_supplement("execution_supplement.overlay_delta")
-                        })?;
-                }
-            }
-            for (key, _) in previous_overlay {
-                if !storage_overlay.iter().any(|entry| entry.0 == *key) {
-                    charge.storage_overlay_bytes = charge
-                        .storage_overlay_bytes
-                        .checked_add(key.len() as u64)
-                        .and_then(|bytes| bytes.checked_add(1))
-                        .ok_or_else(|| {
-                            self.reject_supplement("execution_supplement.overlay_removal")
-                        })?;
-                }
-            }
-        }
+        let PreparedSupplement {
+            host_state_bytes,
+            host_identity,
+            isolated_host_state,
+            host_preimage,
+            storage_overlay,
+        } = self.prepare_retained_supplement(&mut canonical_charge, charge)?;
         let retained_instruction_bytes = charge.retained_instruction_bytes;
         let arbitration_instance_retained_bytes = canonical_charge.instance_state_bytes;
         let snapshot_bytes = supplement_snapshot_bytes(self, &canonical_charge)?;
@@ -1456,7 +1549,6 @@ pub(crate) const fn error_status(error: &AbiError) -> i32 {
         AbiError::BalanceAbsent => STATUS_ABSENT,
         AbiError::OracleUnknownMarket => STATUS_ORACLE_UNKNOWN_MARKET,
         AbiError::OracleMarketHalted => STATUS_ORACLE_MARKET_HALTED,
-        AbiError::EffectLimit => STATUS_BOUNDS,
         AbiError::Storage(
             crate::storage::StorageError::InvalidScanCursor
             | crate::storage::StorageError::InvalidScanLimits,
@@ -1465,7 +1557,8 @@ pub(crate) const fn error_status(error: &AbiError) -> i32 {
         | AbiError::InvalidCapability
         | AbiError::DuplicateCapability
         | AbiError::InvalidEncoding => STATUS_INVALID,
-        AbiError::EventBounds
+        AbiError::EffectLimit
+        | AbiError::EventBounds
         | AbiError::CallBounds
         | AbiError::AmountBounds
         | AbiError::Storage(_) => STATUS_BOUNDS,
@@ -1757,48 +1850,13 @@ impl RuntimeState {
             canonical_bytes: abi_bytes.len() as u64,
         };
         let mut cursor = ReplayCursor::new(bytes);
-        if cursor.take(b"LayerX/programs/v2/runtime-host-state\0".len())?
-            != b"LayerX/programs/v2/runtime-host-state\0"
-            || cursor.array::<32>()? != commitment.root
-            || cursor.u64()? != commitment.canonical_bytes
-        {
-            return Err(E::Binding);
-        }
-        let usage = crate::MeteredUsage {
-            cpu_fuel: cursor.u64()?,
-            memory_bytes: cursor.u64()?,
-            storage_read_bytes: cursor.u64()?,
-            storage_write_bytes: cursor.u64()?,
-            output_values: cursor.u32()?,
-            output_bytes: cursor.u64()?,
-            occupancy_byte_batches: cursor.u128()?,
-            occupancy_fee_units: cursor.u128()?,
-            fee_units: cursor.u128()?,
-        };
-        if usage
-            != meter
-                .execution_trace_usage()
-                .map_err(|_| E::StateUnavailable)?
-            || cursor.u64()? != meter.cpu_remaining()
-        {
-            return Err(E::Binding);
-        }
-        let failure_subtree_fuel = if cursor.boolean()? {
-            Some(cursor.u64()?)
-        } else {
-            None
-        };
-        let legacy_reference_engine_committed = cursor.u64()?;
-        let metering_schedule =
-            crate::FuelSchedule::from_protocol_bytes(cursor.take(76)?).map_err(|_| E::Encoding)?;
-        let legacy_reference_fuel = cursor.boolean()?;
-        let protocol_context = if cursor.boolean()? {
-            Some(ExecutionContext::from_untrusted_canonical_bytes(
-                cursor.take(24)?,
-            )?)
-        } else {
-            None
-        };
+        let RestoredRuntimeMetadata {
+            failure_subtree_fuel,
+            legacy_reference_engine_committed,
+            metering_schedule,
+            legacy_reference_fuel,
+            protocol_context,
+        } = Self::restore_runtime_metadata(&mut cursor, &meter, &commitment)?;
         let composition = match (graphs.composition, resolver) {
             (None, None) => None,
             (Some((revision, graph)), Some(resolver)) => {
@@ -1827,23 +1885,7 @@ impl RuntimeState {
         } else {
             None
         };
-        let outcome = match cursor.u8()? {
-            0 => None,
-            tag @ (1 | 2) => {
-                let length = cursor.usize64()?;
-                let encoded = cursor.take(length)?;
-                Some(if tag == 1 {
-                    V2OutcomeRegion::Response(ResponseRegion::from_untrusted_canonical_bytes(
-                        encoded,
-                    )?)
-                } else {
-                    V2OutcomeRegion::Failure(
-                        ProgramFailure::canonical_decode(encoded).map_err(|_| E::Encoding)?,
-                    )
-                })
-            }
-            _ => return Err(E::Encoding),
-        };
+        let outcome = Self::restore_runtime_outcome(&mut cursor)?;
         if !cursor.done() {
             return Err(E::Encoding);
         }
@@ -1884,6 +1926,29 @@ impl RuntimeState {
             return Err(E::Encoding);
         }
         Ok(value)
+    }
+    fn restore_runtime_outcome(
+        cursor: &mut crate::replay::ReplayCursor<'_>,
+    ) -> Result<Option<V2OutcomeRegion>, crate::replay::ReplayWitnessError> {
+        use crate::replay::ReplayWitnessError as E;
+        let outcome = match cursor.u8()? {
+            0 => None,
+            tag @ (1 | 2) => {
+                let length = cursor.usize64()?;
+                let encoded = cursor.take(length)?;
+                Some(if tag == 1 {
+                    V2OutcomeRegion::Response(ResponseRegion::from_untrusted_canonical_bytes(
+                        encoded,
+                    )?)
+                } else {
+                    V2OutcomeRegion::Failure(
+                        ProgramFailure::canonical_decode(encoded).map_err(|_| E::Encoding)?,
+                    )
+                })
+            }
+            _ => return Err(E::Encoding),
+        };
+        Ok(outcome)
     }
 }
 

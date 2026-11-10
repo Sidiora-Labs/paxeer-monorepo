@@ -19,6 +19,9 @@ pub struct DisputeArtifacts {
 
 impl DisputeArtifacts {
     /// Retains an admitted artifact and schedule without replacing an earlier version.
+    /// # Errors
+    ///
+    /// Returns a refusal for an unknown artifact version, mismatched code identity, or a module that fails validation.
     pub fn retain(
         &mut self,
         program: ProgramId,
@@ -62,6 +65,7 @@ impl DisputeArtifacts {
         Ok(())
     }
 
+    #[must_use]
     pub fn module(
         &self,
         program: ProgramId,
@@ -72,11 +76,15 @@ impl DisputeArtifacts {
         self.modules.get(&(program, hash, abi, metering)).cloned()
     }
 
+    #[must_use]
     pub fn fee_schedule(&self, version: u32) -> Option<FeeSchedule> {
         self.fees.get(&version).copied()
     }
 
     /// Canonical durable data; retention has no eviction tied to the current deployment.
+    /// # Errors
+    ///
+    /// Returns a refusal for an unknown artifact version, mismatched code identity, or a module that fails validation.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, crate::replay::ReplayWitnessError> {
         use crate::replay::ReplayWitnessError as E;
         let mut bytes = DOMAIN.to_vec();
@@ -123,6 +131,9 @@ impl DisputeArtifacts {
     }
 
     /// Reopens data recovered from an authenticated protocol store.
+    /// # Errors
+    ///
+    /// Returns a refusal for an unknown artifact version, mismatched code identity, or a module that fails validation.
     pub fn from_authenticated_bytes(
         bytes: &[u8],
     ) -> Result<Self, crate::replay::ReplayWitnessError> {
