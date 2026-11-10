@@ -197000,7 +197000,7 @@ do_5 = "do_5 Decision 3268, gotcha 4196: the file services/agent/tests/limits/ex
 
 [task.22.39.228]
 title = "Bring the agent daemon test targets named r under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222", "22.39.353", "22.39.364", "22.39.368", "22.39.229"]
