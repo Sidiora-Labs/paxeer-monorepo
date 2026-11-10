@@ -617,6 +617,10 @@
   },
   "documentation_paths": [
     {
+      "path": "services/platform/examples/marketplace/repair-22-31-349.kvx",
+      "reason": "Decision 3125 classifies this historical repair record, including its lx_getSequence test-contract finding, as documentation rather than a live caller."
+    },
+    {
       "path": "spec/layerx-merge/spec.kvx",
       "reason": "reviewed merge specification: requirement, acceptance and task text names each retired component it retires"
     },
@@ -670,6 +674,20 @@
     }
   ],
   "allowed_references": [
+    {
+      "path": "services/platform/tools/dependency-policy.sh",
+      "symbols": [
+        "layerx-paxeer-client"
+      ],
+      "citation": "Decision 3125 preserves the explicit retired crate name in both the full dependency graph ban and the ramp transitive dependency ban so the policy continues to reject it."
+    },
+    {
+      "path": "services/platform/ramps",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifier lxp_verified_receipt_authority_facts on the ramp surface because its receipt_authority prefix does not denote the retired finality service."
+    },
     {
       "path": "modules/layerxanchor/keeper/custody_reader.go",
       "lines": [
