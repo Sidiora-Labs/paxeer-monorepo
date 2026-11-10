@@ -689,6 +689,14 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 			// Provider acceptance alone cannot release inventory: the independently
 			// configured chain reader is actually disconnected for this first recovery.
 			reopened.verifier.(*ChainVerifier).client.Close()
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			must(t, err)
+			unavailableEndpoint := "http://" + listener.Addr().String()
+			must(t, listener.Close())
+			disconnected, err := ethclient.DialContext(ctx, unavailableEndpoint)
+			must(t, err)
+			defer disconnected.Close()
+			reopened.verifier.(*ChainVerifier).client = disconnected
 			worker, err := NewSettlementWorker(reopened, provider)
 			must(t, err)
 			_, err = worker.Process(ctx, e.credentials["finance"], "service", key, "recover with unavailable independent receipt reader")

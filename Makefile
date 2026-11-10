@@ -3023,10 +3023,9 @@ paxai-host-boundary: paxai-host-boundary-build
 paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary
 	@rm -f $(PAXAI_HOST_BOUNDARY_DIR)/manifest
 	@printf '%s\n' '$(PAXAI_CHAIN_DOMAIN)' | LC_ALL=C grep -Eq '^[0-9a-f]{64}$$'
-	@command -v wasm-opt >/dev/null 2>&1 || { printf '%s\n' 'paxai-host-boundary: wasm-opt is required' >&2; exit 1; }
-	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --config 'profile.release.opt-level="z"' --target wasm32-unknown-unknown -p layerx-programs-ai-market
+	@bash programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh check
 	@mkdir -p $(PAXAI_HOST_BOUNDARY_DIR)
-	wasm-opt -Oz --strip-debug --strip-producers $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm -o $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm
+	PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) PROGRAMS_CARGO=$(PROGRAMS_CARGO) bash programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh build programs $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm
 	@test "$$(wc -c < $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)" -le 524184 || { printf '%s\n' 'paxai-host-boundary: guest exceeds 524184 bytes (524288 minus 104-byte deployment envelope)' >&2; exit 1; }
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/paxai_host_boundary $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm < /dev/null
 	printf '%s\n%s\n%s\n' '$(abspath $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)' '$(abspath $(BUILD_DIR)/tests/paxai_host_boundary)' '$(PAXAI_CHAIN_DOMAIN)' > $(PAXAI_HOST_BOUNDARY_DIR)/manifest

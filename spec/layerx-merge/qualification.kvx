@@ -39754,3 +39754,83 @@ symbol = "proposal.go"
 observed = "Attempt 4 at 7e50b554f871 on base b219257bb473: the verification exits 1 at a86de1287b2e, TestRepair476_AttestationDocumentation at modules/evm/config/repair_476_test.go:227 fails because modules/xweb/ATTESTATION.md contains 713714; log /out/logs/verify-1.log."
 assumption = "The document was changed by task 22.39.322 and is outside the paths of the task."
 severity = "high"
+
+[finding.22.39.332.1]
+task = "22.39.332"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+symbol = "transaction_signature_controller_test.exs"
+observed = "Attempt 1 at 7cf8745ee354 on base 495cd70105ac: the verification exits 1 at 15b518d646b7 (mix test exits 2) with 21 tests and 2 failures, status 404 where 200 is expected at transaction_status_committed_test.exs:54 and transaction_signature_committed_test.exs:138; log /out/logs/verify-2.log."
+assumption = "The cases predate the producer change of task 22.31.411 and the routes answer as that task defines."
+severity = "high"
+
+[finding.22.39.222.8]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 8 at 5adb26b25dfd on base 654bb784cafa: the build, the dependents run and the verification exit 0 (log /out/logs/verify-1.log); the merge with main conflicts in services/agent/crates/layerx-agentd/src/human_runtime.rs against commit 0190499213 of task 22.39.318."
+assumption = "The conflict comes from a change that landed between two attempts of the task and not from the tree."
+severity = "high"
+
+[finding.22.38.13.4]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 4 at 647b706c058f on base b155d9196308: the build exits 1, go test over ./rpc/ panics with test timed out after 10m0s in TestFundConsumptionAttribution at rpc/repair_478_test.go:211 and fails after 603 seconds; no verification ran; log /out/logs/build-1.log."
+assumption = "The case needs about ten minutes on a cold build and the command named no limit."
+severity = "high"
+
+[finding.17.5.7.12]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 12 at a8267ca704f9 on base 8c1f9300585c: the verification exits 1, the wave 6 gate exits 2 at mvn -f sdk/integrations/spring/pom.xml install with Tests run 30, Failures 1, Errors 7 (durable store ancestor is group/world writable: /tmp, and unsupported-payment in ReceiptKeysConfigTest); log /out/logs/verify-1.log."
+assumption = "Six cases fail because of the place of the checkout and two because of a declaration that is red on main."
+severity = "high"
+
+[finding.18.1749.1.7]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 7 at aa64b3a9fa82 on base 8c1f9300585c: the verification exits 101, reward_reopen_preserves_recipient_balances fails after call.c:2215 reports transfer account absent (source present, destination absent) and the Claim returns -736; log /out/logs/verify-1.log."
+assumption = "The guest names the recipient by identity and the kernel looks a destination up by account id only."
+severity = "high"
+
+[finding.17.2.8.5]
+task = "17.2.8"
+file = "spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"
+symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
+observed = "Attempt 6 at 7d8aa76566c4 on base 24609687e674: the verification exits 1, python3 tools/paxeer-x/tests/retired_callers_test.py --deleted reports 8 references in 6 paths; log /out/logs/verify-2.log."
+assumption = "Three references are catalogue entries behind retained items and the other five need the two owner tasks and the ruling on the compatibility root."
+severity = "high"
+
+[finding.22.39.314.2]
+task = "22.39.314"
+file = "services/launchpad/trading-charts/internal/consumer/repair_22_39_314_test.go"
+symbol = "repair_22_39_314_test.go"
+observed = "Attempt 2 at 37d1740cb712 on base 1b4b14bd3e44: the verification exits 1, TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic fails at repair_22_39_314_test.go:164 with 403 FORBIDDEN on /v2/snapshots after the chart lists pass; log /out/logs/verify-1.log."
+assumption = "The wait helper of the case omits the origin that the snapshot route requires."
+severity = "high"
+
+[finding.22.39.162.7]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 7 at e2f14a479b62 on base 1b4b14bd3e44: the verification exits 1, internal/source fails in TestRepairM_997_ArchiveCapacityBounds, TestRepairM_997_AuthorizedIncidentSelection and TestRepairM_997_MixedRPCSourceSelection, every other package passes; log /out/logs/verify-2.log."
+assumption = "The historical cases of the package leave state behind that the capacity cases then meet."
+severity = "high"
+
+[finding.22.38.13.5]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 5 at acd6292aedbf on base a8dddadb5a8c: the build exits 2 at the size test of make paxai-host-boundary-build, the guest measures 526407 bytes against the bound 524184; no verification ran; log /out/logs/build-1.log."
+assumption = "The manifest of the attempt builds the guest at opt-level s and the recipe of main packages it at z."
+severity = "high"
+
+[finding.17.5.7.13]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 13 at 0d064cbe7515 on base 2968a4aeb9fb: the verification exits 1, the wave gate returns 125 with status source-identity-refusal phase before for make workspace-build, twelve ignored build directories of the preparation are listed; log /out/logs/verify-1.log."
+assumption = "The preparation leaves build directories that the output policy of the runner does not name."
+severity = "high"

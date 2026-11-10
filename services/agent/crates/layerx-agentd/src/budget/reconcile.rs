@@ -205,6 +205,9 @@ pub struct CommittedSpendEvidence {
 impl SpendReceiptEvidence<CommittedSpendEvidence> {
     /// Binds a declared spend to its successful committed transaction receipt.
     /// The amount is the payExact or draw amount, excluding the transaction fee.
+    /// # Errors
+    /// Returns an error if budget state or receipt evidence is invalid, duplicated or
+    /// inconsistent with the recorded activity.
     pub fn from_committed(
         expected_tx_hash: [u8; 32],
         amount: u128,
@@ -256,6 +259,9 @@ impl SpendReceiptEvidence<CommittedSpendEvidence> {
 
 impl ProtocolBudgetState<CommittedBudgetEvidence> {
     /// Reads getBudget(bytes32) on 0x101B at an explicit committed height.
+    /// # Errors
+    /// Returns an error if endpoint configuration, node transport or RPC fails, or the node
+    /// response is malformed.
     pub fn read_at(
         endpoint: &layerx_client::sequencer::SequencerEndpoint,
         budget_id: [u8; 32],
@@ -273,6 +279,9 @@ impl ProtocolBudgetState<CommittedBudgetEvidence> {
 
     /// Decodes the exact ABI result of getBudget at the caller's committed height.
     /// Decoding itself does not authenticate an endpoint or prove state inclusion.
+    /// # Errors
+    /// Returns an error if budget state or receipt evidence is invalid, duplicated or
+    /// inconsistent with the recorded activity.
     pub fn decode_get_budget(
         budget_id: [u8; 32],
         height: u64,
@@ -367,6 +376,9 @@ impl ProtocolBudgetState<CommittedBudgetEvidence> {
         self.evidence.height
     }
 
+    /// # Errors
+    /// Returns an error if budget state or receipt evidence is invalid, duplicated or
+    /// inconsistent with the recorded activity.
     pub fn reconcile(
         &self,
         local: &mut LocalAccounting,

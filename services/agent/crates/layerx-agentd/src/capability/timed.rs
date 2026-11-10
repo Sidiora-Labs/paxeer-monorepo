@@ -135,7 +135,10 @@ impl TimedCapability {
             if !assets.contains(&asset) {
                 return Err(TimedError::CeilingOutsideAssets);
             }
-            if amount_ceilings.insert(asset, ceiling.amount.get()).is_some() {
+            if amount_ceilings
+                .insert(asset, ceiling.amount.get())
+                .is_some()
+            {
                 return Err(TimedError::Duplicate(Dimension::Amount));
             }
         }
@@ -145,7 +148,10 @@ impl TimedCapability {
             if window == 0 {
                 return Err(TimedError::ZeroWindow);
             }
-            if rate_ceilings.insert(window, ceiling.maximum_actions).is_some() {
+            if rate_ceilings
+                .insert(window, ceiling.maximum_actions)
+                .is_some()
+            {
                 return Err(TimedError::Duplicate(Dimension::Rate));
             }
         }
@@ -323,7 +329,10 @@ impl TimedCapability {
         for _ in 0..r.len()? {
             let asset = r.id()?;
             let amount = r.u128()?;
-            if amount_ceilings.last_key_value().is_some_and(|(last, _)| *last >= asset) {
+            if amount_ceilings
+                .last_key_value()
+                .is_some_and(|(last, _)| *last >= asset)
+            {
                 return Err(TimedError::Corrupt);
             }
             amount_ceilings.insert(asset, amount);
@@ -332,7 +341,11 @@ impl TimedCapability {
         for _ in 0..r.len()? {
             let window = r.u64()?;
             let maximum = r.u64()?;
-            if window == 0 || rate_ceilings.last_key_value().is_some_and(|(last, _)| *last >= window) {
+            if window == 0
+                || rate_ceilings
+                    .last_key_value()
+                    .is_some_and(|(last, _)| *last >= window)
+            {
                 return Err(TimedError::Corrupt);
             }
             rate_ceilings.insert(window, maximum);
@@ -463,7 +476,8 @@ pub fn check_scope(
 ///
 /// Returns `Wider` naming the first widened dimension in the stable dimension order.
 pub fn require_subset(child: &TimedCapability, parent: &TimedCapability) -> Result<(), TimedError> {
-    if child.not_after_ms() > parent.not_after_ms() || child.expiry_seconds > parent.expiry_seconds {
+    if child.not_after_ms() > parent.not_after_ms() || child.expiry_seconds > parent.expiry_seconds
+    {
         return Err(TimedError::Wider(Dimension::Expiry));
     }
     if !child.activity_types.is_subset(&parent.activity_types) {
@@ -483,11 +497,16 @@ pub fn require_subset(child: &TimedCapability, parent: &TimedCapability) -> Resu
     }) {
         return Err(TimedError::Wider(Dimension::Amount));
     }
-    if parent.rate_ceilings.iter().any(|(parent_window, parent_maximum)| {
-        !child.rate_ceilings.iter().any(|(window, maximum)| {
-            window >= parent_window && maximum <= parent_maximum
+    if parent
+        .rate_ceilings
+        .iter()
+        .any(|(parent_window, parent_maximum)| {
+            !child
+                .rate_ceilings
+                .iter()
+                .any(|(window, maximum)| window >= parent_window && maximum <= parent_maximum)
         })
-    }) || (parent.rate_ceilings.is_empty() && !child.rate_ceilings.is_empty())
+        || (parent.rate_ceilings.is_empty() && !child.rate_ceilings.is_empty())
     {
         return Err(TimedError::Wider(Dimension::Rate));
     }
@@ -505,7 +524,11 @@ pub fn require_subset(child: &TimedCapability, parent: &TimedCapability) -> Resu
 pub fn record_key(tenant: &TenantId, id: &[u8; 32]) -> Result<TenantKey, TimedError> {
     let mut object = RECORD_PREFIX.to_vec();
     object.extend_from_slice(id);
-    Ok(TenantKey::new(tenant.clone(), ObjectKind::Capability, object)?)
+    Ok(TenantKey::new(
+        tenant.clone(),
+        ObjectKind::Capability,
+        object,
+    )?)
 }
 
 /// Restores one record by identifier.
@@ -533,7 +556,11 @@ pub fn restore(
 /// # Errors
 ///
 /// Returns `Corrupt` when any stored timed record does not decode.
-pub fn list(store: &Store, tenant: &TenantId, agent: &str) -> Result<Vec<TimedCapability>, TimedError> {
+pub fn list(
+    store: &Store,
+    tenant: &TenantId,
+    agent: &str,
+) -> Result<Vec<TimedCapability>, TimedError> {
     let mut out = Vec::new();
     for object in store.list_object_ids(tenant, ObjectKind::Capability) {
         let Some(id) = object.strip_prefix(RECORD_PREFIX) else {
@@ -625,7 +652,10 @@ pub fn revoke_subtree(
     loop {
         let before = subtree.len();
         for record in &records {
-            if record.parent.is_some_and(|parent| subtree.contains(&parent)) {
+            if record
+                .parent
+                .is_some_and(|parent| subtree.contains(&parent))
+            {
                 subtree.insert(record.id);
             }
         }
@@ -686,7 +716,10 @@ struct Reader<'a> {
 impl<'a> Reader<'a> {
     fn take(&mut self, length: usize) -> Result<&'a [u8], TimedError> {
         let end = self.offset.checked_add(length).ok_or(TimedError::Corrupt)?;
-        let value = self.bytes.get(self.offset..end).ok_or(TimedError::Corrupt)?;
+        let value = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(TimedError::Corrupt)?;
         self.offset = end;
         Ok(value)
     }
@@ -730,7 +763,11 @@ impl<'a> Reader<'a> {
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum NativeSpendSourceV1 {
     Principal,
-    Program { owner_program: [u8; 32], seed: Vec<u8>, source_account: [u8; 32] },
+    Program {
+        owner_program: [u8; 32],
+        seed: Vec<u8>,
+        source_account: [u8; 32],
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -744,9 +781,14 @@ pub struct NativeTimedCapabilityV1 {
 impl NativeTimedCapabilityV1 {
     pub const VERSION: u8 = 1;
 
+    /// # Errors
+    /// Returns an error if the capability encoding, scope, time window or retained delegation
+    /// chain is invalid.
     pub fn validate(&self) -> Result<(), TimedError> {
-        if !self.record.activity_types.is_empty() || !self.record.purposes.is_empty()
-            || self.record.agent.is_empty() || self.record.expiry_seconds == 0
+        if !self.record.activity_types.is_empty()
+            || !self.record.purposes.is_empty()
+            || self.record.agent.is_empty()
+            || self.record.expiry_seconds == 0
             || self.record.grant_not_after_ms == 0
             || self.record.parent == Some(self.record.id)
         {
@@ -758,10 +800,18 @@ impl NativeTimedCapabilityV1 {
         if self.record.rate_ceilings.keys().any(|window| *window == 0) {
             return Err(TimedError::ZeroWindow);
         }
-        if self.record.amount_ceilings.keys().any(|asset| !self.record.assets.contains(asset))
+        if self
+            .record
+            .amount_ceilings
+            .keys()
+            .any(|asset| !self.record.assets.contains(asset))
             || self.spend_ceilings.iter().any(|((_, asset), amount)| {
                 !self.record.assets.contains(asset)
-                    || self.record.amount_ceilings.get(asset).is_none_or(|limit| amount > limit)
+                    || self
+                        .record
+                        .amount_ceilings
+                        .get(asset)
+                        .is_none_or(|limit| amount > limit)
             })
         {
             return Err(TimedError::CeilingOutsideAssets);
@@ -769,6 +819,9 @@ impl NativeTimedCapabilityV1 {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the capability encoding, scope, time window or retained delegation
+    /// chain is invalid.
     pub fn encode(&self) -> Result<Vec<u8>, TimedError> {
         self.validate()?;
         let record = self.record.encode()?;
@@ -789,7 +842,11 @@ impl NativeTimedCapabilityV1 {
         for ((source, asset), amount) in &self.spend_ceilings {
             match source {
                 NativeSpendSourceV1::Principal => out.push(0),
-                NativeSpendSourceV1::Program { owner_program, seed, source_account } => {
+                NativeSpendSourceV1::Program {
+                    owner_program,
+                    seed,
+                    source_account,
+                } => {
                     out.push(1);
                     out.extend_from_slice(owner_program);
                     push_len(&mut out, seed.len())?;
@@ -803,6 +860,9 @@ impl NativeTimedCapabilityV1 {
         Ok(out)
     }
 
+    /// # Errors
+    /// Returns an error if the capability encoding, scope, time window or retained delegation
+    /// chain is invalid.
     pub fn decode(bytes: &[u8]) -> Result<Self, TimedError> {
         let mut reader = Reader { bytes, offset: 0 };
         if reader.take(4)? != b"LXNC" || reader.u8()? != Self::VERSION {
@@ -830,13 +890,20 @@ impl NativeTimedCapabilityV1 {
                     let length = reader.len()?;
                     let seed = reader.take(length)?.to_vec();
                     let source_account = reader.id()?;
-                    NativeSpendSourceV1::Program { owner_program, seed, source_account }
+                    NativeSpendSourceV1::Program {
+                        owner_program,
+                        seed,
+                        source_account,
+                    }
                 }
                 _ => return Err(TimedError::Corrupt),
             };
             let key = (source, reader.id()?);
             let amount = reader.u128()?;
-            if spend_ceilings.last_key_value().is_some_and(|(last, _)| *last >= key) {
+            if spend_ceilings
+                .last_key_value()
+                .is_some_and(|(last, _)| *last >= key)
+            {
                 return Err(TimedError::Corrupt);
             }
             spend_ceilings.insert(key, amount);
@@ -844,18 +911,33 @@ impl NativeTimedCapabilityV1 {
         if reader.offset != bytes.len() {
             return Err(TimedError::Corrupt);
         }
-        let value = Self { record, activities, purpose_commitments, spend_ceilings };
+        let value = Self {
+            record,
+            activities,
+            purpose_commitments,
+            spend_ceilings,
+        };
         value.validate().map_err(|_| TimedError::Corrupt)?;
         Ok(value)
     }
 }
 
+/// # Errors
+/// Returns an error if the capability encoding, scope, time window or retained delegation
+/// chain is invalid.
 pub fn native_record_key(tenant: &TenantId, id: &[u8; 32]) -> Result<TenantKey, TimedError> {
     let mut object = b"native-timed-v1:".to_vec();
     object.extend_from_slice(id);
-    Ok(TenantKey::new(tenant.clone(), ObjectKind::Capability, object)?)
+    Ok(TenantKey::new(
+        tenant.clone(),
+        ObjectKind::Capability,
+        object,
+    )?)
 }
 
+/// # Errors
+/// Returns an error if the capability encoding, scope, time window or retained delegation
+/// chain is invalid.
 pub fn restore_native(
     store: &Store,
     tenant: &TenantId,
@@ -874,6 +956,9 @@ pub fn restore_native(
     Ok(Some(record))
 }
 
+/// # Errors
+/// Returns an error if the capability encoding, scope, time window or retained delegation
+/// chain is invalid.
 pub fn native_active_chain(
     store: &Store,
     tenant: &TenantId,
@@ -919,23 +1004,38 @@ mod native_tests {
     fn record() -> NativeTimedCapabilityV1 {
         NativeTimedCapabilityV1 {
             record: TimedCapability {
-                id: [1; 32], parent: None,
-                tenant: must(TenantId::new("native-tenant")), agent: "native-agent".into(),
+                id: [1; 32],
+                parent: None,
+                tenant: must(TenantId::new("native-tenant")),
+                agent: "native-agent".into(),
                 authority: ProtocolAuthority::PrimaryKey([2; 32]),
-                activity_types: BTreeSet::new(), counterparties: BTreeSet::from([[3; 32]]),
+                activity_types: BTreeSet::new(),
+                counterparties: BTreeSet::from([[3; 32]]),
                 assets: BTreeSet::from([[4; 32]]),
                 amount_ceilings: BTreeMap::from([([4; 32], 100)]),
-                rate_ceilings: BTreeMap::from([(10, 3)]), purposes: BTreeSet::new(),
-                expiry_seconds: 100, grant_not_after_ms: 100_000,
-                created_at_ms: 1, created_at_sequence: 1, revoked: None,
+                rate_ceilings: BTreeMap::from([(10, 3)]),
+                purposes: BTreeSet::new(),
+                expiry_seconds: 100,
+                grant_not_after_ms: 100_000,
+                created_at_ms: 1,
+                created_at_sequence: 1,
+                revoked: None,
             },
             activities: BTreeSet::from([must(NativeActivity::new(9, 3))]),
             purpose_commitments: BTreeSet::from([[5; 32]]),
             spend_ceilings: BTreeMap::from([
                 ((NativeSpendSourceV1::Principal, [4; 32]), 50),
-                ((NativeSpendSourceV1::Program {
-                    owner_program: [6; 32], seed: vec![7, 8], source_account: [9; 32],
-                }, [4; 32]), 100),
+                (
+                    (
+                        NativeSpendSourceV1::Program {
+                            owner_program: [6; 32],
+                            seed: vec![7, 8],
+                            source_account: [9; 32],
+                        },
+                        [4; 32],
+                    ),
+                    100,
+                ),
             ]),
         }
     }
@@ -972,35 +1072,56 @@ mod native_tests {
         child.record.id = [10; 32];
         child.record.parent = Some(parent.record.id);
         child.record.amount_ceilings.insert([4; 32], 50);
-        child.spend_ceilings.retain(|(source, _), _| *source == NativeSpendSourceV1::Principal);
+        child
+            .spend_ceilings
+            .retain(|(source, _), _| *source == NativeSpendSourceV1::Principal);
         must(super::super::require_native_subset(&child, &parent));
         let mut wider = child.clone();
         wider.activities = BTreeSet::from([must(NativeActivity::new(1, 3))]);
-        assert!(matches!(super::super::require_native_subset(&wider, &parent),
-            Err(TimedError::Wider(Dimension::ActivityType))));
+        assert!(matches!(
+            super::super::require_native_subset(&wider, &parent),
+            Err(TimedError::Wider(Dimension::ActivityType))
+        ));
         let mut wider = child.clone();
         wider.purpose_commitments.insert([11; 32]);
-        assert!(matches!(super::super::require_native_subset(&wider, &parent),
-            Err(TimedError::Wider(Dimension::Purpose))));
+        assert!(matches!(
+            super::super::require_native_subset(&wider, &parent),
+            Err(TimedError::Wider(Dimension::Purpose))
+        ));
         let mut wider = child.clone();
-        wider.spend_ceilings.insert((NativeSpendSourceV1::Program {
-            owner_program: [6; 32], seed: vec![7, 9], source_account: [9; 32],
-        }, [4; 32]), 1);
-        assert!(matches!(super::super::require_native_subset(&wider, &parent),
-            Err(TimedError::Wider(Dimension::Amount))));
+        wider.spend_ceilings.insert(
+            (
+                NativeSpendSourceV1::Program {
+                    owner_program: [6; 32],
+                    seed: vec![7, 9],
+                    source_account: [9; 32],
+                },
+                [4; 32],
+            ),
+            1,
+        );
+        assert!(matches!(
+            super::super::require_native_subset(&wider, &parent),
+            Err(TimedError::Wider(Dimension::Amount))
+        ));
         let mut wider = child.clone();
         wider.record.expiry_seconds += 1;
-        assert!(matches!(super::super::require_native_subset(&wider, &parent),
-            Err(TimedError::Wider(Dimension::Expiry))));
+        assert!(matches!(
+            super::super::require_native_subset(&wider, &parent),
+            Err(TimedError::Wider(Dimension::Expiry))
+        ));
         let mut wider = child;
         wider.record.rate_ceilings = BTreeMap::from([(1, 3)]);
-        assert!(matches!(super::super::require_native_subset(&wider, &parent),
-            Err(TimedError::Wider(Dimension::Rate))));
+        assert!(matches!(
+            super::super::require_native_subset(&wider, &parent),
+            Err(TimedError::Wider(Dimension::Rate))
+        ));
     }
 
     #[test]
     fn native_restore_chain_keeps_tenant_time_parent_and_revocation_binding() {
-        let root = std::env::temp_dir().join(format!("native-capability-chain-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("native-capability-chain-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let parent = record();
         let mut child = parent.clone();
@@ -1009,20 +1130,44 @@ mod native_tests {
         {
             let mut store = must(Store::open(root.join("store")));
             for record in [&parent, &child] {
-                must(store.put_local(must(native_record_key(&record.record.tenant, &record.record.id)),
-                    must(record.encode())));
+                must(store.put_local(
+                    must(native_record_key(&record.record.tenant, &record.record.id)),
+                    must(record.encode()),
+                ));
             }
         }
         let mut store = must(Store::open(root.join("store")));
         let tenant = &parent.record.tenant;
-        assert_eq!(must(native_active_chain(&store, tenant, "native-agent", &child.record.id, 1)).len(), 2);
+        assert_eq!(
+            must(native_active_chain(
+                &store,
+                tenant,
+                "native-agent",
+                &child.record.id,
+                1
+            ))
+            .len(),
+            2
+        );
         assert!(native_active_chain(&store, tenant, "other-agent", &child.record.id, 1).is_err());
         assert!(native_active_chain(&store, tenant, "native-agent", &child.record.id, 0).is_err());
-        assert!(native_active_chain(&store, tenant, "native-agent", &child.record.id, 100_000).is_err());
-        assert!(native_active_chain(&store, &must(TenantId::new("other")), "native-agent", &child.record.id, 1).is_err());
+        assert!(
+            native_active_chain(&store, tenant, "native-agent", &child.record.id, 100_000).is_err()
+        );
+        assert!(native_active_chain(
+            &store,
+            &must(TenantId::new("other")),
+            "native-agent",
+            &child.record.id,
+            1
+        )
+        .is_err());
         let mut revoked = parent.clone();
         revoked.record.revoked = Some((2, 2));
-        must(store.put_local(must(native_record_key(tenant, &parent.record.id)), must(revoked.encode())));
+        must(store.put_local(
+            must(native_record_key(tenant, &parent.record.id)),
+            must(revoked.encode()),
+        ));
         assert!(native_active_chain(&store, tenant, "native-agent", &child.record.id, 2).is_err());
         drop(store);
         let _ = std::fs::remove_dir_all(root);

@@ -27,11 +27,11 @@ func TestSnapshotStoreLocalPostgres(t *testing.T) {
 	}
 	defer pool.Close()
 	schema := fmt.Sprintf("kd_25f7eaabd03e881749ed6ae1_%d", time.Now().UnixNano())
-	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L19/phase1/190000_ranking_snapshots.sql")
+	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/integration/migrations/190000.sql")
 	if e != nil {
 		t.Fatal(e)
 	}
-	sql := strings.ReplaceAll(string(ddl), "ranking.", pgx.Identifier{schema}.Sanitize()+".")
+	sql := "CREATE SCHEMA " + pgx.Identifier{schema}.Sanitize() + ";\n" + strings.ReplaceAll(string(ddl), "ranking.", pgx.Identifier{schema}.Sanitize()+".")
 	sql = strings.Replace(sql, "CREATE SCHEMA ranking;", "CREATE SCHEMA "+pgx.Identifier{schema}.Sanitize()+";", 1)
 	if _, e = pool.Exec(ctx, sql); e != nil {
 		t.Fatal(e)

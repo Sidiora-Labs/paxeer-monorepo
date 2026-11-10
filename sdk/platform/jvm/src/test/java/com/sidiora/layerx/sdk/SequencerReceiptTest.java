@@ -75,7 +75,9 @@ public final class SequencerReceiptTest {
     void sequencerReceiptV1CasesVerifyReceipted() throws Exception {
         int count = 0;
         var seen = new HashSet<String>();
-        for (JsonNode vector : fixture("vector-v1-receipted-positive.json").required("cases")) {
+        JsonNode cases = fixture("vector-v1-receipted-positive.json").required("cases");
+        assertTrue(cases.isArray() && !cases.isEmpty());
+        for (JsonNode vector : cases) {
             assertEquals("V1", vector.required("vector").asText());
             count++;
             String id = vector.required("id").asText();
@@ -131,7 +133,7 @@ public final class SequencerReceiptTest {
                 bytes(vector, "signedReceipt"), bytes(vector, "rawTransaction"), keys,
                 fieldsChanged, bytes(vector, "prevSeqHash")));
         }
-        assertEquals(4, count, "every V1 vector must execute");
+        assertEquals(cases.size(), count, "every V1 vector must execute");
     }
 
     @Test
@@ -329,7 +331,11 @@ public final class SequencerReceiptTest {
     @Test
     void sequencerReceiptV2RevertDecodesReason() throws Exception {
         int count = 0;
-        for (JsonNode vector : fixture("vector-v2-receipted-revert.json").required("cases")) {
+        JsonNode cases = fixture("vector-v2-receipted-revert.json").required("cases");
+        assertTrue(cases.isArray() && !cases.isEmpty());
+        var seen = new HashSet<String>();
+        for (JsonNode vector : cases) {
+            assertTrue(seen.add(vector.required("id").textValue()));
             assertEquals("V2", vector.required("vector").asText());
             count++;
             assertEquals("accepts", vector.required("expected").required("verifier").asText());
@@ -342,14 +348,25 @@ public final class SequencerReceiptTest {
             assertArrayEquals(bytes(vector, "receiptDigest"), verified.receiptDigest());
             assertNotNull(verified.revert());
             assertEquals(PlatformSdkException.Code.REVERT, verified.revert().code());
-            assertEquals("LXP_INSUFFICIENT_BALANCE: insufficient balance", verified.revert().revertReason());
-            assertEquals(verified.revert().revertReason(), verified.revert().getMessage());
-            assertEquals(verified.revert().revertReason(), verified.revert().safeDetails().get("revertReason"));
+            switch (vector.required("id").textValue()) {
+                case "V2-layerxledger-revert" -> {
+                    assertEquals("LXP_INSUFFICIENT_BALANCE: insufficient balance", verified.revert().revertReason());
+                    assertEquals(verified.revert().revertReason(), verified.revert().getMessage());
+                    assertEquals(verified.revert().revertReason(), verified.revert().safeDetails().get("revertReason"));
+                }
+                case "V2-pax-transfer-insufficient-funds" -> {
+                    assertEquals("0x", vector.required("receiptJson").required("returnData").textValue());
+                    assertEquals("insufficient balance for transfer", vector.required("receiptJson").required("vmError").textValue());
+                    assertNull(verified.revert().revertReason());
+                    assertFalse(verified.revert().safeDetails().containsKey("revertReason"));
+                }
+                default -> fail("unclassified V2 case: " + vector.required("id").textValue());
+            }
             assertEquals(PlatformSdkException.Retry.NEVER, verified.revert().retry());
             assertNull(verified.revert().receiptCheck());
             assertSame(verified.revert(), assertThrows(PlatformSdkException.class, verified::requireSuccess));
         }
-        assertEquals(1, count, "the V2 vector must execute");
+        assertEquals(cases.size(), count, "every V2 vector must execute");
     }
 
     @Test
