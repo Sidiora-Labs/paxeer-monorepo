@@ -40450,3 +40450,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 22 at 1b83b5c1cf7a on base c769be3dac5d: the build exits 0; the verification exits 1, the gate runner refuses make workspace-build before it runs with exit 125 and status source-identity-refusal phase=before on four ignored paths; log /out/logs/verify-1.log."
 assumption = "The checkout of the qualification environment held ignored bookkeeping of the spec tool that the gate runner lists."
 severity = "high"
+
+[finding.22.39.117.20]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 20 at ba77c1f483af on base ca5fa4d5ac8a: the build exits 0 at fa40c781de1d; the verification exits 1 at fa40c781de1d, make test of services/launchpad stops with three failed stages of TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery at phase2_test.go:182, the broker refuses a stream with three replicas with error code 10074; log /out/logs/verify-1.log."
+assumption = "The broker of the qualification environment was a single node where the public workflow starts three."
+severity = "high"
