@@ -37,6 +37,30 @@ function unifiedDocument(): Record<string, unknown> {
       anchor_status: "2",
       anchor_status_name: "final",
     },
+    freshness: {
+      observed_chain_sequence: "120",
+      observed_sealed_batch: "41",
+      observed_finalised_checkpoint: "d".repeat(64),
+      batches_behind: "0",
+      current: true,
+    },
+    layerx_activity: {
+      next_before: "118",
+      items: [{
+        receipt_id: "e".repeat(64),
+        receipt_digest: "f".repeat(64),
+        batch_number: "41",
+        global_sequence: "118",
+        activity_id: "1".repeat(64),
+        operation: 1,
+        result_code: 0,
+        asset: ASSET,
+        amount: "2",
+        from: ACCOUNT,
+        to: "2".repeat(64),
+        verification: 4,
+      }],
+    },
     paxeer_activity: {
       from_block: "70",
       to_block: "120",
@@ -112,6 +136,30 @@ test("a unified account answer decodes both halves of the account", () => {
   assert.equal(account.settlement.sealedBatch, "41");
   assert.equal(account.settlement.finalizedBatch, "40");
   assert.equal(account.settlement.anchorStatusName, "final");
+  assert.deepEqual(account.freshness, {
+    observedChainSequence: "120",
+    observedSealedBatch: "41",
+    observedFinalisedCheckpoint: "d".repeat(64),
+    batchesBehind: "0",
+    current: true,
+  });
+  assert.deepEqual(account.layerxActivity, {
+    nextBefore: "118",
+    items: [{
+      receiptId: "e".repeat(64),
+      receiptDigest: "f".repeat(64),
+      batchNumber: "41",
+      globalSequence: "118",
+      activityId: "1".repeat(64),
+      operation: "1",
+      resultCode: "0",
+      asset: ASSET,
+      amount: "2",
+      from: ACCOUNT,
+      to: "2".repeat(64),
+      verificationLevel: "checkpoint-finalised",
+    }],
+  });
   assert.equal(account.paxeerActivity.fromBlock, "70");
   assert.equal(account.paxeerActivity.toBlock, "120");
   assert.equal(account.paxeerActivity.nextBeforeBlock, "70");
@@ -134,14 +182,24 @@ test("an account with only one half decodes without inventing the other", () => 
   document.canonical = ADDRESS;
   document.identities = { evm_address: ADDRESS, bound: false };
   document.paxeer_activity = { from_block: "70", to_block: "120", items: [] };
+  document.layerx_activity = { items: [] };
   const account = decodeUnifiedAccount(document);
   assert.deepEqual(account.identities, { evmAddress: ADDRESS, bound: false });
   assert.equal(account.canonical, ADDRESS);
   assert.equal(account.paxeerActivity.items.length, 0);
   assert.equal(account.paxeerActivity.nextBeforeBlock, undefined);
+  assert.deepEqual(account.layerxActivity, { items: [] });
 });
 
 test("unified answers that are not gateway-reported or well formed are refused", () => {
+  const missingNativeActivity = unifiedDocument();
+  delete missingNativeActivity.layerx_activity;
+  assert.throws(() => decodeUnifiedAccount(missingNativeActivity), /layerx_activity must be an object/u);
+
+  const missingFreshness = unifiedDocument();
+  delete missingFreshness.freshness;
+  assert.throws(() => decodeUnifiedAccount(missingFreshness), /freshness must be an object/u);
+
   const unsigned = unifiedDocument();
   unsigned.evidence = "proof-verified";
   assert.throws(() => decodeUnifiedAccount(unsigned), TypeError);
