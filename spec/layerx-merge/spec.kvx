@@ -352141,7 +352141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.339]
 title = "Name the Maven, SwiftPM and .NET build directories as permitted output of the gate runner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
