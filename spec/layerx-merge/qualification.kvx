@@ -39730,3 +39730,35 @@ symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
 observed = "Attempt 6 at 557742ea3eb0 on base 495cd70105ac: make paxai-host-boundary-build exits 2 at the size test, guest exceeds 524184 bytes after wasm-opt -Oz --strip-debug --strip-producers; no verification ran; log /out/logs/build-1.log."
 assumption = "The guest of main is over the bound under the pass list of the target and the attempt changes no source of the guest."
 severity = "high"
+
+[finding.22.39.273.4]
+task = "22.39.273"
+file = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+symbol = "px_node_root_contracts.json"
+observed = "Attempt 4 at b5826bc0a27c on base 0c8737b4dd79: the verification exits 1 at the retired callers scan of tools/qualification with 14 references in caps_fixture.py and human-movement-kms-assembly.py after pytest reports 4222 passed; log /out/logs/verify-2.log."
+assumption = "The steps that hold the references cannot run because their producers are gone from the tree."
+severity = "high"
+
+[finding.22.39.311.5]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 5 at 2ff38d0bb956 on base 5a08a1f641e2: the verification exits 1 (cargo test exits 101), 1 passed and 1 failed, panic at crates/layerx-human-service/src/event_producer_tls.rs:539 assertion failed: outbox.ready(); log /out/logs/verify-2.log."
+assumption = "The case reaches the recovery and the readiness flag trails the empty queue."
+severity = "high"
+
+[finding.22.39.249.4]
+task = "22.39.249"
+file = "modules/layerxgov/types/proposal.go"
+symbol = "proposal.go"
+observed = "Attempt 4 at 7e50b554f871 on base b219257bb473: the verification exits 1 at a86de1287b2e, TestRepair476_AttestationDocumentation at modules/evm/config/repair_476_test.go:227 fails because modules/xweb/ATTESTATION.md contains 713714; log /out/logs/verify-1.log."
+assumption = "The document was changed by task 22.39.322 and is outside the paths of the task."
+severity = "high"
+
+[finding.22.39.332.1]
+task = "22.39.332"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+symbol = "transaction_signature_controller_test.exs"
+observed = "Attempt 1 at 7cf8745ee354 on base 495cd70105ac: the verification exits 1 at 15b518d646b7 (mix test exits 2) with 21 tests and 2 failures, status 404 where 200 is expected at transaction_status_committed_test.exs:54 and transaction_signature_committed_test.exs:138; log /out/logs/verify-2.log."
+assumption = "The cases predate the producer change of task 22.31.411 and the routes answer as that task defines."
+severity = "high"

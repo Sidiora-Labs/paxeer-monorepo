@@ -1,0 +1,120 @@
+[repair.22.39.317]
+acceptance = "22998.1"
+decision = "3170"
+gotcha = "4090"
+base_revision = "5df42280640955ac1f70ea7e257ffaed6bb3f0b2"
+inputs = ["sdk/platform/conformance/fixtures", "daemon/committed-fixture/vectors"]
+input_policy = "Read-only producer recordings; no fixture or vector is changed."
+baseline = "The inherited twelve-case inventory in GOTCHA.kvx gotcha.4090 records mvn install failure at 0305e69f47bc on base 867c134a0d2c, exit 1, /out/logs/verify-1.log: 122 tests, 9 failures, 3 errors. No starting-revision test was run in this attempt because the task order permits only hf-build and hf-done after complete implementation."
+
+[case.sequencerReceiptV1CasesVerifyReceipted]
+test = "SequencerReceiptTest.sequencerReceiptV1CasesVerifyReceipted"
+first_error = "Expected 4 cases but the V1 fixture contains 5."
+cause = "The producer added a positive receipt while the consumer retained a literal corpus count."
+producer_commit = "21e7fad72320ab6e794dcd4a5d3be762f829acab"
+repair = "Read the nonempty V1 cases array, verify every entry and assert its size; all signature, field, transaction, sequence, key and tampering checks remain."
+
+[case.publishedVectorFilesMatchRecordedCases]
+test = "SequencerReceiptTest.publishedVectorFilesMatchRecordedCases"
+first_error = "The aggregate V1-V3 assertion fails on the same stale V1 count and V2 reason."
+cause = "The aggregate invokes the individual recorded-corpus checks."
+producer_commit = "21e7fad72320ab6e794dcd4a5d3be762f829acab"
+repair = "Retain every aggregate member and repair the V1 and V2 consumers."
+
+[case.sequencerReceiptV2RevertDecodesReason]
+test = "SequencerReceiptTest.sequencerReceiptV2RevertDecodesReason"
+first_error = "Expected LXP_INSUFFICIENT_BALANCE: insufficient balance but revertReason is null."
+cause = "The current V2 corpus includes both an ABI Error(string) execution revert and a preexecution balance refusal whose returnData is empty; the original test applied the first case's reason to both."
+producer_commit = "21e7fad72320ab6e794dcd4a5d3be762f829acab"
+repair = "Execute both cases, retain the exact decoded Error(string), message and safeDetails assertions for V2-layerxledger-revert, and assert empty returnData, the recorded vmError and absent ABI reason for V2-pax-transfer-insufficient-funds. Unknown V2 ids fail explicitly. LocalVerifier already decodes the authenticated ABI payload and is unchanged."
+
+[case.programReadMetadataFollowsRetainedTransactions]
+test = "Repair22331389Test.programReadMetadataFollowsRetainedTransactions"
+first_error = "Expected pax_sequencerReceipt metadata but got eth_getTransactionByHash."
+cause = "Catalogue activity and receipt descriptors identify retained transaction lookups; execution evidence is fetched separately through pax_sequencerReceipt."
+producer_commit = "611bee22b9f2f347bb2a989be1f8ed1fe79cbe34"
+repair = "Assert eth_getTransactionByHash metadata and empty precompile-call lists while preserving the exact HTTP execution-receipt and retained-transaction request sequence."
+
+[case.intentPlanProducesPerLegCalls]
+test = "GeneratedCatalogueIntentsTest.intentPlanProducesPerLegCalls"
+first_error = "The test reads resolved EVM address and resolution from the unresolved plan_request source."
+cause = "The fixture request contains endpoint kind and optional account; resolved identities and complete EIP-1559 fields are in result legs, whose calldata and chain_id names the generator replaced with an invented payment/data/chainId shape."
+producer_commits = ["cb50180548c81a93044fcc5883195a0670f127f4", "10fe4690e566ca021ef39384ee723d119692ff1b"]
+repair = "Round-trip the unchanged request, assert unresolved source fields, check resolution in result legs, generate typed required EVM fields using the recorded names, and bind each action key to the final calldata word. Preserve exact response round trips, per-leg calls, immutable lists, missing-field refusals and unsigned-64 chain bounds."
+
+[case.verificationLevelsFollowTheHumanSchema]
+test = "GeneratedCatalogueIntentsTest.verificationLevelsFollowTheHumanSchema"
+first_error = "EvidenceMaterial and EvidenceGetResponse add rung:null and inclusion_height:null to the expected material."
+cause = "Optional evidence fields are serialized as explicit nulls by the generated JVM records."
+producer_commit = "c55d8901a7aac95ed5f4717e821f9cf3d0f77a73"
+repair = "Repair generate_jvm.py to omit absent optional EvidenceMaterial and EvidenceGetResponse properties, regenerate GeneratedSchema.java, and assert exact round trips both with and without rung and inclusion_height. Optional unresolved endpoint properties are likewise omitted."
+
+[case.portableVectorV5Verifies]
+test = "PortableReceiptTest.portableVectorV5Verifies"
+first_error = "Local verification failed while importing the published committed V5 bundle."
+cause = "The helper supplied a receipt key but omitted the independent consensus trust required for committed evidence."
+producer_commits = ["dfd25a69127d786caa2b17b185bf1c58b8c5abcc", "74ef78b42b60650433df69b5c92aec10f566ccd6"]
+repair = "Pass the independently pinned committed-fixture chain, height 10 and validator root already updated by the chain-125 producer; verify and re-export both unmodified published bundles. Committed.java and PortableReceipt.java have no former EVM chain constant at this base and retain their consensus and inclusion checks unchanged."
+
+[case.portableReceiptRoundTripsAtReceipted]
+test = "PortableReceiptTest.portableReceiptRoundTripsAtReceipted"
+first_error = "Local verification failed in the nested committed round trip."
+cause = "The nested committed export and import omitted consensus trust, and the outer V1 corpus count was fixed at four."
+producer_commits = ["dfd25a69127d786caa2b17b185bf1c58b8c5abcc", "21e7fad72320ab6e794dcd4a5d3be762f829acab"]
+repair = "Pin the independently constructed validator root for the existing committed round trip, prove import without trust is refused, and supply trust to each tampering check so its mutation is exercised. Read every nonempty V1 fixture entry and assert the corpus size."
+
+[case.portableReceiptRefusesVersionOneFormat]
+test = "PortableReceiptTest.portableReceiptRefusesVersionOneFormat"
+first_error = "Expected 4 V1 cases but got 5."
+cause = "A literal count predates the producer's expanded corpus."
+producer_commit = "21e7fad72320ab6e794dcd4a5d3be762f829acab"
+repair = "Execute every entry of the nonempty V1 array and derive its exact count from the file; preserve all retired-format, retired-field, missing-field, duplicate-key and trailing-input refusals."
+
+[case.portableExportMatchesPublishedVectorV5]
+test = "PortableReceiptTest.portableExportMatchesPublishedVectorV5"
+first_error = "Local verification failed at Committed.java:804 and PortableReceipt.java:266 in the inventory revision."
+cause = "The daemon emits JSON null for an absent signature; the Comet normalization helper originally Base64-decoded the text null into three nonempty bytes. After null was correctly decoded as empty bytes, Committed.encodeCommit still serialized those bytes as empty text, producing 13857 bytes instead of the published 13859."
+producer_commit = "74ef78b42b60650433df69b5c92aec10f566ccd6"
+repair = "Keep decoding JSON null byte fields as empty bytes and requiring text for non-null fields. Make Committed.encodeCommit write JSON null for an empty signature, matching the Rust and TypeScript exports, for both execution and successor commits. Preserve exact published-byte assertions, absent-vote validation and all inclusion tampering checks. The base already carries the chain-125 validator pin and has no former chain constant to change."
+
+[case.portableNormalizationRemainsAnExplicitIndependentVectorTest]
+test = "Repair22331391Test.portableNormalizationRemainsAnExplicitIndependentVectorTest"
+first_error = "Local verification failed through PortableReceiptTest.portableExportMatchesPublishedVectorV5."
+cause = "This wrapper invokes the independent published-byte normalization test, including its remaining 13859-versus-13857-byte mismatch when Committed.encodeCommit writes an absent signature as empty text instead of JSON null."
+producer_commit = "74ef78b42b60650433df69b5c92aec10f566ccd6"
+repair = "Keep the wrapper and the separate HTTP transition/restart case. Retain null-to-empty-byte normalization, and repair the shared Committed.encodeCommit export path to write JSON null for an empty signature without changing the published vector or byte comparison."
+
+[case.programOperationsNeverCallProgramsRestIngress]
+test = "ProgramTransportRetiredTest.programOperationsNeverCallProgramsRestIngress"
+first_error = "Expected TRANSPORT_FAILURE but got UNKNOWN_OUTCOME."
+cause = "The transport correctly preserves broadcast uncertainty on HTTP 503 since the method-aware retry repair; the retired-ingress test expected read-only error semantics for eth_sendRawTransaction."
+producer_commit = "a17bb022790dfef7c9ffd4aa35f23279387ab651"
+repair = "Assert UNKNOWN_OUTCOME with UNKNOWN_OUTCOME retry only for broadcast and TRANSPORT_FAILURE with SAFE retry for reads; preserve all fourteen operations, exact HTTP paths/methods and retired-interface absence assertions."
+
+[generation]
+command = "python3 sdk/platform/generators/generate_jvm.py /work/paxeer-monorepo"
+producer = "The JVM Python stage of services/platform/Makefile.inc platform-sdk-generate; GeneratedSchema.java is generated, never hand-edited."
+lock = "sdk/platform/pipeline.kvx generator.platform-sdkgen and files.platform-jvm hashes refreshed with the SHA-256 manifest algorithm in sdk/platform/generators/src/main.rs; other pipeline outputs are unchanged."
+
+[qualification]
+build_command = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_command = "test -s sdk/platform/jvm/repair_22_39_317.kvx && mvn -q -f sdk/platform/jvm/pom.xml test"
+verified_revision = "/out/run/gates.jsonl: final passing verify row names the exact candidate revision, command, exit and private log; a matching passing build row is required."
+build_evidence = "/out/run/gates.jsonl: build row matching the final verify revision."
+publication = "The runner publishes the candidate; no manual commit or push."
+
+[qualification.first_verify]
+revision = "2b87d0c7670741742a3c892cdd16718fb4d96c4c"
+command = "cg spec done 22.39.317 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+result = "122 tests, one failure, two errors, zero skips: the evidence-present assertion constructs an IntNode for a Long property, and both portable normalization callers decode an absent signature's JSON null as Base64 text."
+repair = "Construct inclusion_height with the declared long type, and decode JSON null byte fields as empty bytes while retaining every exact equality, byte round trip and cryptographic check."
+
+[qualification.continuation]
+decision = "3188"
+gotcha = "4110"
+base_revision = "598e3fe0d31fb7bb6c56ce2379a856624d5fa585"
+inherited_revision = "91a2708e8ba4f286959820adfb82d3d2610eb609"
+inherited_result = "122 cases, 2 failures, 0 errors, 0 skips; the published-byte normalization case and its wrapper both fail on the absent-signature encoding."
+repair = "Preserve the inherited implementation and normalization helper; encode an empty commit signature as JSON null in the production portable export path. Final qualification evidence is the matching build and verify candidate revision in /out/run/gates.jsonl."
