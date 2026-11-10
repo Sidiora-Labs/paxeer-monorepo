@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { join, relative } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
+import { abortableHumanApi } from "../src/api/index.ts";
 import { conformance, type ConformanceRun } from "../src/api/generated/conformance.ts";
 import {
   HumanApiError,
   createHumanApiClient,
   decodeMoney,
   encodeMoney,
+  encodeVersionInfo,
   operationNames,
   operations,
   type HumanApiClient,
@@ -18,6 +22,7 @@ import {
 } from "../src/api/generated/index.ts";
 
 const goldenRoot = new URL("../../../services/human/schema/human-api/golden/", import.meta.url);
+const schemaRoot = new URL("../", goldenRoot);
 
 interface GoldenRequest {
   method: string;
@@ -100,19 +105,97 @@ function buildRun(client: HumanApiClient, name: string, shape: OperationShape, r
   return run;
 }
 
-test("every operation ships golden vectors and every vector belongs to a generated operation", async () => {
-  const files = await readdir(goldenRoot);
-  for (const name of operationNames) {
-    for (const kind of ["request", "response", "failure"]) {
-      assert.ok(files.includes(name + "." + kind + ".json"), name + " must ship a golden " + kind + " vector");
+async function golden_vectors_match_schema_and_generated_operations() {
+  const root = await readFile(new URL("v1.kvx", schemaRoot), "utf8");
+  const includesMatch = /^includes\s*=\s*(\[[^\n]+\])$/mu.exec(root);
+  assert.ok(includesMatch !== null);
+  const includes: unknown = JSON.parse(includesMatch[1]!);
+  assert.ok(Array.isArray(includes));
+  const sources = [root];
+  for (const file of includes) {
+    assert.equal(typeof file, "string");
+    sources.push(await readFile(new URL(file, schemaRoot), "utf8"));
+  }
+  const sections = new Map<string, Map<string, unknown>>();
+  for (const source of sources) {
+    for (const section of source.split(/(?=^\[)/mu)) {
+      const header = /^\[((?:operation|transport)\.[^\]]+)\]/u.exec(section);
+      if (header === null) continue;
+      const name = header[1]!;
+      assert.equal(sections.has(name), false, `${name} must have exactly one schema declaration`);
+      const fields = new Map<string, unknown>();
+      for (const field of section.matchAll(/^([a-z_]+)\s*=\s*(.+)$/gmu)) {
+        fields.set(field[1]!, JSON.parse(field[2]!) as unknown);
+      }
+      sections.set(name, fields);
     }
   }
-  for (const file of files) {
-    const stem = file.replace(/\.(?:request|response|failure)\.json$/, "");
-    assert.notEqual(stem, file, file + " does not follow the golden vector convention");
-    assert.ok((operationNames as readonly string[]).includes(stem), file + " does not belong to a generated operation");
+  const owners = new Map<string, string>();
+  function own(file: string, operation: string) {
+    assert.equal(owners.has(file), false, `${file} must have exactly one owner`);
+    owners.set(file, operation);
   }
-});
+  const active: string[] = [];
+  const entries = await readdir(goldenRoot, { recursive: true, withFileTypes: true });
+  const files = entries.filter((entry) => entry.isFile()).map((entry) =>
+    relative(fileURLToPath(goldenRoot), join(entry.parentPath, entry.name)).replaceAll("\\", "/"));
+  for (const [section, fields] of sections) {
+    if (!section.startsWith("operation.")) continue;
+    const name = section.slice("operation.".length);
+    for (const kind of ["request", "response", "failure"]) {
+      assert.ok(files.includes(name + "." + kind + ".json"), name + " must ship a golden " + kind + " vector");
+      own(`${name}.${kind}.json`, name);
+    }
+    for (const kind of ["requests", "responses", "failures", "inputs", "artifacts"]) {
+      const supplemental = fields.get(`golden_${kind}`);
+      if (supplemental === undefined) continue;
+      assert.ok(Array.isArray(supplemental));
+      for (const file of supplemental) {
+        assert.equal(typeof file, "string");
+        own(file, name);
+        assert.ok((await readFile(new URL(file, goldenRoot))).length > 0, `${file} must not be empty`);
+      }
+    }
+    const request = await readGolden<GoldenRequest>(`${name}.request.json`);
+    assert.equal(request.method, fields.get("method"));
+    templateParams(String(fields.get("path")), request.path);
+    if (fields.get("retired") === "true") {
+      assert.equal(Object.hasOwn(operations, name), false, `${name} must not be callable`);
+      assert.equal(Object.hasOwn(conformance, name), false, `${name} must not have a generated invoker`);
+      const failure = await readGolden<GoldenResponse>(`${name}.failure.json`);
+      assert.equal(failure.status, 410);
+      assert.equal(failure.body.ok, false);
+      assert.deepEqual(failure.body.error, {
+        code: "operation-retired", copy_key: "error.operation.retired", retry: "final",
+      });
+    } else {
+      active.push(name);
+    }
+  }
+  assert.deepEqual([...operationNames].sort(), active.sort());
+  assert.deepEqual(Object.keys(operations).sort(), active);
+  assert.deepEqual(Object.keys(conformance).sort(), active);
+  const push = sections.get("transport.stream_push_v2");
+  assert.ok(push !== undefined);
+  assert.equal(push.get("operation"), "stream.next");
+  assert.ok(active.includes("stream.next"));
+  for (const kind of ["request", "response", "failure"]) {
+    own(`stream-push-v2/${kind}.json`, "stream.next");
+  }
+  for (const file of files) {
+    assert.ok(owners.has(file), `${file} does not belong to a declared operation`);
+  }
+  for (const entry of entries) {
+    assert.ok(entry.isFile() || entry.isDirectory(), `${entry.name} must be a regular golden file or directory`);
+    if (entry.isDirectory()) {
+      const directory = relative(fileURLToPath(goldenRoot), join(entry.parentPath, entry.name)).replaceAll("\\", "/");
+      assert.ok(files.some((file) => file.startsWith(`${directory}/`)), `${directory} must contain owned vectors`);
+    }
+  }
+  assert.deepEqual(files.sort(), [...owners.keys()].sort());
+}
+
+test("every operation ships golden vectors and every vector belongs to its schema operation", golden_vectors_match_schema_and_generated_operations);
 
 test("the generated client round-trips every golden vector over real HTTP", async () => {
   let respondStatus = 200;
@@ -188,6 +271,21 @@ test("the generated client round-trips every golden vector over real HTTP", asyn
         },
       );
     }
+    const version = await readGolden<GoldenResponse>("version.response.json");
+    respondStatus = version.status;
+    respondBody = JSON.stringify(version.body);
+    recordedRequests.length = 0;
+    let controller = new AbortController();
+    const abortable = abortableHumanApi(() => controller.signal, {
+      baseUrl: `http://127.0.0.1:${address.port}`,
+    });
+    assert.deepEqual(encodeVersionInfo(await abortable.version()), version.body.result);
+    controller.abort();
+    await assert.rejects(abortable.version(), { name: "AbortError" });
+    assert.equal(recordedRequests.length, 1, "an aborted session sends no new request");
+    controller = new AbortController();
+    assert.deepEqual(encodeVersionInfo(await abortable.version()), version.body.result);
+    assert.equal(recordedRequests.length, 2, "a restarted session uses its current abort signal");
   } finally {
     await new Promise<void>((resolve) => {
       server.close(() => {

@@ -1602,6 +1602,20 @@
       "citation": "The upgrade replay harness retains the historical anchor, custody and verify modules and precompiles to prove activation, exact retirement refusals and committed state recovery across upgrades."
     },
     {
+      "path": "programs/crates/layerx-programs-runtime/src",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains read_native_receipt_authority, decode_native_receipt_authority and native_receipt_authority_length for the live native CALL V2 receipt projection bound to block height and digest, with V1 explicitly refused."
+    },
+    {
+      "path": "programs/crates/layerx-programs-runtime/src",
+      "symbols": [
+        "SETTLEMENT_DOMAIN"
+      ],
+      "citation": "Decision 3125 retains SANDBOX_SETTLEMENT_DOMAIN for the live sandbox usage-receipt envelope authenticated by attach_sandbox_settlement and decoded by terminal::unwrap, preserving its public name and wire bytes."
+    },
+    {
       "path": "engine/executor",
       "symbols": [
         "layerxanchor",
@@ -1617,6 +1631,37 @@
         "fee_governance"
       ],
       "citation": "Decision 3125 permits live kernel receipt-authority validation and fee-governance runtime resolution, whose identifiers carry retired names as prefixes while supplying canonical receipt facts and recorded fee schedules to Programs execution."
+    },
+    {
+      "path": "services/agent/crates/layerx-mcp/src/tools/wallet.rs",
+      "lines": [
+        "use layerx_crypto::signer::sign_disclosed_call;",
+        "let signature = run(sign_disclosed_call("
+      ],
+      "citation": "Decisions 3104 and 3130 retain sign_disclosed_call as the live disclosure-bound secp256k1 EIP-1559 replacement, with recovered sender and transaction hash checks before receipt tracking."
+    },
+    {
+      "path": "services/agent/crates/layerx-proof/src/state.rs",
+      "lines": [
+        "b\"system:paxeer-reserve\".as_slice(),",
+        "b\"system:paxeer-reserve:pax\","
+      ],
+      "citation": "Decisions 3104 and 3130 retain these historical reserve names solely as negative inputs asserting that native account decoding rejects them for every account-kind byte."
+    },
+    {
+      "path": "services/agent/crates/layerx-sdk/src/rpc_sign.rs",
+      "lines": [
+        "\"SettlementAnchored\","
+      ],
+      "citation": "Decisions 3104 and 3130 retain this historical verification label solely as a negative input asserting that the major-two signed-observation decoder refuses it."
+    },
+    {
+      "path": "services/agent/crates/layerx-sdk/src/wallet.rs",
+      "lines": [
+        "use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};",
+        "let signature = sign_disclosed_call("
+      ],
+      "citation": "Decisions 3104 and 3130 retain sign_disclosed_call as the live disclosure-bound secp256k1 EIP-1559 signer, preserving sender recovery and exact transaction receipt binding."
     }
   ]
 }

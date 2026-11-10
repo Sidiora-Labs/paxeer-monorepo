@@ -1473,7 +1473,7 @@ impl RpcClient {
     /// # Errors
     /// Rejects empty or oversized bytes and malformed transaction hashes.
     pub fn send_raw_transaction(&self, raw: &[u8]) -> Result<[u8; 32], RpcError> {
-        if raw.is_empty() || raw.len() > 524_288 {
+        if raw.is_empty() || raw.len() > MAX_TRANSACTION_CALLDATA_BYTES {
             return Err(RpcError::InvalidRequest);
         }
         ethereum_hash(

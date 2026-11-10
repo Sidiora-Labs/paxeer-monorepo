@@ -39314,3 +39314,155 @@ symbol = "README.md"
 observed = "Attempt 2 at d25367086cfb: build exit 0; verification exit 101: every module of layerx-platform-cli and layerx-platform-release passes except public_http_uses_system_trust_and_checks_server_identity, which panics at services/platform/tests/support/tls_boundary.rs:186 asking for the boundary binary; log /out/logs/verify-1.log."
 assumption = "The case is an environment prerequisite of the suite, not a defect of the tree."
 severity = "high"
+
+[finding.22.39.235.9]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 9 at 693a252c2d98: cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets exit 0; verification exit 101: cargo clippy reports two sites, tests/repair_22_31_566.rs:128 and :160 clippy::unwrap_used; log /out/logs/verify-2.log."
+assumption = "The two unwrap sites are the only remaining lint of the crate and its test targets; the sdk/rust warnings in the log are dependency warnings and not errors of the gate."
+severity = "high"
+
+[finding.22.39.242.8]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 8 at adf2a52050f1: build exit 0; verification exit 1: TestRepairM_999_ReceiptQualifiedBackfill, TestRepairM_995_NativeReceiptAttribution, TestRepair_53_native_swap_qualification, TestRepair_53_tenant_transaction_qualification and TestRepair_53_approved_history_rehydration fail with receipt qualification rejected: rehydrate historical creation; log /out/logs/verify-1.log."
+assumption = "The recorded creation proof carries the deployment id of the former manifest while the re-recorded manifest names paxeer125-v6.12.0; proveHistoricalMarket refuses at identity.go:752 before any response is read."
+severity = "high"
+
+[finding.22.39.278.2]
+task = "22.39.278"
+file = "rpc/config/config.go"
+symbol = "config.go"
+observed = "Attempt 2 at e2a082f7cf79: go vet ./rpc/ ./rpc/config/ exit 0; verification exit 1: TestPxNodeRoot_Account_CommittedReadsAndParity fails at rpc/px_node_root_account_test.go:711 with result lacks canonical_origin; every other TestPxNodeRoot case passes; log /out/logs/verify-1.log."
+assumption = "The handler that omits the field, rpc/px_discovery.go, is outside the touches of the task and red before the attempt."
+severity = "high"
+
+[finding.22.39.270.2]
+task = "22.39.270"
+file = "apps/explorer/lib/hooks/useNavItems.tsx"
+symbol = "useNavItems.tsx"
+observed = "Attempt 2 at e0a022007b7a: build exit 0; verification exit 2: yarn vitest run passes 14 files and 64 cases, then python3 tools/paxeer-x/tests/retired_callers_test.py cannot open the script under apps/explorer; log /out/logs/verify-1.log."
+assumption = "The failing step is the verification text, not the tree."
+severity = "high"
+
+[finding.22.39.249.2]
+task = "22.39.249"
+file = "modules/layerxgov/types/proposal.go"
+symbol = "proposal.go"
+observed = "Attempt 2 at 6ba915fa4d32: build exit 0; verification exit 1: TestCmdQueryAirdropNetwork, TestCmdQueryFeeRightNetwork and TestRepair_35_QuoteUint256 fail in modules/launchpad/client/cli and TestRESTRegistryRoutes fails in modules/launchpad/client/rest, each receiving the bare invalid request text; every other package passes; log /out/logs/verify-1.log."
+assumption = "The attempt changed nothing under modules/launchpad and attempt 1 failed the same four cases."
+severity = "high"
+
+[finding.22.39.271.2]
+task = "22.39.271"
+file = "services/explorer/backend/README.md"
+symbol = "README.md"
+observed = "Attempt 2 at 72d646417636: build exit 0; verification exit 2: mix test apps/explorer/test/explorer/chain/paxeer_x reports 171 cases and 17 failures, all {:error, :r3}, in committed_vectors_test.exs, status_committed_test.exs, status_test.exs and sequencer_receipt_test.exs; log /out/logs/verify-1.log."
+assumption = "The attempt changed only documentation lines of receipt.ex; the key guard changed at 6c6128318f before the attempt."
+severity = "high"
+
+[finding.22.39.273.2]
+task = "22.39.273"
+file = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+symbol = "px_node_root_contracts.json"
+observed = "Attempt 2 at 5dc5c523ab1e: build exit 0; verification exit 1: 4221 cases pass and test_repair_22_33_1053.py::test_finding_27_complete_provenance_without_deployment_defaults fails at :76 on the exports map of sdk/launchpad/packages/sidiora-launchpad-v3/package.json; log /out/logs/verify-1.log."
+assumption = "The package changed its exports to the conditional form at 1caf032cb4 and the case froze the string form."
+severity = "high"
+
+[finding.17.5.7.10]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 10 at aaee77f2eb55: build exit 0; verification exit 1: the gate fails inside make platform-jvm-dependencies-install at GeneratedCatalogueProgramsTest.programOperationsNameLayerxprogramsCalls with six assertions on program.activity and program.receipt (expected eth_getTransactionByHash but was eth_getLogs); log /out/logs/verify-1.log."
+assumption = "The attempt took 22.39.301, which repaired the native activity record of the same class; the transport mismatch is older than that repair."
+severity = "high"
+
+[finding.22.39.288.2]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/px.test.ts"
+symbol = "px.test.ts"
+observed = "Attempt 4 at 6214136f2301: build exit 0; verification exit 1: every self-contained suite passes except repair_22_33_24_preserves_recorded_producer_provenance, which compares the digest of daemon/committed-fixture/vectors/vector-v4-committed.json (5013cd232ee9) with the digest the recording pins (fc3fe1494c91); log /out/logs/verify-2.log."
+assumption = "The recording is refreshed by 22.39.299; the readiness_hosted envelope case the log also marks is counted by the envelope runner and fails no suite."
+severity = "high"
+
+[finding.22.39.303.1]
+task = "22.39.303"
+file = "services/agent/crates/layerx-agentd/tests/budget_schema.rs"
+symbol = "budget_schema.rs"
+observed = "Attempt 1 at d89a01cab119: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --tests exit 101: E0063 missing field requested_amount in initializer of PersistedReceipt in tests/repair_22_31_559.rs; no verification ran; log /out/logs/build-1.log."
+assumption = "The case constructs the record and was outside the touches the task named."
+severity = "high"
+
+[finding.22.39.266.3]
+task = "22.39.266"
+file = "tools/platform/cli/README.md"
+symbol = "README.md"
+observed = "Attempt 3 at e183fb31228b: build exit 101: package ID specification layerx-paxeer-boundary did not match any packages; no verification ran; log /out/logs/build-1.log."
+assumption = "The binary is a target of services/platform/hosted/paxeer/Cargo.toml and the suite runs from the tools/platform workspace."
+severity = "high"
+
+[finding.22.39.257.2]
+task = "22.39.257"
+file = "services/agent/crates/layerx-sdk/src/rpc.rs"
+symbol = "rpc.rs"
+observed = "Attempt 2 at f569c69c1642: build exit 0; verification exit 101: cargo test -p layerx-sdk --lib fails v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes with Error Verification, 50 other cases pass, and the record names the same failure at the base revision fbe6b13a1823; log /out/logs/verify-1.log."
+assumption = "The case refuses before any binding when the corpus path is unset; it is red on main and outside the touches."
+severity = "high"
+
+[finding.22.39.290.3]
+task = "22.39.290"
+file = "services/wallet/gateway/test"
+symbol = "test"
+observed = "Attempt 3 at 08501fd25a23: build exit 0; verification exit 1 twice: pnpm --dir services/wallet/gateway run test reports 16 failed files, 34 failed cases, 401 passed, 30 todo; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The failing set shrank from seventeen files to sixteen and every residual group has a named cause in the record."
+severity = "high"
+
+[finding.22.38.15.2]
+task = "22.38.15"
+file = "services/agent/crates/layerx-agentd/tests/inference_enrol.rs"
+symbol = "inference_enrol.rs"
+observed = "Attempt 2 at a79a868b133e: the first build failed on SequencerError (E0433) and the second passed; verification exit 101: bond_lock_precedes_bid_at_the_configured_quote panics at tests/inference_enrol.rs:38 with ApplicationError(14); five other cases pass; log /out/logs/verify-1.log."
+assumption = "Index 14 of the error registry is WRONG_DOMAIN; the enrolment, acceptance and metadata operations of the same case execute."
+severity = "high"
+
+[finding.18.1667.1.14]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 14 at 156b7d0ceab3: go build ./daemon/committed-fixture/... exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:402, record vector-v4-committed: bind DID 0: fixture transaction reverted LXP_ADDR_LAYERX_ADDRESS_BOUND; TestRecorderV6GenesisSelection passes; log /out/logs/verify-1.log."
+assumption = "The authority no longer shares the fixture address, and the V2 ledger recorder is the remaining binder of the fixture payer before the V4 recorder."
+severity = "high"
+
+[finding.22.33.223.23]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 24 at 5cfc8d6541ce: the first build failed on MAX_ENVELOPE_BYTES (E0425) and the second passed; verification exit 101: roster_state_fuel_scaling panics at tests/fuel_budget.rs:3216 with baseline READ_HEADER: Refused with an 82-byte result; 33 other cases pass; log /out/logs/verify-1.log."
+assumption = "Every routed operation of the fixture executes; only the baseline read the attempt added is refused."
+severity = "high"
+
+[finding.22.39.259.2]
+task = "22.39.259"
+file = "services/human/crates/layerx-human-service/src/audit/event.rs"
+symbol = "event.rs"
+observed = "Attempt 2 at d6c2e7a6a68c: build exit 0; verification exit 101: cargo test -p layerx-human-service --lib fails human_journey_and_approval_cross_tls_and_recover_after_sink_loss (clock authority: Unavailable at src/event_producer_tls.rs:89) and cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame (typed runtime at src/server/agent_runtime.rs:4716); 81 cases pass; log /out/logs/verify-1.log."
+assumption = "The attempt changed one allowance line per file and a doc comment; the two cases depend on the environment."
+severity = "high"
+
+[finding.22.39.248.3]
+task = "22.39.248"
+file = "node/app.go"
+symbol = "app.go"
+observed = "Attempt 3 at e5710f324231: go vet ./node/ exit 0; verification exit 1: go test -count=1 ./node/ panics with test timed out after 10m0s while TestFinalizeAdoptedBlockStoresVotes ran, FAIL after 603 seconds; log /out/logs/verify-1.log."
+assumption = "The timeout is the default of go test, not a hanging case."
+severity = "high"
+
+[finding.22.39.288.3]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/px.test.ts"
+symbol = "px.test.ts"
+observed = "Attempt 5 at 634b81d5b2ee: build exit 0; verification exit 1: 52 test files executed, 1 failed: test/web-search.test.ts fails 3 of 34 cases in webSearchExactPaymentLogReceipts (Missing expected rejection at dist/test/web-search.test.js:112, then two deepStrictEqual failures at :119 and :127 that hold one header too many); the python suite is not reached; log /out/logs/verify-1.log."
+assumption = "The three failures share one cause, the recorded receipt being accepted, and every other file of the suite passes."
+severity = "high"
