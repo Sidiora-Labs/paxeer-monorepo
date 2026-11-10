@@ -161194,7 +161194,7 @@ do_4 = "Attempt 2 (continue, gotcha 4008, decisions 3125 and 3130): the attempt-
 
 [task.22.39.269]
 title = "Repair the retired references of the web application and the gas station container"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -183651,7 +183651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.300]
 title = "Pin the Fund attribution boundaries to commits reachable from main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193257,7 +193257,7 @@ do_4 = "Attempt 2 (continue, gotcha 4004, decisions 3129 and 3130): the attempt-
 
 [task.22.39.252]
 title = "Repair the retired references of the ai-market program crate and the programs overview"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
