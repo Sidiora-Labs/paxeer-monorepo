@@ -331,26 +331,32 @@ func (d devDiscovery) poolCallouts(w http.ResponseWriter, req *http.Request) {
 // called outside production; production mounts these paths from
 // RegisterAccountingV2WithAdmission, RegisterV2SearchProxy and
 // app.registerDiscovery.
-func RegisterDevelopmentHistorySearchDiscovery(r chi.Router, st *store.Store, admission *Admission) {
+func RegisterDevelopmentHistorySearchDiscovery(ctx context.Context, r chi.Router, o DevelopmentHistoryOptions) error {
+	chain, err := newDevelopmentChain(ctx, o.ChainRPCURL)
+	if err != nil {
+		return err
+	}
+	d := &developmentMarket{st: o.Store, chain: chain}
 	mount := func(method, path string, class AdmissionClass, h http.HandlerFunc) {
 		var handler http.Handler = h
-		if admission != nil {
-			handler = admission.Middleware(class)(handler)
+		if o.Admission != nil {
+			handler = o.Admission.Middleware(class)(handler)
 		}
 		if path == "/v2/pools/{poolAddress}/trades" || path == "/v2/pools/{poolAddress}/candles" {
 			handler = logDevelopmentReadFailures(path, handler)
 		}
 		r.Method(method, path, ResponseMetadata(handler))
 	}
-	d := newDevDiscovery(st)
-	mount(http.MethodGet, "/v2/pools/{poolAddress}/trades", AdmissionHistory, devHistory(st, false))
-	mount(http.MethodGet, "/v2/pools/{poolAddress}/candles", AdmissionHistory, devHistory(st, true))
-	mount(http.MethodGet, "/v2/search", AdmissionAggregate, devSearch(st))
-	mount(http.MethodGet, "/v2/search/expanded", AdmissionAggregate, devExpandedSearch(st))
-	mount(http.MethodGet, "/v2/pools/{poolAddress}/callouts", AdmissionAggregate, d.poolCallouts)
-	mount(http.MethodGet, "/v2/discovery/feed", AdmissionAggregate, d.feed)
-	mount(http.MethodGet, "/v2/discovery/feed/{id}", AdmissionCached, d.feedDetail)
-	mount(http.MethodGet, "/v2/discovery/leaderboards", AdmissionAggregate, d.leaderboards)
+	discovery := newDevDiscovery(o.Store)
+	mount(http.MethodGet, "/v2/pools/{poolAddress}/trades", AdmissionHistory, devHistory(d, false))
+	mount(http.MethodGet, "/v2/pools/{poolAddress}/candles", AdmissionHistory, devHistory(d, true))
+	mount(http.MethodGet, "/v2/search", AdmissionAggregate, devSearch(o.Store))
+	mount(http.MethodGet, "/v2/search/expanded", AdmissionAggregate, devExpandedSearch(o.Store))
+	mount(http.MethodGet, "/v2/pools/{poolAddress}/callouts", AdmissionAggregate, discovery.poolCallouts)
+	mount(http.MethodGet, "/v2/discovery/feed", AdmissionAggregate, discovery.feed)
+	mount(http.MethodGet, "/v2/discovery/feed/{id}", AdmissionCached, discovery.feedDetail)
+	mount(http.MethodGet, "/v2/discovery/leaderboards", AdmissionAggregate, discovery.leaderboards)
 	mount(http.MethodPost, "/v2/discovery/callouts", AdmissionCached, unauthenticatedWrite)
 	mount(http.MethodPatch, "/v2/discovery/callouts/{id}", AdmissionCached, unauthenticatedWrite)
+	return nil
 }
