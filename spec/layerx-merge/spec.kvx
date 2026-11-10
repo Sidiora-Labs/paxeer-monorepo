@@ -12424,6 +12424,12 @@ value = "A lint task repairs the files inside its paths. A file of the same work
 basis = "Gotcha 4141, decisions 3053, 3057 and 3211."
 affects = ["22.39.223", "22.39.347", "22.39.227"]
 
+[decision.3219]
+title = "An attempt that only the check of the dependent packages stops on a red target of main requalifies unchanged after the repair of that target"
+value = "When the build of an attempt passes and the check of the dependent packages fails only in a target that is red on main at the base of the attempt and that a repair task owns, the tree of the attempt stands unchanged. The task gains a requires entry on the repair task and the attempt requalifies on main once the repair is on it. The task repairs nothing of the red target. The programs runtime tasks 22.39.349 and 22.39.340 follow task 22.39.348."
+basis = "Gotchas 4143, 4144 and 4136, decisions 3130 and 3214."
+affects = ["22.39.349", "22.39.340"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -184575,7 +184581,7 @@ title = "Link the test targets of the programs runtime crate with the host inter
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.348"]
 reqs = ["22998.1"]
 capabilities = ["22.39.349"]
 interfaces = []
@@ -184598,6 +184604,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (requalify after 22.39.348 lands, gotcha 4143, decision 3219): the attempt-1 tree 1fc64323e59c stands unchanged (the linking of tests/repair_22_33_259.rs in both configurations and the record). The build passed and only the check of the dependent packages failed, on the five errors of the agent daemon library that are red on main and that task 22.39.348 repairs; the task now requires it. Rebase on main once that task is on it, change nothing for the agent daemon, and remove from the record the entries that describe the stopped verification so that it states the defect, the change and both results. Run the build once and the verification once at the final revision."
 
 [task.22.39.346]
 title = "List each announced browser wallet once in the wallet application"
@@ -184636,7 +184643,7 @@ title = "Bind the payment account of an identity destination in the programs run
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.348"]
 reqs = ["22998.1"]
 capabilities = ["22.39.340"]
 interfaces = []
@@ -184664,6 +184671,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Attempt 2 (continue, gotcha 4137, decision 3215): the attempt-1 tree 29eddec468fe stands (the destination name function of the kernel, the binding and the version 2 evidence of the runtime, the decoder, the cases, the generator with the vector file, the record). The second build compiled the library and its cases and failed only at the link of the test target repair_22_33_259, which defines three functions of the host interface a second time when the feature host-ffi is on; that target is outside the paths and task 22.39.349 repairs it. The build now compiles the cases of the library only: change nothing for that target. No verification has run yet. Run the build once and the verification once at the final revision, and repair inside the paths what the two kernel programs and the cases of the transfer module show."
+do_8 = "Attempt 3 (requalify after 22.39.348 lands, gotcha 4144, decision 3219): the attempt-2 tree 5819b120ab2b stands unchanged (the account binding in the runtime, the header, the C module of the programs calls with its two cases, the fixtures and the record). The build passed and only the check of the dependent packages failed, on the five errors of the agent daemon library that are red on main and that task 22.39.348 repairs; the task now requires it. Rebase on main once that task is on it and change nothing for the agent daemon. Reduce the record to the defect, the change and the results. Run the build once and the verification once at the final revision."
 
 [task.22.39.338]
 title = "Remove the two historical deployment scripts of the Paxeer compatibility root with their pins"
