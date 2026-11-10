@@ -68,7 +68,9 @@ impl From<SignRefusal> for SignError {
     }
 }
 
-/// Remote Ed25519 signer reached over a pinned mutual-TLS connection.
+/// Remote Ed25519 custodian for bind consent and native payer authorization
+/// reached over a pinned mutual-TLS connection. Activity signing is refused
+/// before transport; EVM transactions require a separate secp256k1 key.
 pub struct RemoteSigner {
     endpoint: SocketAddr,
     server_name: String,
@@ -203,8 +205,8 @@ pub fn decode_bind_request(body: &[u8]) -> Result<BindMessage, SignRefusal> {
 }
 
 fn encode_request(request: SigningRequest<'_>) -> Result<Vec<u8>, SignRefusal> {
-    // Protocol v1 transports scoped payer digests only. Raw bind consent needs
-    // a separately versioned peer contract and is explicitly refused here.
+    // Protocol v1 transports scoped payer digests only. Raw bind consent uses
+    // the separate v2 BindSigner frame and is explicitly refused here.
     request
         .external_signing_bytes()
         .map_err(|_| SignRefusal::Refused)?;

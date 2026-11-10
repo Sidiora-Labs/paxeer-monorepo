@@ -931,6 +931,15 @@ fn start_shared_owner(
     if let Some(source) = export_trust {
         operations.install_export_trust(source, deadline);
     }
+    match std::env::var("LAYERX_AGENT_STATE_EXPORT_SOURCE") {
+        Ok(path) => operations.install_state_export_source(
+            layerx_agentd::config::StateExportSource::load(std::path::Path::new(&path))?,
+        ),
+        Err(std::env::VarError::NotPresent) => {}
+        Err(std::env::VarError::NotUnicode(_)) => {
+            return Err("state export source path is not UTF-8".to_owned())
+        }
+    }
 
     if let Some(sources) = policy_sources {
         operations

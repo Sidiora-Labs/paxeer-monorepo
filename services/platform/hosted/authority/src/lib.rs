@@ -203,6 +203,7 @@ pub struct ReceiptLocator {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ReplicaDocument {
+    // Retained wire identity pinned by the historical receipt evidence decoder.
     authority_replica_id: String,
     sequencer_public_key: String,
     batch_evidence: ReplicaBatchEvidence,

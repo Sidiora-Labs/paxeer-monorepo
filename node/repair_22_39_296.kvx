@@ -1,0 +1,41 @@
+[task]
+id = "22.39.296"
+acceptance = "22998.1"
+base_revision = "7c65ca246479ea68169faf54cef98cfeb9e66537"
+decision = "3134"
+gotcha = "4014"
+
+[repair]
+handler = "node/upgrades.go: continueMergeUpgradePlan installs role surfaces through the existing EVM keeper after migrateMergeState and before committing the cached upgrade context"
+installer = "precompiles/launchpad/surface.go: InstallRoleSurfaces delegates to the launchpad keeper and writes only surface records and EVM code metadata"
+failure = "An installation error carries the merge plan and launchpad role surfaces context and discards all cached upgrade writes"
+
+[runtime]
+unguarded = "0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3"
+unguarded_keccak256 = "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+guarded = "0x3415600957600080fd5b363d3d373360601b36523d3d601436013d3d6110175af13d600060003e602e573d6000fd5b3d6000f3"
+guarded_keccak256 = "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+
+[addresses]
+SidioraFactory = "0x3993D004166738d1069B5C4e0a923f7B9D5D8830"
+Router = "0x78FB06f525cD964388f2305A489035263E31C6e4"
+Quoter = "0x793006f4F321b8863F26DBD75b11bAa01DA181dc"
+ProtocolConfig = "0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6"
+PoolRegistry = "0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7"
+FeeAccumulator = "0x7b14808b72f61664cDb79D25E6d1587655571a66"
+SidioraNFT = "0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B"
+FeesRouter = "0x05681dA6f611C2dfFD3E92611F6dE2d247647927"
+Treasury = "0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723"
+
+[tests]
+TestMergeUpgradeInstallsGuardedRoleSurfaces = "Run the real merge handler on all nine unguarded role addresses; assert guarded bytes, code size and hash, exact surface records, nonzero balances, nonces and three storage slots per address; a second handler run leaves every KV store byte-identical; the registered upgrade completes at the merge height and a completed-plan replay changes nothing"
+TestMergeUpgradeRollsBackFailedRoleSurfaces = "A corrupt Treasury record fails after earlier roles were processed; assert every KV store is unchanged, every role still holds the unguarded runtime and no done height is recorded"
+
+[evidence.build]
+command = "go build ./node/..."
+reference = "/out/run/gates.jsonl: final kind=build row records candidate revision, command, exit and private log"
+
+[evidence.verify]
+command = "cg spec done 22.39.296 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s node/repair_22_39_296.kvx && go test -count=1 ./node/ -run '^TestMergeUpgrade.*Surfaces'"
+reference = "/out/run/gates.jsonl: final kind=verify row names the verified revision, command, exit and private log; qualification requires exit zero and a build on that identical revision"

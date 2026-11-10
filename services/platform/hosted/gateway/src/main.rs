@@ -5556,6 +5556,7 @@ mod complete_readiness_contract_tests {
                 count += 1;
             }
         }
+        // Preserve compatibility diagnostic names for the optional hosted backend group.
         let roster = KernelBackend::ALL.map(KernelBackend::name);
         assert_eq!(
             roster,

@@ -309,6 +309,16 @@ mod wire_label_tests {
             VerificationLevel::SETTLEMENT_ANCHORED.wire_label(),
             "settlement_anchored"
         );
+        for archived in [
+            VerificationLevel::CHECKPOINT_FINALISED,
+            VerificationLevel::SETTLEMENT_ANCHORED,
+        ] {
+            assert!(!archived.is_current());
+            assert!(VerificationLevel::from_wire_rank(archived.wire_rank()).is_err());
+            assert_eq!(archived.rung(), None);
+            assert!(archived.compare(VerificationLevel::COMMITTED).is_lt());
+            assert!(VerificationLevel::COMMITTED.compare(archived).is_lt());
+        }
         for label in [
             "checkpoint_finalised",
             "settlement_anchored",

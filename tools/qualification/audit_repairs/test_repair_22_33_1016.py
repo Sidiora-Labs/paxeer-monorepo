@@ -55,9 +55,9 @@ def test_discovery_captures_status_before_inspecting_output():
     ('build', '$(GO) build $(GOFLAGS) ./...'),
     ('vet', '$(GO) vet ./...'),
     ('lint', 'golangci-lint run'),
-    ('test', '$(GO) test ./...'),
-    ('race', '$(GO) test -race ./...'),
-    ('cover', '$(GO) test -covermode=atomic -coverprofile=$(CURDIR)/.cover/$$name.out ./...'),
+    ('test', 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(GOFLAGS)"'),
+    ('race', 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(strip $(GOFLAGS) -race)"'),
+    ('cover', 'python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(GOFLAGS)" --profile "$(CURDIR)/.cover/$$name.out"'),
 ])
 def test_each_workspace_gate_requires_successful_discovery(target, command):
     _, macros, targets = make_parts()
@@ -65,15 +65,36 @@ def test_each_workspace_gate_requires_successful_discovery(target, command):
     assert len(loops) == 1
     loop = loops[0]
     prefix = 'for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then '
-    assert loop.startswith(prefix)
+    if target == 'cover':
+        assert loop.startswith('run_id=$$(python3 $(COVER_INVENTORY) begin .cover .cover/run.json --modules "$(MODULES)"); for m in $(MODULES); do ')
+        assert '$(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then python3 $(COVER_INVENTORY) record .cover .cover/run.json --run-id "$$run_id" --module "$$m" --empty no-packages; continue; fi;' in loop
+    else:
+        assert loop.startswith(prefix)
     assert loop.count('$(call has_pkgs,$$m)') == 1
-    assert 'echo ">> skip $$m (no packages)"; continue; fi;' in loop
+    if target != 'cover':
+        assert 'echo ">> skip $$m (no packages)"; continue; fi;' in loop
     assert loop.index('continue; fi;') < loop.index(command)
-    assert f'( cd $$m && {command} ) || exit 1;' in loop
-    assert loop.endswith('done')
+    if target in {'test', 'race'}:
+        assert f'{command} || exit 1;' in loop
+    elif target == 'cover':
+        assert f'{command};' in loop
+    else:
+        assert f'( cd $$m && {command} ) || exit 1;' in loop
+    if target == 'cover':
+        assert loop.endswith('python3 $(COVER_INVENTORY) finish .cover .cover/run.json --run-id "$$run_id"; printf \'%s\\n\' "$$run_id" > .cover/run-id')
+    else:
+        assert loop.endswith('done')
     expanded = loop.replace('$(call has_pkgs,$$m)', macros['has_pkgs'].replace('$(1)', '$$m'))
     assert expanded.index('exit $$status; }') < expanded.index('if [ -z "$$pkgs" ]')
     assert expanded.index('if [ -z "$$pkgs" ]') < expanded.index(command)
+    if target in {'test', 'race', 'cover'}:
+        source, _, _ = make_parts()
+        assert 'TEST_RUNNER := $(abspath ../../tests/ci/data/launchpad_go_tests.py)' in source
+        runner = (ROOT / 'tests/ci/data/launchpad_go_tests.py').read_text()
+        assert 'command = [go, "test", *flags]' in runner
+        assert 'subprocess.run([*command, package], cwd=module)' in runner
+        assert 'status = result.returncode' in runner
+        assert 'if status:\n            return status' in runner
 
 
 def test_discovery_regression_uses_a_listed_workspace_module():
