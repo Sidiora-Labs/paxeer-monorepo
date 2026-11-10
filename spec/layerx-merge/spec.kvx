@@ -164217,7 +164217,7 @@ do_3 = "Attempt 2 (continue after 22.38.6 and 22.38.7 land; gotcha 3540, decisio
 
 [task.22.38.30]
 title = "Ship the native command-line peer with an attestation binding and a local serve bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.26", "22.38.10"]
