@@ -26,7 +26,7 @@ const hsdTimestamp = "2006-01-02T15:04:05.000Z"
 //
 // Candles use the development stream projector's committed history. Legacy
 // rows without a canonical projection remain quarantined; empty scopes remain
-// valid empty documents. The legacy trade history behavior is unchanged.
+// valid empty documents. Trades use the same receipt-verified commits as the stream.
 func devHistory(st *store.Store, candles bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		r, token, err := accountingRequest(req, candles)
@@ -42,6 +42,7 @@ func devHistory(st *store.Store, candles bool) http.HandlerFunc {
 		ctx := req.Context()
 		indexed, err := st.DevelopmentPoolIndexed(ctx, r.Pool)
 		if err != nil {
+			noteDevelopmentReadError(req, err)
 			WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
@@ -53,16 +54,17 @@ func devHistory(st *store.Store, candles bool) http.HandlerFunc {
 			serveDevelopmentCandles(w, req, st, r, token)
 			return
 		}
-		recorded, err := st.DevelopmentSwapsRecorded(ctx, r.Pool, r.Side)
+		items, err := st.DevelopmentTrades(ctx, r)
 		if err != nil {
-			WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+			noteDevelopmentReadError(req, err)
+			code := "DEPENDENCY_UNAVAILABLE"
+			if errors.Is(err, store.ErrDataIntegrity) {
+				code = "INTEGRITY_QUARANTINED"
+			}
+			WriteV2APIError(w, req, 503, code)
 			return
 		}
-		if recorded {
-			WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
-			return
-		}
-		data := map[string]any{"items": []any{}}
+		data := map[string]any{"items": items}
 		writeHSDEnvelope(w, req, "TradesResponse", data, nil)
 	}
 }
@@ -106,6 +108,7 @@ func serveDevelopmentCandles(w http.ResponseWriter, req *http.Request, st *store
 	}
 	recorded, err := st.DevelopmentCandlesRecorded(req.Context(), r.Pool, r.Interval, (r.From+999)/1000, (r.To+999)/1000)
 	if err != nil {
+		noteDevelopmentReadError(req, err)
 		WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
@@ -117,16 +120,19 @@ func serveDevelopmentCandles(w http.ResponseWriter, req *http.Request, st *store
 		writeHSDEnvelope(w, req, "CandlesResponse", map[string]any{"items": []any{}, "snapshotId": uuid.NewString(), "seriesModelVersion": DevelopmentSeriesModelVersion}, nil)
 		return
 	}
+	noteDevelopmentReadOperation(req, "DevelopmentCandlePage")
 	page, err := st.DevelopmentCandlePage(req.Context(), r)
 	if errors.Is(err, store.ErrDevelopmentCandleSnapshotChanged) {
 		WriteV2APIError(w, req, 409, "RESNAPSHOT_REQUIRED")
 		return
 	}
 	if errors.Is(err, store.ErrDataIntegrity) {
+		noteDevelopmentReadError(req, err)
 		WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
 		return
 	}
 	if err != nil {
+		noteDevelopmentReadError(req, err)
 		WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
@@ -134,6 +140,7 @@ func serveDevelopmentCandles(w http.ResponseWriter, req *http.Request, st *store
 	if page.NextStart != nil {
 		raw, err := json.Marshal(developmentCandleCursor{Snapshot: page.SnapshotID, Filter: filter, After: *page.NextStart})
 		if err != nil {
+			noteDevelopmentReadError(req, err)
 			WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
 			return
 		}
