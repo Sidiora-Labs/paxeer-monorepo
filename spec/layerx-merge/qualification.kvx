@@ -39610,3 +39610,11 @@ symbol = "event_producer_tls.rs"
 observed = "Attempt 2 at 64baba1d8d8f, gates at a4075b8c0adc on base f738d3da0346: build exit 0; verification exit 1 with cargo exit 101: the subject coordinate case passes and the TLS case panics at services/platform/hosted/internal/src/producer_test_support.rs:248 because redis-server is absent; log /out/logs/verify-1.log."
 assumption = "The tree is right; the binary the case starts was missing from the environment."
 severity = "high"
+
+[finding.22.39.315.1]
+task = "22.39.315"
+file = "modules/launchpad/keeper/market_test.go"
+symbol = "market_test.go"
+observed = "Attempt 1 at ff52845cb6c8, gates at 539eb835e045 on base f738d3da0346: build exit 0; verification exit 1: the keeper suite passes; TestQuery at sdk/baseapp/deliver_tx_test.go:323, TestGRPCQuery at :353 and TestBaseAppCreateQueryContext/valid_height at abci_test.go:166 fail with legacy rootmulti versioned state is unsupported; log /out/logs/verify-1.log."
+assumption = "The three cases are red at the base and outside the change of the attempt."
+severity = "high"

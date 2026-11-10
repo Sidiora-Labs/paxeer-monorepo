@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -13,9 +14,11 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
+	storev2rootmulti "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
+	storageconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -152,15 +155,23 @@ func TestQueryAirdropEpochRefusals(t *testing.T) {
 
 func TestQueryAirdropEpochABCICodes(t *testing.T) {
 	e := newEnv(t)
+	scConfig := storageconfig.DefaultStateCommitConfig()
+	scConfig.MemIAVLConfig.SnapshotInterval = 1
+	scConfig.MemIAVLConfig.SnapshotMinTimeInterval = 0
+	scConfig.MemIAVLConfig.AsyncCommitBuffer = 0
+	cms := storev2rootmulti.NewStore(t.TempDir(), scConfig, storageconfig.StateStoreConfig{}, nil)
 	app := baseapp.NewBaseApp(t.Name(), dbm.NewMemDB(), nil, nil, &testutil.TestAppOpts{})
+	app.SetCMS(cms)
+	t.Cleanup(func() { require.NoError(t, app.Close()) })
 	app.MountStores(e.key)
 	app.SetInterfaceRegistry(testkeeper.EVMTestApp.InterfaceRegistry())
 	types.RegisterQueryServer(app.GRPCQueryRouter(), keeper.NewQuerier(e.k))
 	require.NoError(t, app.LoadLatestVersion())
+	_, err := app.InitChain(context.Background(), &abci.RequestInitChain{})
+	require.NoError(t, err)
 
 	pool := address("query airdrop ABCI pool")
-	store := app.CommitMultiStore().CacheMultiStore()
-	ctx := sdk.NewContext(store, tmproto.Header{Height: 1}, false)
+	ctx := app.NewContext(false, tmproto.Header{ChainID: app.ChainID, Height: 1})
 	mismatchedRecord, err := json.Marshal(types.PoolAirdropEpoch{
 		Pool: pool.Hex(), Epoch: 4, Amount: sdk.OneInt(), EligibleSupply: sdk.OneInt(),
 		Remaining: sdk.OneInt(), ClaimedSupply: sdk.ZeroInt(), LegacyRemaining: sdk.ZeroInt(),
@@ -171,10 +182,16 @@ func TestQueryAirdropEpochABCICodes(t *testing.T) {
 		key = binary.BigEndian.AppendUint64(key, uint64(i+1))
 		ctx.KVStore(e.key).Set(key, data)
 	}
-	require.NoError(t, app.SetSealedStateToCommit(ctx, store))
+	require.NoError(t, app.SetSealedStateToCommit(ctx, ctx.MultiStore().(sdk.CacheMultiStore)))
 	_, err = app.Commit(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), app.LastBlockHeight())
+	queryCtx, err := app.CreateQueryContext(1, false)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), queryCtx.BlockHeight())
+	const path = "/paxprotocol.paxchain.launchpad.Query/AirdropEpoch"
+	handler := app.GRPCQueryRouter().Route(path)
+	require.NotNil(t, handler)
 
 	for _, tc := range []struct {
 		name    string
@@ -206,20 +223,57 @@ func TestQueryAirdropEpochABCICodes(t *testing.T) {
 				var addressErr *sdkerrors.Error
 				require.ErrorAs(t, err, &addressErr)
 				require.Same(t, sdkerrors.ErrInvalidAddress, addressErr)
+				require.Contains(t, err.Error(), tc.context)
 			}
 			data, err := request.Marshal()
 			require.NoError(t, err)
-			response, err := app.Query(context.Background(), &abci.RequestQuery{
-				Path: "/paxprotocol.paxchain.launchpad.Query/AirdropEpoch", Data: data, Height: 1,
-			})
-			require.NoError(t, err)
-			require.NotNil(t, response)
-			require.Equal(t, tc.root.Codespace(), response.Codespace)
-			require.Equal(t, tc.root.ABCICode(), response.Code)
-			require.Equal(t, int64(1), response.Height)
-			require.Empty(t, response.Value)
-			require.Contains(t, response.Log, tc.context)
-			require.Contains(t, response.Log, tc.root.Error())
+			_, routedErr := handler(queryCtx, abci.RequestQuery{Path: path, Data: data, Height: 1})
+			require.Error(t, routedErr)
+			codespace, code, log := sdkerrors.ABCIInfo(routedErr, false)
+			if tc.name == "malformed pool" {
+				require.ErrorIs(t, routedErr, sdkerrors.ErrInvalidAddress)
+				require.Equal(t, codes.InvalidArgument, status.Code(routedErr))
+				require.Equal(t, sdkerrors.UndefinedCodespace, codespace)
+				require.Equal(t, uint32(1), code)
+				require.Equal(t, "internal error", log)
+			} else {
+				require.ErrorIs(t, routedErr, tc.root)
+				require.True(t, tc.root.Is(routedErr))
+				var root *sdkerrors.Error
+				require.ErrorAs(t, routedErr, &root)
+				require.Same(t, tc.root, root)
+				require.Equal(t, tc.root.Codespace(), codespace)
+				require.Equal(t, tc.root.ABCICode(), code)
+				require.Equal(t, routedErr.Error(), log)
+				require.Contains(t, log, tc.context)
+			}
+			for _, height := range []int64{0, 1} {
+				t.Run(fmt.Sprintf("height=%d", height), func(t *testing.T) {
+					response, err := app.Query(context.Background(), &abci.RequestQuery{
+						Path: path, Data: data, Height: height,
+					})
+					require.NoError(t, err)
+					require.NotNil(t, response)
+					wire, err := response.Marshal()
+					require.NoError(t, err)
+					var decoded abci.ResponseQuery
+					require.NoError(t, decoded.Unmarshal(wire))
+					require.Equal(t, *response, decoded)
+					require.Equal(t, tc.root.Codespace(), decoded.Codespace)
+					require.Equal(t, tc.root.ABCICode(), decoded.Code)
+					require.Equal(t, int64(1), decoded.Height)
+					require.Empty(t, decoded.Value)
+					require.Nil(t, decoded.ProofOps)
+					if tc.name == "malformed pool" {
+						require.Equal(t, "invalid request", decoded.Log)
+						require.NotContains(t, string(wire), tc.context)
+					} else {
+						require.Equal(t, log, decoded.Log)
+						require.Contains(t, decoded.Log, tc.context)
+					}
+					require.Contains(t, decoded.Log, tc.root.Error())
+				})
+			}
 		})
 	}
 }
