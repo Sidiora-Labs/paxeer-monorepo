@@ -281655,7 +281655,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.39.335]
 title = "Bring the receipt key configuration case of the Spring integration to the network identifier the producer accepts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
