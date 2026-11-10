@@ -224749,7 +224749,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.341]
 title = "Verify the version 2 account-bound evidence in the Go SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.340"]
@@ -282340,7 +282340,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.39.343]
 title = "Verify the version 2 account-bound evidence in the JVM SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.340"]
@@ -352543,7 +352543,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.345]
 title = "Describe the version 2 account-bound evidence and identity destinations in the programs documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.340"]
