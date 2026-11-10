@@ -12100,6 +12100,24 @@ value = "verify_committed_transaction of the Python agent SDK refuses with trans
 basis = "Gotcha 4083, decision 3046. The refusal name is the contract the retained receipt case and the buyers assert."
 affects = ["22.39.288"]
 
+[decision.3165]
+title = "A submission request binds only a type-2 transaction, and the V5 corpus case asserts that refusal for the recorded native activities"
+value = "NativeProgramCallRequest::from_signed_transaction keeps the rule of task 22.39.233: it binds a signed EIP-1559 transaction and returns Decode for any other first byte. A recorded native activity (first byte 0x00) is evidence, not a submission: the corpus case decodes it through native_activity::decode and signed_program_transaction, binds the call body, the guest ABI, the payload encoding and the fee limit, verifies the execution document and every outcome and refusal as before, and for such a record asserts that the request constructor returns Decode instead of binding a request. The request binding assertions (bound activity id, bound idempotency key, wire form, lower fee limit, larger response capacity) stay in the case for a record whose activity is a type-2 transaction."
+basis = "Gotcha 4084, decision 3155, the record services/agent/crates/layerx-sdk/src/repair_22_39_233.kvx."
+affects = ["22.39.310"]
+
+[decision.3166]
+title = "The node route catalogue answer carries every member its result schema requires, and the parity case follows the generator"
+value = "GetRouteCatalogue serves node_rpc and hosted_gateway with exactly the constant values the result schema of px_getRouteCatalogue names: node_rpc takes origin and chain_id from the projection with rpc_path /, and hosted_gateway carries location_source operator-provided, rpc_path / and catalogue_path /v1/routes, which states that the coordinates of a hosted deployment come from its operator and are not implied by the node origin. The parity case expects the public routes of the source catalogue followed by the routes the generator appends for the service node_rpc, in the order of the projection."
+basis = "Gotcha 4086, decisions 3151 and 2810, gotcha 3046."
+affects = ["22.39.306"]
+
+[decision.3167]
+title = "The settlement section of the market program holds the reward state and the room book at their declared capacities together"
+value = "ROOM_CAPACITY 16, ASK_CAPACITY 64, BID_CAPACITY 128 and DEAL_CAPACITY 16 stay. The payload cap of the settlement section is at least the sum of the encoded maxima of every region the section carries: the reward state, the joint regions and their framing, and the room book at BOOK_MAX_BYTES; a compile-time assertion over that sum replaces the 13-byte allowance of src/rooms.rs. The SettlementClaims entry of STATE_SECTION_CAPS and MAX_STATE_BYTES rise together by the shortfall rounded up to a multiple of 4096, every consumer of the two bounds follows, and the task names the protocol bounds on program state and shows the new total within them. The layout changes only when no state of the market program exists on the network before the 7.0.0 upgrade, which the task confirms and records. The fuel table of 22.38.13 then measures every F11 operation on the full state under the 1000000 CPU fuel cap."
+basis = "Gotcha 4087, decision 3141."
+affects = ["22.39.316", "22.38.13"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41760,6 +41778,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.316]
+title = "Size the settlement section of the market program for the reward state and the full room book together"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market", "programs/crates/layerx-programs-runtime/tests/activity_budget.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/settlement_capacity.rs"]
+verification_contract = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_316.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test settlement_capacity"
+do_1 = "do_1 Decision 3167, gotcha 4087. In programs/crates/layerx-programs-ai-market the settlement section (Section::SettlementClaims, payload cap 81912 from STATE_SECTION_CAPS of src/codec.rs) carries the reward state of src/rewards.rs, the joint regions and the room book of src/rooms.rs, and src/rooms.rs asserts only BOOK_MAX_BYTES + 13 within the cap. A funded market with the room book at ROOM_CAPACITY, ASK_CAPACITY and BID_CAPACITY and one bond per bid needs 82638 bytes in the fixture of task 22.38.13, and the LockBond operation is refused with CAPACITY. Read every writer and reader of the section and compute the encoded maximum of each region it carries (the reward state, the payout region, the joint framing, the room book at BOOK_MAX_BYTES). Replace the 13-byte allowance with a compile-time assertion that the sum of those maxima is within Section::SettlementClaims.payload_cap(), and raise the SettlementClaims entry of STATE_SECTION_CAPS and MAX_STATE_BYTES of src/lib.rs together by the shortfall rounded up to a multiple of 4096. Keep ROOM_CAPACITY, ASK_CAPACITY, BID_CAPACITY and DEAL_CAPACITY and every record encoding."
+symbols = []
 
 [capability.22.39.315]
 title = "Repair the pool runtime and AirdropEpoch ABCI cases of the launchpad keeper suite"
@@ -183858,6 +183885,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.316]
+title = "Size the settlement section of the market program for the reward state and the full room book together"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.316"]
+interfaces = []
+do_1 = "do_1 Decision 3167, gotcha 4087. In programs/crates/layerx-programs-ai-market the settlement section (Section::SettlementClaims, payload cap 81912 from STATE_SECTION_CAPS of src/codec.rs) carries the reward state of src/rewards.rs, the joint regions and the room book of src/rooms.rs, and src/rooms.rs asserts only BOOK_MAX_BYTES + 13 within the cap. A funded market with the room book at ROOM_CAPACITY, ASK_CAPACITY and BID_CAPACITY and one bond per bid needs 82638 bytes in the fixture of task 22.38.13, and the LockBond operation is refused with CAPACITY. Read every writer and reader of the section and compute the encoded maximum of each region it carries (the reward state, the payout region, the joint framing, the room book at BOOK_MAX_BYTES). Replace the 13-byte allowance with a compile-time assertion that the sum of those maxima is within Section::SettlementClaims.payload_cap(), and raise the SettlementClaims entry of STATE_SECTION_CAPS and MAX_STATE_BYTES of src/lib.rs together by the shortfall rounded up to a multiple of 4096. Keep ROOM_CAPACITY, ASK_CAPACITY, BID_CAPACITY and DEAL_CAPACITY and every record encoding."
+do_2 = "do_2 Carry the two bounds through every consumer: the scratch sizes and static buffers derived from the caps, COMMON_CAP of src/reputation.rs, the resource declarations of the guest, and the cases of the crate that state the former numbers (81912, 81920, 196608), each changed to the derived constant or the new number with its assertion intact; a case of programs/crates/layerx-programs-runtime/tests/activity_budget.rs that declares 196608 changes only when it derives from the market state bound. Name the protocol bounds on program state and on the memory declaration of one activity and show the new total within both. Confirm from the upgrade handler and the deployment record that no state of the market program exists on the network before the 7.0.0 upgrade and record the evidence; when stored state exists, stop and record a finding instead of changing the layout. Rebuild the guest and regenerate every committed artifact or digest of the guest with its generator; a digest held outside the task paths is recorded as a finding with its path."
+do_3 = "do_3 Add programs/crates/layerx-programs-ai-market/tests/settlement_capacity.rs: through the producers the existing F11 cases use, fund the market, bring the reward state to its largest reachable encoding, fill the room book to the four capacities with one bond per bid, and assert that every operation is applied, that the next room, ask and bid are refused with their capacity refusals, and that the section length stays within the cap. Run cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast once on the starting revision and once at the final tree and record the failing names by target; no name fails at the end that passed at the start. Record the region maxima, the former and the new bounds, the consumers and the two runs in programs/crates/layerx-programs-ai-market/repair_22_39_316.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market", "programs/crates/layerx-programs-runtime/tests/activity_budget.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/settlement_capacity.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/repair_22_39_316.kvx", "programs/crates/layerx-programs-ai-market/tests/settlement_capacity.rs"]
+build_cmd = "make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_316.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test settlement_capacity"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.300]
 title = "Pin the Fund attribution boundaries to commits reachable from main"
 status = "done"
@@ -184661,7 +184718,7 @@ title = "Prove every F11 operation under the fuel cap and the replay profile thr
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300"]
+requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300", "22.39.316"]
 reqs = ["22380.1"]
 capabilities = ["22.38.13"]
 interfaces = []
@@ -184687,6 +184744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Decision 2900: before the first change, run cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast once on the unchanged merged main tree and record the failing names by target in the task record; run it again at the final tree and record that list; no name fails at the end that passed at the start. The declared verification stays the gate."
 do_4 = "Attempt 2 (continue, gotcha 3999, decision 3129): the attempt-1 tree ff3180d432 stands. The fuel cases read programs/target/repair-478 (owner, asset, create, fund, current), which rpc/repair_478_test.go writes; the build command now runs TestRepair478_FundWithinProductionAllowance and TestFundConsumptionAttribution of the node before the cargo build so the directory exists when fuel_budget runs. Rebase on main, keep the cases unchanged, and run the build once and the verification once at the final revision."
 do_5 = "Attempt 3 (continue, gotcha 4032, decision 3141): the attempt-2 tree 6aff2c04c33c stands. The task now requires 22.39.300, which pins the Fund attribution boundaries to commits reachable from main so TestFundConsumptionAttribution of the build command runs on a checkout of main. Rebase on main after 22.39.300 lands, keep the cases unchanged, and run the build once and the verification once at the final revision."
+do_6 = "Attempt 4 (continue, gotcha 4087, decision 3167): the attempt-3 tree 80d13275407c stands (the F11 fuel table and its fixture, the native CALL per operation, the guest optimisation level, the record). The task now requires 22.39.316, which sizes the settlement section for the reward state and the full room book together. Rebase on main after it lands, keep the fixture at the full capacities and every case unchanged, and when an operation on the full state then exceeds the fuel cap or the replay profile, bring it under through the joint-section readers as do_2 states. Run the build once and the verification once at the final revision."
 
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"
@@ -192929,8 +192987,8 @@ symbols = []
 touches = ["services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/agent/crates/layerx-client/src/runtime_clock.rs"]
 tests = ["services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs"]
 planned_paths = ["services/human/crates/layerx-human-service/repair_22_39_311.kvx"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --tests"
-verify_cmd = "test -s services/human/crates/layerx-human-service/repair_22_39_311.kvx && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib -- --exact event_producer::tls_tests::human_journey_and_approval_cross_tls_and_recover_after_sink_loss server::agent_runtime::subject_tests::cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --tests && cargo build --locked --manifest-path services/platform/Cargo.toml --target-dir services/human/target -p layerx-platform-webhooks --bin layerx-webhooks"
+verify_cmd = "test -s services/human/crates/layerx-human-service/repair_22_39_311.kvx && cargo build --locked --manifest-path services/platform/Cargo.toml --target-dir services/human/target -p layerx-platform-webhooks --bin layerx-webhooks && LAYERX_TEST_WEBHOOKS_BIN=$(pwd)/services/human/target/debug/layerx-webhooks cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib -- --exact event_producer::tls_tests::human_journey_and_approval_cross_tls_and_recover_after_sink_loss server::agent_runtime::subject_tests::cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -192942,6 +193000,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 4085): the attempt-1 tree d4225f005d5d stands (the clock authority served inside both cases, the subject socket under the case directory, the record). The build command now also builds the layerx-webhooks binary of services/platform into services/human/target and the verification command exports LAYERX_TEST_WEBHOOKS_BIN with its path, as the human-test targets of the root Makefile do; redis-server and openssl are on PATH. Rebase on main and change no assertion. When the TLS case then fails past the start of the event sink, repair only what the case names inside the task paths and record anything outside them as a finding. Run the build once and the verification once at the final revision."
 
 [task.22.39.310]
 title = "Let the native V5 corpus case of the agent SDK read a committed recording"
@@ -192971,6 +193030,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 4084, decision 3165): the attempt-1 tree 661b2312e8c7 stands (the recording mode of the producer, the committed recording, the two read sites, the record). In assert_v5_signed_transaction of services/agent/crates/layerx-sdk/src/program_http.rs branch on the first byte of the recorded activity: for 0x00 assert that NativeProgramCallRequest::from_signed_transaction returns the Decode refusal for the recorded call and fee limit and leave out only the request binding assertions that need a bound request; for 0x02 keep them as they are. Keep every other assertion of the case and of its helpers unchanged; apply the same rule in tests/sdk/typescript/program-terminal-v5.test.mjs only where it binds a request from the recorded activity. Add the rule and the site to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.303]
 title = "Count the requested spend of a zero-value receipt in the daemon restart accounting"
@@ -223661,6 +223721,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 4086, decision 3166): the attempt-1 tree 4c65f3f81586 stands (canonical_origin in the projection through the generator, the case assertions on the origin, the record). In GetRouteCatalogue of rpc/px_discovery.go add node_rpc and hosted_gateway to the answer with exactly the constant values the result schema of px_getRouteCatalogue in services/platform/hosted/gateway/openrpc.json names, node_rpc taking origin and chain_id from the projection. In TestPxNodeRoot_Account_CommittedReadsAndParity build the expected routes as the public routes of the source followed by the routes rpc/generate_px_catalogue.py appends for the service node_rpc and compare them with the served routes; keep every other assertion. When pxRootAssertSchema then names a further missing or differing member, serve what the schema names. Add the two members and the parity rule to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.304]
 title = "Re-pin the restored boundary manifest digest after the network-policy restoration"
