@@ -39946,3 +39946,11 @@ symbol = "test_call_activity.c::main"
 observed = "Attempt 2 at 5819b120ab2b on base a61b1b58f649: the build exits 0, no verification ran, and the check of the dependent packages exits 101 with five errors in the test configuration of the library of layerx-agentd; log /out/logs/dependents-1.log."
 assumption = "The five errors are red on main at the base of the attempt and sit outside the paths of the task."
 severity = "high"
+
+[finding.22.39.346.2]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 2 at 22deb9aa1bdd on base 167ce2a7f0cf: the build exits 0 and the verification exits 1; the six provider cases pass and the send case stops at apps/wallet/e2e/send.spec.ts:1106 with the truth unknown where included is expected; log /out/logs/verify-1.log."
+assumption = "The request function of the result page rounds the last height of the receipt key and the file was outside the paths of the task."
+severity = "high"
