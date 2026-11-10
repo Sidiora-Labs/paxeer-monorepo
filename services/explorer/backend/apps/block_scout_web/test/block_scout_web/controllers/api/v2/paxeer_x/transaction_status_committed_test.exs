@@ -51,8 +51,11 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusCommittedTest do
       invalid_batch = Map.put(batch, "tx", hex(invalid_tx))
       invalid_calls = List.keyreplace(calls, "px_getSequenceBatch", 0, {"px_getSequenceBatch", ["10"], invalid_batch})
 
-      assert status_response(conn, hash, invalid_calls) ==
-               %{"rung" => "receipted", "block_number" => nil, "committed_height" => nil}
+      serve_rpc(invalid_calls)
+      response = get(conn, "/api/v2/transactions/#{hash}/status")
+      assert response.status == 404
+      assert json_response(response, 404) == %{"message" => "Not found"}
+      Evidence.assert_calls(invalid_calls)
     end
   end
 

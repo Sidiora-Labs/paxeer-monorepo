@@ -12,6 +12,10 @@ import (
 )
 
 const (
+	// v6120PoolSurfaceRuntime is the 41-byte runtime installed on the network
+	// by v6.12.0. Replaying that migration must not use the staged runtime.
+	v6120PoolSurfaceRuntime = "0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3"
+
 	// EventTypeMigrationProtocolConfigDiff records a generation 1
 	// ProtocolConfig field whose value differs from the generation 2 value
 	// the migration applies.
@@ -323,7 +327,7 @@ func migratePool(ctx sdk.Context, k *Keeper, evm EVMReader, pool v6120Pool, inde
 // registers the pool as the surface of its market, with the generation of
 // the contract it replaced.
 func installPoolSurface(ctx sdk.Context, k *Keeper, evm EVMReader, pool v6120Pool) error {
-	evm.SetCode(ctx, pool.Address, SurfaceRuntime)
+	evm.SetCode(ctx, pool.Address, common.FromHex(v6120PoolSurfaceRuntime))
 	return k.SetSurface(ctx, pool.Address, Surface{Role: types.RolePool, Generation: pool.Generation,
 		Market: pool.Market.Denom})
 }

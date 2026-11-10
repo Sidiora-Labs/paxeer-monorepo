@@ -31,26 +31,37 @@ import (
 func TestPurgePrefixNotHang(t *testing.T) {
 	k, ctx := keeper.MockEVMKeeper(t)
 	_, evmAddr := keeper.MockAddressPair()
+	_, otherAddr := keeper.MockAddressPair()
+	parent := ctx
+	k.PrefixStore(parent, types.StateKey(evmAddr)).Set([]byte{0x01}, []byte("inherited"))
+	k.PrefixStore(parent, types.StateKey(evmAddr)).Set([]byte{0x02}, []byte("deleted"))
+	k.PrefixStore(parent, types.StateKey(otherAddr)).Set([]byte{0x03}, []byte("other account"))
 	for i := 0; i < 50; i++ {
 		ctx = ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore())
 		store := k.PrefixStore(ctx, types.StateKey(evmAddr))
 		store.Set([]byte{0x03}, []byte("test"))
+		store.Set([]byte{0x04, byte(i)}, []byte("layer"))
+		store.Delete([]byte{0x02})
 	}
+	require.NotPanics(t, func() { k.PurgePrefix(ctx, types.StateKey(evmAddr)) })
+	for _, key := range [][]byte{{0x01}, {0x02}, {0x03}, {0x04, 0}, {0x04, 49}} {
+		require.Nil(t, k.PrefixStore(ctx, types.StateKey(evmAddr)).Get(key))
+	}
+	require.Empty(t, ctx.MultiStore().GetKVStore(k.GetStoreKey()).GetAllKeyStrsInRange(types.StateKey(evmAddr), sdk.PrefixEndBytes(types.StateKey(evmAddr))))
+	require.Equal(t, []byte("inherited"), k.PrefixStore(parent, types.StateKey(evmAddr)).Get([]byte{0x01}))
+	require.Equal(t, []byte("deleted"), k.PrefixStore(parent, types.StateKey(evmAddr)).Get([]byte{0x02}))
+	require.Equal(t, []byte("other account"), k.PrefixStore(ctx, types.StateKey(otherAddr)).Get([]byte{0x03}))
 	require.NotPanics(t, func() { k.PurgePrefix(ctx, types.StateKey(evmAddr)) })
 }
 
 func TestGetChainID(t *testing.T) {
 	k, ctx := keeper.MockEVMKeeper(t)
+	require.Equal(t, int64(125), config.DefaultChainID)
 	require.Equal(t, config.DefaultChainID, k.ChainID(ctx).Int64())
 
-	ctx = ctx.WithChainID("pacific-1")
-	require.Equal(t, int64(1329), k.ChainID(ctx).Int64())
-
-	ctx = ctx.WithChainID("atlantic-2")
-	require.Equal(t, int64(1328), k.ChainID(ctx).Int64())
-
-	ctx = ctx.WithChainID("arctic-1")
-	require.Equal(t, int64(713715), k.ChainID(ctx).Int64())
+	for _, chainID := range []string{"pacific-1", "atlantic-2", "arctic-1", "hyperpax_125-1", "unmapped-chain"} {
+		require.Equal(t, config.DefaultChainID, k.ChainID(ctx.WithChainID(chainID)).Int64(), chainID)
+	}
 }
 
 func TestGetVMBlockContext(t *testing.T) {

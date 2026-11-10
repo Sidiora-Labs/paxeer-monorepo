@@ -130,10 +130,14 @@ fn legacy_receipt_evidence_is_refused_after_restart() {
             .unwrap_or_else(|error| panic!("serve older after reopen: {error:?}")),
         None
     );
-    assert!(matches!(
-        evidence_inventory(&reopened, &tenant),
-        Err(ReceiptStoreError::EvidenceVersion)
-    ));
+    let inventory = evidence_inventory(&reopened, &tenant)
+        .unwrap_or_else(|error| panic!("legacy receipt inventory after restart: {error:?}"));
+    assert_eq!(inventory.with_evidence, vec![record]);
+    assert!(inventory.with_current_evidence.is_empty());
+    assert_eq!(inventory.without_evidence.len(), 1);
+    assert_eq!(inventory.without_evidence[0].idempotency_key, [0x45; 32]);
+    assert_eq!(inventory.without_evidence[0].activity_id, [0x12; 32]);
+    assert_eq!(inventory.without_evidence[0].global_sequence, 101);
     let _ = std::fs::remove_dir_all(&root);
 }
 
@@ -183,7 +187,19 @@ fn archived_legacy_receipt_evidence_is_refused_after_restart() {
 
 fn seed_startup_recovery(root: &std::path::Path, tenant_a: &TenantId, tenant_b: &TenantId) {
     let mut durable = Store::open(root).unwrap_or_else(|error| panic!("store: {error}"));
-    let receipt = support::current_node::authenticated_receipt(11);
+    let capture = support::current_node::restart_capture();
+    let receipt = support::current_node::authenticated_receipt(&capture);
+    durable
+        .put_local(
+            TenantKey::new(
+                tenant_a.clone(),
+                ObjectKind::PreparedActivity,
+                receipt.activity_id().to_vec(),
+            )
+            .expect("transaction key"),
+            capture.bytes("signed_transaction"),
+        )
+        .expect("retain exact signed node transaction");
     let evidence = TransactionReceiptEvidence::from_authenticated(&receipt)
         .unwrap_or_else(|error| panic!("current transaction evidence: {error:?}"));
     store_verified_if_absent(
@@ -237,6 +253,7 @@ fn assert_evidenced_tenant_admits_writes(
     protocol: &ProtocolBudgetState,
     verifier: &EvidenceAuthority,
     inventory: &ReceiptEvidenceInventory,
+    capture: &support::current_node::RestartCapture,
 ) {
     let recovery = recover_tenant_budget_with_evidence(
         reopened,
@@ -245,8 +262,12 @@ fn assert_evidenced_tenant_admits_writes(
     )
     .unwrap_or_else(|error| panic!("recover tenant a: {error:?}"));
     let accounting = recovery.recovered.budget_accounting;
-    assert_eq!(accounting.protocol_consumed, Some(25));
-    assert_eq!(accounting.receipt_consumed, 25);
+    let requested_amount = capture.amount("budget_spent");
+    assert_eq!(requested_amount, 25);
+    assert_eq!(accounting.protocol_consumed, Some(requested_amount));
+    assert_eq!(accounting.receipt_consumed, requested_amount,
+        "node producer: transaction value {}, receipt amount {}, requested spend {}; accounting={accounting:?}, admission={:?}",
+        capture.amount("transaction_value"), capture.amount("receipt_amount"), requested_amount, recovery.admission);
     assert_eq!(accounting.held_unresolved, 0);
     assert_eq!(accounting.unresolved_count, 0);
     assert!(accounting.reconciled);
@@ -365,9 +386,30 @@ fn startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidenc
     seed_startup_recovery(&root, &tenant_a, &tenant_b);
 
     let mut reopened = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
-    let verifier = support::current_node::authority(8, 100, 199);
-    let (protocol, _) = support::current_node::committed_budget(BUDGET_ID, 25);
-    let receipt = support::current_node::authenticated_receipt(11);
+    let capture = support::current_node::restart_capture();
+    assert_eq!(capture.budget_id(), BUDGET_ID);
+    assert_eq!(capture.amount("budget_spent"), 25);
+    let verifier = capture.authority();
+    let (protocol, _) = support::current_node::committed_restart_budget(&capture);
+    let receipt = support::current_node::authenticated_receipt(&capture);
+    let transaction_key = TenantKey::new(
+        tenant_a.clone(),
+        ObjectKind::PreparedActivity,
+        receipt.activity_id().to_vec(),
+    )
+    .expect("transaction key");
+    let retained_transaction = reopened
+        .get(&transaction_key)
+        .expect("signed transaction survives restart")
+        .bytes();
+    assert_eq!(retained_transaction, capture.bytes("signed_transaction"));
+    assert_eq!(
+        layerx_crypto::evm_transaction::transaction_hash(retained_transaction),
+        receipt.activity_id()
+    );
+    layerx_crypto::evm_transaction::decode_signed(retained_transaction)
+        .expect("retained canonical zero-value signed transaction");
+    assert_eq!(capture.amount("transaction_value"), 0);
     let recovered_evidence = serve_evidence(&reopened, tenant_a.clone(), receipt.activity_id())
         .unwrap_or_else(|error| panic!("reopen current evidence: {error:?}"))
         .expect("current transaction evidence survives restart");
@@ -382,23 +424,17 @@ fn startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidenc
     let current = &inventory_a.with_current_evidence[0];
     assert_eq!(current.idempotency_key, receipt.activity_id());
     assert_eq!(current.activity_id, receipt.activity_id());
-    assert_eq!(current.global_sequence, 100);
+    assert_eq!(current.global_sequence, capture.sequence());
     assert_eq!(current.evidence, recovered_evidence);
     let verified = verifier
         .verify_current_receipt(&current.evidence)
         .expect("reopened receipt verifies under governed node keys");
     assert_eq!(verified.activity_id(), receipt.activity_id());
-    assert_eq!(verified.global_sequence(), 100);
-    assert_eq!(verified.amount(), 25);
+    assert_eq!(verified.global_sequence(), capture.sequence());
+    assert_eq!(verified.amount(), capture.amount("receipt_amount"));
+    assert_eq!(verified.amount(), capture.amount("transaction_value"));
     assert_eq!(verified.result_code(), 0);
     assert!(inventory_a.without_evidence.is_empty());
-    assert_evidenced_tenant_admits_writes(
-        &mut reopened,
-        &tenant_a,
-        &protocol,
-        &verifier,
-        &inventory_a,
-    );
 
     let inventory_b = evidence_inventory(&reopened, &tenant_b)
         .unwrap_or_else(|error| panic!("inventory b: {error:?}"));
@@ -408,15 +444,24 @@ fn startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidenc
     assert_eq!(inventory_b.without_evidence[0].idempotency_key, [0x45; 32]);
     assert_eq!(inventory_b.without_evidence[0].activity_id, [0x12; 32]);
     assert_eq!(inventory_b.without_evidence[0].global_sequence, 101);
+    let (reservation_protocol, _) = support::current_node::committed_budget(BUDGET_ID, 25);
     assert_unevidenced_tenant_holds_its_reservation(
         &mut reopened,
         &tenant_b,
-        &protocol,
+        &reservation_protocol,
         &verifier,
         &inventory_b,
     );
 
-    assert_tenant_without_receipts_blocks_writes(&mut reopened, &protocol, &verifier);
+    assert_tenant_without_receipts_blocks_writes(&mut reopened, &reservation_protocol, &verifier);
     assert_budget_state_refusals(&mut reopened, &tenant_a, &protocol, &verifier, &inventory_a);
+    assert_evidenced_tenant_admits_writes(
+        &mut reopened,
+        &tenant_a,
+        &protocol,
+        &verifier,
+        &inventory_a,
+        &capture,
+    );
     let _ = std::fs::remove_dir_all(&root);
 }

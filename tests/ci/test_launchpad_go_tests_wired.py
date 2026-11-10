@@ -48,11 +48,29 @@ def test_launchpad_workflow_has_go_job():
     assert workflow["permissions"] == {"contents": "read"}
 
     job = workflow["jobs"]["launchpad-go-test"]
-    assert job["runs-on"] == "ubuntu-latest"
+    runner = job["runs-on"]
+    assert runner == (
+        "${{ (github.event_name == 'pull_request' && "
+        "github.event.pull_request.head.repo.full_name != github.repository) "
+        "&& 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
+    )
+    fallback = re.search(r"vars\.CI_LINUX_RUNNER\s*\|\|\s*(['\"])(.*?)\1", runner)
+    assert fallback is not None
+    assert fallback.group(2) == "ubuntu-24.04"
     assert job["strategy"]["fail-fast"] == "false"
     assert job["defaults"]["run"]["working-directory"] == "${{ matrix.module }}"
     assert job["env"]["GOWORK"] == "off"
     assert job["env"]["GOTOOLCHAIN"] == "go1.27.3"
+    assert job["env"]["GOFLAGS"] == "-timeout=15m"
+    assert job["env"]["CLAMAV_HOST"] == "127.0.0.1"
+    assert job["env"]["CLAMAV_PORT"] == "23310"
+    assert job["env"]["METADATA_TEST_CLAMAV_ADDR"] == "127.0.0.1:23310"
+    assert job["env"]["USER_TEST_CLAMAV_ADDR"] == "127.0.0.1:23310"
+    scanner = next(step for step in job["steps"]
+                   if step.get("name") == "Start malware scanner fixture")
+    assert "clamav/clamav@sha256:45fe5149fbee5a46509c9848ef20d0c354b7b2323c9369f285939a37cf33422a" in scanner["run"]
+    assert "docker exec launchpad-clamav clamdcheck.sh" in scanner["run"]
+    assert scanner["run"].rstrip().endswith("exit 1")
     fixture_dsn = (
         "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/"
         "kindle_fixture?sslmode=disable"
@@ -92,7 +110,7 @@ def test_launchpad_workflow_has_go_job():
     assert foundry["uses"] == (
         "foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09"
     )
-    assert foundry["with"] == {"version": "v1.7.1", "cache": "false"}
+    assert foundry["with"] == {"version": "v1.8.1", "cache": "false"}
     assert checkout["with"]["persist-credentials"] == "false"
     assert setup["with"]["go-version"] == "1.27.3"
     assert "sdk/launchpad/**/go.sum" in setup["with"]["cache-dependency-path"]
@@ -210,7 +228,7 @@ def baseline_runner():
 def test_launchpad_baseline_names_only_reviewed_existing_tests():
     runner = baseline_runner()
     entries = runner.load_baseline()
-    assert len(entries) == 261
+    assert len(entries) == 146
     assert {entry["package"] for entry in entries} == {
         runner.SHARED + suffix for suffix in (
             "auth", "chain", "db/production", "delivery", "delivery/natsdriver", "storage"
@@ -225,40 +243,6 @@ def test_launchpad_baseline_names_only_reviewed_existing_tests():
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17',
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18',
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/app',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/httpapi',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/app',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumer',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/search',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine',
-        'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/app',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/serve',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/app',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/devsocial',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/social',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/account',
-        'github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/app',
-        'github.com/Sidiora-Technologies/KindleLaunch/security/control',
-        'github.com/Sidiora-Technologies/KindleLaunch/security/policy',
     }
     for entry in entries:
         if entry["package"].startswith(runner.SHARED):
@@ -455,15 +439,17 @@ def test_launchpad_baseline_rejects_duplicate_entries(tmp_path):
         runner.load_baseline(path)
 
 
-def test_launchpad_all_test_modes_use_package_baseline():
+@pytest.mark.parametrize("go_flags", ["", "-timeout=15m"])
+def test_launchpad_all_test_modes_use_package_baseline(go_flags):
     for target, flags in (("test", ""), ("race", "-race"), ("cover-check", "")):
         recipe = subprocess.check_output(
             ["make", "--no-print-directory", "-n", "-C",
-             str(ROOT / "services/launchpad"), target], text=True
+             str(ROOT / "services/launchpad"), f"GOFLAGS={go_flags}", target], text=True
         )
         assert RUNNER in recipe
         assert '--module "$m"' in recipe
-        assert f'--flags="{flags}"' in recipe
+        expected_flags = " ".join(flag for flag in (go_flags, flags) if flag)
+        assert f'--flags="{expected_flags}"' in recipe
         assert not re.search(r"go test.*\./\.\.\.", recipe)
         if target == "cover-check":
             assert '--profile ' in recipe
@@ -796,15 +782,20 @@ def test_launchpad_baseline_records_indexer_refusal_classes():
 @pytest.mark.parametrize("owner", ["22.39.117", "22.39.154", "22.39.162"])
 def test_launchpad_baseline_rejects_wrong_remaining_module_owner(tmp_path, owner):
     runner = baseline_runner()
-    entries = [entry for entry in runner.load_baseline()
-               if entry["package"] in runner.REMAINING_PACKAGES]
-    assert entries
-    for index, entry in enumerate(entries):
-        assert entry["retiring_task"] == "22.39.168"
-        path = tmp_path / f"wrong-remaining-owner-{index}.json"
-        path.write_text(json.dumps([entry | {"retiring_task": owner}]))
-        with pytest.raises(ValueError, match="retiring task"):
-            runner.load_baseline(path)
+    assert not any(entry["package"] in runner.REMAINING_PACKAGES
+                   for entry in runner.load_baseline())
+    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    for module, packages in runner.SERVICE_PACKAGES.items():
+        retired = record["module"][module.replace("/", "_")]
+        for index, case in enumerate(retired["cases"]):
+            package, name = case.split("::")
+            assert package in packages
+            entry = {"package": package, "test": name, "reason": "retired by 22.39.168",
+                     "retiring_task": owner}
+            path = tmp_path / f"wrong-remaining-owner-{module.replace('/', '-')}-{index}.json"
+            path.write_text(json.dumps([entry]))
+            with pytest.raises(ValueError, match="retiring task"):
+                runner.load_baseline(path)
 
 
 def test_launchpad_go_job_creates_real_export_bucket_before_tests():
@@ -942,10 +933,10 @@ def test_launchpad_baseline_records_exact_remaining_module_counts():
     runner = baseline_runner()
     entries = runner.load_baseline()
     expected = {
-        "ranking-algo": 10, "stats-workers": 23, "trading-charts": 19,
-        "gateway": 12, "livestream": 9, "metadata": 10, "social": 26,
-        "user": 4, "discovery": 0, "notifications": 0, "security": 1,
-        "security/control": 1,
+        "ranking-algo": 0, "stats-workers": 0, "trading-charts": 0,
+        "gateway": 0, "livestream": 0, "metadata": 0, "social": 0,
+        "user": 0, "discovery": 0, "notifications": 0, "security": 0,
+        "security/control": 0,
     }
     assert {
         module: sum(entry["package"] in packages for entry in entries)
@@ -998,38 +989,44 @@ def test_launchpad_baseline_records_user_profile_producer_conflicts():
     package = "github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/app"
     entries = {entry["test"]: entry for entry in runner.load_baseline()
                if entry["package"] == package}
-    assert set(entries) == {"TestDevelopmentProfileWrite", "TestDevelopmentProfileReads"}
-    write = entries["TestDevelopmentProfileWrite"]
-    assert "development_profile_writes_test.go line 328" in write["reason"]
-    assert "/users/{owner}" in write["reason"]
-    assert "earlier display name and bio" in write["reason"]
-    read = entries["TestDevelopmentProfileReads"]
-    assert "development_profiles_test.go line 136" in read["reason"]
-    assert "400, Missing signed operation" in read["reason"]
-    assert "22.33.1064" in read["reason"]
-    assert all(entry["retiring_task"] == "22.39.168" for entry in entries.values())
+    assert entries == {}
+    root = ROOT / "services/launchpad/user"
+    reads = (root / "internal/app/development_profiles_test.go").read_text()
+    for required in ("sharedauth.OperationEnvelope{", 'Action: "profile.update"',
+                     "sharedauth.OperationEnvelopeHeader", "sharedauth.OperationSignatureHeader"):
+        assert required in reads
+    app = (root / "internal/app/app.go").read_text()
+    handlers = (root / "internal/user/handlers.go").read_text()
+    assert "user.ProfileCacheKey(cfg.PublicURL, wallet)" in app
+    assert "return ProfileCacheKey(h.publicURL, addr)" in handlers
+    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    assert set(record["module"]["user"]["cases"]) >= {
+        package + "::TestDevelopmentProfileWrite",
+        package + "::TestDevelopmentProfileReads",
+    }
+    assert record["repair"]["user_profile"]["producer"] == "internal/user/signed_operation.go"
+    assert record["repair"]["user_profile"]["cache_invalidation"] == "shared legacy read/write cache key"
 
 
 def test_launchpad_baseline_records_security_canonical_field_conflict():
     runner = baseline_runner()
     package = "github.com/Sidiora-Technologies/KindleLaunch/security/policy"
-    entries = [entry for entry in runner.load_baseline()
-               if entry["package"] == package]
-    assert len(entries) == 1
-    (entry,) = entries
-    assert entry["test"] == "TestRequestParsing"
-    assert "policy_test.go line 66" in entry["reason"]
-    assert "exact canonical field names" in entry["reason"]
-    assert "22.33.1021 at b2a65cc20d" in entry["reason"]
-    assert "lowercase alias name of the untagged field Name" in entry["reason"]
-    assert "policy: denied" in entry["reason"]
-    assert entry["retiring_task"] == "22.39.168"
+    assert not any(entry["package"] == package for entry in runner.load_baseline())
+    policy = (ROOT / "services/launchpad/security/policy/policy_test.go").read_text()
+    case = policy.split("func TestRequestParsing(t *testing.T) {", 1)[1].split("\nfunc ", 1)[0]
+    assert 'strings.NewReader(`{"Name":"ok"}`)' in case
+    assert 'strings.NewReader(`{"name":"ok"}`)' not in case
+    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    assert record["module"]["security"]["cases"] == [package + "::TestRequestParsing"]
+    assert record["repair"]["security_canonical_field"]["producer"] == "policy/policy.go"
+    assert record["repair"]["security_canonical_field"]["canonical_key"] == "Name"
 
 
 def test_launchpad_module_qualification_records_follow_runner_and_baseline():
     runner = baseline_runner()
     entries = runner.load_baseline()
     job = launchpad_go_workflow()["jobs"]["launchpad-go-test"]
+    retirement = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
     for module in (
         "stats-workers", "trading-charts", "livestream", "metadata", "discovery"
     ):
@@ -1047,8 +1044,12 @@ def test_launchpad_module_qualification_records_follow_runner_and_baseline():
         expected = sorted(entry["package"] + "::" + entry["test"] for entry in entries
                           if entry["package"] in runner.SERVICE_PACKAGES[module])
         reviewed = record["baseline"]
-        assert reviewed["tests"] == expected
-        assert reviewed["count"] == len(expected)
+        assert expected == []
+        current = retirement["module"][module]
+        assert current["remaining_cases"] == expected
+        assert sorted(current["cases"]) == reviewed["tests"]
+        assert current["exclusions_removed"] == reviewed["count"]
+        assert current["evidence"] == "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
         assert reviewed["retiring_task"] == "22.39.168"
         assert "not passing tests" in reviewed["policy"]
         measured = record["measurement"]

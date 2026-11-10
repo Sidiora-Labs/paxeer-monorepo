@@ -1,0 +1,135 @@
+[meta]
+task = "22.39.311"
+base_revision = "7c02f42054af0d5f3cb5837370f40e69e05c54fa"
+decision = "3156"
+gotcha = "4074"
+
+[site.tls]
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "human_journey_and_approval_cross_tls_and_recover_after_sink_loss"
+repair = "Start the real runtime-clock Server inside a case-owned private temporary directory; explicitly bind its socket and current process identity, then pass the connected clock to privileged components, the component server, both Unix component clients, the HTTP router and both bounded sink-loss and recovery waits. Keep every journey, approval, foreign-principal refusal and durable recovery assertion."
+
+[site.subject]
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs"
+symbol = "cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame"
+repair = "Replace the fixed /tmp/lxp-subject-wire.sock with agent.sock under the case-owned temporary directory and use new_with_clock with the served authority. AgentRuntime::new reads the environment before constructing its endpoint; it does not bind the agent socket. Keep every coordinate and refusal assertion."
+
+[rule]
+isolation = "Each case owns a randomly named private directory and a real clock authority, explicitly binds the runtime clock without environment reads, keeps that authority alive through all consumers, then joins its worker and removes its directory. Cases and runs share neither socket paths nor mutable clock environment."
+binding = "ClockBinding::for_current_process is shared by the client loopback cases and Human service cases; socket permissions and peer credentials remain checked by RuntimeClock::connect."
+
+[qualification]
+evidence = "/out/run/gates.jsonl"
+verified_revision = "The final passing build and verify rows in the private gate ledger name the exact same candidate revision; this reference avoids changing the candidate after qualification."
+build_command = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --tests && cargo build --locked --manifest-path services/platform/Cargo.toml --target-dir services/human/target -p layerx-platform-webhooks --bin layerx-webhooks"
+verify_command = "cg spec done 22.39.311 -f layerx-merge --root /work/paxeer-monorepo"
+status = "Qualified only when hf-build and hf-done pass at the same candidate revision; the verify row records the exact revision, command, exit code and private evidence location."
+
+[qualification.attempt_1.finding]
+task = "22.39.311"
+file = "services/platform/hosted/internal/src/producer_test_support.rs:234"
+symbol = "Webhooks::start"
+observed = "At revision 7fb2c2e47d0badfe59d7e9216407b3d5b9e1e584, cg spec done 22.39.311 -f layerx-merge --root /work/paxeer-monorepo exited 1 (cargo test exited 101), log /out/logs/verify-1.log: the subject-coordinate case passed, while the TLS case reached the existing webhook support and panicked with LAYERX_TEST_WEBHOOKS_BIN required."
+assumption = "The webhook executable is an external qualification prerequisite outside the clock and subject-socket repair scope, so its absence is recorded without changing or bypassing the support."
+severity = "blocker"
+
+[qualification.attempt_1.result]
+status = "implemented-not-qualified"
+revision = "7fb2c2e47d0badfe59d7e9216407b3d5b9e1e584"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+stop = "Recorded the unrelated missing webhook executable prerequisite under the task's record-without-chasing rule; no assertion was weakened and no test was skipped."
+record_only = "This finding and result append document the failed bounded gate after it ran; they are not claimed as a separately built or verified candidate."
+
+[continuation]
+base_revision = "f738d3da03469c5e6080322b26260492a1879014"
+gotcha = "4085"
+prerequisite = "The declared build and verify gates now build the real layerx-webhooks executable into services/human/target; verification supplies LAYERX_TEST_WEBHOOKS_BIN with its absolute path, and require redis-server and openssl on PATH. This resolves the missing executable prerequisite recorded for attempt 1 without replacing the real sink or weakening any assertion."
+qualification = "Use the final matching candidate revision in /out/run/gates.jsonl for this continuation; the attempt_1 sections retain historical evidence only."
+
+[qualification.attempt_2.finding]
+task = "22.39.311"
+file = "services/platform/hosted/internal/src/producer_test_support.rs:248"
+symbol = "Webhooks::start"
+observed = "At revision a4075b8c0adcc1cd725bd3645e0a67e441a34021, cg spec done 22.39.311 -f layerx-merge --root /work/paxeer-monorepo exited 1 (cargo test exited 101), log /out/logs/verify-1.log: the subject-coordinate case passed, while the TLS case panicked spawning redis-server with No such file or directory; command -v redis-server found no executable and /out/logs/db-fixture.log records the prerequisite installation failing to fetch liblzf1."
+assumption = "The declared Redis prerequisite must be installed by the qualification environment before the real webhook support can run; this external failure is recorded without changing out-of-scope support or weakening the cases."
+severity = "blocker"
+
+[qualification.attempt_2.result]
+status = "implemented-not-qualified"
+revision = "a4075b8c0adcc1cd725bd3645e0a67e441a34021"
+build_command = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --tests && cargo build --locked --manifest-path services/platform/Cargo.toml --target-dir services/human/target -p layerx-platform-webhooks --bin layerx-webhooks"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+dependents_exit = 0
+dependents_log = "/out/logs/dependents-1.log"
+verify_command = "cg spec done 22.39.311 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+stop = "Recorded the unrelated missing Redis executable prerequisite under the task's record-without-chasing rule; no assertion was weakened and no test was skipped."
+record_only = "This finding and result append document the failed bounded gate after it ran; they are not claimed as a separately built or verified candidate."
+
+[continuation.attempt_4]
+base_revision = "d5614dd88e548d183376cb26eefb979a56b77018"
+decision = "3181"
+gotcha = "4103"
+manual_reproduction = "/out/logs/fixture-startup.log records the fixture Redis configuration starting successfully with redis-server 8.0.5 and accepting its TLS port; the saved original webhook environment is replayed against the real executable after the declared build makes it available."
+
+[site.webhook_fixture]
+file = "services/platform/hosted/internal/src/producer_test_support.rs"
+symbol = "Webhooks::start"
+repair = "Wait for the Redis TLS listener before starting delivery; configure the real webhook process as ingress with its client CA, issue the producer client leaf with the required role URI SAN, omit public identity credentials from ingress, and supply the required node, Comet and validated chain policy configuration. Journey and approval events without activity receipts keep their existing real source paths and assertions."
+diagnostics = "Capture Redis and webhook stdout and stderr in case-owned append-only log files, preserve the same bounded listener wait across restarts, and report exit status plus the final twenty log lines when startup fails. The Webhooks owner kills and reaps both children during unwinding."
+qualification = "The final matching build and verify candidate revision in /out/run/gates.jsonl is the verified revision for this continuation; historical failed attempts remain above. No assertion, test or production binary is weakened or replaced."
+
+[qualification.attempt_4.finding]
+task = "22.39.311"
+file = "services/platform/hosted/webhooks/src/trusted.rs"
+symbol = "TrustedSources::trigger_admission"
+observed = "At revision ce55c220236f693e19a6b96044e0ae9699a182e9, cg spec done 22.39.311 -f layerx-merge --root /work/paxeer-monorepo exited 1 (cargo test exited 101), log /out/logs/verify-1.log: the subject-coordinate case passed and both child processes started, but the TLS case failed at observe ack with webhook-trigger refused because admission unconditionally calls ReceiptVerifier::ready_until for real eth_chainId and Comet status RPCs that the fixture's event-source endpoint does not serve."
+assumption = "A real node and Comet authority with a matching chain policy must be supplied by the declared qualification setup; creating canned RPC replies or removing receipt readiness would violate the task prohibition on fakes and weakened checks."
+severity = "blocker"
+
+[qualification.attempt_4.result]
+status = "implemented-not-qualified"
+revision = "ce55c220236f693e19a6b96044e0ae9699a182e9"
+build_command = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --tests && cargo build --locked --manifest-path services/platform/Cargo.toml --target-dir services/human/target -p layerx-platform-webhooks --bin layerx-webhooks"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.311 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+startup_reproduction = "/out/logs/fixture-startup.log: Redis accepts the original TLS configuration; the original webhook environment exits 2 with layerx-webhooks: LAYERX_WEBHOOKS_ROLE must be public or ingress."
+stop = "Recorded the missing external chain readiness interface under the record-without-chasing rule; no production binary, readiness check or test assertion was changed."
+record_only = "These finding and result sections document the failed bounded gate after it ran and are not claimed as a separately built or verified candidate."
+
+[continuation.attempt_5]
+base_revision = "5a08a1f641e2ff74d71e24b38bf0e7c661b96027"
+decision = "3187"
+gotcha = "4109"
+resolution = "The task explicitly authorizes a case-owned loopback readiness endpoint; this resolves the missing peer interface recorded in qualification.attempt_4.finding while retaining the production receipt readiness check and all case assertions."
+
+[site.readiness_endpoint]
+file = "services/platform/hosted/internal/src/producer_test_support.rs"
+symbol = "readiness_listener"
+repair = "Serve POST / over TLS using the existing fixture certificate and require the bearer read from the NODE_TOKEN file written for the delivery process. Return JSON-RPC 2.0 with the request id: eth_chainId returns 0x4d from the same network id 77 configured for delivery, and status returns node_info.network from the same producer-integration chain id written to the chain policy plus sync_info.catching_up false. Unsupported methods return JSON-RPC method-not-found errors; malformed JSON and malformed RPC envelopes return explicit errors."
+lifetime = "Webhooks owns the listener on a separately allocated loopback port and points both LAYERX_WEBHOOKS_NODE_URL and LAYERX_WEBHOOKS_COMET_URL at it. The endpoint stays available across delivery restarts and stops and joins its worker when the Webhooks fixture drops, after both children are stopped."
+qualification = "The final matching build and verify entries in /out/run/gates.jsonl name the verified revision, exact commands, exit codes and private evidence logs without a post-verification candidate edit."
+
+[qualification.attempt_5.repair]
+revision = "1354e084dda062e1ba178a388c22356182de7891"
+command = "cg spec done 22.39.311 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The subject-coordinate case passed, but the TLS case still failed with webhook-trigger refused: HostedService::ready_until also requires KmsClient readiness to decode ready and ed25519_non_exportable, while the fixture still pointed KMS_URL at the event source, whose readiness has no KMS field."
+repair = "Serve the existing production kms::Service with its real KeyStore and a randomly derived SealKey over a case-owned TLS listener using the fixture certificate, peer verification and KMS_TOKEN file; point KMS_URL at it and keep the listener and key store alive through delivery restarts. No production handler, readiness check or test assertion changes."
+
+[continuation.attempt_6]
+base_revision = "85c4dfcb4811fc625ae248afaff6b0357ead4ea6"
+decision = "3183"
+gotcha = "4117"
+delivery_sequence = "Client::spawn in services/platform/hosted/internal/src/producer.rs starts independent admission and delivery workers. Client::delivery_step persists store.acknowledge before health.recovered clears failed_since; poll_admission separately refreshes admitted_at. HumanOutbox::ready in services/human/crates/layerx-human-service/src/event_producer.rs requires Health::ready and scheduling_ready, which reads persisted delivery attempts and first_refused_at; QueueState::acknowledge resets attempts to zero. An empty queue can therefore be observed before readiness returns."
+repair = "The recovery loop in verify_delivery waits until both the queue is empty and outbox.ready is true under the existing single 10-second runtime-clock deadline and unchanged polling interval. Both the empty-queue assertion and the readiness assertion remain, together with the approval record and durable acknowledgement assertions."
+qualification = "The final passing build and verify rows in /out/run/gates.jsonl identify this continuation's identical candidate revision, exact commands, exit codes and private evidence logs without editing the candidate after qualification."

@@ -71,12 +71,12 @@ def test_finding_27_complete_provenance_without_deployment_defaults():
 
     manifest = json.loads((PACKAGE / "package.json").read_bytes())
     assert manifest["exports"] == {
-        ".": "./src/index.ts",
-        "./abis": "./src/abis.ts",
-    }
-    index = (PACKAGE / manifest["exports"]["."]).read_text()
+        ".": {"types": "./src/index.ts", "default": "./src/index.ts"},
+        "./abis": {"types": "./src/abis.ts", "default": "./src/abis.ts"},
+    }, "conditional exports published by producer commit 1caf032cb4"
+    index = (PACKAGE / manifest["exports"]["."]["default"]).read_text()
     assert re.search(r"^export \* from './abis\.js';$", index, re.MULTILINE)
-    assert (PACKAGE / manifest["exports"]["./abis"]).resolve() == (
+    assert (PACKAGE / manifest["exports"]["./abis"]["default"]).resolve() == (
         PACKAGE / "src/abis.ts"
     ).resolve()
 

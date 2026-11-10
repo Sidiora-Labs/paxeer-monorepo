@@ -49,9 +49,54 @@ type repair53Recorded struct {
 	Error  json.RawMessage `json:"error,omitempty"`
 }
 
+// Decision 3177: recorded digests may name Current or an Approved history
+// entry until the packet is re-recorded after the upgrade (decision 3119).
+func repair53ApprovedSourceDigest(digest string) bool {
+	if digest == deployment.Current().SourceManifestSHA256 {
+		return true
+	}
+	for height, ok := deployment.NextActivationHeight(0); ok; height, ok = deployment.NextActivationHeight(height) {
+		manifest, approved := deployment.Approved(height)
+		if approved && digest == manifest.SourceManifestSHA256 {
+			return true
+		}
+	}
+	return false
+}
+
+func TestRepair_22_39_328(t *testing.T) {
+	if !repair53ApprovedSourceDigest(deployment.Current().SourceManifestSHA256) {
+		t.Fatal("current source digest refused")
+	}
+	history := 0
+	for height, ok := deployment.NextActivationHeight(0); ok; height, ok = deployment.NextActivationHeight(height) {
+		manifest, approved := deployment.Approved(height)
+		if !approved || !repair53ApprovedSourceDigest(manifest.SourceManifestSHA256) {
+			t.Fatalf("approved source digest refused at activation %d", height)
+		}
+		if height < deployment.Current().ActivationHeight {
+			history++
+		}
+	}
+	if history == 0 {
+		t.Fatal("approved history must exercise recorded digest admission")
+	}
+	for _, digest := range []string{"", strings.Repeat("0", 64), strings.Repeat("f", 64), deployment.Current().SourceManifestSHA256[:63]} {
+		if repair53ApprovedSourceDigest(digest) {
+			t.Fatalf("unapproved source digest accepted: %q", digest)
+		}
+	}
+}
+
 func repair53AssertManifest(t *testing.T, options RPCOptions) {
 	t.Helper()
 	recorded, current := options.Manifest, deployment.Current()
+	// Decision 3177: retain an approved recorded source digest until the packet
+	// is re-recorded after the upgrade; compare every other manifest field.
+	if !repair53ApprovedSourceDigest(recorded.SourceManifestSHA256) {
+		t.Fatal("recorded manifest must bind a current or approved historical source manifest")
+	}
+	recorded.SourceManifestSHA256 = current.SourceManifestSHA256
 	// Decision 3119: keep the producer's runtime identities until the upgrade;
 	// re-record the packet after the upgrade to restore exact runtime equality.
 	// Copy both role maps so code attestation still sees the recorded hashes.
@@ -85,8 +130,13 @@ func repair53AssertManifest(t *testing.T, options RPCOptions) {
 	if err := json.Unmarshal(raw, &reviewed); err != nil {
 		t.Fatal(err)
 	}
-	if catalog.ManifestSHA256 != current.SourceManifestSHA256 || reviewed.ManifestSHA256 != current.SourceManifestSHA256 {
-		t.Fatal("recorded and reviewed ABIs must bind the current source manifest")
+	// Decision 3177: only the embedded evidence may retain an approved history
+	// digest until re-recording after the upgrade; the live review is exact.
+	if !repair53ApprovedSourceDigest(catalog.ManifestSHA256) {
+		t.Fatal("recorded ABI must bind a current or approved historical source manifest")
+	}
+	if reviewed.ManifestSHA256 != current.SourceManifestSHA256 {
+		t.Fatal("reviewed ABI must bind the current source manifest exactly")
 	}
 	recordedRevisions, reviewedRevisions := map[string]string{}, map[string]string{}
 	for _, contract := range catalog.Contracts {

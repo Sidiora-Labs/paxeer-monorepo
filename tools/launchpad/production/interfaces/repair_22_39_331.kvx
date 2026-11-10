@@ -1,0 +1,146 @@
+[repair.22.39.331]
+decision = "3184; gotcha 4106"
+base_revision = "5a08a1f641e2ff74d71e24b38bf0e7c661b96027"
+source_revision = "0177fcf755d9460797afcbf83369d8ee65eb7325"
+change = "Reconcile the five SDK source pins with the reviewed hardening commits and inventory the four new local timeout settings without inventing wire targets."
+scope = "Only compatibility.json and this record change; compatibility_check.py, every test and assertion, and all other compatibility contracts retain their contents."
+cases = ["tools/launchpad/production/interfaces/test_repair_22_33_963.py::test_compatibility_authority_path", "tools/launchpad/production/interfaces/test_repair_22_33_963.py::test_compatibility_test_authority"]
+qualification = "The verified candidate revision, exact command, exit and private log are bound by hf-done in /out/run/gates.jsonl; the final evidence line identifies that revision. This record does not claim a gate before it passes."
+qualification_policy = "Run hf-build followed by hf-done on the same candidate; no direct suite runs, assertion changes, skipped cases or runtime qualification claims."
+
+[baseline]
+starting_revision = "0177fcf755d9460797afcbf83369d8ee65eb7325"
+evidence_kind = "Inherited failure evidence, not a fresh baseline execution"
+prior_revision = "9d4cd4e08b56"
+prior_log = "/out/logs/verify-1.log (previous task sandbox; cited by GOTCHA.kvx gotcha.4106)"
+authority = "GOTCHA.kvx gotcha.4106 and repair_22_39_329.kvx baseline_case.24 and baseline_case.25"
+diagnostics = "Thirteen recorded diagnostics: five source hash drifts, plus unmapped source interface fields and unmapped or invented wire fields for indexer-sdk, ranking-algo-sdk, metadata-sdk and users-sdk."
+execution_policy = "The task order prohibits tests before complete implementation and prohibits running verify_cmd by hand; retain the supplied baseline evidence and execute both complete binding files only through hf-done."
+
+[baseline_case.1]
+case = "test_repair_22_33_963.py::test_compatibility_authority_path"
+first_error = "AssertionError: assert True == 0; first checker diagnostic: candles-sdk: source hash drift sdk/launchpad/packages/candles-sdk/src/index.ts"
+
+[baseline_case.2]
+case = "test_repair_22_33_963.py::test_compatibility_test_authority"
+first_error = "AssertionError: result.wasSuccessful() is False; first nested failure: CompatibilityFreezeTests.test_actual_inventory_and_generated_refs: candles-sdk: source hash drift sdk/launchpad/packages/candles-sdk/src/index.ts"
+
+[source.candles-sdk]
+path = "sdk/launchpad/packages/candles-sdk/src/index.ts"
+commit = "bcc2b4a00c707b7c16e26d01ec527268d18cf4af"
+former_digest = "b47eddbb9957b5f255616c8776bd7e0fccc02942a2be5136ae244bcd1e763509"
+new_digest = "366111d0b86576e114a8d96dcfbefdc2517674ef5da1b51fc890e9249892fb1f"
+added = []
+removed = []
+wire_mappings_added = []
+wire_mappings_removed = []
+explanation = "Bounded response reading and cancellation only; no interface or wire field changed."
+cases = ["test_compatibility_authority_path", "test_compatibility_test_authority"]
+
+[source.indexer-sdk]
+path = "sdk/launchpad/packages/indexer-sdk/src/index.ts"
+commit = "358d414e09d4be1d8e49abd85f56941eeb79627f"
+former_digest = "76b02a522f46e769ee7c47f19f838b9b7df96656e6d81f851c8ed1e135dff993"
+new_digest = "dc1f74c4303bb9bfddb628201fdae07de9deef15bb3ede23cd591a787fe4abfa"
+added = ["HttpClientConfig.timeoutMs"]
+removed = []
+wire_mappings_added = []
+wire_mappings_removed = []
+explanation = "The only added interface field is local transport configuration; add its legacy_only inventory disposition with no target_schema_ref or target_field."
+cases = ["test_compatibility_authority_path", "test_compatibility_test_authority"]
+
+[finding.indexer-sdk]
+package = "indexer-sdk"
+field = "HttpClientConfig.timeoutMs"
+commit = "358d414e09d4be1d8e49abd85f56941eeb79627f"
+observed = "HttpClientConfig.timeoutMs has no wire counterpart; the SDK consumes it only in the request deadline timer."
+sdk_authority = "sdk/launchpad/packages/indexer-sdk/src/index.ts"
+serving_authority = "services/launchpad/stats-workers/internal/httpapi/pool_transactions.go"
+schema_authority = "sdk/launchpad/packages/production-contracts/src/schemas.gen.json (consumed by both binding cases) and tools/launchpad/production/interfaces/materialize.py"
+assumption = "Client deadlines remain local; route parameters and wire schema properties do not acquire timeoutMs. Materializer x-timeout-ms is operation metadata, not a request or response property."
+disposition = "legacy_only inventory entry; no invented target mapping"
+severity = "note"
+
+[source.ranking-algo-sdk]
+path = "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts"
+commit = "44e351420d84b4d77aaee2e80dd54515068950bc"
+former_digest = "cc2cdef27dfceafc0af7c5e1dd54bafaf33ba94d4dd5ce11376ccad4c28da390"
+new_digest = "fb8dc4f3339a3a21d5f6a3940a23da0aba8b2f0b443ae0a69c8b9ee006a936ba"
+added = ["HttpClientConfig.timeoutMs"]
+removed = []
+wire_mappings_added = []
+wire_mappings_removed = []
+explanation = "The only added interface field is local transport configuration; add its legacy_only inventory disposition with no target_schema_ref or target_field."
+cases = ["test_compatibility_authority_path", "test_compatibility_test_authority"]
+
+[finding.ranking-algo-sdk]
+package = "ranking-algo-sdk"
+field = "HttpClientConfig.timeoutMs"
+commit = "44e351420d84b4d77aaee2e80dd54515068950bc"
+observed = "HttpClientConfig.timeoutMs has no wire counterpart; the SDK consumes it only in the request deadline timer."
+sdk_authority = "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts"
+serving_authority = "services/launchpad/ranking-algo/internal/httpapi/snapshots.go"
+schema_authority = "sdk/launchpad/packages/production-contracts/src/schemas.gen.json (consumed by both binding cases) and tools/launchpad/production/interfaces/materialize.py"
+assumption = "Client deadlines remain local; route parameters and wire schema properties do not acquire timeoutMs. Materializer x-timeout-ms is operation metadata, not a request or response property."
+disposition = "legacy_only inventory entry; no invented target mapping"
+severity = "note"
+
+[source.metadata-sdk]
+path = "sdk/launchpad/packages/metadata-sdk/src/index.ts"
+commit = "072ba1a9182daaa912daae9c954846793a421d7e"
+former_digest = "5dce812607200de09028b9380f1fbc71e4fae05e4c8aa1f23438d963e746b2c8"
+new_digest = "888f6a56395d2c41fc363f4a2618b8a0d5b841444f0fc37e04776c6ef9467b25"
+added = ["ClientConfig.timeoutMs"]
+removed = []
+wire_mappings_added = []
+wire_mappings_removed = []
+explanation = "The only added interface field is local transport configuration; add its legacy_only inventory disposition with no target_schema_ref or target_field."
+cases = ["test_compatibility_authority_path", "test_compatibility_test_authority"]
+
+[finding.metadata-sdk]
+package = "metadata-sdk"
+field = "ClientConfig.timeoutMs"
+commit = "072ba1a9182daaa912daae9c954846793a421d7e"
+observed = "ClientConfig.timeoutMs has no wire counterpart; the SDK consumes it only in the request deadline timer."
+sdk_authority = "sdk/launchpad/packages/metadata-sdk/src/index.ts"
+serving_authority = "services/launchpad/metadata/internal/metadata/handlers.go"
+schema_authority = "sdk/launchpad/packages/production-contracts/src/schemas.gen.json (consumed by both binding cases) and tools/launchpad/production/interfaces/materialize.py"
+assumption = "Client deadlines remain local; route parameters and wire schema properties do not acquire timeoutMs. Materializer x-timeout-ms is operation metadata, not a request or response property."
+disposition = "legacy_only inventory entry; no invented target mapping"
+severity = "note"
+
+[source.users-sdk]
+path = "sdk/launchpad/packages/users-sdk/src/index.ts"
+commit = "f3b5494b27df82a92fce9c4b74c9f03f43ca1e9c"
+former_digest = "f038e094588b2467afeaea11d0ae7be09e344953e7de4d8fed27a02853a9b62e"
+new_digest = "45ae4863d4d9307c03a508599401729b98ae1112b36a2796b99fd2967aa922ff"
+added = ["HttpClientConfig.timeoutMs"]
+removed = []
+wire_mappings_added = []
+wire_mappings_removed = []
+explanation = "The only added interface field is local transport configuration; add its legacy_only inventory disposition with no target_schema_ref or target_field."
+cases = ["test_compatibility_authority_path", "test_compatibility_test_authority"]
+
+[finding.users-sdk]
+package = "users-sdk"
+field = "HttpClientConfig.timeoutMs"
+commit = "f3b5494b27df82a92fce9c4b74c9f03f43ca1e9c"
+observed = "HttpClientConfig.timeoutMs has no wire counterpart; the SDK consumes it only in the request deadline timer."
+sdk_authority = "sdk/launchpad/packages/users-sdk/src/index.ts"
+serving_authority = "services/launchpad/user/internal/user/handlers.go"
+schema_authority = "sdk/launchpad/packages/production-contracts/src/schemas.gen.json (consumed by both binding cases) and tools/launchpad/production/interfaces/materialize.py"
+assumption = "Client deadlines remain local; route parameters and wire schema properties do not acquire timeoutMs. Materializer x-timeout-ms is operation metadata, not a request or response property."
+disposition = "legacy_only inventory entry; no invented target mapping"
+severity = "note"
+
+[gotcha.local-timeout-is-not-wire-data]
+observed = "The checker requires every declared interface field to have an inventory disposition, including local client configuration; a new timeout option is not a new wire property."
+resolution = "Use legacy_only without a target field and record the package, field, introducing commit and both source digests; retain all negative checks."
+
+[gotcha.baseline-order]
+observed = "do_1 requests a baseline run, while the explicit gate order prohibits testing before full implementation and running verify_cmd by hand."
+resolution = "Attribute inherited baseline failures explicitly and run the complete declared verification only through hf-done."
+
+[gotcha.service-paths]
+observed = "The launchpad metadata and user service directories are metadata and user, not token-metadata and users."
+resolution = "Use the existing handlers.go authorities recorded in each finding; no source outside task scope changes."

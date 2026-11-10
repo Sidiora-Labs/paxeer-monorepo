@@ -74,7 +74,8 @@ describe('NumericString', () => {
     expect(NumericString.safeParse('1000000000000000000').success).toBe(true);
   });
   it('accepts uint256 max (78 digits)', () => {
-    const uint256Max = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+    const uint256Max =
+      '115792089237316195423570985008687907853269984665640564039457584007913129639935';
     expect(NumericString.safeParse(uint256Max).success).toBe(true);
   });
   it('rejects scientific notation', () => {
@@ -153,9 +154,9 @@ describe('SafeIdentifier', () => {
 
 describe('SignTxBody — strict envelope', () => {
   it('accepts a minimal valid body', () => {
-    expect(
-      SignTxBody.safeParse({ tx: { to: '0x' + 'a'.repeat(40), value: '0' } }).success,
-    ).toBe(true);
+    expect(SignTxBody.safeParse({ tx: { to: '0x' + 'a'.repeat(40), value: '0' } }).success).toBe(
+      true
+    );
   });
   it('rejects unknown top-level keys (defence vs accidental field reads)', () => {
     const r = SignTxBody.safeParse({
@@ -245,17 +246,17 @@ describe('ProvisionFundedBody — strict envelope + safe tier id', () => {
   });
   it('rejects unknown top-level keys', () => {
     expect(
-      ProvisionFundedBody.safeParse({ tier_id: 'starter_25k', force_funded: 1_000_000 }).success,
+      ProvisionFundedBody.safeParse({ tier_id: 'starter_25k', force_funded: 1_000_000 }).success
     ).toBe(false);
   });
 });
 
 // -----------------------------------------------------------------------------
-// TxRequest inner shape — forward-compat (strip unknown) is intentional
+// TxRequest inner shape — unsupported inner fields fail closed
 // -----------------------------------------------------------------------------
 
-describe('TxRequest — forward-compatible inner shape', () => {
-  it('strips unknown inner keys (e.g. future EVM fields) without failing', () => {
+describe('TxRequest — strict inner shape', () => {
+  it('rejects unsupported inner keys before transaction semantics can change', () => {
     const r = TxRequest.safeParse({
       to: '0x' + 'a'.repeat(40),
       value: '0',
@@ -264,12 +265,15 @@ describe('TxRequest — forward-compatible inner shape', () => {
       type: 2,
       blobVersionedHashes: [],
     });
-    expect(r.success).toBe(true);
-    if (r.success) {
-      // The unknown fields must NOT survive into the parsed data — they'd
-      // be passed to viem and could cause cryptic failures.
-      expect('accessList' in r.data).toBe(false);
-      expect('type' in r.data).toBe(false);
-    }
+    expect(r.success).toBe(false);
+    if (r.success) throw new Error('unsupported EVM transaction fields were accepted');
+    expect(r.error.issues).toEqual([
+      {
+        code: 'unrecognized_keys',
+        keys: ['accessList', 'type', 'blobVersionedHashes'],
+        path: [],
+        message: 'Unrecognized keys: \"accessList\", \"type\", \"blobVersionedHashes\"',
+      },
+    ]);
   });
 });

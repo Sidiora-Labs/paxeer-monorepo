@@ -1,0 +1,1268 @@
+[meta]
+task = "22.39.273"
+mode = "BUILD"
+status = "implemented_not_qualified"
+inventory_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/qualification"
+inventory_exit = 1
+qualification = "The first build passed and the first verification failed at ec3efaf682434611f8874280d66f45b765459e81; the final candidate revisions and terminal commands are recorded by hf-build and hf-done in /out/run/gates.jsonl and /out/logs."
+inventory_findings = 53
+scope = "Only the user-listed files may change; the catalogue is now in scope, and historical repair records remain unchanged."
+tests = "Retained checks and bounds are unchanged; decision 3194 explicitly removes the retired transport and movement gates and the cases and loaders fed only by them."
+
+[finding.1]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 64
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Retain the archived independent_receipt_authority contract enum through the tools/qualification/audit_repairs/fixtures allowance; this is a historical schema pin, not a removed kernel authority caller."
+
+[finding.2]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 603
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Retain the archived independent_receipt_authority contract enum through the tools/qualification/audit_repairs/fixtures allowance; this is a historical schema pin, not a removed kernel authority caller."
+
+[finding.3]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 1396
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Retain the archived independent_receipt_authority contract enum through the tools/qualification/audit_repairs/fixtures allowance; this is a historical schema pin, not a removed kernel authority caller."
+
+[finding.4]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 3444
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Retain the archived independent_receipt_authority contract enum through the tools/qualification/audit_repairs/fixtures allowance; this is a historical schema pin, not a removed kernel authority caller."
+
+[finding.5]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 3983
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Retain the archived independent_receipt_authority contract enum through the tools/qualification/audit_repairs/fixtures allowance; this is a historical schema pin, not a removed kernel authority caller."
+
+[finding.6]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 4798
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Retain the archived independent_receipt_authority contract enum through the tools/qualification/audit_repairs/fixtures allowance; this is a historical schema pin, not a removed kernel authority caller."
+
+[finding.7]
+path = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 121
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+status = "repaired"
+repair = "Remove the retired level from the accepted response-level inventory."
+
+[finding.8]
+path = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 2275
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+status = "repaired"
+repair = "Keep the exact unknown-field refusal and supply CheckpointFinalised as the legacy field value; the test exercises field rejection before dispatch."
+
+[finding.9]
+path = "tools/qualification/paxeer-x/fixtures/agentd_fixture.py"
+line = 203
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+repair = "Require the current daemon node RPC URL on an owned loopback root port and chain ID 125 while retaining the local human socket checks."
+
+[finding.10]
+path = "tools/qualification/paxeer-x/fixtures/agentd_fixture.py"
+line = 203
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+repair = "Require the current daemon node RPC URL on an owned loopback root port and chain ID 125 while retaining the local human socket checks."
+
+[finding.11]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 144
+component = "layerxctl-port"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_repair_22_33_876.py and are not present in this scope."
+
+[finding.12]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 144
+component = "lni"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_repair_22_33_876.py and are not present in this scope."
+
+[finding.13]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 145
+component = "layerxctl-port"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_repair_22_33_876.py and are not present in this scope."
+
+[finding.14]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 145
+component = "lni"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "The fixture imports removed tests/daemon/paxeer_x_runtime_fixture.py and drives wire capability snapshots; the retained paxd discovery producer and committed budget/cursor cases are requested by test_repair_22_33_876.py and are not present in this scope."
+
+[finding.15]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 148
+component = "layerxctl-port"
+symbol = "lni"
+status = "missing_external_interface"
+repair = "The socket producer was removed; a name change cannot implement the required committed discovery transport or preserve its cursor, budget, restart and resource-limit cases."
+
+[finding.16]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 148
+component = "lni"
+symbol = "lni"
+status = "missing_external_interface"
+repair = "The socket producer was removed; a name change cannot implement the required committed discovery transport or preserve its cursor, budget, restart and resource-limit cases."
+
+[finding.17]
+path = "tools/qualification/paxeer-x/fixtures/event_source_fixture.py"
+line = 7
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+repair = "Describe root JSON-RPC as the receipt source."
+
+[finding.18]
+path = "tools/qualification/paxeer-x/fixtures/event_source_fixture.py"
+line = 7
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+repair = "Describe root JSON-RPC as the receipt source."
+
+[finding.19]
+path = "tools/qualification/paxeer-x/fixtures/event_source_fixture.py"
+line = 38
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Retain the still-shipping ReceiptAuthorityFixture import through the tools/qualification/paxeer-x/fixtures receipt_authority allowance; its producer reads committed chain receipts."
+
+[finding.20]
+path = "tools/qualification/paxeer-x/fixtures/event_source_fixture.py"
+line = 191
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+repair = "Configure the real agent-boundary CHAIN_RPC_URL and RECEIPT_KEYS_FILE inputs using the merged runtime and native genesis pins."
+
+[finding.21]
+path = "tools/qualification/paxeer-x/fixtures/event_source_fixture.py"
+line = 191
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+repair = "Configure the real agent-boundary CHAIN_RPC_URL and RECEIPT_KEYS_FILE inputs using the merged runtime and native genesis pins."
+
+[finding.22]
+path = "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py"
+line = 4
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+repair = "Describe committed chain receipts instead of the removed socket transport."
+
+[finding.23]
+path = "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py"
+line = 4
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+repair = "Describe committed chain receipts instead of the removed socket transport."
+
+[finding.24]
+path = "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py"
+line = 83
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+repair = "Describe committed chain receipts instead of the removed socket transport."
+
+[finding.25]
+path = "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py"
+line = 83
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+repair = "Describe committed chain receipts instead of the removed socket transport."
+
+[finding.26]
+path = "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py"
+line = 165
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+repair = "Configure the real authority CHAIN_RPC_URL and RECEIPT_KEYS_FILE inputs; export native genesis receipt key identities and inclusive height ranges without synthesizing authority."
+
+[finding.27]
+path = "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py"
+line = 165
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+repair = "Configure the real authority CHAIN_RPC_URL and RECEIPT_KEYS_FILE inputs; export native genesis receipt key identities and inclusive height ranges without synthesizing authority."
+
+[finding.28]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 41
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The movement provider crate was deleted from services/human and its workspace; replacing it with the service binary would not implement the provider socket, KMS identity, readiness and recovery contract, whose assertions must remain intact."
+
+[finding.29]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 129
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The movement provider crate was deleted from services/human and its workspace; replacing it with the service binary would not implement the provider socket, KMS identity, readiness and recovery contract, whose assertions must remain intact."
+
+[finding.30]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 132
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The movement provider crate was deleted from services/human and its workspace; replacing it with the service binary would not implement the provider socket, KMS identity, readiness and recovery contract, whose assertions must remain intact."
+
+[finding.31]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 424
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The movement provider crate was deleted from services/human and its workspace; replacing it with the service binary would not implement the provider socket, KMS identity, readiness and recovery contract, whose assertions must remain intact."
+
+[finding.32]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 579
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The movement provider crate was deleted from services/human and its workspace; replacing it with the service binary would not implement the provider socket, KMS identity, readiness and recovery contract, whose assertions must remain intact."
+
+[finding.33]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 528
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_repair_22_33_861.py, without weakening the KMS assembly cases."
+
+[finding.34]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 529
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_repair_22_33_861.py, without weakening the KMS assembly cases."
+
+[finding.35]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 530
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "The retired custody constant is absent from the real material producer; native bank movement material must be provisioned by its owner as already requested in test_repair_22_33_861.py, without weakening the KMS assembly cases."
+
+[finding.36]
+path = "tools/qualification/paxeer-x/paid-web-contract.py"
+line = 858
+component = "account-naming"
+symbol = "LAYERX-PAYER-DID"
+status = "repaired"
+repair = "Send LAYERX-PAYER-ADDRESS after resolving the payer through the real addr 0x1004 getEvmAddrByLayerX view during initialization before fault injection; keep all payment, refusal, readiness and inventory checks."
+
+[finding.37]
+path = "tools/qualification/paxeer-x/paid-web-contract.py"
+line = 1197
+component = "account-naming"
+symbol = "LAYERX-PAYER-DID"
+status = "repaired"
+repair = "Send LAYERX-PAYER-ADDRESS after resolving the payer through the real addr 0x1004 getEvmAddrByLayerX view during initialization before fault injection; keep all payment, refusal, readiness and inventory checks."
+
+[finding.38]
+path = "tools/qualification/paxeer-x/paid-web-contract.py"
+line = 2848
+component = "account-naming"
+symbol = "LAYERX-PAYER-DID"
+status = "repaired"
+repair = "Send LAYERX-PAYER-ADDRESS after resolving the payer through the real addr 0x1004 getEvmAddrByLayerX view during initialization before fault injection; keep all payment, refusal, readiness and inventory checks."
+
+[finding.39]
+path = "tools/qualification/paxeer-x/paid-web-contract.py"
+line = 3084
+component = "account-naming"
+symbol = "LAYERX-PAYER-DID"
+status = "repaired"
+repair = "Send LAYERX-PAYER-ADDRESS after resolving the payer through the real addr 0x1004 getEvmAddrByLayerX view during initialization before fault injection; keep all payment, refusal, readiness and inventory checks."
+
+[finding.40]
+path = "tools/qualification/paxeer-x/paid-web-contract.py"
+line = 3688
+component = "account-naming"
+symbol = "LAYERX-PAYER-DID"
+status = "repaired"
+repair = "Send LAYERX-PAYER-ADDRESS after resolving the payer through the real addr 0x1004 getEvmAddrByLayerX view during initialization before fault injection; keep all payment, refusal, readiness and inventory checks."
+
+[finding.41]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 40
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Retain the still-shipping native and Rust governed fee test paths, executables and selectors through the tools/qualification/paxeer-x fee_governance allowance."
+
+[finding.42]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 41
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Retain the still-shipping native and Rust governed fee test paths, executables and selectors through the tools/qualification/paxeer-x fee_governance allowance."
+
+[finding.43]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 128
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Retain the still-shipping native and Rust governed fee test paths, executables and selectors through the tools/qualification/paxeer-x fee_governance allowance."
+
+[finding.44]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 135
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Retain the still-shipping native and Rust governed fee test paths, executables and selectors through the tools/qualification/paxeer-x fee_governance allowance."
+
+[finding.45]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 145
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Retain the still-shipping native and Rust governed fee test paths, executables and selectors through the tools/qualification/paxeer-x fee_governance allowance."
+
+[finding.46]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 165
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Retain the still-shipping native and Rust governed fee test paths, executables and selectors through the tools/qualification/paxeer-x fee_governance allowance."
+
+[finding.47]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 221
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Retain the still-shipping native and Rust governed fee test paths, executables and selectors through the tools/qualification/paxeer-x fee_governance allowance."
+
+[finding.48]
+path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+line = 34
+component = "batch-seal"
+symbol = "batch_wal"
+status = "allowed_reference"
+repair = "Retain the exact historical record line through the tools/qualification/paxeer-x lines allowance; the repair-*.kvx filename is outside the repair_*.kvx documentation pattern and is not a production caller."
+
+[finding.49]
+path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+line = 34
+component = "feed-store"
+symbol = "feed_store"
+status = "allowed_reference"
+repair = "Retain the exact historical record line through the tools/qualification/paxeer-x lines allowance; the repair-*.kvx filename is outside the repair_*.kvx documentation pattern and is not a production caller."
+
+[finding.50]
+path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+line = 11
+component = "layerxctl-port"
+symbol = "LNI"
+status = "allowed_reference"
+repair = "Retain the exact historical record line through the tools/qualification/paxeer-x lines allowance; the repair-*.kvx filename is outside the repair_*.kvx documentation pattern and is not a production caller."
+
+[finding.51]
+path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+line = 11
+component = "lni"
+symbol = "LNI"
+status = "allowed_reference"
+repair = "Retain the exact historical record line through the tools/qualification/paxeer-x lines allowance; the repair-*.kvx filename is outside the repair_*.kvx documentation pattern and is not a production caller."
+
+[finding.52]
+path = "tools/qualification/paxeer-x/router-complete-readiness.py"
+line = 172
+component = "wallet-caps"
+symbol = "lx_getWalletCaps"
+status = "allowed_reference"
+repair = "Retain the exact retired method name through the tools/qualification/paxeer-x lx_getWalletCaps allowance; the runner asserts -32601 without a result."
+
+[finding.53]
+path = "tools/qualification/paxeer-x/wallet-custody-recovery.py"
+line = 29
+component = "wallet-two-domain"
+symbol = "signCustody"
+status = "allowed_reference"
+repair = "Retain the exact provider refusal contract through the tools/qualification/paxeer-x signCustody allowance; refusal must precede signing and authentication."
+
+[scope_conflict.catalogue]
+observed = "Attempt 2 explicitly admits tools/paxeer-x/retired_callers.json and the live identifiers now have directory-scoped allowances."
+severity = "note"
+
+[scope_conflict.touches]
+observed = "The current inventory has no finding in router-authority-schema.py or unified-account-identity.py, although touches lists both; unchanged correct sources are not edited merely to satisfy a graph change count."
+severity = "blocker"
+
+[external_interface.runtime]
+observed = "The merged RuntimeFixture no longer supplies the independent replica, node.env or legacy manifest fields required by the surrounding hosted fixture assembly; this task replaces receipt transport inputs but does not invent those missing services or their authority."
+severity = "blocker"
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec qualification logs are outside explicit scope; task-specific findings are retained in this scoped record."
+
+[qualification.first_build]
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pytest -q --collect-only tools/qualification > /dev/null"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.first_verify]
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Pytest reported 20 failed, 4463 passed, 13 skipped and 52 subtests passed; the failures concern unchanged archived OpenRPC pins, wallet and workspace gate wiring, lock and source hashes, history schemas, clock scanner inventories, retained receipt fixtures and source relocation contracts, so the final retired-reference scan did not execute."
+assumption = "Those pre-existing contracts must be repaired by their owners without weakening the existing checks."
+severity = "blocker"
+
+[repair.payer_preparation]
+observed = "Resolving the payer address during readiness fault injection would make the client require a failed backend before sending its paid refusal probe."
+repair = "Resolve each payer through the real addr view during both harness initializers and reuse the verified addresses during payment and outage probes; no fallback or synthetic binding is introduced."
+
+[inherited_failure.1]
+test = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_getSequenceBatch]"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.2]
+test = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_getHistory]"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.3]
+test = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_getUnifiedHistory]"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.4]
+test = "tools/qualification/audit_repairs/test_repair_22_31_605.py::test_wallet_runs_unfiltered_vitest_in_both_directories"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.5]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1016.py::test_each_workspace_gate_requires_successful_discovery[test-$(GO) test ./...]"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.6]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1016.py::test_each_workspace_gate_requires_successful_discovery[race-$(GO) test -race ./...]"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.7]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1016.py::test_each_workspace_gate_requires_successful_discovery[cover-$(GO) test -covermode=atomic -coverprofile=$(CURDIR)/.cover/$$name.out ./...]"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.8]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1017.py::test_makefile_boundary_and_wiring_request_are_explicit"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.9]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1331.py::test_finding_36_every_affected_lock_matches_manifest_without_resolution_churn"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.10]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1417.py::test_035_inherited_repair_preserves_entire_openrpc_document"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.11]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1443.py::test_real_recorded_unified_answer_validates_every_closed_history_object"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.12]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1443.py::test_closed_history_contracts_reject_extra_missing_and_malformed_fields"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.13]
+test = "tools/qualification/audit_repairs/test_repair_22_33_1565.py::test_clock_scanner_violations_have_exact_out_of_scope_owner_requests"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.14]
+test = "tools/qualification/audit_repairs/test_repair_22_33_19.py::test_existing_receipt_restart_and_rejection_suites_are_preserved"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.15]
+test = "tools/qualification/audit_repairs/test_repair_22_33_29.py::test_evidence_route_producer_and_portable_consumer_remain_connected"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.16]
+test = "tools/qualification/audit_repairs/test_repair_22_33_626.py::test_039_recorded_daemon_track_transcript_and_strict_decoder_agree"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.17]
+test = "tools/qualification/audit_repairs/test_repair_22_33_64.py::test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.18]
+test = "tools/qualification/audit_repairs/test_repair_22_33_64.py::test_all_unrelated_openrpc_contracts_match_the_recorded_base"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.19]
+test = "tools/qualification/audit_repairs/test_repair_22_33_738.py::test_sdk_producer_transport_and_result_contracts"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[inherited_failure.20]
+test = "tools/qualification/audit_repairs/test_repair_22_36_1.py::test_code_specs_dot_directories_and_assets_are_preserved"
+revision = "ec3efaf682434611f8874280d66f45b765459e81"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[continuation.inventory]
+revision = "8742bd00eb3acc490f28e5d26038636590216955"
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/qualification"
+exit = 1
+log = "/tmp/repair-22-39-273-scan.txt"
+findings = 34
+
+[continuation.finding.1]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 64
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.2]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 603
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.3]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 1396
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.4]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 3444
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.5]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 3992
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.6]
+path = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+line = 4807
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.7]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 144
+component = "layerxctl-port"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.8]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 144
+component = "lni"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.9]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 145
+component = "layerxctl-port"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.10]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 145
+component = "lni"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.11]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 148
+component = "layerxctl-port"
+symbol = "lni"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.12]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 148
+component = "lni"
+symbol = "lni"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.13]
+path = "tools/qualification/paxeer-x/fixtures/event_source_fixture.py"
+line = 38
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.14]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 41
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.15]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 129
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.16]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 132
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.17]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 424
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.18]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 528
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.19]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 529
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.20]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 530
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.21]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 579
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "No equivalent producer exists in scope; preserve the existing assertions rather than inventing a transport or permitting a retired positive caller."
+
+[continuation.finding.22]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 40
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.23]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 41
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.24]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 128
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.25]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 135
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.26]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 145
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.27]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 165
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.28]
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 221
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.29]
+path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+line = 34
+component = "batch-seal"
+symbol = "batch_wal"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.30]
+path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+line = 34
+component = "feed-store"
+symbol = "feed_store"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.31]
+path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+line = 11
+component = "layerxctl-port"
+symbol = "LNI"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.32]
+path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+line = 11
+component = "lni"
+symbol = "LNI"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.33]
+path = "tools/qualification/paxeer-x/router-complete-readiness.py"
+line = 172
+component = "wallet-caps"
+symbol = "lx_getWalletCaps"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[continuation.finding.34]
+path = "tools/qualification/paxeer-x/wallet-custody-recovery.py"
+line = 29
+component = "wallet-two-domain"
+symbol = "signCustody"
+status = "allowed_reference"
+repair = "Directory-scoped allowed_references entry preserves the live identifier, exact historical line or explicit refusal case."
+
+[qualification.continuation_build]
+revision = "0ee71718f2690ac9b7e7793d6a6527e18c0b8fe4"
+command = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pytest -q --collect-only tools/qualification > /dev/null"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.continuation_verify]
+revision = "0ee71718f2690ac9b7e7793d6a6527e18c0b8fe4"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[continuation.unrelated_failure]
+task = "22.39.273"
+file = "tools/qualification/audit_repairs/test_repair_22_33_1053.py"
+symbol = "test_finding_27_complete_provenance_without_deployment_defaults"
+observed = "At revision 0ee71718f2690ac9b7e7793d6a6527e18c0b8fe4, command cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo exited 1 (log /out/logs/verify-1.log): the audit expects flat exports strings but sdk/launchpad/packages/sidiora-launchpad-v3/package.json uses conditional types/default exports; pytest reported 1 failed, 4221 passed, 13 skipped and 52 subtests passed, and the final retired-caller scan was not reached."
+assumption = "Both the audit test and package manifest are unchanged from base 8742bd00eb3acc490f28e5d26038636590216955, so their contract drift requires a separately scoped owner repair and is not rerun here."
+severity = "blocker"
+
+[continuation.gotcha.gate_index]
+observed = "The first hf-done invocation advanced HEAD to the candidate, but its git reset -q returned 128 before verification was recorded; retrying the unchanged interrupted gate produced the continuation verification receipt above."
+
+[continuation.stop]
+status = "implemented_not_qualified"
+reason = "The declared verification stopped on the unchanged out-of-scope audit failure; the no-weakening and exact-scope rules prohibit repairing its assertion or package here, and the recorded missing discovery and movement producer contracts remain unresolved."
+
+[attempt4.inventory]
+revision = "251b3781f296fc142bf310b0e6011ddb2600daf3"
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/qualification"
+exit = 1
+log = "/out/logs/repair-22-39-273-inventory.txt"
+findings = 18
+
+[attempt4.finding.1]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 144
+component = "layerxctl-port"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "The existing finding.11 through finding.16 still applies: tests/daemon/paxeer_x_runtime_fixture.py and its discovery producer are absent; the maintained merged runtime cannot implement the retained binary pagination, cursor, budget and resource-limit assertions."
+
+[attempt4.finding.2]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 144
+component = "lni"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "The existing finding.11 through finding.16 still applies: tests/daemon/paxeer_x_runtime_fixture.py and its discovery producer are absent; the maintained merged runtime cannot implement the retained binary pagination, cursor, budget and resource-limit assertions."
+
+[attempt4.finding.3]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 145
+component = "layerxctl-port"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "The existing finding.11 through finding.16 still applies: tests/daemon/paxeer_x_runtime_fixture.py and its discovery producer are absent; the maintained merged runtime cannot implement the retained binary pagination, cursor, budget and resource-limit assertions."
+
+[attempt4.finding.4]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 145
+component = "lni"
+symbol = "LNI"
+status = "missing_external_interface"
+repair = "The existing finding.11 through finding.16 still applies: tests/daemon/paxeer_x_runtime_fixture.py and its discovery producer are absent; the maintained merged runtime cannot implement the retained binary pagination, cursor, budget and resource-limit assertions."
+
+[attempt4.finding.5]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 148
+component = "layerxctl-port"
+symbol = "lni"
+status = "missing_external_interface"
+repair = "The existing finding.15 and finding.16 still applies; changing the socket name or allowing the retired transport would hide the missing discovery producer."
+
+[attempt4.finding.6]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 148
+component = "lni"
+symbol = "lni"
+status = "missing_external_interface"
+repair = "The existing finding.15 and finding.16 still applies; changing the socket name or allowing the retired transport would hide the missing discovery producer."
+
+[attempt4.finding.7]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 41
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The existing finding.28 through finding.32 still applies: the provider crate was deleted; the retained KMS identity, readiness and recovery assertions cannot be satisfied by a replacement name."
+
+[attempt4.finding.8]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 129
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The existing finding.28 through finding.32 still applies: the provider crate was deleted; the retained KMS identity, readiness and recovery assertions cannot be satisfied by a replacement name."
+
+[attempt4.finding.9]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 132
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The existing finding.28 through finding.32 still applies: the provider crate was deleted; the retained KMS identity, readiness and recovery assertions cannot be satisfied by a replacement name."
+
+[attempt4.finding.10]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 424
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The existing finding.28 through finding.32 still applies: the provider crate was deleted; the retained KMS identity, readiness and recovery assertions cannot be satisfied by a replacement name."
+
+[attempt4.finding.11]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 528
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "The existing finding.33 through finding.35 still applies: services/platform/hosted/human/material.py no longer exports the custody constant and needs its separately owned bank movement provisioning interface."
+
+[attempt4.finding.12]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 529
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "The existing finding.33 through finding.35 still applies: services/platform/hosted/human/material.py no longer exports the custody constant and needs its separately owned bank movement provisioning interface."
+
+[attempt4.finding.13]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 530
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "missing_external_interface"
+repair = "The existing finding.33 through finding.35 still applies: services/platform/hosted/human/material.py no longer exports the custody constant and needs its separately owned bank movement provisioning interface."
+
+[attempt4.finding.14]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 579
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "missing_external_interface"
+repair = "The existing finding.28 through finding.32 still applies: the provider crate was deleted; the retained KMS identity, readiness and recovery assertions cannot be satisfied by a replacement name."
+
+[attempt4.finding.15]
+path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+line = 34
+component = "batch-seal"
+symbol = "batch_wal"
+status = "allowed_reference"
+repair = "Move the exact historical line allowance from a directory path to this file path, as required by the scanner allowed() contract; retain the record byte for byte."
+
+[attempt4.finding.16]
+path = "tools/qualification/paxeer-x/repair-22.31.330.kvx"
+line = 34
+component = "feed-store"
+symbol = "feed_store"
+status = "allowed_reference"
+repair = "Move the exact historical line allowance from a directory path to this file path, as required by the scanner allowed() contract; retain the record byte for byte."
+
+[attempt4.finding.17]
+path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+line = 11
+component = "layerxctl-port"
+symbol = "LNI"
+status = "allowed_reference"
+repair = "Move the exact historical line allowance from a directory path to this file path, as required by the scanner allowed() contract; retain the record byte for byte."
+
+[attempt4.finding.18]
+path = "tools/qualification/paxeer-x/repair-22.33.765.kvx"
+line = 11
+component = "lni"
+symbol = "LNI"
+status = "allowed_reference"
+repair = "Move the exact historical line allowance from a directory path to this file path, as required by the scanner allowed() contract; retain the record byte for byte."
+
+[attempt4.integration]
+revision = "251b3781f296fc142bf310b0e6011ddb2600daf3"
+prerequisites = ["1861424b89f3e4be2079ae881867c09b1faf8021", "fc945b52830c418a8279633379e7bec6f0181581"]
+repair = "Keep every current catalogue allowance and integrate the seed entries beside them; preserve all attempt-3 source repairs and add chain_id 125 to the observation builder consumed by journey_contract.observe_rebalance."
+qualification = "Current candidate revisions, exact gate commands, exits and private logs are recorded by hf-build and hf-done in /out/run/gates.jsonl; historical qualification entries above describe earlier attempts only."
+
+[attempt4.gotcha.allowance_path]
+observed = "The scanner applies a lines allowance only when path equals entry.path; the inherited directory-scoped historical line allowances did not match either repair record."
+repair = "Place each historical line under its exact repair-record path without changing the archived record or granting a symbol-wide exemption."
+
+[attempt4.scope]
+observed = "The discovery runtime, movement provider and hosted bank-material producers named by the existing external-interface findings remain outside the explicit task scope; no retired caller is exempted on their behalf."
+assumption = "The full declared verification must still run; unsupported external interfaces are recorded rather than replaced with a fake or a weakened assertion."
+severity = "blocker"
+
+[attempt4.qualification.first_build]
+revision = "8ed2fc0bd338529cbb3e9b3210660d11f5ea80d9"
+command = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pytest -q --collect-only tools/qualification > /dev/null"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt4.qualification.first_verify]
+revision = "8ed2fc0bd338529cbb3e9b3210660d11f5ea80d9"
+command = "cg spec done 22.39.273 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[attempt4.repair.observation_shape]
+file = "tools/qualification/audit_repairs/test_repair_22_33_1489.py"
+symbol = "observation"
+observed = "The exact producer-key assertion failed because the observation builder retained settlement_domain after adding chain_id; the real rebalance_presentation producer emits chain_id and no settlement_domain."
+repair = "Replace the retired fixture field with chain_id 125 and retain the exact key-set equality and all authenticated-commit assertions unchanged."
+tests = "The first verification reported 1 failed, 4221 passed, 13 skipped and 52 subtests passed; the final scanner did not run because pytest failed."
+
+[attempt4.gotcha.observation_shape]
+observed = "Adding a replacement discriminator without removing the retired discriminator leaves the fixture out of sync with the producer's exact response shape."
+repair = "Follow the real producer's field set rather than permitting extra fields in the test assertion."
+
+[attempt5.inventory]
+revision = "85c4dfcb4811fc625ae248afaff6b0357ead4ea6"
+command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/qualification"
+exit = 1
+log = "/out/logs/codex-1.jsonl"
+findings = 14
+
+[attempt5.finding.1]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 144
+component = "layerxctl-port"
+symbol = "LNI"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the deadline rewrite and all discovery fixture code fed only by the absent tests/daemon/paxeer_x_runtime_fixture.py transport; remove its worker and runtime case inventory while retaining manifest and chain-evidence admission."
+
+[attempt5.finding.2]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 144
+component = "lni"
+symbol = "LNI"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the deadline rewrite and all discovery fixture code fed only by the absent tests/daemon/paxeer_x_runtime_fixture.py transport; remove its worker and runtime case inventory while retaining manifest and chain-evidence admission."
+
+[attempt5.finding.3]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 145
+component = "layerxctl-port"
+symbol = "LNI"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the deadline rewrite and all discovery fixture code fed only by the absent tests/daemon/paxeer_x_runtime_fixture.py transport; remove its worker and runtime case inventory while retaining manifest and chain-evidence admission."
+
+[attempt5.finding.4]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 145
+component = "lni"
+symbol = "LNI"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the deadline rewrite and all discovery fixture code fed only by the absent tests/daemon/paxeer_x_runtime_fixture.py transport; remove its worker and runtime case inventory while retaining manifest and chain-evidence admission."
+
+[attempt5.finding.5]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 148
+component = "layerxctl-port"
+symbol = "lni"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the deadline rewrite and all discovery fixture code fed only by the absent tests/daemon/paxeer_x_runtime_fixture.py transport; remove its worker and runtime case inventory while retaining manifest and chain-evidence admission."
+
+[attempt5.finding.6]
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+line = 148
+component = "lni"
+symbol = "lni"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the deadline rewrite and all discovery fixture code fed only by the absent tests/daemon/paxeer_x_runtime_fixture.py transport; remove its worker and runtime case inventory while retaining manifest and chain-evidence admission."
+
+[attempt5.finding.7]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 41
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the assembly: services/human/crates/layerx-human-movement-provider is absent, and the KMS branch also requires human_kms_prepare and human-kms service definitions absent from docker/kernel/init.sh; remove dependent loaders and provenance cases rather than claim this gate can run independently."
+
+[attempt5.finding.8]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 129
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the assembly: services/human/crates/layerx-human-movement-provider is absent, and the KMS branch also requires human_kms_prepare and human-kms service definitions absent from docker/kernel/init.sh; remove dependent loaders and provenance cases rather than claim this gate can run independently."
+
+[attempt5.finding.9]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 132
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the assembly: services/human/crates/layerx-human-movement-provider is absent, and the KMS branch also requires human_kms_prepare and human-kms service definitions absent from docker/kernel/init.sh; remove dependent loaders and provenance cases rather than claim this gate can run independently."
+
+[attempt5.finding.10]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 424
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the assembly: services/human/crates/layerx-human-movement-provider is absent, and the KMS branch also requires human_kms_prepare and human-kms service definitions absent from docker/kernel/init.sh; remove dependent loaders and provenance cases rather than claim this gate can run independently."
+
+[attempt5.finding.11]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 528
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the assembly: services/human/crates/layerx-human-movement-provider is absent, and the KMS branch also requires human_kms_prepare and human-kms service definitions absent from docker/kernel/init.sh; remove dependent loaders and provenance cases rather than claim this gate can run independently."
+
+[attempt5.finding.12]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 529
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the assembly: services/human/crates/layerx-human-movement-provider is absent, and the KMS branch also requires human_kms_prepare and human-kms service definitions absent from docker/kernel/init.sh; remove dependent loaders and provenance cases rather than claim this gate can run independently."
+
+[attempt5.finding.13]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 530
+component = "custody-deposit"
+symbol = "CUSTODY_PRECOMPILE"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the assembly: services/human/crates/layerx-human-movement-provider is absent, and the KMS branch also requires human_kms_prepare and human-kms service definitions absent from docker/kernel/init.sh; remove dependent loaders and provenance cases rather than claim this gate can run independently."
+
+[attempt5.finding.14]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 579
+component = "human-two-domain"
+symbol = "layerx-human-movement-provider"
+status = "removed_dead_gate"
+repair = "Decision 3194 removes the assembly: services/human/crates/layerx-human-movement-provider is absent, and the KMS branch also requires human_kms_prepare and human-kms service definitions absent from docker/kernel/init.sh; remove dependent loaders and provenance cases rather than claim this gate can run independently."
+
+[attempt5.removed_gate.caps_runtime]
+component = "layerxctl-port, lni"
+path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+absent_path = "tests/daemon/paxeer_x_runtime_fixture.py"
+repair = "Entire Wire transport, mutation/traversal, cursor, expiry, resource-exhaustion and restart fixture; caps-discovery.py worker/main and runtime marker inventories; only stale inventory assertions removed from test_f015_chain_commitment, whose successful verification, reopen and all nine mutation refusals remain."
+
+[attempt5.removed_gate.movement_assembly]
+component = "human-two-domain, custody-deposit"
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+absent_path = "services/human/crates/layerx-human-movement-provider"
+repair = "Provider build/configuration/start/readiness and every dependent assembly case; the KMS branch cannot run because its kernel launch/projection functions are absent. Independent KMS coverage remains in movement-executor-readiness.py and test_f023_retained_executor."
+
+[attempt5.removed_gate.movement_loader]
+component = "human-two-domain"
+path = "tools/bringup/tests/paxeer-x-runtime-contract.py::movement_kms"
+absent_path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+repair = "Remove the assembly subclass and --case movement-kms dispatch; other bringup cases retain their checks."
+
+[attempt5.removed_gate.kms_provenance]
+component = "human-two-domain"
+path = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+absent_path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+repair = "Remove source_tree, test_kms_provenance_paths_exist_in_repository, test_kms_provenance_binds_real_moved_tree_and_artifact_revision and test_kms_every_missing_provenance_path_refuses_before_producers, their loader and unused archive imports; all independent client and receipt cases remain."
+
+[attempt5.removed_gate.fixture_help]
+component = "layerxctl-port, lni"
+path = "tools/qualification/test_retired_callers_6.py"
+absent_path = "tools/qualification/paxeer-x/fixtures/caps_fixture.py"
+repair = "Remove only the deleted producer from the executable/help inventory; preserve all scanner components and interop producer checks and assert both retired runtime gate files remain absent."
+
+[attempt5.removed_cases]
+assembly = ["ca-catalog-exact-human-kms-rows", "ca-issuance-identity-by-identity-trust", "kms-material-identity-and-trust-root-refusals", "inventory-before-rollout-from-actual-state", "movement-endpoint-server-name-and-waits-bound-to-kms", "movement-waits-without-kms-material", "kernel-kms-material-projection-and-movement-binding", "movement-unready-without-kms-service", "kernel-kms-entrypoint-runtime-clock-uid-4026-startup", "movement-ready-through-authenticated-kms-executor", "service-identity-authorized-and-executor-restricted", "movement-unready-on-kms-loss", "kms-restart-recovers-retained-keys-and-movement-readiness", "retained-kms-state-without-material-refused", "movement-restart-recovers-retained-state", "movement-unready-with-non-executor-identity"]
+bringup = ["inventory-before-rollout-from-actual-state", "kms-material-identities-are-the-ca-catalog-rows", "xweb-attestor-and-wallet-identities-never-kms-authority", "kms-material-refuses-wrong-role-wrong-ca-and-wrong-server", "kms-and-movement-start-only-after-identities-and-validated-material", "kernel-kms-prepare-refuses-unvalidated-material-and-movement-waits", "kernel-kms-material-projection-and-movement-binding", "kernel-kms-entrypoint-runtime-clock-uid-4026-startup", "movement-readiness-follows-the-authenticated-kms", "executor-refused-authorization-service-signing-export-and-foreign-provider", "executor-signs-only-service-authorized-actions-recovered-on-chain", "kms-process-refuses-wallet-xweb-owner-and-foreign-ca-clients", "movement-refuses-wrong-ca-role-server-name-and-signer-policy", "movement-unready-on-kms-loss", "restart-resumes-authorized-signing-with-retained-keys-and-readiness", "retained-kms-state-without-material-refused", "movement-restart-recovers-retained-state", "no-private-key-material-exposed-or-cross-projected"]
+
+[attempt5.qualification]
+status = "pending_bounded_gates"
+evidence = "/out/run/gates.jsonl"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+revision = "The exact final candidate revision and command/exit/log receipts are written by hf-build and hf-done to the private gate ledger; no gate result is claimed before it runs."
+
+[attempt5.gotcha.kernel_kms_launch]
+observed = "The retained KMS binary is live, but this assembly extracts human_kms_prepare, private_runtime_directories and the human-kms service block from docker/kernel/init.sh, which now only launches kernel_runtime.py and contains none of them."
+repair = "Apply decision 3194 by removing the assembly and dependent cases; retain the independently launched Human KMS readiness suite unchanged."

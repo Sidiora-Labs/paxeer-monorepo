@@ -103,7 +103,8 @@ def human_plane(repo: Path) -> Plane:
     }
     plane.models["IntentLeg"] = {
         "required": string_list(plane.models["IntentLeg"]["required"])
-            + ["payment:IntentPayment"] + PROGRAM_CALL_FIELDS
+            + ["to:string", "calldata:string", "chain_id:u64", "value:Amount", "nonce:u64",
+               "gas_limit:u64", "max_fee_per_gas:Amount", "max_priority_fee_per_gas:Amount"]
     }
     plane.models["IntentSubmission"] = {
         **plane.models["IntentSubmission"],
@@ -290,6 +291,10 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
     parameters = []
     for wire, declared, optional in fields:
         annotation = f'@JsonProperty("{wire}") ' if field_name(wire) != wire else ""
+        if optional and plane.name == "Human" and name in {
+            "IntentEndpoint", "EvidenceMaterial", "EvidenceGetResponse"
+        }:
+            annotation += "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) "
         if plane.name == "Agent" and name in {"NativePrepareResultV1", "NativeActivityV1"}:
             annotation = f'@JsonProperty(value = "{wire}", required = true) '
         if plane.scalars.get(declared or "", {}).get("wire") == "decimal_string" and plane.java_type(declared, optional) == "BigInteger":

@@ -18,7 +18,6 @@ export const DEFAULT_KERNEL_AVAILABILITY_TTL_MS = 5_000;
 const KERNEL_BACKENDS: readonly KernelBackendName[] = [
   'core_agent_boundary',
   'public_core',
-  'independent_receipt_authority',
   'identity',
   'program_registry',
 ];
