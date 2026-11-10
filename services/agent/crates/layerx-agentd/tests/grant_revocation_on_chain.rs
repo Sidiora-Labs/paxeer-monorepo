@@ -32,7 +32,7 @@ fn open_session(
     };
     let identity = register(store, tenant.clone(), did.clone(), &mut resolver)
         .unwrap_or_else(|error| panic!("identity: {error:?}"));
-    worker.join().expect("verified node authority transport");
+    assert_ok(worker.join(), "verified node authority transport");
     let request = OpenRequest {
         session_id: SessionId([session_byte; 32]),
         token_id: [session_byte.wrapping_add(1); 32],
@@ -69,40 +69,7 @@ fn on_chain_grant_revocation_invalidates_capability_grant_sessions() {
         let did = Did::new(b"did:layerx:model").unwrap_or_else(|error| panic!("DID: {error:?}"));
         let other_did =
             Did::new(b"did:layerx:other").unwrap_or_else(|error| panic!("other DID: {error:?}"));
-        let tokens = [
-            open_session(
-                &mut store,
-                &mut sessions,
-                &tenant,
-                &did,
-                1,
-                ProtocolAuthority::CapabilityGrant([3; 32]),
-            ),
-            open_session(
-                &mut store,
-                &mut sessions,
-                &tenant,
-                &did,
-                2,
-                ProtocolAuthority::SessionKey([3; 32]),
-            ),
-            open_session(
-                &mut store,
-                &mut sessions,
-                &tenant,
-                &did,
-                3,
-                ProtocolAuthority::CapabilityGrant([4; 32]),
-            ),
-            open_session(
-                &mut store,
-                &mut sessions,
-                &tenant,
-                &other_did,
-                4,
-                ProtocolAuthority::CapabilityGrant([3; 32]),
-            ),
-        ];
+        let tokens = revocation_tokens(&mut store, &mut sessions, &tenant, &did, &other_did);
         for token in &tokens {
             assert_eq!(sessions.generation(&tenant, token.session_id()), Some(1));
             assert_eq!(
@@ -164,27 +131,7 @@ fn on_chain_grant_revocation_invalidates_capability_grant_sessions() {
         }
         drop(sessions);
         drop(store);
-        let store = Store::open(&path).expect("reopen revocation store");
-        let mut sessions = SessionRegistry::default();
-        sessions
-            .restore_tenant(&store, &tenant)
-            .expect("restore session registry");
-        for token in &tokens[..2] {
-            assert_eq!(sessions.generation(&tenant, token.session_id()), Some(2));
-            assert_eq!(
-                token.authorize(&sessions, &tenant, token.agent(), "prepare", 8),
-                Err(SessionError::Revoked)
-            );
-        }
-        for token in &tokens[2..] {
-            assert_eq!(sessions.generation(&tenant, token.session_id()), Some(1));
-            assert_eq!(
-                token.authorize(&sessions, &tenant, token.agent(), "prepare", 8),
-                Ok(token.session_id())
-            );
-        }
-        drop(sessions);
-        drop(store);
+        assert_revoked_sessions_after_restart(&path, &tenant, &tokens);
         fs::remove_dir_all(path).unwrap_or_else(|error| panic!("remove store: {error}"));
     }
 }
@@ -196,64 +143,23 @@ fn chain_revocation(store: &mut Store, did: &Did, grant: [u8; 32]) -> Revocation
         human_runtime::lookup_human_receipt_by_outbox_hash,
         node_rpc::{NodeRpc, NodeRpcConfig},
         outbox::Outbox,
-        prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget},
+        prepare::evm::PrecompileTarget,
     };
     use layerx_client::{
         rpc::receipt::Lookup,
-        sequencer::{SequencerEndpoint, SequencerLog, TransactionReceipt},
+        sequencer::{SequencerEndpoint, TransactionReceipt},
     };
-    use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
+    use layerx_crypto::evm_transaction::transaction_hash;
     use serde_json::{json, Value};
-    let mut record = grant.to_vec();
-    record.push(1);
-    record.extend_from_slice(&43u64.to_be_bytes());
-    let wrapped = PrecompileCall {
-        target: PrecompileTarget::Auth,
-        selector: [0; 4],
-        arguments: vec![AbiArgument::Bytes(record)],
-    }
-    .encode()
-    .expect("production dynamic ABI codec");
-    let emitted = SequencerLog {
-        address: PrecompileTarget::Auth.address(),
-        topics: vec![transaction_hash(b"GrantRevoked(bytes32,bytes)"), grant],
-        data: wrapped[4..].to_vec(),
-        log_index: 0,
-    };
-    let word = |value: u64| {
-        let mut word = [0; 32];
-        word[24..].copy_from_slice(&value.to_be_bytes());
-        word
-    };
-    let call = PrecompileCall {
-        target: PrecompileTarget::Auth,
-        selector: transaction_hash(b"revokeGrant(bytes32,uint8,uint64)")[..4]
-            .try_into()
-            .expect("selector"),
-        arguments: vec![
-            AbiArgument::Word(grant),
-            AbiArgument::Word(word(1)),
-            AbiArgument::Word(word(43)),
-        ],
-    };
-    let raw = Eip1559Call {
-        chain_id: 125,
-        nonce: 7,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 10,
-        gas_limit: 100_000,
-        to: PrecompileTarget::Auth.address(),
-        data: call.encode().expect("revocation call"),
-    }
-    .sign(&[0xa5; 32])
-    .expect("sign revoke call");
+    let (raw, emitted) = signed_revocation(grant);
     let (view, key) = repair_support::signed_node_receipt(&raw, true, &emitted);
     let hash = transaction_hash(&raw);
     let mut outbox = Outbox::default();
     assert_eq!(
-        outbox
-            .enqueue(store, support::tenant(), raw)
-            .expect("retain revocation bytes"),
+        assert_ok(
+            outbox.enqueue(store, support::tenant(), raw),
+            "retain revocation bytes"
+        ),
         hash
     );
     let (url, server) = repair_support::rpc_peer(vec![
@@ -266,15 +172,19 @@ fn chain_revocation(store: &mut Store, did: &Did, grant: [u8; 32]) -> Revocation
         ("pax_sequencerReceipt", view),
         ("eth_getTransactionReceipt", Value::Null),
     ]);
-    let node = NodeRpc::connect(&NodeRpcConfig {
-        url: url.clone(),
-        chain_id: 125,
-        deadline: std::time::Duration::from_secs(3),
-    })
-    .expect("verified node adapter");
-    let endpoint = SequencerEndpoint::new(&url, &[]).expect("node endpoint");
-    let (lookup, keys) = lookup_human_receipt_by_outbox_hash(&node, &endpoint, &outbox, hash, hash)
-        .expect("signed chain evidence");
+    let node = assert_ok(
+        NodeRpc::connect(&NodeRpcConfig {
+            url: url.clone(),
+            chain_id: 125,
+            deadline: std::time::Duration::from_secs(3),
+        }),
+        "verified node adapter",
+    );
+    let endpoint = assert_ok(SequencerEndpoint::new(&url, &[]), "node endpoint");
+    let (lookup, keys) = assert_ok(
+        lookup_human_receipt_by_outbox_hash(&node, &endpoint, &outbox, hash, hash),
+        "signed chain evidence",
+    );
     assert_eq!(keys, vec![key]);
     let Lookup::Verified(verified) = lookup else {
         panic!("authenticated revocation required");
@@ -294,15 +204,17 @@ fn chain_revocation(store: &mut Store, did: &Did, grant: [u8; 32]) -> Revocation
         gas_used: execution.gas_used,
         logs: execution.logs.clone(),
     };
-    let event = RevocationEvent::from_revoke_grant_receipt(did.clone(), grant, &receipt)
-        .expect("verified revocation adapter");
+    let event = assert_ok(
+        RevocationEvent::from_revoke_grant_receipt(did.clone(), grant, &receipt),
+        "verified revocation adapter",
+    );
     let mut wrong = receipt.clone();
     wrong.logs[0].data[64] ^= 1;
     assert!(RevocationEvent::from_revoke_grant_receipt(did.clone(), grant, &wrong).is_err());
     let mut failed = receipt;
     failed.status = false;
     assert!(RevocationEvent::from_revoke_grant_receipt(did.clone(), grant, &failed).is_err());
-    let requests = server.join().expect("revocation transcript");
+    let requests = assert_ok(server.join(), "revocation transcript");
     assert_eq!(requests.len(), 5);
     for request in &requests[2..] {
         assert_eq!(
@@ -311,4 +223,139 @@ fn chain_revocation(store: &mut Store, did: &Did, grant: [u8; 32]) -> Revocation
         );
     }
     event
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+fn revocation_tokens(
+    store: &mut Store,
+    sessions: &mut SessionRegistry,
+    tenant: &TenantId,
+    did: &Did,
+    other_did: &Did,
+) -> [Token; 4] {
+    [
+        open_session(
+            store,
+            sessions,
+            tenant,
+            did,
+            1,
+            ProtocolAuthority::CapabilityGrant([3; 32]),
+        ),
+        open_session(
+            store,
+            sessions,
+            tenant,
+            did,
+            2,
+            ProtocolAuthority::SessionKey([3; 32]),
+        ),
+        open_session(
+            store,
+            sessions,
+            tenant,
+            did,
+            3,
+            ProtocolAuthority::CapabilityGrant([4; 32]),
+        ),
+        open_session(
+            store,
+            sessions,
+            tenant,
+            other_did,
+            4,
+            ProtocolAuthority::CapabilityGrant([3; 32]),
+        ),
+    ]
+}
+
+fn assert_revoked_sessions_after_restart(
+    path: &std::path::Path,
+    tenant: &TenantId,
+    tokens: &[Token],
+) {
+    let store = assert_ok(Store::open(path), "reopen revocation store");
+    let mut sessions = SessionRegistry::default();
+    assert_ok(
+        sessions.restore_tenant(&store, tenant),
+        "restore session registry",
+    );
+    for token in &tokens[..2] {
+        assert_eq!(sessions.generation(tenant, token.session_id()), Some(2));
+        assert_eq!(
+            token.authorize(&sessions, tenant, token.agent(), "prepare", 8),
+            Err(SessionError::Revoked)
+        );
+    }
+    for token in &tokens[2..] {
+        assert_eq!(sessions.generation(tenant, token.session_id()), Some(1));
+        assert_eq!(
+            token.authorize(&sessions, tenant, token.agent(), "prepare", 8),
+            Ok(token.session_id())
+        );
+    }
+    drop(sessions);
+    drop(store);
+}
+
+fn signed_revocation(grant: [u8; 32]) -> (Vec<u8>, layerx_client::sequencer::SequencerLog) {
+    use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+    use layerx_client::sequencer::SequencerLog;
+    use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
+    let mut record = grant.to_vec();
+    record.push(1);
+    record.extend_from_slice(&43u64.to_be_bytes());
+    let wrapped = assert_ok(
+        PrecompileCall {
+            target: PrecompileTarget::Auth,
+            selector: [0; 4],
+            arguments: vec![AbiArgument::Bytes(record)],
+        }
+        .encode(),
+        "production dynamic ABI codec",
+    );
+    let emitted = SequencerLog {
+        address: PrecompileTarget::Auth.address(),
+        topics: vec![transaction_hash(b"GrantRevoked(bytes32,bytes)"), grant],
+        data: wrapped[4..].to_vec(),
+        log_index: 0,
+    };
+    let word = |value: u64| {
+        let mut word = [0; 32];
+        word[24..].copy_from_slice(&value.to_be_bytes());
+        word
+    };
+    let call = PrecompileCall {
+        target: PrecompileTarget::Auth,
+        selector: assert_ok(
+            transaction_hash(b"revokeGrant(bytes32,uint8,uint64)")[..4].try_into(),
+            "selector",
+        ),
+        arguments: vec![
+            AbiArgument::Word(grant),
+            AbiArgument::Word(word(1)),
+            AbiArgument::Word(word(43)),
+        ],
+    };
+    let raw = assert_ok(
+        Eip1559Call {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 10,
+            gas_limit: 100_000,
+            to: PrecompileTarget::Auth.address(),
+            data: assert_ok(call.encode(), "revocation call"),
+        }
+        .sign(&[0xa5; 32]),
+        "sign revoke call",
+    );
+    (raw, emitted)
 }

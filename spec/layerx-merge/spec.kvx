@@ -164493,7 +164493,7 @@ do_3 = "do_3 Decision 3235, gotcha 4162: the host sends the canary frames of tas
 
 [task.22.38.27]
 title = "Countersign lap receipts the peer contributed to"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.26", "22.38.18", "22.39.355"]
@@ -225048,7 +225048,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.360]
 title = "Read the committed terminal corpus in the Go case when none is supplied"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284197,7 +284197,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.361]
 title = "Follow the published receipt vectors in the .NET SDK cases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
