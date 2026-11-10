@@ -387,6 +387,54 @@ fn assert_receipted_resolution(raw: &[u8], mut endpoint: SequencerEndpoint) {
         ResolutionObservation::UnverifiedReceipt
     );
     assert_eq!(unverified.resend, ResendObservation::NotWarranted);
+    finish_assert_receipted_resolution_1_unknown_receipt_lookup(
+        FinishAssertReceiptedResolution1UnknownReceiptLookupContext {
+            raw,
+            endpoint,
+            directory,
+            store,
+            outbox,
+            hash,
+            keys,
+            receipt,
+            surface,
+            context,
+            unverified,
+        },
+    );
+}
+
+struct FinishAssertReceiptedResolution1UnknownReceiptLookupContext<'a> {
+    raw: &'a [u8],
+    endpoint: SequencerEndpoint,
+    directory: Directory,
+    store: Store,
+    outbox: Outbox,
+    hash: [u8; 32],
+    keys: Vec<ReceiptKeyEntry>,
+    receipt: layerx_client::rpc::receipt::AuthenticatedReceipt,
+    surface: Surface,
+    context: OperatorContext,
+    unverified: layerx_agentd::outbox::UnknownResolution,
+}
+
+fn finish_assert_receipted_resolution_1_unknown_receipt_lookup(
+    context: FinishAssertReceiptedResolution1UnknownReceiptLookupContext<'_>,
+) {
+    let FinishAssertReceiptedResolution1UnknownReceiptLookupContext {
+        raw,
+        mut endpoint,
+        directory,
+        mut store,
+        mut outbox,
+        hash,
+        keys,
+        receipt,
+        mut surface,
+        context,
+        unverified,
+    } = context;
+
     assert!(outbox
         .status(hash)
         .unwrap_or_else(|| panic!("unknown status missing"))

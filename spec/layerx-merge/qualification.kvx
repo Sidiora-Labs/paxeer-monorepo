@@ -40490,3 +40490,51 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 23 at 3e225f080e0d on base cb8c8ad4b426: the build exits 0 and the verification exits 1 at 3e225f080e0d after 1932 s; make workspace-build exits 2, evmone-lib of chain.mk:111 stops with cmake: not found, Error 127; free space after the command 4071649280 bytes; log /out/logs/verify-1.log."
 assumption = "The gate shell held no cmake, which the build of the native libraries of the node needs."
 severity = "high"
+
+[finding.22.39.228.5]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 5 at 7c3b4384ab51 on base 7eeb5ae0336d: the build exits 0 and the verification exits 1 at 7c3b4384ab51; the lint command stops with exit 101 before any lint, no test target named proof_native_reads in the package layerx-agentd; log /out/logs/verify-1.log."
+assumption = "The verification command named a test target by its file name where the manifest declares another name."
+severity = "high"
+
+[finding.22.38.20.3]
+task = "22.38.20"
+file = "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"
+symbol = "inference_recovery.rs"
+observed = "Attempt 3 at 6dad0ae48cc3 on base 0e95489c6625: the build exits 0 and the verification exits 101; twelve cases pass and the case the_recorded_replacement_resumes_generation_at_the_last_countersigned_lap_plus_one stops at tests/inference_deals.rs:1338 with RecordDeal at 260: ApplicationError(20); log /out/logs/verify-1.log."
+assumption = "The program refuses a further deal that names a bid of the earlier deal of the same ask."
+severity = "high"
+
+[finding.22.39.95.14]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 15 at dd3ae7fdbc28 on base 134b9c7b6d94: the build exits 0 and the verification exits 1; the web run passes 1289 cases and two cases of src/widgets/trading/chart-datafeed-recovery.test.ts fail, one after a wait at :699 for a confirmed marker and one after the pool detail read answers 503 DEPENDENCY_UNAVAILABLE; the mobile run is not reached; log /out/logs/verify-1.log."
+assumption = "The development trade read carries no watermark and nothing produces the statistics row of the pool in the joined preparation."
+severity = "high"
+
+[finding.22.38.36.4]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 4 at e94789f96a5d on base cb8c8ad4b426: both builds exit 0, at ee613c9cfa27 and 1b7ab9db09a9, and both verifications exit 1; the first stops when the isolated node exits during readiness after a flag it does not register, the second with paxd exited 1: Error: sequencer config: invalid value: sequencer.nonce-queue-max-per-sender must be positive; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The proof was never run outside the counted gates, so each counted verification found the next fault of the node start."
+severity = "high"
+
+[finding.17.5.7.24]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 24 at 350d001e3ec1 on base ba5000655d05: the build exits 0 and the verification exits 1; make workspace-build exits 2 in paxeer-build with module lookup disabled by GOPROXY=off from admin/types/admin.pb.go:9 on, and the runner answers 125 with source-identity-refusal on engine/executor/lib/libevmone.0.12.0_linux_amd64.so; the free space after the command is 3945545728 bytes; log /out/logs/verify-1.log."
+assumption = "Nothing fetches the modules of the root module before the gate, and the runner does not admit the native library that the build writes."
+severity = "high"
+
+[finding.22.39.228.6]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 6 at 71d096a4b3ed on base 079876b623d7: the build exits 0 and the verification exits 101; the lint reports one error, method with_enrolment is never used at src/inference_market/signal.rs:275, and could not compile layerx-agentd (test inference_signal); log /out/logs/verify-1.log."
+assumption = "The target takes in the signal source without the allowance of decision 3292, and the method arrived with the enrolment route."
+severity = "high"

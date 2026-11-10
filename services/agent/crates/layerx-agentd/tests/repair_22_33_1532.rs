@@ -1,15 +1,25 @@
 //! Task 22.33.1532, audit 22.30.94, acceptance 22998.1.
-//! Finding readme_startup -> proving tests:
-//! readme_startup_documents_current_prerequisites_and_fresh_health_checks;
-//! readme_startup_node_checks_chain_on_every_connection;
-//! readme_startup_authority_reads_each_peer_and_refuses_invalid_registry.
-//! These exercise the production NodeRpc and RemoteHumanAuthority consumers
+//! Finding `readme_startup` -> proving tests:
+//! `readme_startup_documents_current_prerequisites_and_fresh_health_checks`;
+//! `readme_startup_node_checks_chain_on_every_connection`;
+//! `readme_startup_authority_reads_each_peer_and_refuses_invalid_registry`.
+//! These exercise the production `NodeRpc` and `RemoteHumanAuthority` consumers
 //! over loopback HTTP and authenticated TLS with typed registry production.
 //! Baseline: no pre-change test failure is claimed. The explicit gate order
 //! prohibits verification before complete implementation and reserves it for
 //! hf-done. The initial runner ledger contained no build or verify runs.
 //! Wiring requests: none; the proposal is entirely within the allowed paths.
 //! Exact revision/command/exit/private log are retained by hf-build/hf-done.
+
+fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    result
+        .err()
+        .unwrap_or_else(|| panic!("{message}: expected an error"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
 
 use std::fmt::Debug;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -79,7 +89,7 @@ fn request(stream: &mut (impl Read + Write)) -> (String, Vec<(String, String)>, 
             break;
         }
         assert!(headers.len() < 64);
-        let (name, value) = line.trim_end().split_once(':').unwrap();
+        let (name, value) = require_some(line.trim_end().split_once(':'), "required test value");
         if name.eq_ignore_ascii_case("content-length") {
             length = must(value.trim().parse::<usize>());
         }
@@ -135,14 +145,14 @@ fn readme_startup_node_checks_chain_on_every_connection() {
     let (config, server) = node_peer();
     assert_eq!(must(NodeRpc::connect(&config)).chain_id(), 125);
     assert_eq!(
-        NodeRpc::connect(&config).unwrap_err(),
+        require_err(NodeRpc::connect(&config), "required test value"),
         NodeRpcError::ChainIdMismatch {
             expected: 125,
             observed: 126
         }
     );
     assert_eq!(
-        NodeRpc::connect(&config).unwrap_err(),
+        require_err(NodeRpc::connect(&config), "required test value"),
         NodeRpcError::Unavailable
     );
     must(server.join());

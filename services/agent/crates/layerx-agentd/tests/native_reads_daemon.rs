@@ -1,5 +1,7 @@
-#[path = "native_routes_rpc.rs"]
-mod native_routes_rpc;
+mod native_routes_rpc {
+    include!("native_routes_rpc.rs");
+    include!("support/native_routes_live.rs");
+}
 
 use layerx_agentd::read::{AvailabilityReadError, NativeReadError};
 use native_routes_rpc::{assert_receipt, endpoint, live_route, must};

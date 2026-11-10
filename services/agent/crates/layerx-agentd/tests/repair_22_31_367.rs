@@ -64,6 +64,32 @@ fn outbox_history_roundtrip_bound_preserves_recovery_and_receipt_evidence() {
         .unwrap_or_else(|| panic!("record"))
         .bytes()
         .to_vec();
+    finish_outbox_history_roundtrip_bound_preserves_recovery_and_receipt_evidence_2_repair_22_31_367(FinishOutboxHistoryRoundtripBoundPreservesRecoveryAndReceiptEvidence2Repair2231367Context { root, exact, store, outbox, id, before, encoded });
+}
+
+struct FinishOutboxHistoryRoundtripBoundPreservesRecoveryAndReceiptEvidence2Repair2231367Context {
+    root: std::path::PathBuf,
+    exact: Vec<u8>,
+    store: Store,
+    outbox: Outbox,
+    id: [u8; 32],
+    before: layerx_agentd::outbox::SubmissionStatus,
+    encoded: Vec<u8>,
+}
+
+fn finish_outbox_history_roundtrip_bound_preserves_recovery_and_receipt_evidence_2_repair_22_31_367(
+    context: FinishOutboxHistoryRoundtripBoundPreservesRecoveryAndReceiptEvidence2Repair2231367Context,
+) {
+    let FinishOutboxHistoryRoundtripBoundPreservesRecoveryAndReceiptEvidence2Repair2231367Context {
+        root,
+        exact,
+        mut store,
+        mut outbox,
+        id,
+        before,
+        encoded,
+    } = context;
+
     let disk =
         std::fs::read(root.join("store.bin")).unwrap_or_else(|error| panic!("read: {error:?}"));
     assert!(matches!(
@@ -105,7 +131,7 @@ fn outbox_history_roundtrip_bound_preserves_recovery_and_receipt_evidence() {
     );
     drop(restored);
 
-    let mut recovered = recover(&mut store, &support::tenant(), &recovery_inputs())
+    let recovered = recover(&mut store, &support::tenant(), &recovery_inputs())
         .unwrap_or_else(|error| panic!("recover: {error:?}"));
     assert_eq!(recovered.awaiting_receipt_resolution, vec![id]);
     let unknown = recovered
@@ -123,8 +149,32 @@ fn outbox_history_roundtrip_bound_preserves_recovery_and_receipt_evidence() {
     drop(store);
 
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("reopen unknown: {error:?}"));
-    let mut recovered = recover(&mut store, &support::tenant(), &recovery_inputs())
+    let recovered = recover(&mut store, &support::tenant(), &recovery_inputs())
         .unwrap_or_else(|error| panic!("recover unknown: {error:?}"));
+    finish_outbox_history_roundtrip_bound_preserves_recovery_and_receipt_evidence_1_repair_22_31_367(FinishOutboxHistoryRoundtripBoundPreservesRecoveryAndReceiptEvidence1Repair2231367Context { root, exact, id, before, store, recovered });
+}
+
+struct FinishOutboxHistoryRoundtripBoundPreservesRecoveryAndReceiptEvidence1Repair2231367Context {
+    root: std::path::PathBuf,
+    exact: Vec<u8>,
+    id: [u8; 32],
+    before: layerx_agentd::outbox::SubmissionStatus,
+    store: Store,
+    recovered: layerx_agentd::outbox::RecoveredOutbox,
+}
+
+fn finish_outbox_history_roundtrip_bound_preserves_recovery_and_receipt_evidence_1_repair_22_31_367(
+    context: FinishOutboxHistoryRoundtripBoundPreservesRecoveryAndReceiptEvidence1Repair2231367Context,
+) {
+    let FinishOutboxHistoryRoundtripBoundPreservesRecoveryAndReceiptEvidence1Repair2231367Context {
+        root,
+        exact,
+        id,
+        before,
+        mut store,
+        mut recovered,
+    } = context;
+
     assert_eq!(
         recovered
             .outbox
