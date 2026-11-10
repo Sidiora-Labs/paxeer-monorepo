@@ -1617,6 +1617,50 @@
         "fee_governance"
       ],
       "citation": "Decision 3125 permits live kernel receipt-authority validation and fee-governance runtime resolution, whose identifiers carry retired names as prefixes while supplying canonical receipt facts and recorded fee schedules to Programs execution."
+    },
+    {
+      "path": "rpc/config/config.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_listAssets as a node-root RPC method, with PxIndexerURL configuring its live single-indexer asset enumeration."
+    },
+    {
+      "path": "rpc/px_account.go",
+      "symbols": [
+        "px_getNetwork"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_getNetwork as the node-root discovery method backed by the committed EVM head and optional consensus status."
+    },
+    {
+      "path": "rpc/px_assets.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_listAssets backed by the single indexer for enumeration and pinned node state for asset metadata."
+    },
+    {
+      "path": "rpc/px_history.go",
+      "symbols": [
+        "px_getUnifiedHistory"
+      ],
+      "citation": "Decisions 3104 and 3125 retain px_getUnifiedHistory backed by the single indexer for accounts resolved from pinned node state."
+    },
+    {
+      "path": "rpc/px_params.go",
+      "symbols": [
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the px_listAssets parameter guard that rejects explicit null cursors before pointer decoding."
+    },
+    {
+      "path": "rpc/px_route_catalogue.json",
+      "symbols": [
+        "px_getNetwork",
+        "px_getUnifiedHistory",
+        "px_listAssets"
+      ],
+      "citation": "Decisions 3104 and 3125 retain these live node-root RPC method names projected from the canonical route catalogue rather than retiring their public contracts."
     }
   ]
 }

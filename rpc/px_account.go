@@ -276,6 +276,8 @@ func (a *pxAccountAPI) GetBalances(ctx context.Context, value string) (result ma
 	}
 	return map[string]interface{}{"account": account, "height": height, "balances": balances}, nil
 }
+
+// GetNetwork serves px_getNetwork using this node and its consensus client.
 func (a *pxAccountAPI) GetNetwork(ctx context.Context) (result map[string]interface{}, returnErr error) {
 	start := time.Now()
 	defer func() {
