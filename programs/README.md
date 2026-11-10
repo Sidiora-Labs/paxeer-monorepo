@@ -337,8 +337,12 @@ Each has a `MIGRATION.md` written for a developer who already knows the source c
   the real C kernel/runtime harness and replays into a temporary directory, comparing
   the output bytes with the committed fixtures. Its explicit `--write-fixtures` mode
   regenerates those native records.
-- **`fixtures/pay5/account-authorization-vectors.json` and
+- **`fixtures/pay5/account-authorization-vectors.json`,
+  `destination-authorization-vectors.json` and
   `receipt-account-bound-v4.json`** - account-bound authority and receipt fixtures.
+  The destination vectors prove version 2 evidence and roots for native identity
+  and mixed identity/account destinations, and refusal of noncanonical encodings,
+  mismatched identity or asset names, and empty destination-name lists.
   Program-account derivation, owner-authorized native registration, transfer-source
   binding and receipt verification are separate checks; a guest codec or derived id
   alone proves none of the others.
