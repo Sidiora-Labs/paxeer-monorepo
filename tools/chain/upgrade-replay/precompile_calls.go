@@ -49,6 +49,9 @@ func zeroABIValue(t reflect.Type) reflect.Value {
 	}
 }
 
+// retiredOperation checks the real historical contracts across their retirement
+// heights. Their retained references are inventoried in ../repair_22_39_275.kvx;
+// replacing these probes would lose the exact ABI refusal checks.
 func retiredOperation(a *app.App, ctx sdk.Context, entry forkPrecompile, method abi.Method) bool {
 	merged := a.UpgradeKeeper.IsUpgradeActiveAtHeight(ctx, app.MergeUpgrade, ctx.BlockHeight())
 	switch entry.Name {

@@ -675,6 +675,10 @@
     {
       "path": "services/platform/examples/marketplace/repair-22-31-349.kvx",
       "reason": "Decision 3125 classifies this historical repair record, including its lx_getSequence test-contract finding, as documentation rather than a live caller."
+    },
+    {
+      "pattern": "tools/bringup/repair-*.kvx",
+      "reason": "The bringup repair records document historical findings and transport removals rather than production callers."
     }
   ],
   "allowed_references": [
@@ -1548,6 +1552,25 @@
         "banned=\"$banned\"'|layerx-human-movement-provider|layerx-paxeer-client|ctor|inventory)$'"
       ],
       "citation": "Decision 3125 retains these exact retired package names solely to reject forbidden dependencies in resolved Cargo metadata under the human two-domain removal 11047."
+    },
+    {
+      "path": "tools/bringup",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify",
+        "relay-archive"
+      ],
+      "citation": "Decision 3125 and task 22.39.274 retain the shipping merge-disabled module, API and precompile names in the generated runtime dependency inventory and the explicit retired genesis-module and identity-owner rejection checks."
+    },
+    {
+      "path": "tools/chain/upgrade-replay",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "The upgrade replay harness retains the historical anchor, custody and verify modules and precompiles to prove activation, exact retirement refusals and committed state recovery across upgrades."
     }
   ]
 }
