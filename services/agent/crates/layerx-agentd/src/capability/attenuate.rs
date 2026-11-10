@@ -380,6 +380,9 @@ fn read_u32(bytes: &[u8], offset: &mut usize) -> Result<u32, AttenuationError> {
     Ok(u32::from_be_bytes(value))
 }
 
+/// # Errors
+/// Returns an error if the capability encoding, scope, time window or retained delegation
+/// chain is invalid.
 pub fn require_native_subset(
     child: &super::timed::NativeTimedCapabilityV1,
     parent: &super::timed::NativeTimedCapabilityV1,

@@ -2,8 +2,14 @@ use crate::read::committed::SourceAccount;
 use std::collections::BTreeMap;
 
 use super::execution_state::CommittedExecutionState;
-use layerx_programs::{ProgramId, ProgramValueAccountBinding};
+
+#[cfg(test)]
+use layerx_programs::ProgramId;
+#[cfg(test)]
+use layerx_programs::ProgramValueAccountBinding;
+#[cfg(test)]
 use layerx_proof::state::CanonicalAccount;
+#[cfg(test)]
 use layerx_types::activity::Authority;
 use layerx_types::ids::Did;
 use layerx_types::payload::{ModuleId, ModuleRegistry};
@@ -12,7 +18,7 @@ use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
 use crate::budget::{ProgramBudgetReservation, ProgramChargeKind};
-use crate::prepare::{verify_call_binding, EvmPrepared};
+use crate::prepare::EvmPrepared;
 use crate::protocol_evidence::VerifiedReceiptEvidence;
 use crate::sign::VerifiedSubmission;
 
@@ -22,6 +28,9 @@ type DebitKey = ([u8; 32], [u8; 32], ProgramChargeKind, Option<[u8; 32]>);
 
 /// Binds native lifecycle semantics to the exact signed EIP-1559 call.
 /// This is a read-side check; it does not admit a transaction for submission.
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
 pub fn verify_native_lifecycle_binding(
     signed_transaction: &[u8],
     ordinal: u16,
@@ -67,34 +76,12 @@ pub(super) fn verify_wind_down_debits(
     reservation: &ProgramBudgetReservation,
     owner: &layerx_types::ids::Did,
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
-    super::native_binding::verify_native_budget_submission(prepared, submission)
-        .map_err(|_| ProgramSettlementError::Preparation)?;
-    let payload = match &prepared.disclosure.native_operation {
-        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(v)) => {
-            v.native().encode()
-        }
-        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramUpgrade(v)) => {
-            v.native().encode()
-        }
-        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(v)) => {
-            v.native().encode()
-        }
-        _ => return Err(ProgramSettlementError::UnsupportedOperation),
-    }
-    .map_err(|_| ProgramSettlementError::Preparation)?;
-    verify_native_lifecycle_binding(
-        submission.exact_bytes(),
-        prepared.disclosure.activity_type.ordinal(),
-        &payload,
+    validate_lifecycle_submission(prepared, submission)?;
+    crate::reject_if(
+        prepared.disclosure.activity_type.module() != ModuleId::Programs
+            || prepared.disclosure.activity_type.ordinal() != 7,
+        || ProgramSettlementError::UnsupportedOperation,
     )?;
-    if prepared.disclosure.authority.as_slice() != prepared.from {
-        return Err(ProgramSettlementError::Preparation);
-    }
-    if prepared.disclosure.activity_type.module() != ModuleId::Programs
-        || prepared.disclosure.activity_type.ordinal() != 7
-    {
-        return Err(ProgramSettlementError::UnsupportedOperation);
-    }
     let Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(value)) =
         &prepared.disclosure.native_operation
     else {
@@ -115,44 +102,21 @@ pub(super) fn verify_wind_down_debits(
         .protocol()
         .ok_or(ProgramSettlementError::Receipt)?;
     prestate.validate_receipt(receipt)?;
-    if receipt.level() < VerificationLevel::BATCH_INCLUDED
-        || receipt.activity_id() != submission.activity_id()
-        || receipt.global_sequence() != protocol.global_sequence()
-        || protocol.protocol_version() != 3
-        || protocol.module_id() != 9
-        || protocol.operation() != 0
-        || protocol.program_outcome().is_some()
-        || protocol.activity_id() != submission.activity_id()
-        || protocol.transfer_set_root() != [0; 32]
-    {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
+    crate::reject_if(
+        receipt.level() < VerificationLevel::BATCH_INCLUDED
+            || receipt.activity_id() != submission.activity_id()
+            || receipt.global_sequence() != protocol.global_sequence()
+            || protocol.protocol_version() != 3
+            || protocol.module_id() != 9
+            || protocol.operation() != 0
+            || protocol.program_outcome().is_some()
+            || protocol.activity_id() != submission.activity_id()
+            || protocol.transfer_set_root() != [0; 32],
+        || ProgramSettlementError::SourceSnapshot,
+    )?;
     let actor = layerx_wire::hash::did_id_for_protocol(owner, 3)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    let preparation_digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
-    reservation
-        .validate()
-        .map_err(|_| ProgramSettlementError::Allocation)?;
-    if reservation.id != preparation_digest
-        || reservation.allocation_actor() != Some(actor)
-        || reservation.allocation_preparation_digest() != Some(preparation_digest)
-        || reservation.allocation_sequence() != Some(prepared.observed_head_height)
-        || reservation
-            .allocation_sequence()
-            .is_none_or(|sequence| sequence >= protocol.global_sequence())
-    {
-        return Err(ProgramSettlementError::Allocation);
-    }
-    let mut expected = BTreeMap::new();
-    for row in reservation
-        .allocations()
-        .ok_or(ProgramSettlementError::MissingAllocation)?
-    {
-        let key = (row.asset, row.source, row.kind, row.destination);
-        if expected.insert(key, row.maximum_amount).is_some() {
-            return Err(ProgramSettlementError::Allocation);
-        }
-    }
+    let expected = lifecycle_allocations(prepared, reservation, actor, protocol.global_sequence())?;
     let mut actual = BTreeMap::new();
     if protocol.result_code() == 0 {
         let debit = committed_exit_debit(
@@ -163,41 +127,33 @@ pub(super) fn verify_wind_down_debits(
             maximum,
             protocol.global_sequence(),
         )?;
-        let event = if protocol.effects().len() == 1 {
-            &protocol.effects()[0]
-        } else {
-            return Err(ProgramSettlementError::Terminal);
-        };
-        if event.module_id() != 9
-            || event.kind() != 3
-            || event.event_type() != 12
-            || event.monetary()
-            || event.transfer_set_root() != [0; 32]
-            || event.body().len() != 96
-            || event.body()[..32] != wind_down.program_id.bytes()
-            || event.body()[32..64] != account
-        {
-            return Err(ProgramSettlementError::Terminal);
-        }
-        let root = fixed(&event.body()[64..96])?;
-        verify_exit_transfer_root(&debit, root)?;
-        add_actual(&mut actual, &expected, debit)?;
-    } else if !protocol.effects().is_empty() {
-        return Err(ProgramSettlementError::Terminal);
+        verify_exit_event(
+            protocol.effects(),
+            wind_down.program_id.bytes(),
+            account,
+            &debit,
+        )?;
+        add_actual(&mut actual, &expected, &debit)?;
+    } else {
+        crate::reject_if(!protocol.effects().is_empty(), || {
+            ProgramSettlementError::Terminal
+        })?;
     }
-    if protocol.fee_charged() > prepared.disclosure.fee_limit {
-        return Err(ProgramSettlementError::FeeProvenance);
-    }
+    crate::reject_if(
+        protocol.fee_charged() > prepared.disclosure.fee_limit,
+        || ProgramSettlementError::FeeProvenance,
+    )?;
     if protocol.fee_charged() != 0 {
         let asset = active_fee_asset(prestate.program_records())?;
         let payer = principal_fee_account(prestate.all_accounts(), owner, asset)?;
-        if protocol.result_code() == 0 && payer.account_id == account {
-            return Err(ProgramSettlementError::FeeProvenance);
-        }
+        crate::reject_if(
+            protocol.result_code() == 0 && payer.account_id == account,
+            || ProgramSettlementError::FeeProvenance,
+        )?;
         add_actual(
             &mut actual,
             &expected,
-            ProgramExecutedDebit {
+            &ProgramExecutedDebit {
                 kind: ProgramChargeKind::Fee,
                 source: payer.account_id,
                 asset,
@@ -219,6 +175,33 @@ pub(super) fn verify_wind_down_debits(
         )
         .collect())
 }
+fn verify_exit_event(
+    effects: &[layerx_wire::receipt::Effect],
+    program: [u8; 32],
+    account: [u8; 32],
+    debit: &ProgramExecutedDebit,
+) -> Result<(), ProgramSettlementError> {
+    let event = if effects.len() == 1 {
+        &effects[0]
+    } else {
+        return Err(ProgramSettlementError::Terminal);
+    };
+    crate::reject_if(
+        event.module_id() != 9
+            || event.kind() != 3
+            || event.event_type() != 12
+            || event.monetary()
+            || event.transfer_set_root() != [0; 32]
+            || event.body().len() != 96
+            || event.body()[..32] != program
+            || event.body()[32..64] != account,
+        || ProgramSettlementError::Terminal,
+    )?;
+    let root = fixed(&event.body()[64..96])?;
+    verify_exit_transfer_root(debit, root)?;
+
+    Ok(())
+}
 
 pub(super) fn verify_remaining_lifecycle_debits(
     prepared: &EvmPrepared,
@@ -229,34 +212,12 @@ pub(super) fn verify_remaining_lifecycle_debits(
     reservation: &ProgramBudgetReservation,
     owner: &layerx_types::ids::Did,
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
-    super::native_binding::verify_native_budget_submission(prepared, submission)
-        .map_err(|_| ProgramSettlementError::Preparation)?;
-    let payload = match &prepared.disclosure.native_operation {
-        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(v)) => {
-            v.native().encode()
-        }
-        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramUpgrade(v)) => {
-            v.native().encode()
-        }
-        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(v)) => {
-            v.native().encode()
-        }
-        _ => return Err(ProgramSettlementError::UnsupportedOperation),
-    }
-    .map_err(|_| ProgramSettlementError::Preparation)?;
-    verify_native_lifecycle_binding(
-        submission.exact_bytes(),
-        prepared.disclosure.activity_type.ordinal(),
-        &payload,
+    validate_lifecycle_submission(prepared, submission)?;
+    crate::reject_if(
+        prepared.disclosure.activity_type.module() != ModuleId::Programs
+            || !matches!(prepared.disclosure.activity_type.ordinal(), 1 | 2 | 7),
+        || ProgramSettlementError::UnsupportedOperation,
     )?;
-    if prepared.disclosure.authority.as_slice() != prepared.from {
-        return Err(ProgramSettlementError::Preparation);
-    }
-    if prepared.disclosure.activity_type.module() != ModuleId::Programs
-        || !matches!(prepared.disclosure.activity_type.ordinal(), 1 | 2 | 7)
-    {
-        return Err(ProgramSettlementError::UnsupportedOperation);
-    }
     let lifecycle = match &prepared.disclosure.native_operation {
         Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(value)) => {
             FeeOnlyLifecycle::Deploy(value.native())
@@ -275,44 +236,21 @@ pub(super) fn verify_remaining_lifecycle_debits(
         .protocol()
         .ok_or(ProgramSettlementError::Receipt)?;
     prestate.validate_receipt(receipt)?;
-    if receipt.level() < VerificationLevel::BATCH_INCLUDED
-        || receipt.activity_id() != submission.activity_id()
-        || receipt.global_sequence() != protocol.global_sequence()
-        || protocol.protocol_version() != 3
-        || protocol.module_id() != 9
-        || protocol.operation() != 0
-        || protocol.program_outcome().is_some()
-        || protocol.activity_id() != submission.activity_id()
-        || protocol.transfer_set_root() != [0; 32]
-    {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
+    crate::reject_if(
+        receipt.level() < VerificationLevel::BATCH_INCLUDED
+            || receipt.activity_id() != submission.activity_id()
+            || receipt.global_sequence() != protocol.global_sequence()
+            || protocol.protocol_version() != 3
+            || protocol.module_id() != 9
+            || protocol.operation() != 0
+            || protocol.program_outcome().is_some()
+            || protocol.activity_id() != submission.activity_id()
+            || protocol.transfer_set_root() != [0; 32],
+        || ProgramSettlementError::SourceSnapshot,
+    )?;
     let actor = layerx_wire::hash::did_id_for_protocol(owner, 3)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    let preparation_digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
-    reservation
-        .validate()
-        .map_err(|_| ProgramSettlementError::Allocation)?;
-    if reservation.id != preparation_digest
-        || reservation.allocation_actor() != Some(actor)
-        || reservation.allocation_preparation_digest() != Some(preparation_digest)
-        || reservation.allocation_sequence() != Some(prepared.observed_head_height)
-        || reservation
-            .allocation_sequence()
-            .is_none_or(|sequence| sequence >= protocol.global_sequence())
-    {
-        return Err(ProgramSettlementError::Allocation);
-    }
-    let mut expected = BTreeMap::new();
-    for row in reservation
-        .allocations()
-        .ok_or(ProgramSettlementError::MissingAllocation)?
-    {
-        let key = (row.asset, row.source, row.kind, row.destination);
-        if expected.insert(key, row.maximum_amount).is_some() {
-            return Err(ProgramSettlementError::Allocation);
-        }
-    }
+    let expected = lifecycle_allocations(prepared, reservation, actor, protocol.global_sequence())?;
     let mut actual = BTreeMap::new();
     if protocol.result_code() == 0 {
         let event = if protocol.effects().len() == 1 {
@@ -320,13 +258,13 @@ pub(super) fn verify_remaining_lifecycle_debits(
         } else {
             return Err(ProgramSettlementError::Terminal);
         };
-        if event.module_id() != 9
-            || event.kind() != 3
-            || event.monetary()
-            || event.transfer_set_root() != [0; 32]
-        {
-            return Err(ProgramSettlementError::Terminal);
-        }
+        crate::reject_if(
+            event.module_id() != 9
+                || event.kind() != 3
+                || event.monetary()
+                || event.transfer_set_root() != [0; 32],
+            || ProgramSettlementError::Terminal,
+        )?;
         lifecycle.verify_committed_success(
             prestate.program_records(),
             actor,
@@ -334,19 +272,22 @@ pub(super) fn verify_remaining_lifecycle_debits(
             event.event_type(),
             event.body(),
         )?;
-    } else if !protocol.effects().is_empty() {
-        return Err(ProgramSettlementError::Terminal);
+    } else {
+        crate::reject_if(!protocol.effects().is_empty(), || {
+            ProgramSettlementError::Terminal
+        })?;
     }
-    if protocol.fee_charged() > prepared.disclosure.fee_limit {
-        return Err(ProgramSettlementError::FeeProvenance);
-    }
+    crate::reject_if(
+        protocol.fee_charged() > prepared.disclosure.fee_limit,
+        || ProgramSettlementError::FeeProvenance,
+    )?;
     if protocol.fee_charged() != 0 {
         let asset = active_fee_asset(prestate.program_records())?;
         let payer = principal_fee_account(prestate.all_accounts(), owner, asset)?;
         add_actual(
             &mut actual,
             &expected,
-            ProgramExecutedDebit {
+            &ProgramExecutedDebit {
                 kind: ProgramChargeKind::Fee,
                 source: payer.account_id,
                 asset,
@@ -375,7 +316,7 @@ enum FeeOnlyLifecycle<'a> {
     WindDown(NativeProgramWindDown<'a>),
 }
 
-impl<'a> FeeOnlyLifecycle<'a> {
+impl FeeOnlyLifecycle<'_> {
     fn verify_committed_success(
         &self,
         records: &super::execution_state::CommittedProgramRecords,
@@ -388,17 +329,19 @@ impl<'a> FeeOnlyLifecycle<'a> {
 
         match self {
             Self::Deploy(value) => {
-                if records.program.is_some() || records.interface.is_some() {
-                    return Err(ProgramSettlementError::SourceSnapshot);
-                }
+                crate::reject_if(
+                    records.program.is_some() || records.interface.is_some(),
+                    || ProgramSettlementError::SourceSnapshot,
+                )?;
                 let hash: [u8; 32] = Sha256::digest(value.wasm).into();
-                if hash != value.new_hash || event_type != 1 || body != value.new_hash {
-                    return Err(ProgramSettlementError::Terminal);
-                }
-                if matches!(value.policy, ProgramUpgradePolicy::Authority(authority) if authority == [0;32])
-                {
-                    return Err(ProgramSettlementError::Preparation);
-                }
+                crate::reject_if(
+                    hash != value.new_hash || event_type != 1 || body != value.new_hash,
+                    || ProgramSettlementError::Terminal,
+                )?;
+                crate::reject_if(
+                    matches!(value.policy, ProgramUpgradePolicy::Authority(authority) if authority == [0;32]),
+                    || ProgramSettlementError::Preparation,
+                )?;
             }
             Self::Upgrade(value) => {
                 let deployed = records
@@ -409,111 +352,30 @@ impl<'a> FeeOnlyLifecycle<'a> {
                     .wind_down
                     .as_ref()
                     .ok_or(ProgramSettlementError::SourceSnapshot)?;
-                if wind_down.status != 1 {
-                    return Err(ProgramSettlementError::SourceSnapshot);
-                }
+                crate::reject_if(wind_down.status != 1, || {
+                    ProgramSettlementError::SourceSnapshot
+                })?;
                 let hash: [u8; 32] = Sha256::digest(value.wasm).into();
-                if deployed.policy != 1
-                    || deployed.code_hash != value.old_hash
-                    || deployed.version == u32::MAX
-                    || !deployed.active
-                    || hash != value.new_hash
-                    || event_type != 2
-                    || body.len() != 64
-                    || body[..32] != value.old_hash
-                    || body[32..] != value.new_hash
-                {
-                    return Err(ProgramSettlementError::Terminal);
-                }
+                crate::reject_if(
+                    deployed.policy != 1
+                        || deployed.code_hash != value.old_hash
+                        || deployed.version == u32::MAX
+                        || !deployed.active
+                        || hash != value.new_hash
+                        || event_type != 2
+                        || body.len() != 64
+                        || body[..32] != value.old_hash
+                        || body[32..] != value.new_hash,
+                    || ProgramSettlementError::Terminal,
+                )?;
             }
             Self::WindDown(value) => {
-                let deployed = records
-                    .program
-                    .as_ref()
-                    .ok_or(ProgramSettlementError::SourceSnapshot)?;
-                let wind_down = records
-                    .wind_down
-                    .as_ref()
-                    .ok_or(ProgramSettlementError::SourceSnapshot)?;
-                let program = value.program_id.bytes();
-                if deployed.abi_version != 2 || records.owner != actor {
-                    return Err(ProgramSettlementError::Preparation);
-                }
-                match value.operation {
-                    ProgramWindDownOperation::Route {
-                        account,
-                        asset,
-                        destination,
-                        seed,
-                    } => {
-                        if wind_down.status != 1 {
-                            return Err(ProgramSettlementError::SourceSnapshot);
-                        }
-                        let registered = records
-                            .accounts
-                            .get(&account)
-                            .ok_or(ProgramSettlementError::SourceSnapshot)?;
-                        if registered.program != program
-                            || registered.asset != asset
-                            || registered.seed != seed
-                            || registered.registered_sequence >= sequence
-                            || event_type != 9
-                            || body.len() != 128
-                            || body[..32] != program
-                            || body[32..64] != account
-                            || body[64..96] != asset
-                            || body[96..] != destination
-                        {
-                            return Err(ProgramSettlementError::Terminal);
-                        }
-                    }
-                    ProgramWindDownOperation::Deprecate {
-                        exit_program,
-                        deadline_batch,
-                    } => {
-                        if wind_down.status != 1 {
-                            return Err(ProgramSettlementError::SourceSnapshot);
-                        }
-                        if exit_program != program || deadline_batch <= sequence || event_type != 10
-                        {
-                            return Err(ProgramSettlementError::Terminal);
-                        }
-                        verify_lifecycle_history(
-                            body,
-                            1,
-                            2,
-                            actor,
-                            program,
-                            deadline_batch,
-                            sequence,
-                        )?;
-                    }
-                    ProgramWindDownOperation::Tombstone => {
-                        if wind_down.status != 2
-                            || wind_down.exit_program != program
-                            || wind_down.deadline == 0
-                            || wind_down.effective_sequence == 0
-                            || wind_down.effective_sequence >= sequence
-                            || event_type != 11
-                        {
-                            return Err(ProgramSettlementError::Terminal);
-                        }
-                        verify_lifecycle_history(
-                            body,
-                            2,
-                            3,
-                            actor,
-                            program,
-                            wind_down.deadline,
-                            sequence,
-                        )?;
-                    }
-                    _ => return Err(ProgramSettlementError::UnsupportedOperation),
-                }
+                verify_committed_wind_down(value, records, actor, sequence, event_type, body)?;
             }
         }
         Ok(())
     }
+    #[cfg(test)]
     fn decode(ordinal: u16, payload: &'a [u8]) -> Result<Self, ProgramSettlementError> {
         use layerx_types::program_lifecycle::{NativeProgramDeploy, NativeProgramUpgrade};
         match ordinal {
@@ -651,6 +513,83 @@ impl<'a> FeeOnlyLifecycle<'a> {
         Ok(())
     }
 }
+fn verify_committed_wind_down(
+    value: &NativeProgramWindDown<'_>,
+    records: &super::execution_state::CommittedProgramRecords,
+    actor: [u8; 32],
+    sequence: u64,
+    event_type: u16,
+    body: &[u8],
+) -> Result<(), ProgramSettlementError> {
+    let deployed = records
+        .program
+        .as_ref()
+        .ok_or(ProgramSettlementError::SourceSnapshot)?;
+    let wind_down = records
+        .wind_down
+        .as_ref()
+        .ok_or(ProgramSettlementError::SourceSnapshot)?;
+    let program = value.program_id.bytes();
+    crate::reject_if(deployed.abi_version != 2 || records.owner != actor, || {
+        ProgramSettlementError::Preparation
+    })?;
+    match value.operation {
+        ProgramWindDownOperation::Route {
+            account,
+            asset,
+            destination,
+            seed,
+        } => {
+            crate::reject_if(wind_down.status != 1, || {
+                ProgramSettlementError::SourceSnapshot
+            })?;
+            let registered = records
+                .accounts
+                .get(&account)
+                .ok_or(ProgramSettlementError::SourceSnapshot)?;
+            crate::reject_if(
+                registered.program != program
+                    || registered.asset != asset
+                    || registered.seed != seed
+                    || registered.registered_sequence >= sequence
+                    || event_type != 9
+                    || body.len() != 128
+                    || body[..32] != program
+                    || body[32..64] != account
+                    || body[64..96] != asset
+                    || body[96..] != destination,
+                || ProgramSettlementError::Terminal,
+            )?;
+        }
+        ProgramWindDownOperation::Deprecate {
+            exit_program,
+            deadline_batch,
+        } => {
+            crate::reject_if(wind_down.status != 1, || {
+                ProgramSettlementError::SourceSnapshot
+            })?;
+            crate::reject_if(
+                exit_program != program || deadline_batch <= sequence || event_type != 10,
+                || ProgramSettlementError::Terminal,
+            )?;
+            verify_lifecycle_history(body, 1, 2, actor, program, deadline_batch, sequence)?;
+        }
+        ProgramWindDownOperation::Tombstone => {
+            crate::reject_if(
+                wind_down.status != 2
+                    || wind_down.exit_program != program
+                    || wind_down.deadline == 0
+                    || wind_down.effective_sequence == 0
+                    || wind_down.effective_sequence >= sequence
+                    || event_type != 11,
+                || ProgramSettlementError::Terminal,
+            )?;
+            verify_lifecycle_history(body, 2, 3, actor, program, wind_down.deadline, sequence)?;
+        }
+        _ => return Err(ProgramSettlementError::UnsupportedOperation),
+    }
+    Ok(())
+}
 
 #[cfg(test)]
 fn require_absent(
@@ -710,7 +649,7 @@ fn verify_lifecycle_history(
 fn add_actual(
     actual: &mut BTreeMap<DebitKey, u128>,
     expected: &BTreeMap<DebitKey, u128>,
-    debit: ProgramExecutedDebit,
+    debit: &ProgramExecutedDebit,
 ) -> Result<(), ProgramSettlementError> {
     let key = (debit.asset, debit.source, debit.kind, debit.destination);
     if debit.actual_amount == 0 {
@@ -1442,7 +1381,7 @@ mod tests {
         let key = (fee.asset, fee.source, fee.kind, fee.destination);
         let expected = BTreeMap::from([(key, 5)]);
         let mut actual = BTreeMap::new();
-        must(add_actual(&mut actual, &expected, fee.clone()));
+        must(add_actual(&mut actual, &expected, &fee.clone()));
         assert_eq!(actual.get(&key), Some(&5));
         assert_eq!(
             add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 4)]), fee),
@@ -1477,7 +1416,7 @@ mod tests {
         );
         let expected = BTreeMap::from([(key, 40)]);
         let mut actual = BTreeMap::new();
-        must(add_actual(&mut actual, &expected, debit.clone()));
+        must(add_actual(&mut actual, &expected, &debit.clone()));
         assert_eq!(actual.get(&key), Some(&37));
         assert!(add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 30)]), debit).is_err());
         assert!(exit_debit(
@@ -1913,10 +1852,11 @@ pub(super) fn native_lifecycle_debits(
     let [log] = logs else {
         return Err(ProgramSettlementError::Terminal);
     };
-    if log.address != crate::prepare::PrecompileTarget::Programs.address() || log.topics.len() != 2
-    {
-        return Err(ProgramSettlementError::Terminal);
-    }
+    crate::reject_if(
+        log.address != crate::prepare::PrecompileTarget::Programs.address()
+            || log.topics.len() != 2,
+        || ProgramSettlementError::Terminal,
+    )?;
     let (program, signature, event_type, body) = match &prepared.disclosure.native_operation {
         Some(Operation::ProgramDeploy(value)) => {
             let value = value.native();
@@ -1941,54 +1881,12 @@ pub(super) fn native_lifecycle_debits(
             match value.operation {
                 ProgramWindDownOperation::Exit { account }
                 | ProgramWindDownOperation::BoundedExit { account, .. } => {
-                    if log.topics[0]
-                        != transaction_hash(b"ProgramValueExited(bytes32,bytes32,bytes32)")
-                        || log.topics[1] != value.program_id.bytes()
-                        || log.data.len() != 64
-                        || log.data[..32] != account
-                    {
-                        return Err(ProgramSettlementError::Terminal);
-                    }
-                    let maximum = match value.operation {
-                        ProgramWindDownOperation::BoundedExit {
-                            maximum_exit_amount,
-                            ..
-                        } => Some(maximum_exit_amount),
-                        _ => None,
-                    };
-                    let debit = committed_exit_debit(
-                        state,
-                        actor,
-                        value.program_id.bytes(),
-                        account,
-                        maximum,
-                        sequence,
-                    )?;
-                    verify_exit_transfer_root(&debit, fixed(&log.data[32..])?)?;
+                    let debit = native_exit_debit(value, account, log, state, actor, sequence)?;
                     return Ok(vec![debit]);
                 }
                 ProgramWindDownOperation::Deprecate { .. }
                 | ProgramWindDownOperation::Tombstone => {
-                    if log.data.len() != 288 {
-                        return Err(ProgramSettlementError::Terminal);
-                    }
-                    let small =
-                        |index: usize, width: usize| -> Result<Vec<u8>, ProgramSettlementError> {
-                            let word = &log.data[index * 32..(index + 1) * 32];
-                            if word[..32 - width].iter().any(|b| *b != 0) {
-                                return Err(ProgramSettlementError::Terminal);
-                            }
-                            Ok(word[32 - width..].to_vec())
-                        };
-                    let mut body = vec![1];
-                    body.extend(small(0, 1)?);
-                    body.extend(small(1, 1)?);
-                    body.extend(&log.data[64..128]);
-                    body.extend(small(4, 8)?);
-                    body.extend(small(5, 8)?);
-                    body.extend(small(6, 2)?);
-                    body.extend(small(7, 2)?);
-                    body.extend(&log.data[256..288]);
+                    let body = lifecycle_event_body(&log.data)?;
                     let tombstone = matches!(value.operation, ProgramWindDownOperation::Tombstone);
                     (
                         value.program_id.bytes(),
@@ -2015,9 +1913,10 @@ pub(super) fn native_lifecycle_debits(
         }
         _ => return Err(ProgramSettlementError::UnsupportedOperation),
     };
-    if log.topics != [transaction_hash(signature.as_bytes()), program] {
-        return Err(ProgramSettlementError::Terminal);
-    }
+    crate::reject_if(
+        log.topics != [transaction_hash(signature.as_bytes()), program],
+        || ProgramSettlementError::Terminal,
+    )?;
     let lifecycle = match &prepared.disclosure.native_operation {
         Some(Operation::ProgramDeploy(value)) => FeeOnlyLifecycle::Deploy(value.native()),
         Some(Operation::ProgramUpgrade(value)) => FeeOnlyLifecycle::Upgrade(value.native()),
@@ -2032,4 +1931,124 @@ pub(super) fn native_lifecycle_debits(
         &body,
     )?;
     Ok(Vec::new())
+}
+fn native_exit_debit(
+    value: NativeProgramWindDown<'_>,
+    account: [u8; 32],
+    log: &layerx_client::sequencer::SequencerLog,
+    state: &CommittedExecutionState,
+    actor: [u8; 32],
+    sequence: u64,
+) -> Result<ProgramExecutedDebit, ProgramSettlementError> {
+    use layerx_crypto::evm_transaction::transaction_hash;
+    crate::reject_if(
+        log.topics[0] != transaction_hash(b"ProgramValueExited(bytes32,bytes32,bytes32)")
+            || log.topics[1] != value.program_id.bytes()
+            || log.data.len() != 64
+            || log.data[..32] != account,
+        || ProgramSettlementError::Terminal,
+    )?;
+    let maximum = match value.operation {
+        ProgramWindDownOperation::BoundedExit {
+            maximum_exit_amount,
+            ..
+        } => Some(maximum_exit_amount),
+        _ => None,
+    };
+    let debit = committed_exit_debit(
+        state,
+        actor,
+        value.program_id.bytes(),
+        account,
+        maximum,
+        sequence,
+    )?;
+    verify_exit_transfer_root(&debit, fixed(&log.data[32..])?)?;
+
+    Ok(debit)
+}
+
+fn lifecycle_event_body(data: &[u8]) -> Result<Vec<u8>, ProgramSettlementError> {
+    crate::reject_if(data.len() != 288, || ProgramSettlementError::Terminal)?;
+    let small = |index: usize, width: usize| -> Result<Vec<u8>, ProgramSettlementError> {
+        let word = &data[index * 32..(index + 1) * 32];
+        crate::reject_if(word[..32 - width].iter().any(|b| *b != 0), || {
+            ProgramSettlementError::Terminal
+        })?;
+        Ok(word[32 - width..].to_vec())
+    };
+    let mut body = vec![1];
+    body.extend(small(0, 1)?);
+    body.extend(small(1, 1)?);
+    body.extend(&data[64..128]);
+    body.extend(small(4, 8)?);
+    body.extend(small(5, 8)?);
+    body.extend(small(6, 2)?);
+    body.extend(small(7, 2)?);
+    body.extend(&data[256..288]);
+    Ok(body)
+}
+
+fn validate_lifecycle_submission(
+    prepared: &EvmPrepared,
+    submission: &VerifiedSubmission,
+) -> Result<(), ProgramSettlementError> {
+    super::native_binding::verify_native_budget_submission(prepared, submission)
+        .map_err(|_| ProgramSettlementError::Preparation)?;
+    let payload = match &prepared.disclosure.native_operation {
+        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(v)) => {
+            v.native().encode()
+        }
+        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramUpgrade(v)) => {
+            v.native().encode()
+        }
+        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(v)) => {
+            v.native().encode()
+        }
+        _ => return Err(ProgramSettlementError::UnsupportedOperation),
+    }
+    .map_err(|_| ProgramSettlementError::Preparation)?;
+    verify_native_lifecycle_binding(
+        submission.exact_bytes(),
+        prepared.disclosure.activity_type.ordinal(),
+        &payload,
+    )?;
+    crate::reject_if(
+        prepared.disclosure.authority.as_slice() != prepared.from,
+        || ProgramSettlementError::Preparation,
+    )?;
+    Ok(())
+}
+
+fn lifecycle_allocations(
+    prepared: &EvmPrepared,
+    reservation: &ProgramBudgetReservation,
+    actor: [u8; 32],
+    execution_sequence: u64,
+) -> Result<BTreeMap<DebitKey, u128>, ProgramSettlementError> {
+    let preparation_digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
+    reservation
+        .validate()
+        .map_err(|_| ProgramSettlementError::Allocation)?;
+    crate::reject_if(
+        reservation.id != preparation_digest
+            || reservation.allocation_actor() != Some(actor)
+            || reservation.allocation_preparation_digest() != Some(preparation_digest)
+            || reservation.allocation_sequence() != Some(prepared.observed_head_height)
+            || reservation
+                .allocation_sequence()
+                .is_none_or(|sequence| sequence >= execution_sequence),
+        || ProgramSettlementError::Allocation,
+    )?;
+    let mut expected = BTreeMap::new();
+    for row in reservation
+        .allocations()
+        .ok_or(ProgramSettlementError::MissingAllocation)?
+    {
+        let key = (row.asset, row.source, row.kind, row.destination);
+        crate::reject_if(expected.insert(key, row.maximum_amount).is_some(), || {
+            ProgramSettlementError::Allocation
+        })?;
+    }
+    Ok(expected)
 }

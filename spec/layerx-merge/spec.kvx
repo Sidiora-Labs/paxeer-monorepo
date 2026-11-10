@@ -12292,6 +12292,24 @@ value = "Since task 22.31.411 a receipt whose committed evidence is missing or a
 basis = "Gotcha 4119, decisions 3046, 3183 and 3190."
 affects = ["22.39.332"]
 
+[decision.3197]
+title = "A qualified tree that conflicts with a change landed on main while it ran is merged with main by its own task and qualified again"
+value = "When a tree passed its build and verification and its merge with main conflicts with a commit that landed after its base, the task merges main into its tree and resolves each conflict by taking the landed change as it stands on main and applying its own repair on top. No region, case or assertion of the landed task is dropped or weakened. A lint finding that arrives with the merge belongs to the task when it is the open lint task of the crate (decision 3191). The record names the landed commit and each resolved region, and the task runs its build once and its verification once at the merged revision."
+basis = "Gotcha 4120, decisions 3186 and 3191."
+affects = ["22.39.222"]
+
+[decision.3198]
+title = "A gate command that runs the Fund attribution case states its time limit"
+value = "A build or verification command that runs TestFundConsumptionAttribution or another Go case that compiles the guest at several revisions passes -timeout 45m to go test. The default limit of ten minutes is no product bound and a run that passes by a fraction of a second proves nothing about the case. The limit of the task covers the command. Task 22.38.13 also requires task 22.39.333, because its build runs the host boundary target that task brings back under the deployment bound (decision 3192)."
+basis = "Gotchas 4114 and 4121, decision 3192."
+affects = ["22.38.13"]
+
+[decision.3199]
+title = "A task that changes a manifest of a Cargo workspace carries the lock file of that workspace in its paths"
+value = "A task whose commit adds, removes or changes a dependency in the Cargo.toml of a member crate names the Cargo.lock at the root of the workspace of that crate in its touches, and the lock file changes only by what the manifest change needs under cargo build --locked. A qualified tree that was kept back only because that lock file was outside its paths stands unchanged once the record of the task names the file."
+basis = "Gotcha 4122, decisions 2829 and 2964."
+affects = ["22.38.16"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -161799,7 +161817,7 @@ do_5 = "Attempt 3 (continue, gotcha 4054, decisions 3130 and 3046): the attempt-
 
 [task.22.39.268]
 title = "Repair the retired references of the wallet SDK, gateway, demo, deployment and scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245", "22.39.290"]
@@ -184227,7 +184245,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.333]
 title = "Give the AI market guest one packaging recipe, bring it under the deployment bound and regenerate its fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184636,7 +184654,7 @@ do_8 = "Attempt 7 (continue after 22.39.333 lands, gotcha 4114, decision 3192): 
 
 [task.18.1724.1]
 title = "Issue #1724: Prove nonzero restart accounting with node-produced transaction receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.283", "22.39.303", "22.39.318"]
@@ -185124,7 +185142,7 @@ title = "Prove every F11 operation under the fuel cap and the replay profile thr
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300", "22.39.316"]
+requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300", "22.39.316", "22.39.333"]
 reqs = ["22380.1"]
 capabilities = ["22.38.13"]
 interfaces = []
@@ -185134,7 +185152,7 @@ symbols = ["f11_fuel_table", "test_f11_host_boundary"]
 touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"]
 planned_paths = []
-build_cmd = "go test -count=1 ./rpc/ -run '^(TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution)$' && make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+build_cmd = "go test -count=1 -timeout 45m ./rpc/ -run '^(TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution)$' && make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test fuel_budget --test host_boundary"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -185151,6 +185169,7 @@ do_3 = "Decision 2900: before the first change, run cargo test --locked --manife
 do_4 = "Attempt 2 (continue, gotcha 3999, decision 3129): the attempt-1 tree ff3180d432 stands. The fuel cases read programs/target/repair-478 (owner, asset, create, fund, current), which rpc/repair_478_test.go writes; the build command now runs TestRepair478_FundWithinProductionAllowance and TestFundConsumptionAttribution of the node before the cargo build so the directory exists when fuel_budget runs. Rebase on main, keep the cases unchanged, and run the build once and the verification once at the final revision."
 do_5 = "Attempt 3 (continue, gotcha 4032, decision 3141): the attempt-2 tree 6aff2c04c33c stands. The task now requires 22.39.300, which pins the Fund attribution boundaries to commits reachable from main so TestFundConsumptionAttribution of the build command runs on a checkout of main. Rebase on main after 22.39.300 lands, keep the cases unchanged, and run the build once and the verification once at the final revision."
 do_6 = "Attempt 4 (continue, gotcha 4087, decision 3167): the attempt-3 tree 80d13275407c stands (the F11 fuel table and its fixture, the native CALL per operation, the guest optimisation level, the record). The task now requires 22.39.316, which sizes the settlement section for the reward state and the full room book together. Rebase on main after it lands, keep the fixture at the full capacities and every case unchanged, and when an operation on the full state then exceeds the fuel cap or the replay profile, bring it under through the joint-section readers as do_2 states. Run the build once and the verification once at the final revision."
+do_7 = "Attempt 5 (continue after 22.39.333 lands, gotchas 4114 and 4121, decisions 3192 and 3198): the attempt-4 tree 647b706c058f stands (tests/fuel_budget.rs of the AI market crate, tests/programs/test_ai_host_boundary.c, programs/Cargo.toml). Its build stopped at the ten minute default of go test inside TestFundConsumptionAttribution before the target and the cargo build ran; the build command now passes -timeout 45m. The task now requires 22.39.333, which gives the guest one packaging recipe and brings the host boundary target back under 524184 bytes. Merge main once that task is on it, change nothing for the size, the recipe or the Go case, run the build once and the verification once at the final revision; when a case of fuel_budget or host_boundary fails, record the first failing assertion and stop."
 
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"
@@ -193411,7 +193430,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.311]
 title = "Make the clock-bound Human service lib cases self-contained"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -195497,6 +195516,7 @@ do_7 = "Attempt 5 (continue, gotcha 3959, decision 3111): the attempt-4 tree 869
 do_8 = "Attempt 6 (continue, gotcha 4018): the attempt-5 tree fb2bc4d80ebc stands. Split the function at services/agent/crates/layerx-agentd/src/human_runtime.rs:10665 into named helpers under 100 lines and replace the wildcard import at :22630 with the names the module uses; change no behaviour; add both sites to repair_22_39_222.kvx. Run the build once, the verification once and the dependents check once at the final revision."
 do_9 = "Attempt 7 (requalify, gotcha 4053): the attempt-6 tree f1b5e7751ec1 passed its gates but could not be integrated because services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs conflicts with the production state export of 18.1752.1 (5484ea469e on main), which changed the same adapter functions. Rebase the tree onto main, resolve the adapters so that both the lint repair of attempt 6 and the state export of main stand, keep every other change of the tree, then run the build once and the verification once at the final revision."
 do_10 = "Attempt 8 (requalify, gotcha 4113, decision 3191): the attempt-7 tree 61803b32828f stands (the lint repairs of the library, the six conflicts with main resolved, the witness binding check of settle_retained_native_program_call_with_config in human_runtime.rs moved into a helper, the record). The only clippy error of the verification at fe82a180db25 was that function at 115 of 100 lines, and the final revision was built but not verified. Rebase on main; when the rebase conflicts, resolve it so that the lint repair and the change of main both stand. Run the build once and the verification once at the final revision. When the verification names a finding in a function that arrived with the rebase, repair it without a change of behaviour within the allowed cycles and add the site and the commit that brought it to repair_22_39_222.kvx."
+do_11 = "Attempt 9 (continue, gotcha 4120, decision 3197): the attempt-8 tree 5adb26b25dfd stands; its build, its dependents run and its verification exit 0. Merge main into the tree. The only conflict is services/agent/crates/layerx-agentd/src/human_runtime.rs against commit 0190499213 (task 22.39.318): take each of the seven regions that commit changed (RecoveryRefusal at :2298, budget_receipt_records at :2337, recover_tenant_budget_with_evidence at :2372 and :2393, verified_policy_budget at :14614 and :14671, recover_owner_budget at :15055 of the file before that commit) as it stands on main, then apply the lint repairs of the task on top without changing what the region does. Keep tests/repair_22_39_318.rs and the cases that commit changed as they are. Repair the lints the merge brings in the library of the crate, name commit 0190499213 and each resolved region in the record, and run the build once and the verification once at the merged revision."
 
 [task.22.39.221]
 title = "Bring the layerx-agent-api crate and its test targets under the workspace lints"
@@ -197212,7 +197232,7 @@ do_1 = "do_1 Add src/inference_market/signal.rs: a WebSocket listener (plain, no
 do_2 = "do_2 Refuse a hello whose signature does not verify, whose peer key has no enrolment on chain, or whose manifest digest differs from the enrolled one; cap connections at 64 and frames at 65536 bytes."
 do_3 = "do_3 Write tests/inference_signal.rs: hello admitted, bad signature refused, unenrolled refused, relay delivers a description to the named peer only, and the cap refuses the 65th connection."
 symbols = ["SignalListener", "HelloFrame", "RoomOffer", "relay_description"]
-touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/Cargo.toml"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock"]
 tests = ["services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/signal.rs", "services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -224685,7 +224705,7 @@ do_4 = "Attempt 2 (continue, gotcha 4010, decision 3125): the attempt-1 tree aeb
 
 [task.22.39.249]
 title = "Repair the retired references of the governance, pay, launchpad, evm and xweb modules and the shared precompile packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245", "22.39.334"]
@@ -225426,7 +225446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.168]
 title = "Bring the twelve remaining launchpad Go modules to green and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.75"]
@@ -351859,7 +351879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.273]
 title = "Repair the retired references of the qualification suites and fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245", "22.39.319", "22.39.330"]
@@ -417390,7 +417410,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.332]
 title = "Bring the signature and status route cases of the explorer web application to the governed key guard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

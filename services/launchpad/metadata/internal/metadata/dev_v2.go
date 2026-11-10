@@ -50,11 +50,11 @@ type DevelopmentV2Reads struct {
 	Pool  *pgxpool.Pool
 	Chain DevelopmentReceipts // nil when RPC_URL is unset: /metadata answers 503
 	Clock func() time.Time
+	// CanonicalStore retains receipt identities independently of upload admission.
+	CanonicalStore *ProductionStore
 	// Connected, when set, is the development-wired production media store
 	// (see DevelopmentConnectedSchema). Tokens with a published v2 document
-	// are then served by the production ConnectedMedia read handlers, and
-	// resolved chain identities persist in its development_canonical_tokens
-	// table so reads survive the pruned RPC dropping old receipts.
+	// are then served by the production ConnectedMedia read handlers.
 	Connected *ConnectedMedia
 
 	mu     *sync.Mutex
@@ -62,11 +62,11 @@ type DevelopmentV2Reads struct {
 }
 
 // NewDevelopmentV2Reads builds the development v2 read adapter.
-func NewDevelopmentV2Reads(pool *pgxpool.Pool, chain DevelopmentReceipts, clock func() time.Time) *DevelopmentV2Reads {
+func NewDevelopmentV2Reads(pool *pgxpool.Pool, chain DevelopmentReceipts, clock func() time.Time, canonicalStore *ProductionStore) *DevelopmentV2Reads {
 	if clock == nil {
 		clock = time.Now
 	}
-	return &DevelopmentV2Reads{Pool: pool, Chain: chain, Clock: clock, mu: &sync.Mutex{}, tokens: map[string]iface.Token{}}
+	return &DevelopmentV2Reads{Pool: pool, Chain: chain, Clock: clock, CanonicalStore: canonicalStore, mu: &sync.Mutex{}, tokens: map[string]iface.Token{}}
 }
 
 // CheckChain refreshes admission before cached or published development reads.

@@ -37,6 +37,12 @@ func signEIP191(t *testing.T, message string) (wallet, signature string) {
 // verifier pins the proof to exactly that block by its reported hash and
 // accepts genuine signatures only; the recomputed header hash is refused.
 func TestProductionReportedCommittedProofVerifierOnPaxeer(t *testing.T) {
+	for _, name := range []string{"NETWORK_RPC_URL"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint := strings.TrimSpace(os.Getenv("NETWORK_RPC_URL"))
 	if endpoint == "" {
 		t.Fatal("NETWORK_RPC_URL (Paxeer mainnet RPC) is required")

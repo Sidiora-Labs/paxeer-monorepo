@@ -206,6 +206,8 @@ pub struct RequestTracker {
 
 impl RequestTracker {
     /// Rebuilds resolver ownership from a restored durable outbox, never from caller flags.
+    /// # Errors
+    /// Returns an error if the retained submission cannot be recovered into the deadline tracker.
     pub fn recover_submission(
         &mut self,
         request_id: u64,

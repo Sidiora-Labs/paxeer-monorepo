@@ -3,7 +3,10 @@ use sha2::{Digest as _, Sha256};
 
 use crate::agent_rpc_peer::RpcOwnerContext;
 use crate::approval::ApprovalSubmissionQueue;
-use crate::policy::approval::{ApprovalSnapshot, ApprovalState};
+use crate::policy::approval::ApprovalSnapshot;
+#[cfg(test)]
+use crate::policy::approval::ApprovalState;
+#[cfg(test)]
 use crate::policy::{DecisionReason, EvaluationInput, Outcome, PolicySnapshot};
 use crate::prepare::{DurablePreparation, EvmPrepared};
 use crate::store::{ObjectKind, StorageClass, Store, TenantId, TenantKey};
@@ -141,6 +144,7 @@ fn binding(context: &RpcOwnerContext<'_>, prepared: &EvmPrepared) -> Result<Bind
 }
 
 impl Record {
+    #[cfg(test)]
     pub(crate) fn evaluate(
         context: &RpcOwnerContext<'_>,
         prepared: &EvmPrepared,
@@ -164,7 +168,7 @@ impl Record {
                 approval.map(|hold| hold.context.capability),
                 prepared.observed_head_height,
             )
-            .map_err(|_| Refusal::Binding)?;
+            .map_err(|()| Refusal::Binding)?;
         let decision = crate::policy::evaluate(snapshot.policy(), input);
         if decision.policy_version != snapshot.version() {
             return Err(Refusal::Policy);
@@ -492,10 +496,7 @@ pub(crate) fn read(
 }
 
 fn preparation_reference(preparation: [u8; 32]) -> String {
-    preparation
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    layerx_programs::hex::encode(&preparation)
 }
 
 pub(crate) fn authorize_program(
@@ -530,7 +531,7 @@ pub(crate) fn authorize_program(
             hash.update(b"layerx-approved-preparation-v1");
             hash.update(durable.tenant.as_str().as_bytes());
             hash.update(approval_id);
-            hash.update(&prepared.call.encode_unsigned());
+            hash.update(prepared.call.encode_unsigned());
             let expected: [u8; 32] = hash.finalize().into();
             if decision.submission_ref != Some(expected) {
                 return Err(Refusal::Binding);
@@ -627,9 +628,7 @@ pub(crate) fn read_approval(
 }
 
 impl Record {
-    pub(crate) fn terminal_decision(
-        &self,
-    ) -> Result<Option<(Terminal, &str, Option<[u8; 32]>)>, Refusal> {
+    pub(crate) fn terminal_decision(&self) -> Result<Option<TerminalDecision<'_>>, Refusal> {
         self.validate()?;
         Ok(self.decision.as_ref().map(|decision| {
             (
@@ -760,3 +759,5 @@ pub(crate) fn check_call(
     }
     Ok(())
 }
+
+type TerminalDecision<'a> = (Terminal, &'a str, Option<[u8; 32]>);

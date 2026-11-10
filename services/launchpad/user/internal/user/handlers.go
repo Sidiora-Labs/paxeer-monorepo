@@ -542,5 +542,10 @@ func (h *Handlers) logErr(op string, err error) {
 }
 
 func (h *Handlers) profileCacheKey(addr string) string {
-	return cacheKeyPrefix + h.publicURL + ":" + addr
+	return ProfileCacheKey(h.publicURL, addr)
+}
+
+// ProfileCacheKey is shared by legacy reads and development profile writes.
+func ProfileCacheKey(publicURL, addr string) string {
+	return cacheKeyPrefix + strings.TrimRight(publicURL, "/") + ":" + strings.ToLower(addr)
 }

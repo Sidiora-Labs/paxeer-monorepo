@@ -288,6 +288,8 @@ impl SessionControl {
         Arc::clone(&self.store)
     }
 
+    /// # Errors
+    /// Returns an error if the session control state cannot be acquired or read.
     pub fn observability_stats(&self) -> Result<TenantObservabilityStats, SessionControlError> {
         self.observability
             .lock()
@@ -790,29 +792,6 @@ impl SessionControl {
         self.rotate_authorized(permit, target, None, current_sequence)
     }
 
-    /// Narrows and rotates a session owned by the permit's tenant and agent.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if permit resolution, target authorization, durable state, or
-    /// preparation invalidation fails.
-    pub(crate) fn restrict_session_authorized(
-        &self,
-        permit: &OperationPermit,
-        target: SessionId,
-        scopes: BTreeSet<String>,
-        permitted_activity_types: BTreeSet<u16>,
-        current_sequence: u64,
-    ) -> Result<(Token, PreparationInvalidationReport), SessionControlError> {
-        permit.require_operation(Operation::SessionRefresh)?;
-        self.rotate_authorized(
-            permit,
-            target,
-            Some((scopes, permitted_activity_types)),
-            current_sequence,
-        )
-    }
-
     fn rotate_authorized(
         &self,
         permit: &OperationPermit,
@@ -1174,6 +1153,9 @@ pub struct OperationPermit {
 }
 
 impl OperationPermit {
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_begin(
         &self,
         control: &SessionControl,
@@ -1252,6 +1234,9 @@ impl OperationPermit {
         Ok(McpInvocationStart::Started(handle))
     }
 
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_start_effect(
         &self,
         control: &SessionControl,
@@ -1295,6 +1280,9 @@ impl OperationPermit {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_settle_effect(
         &self,
         control: &SessionControl,
@@ -1336,6 +1324,9 @@ impl OperationPermit {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_effect<E>(
         &self,
         control: &SessionControl,
@@ -1348,6 +1339,9 @@ impl OperationPermit {
         Ok(response)
     }
 
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_bind_preparation(
         &self,
         control: &SessionControl,
@@ -1401,6 +1395,9 @@ impl OperationPermit {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_reconcile_effect(
         &self,
         control: &SessionControl,
@@ -1478,6 +1475,9 @@ impl OperationPermit {
         Ok(true)
     }
 
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_release<T>(
         &self,
         control: &SessionControl,
@@ -1487,6 +1487,9 @@ impl OperationPermit {
         self.mcp_release_current(control, handle, self.request.core_sequence, writer)
     }
 
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_release_current<T>(
         &self,
         control: &SessionControl,
@@ -1789,36 +1792,6 @@ impl OperationPermit {
         self.admit_write_authorized(control, admission)
     }
 
-    pub(crate) fn admit_write_with_companions<'a>(
-        &self,
-        control: &SessionControl,
-        admission: WriteAdmission<'a>,
-        companion: AdmissionCompanionBuilder<'a>,
-    ) -> Result<DurablePreparation, SessionControlError> {
-        self.require_operation(Operation::Prepare)?;
-        if !matches!(admission.stage, AdmissionStage::Prepare { .. }) {
-            return Err(SessionControlError::Unavailable);
-        };
-        self.admit_write_authorized_with_companions(control, admission, Some(companion), None)
-    }
-    pub(crate) fn admit_write_with_companions_and_publish<'a>(
-        &self,
-        control: &SessionControl,
-        admission: WriteAdmission<'a>,
-        companion: AdmissionCompanionBuilder<'a>,
-        publisher: AdmissionPublisher<'a>,
-    ) -> Result<DurablePreparation, SessionControlError> {
-        self.require_operation(Operation::Prepare)?;
-        if !matches!(admission.stage, AdmissionStage::Prepare { .. }) {
-            return Err(SessionControlError::Unavailable);
-        }
-        self.admit_write_authorized_with_companions(
-            control,
-            admission,
-            Some(companion),
-            Some(publisher),
-        )
-    }
     fn admit_write_authorized(
         &self,
         control: &SessionControl,
@@ -1848,183 +1821,41 @@ impl OperationPermit {
             .lock()
             .map_err(|_| SessionControlError::Unavailable)?;
         if let AdmissionStage::Prepare { prepared } = admission.stage {
-            if store.get(&key).is_some() {
-                return Err(lifecycle(LifecycleError::Duplicate));
-            }
-            if authorization.generation == 0 {
-                return Err(lifecycle(LifecycleError::InvalidAuthorization));
-            }
-            match control.lifecycle.state(preparation_id) {
-                Err(LifecycleError::NotFound) => {}
-                Ok(_) => return Err(lifecycle(LifecycleError::Duplicate)),
-                Err(error) => return Err(lifecycle(error)),
-            }
-            let plan = match admission.planner {
-                Some(planner) => planner(&*store)?,
-                None => AdmissionPlan::default(),
-            };
-            if plan.updates.is_empty() && !plan.companions.is_empty() {
-                return Err(SessionControlError::Unavailable);
-            }
-            let undo_updates = plan
-                .updates
-                .iter()
-                .map(|(key, _)| {
-                    let original = store.get(key).ok_or(SessionControlError::Unavailable)?;
-                    if original.class() != crate::store::StorageClass::LocalOnly {
-                        return Err(SessionControlError::Unavailable);
-                    }
-                    Ok((key.clone(), original.bytes().to_vec()))
-                })
-                .collect::<Result<Vec<_>, SessionControlError>>()?;
-            let mut companion_keys = plan
-                .companions
-                .iter()
-                .map(|(key, _)| key.clone())
-                .collect::<Vec<_>>();
-            let idempotency_key = prepared.disclosure.idempotency_key;
-            if live_preparation_for_key(&store, &tenant, idempotency_key)?.is_some() {
-                return Err(lifecycle(LifecycleError::Duplicate));
-            }
-            let mut extensions = BTreeMap::new();
-            let own = PreparationExtension {
-                tag: EXTENSION_IDEMPOTENCY,
-                bytes: idempotency_key.to_vec(),
-            };
-            for extension in admission
-                .extensions
-                .into_iter()
-                .chain(plan.extensions)
-                .chain(std::iter::once(own))
-            {
-                if extensions.insert(extension.tag, extension.bytes).is_some() {
-                    return Err(lifecycle(LifecycleError::InvalidSignedBytes));
-                }
-            }
-            let holds = match &admission.charge {
-                Some(charge) => reserve_charge(
-                    &control.budgets,
-                    preparation_id,
-                    charge,
-                    charge.applicable_limits.clone(),
-                    admission.current_sequence,
-                    admission.core_time_ms,
-                )?,
-                None => Vec::new(),
-            };
-            let record = DurablePreparation {
-                tenant,
-                preparation_id,
-                session_id: authorization.session.session_id.0,
-                generation: authorization.generation,
-                not_after: prepared.disclosure.expiry.not_after,
-                payload_hash: layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data),
-                state: LifecycleState::Prepared,
-                activity_id: None,
-                holds,
-                extensions,
-            };
-            let release_holds = || {
-                budget::release(
-                    &control.budgets,
-                    preparation_id,
-                    ReleaseKind::Failed,
-                    admission.current_sequence,
-                )
-                .map_err(|refusal| lifecycle(LifecycleError::Reservation(refusal)))
-            };
-            let extra = match companion {
-                Some(builder) => match builder(&store, &record) {
-                    Ok(value) => Some(value),
-                    Err(error) => {
-                        release_holds()?;
-                        return Err(error);
-                    }
+            return admit_new_preparation(
+                control,
+                &mut store,
+                NewPreparationAdmission {
+                    authorization,
+                    prepared,
+                    tenant,
+                    key,
+                    admission,
+                    companion,
+                    publisher,
                 },
-                None => None,
-            };
-            if let Some(extra) = &extra {
-                companion_keys.extend(extra.iter().map(|(key, _)| key.clone()));
-            }
-            let published = record.encode().map_err(lifecycle).and_then(|bytes| {
-                let result = if let Some(extra) = extra {
-                    let mut inserts = plan.companions;
-                    inserts.extend(extra);
-                    inserts.push((key.clone(), bytes));
-                    store.apply_program_approval_batch(plan.updates, inserts, Vec::new())
-                } else if plan.updates.is_empty() {
-                    store.put_local(key.clone(), bytes)
-                } else {
-                    let mut companions = plan.companions;
-                    companions.push((key.clone(), bytes));
-                    store.update_local_batch_with_companions(plan.updates, companions)
-                };
-                result.map_err(|_| SessionControlError::Unavailable)
-            });
-            if let Err(error) = published {
-                release_holds()?;
-                return Err(error);
-            }
-            if let Err(error) = control.lifecycle.register_authorized(
-                preparation_id,
-                prepared,
-                vec![preparation_id],
-                authorization,
-            ) {
-                rollback_preparation_admission(
-                    &mut store,
-                    &control.budgets,
-                    &record,
-                    undo_updates,
-                    companion_keys,
-                    admission.current_sequence,
-                )?;
-                return Err(lifecycle(error));
-            }
-            if let Some(publish) = publisher {
-                if let Err(error) = publish(&store, &record) {
-                    rollback_preparation_admission(
-                        &mut store,
-                        &control.budgets,
-                        &record,
-                        undo_updates,
-                        companion_keys,
-                        admission.current_sequence,
-                    )?;
-                    control
-                        .lifecycle
-                        .invalidate_preparations(
-                            &BTreeSet::from([preparation_id]),
-                            admission.current_sequence,
-                            &control.budgets,
-                        )
-                        .map_err(lifecycle)?;
-                    return Err(error);
-                }
-            }
-            return Ok(record);
+            );
         }
-        if admission.planner.is_some() {
-            return Err(lifecycle(LifecycleError::AuthorizationMismatch));
-        }
+        crate::reject_if(admission.planner.is_some(), || {
+            lifecycle(LifecycleError::AuthorizationMismatch)
+        })?;
         let stored = store
             .get(&key)
             .ok_or(lifecycle(LifecycleError::NotFound))?
             .bytes()
             .to_vec();
         let mut record = DurablePreparation::decode(tenant, &stored).map_err(lifecycle)?;
-        if record.session_id != authorization.session.session_id.0
-            || record.generation != authorization.generation
-        {
-            return Err(lifecycle(LifecycleError::AuthorizationMismatch));
-        }
-        if admission
-            .extensions
-            .iter()
-            .any(|extension| record.extensions.get(&extension.tag) != Some(&extension.bytes))
-        {
-            return Err(lifecycle(LifecycleError::AuthorizationMismatch));
-        }
+        crate::reject_if(
+            record.session_id != authorization.session.session_id.0
+                || record.generation != authorization.generation,
+            || lifecycle(LifecycleError::AuthorizationMismatch),
+        )?;
+        crate::reject_if(
+            admission
+                .extensions
+                .iter()
+                .any(|extension| record.extensions.get(&extension.tag) != Some(&extension.bytes)),
+            || lifecycle(LifecycleError::AuthorizationMismatch),
+        )?;
         control
             .lifecycle
             .check_unexpired_authorized(preparation_id, admission.core_time_ms, &authorization)
@@ -2032,31 +1863,11 @@ impl OperationPermit {
         if matches!(admission.stage, AdmissionStage::Sign) {
             return Ok(record);
         }
-        for (hold, _) in &record.holds {
-            if control
-                .budgets
-                .is_retired(hold.limit_id)
-                .map_err(|refusal| lifecycle(LifecycleError::Reservation(refusal)))?
-            {
-                return Err(lifecycle(LifecycleError::Reservation(
-                    LimitRefusal::Retired(hold.limit_id),
-                )));
-            }
-        }
+        check_preparation_holds(control, &record)?;
         let Some(charge) = &admission.charge else {
             return Ok(record);
         };
-        let missing: Vec<LimitId> = charge
-            .applicable_limits
-            .iter()
-            .filter(|limit| {
-                !record
-                    .holds
-                    .iter()
-                    .any(|(hold, _)| hold.limit_id == **limit)
-            })
-            .copied()
-            .collect();
+        let missing = missing_charge_limits(&record, charge);
         if missing.is_empty() {
             return Ok(record);
         }
@@ -2620,6 +2431,43 @@ impl OperationPermit {
             self.request.core_sequence,
         ))
     }
+}
+fn check_preparation_holds(
+    control: &SessionControl,
+    record: &DurablePreparation,
+) -> Result<(), SessionControlError> {
+    let lifecycle = SessionControlError::Lifecycle;
+    for (hold, _) in &record.holds {
+        crate::reject_if(
+            control
+                .budgets
+                .is_retired(hold.limit_id)
+                .map_err(|refusal| lifecycle(LifecycleError::Reservation(refusal)))?,
+            || {
+                lifecycle(LifecycleError::Reservation(LimitRefusal::Retired(
+                    hold.limit_id,
+                )))
+            },
+        )?;
+    }
+
+    Ok(())
+}
+
+fn missing_charge_limits(record: &DurablePreparation, charge: &WriteCharge) -> Vec<LimitId> {
+    let missing: Vec<LimitId> = charge
+        .applicable_limits
+        .iter()
+        .filter(|limit| {
+            !record
+                .holds
+                .iter()
+                .any(|(hold, _)| hold.limit_id == **limit)
+        })
+        .copied()
+        .collect();
+
+    missing
 }
 
 /// Stage at which one write passes the single admission seam.
@@ -3864,6 +3712,9 @@ fn mcp_persist_event(
         .map_err(|_| McpInvocationError::Unavailable)
 }
 
+/// # Errors
+/// Returns an error if the invocation conflicts with retained state, fails session control,
+/// or its evidence or durable state is corrupt or unavailable.
 pub fn mcp_store_evidence_for_tool(
     store: &Store,
     tenant: &TenantId,
@@ -3892,6 +3743,9 @@ pub fn mcp_store_evidence_for_tool(
     Ok(found)
 }
 
+/// # Errors
+/// Returns an error if the invocation conflicts with retained state, fails session control,
+/// or its evidence or durable state is corrupt or unavailable.
 pub fn mcp_store_evidence(
     store: &Store,
     tenant: &TenantId,
@@ -3901,6 +3755,9 @@ pub fn mcp_store_evidence(
 }
 
 impl SessionControl {
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_evidence(
         &self,
         tenant: &TenantId,
@@ -3954,97 +3811,48 @@ pub(crate) fn mcp_transition_updates(
             Some(value) if value.class() == StorageClass::LocalOnly => {
                 u64::from_be_bytes(value.bytes().try_into().map_err(|_| corrupt())?)
             }
-            Some(_) => return Err(corrupt()),
-            None => return Err(corrupt()),
+
+            Some(_) | None => return Err(corrupt()),
         };
         let first_order = order;
         for key in keys {
             let stored = current.get(&key).ok_or_else(corrupt)?;
-            if stored.class() != StorageClass::LocalOnly {
-                return Err(corrupt());
-            }
+            crate::reject_if(stored.class() != StorageClass::LocalOnly, corrupt)?;
             let mut record = McpInvocationRecord::decode(stored.bytes()).map_err(|_| corrupt())?;
             let session = SessionId(record.session);
             let old = session::load_record(previous, &tenant, session).map_err(|_| corrupt())?;
             let new = session::load_record(current, &tenant, session).map_err(|_| corrupt())?;
-            if record.tenant != tenant.as_str()
-                || record.actor != old.request.agent.as_bytes()
-                || old.request.agent != new.request.agent
-            {
-                return Err(corrupt());
-            }
+            crate::reject_if(
+                record.tenant != tenant.as_str()
+                    || record.actor != old.request.agent.as_bytes()
+                    || old.request.agent != new.request.agent,
+                corrupt,
+            )?;
             let mut events = Vec::new();
             if let Some((kind, sequence)) = transition {
                 if old.generation != new.generation {
-                    if new.generation <= old.generation {
-                        return Err(corrupt());
-                    }
+                    crate::reject_if(new.generation <= old.generation, corrupt)?;
                     if record.generation == old.generation {
-                        if !old.open
-                            || (matches!(kind, "session_close" | "session_revoke") && new.open)
-                            || (matches!(kind, "session_narrow" | "session_refresh") && !new.open)
-                            || !new.request.scopes.is_subset(&old.request.scopes)
-                            || !new
-                                .request
-                                .permitted_activity_types
-                                .is_subset(&old.request.permitted_activity_types)
-                        {
-                            return Err(corrupt());
-                        }
+                        crate::reject_if(
+                            !old.open
+                                || (matches!(kind, "session_close" | "session_revoke") && new.open)
+                                || (matches!(kind, "session_narrow" | "session_refresh")
+                                    && !new.open)
+                                || !new.request.scopes.is_subset(&old.request.scopes)
+                                || !new
+                                    .request
+                                    .permitted_activity_types
+                                    .is_subset(&old.request.permitted_activity_types),
+                            corrupt,
+                        )?;
                         events.push((kind, sequence));
                     }
                 }
             }
-            if record.phase == McpInvocationPhase::EffectStarted {
-                if let Some(native) = &record.native_preparation {
-                    let outbox_key = TenantKey::new(
-                        tenant.clone(),
-                        ObjectKind::Outbox,
-                        native.idempotency_key.to_vec(),
-                    )?;
-                    let before = previous.get(&outbox_key);
-                    let after = current.get(&outbox_key);
-                    if before.is_some()
-                        && after.is_some()
-                        && before.map(|value| value.bytes()) != after.map(|value| value.bytes())
-                    {
-                        let mut old_outbox = crate::outbox::Outbox::default();
-                        let mut new_outbox = crate::outbox::Outbox::default();
-                        old_outbox
-                            .restore(previous, tenant.clone(), native.idempotency_key)
-                            .map_err(|_| corrupt())?;
-                        new_outbox
-                            .restore(current, tenant.clone(), native.idempotency_key)
-                            .map_err(|_| corrupt())?;
-                        let prior_status = old_outbox
-                            .status(native.idempotency_key)
-                            .ok_or_else(corrupt)?;
-                        let status = new_outbox
-                            .status(native.idempotency_key)
-                            .ok_or_else(corrupt)?;
-                        if prior_status.state == crate::outbox::SubmissionState::Queued
-                            && status.state == crate::outbox::SubmissionState::Submitted
-                        {
-                            let origin = new_outbox
-                                .origin(native.idempotency_key)
-                                .map_err(|_| corrupt())?
-                                .ok_or_else(corrupt)?;
-                            if origin.session.tenant != tenant
-                                || origin.session.session_id != session
-                                || origin.generation != record.generation
-                                || !new.open
-                                || new.generation != record.generation
-                                || record
-                                    .events
-                                    .iter()
-                                    .any(|event| event.kind == "native_transmission_started")
-                            {
-                                return Err(corrupt());
-                            }
-                            events.push(("native_transmission_started", record.core_sequence));
-                        }
-                    }
-                }
+            if let Some(event) =
+                native_transmission_event(previous, current, &tenant, &record, &new)?
+            {
+                events.push(event);
             }
             if events.is_empty() {
                 continue;
@@ -4100,6 +3908,9 @@ fn mcp_native_preparation(
 }
 
 impl SessionControl {
+    /// # Errors
+    /// Returns an error if the invocation conflicts with retained state, fails session control,
+    /// or its evidence or durable state is corrupt or unavailable.
     pub fn mcp_reconciliation_target(
         &self,
         handle: &McpInvocationHandle,
@@ -4136,12 +3947,364 @@ impl SessionControl {
         {
             return Err(McpInvocationError::Conflict);
         }
-        Ok(Some(
-            native
-                .idempotency_key
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect(),
-        ))
+        Ok(Some(layerx_programs::hex::encode(&native.idempotency_key)))
     }
+}
+
+struct NewPreparationAdmission<'a> {
+    authorization: PreparationAuthorization,
+    prepared: &'a crate::prepare::EvmPrepared,
+    tenant: TenantId,
+    key: TenantKey,
+    admission: WriteAdmission<'a>,
+    companion: Option<AdmissionCompanionBuilder<'a>>,
+    publisher: Option<AdmissionPublisher<'a>>,
+}
+fn admit_new_preparation(
+    control: &SessionControl,
+    store: &mut Store,
+    input: NewPreparationAdmission<'_>,
+) -> Result<DurablePreparation, SessionControlError> {
+    let NewPreparationAdmission {
+        authorization,
+        prepared,
+        tenant,
+        key,
+        admission,
+        companion,
+        publisher,
+    } = input;
+    let preparation_id = admission.preparation_id;
+    let lifecycle = SessionControlError::Lifecycle;
+
+    crate::reject_if(store.get(&key).is_some(), || {
+        lifecycle(LifecycleError::Duplicate)
+    })?;
+    crate::reject_if(authorization.generation == 0, || {
+        lifecycle(LifecycleError::InvalidAuthorization)
+    })?;
+    match control.lifecycle.state(preparation_id) {
+        Err(LifecycleError::NotFound) => {}
+        Ok(_) => return Err(lifecycle(LifecycleError::Duplicate)),
+        Err(error) => return Err(lifecycle(error)),
+    }
+    let mut plan = match admission.planner {
+        Some(planner) => planner(store)?,
+        None => AdmissionPlan::default(),
+    };
+    crate::reject_if(
+        plan.updates.is_empty() && !plan.companions.is_empty(),
+        || SessionControlError::Unavailable,
+    )?;
+    let undo_updates = preparation_update_undo(store, &plan)?;
+    let idempotency_key = prepared.disclosure.idempotency_key;
+    crate::reject_if(
+        live_preparation_for_key(store, &tenant, idempotency_key)?.is_some(),
+        || lifecycle(LifecycleError::Duplicate),
+    )?;
+    let extensions = preparation_extensions(
+        admission.extensions,
+        std::mem::take(&mut plan.extensions),
+        idempotency_key,
+    )?;
+    let holds = match &admission.charge {
+        Some(charge) => reserve_charge(
+            &control.budgets,
+            preparation_id,
+            charge,
+            charge.applicable_limits.clone(),
+            admission.current_sequence,
+            admission.core_time_ms,
+        )?,
+        None => Vec::new(),
+    };
+    let record = new_preparation_record(
+        tenant,
+        preparation_id,
+        &authorization,
+        prepared,
+        holds,
+        extensions,
+    );
+    let release_holds = || {
+        budget::release(
+            &control.budgets,
+            preparation_id,
+            ReleaseKind::Failed,
+            admission.current_sequence,
+        )
+        .map_err(|refusal| lifecycle(LifecycleError::Reservation(refusal)))
+    };
+    let extra = match companion {
+        Some(builder) => match builder(store, &record) {
+            Ok(value) => Some(value),
+            Err(error) => {
+                release_holds()?;
+                return Err(error);
+            }
+        },
+        None => None,
+    };
+    let companion_keys = admission_companion_keys(&plan, extra.as_deref());
+    let commit_result = commit_new_preparation_record(store, &key, &record, plan, extra);
+    if let Err(error) = commit_result {
+        release_holds()?;
+        return Err(error);
+    }
+    PreparationPublication {
+        control,
+        prepared,
+        authorization,
+        undo_updates,
+        companion_keys,
+        current_sequence: admission.current_sequence,
+        publisher,
+    }
+    .publish(store, &record)?;
+    Ok(record)
+}
+fn admission_companion_keys(
+    plan: &AdmissionPlan,
+    extra: Option<&[(TenantKey, Vec<u8>)]>,
+) -> Vec<TenantKey> {
+    let mut companion_keys = plan
+        .companions
+        .iter()
+        .map(|(key, _)| key.clone())
+        .collect::<Vec<_>>();
+    if let Some(extra) = extra {
+        companion_keys.extend(extra.iter().map(|(key, _)| key.clone()));
+    }
+
+    companion_keys
+}
+
+type DurablePreparationHolds = Vec<(
+    crate::budget::DurableBudgetReservation,
+    Option<CoreTimestampMs>,
+)>;
+fn new_preparation_record(
+    tenant: TenantId,
+    preparation_id: [u8; 32],
+    authorization: &PreparationAuthorization,
+    prepared: &EvmPrepared,
+    holds: DurablePreparationHolds,
+    extensions: BTreeMap<u16, Vec<u8>>,
+) -> DurablePreparation {
+    DurablePreparation {
+        tenant,
+        preparation_id,
+        session_id: authorization.session.session_id.0,
+        generation: authorization.generation,
+        not_after: prepared.disclosure.expiry.not_after,
+        payload_hash: layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data),
+        state: LifecycleState::Prepared,
+        activity_id: None,
+        holds,
+        extensions,
+    }
+}
+
+fn preparation_extensions(
+    admission_extensions: Vec<PreparationExtension>,
+    plan_extensions: Vec<PreparationExtension>,
+    idempotency_key: [u8; 32],
+) -> Result<BTreeMap<u16, Vec<u8>>, SessionControlError> {
+    let lifecycle = SessionControlError::Lifecycle;
+    let mut extensions = BTreeMap::new();
+    let own = PreparationExtension {
+        tag: EXTENSION_IDEMPOTENCY,
+        bytes: idempotency_key.to_vec(),
+    };
+    for extension in admission_extensions
+        .into_iter()
+        .chain(plan_extensions)
+        .chain(std::iter::once(own))
+    {
+        crate::reject_if(
+            extensions.insert(extension.tag, extension.bytes).is_some(),
+            || lifecycle(LifecycleError::InvalidSignedBytes),
+        )?;
+    }
+
+    Ok(extensions)
+}
+
+fn preparation_update_undo(
+    store: &Store,
+    plan: &AdmissionPlan,
+) -> Result<AdmissionRows, SessionControlError> {
+    let undo_updates = plan
+        .updates
+        .iter()
+        .map(|(key, _)| {
+            let original = store.get(key).ok_or(SessionControlError::Unavailable)?;
+            crate::reject_if(
+                original.class() != crate::store::StorageClass::LocalOnly,
+                || SessionControlError::Unavailable,
+            )?;
+            Ok((key.clone(), original.bytes().to_vec()))
+        })
+        .collect::<Result<Vec<_>, SessionControlError>>()?;
+
+    Ok(undo_updates)
+}
+
+fn commit_new_preparation_record(
+    store: &mut Store,
+    key: &TenantKey,
+    record: &DurablePreparation,
+    plan: AdmissionPlan,
+    extra: Option<AdmissionRows>,
+) -> Result<(), SessionControlError> {
+    record
+        .encode()
+        .map_err(SessionControlError::Lifecycle)
+        .and_then(|bytes| {
+            let result = if let Some(extra) = extra {
+                let mut inserts = plan.companions;
+                inserts.extend(extra);
+                inserts.push((key.clone(), bytes));
+                store.apply_program_approval_batch(plan.updates, inserts, Vec::new())
+            } else if plan.updates.is_empty() {
+                store.put_local(key.clone(), bytes)
+            } else {
+                let mut companions = plan.companions;
+                companions.push((key.clone(), bytes));
+                store.update_local_batch_with_companions(plan.updates, companions)
+            };
+            result.map_err(|_| SessionControlError::Unavailable)
+        })
+}
+
+struct PreparationPublication<'a> {
+    control: &'a SessionControl,
+    prepared: &'a crate::prepare::EvmPrepared,
+    authorization: PreparationAuthorization,
+    undo_updates: AdmissionRows,
+    companion_keys: Vec<TenantKey>,
+    current_sequence: u64,
+    publisher: Option<AdmissionPublisher<'a>>,
+}
+impl PreparationPublication<'_> {
+    fn publish(
+        self,
+        store: &mut Store,
+        record: &DurablePreparation,
+    ) -> Result<(), SessionControlError> {
+        let Self {
+            control,
+            prepared,
+            authorization,
+            undo_updates,
+            companion_keys,
+            current_sequence,
+            publisher,
+        } = self;
+        let preparation_id = record.preparation_id;
+        let lifecycle = SessionControlError::Lifecycle;
+        if let Err(error) = control.lifecycle.register_authorized(
+            preparation_id,
+            prepared,
+            vec![preparation_id],
+            authorization,
+        ) {
+            rollback_preparation_admission(
+                store,
+                &control.budgets,
+                record,
+                undo_updates,
+                companion_keys,
+                current_sequence,
+            )?;
+            return Err(lifecycle(error));
+        }
+        if let Some(publish) = publisher {
+            if let Err(error) = publish(store, record) {
+                rollback_preparation_admission(
+                    store,
+                    &control.budgets,
+                    record,
+                    undo_updates,
+                    companion_keys,
+                    current_sequence,
+                )?;
+                control
+                    .lifecycle
+                    .invalidate_preparations(
+                        &BTreeSet::from([preparation_id]),
+                        current_sequence,
+                        &control.budgets,
+                    )
+                    .map_err(lifecycle)?;
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+}
+type AdmissionRows = Vec<(TenantKey, Vec<u8>)>;
+
+fn native_transmission_event(
+    previous: &Store,
+    current: &Store,
+    tenant: &TenantId,
+    record: &McpInvocationRecord,
+    new: &session::SessionRecord,
+) -> Result<Option<(&'static str, u64)>, crate::store::StoreError> {
+    let corrupt = || crate::store::StoreError::Corrupt("invalid MCP generation transition");
+    let session = SessionId(record.session);
+    if record.phase == McpInvocationPhase::EffectStarted {
+        if let Some(native) = &record.native_preparation {
+            let outbox_key = TenantKey::new(
+                tenant.clone(),
+                ObjectKind::Outbox,
+                native.idempotency_key.to_vec(),
+            )?;
+            let before = previous.get(&outbox_key);
+            let after = current.get(&outbox_key);
+            if before.is_some()
+                && after.is_some()
+                && before.map(super::store::StoredValue::bytes)
+                    != after.map(super::store::StoredValue::bytes)
+            {
+                let mut old_outbox = crate::outbox::Outbox::default();
+                let mut new_outbox = crate::outbox::Outbox::default();
+                old_outbox
+                    .restore(previous, tenant.clone(), native.idempotency_key)
+                    .map_err(|_| corrupt())?;
+                new_outbox
+                    .restore(current, tenant.clone(), native.idempotency_key)
+                    .map_err(|_| corrupt())?;
+                let prior_status = old_outbox
+                    .status(native.idempotency_key)
+                    .ok_or_else(corrupt)?;
+                let status = new_outbox
+                    .status(native.idempotency_key)
+                    .ok_or_else(corrupt)?;
+                if prior_status.state == crate::outbox::SubmissionState::Queued
+                    && status.state == crate::outbox::SubmissionState::Submitted
+                {
+                    let origin = new_outbox
+                        .origin(native.idempotency_key)
+                        .map_err(|_| corrupt())?
+                        .ok_or_else(corrupt)?;
+                    crate::reject_if(
+                        origin.session.tenant != *tenant
+                            || origin.session.session_id != session
+                            || origin.generation != record.generation
+                            || !new.open
+                            || new.generation != record.generation
+                            || record
+                                .events
+                                .iter()
+                                .any(|event| event.kind == "native_transmission_started"),
+                        corrupt,
+                    )?;
+                    return Ok(Some(("native_transmission_started", record.core_sequence)));
+                }
+            }
+        }
+    }
+    Ok(None)
 }
