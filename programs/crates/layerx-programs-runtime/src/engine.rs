@@ -249,7 +249,7 @@ fn deployment_bound_refusal(reason: &str) -> ValidationRefusal {
     }
 }
 
-fn deployment_parse_refusal(error: wasmparser_nostd::BinaryReaderError) -> ValidationRefusal {
+fn deployment_parse_refusal(error: &wasmparser_nostd::BinaryReaderError) -> ValidationRefusal {
     ValidationRefusal::MalformedModule {
         reason: error.to_string(),
     }
@@ -266,17 +266,17 @@ fn validate_deployment_bounds(
     let mut allocations = wasmparser_nostd::FuncValidatorAllocations::default();
     let mut calls = BTreeMap::<u32, BTreeSet<u32>>::new();
     for payload in Parser::new(0).parse_all(wasm) {
-        let payload = payload.map_err(deployment_parse_refusal)?;
+        let payload = payload.map_err(|error| deployment_parse_refusal(&error))?;
         if let ValidPayload::Func(function, body) = validator
             .payload(&payload)
-            .map_err(deployment_parse_refusal)?
+            .map_err(|error| deployment_parse_refusal(&error))?
         {
             let index = function.index;
             let mut function = function.into_validator(allocations);
             let mut reader = body.get_binary_reader();
             function
                 .read_locals(&mut reader)
-                .map_err(deployment_parse_refusal)?;
+                .map_err(|error| deployment_parse_refusal(&error))?;
             if function.len_locals() > limits.max_value_stack_height() {
                 return Err(deployment_bound_refusal(
                     "declared value stack height exceeded",
@@ -285,10 +285,12 @@ fn validate_deployment_bounds(
             let outgoing = calls.entry(index).or_default();
             while !reader.eof() {
                 let offset = reader.original_position();
-                let operator = reader.read_operator().map_err(deployment_parse_refusal)?;
+                let operator = reader
+                    .read_operator()
+                    .map_err(|error| deployment_parse_refusal(&error))?;
                 function
                     .op(offset, &operator)
-                    .map_err(deployment_parse_refusal)?;
+                    .map_err(|error| deployment_parse_refusal(&error))?;
                 let footprint =
                     u64::from(function.len_locals()) + u64::from(function.operand_stack_height());
                 if footprint > u64::from(limits.max_value_stack_height()) {
@@ -302,7 +304,7 @@ fn validate_deployment_bounds(
             }
             function
                 .finish(reader.original_position())
-                .map_err(deployment_parse_refusal)?;
+                .map_err(|error| deployment_parse_refusal(&error))?;
             allocations = function.into_allocations();
         }
     }

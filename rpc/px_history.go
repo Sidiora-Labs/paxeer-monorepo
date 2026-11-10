@@ -49,6 +49,8 @@ func (a *pxHistoryAPI) GetHistory(ctx context.Context, selector string, cursor *
 	}()
 	return a.read(ctx, selector, cursor, limit, kind, false)
 }
+
+// GetUnifiedHistory serves px_getUnifiedHistory from the same indexer for each bound account.
 func (a *pxHistoryAPI) GetUnifiedHistory(ctx context.Context, selector string, cursor *string, limit *int, kind *string) (result map[string]interface{}, returnErr error) {
 	start := time.Now()
 	defer func() {

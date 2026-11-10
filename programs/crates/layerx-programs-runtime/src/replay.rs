@@ -1,4 +1,5 @@
 use sha2::{Digest, Sha256};
+type SemanticConstants<'a> = (&'a [u8], &'a [u8], &'a [u8], &'a [u8]);
 
 const DOMAIN: &[u8] = b"LayerX/programs/replay-host-witness/v1\0";
 pub(crate) const STORAGE_DOMAIN: &[u8] = b"LayerX/programs/v2/storage-root\0";
@@ -30,6 +31,9 @@ pub struct ReplayMemory {
     pub changed_chunks: Vec<ReplayMemoryChunk>,
 }
 
+/// # Errors
+///
+/// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
 pub fn replay_memory_root(memory: &[u8]) -> Result<[u8; 32], ReplayWitnessError> {
     use crate::replay_record::{
         REPLAY_MEMORY_CHUNK_DOMAIN, REPLAY_MEMORY_NODE_DOMAIN, REPLAY_MEMORY_ROOT_DOMAIN,
@@ -43,7 +47,11 @@ pub fn replay_memory_root(memory: &[u8]) -> Result<[u8; 32], ReplayWitnessError>
         padded[..chunk.len()].copy_from_slice(chunk);
         let mut hash = Sha256::new();
         hash.update(REPLAY_MEMORY_CHUNK_DOMAIN);
-        hash.update((index as u32).to_be_bytes());
+        hash.update(
+            u32::try_from(index)
+                .map_err(|_| ReplayWitnessError::Bounds)?
+                .to_be_bytes(),
+        );
         hash.update(padded);
         nodes.push(<[u8; 32]>::from(hash.finalize()));
     }
@@ -61,7 +69,11 @@ pub fn replay_memory_root(memory: &[u8]) -> Result<[u8; 32], ReplayWitnessError>
     }
     let mut hash = Sha256::new();
     hash.update(REPLAY_MEMORY_ROOT_DOMAIN);
-    hash.update((memory.len() as u32).to_be_bytes());
+    hash.update(
+        u32::try_from(memory.len())
+            .map_err(|_| ReplayWitnessError::Bounds)?
+            .to_be_bytes(),
+    );
     if let Some(node) = nodes.first() {
         hash.update(node);
     }
@@ -69,6 +81,9 @@ pub fn replay_memory_root(memory: &[u8]) -> Result<[u8; 32], ReplayWitnessError>
 }
 
 impl ReplayMemory {
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn capture(memory: &[u8], previous: &[u8]) -> Result<Self, ReplayWitnessError> {
         let root = replay_memory_root(memory)?;
         let mut changed_chunks = Vec::new();
@@ -83,18 +98,21 @@ impl ReplayMemory {
             }
             if bytes != old {
                 changed_chunks.push(ReplayMemoryChunk {
-                    index: index as u32,
+                    index: u32::try_from(index).map_err(|_| ReplayWitnessError::Bounds)?,
                     bytes,
                 });
             }
         }
         Ok(Self {
-            length: memory.len() as u32,
+            length: u32::try_from(memory.len()).map_err(|_| ReplayWitnessError::Bounds)?,
             root,
             changed_chunks,
         })
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn rebuild(&self, previous: &[u8]) -> Result<Vec<u8>, ReplayWitnessError> {
         let memory = rebuild_replay_memory(previous, self.length as usize, &self.changed_chunks)?;
         if replay_memory_root(&memory)? != self.root
@@ -158,6 +176,9 @@ fn validate_memory_chunks(
     Ok(())
 }
 
+/// # Errors
+///
+/// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
 pub fn rebuild_replay_memory(
     previous: &[u8],
     length: usize,
@@ -415,6 +436,9 @@ impl ReplayHostWitnessV1 {
         validate_storage_preimage(&self.storage_baseline)?;
         Ok(())
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn canonical_bytes(&self, maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
         maximum_bytes(maximum)?;
         let length = self.encoded_len()?;
@@ -438,6 +462,9 @@ impl ReplayHostWitnessV1 {
         field(&mut out, &self.storage_baseline, maximum)?;
         Ok(out)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn decode(encoded: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
         maximum_bytes(maximum)?;
         if encoded.len() > maximum {
@@ -471,12 +498,19 @@ impl ReplayHostWitnessV1 {
             maximum,
         )
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn proposal_digest(&self, maximum: usize) -> Result<[u8; 32], ReplayWitnessError> {
         Ok(Sha256::digest(self.canonical_bytes(maximum)?).into())
     }
+    #[must_use]
     pub fn code_hash(&self) -> [u8; 32] {
         self.code_hash
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn decode_untrusted_meter(&self) -> Result<crate::Meter, ReplayWitnessError> {
         crate::Meter::from_replay_state_bytes(&self.meter)
     }
@@ -537,6 +571,9 @@ impl ReplayHostWitnessV1 {
             }
         }
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn compare_v2_preimages(
         &self,
         code_hash: [u8; 32],
@@ -627,7 +664,7 @@ mod tests {
             transaction
                 .write(b"cell", b"actual storage value")
                 .unwrap_or_else(|error| panic!("write: {error}"));
-            transaction.commit();
+            let _ = transaction.commit();
         }
         let authorization = AuthorizationContext::new(principal, CapabilitySet::empty());
         let abi = Abi::new(
@@ -647,12 +684,15 @@ mod tests {
 
     #[test]
     fn real_host_preimages_and_meter_round_trip_without_charging_or_accepting_v2_side_metadata() {
+        use crate::test_support::AssertSuccess as _;
+
         let state = state();
         let before = state
             .meter()
             .replay_state_bytes()
             .unwrap_or_else(|error| panic!("meter: {error:?}"));
-        let maximum = crate::MAX_TRACE_STATE_BYTES as usize;
+        let maximum = usize::try_from(crate::MAX_TRACE_STATE_BYTES)
+            .assert_success("trace ceiling fits the target pointer width");
         let witness = state
             .replay_host_witness([4; 32], maximum)
             .unwrap_or_else(|error| panic!("witness: {error:?}"));
@@ -740,8 +780,11 @@ mod tests {
 
     #[test]
     fn isolated_preimage_and_unavailable_or_oversized_capture_refuse_exactly() {
+        use crate::test_support::AssertSuccess as _;
+
         let state = RuntimeState::isolated(crate::Meter::declared());
-        let maximum = crate::MAX_TRACE_STATE_BYTES as usize;
+        let maximum = usize::try_from(crate::MAX_TRACE_STATE_BYTES)
+            .assert_success("trace ceiling fits the target pointer width");
         let witness = state
             .replay_host_witness([7; 32], maximum)
             .unwrap_or_else(|error| panic!("isolated: {error:?}"));
@@ -795,16 +838,13 @@ fn storage_overlay_bytes(
         maximum,
     )?;
     for (key, value) in entries {
-        match value {
-            Some(value) => {
-                append(&mut out, &[0], maximum)?;
-                field(&mut out, key, maximum)?;
-                field(&mut out, value, maximum)?;
-            }
-            None => {
-                append(&mut out, &[1], maximum)?;
-                field(&mut out, key, maximum)?;
-            }
+        if let Some(value) = value {
+            append(&mut out, &[0], maximum)?;
+            field(&mut out, key, maximum)?;
+            field(&mut out, value, maximum)?;
+        } else {
+            append(&mut out, &[1], maximum)?;
+            field(&mut out, key, maximum)?;
         }
     }
     Ok(out)
@@ -848,6 +888,9 @@ impl StorageReplayWitnessV1 {
             .and_then(|n| n.checked_add(self.overlay.len()))
             .ok_or(ReplayWitnessError::Bounds)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn canonical_bytes(&self, maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
         maximum_bytes(maximum)?;
         if self.encoded_len()? > maximum {
@@ -861,6 +904,9 @@ impl StorageReplayWitnessV1 {
         field(&mut out, &self.overlay, maximum)?;
         Ok(out)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn decode(bytes: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
         maximum_bytes(maximum)?;
         if bytes.len() > maximum {
@@ -899,6 +945,9 @@ impl StorageReplayWitnessV1 {
             overlay: copy(overlay)?,
         })
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn decode_untrusted_storage_pair(
         &self,
         maximum: usize,
@@ -921,9 +970,15 @@ impl StorageReplayWitnessV1 {
             storage_overlay,
         })
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn proposal_digest(&self, maximum: usize) -> Result<[u8; 32], ReplayWitnessError> {
         Ok(Sha256::digest(self.canonical_bytes(maximum)?).into())
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn compare_host_witness_baseline(
         &self,
         host: &ReplayHostWitnessV1,
@@ -957,7 +1012,10 @@ mod storage_pair_tests {
 
     #[test]
     fn actual_abi_pair_restores_exact_current_baseline_and_observed_delta() {
-        let maximum = crate::MAX_TRACE_STATE_BYTES as usize;
+        use crate::test_support::AssertSuccess as _;
+
+        let maximum = usize::try_from(crate::MAX_TRACE_STATE_BYTES)
+            .assert_success("trace ceiling fits the target pointer width");
         let program = ProgramId::new([11; 32]).unwrap_or_else(|error| panic!("program: {error}"));
         let principal =
             PrincipalId::new([12; 32]).unwrap_or_else(|error| panic!("principal: {error}"));
@@ -1014,11 +1072,32 @@ mod storage_pair_tests {
         );
         let mut observed = Vec::new();
         actual_abi.for_each_storage_commitment_delta(&baseline, |key, value| {
-            observed.push((key, value.map(<[u8]>::to_vec)))
+            observed.push((key, value.map(<[u8]>::to_vec)));
         });
         observed.sort_by(|left, right| left.0.cmp(&right.0));
         assert_eq!(restored.storage_overlay, observed);
         assert_eq!(observed.len(), 3);
+        assert_storage_witness_encoding(&witness, maximum);
+        let new_namespace = StorageNamespace::shared(program);
+        assert_eq!(restored.current.read(new_namespace, b"missing"), Ok(None));
+        let changed = StorageReplayWitnessV1::capture(
+            [13; 32],
+            &restored.baseline,
+            &restored.current,
+            maximum,
+        )
+        .unwrap_or_else(|error| panic!("access history: {error:?}"));
+        assert_eq!(changed.overlay, witness.overlay);
+        assert_eq!(
+            changed.compare_host_witness_baseline(&host, maximum),
+            Ok(())
+        );
+        assert_ne!(
+            changed.proposal_digest(maximum),
+            witness.proposal_digest(maximum)
+        );
+    }
+    fn assert_storage_witness_encoding(witness: &StorageReplayWitnessV1, maximum: usize) {
         let encoded = witness
             .canonical_bytes(maximum)
             .unwrap_or_else(|error| panic!("encode: {error:?}"));
@@ -1048,31 +1127,19 @@ mod storage_pair_tests {
         for length in 0..encoded.len() {
             assert!(StorageReplayWitnessV1::decode(&encoded[..length], maximum).is_err());
         }
-        let new_namespace = StorageNamespace::shared(program);
-        assert_eq!(restored.current.read(new_namespace, b"missing"), Ok(None));
-        let changed = StorageReplayWitnessV1::capture(
-            [13; 32],
-            &restored.baseline,
-            &restored.current,
-            maximum,
-        )
-        .unwrap_or_else(|error| panic!("access history: {error:?}"));
-        assert_eq!(changed.overlay, witness.overlay);
-        assert_eq!(
-            changed.compare_host_witness_baseline(&host, maximum),
-            Ok(())
-        );
-        assert_ne!(
-            changed.proposal_digest(maximum),
-            witness.proposal_digest(maximum)
-        );
     }
 
     #[test]
     fn absent_actual_storage_is_not_replaced_with_empty_storage() {
+        use crate::test_support::AssertSuccess as _;
+
         let state = RuntimeState::isolated(crate::Meter::declared());
         assert_eq!(
-            state.replay_storage_witness([14; 32], crate::MAX_TRACE_STATE_BYTES as usize),
+            state.replay_storage_witness(
+                [14; 32],
+                usize::try_from(crate::MAX_TRACE_STATE_BYTES)
+                    .assert_success("trace ceiling fits the target pointer width")
+            ),
             Err(ReplayWitnessError::StateUnavailable)
         );
     }
@@ -1246,6 +1313,9 @@ impl CapturedSemanticReplayV2 {
             .and_then(|length| length.checked_add(self.composition.encoded_len().ok()?))
             .ok_or(ReplayWitnessError::Bounds)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn canonical_bytes(&self, maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
         maximum_bytes(maximum)?;
         let mut bytes = Vec::new();
@@ -1260,12 +1330,18 @@ impl CapturedSemanticReplayV2 {
         )?;
         Ok(bytes)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn restore_untrusted(
         &self,
         maximum: usize,
     ) -> Result<UntrustedRuntimeReplayState, ReplayWitnessError> {
         self.restore_untrusted_bytes(&self.canonical_bytes(maximum)?, maximum)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn restore_untrusted_bytes(
         &self,
         bytes: &[u8],
@@ -1314,6 +1390,9 @@ impl UntrustedRuntimeReplayState {
         self.state
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn recapture(
         &self,
         maximum: usize,
@@ -1375,6 +1454,7 @@ impl CompositionReplayWitnessV1 {
         })
     }
 
+    #[must_use]
     pub fn code_hash(&self) -> [u8; 32] {
         self.code_hash
     }
@@ -1395,6 +1475,9 @@ impl CompositionReplayWitnessV1 {
         }
         Ok(length)
     }
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn canonical_bytes(&self, maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
         maximum_bytes(maximum)?;
         let length = self.encoded_len()?;
@@ -1430,6 +1513,9 @@ impl CompositionReplayWitnessV1 {
         Ok(out)
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn decode(encoded: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
         maximum_bytes(maximum)?;
         if encoded.len() > maximum {
@@ -1482,6 +1568,9 @@ impl CompositionReplayWitnessV1 {
         })
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn decode_untrusted_state(
         &self,
         maximum: usize,
@@ -1504,6 +1593,9 @@ impl CompositionReplayWitnessV1 {
         })
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
     pub fn proposal_digest(&self, maximum: usize) -> Result<[u8; 32], ReplayWitnessError> {
         Ok(Sha256::digest(self.canonical_bytes(maximum)?).into())
     }
@@ -1668,7 +1760,7 @@ mod semantic_replay_tests {
         transaction
             .write(b"key", b"baseline")
             .unwrap_or_else(|error| panic!("baseline: {error}"));
-        transaction.commit();
+        let _ = transaction.commit();
         let abi = Abi::new(
             2,
             program,
@@ -1879,6 +1971,9 @@ pub struct MarketSandboxReplayAuthority {
     pub baseline_state_root: [u8; 32],
 }
 
+/// # Errors
+///
+/// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
 pub fn market_sandbox_namespace(
     program: crate::storage::ProgramId,
     lease_id: [u8; 32],
@@ -1893,6 +1988,9 @@ pub fn market_sandbox_namespace(
     Ok(hash.finalize().into())
 }
 
+/// # Errors
+///
+/// Returns a replay refusal for malformed or oversized state, inconsistent commitments or authority, unavailable replay data, or allocation failure.
 pub fn market_sandbox_baseline_root(
     storage: &crate::storage::Storage,
 ) -> Result<[u8; 32], ReplayWitnessError> {
@@ -2246,9 +2344,7 @@ pub(crate) fn semantic_record_constants(
     Ok(out)
 }
 
-fn semantic_constants_parts(
-    bytes: &[u8],
-) -> Result<(&[u8], &[u8], &[u8], &[u8]), ReplayWitnessError> {
+fn semantic_constants_parts(bytes: &[u8]) -> Result<SemanticConstants<'_>, ReplayWitnessError> {
     let mut c = ReplayCursor::new(bytes);
     let abi = c.field()?;
     let meter = c.field()?;
@@ -2572,6 +2668,90 @@ pub(crate) fn expand_semantic(
         return Err(ReplayWitnessError::Encoding);
     }
     let meter = crate::Meter::from_replay_state_bytes(&meter_bytes)?;
+    let mut runtime = restore_runtime_prefix(&abi, &meter, maximum)?;
+    let mut tail_cursor = ReplayCursor::new(runtime_tail);
+    if tail_cursor.boolean()? {
+        tail_cursor.u64()?;
+    }
+    tail_cursor.u64()?;
+    let schedule_tail_end = tail_cursor.offset;
+    append(&mut runtime, &runtime_tail[..tail_cursor.offset], maximum)?;
+    append(&mut runtime, schedule, maximum)?;
+    tail_cursor.boolean()?;
+    if tail_cursor.boolean()? {
+        tail_cursor.take(24)?;
+    }
+    let graphs_start = tail_cursor.offset;
+    let composition = restore_record_composition(&mut tail_cursor, header, maximum)?;
+    append(
+        &mut runtime,
+        &runtime_tail[schedule_tail_end..graphs_start],
+        maximum,
+    )?;
+    append(
+        &mut runtime,
+        &composition_graph_evidence(&composition, maximum)?,
+        maximum,
+    )?;
+    restore_runtime_outcome(
+        &mut runtime,
+        &mut tail_cursor,
+        runtime_tail,
+        header,
+        maximum,
+    )?;
+    let host = ReplayHostWitnessV1::from_parts(
+        code_hash,
+        Some(abi),
+        runtime,
+        meter_bytes,
+        host_baseline,
+        maximum,
+    )?;
+    let storage = restore_semantic_storage(cursor.field()?, header, maximum)?;
+    let composition_digest = cursor
+        .field()?
+        .try_into()
+        .map_err(|_| ReplayWitnessError::Binding)?;
+    if !cursor.done() {
+        return Err(ReplayWitnessError::Encoding);
+    }
+    storage.compare_host_witness_baseline(&host, maximum)?;
+    let mut out = Vec::new();
+    append(&mut out, SEMANTIC_DOMAIN, maximum)?;
+    field(&mut out, &host.canonical_bytes(maximum)?, maximum)?;
+    field(&mut out, &storage.canonical_bytes(maximum)?, maximum)?;
+    field(&mut out, payment, maximum)?;
+    field(&mut out, &composition.canonical_bytes(maximum)?, maximum)?;
+    Ok((out, composition_digest))
+}
+fn restore_semantic_storage(
+    bytes: &[u8],
+    header: &crate::replay_record::ReplayRecordHeader,
+    maximum: usize,
+) -> Result<StorageReplayWitnessV1, ReplayWitnessError> {
+    let mut storage_cursor = ReplayCursor::new(bytes);
+    let overlay = copy(storage_cursor.field()?)?;
+    let metadata = storage_cursor.field()?;
+    if !storage_cursor.done() {
+        return Err(ReplayWitnessError::Encoding);
+    }
+    let current = restore_storage_current(&header.storage_baseline, &overlay, metadata, maximum)?;
+    let storage = StorageReplayWitnessV1 {
+        code_hash: header.identity.module_code_hash,
+        baseline: header.storage_baseline.clone(),
+        current,
+        overlay,
+    };
+    let storage = StorageReplayWitnessV1::decode(&storage.canonical_bytes(maximum)?, maximum)?;
+    Ok(storage)
+}
+
+fn restore_runtime_prefix(
+    abi: &[u8],
+    meter: &crate::Meter,
+    maximum: usize,
+) -> Result<Vec<u8>, ReplayWitnessError> {
     let usage = meter
         .execution_trace_usage()
         .map_err(|_| ReplayWitnessError::Binding)?;
@@ -2579,7 +2759,7 @@ pub(crate) fn expand_semantic(
     append(&mut runtime, RUNTIME_DOMAIN, maximum)?;
     append(
         &mut runtime,
-        &<[u8; 32]>::from(Sha256::digest(&abi)),
+        &<[u8; 32]>::from(Sha256::digest(abi)),
         maximum,
     )?;
     append(&mut runtime, &(abi.len() as u64).to_be_bytes(), maximum)?;
@@ -2601,29 +2781,24 @@ pub(crate) fn expand_semantic(
         append(&mut runtime, &value.to_be_bytes(), maximum)?;
     }
     append(&mut runtime, &meter.cpu_remaining().to_be_bytes(), maximum)?;
-    let mut tail_cursor = ReplayCursor::new(runtime_tail);
-    if tail_cursor.boolean()? {
-        tail_cursor.u64()?;
-    }
-    tail_cursor.u64()?;
-    let schedule_tail_end = tail_cursor.offset;
-    append(&mut runtime, &runtime_tail[..tail_cursor.offset], maximum)?;
-    append(&mut runtime, schedule, maximum)?;
-    tail_cursor.boolean()?;
-    if tail_cursor.boolean()? {
-        tail_cursor.take(24)?;
-    }
-    let graphs_start = tail_cursor.offset;
+    Ok(runtime)
+}
+
+fn restore_record_composition(
+    tail_cursor: &mut ReplayCursor<'_>,
+    header: &crate::replay_record::ReplayRecordHeader,
+    maximum: usize,
+) -> Result<CompositionReplayWitnessV1, ReplayWitnessError> {
     let mut composition_bytes = Vec::new();
     append(&mut composition_bytes, COMPOSITION_DOMAIN, maximum)?;
     let composition_code =
-        restore_record_field(&mut tail_cursor, &header.identity.module_code_hash, true)?;
+        restore_record_field(tail_cursor, &header.identity.module_code_hash, true)?;
     append(&mut composition_bytes, &composition_code, maximum)?;
     if tail_cursor.boolean()? {
         let header_revision = [
             u8::try_from(header.identity.abi_version).map_err(|_| ReplayWitnessError::Binding)?
         ];
-        let revision = restore_record_field(&mut tail_cursor, &header_revision, true)?;
+        let revision = restore_record_field(tail_cursor, &header_revision, true)?;
         if revision.len() != 1 {
             return Err(ReplayWitnessError::Binding);
         }
@@ -2632,7 +2807,7 @@ pub(crate) fn expand_semantic(
             .composition_graph
             .as_deref()
             .ok_or(ReplayWitnessError::Binding)?;
-        let graph = restore_record_field(&mut tail_cursor, header_graph, true)?;
+        let graph = restore_record_field(tail_cursor, header_graph, true)?;
         field(&mut composition_bytes, &graph, maximum)?;
     } else {
         if header.composition_graph.is_some() {
@@ -2647,90 +2822,49 @@ pub(crate) fn expand_semantic(
         append(&mut composition_bytes, &[0], maximum)?;
     }
     let composition = CompositionReplayWitnessV1::decode(&composition_bytes, maximum)?;
-    append(
-        &mut runtime,
-        &runtime_tail[schedule_tail_end..graphs_start],
-        maximum,
-    )?;
-    append(
-        &mut runtime,
-        &composition_graph_evidence(&composition, maximum)?,
-        maximum,
-    )?;
+    Ok(composition)
+}
+
+fn restore_runtime_outcome(
+    runtime: &mut Vec<u8>,
+    tail_cursor: &mut ReplayCursor<'_>,
+    runtime_tail: &[u8],
+    header: &crate::replay_record::ReplayRecordHeader,
+    maximum: usize,
+) -> Result<(), ReplayWitnessError> {
     let refusal_start = tail_cursor.offset;
-    runtime_composition_refusal(&mut tail_cursor)?;
+    runtime_composition_refusal(tail_cursor)?;
     append(
-        &mut runtime,
+        runtime,
         &runtime_tail[refusal_start..tail_cursor.offset],
         maximum,
     )?;
     let outcome = tail_cursor.u8()?;
-    append(&mut runtime, &[outcome], maximum)?;
+    append(runtime, &[outcome], maximum)?;
     match outcome {
         0 => {}
         1 => {
             let capacity = header
                 .response_capacity
                 .ok_or(ReplayWitnessError::Binding)?;
-            let mut response =
-                restore_record_field(&mut tail_cursor, &capacity.to_be_bytes(), true)?;
+            let mut response = restore_record_field(tail_cursor, &capacity.to_be_bytes(), true)?;
             append(&mut response, &runtime_tail[tail_cursor.offset..], maximum)?;
             tail_cursor.take(runtime_tail.len() - tail_cursor.offset)?;
             crate::abi::response::ResponseRegion::from_untrusted_canonical_bytes(&response)?;
-            append(
-                &mut runtime,
-                &(response.len() as u64).to_be_bytes(),
-                maximum,
-            )?;
-            append(&mut runtime, &response, maximum)?;
+            append(runtime, &(response.len() as u64).to_be_bytes(), maximum)?;
+            append(runtime, &response, maximum)?;
         }
         2 => {
             let length = tail_cursor.usize64()?;
-            append(&mut runtime, &(length as u64).to_be_bytes(), maximum)?;
-            append(&mut runtime, tail_cursor.take(length)?, maximum)?;
+            append(runtime, &(length as u64).to_be_bytes(), maximum)?;
+            append(runtime, tail_cursor.take(length)?, maximum)?;
         }
         _ => return Err(ReplayWitnessError::Encoding),
     }
     if !tail_cursor.done() {
         return Err(ReplayWitnessError::Encoding);
     }
-    let host = ReplayHostWitnessV1::from_parts(
-        code_hash,
-        Some(abi),
-        runtime,
-        meter_bytes,
-        host_baseline,
-        maximum,
-    )?;
-    let mut storage_cursor = ReplayCursor::new(cursor.field()?);
-    let overlay = copy(storage_cursor.field()?)?;
-    let metadata = storage_cursor.field()?;
-    if !storage_cursor.done() {
-        return Err(ReplayWitnessError::Encoding);
-    }
-    let current = restore_storage_current(&header.storage_baseline, &overlay, metadata, maximum)?;
-    let storage = StorageReplayWitnessV1 {
-        code_hash: header.identity.module_code_hash,
-        baseline: header.storage_baseline.clone(),
-        current,
-        overlay,
-    };
-    let storage = StorageReplayWitnessV1::decode(&storage.canonical_bytes(maximum)?, maximum)?;
-    let composition_digest = cursor
-        .field()?
-        .try_into()
-        .map_err(|_| ReplayWitnessError::Binding)?;
-    if !cursor.done() {
-        return Err(ReplayWitnessError::Encoding);
-    }
-    storage.compare_host_witness_baseline(&host, maximum)?;
-    let mut out = Vec::new();
-    append(&mut out, SEMANTIC_DOMAIN, maximum)?;
-    field(&mut out, &host.canonical_bytes(maximum)?, maximum)?;
-    field(&mut out, &storage.canonical_bytes(maximum)?, maximum)?;
-    field(&mut out, payment, maximum)?;
-    field(&mut out, &composition.canonical_bytes(maximum)?, maximum)?;
-    Ok((out, composition_digest))
+    Ok(())
 }
 
 fn runtime_graph_range(bytes: &[u8]) -> Result<(usize, usize), ReplayWitnessError> {
@@ -2793,9 +2927,12 @@ pub(crate) fn semantic_legacy_fields(
         .decode_untrusted_storage_pair(maximum)?
         .storage_overlay
         .into_iter()
-        .map(|(key, value)| match value {
-            Some(value) => crate::StorageOverlayEntry::Write { key, value },
-            None => crate::StorageOverlayEntry::Delete { key },
+        .map(|(key, value)| {
+            if let Some(value) = value {
+                crate::StorageOverlayEntry::Write { key, value }
+            } else {
+                crate::StorageOverlayEntry::Delete { key }
+            }
         })
         .collect();
     Ok((entries, meter.cpu_remaining(), usage))

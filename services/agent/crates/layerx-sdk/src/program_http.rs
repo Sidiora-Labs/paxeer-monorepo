@@ -2050,11 +2050,20 @@ mod source_contract {
             )?
         );
         assert_eq!(fee_limit, super::decimal_u128(case_object, "fee_limit")?);
-        let request =
-            NativeProgramCallRequest::from_signed_transaction(native, fee_limit, &signed)?;
-        assert_eq!(request.bound_activity_id(), activity.activity_id);
-        assert_eq!(request.bound_idempotency_key(), activity.idempotency_key);
-        assert_eq!(wire_native_call(&request)?["signed_activity"], hex(&signed));
+        match signed.first() {
+            Some(0x00) => assert!(matches!(
+                NativeProgramCallRequest::from_signed_transaction(native, fee_limit, &signed),
+                Err(ProgramOperationError::Decode)
+            )),
+            Some(0x02) => {
+                let request =
+                    NativeProgramCallRequest::from_signed_transaction(native, fee_limit, &signed)?;
+                assert_eq!(request.bound_activity_id(), activity.activity_id);
+                assert_eq!(request.bound_idempotency_key(), activity.idempotency_key);
+                assert_eq!(wire_native_call(&request)?["signed_activity"], hex(&signed));
+            }
+            _ => return Err(ProgramOperationError::Decode),
+        }
         assert!(
             NativeProgramCallRequest::from_signed_transaction(native, fee_limit - 1, &signed)
                 .is_err()
@@ -2268,7 +2277,10 @@ mod source_contract {
     ) -> Result<(), ProgramOperationError> {
         let path = std::env::var_os("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS")
             .map(std::path::PathBuf::from)
-            .ok_or(ProgramOperationError::Verification)?;
+            .unwrap_or_else(|| {
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/fixtures/program-terminal-v5-corpus.json")
+            });
         if path
             .components()
             .any(|part| part.as_os_str().to_string_lossy().starts_with(".env"))

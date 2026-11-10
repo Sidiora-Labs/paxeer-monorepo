@@ -43,6 +43,7 @@ pub struct PaymentExecution<'a> {
 
 /// # Errors
 /// Preserves daemon scope, policy and budget refusal before any wallet signature or submission.
+/// The wallet signs the disclosed EIP-1559 call and verifies its recovered EVM sender.
 pub fn execute(
     server: &mut Server,
     core_sequence: u64,
