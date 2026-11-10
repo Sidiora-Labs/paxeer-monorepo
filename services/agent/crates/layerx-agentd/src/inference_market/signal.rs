@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+#[cfg(test)]
+use std::net::SocketAddr;
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -101,7 +103,9 @@ impl RoomOffer {
         hash.update(self.room_id);
         hash.update(self.model_digest);
         hash.update(self.runtime_digest);
-        hash.update((self.layer_plan.len() as u16).to_be_bytes());
+        let layer_count =
+            u16::try_from(self.layer_plan.len()).map_err(|_| SignalError::InvalidOffer)?;
+        hash.update(layer_count.to_be_bytes());
         let mut end = 0;
         let mut peers = BTreeSet::new();
         for assignment in &self.layer_plan {
@@ -273,8 +277,8 @@ impl SignalAuthority {
         let head = self
             .chain
             .read("eth_getBlockByNumber", json!(["latest", false]))?;
-        if head["number"] != format!("0x{:x}", reference.head_sequence)
-            || head["hash"] != format!("0x{}", hex(&reference.checkpoint))
+        if head["number"].as_str() != Some(format!("0x{:x}", reference.head_sequence).as_str())
+            || head["hash"].as_str() != Some(format!("0x{}", hex(&reference.checkpoint)).as_str())
         {
             return Err(SignalError::ChainUnavailable);
         }
@@ -282,20 +286,20 @@ impl SignalAuthority {
     }
 
     fn admit(&self, hello: &HelloFrame, offer: &RoomOffer) -> Result<(), SignalError> {
+        offer.digest()?;
         let reference = self.reference()?;
         let chain = self.chain.read("eth_chainId", json!([]))?;
-        if chain != format!("0x{:x}", self.chain_id) {
+        if chain.as_str() != Some(format!("0x{:x}", self.chain_id).as_str()) {
             return Err(SignalError::ChainUnavailable);
         }
         self.check_head(reference)?;
         let room = self
             .chain
             .read("px_getInferenceRoom", json!([hex(&offer.room_id)]))?;
-        if room["room_id"] != hex(&offer.room_id)
+        if room["room_id"].as_str() != Some(hex(&offer.room_id).as_str())
             || room["state"] != 0
-            || room["model_digest"] != hex(&offer.model_digest)
-            || room["runtime_digest"] != hex(&offer.runtime_digest)
-            || room["offer_digest"] != hex(&offer.digest()?)
+            || room["model_digest"].as_str() != Some(hex(&offer.model_digest).as_str())
+            || room["runtime_digest"].as_str() != Some(hex(&offer.runtime_digest).as_str())
         {
             return Err(SignalError::OfferMismatch);
         }
@@ -313,19 +317,21 @@ impl SignalAuthority {
         if peer.is_null() || peer["enrolled"] == false {
             return Err(SignalError::Unenrolled);
         }
-        if peer["peer_key"] != hex(summary.owner.as_bytes()) || peer["enrolled"] != true {
+        if peer["peer_key"].as_str() != Some(hex(summary.owner.as_bytes()).as_str())
+            || peer["enrolled"] != true
+        {
             return Err(SignalError::ChainUnavailable);
         }
-        if peer["delegate"] != hex(&hello.peer_key) {
+        if peer["delegate"].as_str() != Some(hex(&hello.peer_key).as_str()) {
             return Err(SignalError::Unenrolled);
         }
-        if peer["metadata"] != hex(&manifest_digest(&hello.manifest)?)
-            || peer["worker"] != hex(summary.worker.as_bytes())
-            || peer["generation"] != summary.generation.to_string()
-            || peer["key_version"] != summary.key_version.to_string()
-            || peer["metadata_revision"] != summary.revision.to_string()
-            || peer["valid_from"] != summary.valid_from.to_string()
-            || peer["expiry"] != summary.expiry.to_string()
+        if peer["metadata"].as_str() != Some(hex(&manifest_digest(&hello.manifest)?).as_str())
+            || peer["worker"].as_str() != Some(hex(summary.worker.as_bytes()).as_str())
+            || peer["generation"].as_str() != Some(summary.generation.to_string().as_str())
+            || peer["key_version"].as_str() != Some(summary.key_version.to_string().as_str())
+            || peer["metadata_revision"].as_str() != Some(summary.revision.to_string().as_str())
+            || peer["valid_from"].as_str() != Some(summary.valid_from.to_string().as_str())
+            || peer["expiry"].as_str() != Some(summary.expiry.to_string().as_str())
             || reference.head_sequence < summary.valid_from
             || reference.head_sequence >= summary.expiry
         {
@@ -415,6 +421,7 @@ impl Drop for Connection {
 }
 
 pub struct SignalListener {
+    #[cfg(test)]
     address: SocketAddr,
     stop: Arc<AtomicBool>,
     shared: Arc<Mutex<Connections>>,
@@ -433,6 +440,7 @@ impl SignalListener {
         listener
             .set_nonblocking(true)
             .map_err(|error| error.to_string())?;
+        #[cfg(test)]
         let address = listener.local_addr().map_err(|error| error.to_string())?;
         let stop = Arc::new(AtomicBool::new(false));
         let shared = Arc::new(Mutex::new(Connections::default()));
@@ -466,8 +474,7 @@ impl SignalListener {
                             let offer = offer.clone();
                             let authority = authority.clone();
                             let worker = thread::Builder::new().name("inference-signal-peer".to_owned()).spawn(move || {
-                                let _connection = connection;
-                                let _ = serve_connection(&mut stream, &offer, &authority, &_connection);
+                                let _ = serve_connection(&mut stream, &offer, &authority, &connection);
                             }).map_err(|error| error.to_string())?;
                             workers.push(worker);
                         }
@@ -484,6 +491,7 @@ impl SignalListener {
             result
         }).map_err(|error| error.to_string())?;
         Ok(Self {
+            #[cfg(test)]
             address,
             stop,
             shared,
@@ -491,6 +499,7 @@ impl SignalListener {
         })
     }
 
+    #[cfg(test)]
     pub fn local_addr(&self) -> SocketAddr {
         self.address
     }
@@ -566,7 +575,7 @@ fn serve_connection(
             match receive(stream, &writer, &mut fragments)? {
                 ClientFrame::Hello(_) => return Err(SignalError::InvalidFrame),
                 ClientFrame::Description { to, description } => {
-                    relay_description(&connection.shared, &hello.peer_key, &to, description)?
+                    relay_description(&connection.shared, &hello.peer_key, &to, description)?;
                 }
                 ClientFrame::Candidate { to, candidate } => relay(
                     &connection.shared,
@@ -582,9 +591,9 @@ fn serve_connection(
     if let Err(code) = &result {
         let _ = send(&writer, &ServerFrame::Error { code: code.clone() });
         let close = if *code == SignalError::FrameTooLarge {
-            1009u16
+            1_009_u16
         } else {
-            1008u16
+            1_008_u16
         };
         if let Ok(mut writer) = writer.lock() {
             let _ = write_frame(&mut writer, 8, &close.to_be_bytes());
@@ -639,10 +648,15 @@ fn send(writer: &Arc<Mutex<TcpStream>>, frame: &ServerFrame) -> Result<(), Signa
 fn write_frame(stream: &mut TcpStream, opcode: u8, bytes: &[u8]) -> io::Result<()> {
     let mut header = vec![0x80 | opcode];
     match bytes.len() {
-        0..=125 => header.push(bytes.len() as u8),
-        126..=65535 => {
+        0..=125 => header.push(u8::try_from(bytes.len()).map_err(|_| {
+            io::Error::new(io::ErrorKind::InvalidInput, "invalid short frame length")
+        })?),
+        126..=65_535 => {
             header.push(126);
-            header.extend_from_slice(&(bytes.len() as u16).to_be_bytes());
+            let length = u16::try_from(bytes.len()).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "invalid extended frame length")
+            })?;
+            header.extend_from_slice(&length.to_be_bytes());
         }
         _ => {
             header.push(127);
@@ -686,7 +700,7 @@ fn receive(
                     .read_exact(&mut length)
                     .map_err(|_| SignalError::InvalidFrame)?;
                 let length = u64::from_be_bytes(length);
-                if length <= 65535 || length >> 63 != 0 {
+                if length <= 65_535 || length >> 63 != 0 {
                     return Err(SignalError::InvalidFrame);
                 }
                 length
@@ -703,7 +717,8 @@ fn receive(
         stream
             .read_exact(&mut mask)
             .map_err(|_| SignalError::InvalidFrame)?;
-        let mut bytes = vec![0; length as usize];
+        let length = usize::try_from(length).map_err(|_| SignalError::FrameTooLarge)?;
+        let mut bytes = vec![0; length];
         stream
             .read_exact(&mut bytes)
             .map_err(|_| SignalError::InvalidFrame)?;
@@ -711,13 +726,11 @@ fn receive(
             *byte ^= mask[i % 4];
         }
         match opcode {
-            8 => return Err(SignalError::InvalidFrame),
             9 => {
                 let mut writer = writer.lock().map_err(|_| SignalError::Backpressure)?;
                 write_frame(&mut writer, 10, &bytes).map_err(|_| SignalError::Backpressure)?;
-                continue;
             }
-            10 => continue,
+            10 => {}
             1 if fragments.is_none() => {
                 if final_frame {
                     return serde_json::from_slice(&bytes).map_err(|_| SignalError::InvalidFrame);
@@ -802,6 +815,7 @@ fn upgrade(stream: &mut TcpStream, authority: &SignalAuthority) -> Result<bool, 
 }
 
 fn websocket_accept(key: &str) -> String {
+    const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut input = format!("{key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11").into_bytes();
     let bit_length = (input.len() as u64) * 8;
     input.push(0x80);
@@ -810,46 +824,51 @@ fn websocket_accept(key: &str) -> String {
     }
     input.extend_from_slice(&bit_length.to_be_bytes());
     let mut state = [
-        0x67452301u32,
-        0xefcdab89,
-        0x98badcfe,
-        0x10325476,
-        0xc3d2e1f0,
+        0x6745_2301_u32,
+        0xefcd_ab89,
+        0x98ba_dcfe,
+        0x1032_5476,
+        0xc3d2_e1f0,
     ];
     for block in input.chunks_exact(64) {
-        let mut words = [0u32; 80];
+        let mut words = [0_u32; 80];
         for (i, chunk) in block.chunks_exact(4).enumerate() {
             words[i] = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
         }
         for i in 16..80 {
             words[i] = (words[i - 3] ^ words[i - 8] ^ words[i - 14] ^ words[i - 16]).rotate_left(1);
         }
-        let [mut a, mut b, mut c, mut d, mut e] = state;
+        let [mut word_a, mut word_b, mut word_c, mut word_d, mut word_e] = state;
         for (i, word) in words.iter().enumerate() {
-            let (f, k) = match i {
-                0..=19 => ((b & c) | ((!b) & d), 0x5a827999u32),
-                20..=39 => (b ^ c ^ d, 0x6ed9eba1),
-                40..=59 => ((b & c) | (b & d) | (c & d), 0x8f1bbcdc),
-                _ => (b ^ c ^ d, 0xca62c1d6),
+            let (round_function, round_constant) = match i {
+                0..=19 => ((word_b & word_c) | ((!word_b) & word_d), 0x5a82_7999_u32),
+                20..=39 => (word_b ^ word_c ^ word_d, 0x6ed9_eba1),
+                40..=59 => (
+                    (word_b & word_c) | (word_b & word_d) | (word_c & word_d),
+                    0x8f1b_bcdc,
+                ),
+                _ => (word_b ^ word_c ^ word_d, 0xca62_c1d6),
             };
-            let next = a
+            let next = word_a
                 .rotate_left(5)
-                .wrapping_add(f)
-                .wrapping_add(e)
-                .wrapping_add(k)
+                .wrapping_add(round_function)
+                .wrapping_add(word_e)
+                .wrapping_add(round_constant)
                 .wrapping_add(*word);
-            e = d;
-            d = c;
-            c = b.rotate_left(30);
-            b = a;
-            a = next;
+            word_e = word_d;
+            word_d = word_c;
+            word_c = word_b.rotate_left(30);
+            word_b = word_a;
+            word_a = next;
         }
-        for (target, value) in state.iter_mut().zip([a, b, c, d, e]) {
+        for (target, value) in state
+            .iter_mut()
+            .zip([word_a, word_b, word_c, word_d, word_e])
+        {
             *target = target.wrapping_add(value);
         }
     }
     let digest: Vec<_> = state.iter().flat_map(|word| word.to_be_bytes()).collect();
-    const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut encoded = String::new();
     for chunk in digest.chunks(3) {
         let a = chunk[0];

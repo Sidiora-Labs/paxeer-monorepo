@@ -22168,7 +22168,7 @@ mod tests {
         assert!(matches!(error, crate::read::HistoryReadError::ItemUnproven));
         assert_eq!(error.code(), "read.history_item_unproven");
         assert!(matches!(
-            policy_history_refusal(error),
+            policy_history_refusal(&error),
             HumanOperationError::Refused
         ));
         let calls = must(rpc.calls.lock());
