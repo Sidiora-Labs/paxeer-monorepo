@@ -198447,7 +198447,7 @@ do_4 = "Attempt 2 (continue after 22.39.365 lands, gotchas 4185 and 4186, decisi
 
 [task.22.38.19]
 title = "Inject canary prompts and audit peer answers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.5", "22.38.17", "22.31.620", "22.39.353", "22.38.21", "22.39.364"]
