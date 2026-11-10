@@ -27,6 +27,9 @@ use crate::{
 use sha2::{Digest, Sha256};
 
 pub const FULL_CAPTURE_CHUNKS: usize = MAX_STATE_BYTES / MAX_CHUNK_BYTES;
+/// Compatibility discriminator retained by the snapshot wire format and its consumers.
+/// Finality comes from a verified block commit and the corresponding state proof;
+/// this byte alone authenticates neither.
 pub const FINALIZED_RANK: u8 = 4;
 pub const PAGE_MAX_ROWS: usize = 32;
 pub const PAGE_MAX_BYTES: usize = 65_536;
@@ -893,7 +896,9 @@ impl SnapshotBinding {
         let n = w.len();
         codec::domain_hash("PAXAI/view/v1", prefix.get(..n).ok_or(CAPACITY)?)
     }
-    /// Finalized endpoints and webhook publication require actual rank-4 evidence.
+    /// Checks the snapshot's compatibility discriminator and nonzero commit hashes.
+    /// The caller must authenticate the block commit and state proof separately;
+    /// this structural check does not verify either proof.
     ///
     /// # Errors
     /// `FinalityUnavailable` unless rank is 4 and block and app hashes are nonzero.

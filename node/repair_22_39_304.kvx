@@ -1,0 +1,26 @@
+[task]
+id = "22.39.304"
+acceptance = "22998.1"
+base_revision = "6d3b4c37bdbfc9fa167a41fc812e460da9b9c3d7"
+decision = "3149"
+gotcha = "4051"
+
+[repair]
+manifest = "services/platform/hosted/paxeer/deployment.yaml"
+test = "node/repair_m1319_test.go: TestRepairM_1319_RestoredBoundaryManifest"
+former_pin = "7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066"
+new_pin = "ba84aff353486b744f3b9759fb158219b9de90558366485b483e4793c60dc9a2"
+producer_revision = "9e17ec8e4d"
+producer_task = "18.1790.1"
+producer_change = "Restored network-policy connectivity between the gateway and its hosted peers after decision 2533 restored the boundary manifest"
+maintenance = "A task changing the manifest re-pins the digest in the same commit"
+preserved_check = "os.Lstat requires the manifest to be a regular file before its complete contents are read and SHA-256 checked"
+
+[evidence.build]
+command = "go vet ./node/"
+reference = "/out/run/gates.jsonl: final kind=build row records candidate revision, command, exit and private log"
+
+[evidence.verify]
+command = "cg spec done 22.39.304 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s node/repair_22_39_304.kvx && go test -count=1 ./node/ -run '^TestRepairM_1319_RestoredBoundaryManifest$'"
+reference = "/out/run/gates.jsonl: final kind=verify row names the verified revision, command, exit and private log; qualification requires exit zero and a build on that identical revision"

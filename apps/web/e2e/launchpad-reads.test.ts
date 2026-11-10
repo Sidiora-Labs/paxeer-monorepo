@@ -190,12 +190,16 @@ async function serving(
   const address = server.address();
   assert.ok(address !== null && typeof address === "object");
   const previous = process.env.LAYERX_GATEWAY_URL;
+  const previousNode = process.env.LAYERX_NODE_ENDPOINT;
   process.env.LAYERX_GATEWAY_URL = `http://127.0.0.1:${address.port}`;
+  process.env.LAYERX_NODE_ENDPOINT = `http://127.0.0.1:${address.port}`;
   try {
     await run(called, reads);
   } finally {
     if (previous === undefined) delete process.env.LAYERX_GATEWAY_URL;
     else process.env.LAYERX_GATEWAY_URL = previous;
+    if (previousNode === undefined) delete process.env.LAYERX_NODE_ENDPOINT;
+    else process.env.LAYERX_NODE_ENDPOINT = previousNode;
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 }
@@ -239,7 +243,7 @@ function marketPage(size: number) {
   const expected = pools.map((pool, index) => ({
     pool, token: tokens[index], name: `Moon ${index}`, symbol: `MOON${index}`,
     creator: CREATOR, feeStrategy: 2n, paused: index % 2 === 0, totalSupply: 10n ** 27n,
-    tokenReserve: 3n, realQuoteBalance: 2n, cumulativeVolume: 4n, price: 8n,
+    tokenReserve: 3n, realQuoteBalance: 2n, cumulativeVolume: 4n, currentFeeBps: 5n, price: 8n,
   }));
   return { pools, tokens, contracts, answers, expected };
 }
@@ -316,6 +320,7 @@ async function launchpad_market_failure_degrades_only_its_row() {
     assert.ok(isValidElement<Parameters<typeof LaunchpadActions>[0]>(actions));
     assert.deepEqual(actions.props.markets, fixture.expected.filter((_, index) => index !== failedIndex).map((market) => ({
       token: market.token, pool: market.pool, label: `${market.name} (${market.symbol})`, paused: market.paused,
+      currentFeeBps: market.currentFeeBps,
     })));
   }, fixture.answers, fixture.contracts);
 }

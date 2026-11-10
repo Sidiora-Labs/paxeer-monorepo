@@ -19,19 +19,26 @@ const READ_SCHEMA: &str = include_str!("../../../schema/agent-api/read.kvx");
 const RECORDED: &str = include_str!("../src/repair_22_31_227_fixture/committed.json");
 
 fn bytes(value: &Value) -> Vec<u8> {
-    let text = value.as_str().expect("recorded hex");
-    let text = text.strip_prefix("0x").expect("recorded hex prefix");
+    let text = value.as_str().unwrap_or_else(|| panic!("recorded hex"));
+    let text = text
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("recorded hex prefix"));
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16)
-                .expect("recorded byte")
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex text: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("recorded byte: {error:?}"))
         })
         .collect()
 }
 
 fn fixed(value: &Value) -> [u8; 32] {
-    bytes(value).try_into().expect("recorded bytes32")
+    bytes(value)
+        .try_into()
+        .unwrap_or_else(|error| panic!("recorded bytes32: {error:?}"))
 }
 
 #[test]
@@ -40,26 +47,33 @@ fn recorded_api_read_decodes_through_sdk_without_a_retired_alias() -> Result<(),
         .contains("required = [\"value\",\"achieved_verification_level\",\"freshness\"]"));
     let recording: Value = serde_json::from_str(RECORDED)?;
     let signed = bytes(&recording["receiptJson"]["receipt"]);
-    let receipt = layerx_wire::receipt::decode(&signed).expect("recorded canonical receipt");
+    let receipt = layerx_wire::receipt::decode(&signed)
+        .unwrap_or_else(|error| panic!("recorded canonical receipt: {error:?}"));
     let digest = layerx_wire::hash::receipt_digest(
-        &layerx_wire::receipt::encode_unsigned(&receipt).expect("recorded unsigned receipt"),
+        &layerx_wire::receipt::encode_unsigned(&receipt)
+            .unwrap_or_else(|error| panic!("recorded unsigned receipt: {error:?}")),
     )
-    .expect("recorded receipt digest");
+    .unwrap_or_else(|error| panic!("recorded receipt digest: {error:?}"));
     let key = &recording["pinnedKey"];
-    let height = key["firstHeight"].as_u64().expect("recorded height");
+    let height = key["firstHeight"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("recorded height"));
     let read = VerifiedRead::new(
         ProofBundle {
             format: "layerx-receipt-proof-v2".to_owned(),
             verification_level: Rung::Receipted,
             raw_transaction: CanonicalBytes::new(bytes(&recording["rawTransaction"]))
-                .expect("recorded transaction"),
-            signed_receipt: CanonicalBytes::new(signed).expect("recorded receipt bytes"),
+                .unwrap_or_else(|error| panic!("recorded transaction: {error:?}")),
+            signed_receipt: CanonicalBytes::new(signed)
+                .unwrap_or_else(|error| panic!("recorded receipt bytes: {error:?}")),
             receipt_digest: digest,
             receipt_key: ReceiptKeyEntry {
                 key_id: fixed(&key["keyId"]),
                 public_key: fixed(&key["publicKey"]),
                 first_height: height,
-                last_height: key["lastHeight"].as_u64().expect("recorded last height"),
+                last_height: key["lastHeight"]
+                    .as_u64()
+                    .unwrap_or_else(|| panic!("recorded last height")),
             },
             block_header: None,
             receipt_inclusion: None,
@@ -77,7 +91,9 @@ fn recorded_api_read_decodes_through_sdk_without_a_retired_alias() -> Result<(),
             },
         },
     );
-    let wire = read.encode_json().expect("API read encoding");
+    let wire = read
+        .encode_json()
+        .unwrap_or_else(|error| panic!("API read encoding: {error:?}"));
     assert!(wire.contains("\"achieved_verification_level\":\"receipted\""));
     assert!(!wire.contains("achieved_rung"));
     let response = ApiSuccess {
@@ -88,13 +104,24 @@ fn recorded_api_read_decodes_through_sdk_without_a_retired_alias() -> Result<(),
     let request = ReadRequest {
         selector: ProofBundleTarget::Receipt(fixed(&recording["receiptJson"]["txHash"]))
             .encode()
-            .expect("recorded receipt selector"),
+            .unwrap_or_else(|error| panic!("recorded receipt selector: {error:?}")),
         requested_rung: Rung::Receipted,
     };
     assert_eq!(
         decode_proof_bundle_response(&request, &response),
         Some(read)
     );
+    assert_malformed_freshness_is_rejected(&recording, height, &request, &response);
+    assert_retired_read_alias_is_rejected(&request, &response);
+    Ok(())
+}
+
+fn assert_malformed_freshness_is_rejected(
+    recording: &Value,
+    height: u64,
+    request: &ReadRequest<CanonicalBytes>,
+    response: &ApiSuccess<Value>,
+) {
     for (pointer, value) in [
         ("/freshness/chain_head", json!((height - 1).to_string())),
         (
@@ -109,18 +136,24 @@ fn recorded_api_read_decodes_through_sdk_without_a_retired_alias() -> Result<(),
             "/freshness/relative_to/hash",
             json!(recording["receiptJson"]["blockHash"]
                 .as_str()
-                .expect("recorded block hash")
+                .unwrap_or_else(|| panic!("recorded block hash"))
                 .strip_prefix("0x")
-                .expect("hash prefix")),
+                .unwrap_or_else(|| panic!("hash prefix"))),
         ),
     ] {
         let mut malformed = response.clone();
         *malformed
             .value
             .pointer_mut(pointer)
-            .expect("freshness field") = value;
-        assert!(decode_proof_bundle_response(&request, &malformed).is_none());
+            .unwrap_or_else(|| panic!("freshness field")) = value;
+        assert!(decode_proof_bundle_response(request, &malformed).is_none());
     }
+}
+
+fn assert_retired_read_alias_is_rejected(
+    request: &ReadRequest<CanonicalBytes>,
+    response: &ApiSuccess<Value>,
+) {
     for keep_current in [false, true] {
         let mut legacy = response.clone();
         legacy.value["achieved_rung"] = json!("receipted");
@@ -128,12 +161,11 @@ fn recorded_api_read_decodes_through_sdk_without_a_retired_alias() -> Result<(),
             legacy
                 .value
                 .as_object_mut()
-                .expect("read object")
+                .unwrap_or_else(|| panic!("read object"))
                 .remove("achieved_verification_level");
         }
-        assert!(decode_proof_bundle_response(&request, &legacy).is_none());
+        assert!(decode_proof_bundle_response(request, &legacy).is_none());
     }
-    Ok(())
 }
 
 fn recorded_budget_response() -> Value {
@@ -170,12 +202,15 @@ fn recorded_budget_response() -> Value {
 fn budget_envelope_preserves_the_current_wire_name_and_refuses_the_old_one() -> Result<(), Failure>
 {
     let request = BudgetTarget {
-        tenant: TenantId::new("identity-ops").expect("recorded tenant"),
-        agent_did: AgentDid::new("did:layerx:identity-ops").expect("recorded agent"),
-        budget_id: BudgetId::new("09".repeat(32)).expect("recorded budget"),
+        tenant: TenantId::new("identity-ops")
+            .unwrap_or_else(|error| panic!("recorded tenant: {error:?}")),
+        agent_did: AgentDid::new("did:layerx:identity-ops")
+            .unwrap_or_else(|error| panic!("recorded agent: {error:?}")),
+        budget_id: BudgetId::new("09".repeat(32))
+            .unwrap_or_else(|error| panic!("recorded budget: {error:?}")),
     };
-    let credential =
-        EnvelopeCredential::new("identity-ops", [1; 32], [2; 32], 1).expect("session credential");
+    let credential = EnvelopeCredential::new("identity-ops", [1; 32], [2; 32], 1)
+        .unwrap_or_else(|error| panic!("session credential: {error:?}"));
     let envelope = encode_envelope(
         Operation::BudgetState,
         RequestId(487),
@@ -184,7 +219,7 @@ fn budget_envelope_preserves_the_current_wire_name_and_refuses_the_old_one() -> 
         Some(&credential),
         None,
     )
-    .expect("SDK budget envelope");
+    .unwrap_or_else(|error| panic!("SDK budget envelope: {error:?}"));
     let encoded = serde_json::to_string(&envelope)?;
     assert!(!encoded.contains("achieved_rung"));
     assert_eq!(envelope["operation"], "budget.state");
@@ -193,9 +228,10 @@ fn budget_envelope_preserves_the_current_wire_name_and_refuses_the_old_one() -> 
     assert!(encoded.contains("\"achieved_verification_level\":\"committed\""));
     assert!(!encoded.contains("achieved_rung"));
     let success = decode_response(200, &serde_json::from_str(&encoded)?)
-        .expect("SDK success envelope")
-        .expect("budget success");
-    let decoded = decode_budget_state_response(&request, &success).expect("SDK protocol budget");
+        .unwrap_or_else(|| panic!("SDK success envelope"))
+        .unwrap_or_else(|error| panic!("budget success: {error:?}"));
+    let decoded = decode_budget_state_response(&request, &success)
+        .unwrap_or_else(|error| panic!("SDK protocol budget: {error:?}"));
     let BudgetRecord::Protocol(view) = decoded.value.record.record else {
         panic!("protocol budget expected");
     };
@@ -207,7 +243,7 @@ fn budget_envelope_preserves_the_current_wire_name_and_refuses_the_old_one() -> 
         let mut legacy = success.clone();
         let record = legacy.value["value"]["record"]
             .as_object_mut()
-            .expect("budget object");
+            .unwrap_or_else(|| panic!("budget object"));
         record.insert("achieved_rung".to_owned(), json!("committed"));
         if !keep_current {
             record.remove("achieved_verification_level");

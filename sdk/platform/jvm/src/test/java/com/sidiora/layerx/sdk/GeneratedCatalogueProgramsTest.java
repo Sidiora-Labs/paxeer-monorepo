@@ -139,13 +139,15 @@ public final class GeneratedCatalogueProgramsTest {
     @Test
     void nativePrepareCarriesThePreparationRecord() throws Exception {
         Set<String> nativeFields = Set.of("version", "preparation_id", "canonical_bytes",
-            "signing_preimage", "approval_id");
+            "signing_preimage", "activity", "approval_required", "approval_id");
         Set<String> prepareFields = Set.of("preparation_ref", "unsigned_canonical_bytes",
             "signing_preimage", "disclosure", "expiry");
         ObjectNode nativeRecord = JSON.createObjectNode()
             .put("version", "1").put("preparation_id", "0x" + "11".repeat(32))
             .put("canonical_bytes", "0x01020304").put("signing_preimage", "0x" + "22".repeat(32))
-            .put("approval_id", "0x" + "33".repeat(32));
+            .put("approval_required", true).put("approval_id", "0x" + "33".repeat(32));
+        nativeRecord.set("activity", JSON.valueToTree(
+            new GeneratedSchema.AgentModels.NativeActivityV1("1", "9", "1")));
         ObjectNode prepareRecord = JSON.createObjectNode()
             .put("preparation_ref", nativeRecord.required("preparation_id").textValue())
             .put("unsigned_canonical_bytes", nativeRecord.required("canonical_bytes").textValue())
@@ -169,7 +171,7 @@ public final class GeneratedCatalogueProgramsTest {
                     .map(RecordComponent::getName).collect(Collectors.toSet());
                 assertAll(type.getSimpleName(),
                     () -> assertEquals(fields, components),
-                    () -> assertFalse(components.contains("activity")),
+                    () -> assertEquals(nativeResult, components.contains("activity")),
                     () -> assertFalse(components.contains("moduleId")));
             });
             checks.add(() -> {
@@ -181,7 +183,10 @@ public final class GeneratedCatalogueProgramsTest {
                     assertEquals(record.required("preparation_id").textValue(), value.preparation_id());
                     assertEquals(record.required("canonical_bytes").textValue(), value.canonical_bytes());
                     assertEquals(record.required("signing_preimage").textValue(), value.signing_preimage());
+                    assertEquals(record.required("activity"), JSON.valueToTree(value.activity()));
+                    assertEquals(record.required("approval_required").booleanValue(), value.approval_required());
                     assertEquals(record.required("approval_id").textValue(), value.approval_id());
+                    assertEquals(value.approval_id() != null, value.approval_required());
                 } else {
                     var value = (GeneratedSchema.AgentOperations.PrepareResponse) decoded;
                     assertEquals(record.required("preparation_ref"), value.preparation_ref());
@@ -201,7 +206,7 @@ public final class GeneratedCatalogueProgramsTest {
             }
             checks.add(() -> assertThrows(DatabindException.class, () -> JSON.treeToValue(kernel, type),
                 type.getSimpleName() + " refuses a kernel activity object"));
-            for (String field : List.of("activity", "moduleId")) {
+            for (String field : nativeResult ? List.of("moduleId") : List.of("activity", "moduleId")) {
                 checks.add(() -> {
                     ObjectNode internal = record.deepCopy();
                     if ("activity".equals(field)) internal.set(field, kernel);

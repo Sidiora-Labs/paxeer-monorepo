@@ -4509,6 +4509,7 @@ extern "C" {
 }
 
 /// Reads a raw native frame projection; it is not a Client-verified receipt.
+/// This live V2 CALL projection is retained under decision 3125; V1 remains refused.
 /// The expected height is a block height, not a batch number. This entrypoint
 /// requires the `host-ffi` feature and the native Programs CALL host symbols.
 ///
