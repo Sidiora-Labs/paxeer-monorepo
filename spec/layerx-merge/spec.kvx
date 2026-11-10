@@ -12694,6 +12694,12 @@ value = "The package @sidiora/layerx-doc-paid-route-next builds with the root in
 basis = "Gotchas 4154 and 4192, decisions 3130, 3183, 3211 and 3227."
 affects = ["22.39.366", "17.5.7"]
 
+[decision.3264]
+title = "A task that changes a crate the agent daemon depends on follows the repair of a red target of the agent daemon"
+value = "The check of the dependent packages compiles every target of the packages that depend on a changed crate, and no package is left out of it. While a test target of the agent daemon is red on main, a task that changes a crate the agent daemon depends on cannot qualify: it requires the task that repairs the target and is planned in the wave of that task. Task 22.39.365 requires task 22.39.228 and moves to wave 5; tasks 22.38.20 and 22.38.13 follow it through their requires entries."
+basis = "Gotchas 4185 and 4193, decisions 3130, 3211 and 3257."
+affects = ["22.39.365", "22.39.228", "22.38.20", "22.38.13"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -185077,8 +185083,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Accept a further deal of the room host for a matched ask"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 5
+requires = ["22.39.228"]
 reqs = ["22998.1"]
 capabilities = ["22.39.365"]
 interfaces = []
@@ -185102,6 +185108,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.39.228 lands, gotcha 4193, decision 3264): the attempt-1 tree 203bcd864cfb stands (the check of the RecordDeal operation in src/rooms.rs, the three cases of tests/f11_rooms_and_deals.rs with their fixture, the regenerated guest of 520452 bytes, the record). Its build passed; the check of the dependent packages stopped at the test target repair_22_31_549 of the agent daemon, which is red on main for a cause outside the paths and which task 22.39.228 repairs. The task now requires that task. Rebase on main once it is on it; when the guest source changed on main in the meantime, regenerate the committed guest with tests/fixtures/build-guest.sh and record its size. In the record replace the twelve errors of the dependent check with one sentence that names decision 3264. Run the build once and the verification once at the final revision."
 
 [task.22.39.349]
 title = "Link the test targets of the programs runtime crate with the host interface feature"
@@ -198394,6 +198401,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4182, decision 3254): the attempt-1 tree e98b4b42ccdb stands (src/inference_market/canary.rs, the canary runtime of the entry file, tests/inference_canary.rs, the operations of layerx-client). Its build and its verification passed on a base without task 22.38.21, and the merge onto main conflicts in one hunk of services/agent/crates/layerx-agentd/src/main.rs, in the closure of the completion listener. Rebase on main and resolve the hunk by keeping the side of main whole (the read of the CompletionConnection and the completion branch through completion_routes) and passing the added argument completion_canaries in its call of inference_serve_lap_output; drop nothing of either task. The verification now lints the new file in the host binary and in the test target inference_canary. Lint both to clean outside the counted gates first (decision 3242), repair every lint in canary.rs and in tests/inference_canary.rs at its source, and where the test target does not use an item the host binary uses put one allowance with a reason on the including module item of the test file (decision 3218). Change no wire frame and no case expectation. Run the build once and the verification once at the final revision."
 do_5 = "do_5 Decision 3256, gotcha 4184: the task now requires task 22.39.364, because the lint of the test target inference_canary in the verification only runs once the library passes its lints. Lint the library of the package layerx-client outside the counted gates and repair every lint in the lines this task added to services/agent/crates/layerx-client/src/ai_market.rs; a lint elsewhere in that library is recorded with file, line and lint name and is not repaired here."
+do_6 = "do_6 Attempt 3 (continue, gotcha 4185, decision 3257): the attempt-2 tree da4bd0aa018e stands (src/inference_market/canary.rs, the canary runtime of the entry file with the completion routing of main kept whole, tests/inference_canary.rs, the operations of layerx-client). Its build stopped at the test target repair_22_31_549, which is red on main for a cause outside the paths and which task 22.39.228 repairs; do not repair it. The build command of the task now names the library, the test target inference_canary, the tests of layerx-client and the host package with all targets. Rebase on main; another task may have changed src/main.rs in the meantime, keep the side of main whole and keep the canary argument in the call of inference_serve_lap_output. Run the test target and the two lint commands of the verification outside the counted gates first and repair what they show in the own files. Run the build once and the verification once at the final revision."
 
 [task.22.38.18]
 title = "Issue, countersign, seal and settle lap receipts"

@@ -40290,3 +40290,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 18 at 742c81986034 on base b14b32fece51: the build exits 0 and the verification exits 1 at 742c81986034; make workspace-build exits 2 at npm run build, the package @sidiora/layerx-doc-paid-route-next fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts; log /out/logs/verify-1.log."
 assumption = "The sample directory is outside the paths of the gate task and does not build beside an own install of the agent SDK."
 severity = "high"
+
+[finding.22.39.365.1]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+symbol = "f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+observed = "Attempt 1 at 203bcd864cfb on base a452366a00dd: the build exits 0 at 2b97db43f473 and the check of the dependent packages exits 101 at 2b97db43f473, the test target repair_22_31_549 of the package layerx-agentd does not compile with 12 errors; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The red test target is outside the paths of the task and sits in a package that depends on the changed crate."
+severity = "high"
