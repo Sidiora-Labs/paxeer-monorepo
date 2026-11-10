@@ -39962,3 +39962,163 @@ symbol = "status_1695_test.go::TestIndexerStatus1695"
 observed = "Attempt 3 at 9c471ae564fa on base a61b1b58f649: build 2 exits 0 and verification 2 exits 1, TestIndexerStatus1695 fails at status_1695_test.go:397 with ingestion lease fenced or expired; log /out/logs/verify-2.log."
 assumption = "The case acquires a lease that its own earlier acquisition still holds."
 severity = "high"
+
+[finding.22.39.340.3]
+task = "22.39.340"
+file = "tests/programs/test_call_activity.c::main"
+symbol = "test_call_activity.c::main"
+observed = "Attempt 3 at b98f9b64f6b6 on base 26be171234b5: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; build/tests/programs_call_activity fails at tests/programs/test_call_activity.c:1542 for protocol 3; log /out/logs/verify-1.log."
+assumption = "The new native case of the task was never run before this verification and one of its conditions is false."
+severity = "high"
+
+[finding.22.39.227.1]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 1 at 12bf6e0d70d7 on base 70d7aa5849dc: build 3 exits 0 at 12bf6e0d70d7 (log /out/logs/build-3.log); the only verification ran at 0d1bbd64d440 and exits 1 with lint errors in seven test targets; log /out/logs/verify-1.log."
+assumption = "The final tree was built after the last allowed verification and has not been verified."
+severity = "high"
+
+[finding.22.39.117.16]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 16 at 87aa7bc4b07b on base a37d2e22f205: the build exits 0 and the verification exits 1 in make -C services/launchpad ci; the indexer module fails in internal/config, internal/decode and internal/receipt with receipt qualification rejected, first at repair_m999_test.go:431; log /out/logs/verify-1.log."
+assumption = "The production comparison of the roles is outside the paths of the task and treats the staged pair as identity."
+severity = "high"
+
+[finding.22.38.17.2]
+task = "22.38.17"
+file = "services/agent/crates/layerx-agentd/tests/inference_deals.rs"
+symbol = "inference_deals.rs"
+observed = "Attempt 2 at 02a1d2a11c73 on base 167ce2a7f0cf: build 3 exits 0 at 02a1d2a11c73 (log /out/logs/build-3.log); the only verification ran at fcdbd6049e5d and exits 1 with 0 passed and 6 failed, each case stopped at tests/inference_deals.rs:1327 with application error 2061; log /out/logs/verify-1.log."
+assumption = "The final tree was built after the last allowed verification and has not been verified."
+severity = "high"
+
+[finding.22.38.13.7]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 7 at 8395325d0d07 on base 167ce2a7f0cf: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; the target fuel_budget reports 15 passed and 5 failed, f11_fuel_table at tests/fuel_budget.rs:4137 and four cases of tests/repair_22_33_260.rs, each with application error 14 at the Heartbeat of the fixture; log /out/logs/verify-1.log."
+assumption = "The fixture sends a Heartbeat where the program of the new base has captured no roster, and the cause is not yet located."
+severity = "high"
+
+[finding.22.39.346.3]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 3 at 6e98157ed545 on base 9d053ddf8fc5: both builds exit 0; verification 2 exits 1 at ef74de13ae7b with eight unit cases passed and the send case failed at apps/wallet/e2e/send.spec.ts:1117, the saved observation holds the truth submitted and no step; log /out/logs/verify-2.log."
+assumption = "The save function of the wallet refuses a big integer and sits outside the paths of the task."
+severity = "high"
+
+[finding.17.5.7.15]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 15 at 1328649c1bfc on base 26be171234b5: the build exits 0 and the verification exits 1; make workspace-build exits 2 at npm run build, the package @sidiora/layerx-example-next fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts; log /out/logs/verify-1.log."
+assumption = "The example directory is outside the paths of the gate task and does not build beside an own install of the agent SDK."
+severity = "high"
+
+[finding.22.39.340.4]
+task = "22.39.340"
+file = "tests/programs/test_call_activity.c::main"
+symbol = "test_call_activity.c::main"
+observed = "Attempt 4 at 3e50ea6ff79a on base 6ed89b16ad06: both builds exit 0; verification 2 exits 1 at 6d690906f85c, both native binaries pass and the transfer module ends with 31 passed and 1 failed at transfer.rs:2209, nested-v2 left 4 right 2; log /out/logs/verify-2.log."
+assumption = "The count of the case matches two category labels with one suffix and the vectors are complete."
+severity = "high"
+
+[finding.22.39.227.2]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 2 at 313617fcd332 on base 896caeace6fa: build 3 exits 0 at 86714094a977 and the verification exits 101 at 86714094a977 with one too_many_lines error at tests/metrics_rungs.rs:58 and two needless_borrows_for_generic_args errors at tests/protocol2_restart.rs:183 and :258; log /out/logs/verify-1.log."
+assumption = "Both repair cycles were used by the two red builds before the only verification."
+severity = "high"
+
+[finding.22.39.346.4]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 4 at 7729d7911128 on base ad52c8e6d41f: both builds exit 0; verification 2 exits 1 at 7729d7911128 with eight unit cases passed and one failed at apps/wallet/src/components/TransferSuccess.test.tsx:30, ENOENT for the conformance fixture one directory above the repository; the send case did not run; log /out/logs/verify-2.log."
+assumption = "The fixture path of the new case holds one parent segment too many."
+severity = "high"
+
+[finding.22.39.226.2]
+task = "22.39.226"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 2 at 18dabb06132d on base 8f48fda09773: builds 1 and 2 exit 101, build 3 exits 0 at 14f6beea516d (log /out/logs/build-3.log), and the check of the dependent packages exits 101 with E0412, E0560 and E0599 in src/inference_market/deals.rs; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The host binary does not compile on main and the cause sits outside the paths of the task."
+severity = "high"
+
+[finding.22.38.18.1]
+task = "22.38.18"
+file = "services/agent/crates/layerx-agentd/tests/inference_laps.rs"
+symbol = "inference_laps.rs"
+observed = "Attempt 1 at 183ade27f302 on base 583a1586d7bb: build 1 exits 101, builds 2 and 3 exit 0 (log /out/logs/build-3.log), and the check of the dependent packages exits 101 at 183ade27f302 with E0412, E0560 and E0599 in src/inference_market/deals.rs; no verification ran; log /out/logs/dependents-2.log."
+assumption = "The host binary does not compile on main and deals.rs is outside the paths of the task."
+severity = "high"
+
+[finding.17.5.7.16]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 16 at 4b995a314b06 on base 8f48fda09773: the build exits 0 and the verification exits 1; make workspace-build exits 2 at agent-build with E0412, E0560 and E0599 in services/agent/crates/layerx-agentd/src/inference_market/deals.rs; log /out/logs/verify-1.log."
+assumption = "The host binary does not compile on main and its directory is outside the paths of the gate task."
+severity = "high"
+
+[finding.22.39.342.1]
+task = "22.39.342"
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs::NativeDestinationAuthorizationVectors"
+symbol = "ReceiptFixtureTests.cs::NativeDestinationAuthorizationVectors"
+observed = "Attempt 1 at 2f617a977898 on base 00af874880f4: build 1 exits 1 with NETSDK1045 (log /out/logs/build-1.log) and build 2 exits 1 at 9a855cf18b03 with SYSLIB0057 at sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs:82; no verification ran; log /out/logs/build-2.log."
+assumption = "The test project does not build on main under its target framework and the site is outside the paths of the task."
+severity = "high"
+
+[finding.22.38.13.8]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 8 at a798c0fba504 on base 5c9d1fbfdc8f: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; fuel_budget ends with 19 passed and 1 failed, f11_fuel_table panics at tests/fuel_budget.rs:3975 with selector 0x0b01 and status -601, state 117274 bytes and fuel 999974; log /out/logs/verify-1.log."
+assumption = "The room opening of the guest exceeds the CPU fuel allowance on a full state and only the tree of this task measures it."
+severity = "high"
+
+[finding.22.39.95.11]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 12 at 99ad934826d3 on base 3dc59b8c4456: both builds exit 0; verification 2 exits 1 at 99ad934826d3 with 3 failed files and 8 failed cases of 1286, four in src/widgets/trading/chart-datafeed-recovery.test.ts, three in src/widgets/meta-ag/repair-22-33-987.test.ts and one in src/widgets/trading/coin-failure-frames.test.tsx; log /out/logs/verify-2.log."
+assumption = "The candle page of the development API departs from the production read model outside the paths of the task, and the stand-in node of the recovery cases refuses the gas estimate."
+severity = "high"
+
+[finding.22.39.346.5]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 5 at 23fca4456ebc on base 65895d450aa0: the build exits 0; the verification exits 1 at 484cefd00e7c with eight unit cases passed and one failed at apps/wallet/src/components/TransferSuccess.test.tsx:88, malformed or unauthenticated sequencer receipt signature; the send case did not run; log /out/logs/verify-1.log."
+assumption = "The setup of the new case signs a digest that does not cover the encoded receipt."
+severity = "high"
+
+[finding.22.39.227.3]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 3 at a4de4e99f562 on base 0d9d016c786a: build 1 exits 0 at 1ebbe88b4bd4 (log /out/logs/build-1.log); the check of the dependent packages exits 101 with E0412, E0560 and E0599 in src/inference_market/deals.rs of the host package; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The host package of the agent daemon is red on main outside the paths of the task."
+severity = "high"
+
+[finding.18.1749.1.9]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 9 at d50fc669d866 on base c3e37949f720: the build exits 0 (log /out/logs/build-1.log); the check of the dependent packages exits 101 with E0412, E0560 and E0599 in src/inference_market/deals.rs of the host package of the agent daemon; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The host package of the agent daemon is red on main outside the paths of the task."
+severity = "high"
+
+[finding.22.38.29.1]
+task = "22.38.29"
+file = "apps/inference-peer/test/page.test.mjs"
+symbol = "page.test.mjs"
+observed = "Attempt 2 at 3badf29fc311 on base 7618069d673f: the build exits 0 and the verification exits 1, ERR_MODULE_NOT_FOUND for the package jsdom imported from apps/inference-peer/test/page.test.mjs; log /out/logs/verify-1.log."
+assumption = "The manifest of the peer package is outside the paths of the task and the page follows a frame form the host does not speak."
+severity = "high"
