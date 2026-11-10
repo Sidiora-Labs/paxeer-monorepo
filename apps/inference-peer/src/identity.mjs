@@ -495,17 +495,25 @@ export class PeerIdentity {
     };
   }
 
-  async enrolPeer(enrolUrl, { manifest, quote, headers, timeoutMs = 2000 }) {
+  async enrolPeer(enrolUrl, { document, headers, timeoutMs = 2000 }) {
     const url = endpoint(enrolUrl);
     if (!url.pathname.endsWith("/enrol_peer"))
       throw new TypeError("Expected the host enrol_peer route");
-    const signed = await this.signManifest(manifest);
-    const body = JSON.stringify({
-      manifest: signed,
-      ...(quote === undefined ? {} : { quote }),
-    });
+    const body =
+      typeof document === "string"
+        ? document
+        : document instanceof Uint8Array
+          ? new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+              document,
+            )
+          : JSON.stringify(document);
+    if (typeof body !== "string")
+      throw new TypeError("Enrolment document is required");
     if (text.encode(body).length > 262144)
       throw new RangeError("Enrolment exceeds 262144 bytes");
+    const parsed = JSON.parse(body);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      throw new TypeError("Enrolment requires one JSON object");
     const requestHeaders = new Headers(headers);
     requestHeaders.set("content-type", "application/json");
     const response = await fetch(url, {
@@ -520,7 +528,17 @@ export class PeerIdentity {
       const reason = (await response.text()).slice(0, 4096);
       throw new Error(`enrol_peer refused (${response.status}): ${reason}`);
     }
-    return response.json();
+    const outcome = await response.json();
+    if (
+      outcome?.enrolled !== true ||
+      !["manifest_digest", "acceptance", "bond_lock", "bid"].every(
+        (name) =>
+          typeof outcome[name] === "string" &&
+          /^[0-9a-f]{64}$/.test(outcome[name]),
+      )
+    )
+      throw new Error("Malformed enrol_peer outcome");
+    return outcome;
   }
 }
 

@@ -198,18 +198,24 @@ digest. `helloSigningBytes` exposes that preimage for verifiers. Receivers must
 verify both signatures, recompute the manifest digest and check the key against
 chain admission before accepting a peer.
 
-`await identity.enrolPeer(enrolUrl, { manifest, quote, headers })` POSTs
-`{ manifest: <signed manifest>, quote? }` to the supplied URL ending in
-`/enrol_peer`; `quote`, when supplied, is forwarded unchanged for host processing.
-Authentication headers are caller supplied. HTTP refusals retain the status and
-host error text; timeout, redirect and malformed JSON responses fail explicitly.
-The JSON request is bounded to 256 KiB. The existing Rust host enrolment relay
-requires signed proposal, acceptance, publication, bond-lock and bid operation
-records. Its HTTP `enrol_peer` listener and the mapping from this peer request to
-those records are not present in this checkout. The identity tests prove signed
-bytes cross real loopback HTTP and verify at the receiver; chain enrolment and
-browser IndexedDB/WebGPU execution require their respective host and browser
-integration gates.
+`await identity.enrolPeer(enrolUrl, { document, headers })` POSTs one enrolment
+JSON document to `/enrol_peer` on the host signalling listener. The document
+contains hex `manifest_v1`, `manifest_v2`, owner-signed native transactions
+`enroll`, `accept`, `publish`, `lock_bond`, `post_bid`, and block-height `expiry`.
+The host shares its self-enrolment parser, checks chain/program/model/runtime and
+expiry before submission, then relays the five records in order through
+`EnrolmentRelay::enrol_peer`. It holds no peer signing key. Content-Length is
+required and checked against 262144 bytes before reading the JSON body.
+Success returns `enrolled`, `manifest_digest`, `acceptance`, `bond_lock` and `bid`;
+refusals carry stable JSON reasons and HTTP statuses, including 503
+`enrolment_not_configured` when the host lacks its enrolment settings.
+
+CLI `join --enrolment <signed-json-file>` forwards the file before the WebSocket
+hello. Omitting the option sends no enrolment request; normal hello admission
+still applies. PXVE attestation checks remain local and no `bind_peer` request
+is sent. Both sides consume `apps/inference-peer/test/fixtures/host-enrol-route.json`.
+Preparing these signed documents for peer owners outside a proof remains open;
+the CLI cannot derive native market transactions from its Ed25519 hello identity.
 
 The local adapter lives in [`src/wire.mjs`](../apps/inference-peer/src/wire.mjs)
 and [`src/transport.mjs`](../apps/inference-peer/src/transport.mjs); the MIT
@@ -426,8 +432,7 @@ the host base URL, replacing incoming authorization with the ask bearer from
 Requests are bounded to 1 MiB. Responses preserve upstream status, content type,
 retry hints and bytes, including SSE chunks and `[DONE]`, with backpressure.
 Disconnecting the local client cancels the upstream request. Host refusals such
-as 402 remain refusals; unavailable hosts return 502. Other local routes return
-404. The bridge does not open or fund an ask stream.
+as 402 remain refusals; unavailable hosts return 502. Other local routes return 404. The bridge does not open or fund an ask stream.
 
 The task gate is `node --test apps/inference-peer/test/cli.test.mjs`. It exercises
 the executable's signed hello over real loopback HTTP/WebSocket, identity-bound

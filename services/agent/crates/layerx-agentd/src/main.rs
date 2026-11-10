@@ -2899,68 +2899,21 @@ fn inference_observation(
 fn inference_enrol_host(
     config: &Config,
     inference: &layerx_agentd::config::InferenceConfig,
-) -> Result<(), String> {
+) -> Result<Option<layerx_agentd::finality::inference_enrol::EnrolmentService>, String> {
     use layerx_agentd::finality::inference_enrol::{
-        read_enrolment_file, EnrolmentRelay, MeasurementConfig, PriceQuote, SignedManifest,
+        read_enrolment_file, EnrolmentDocument, EnrolmentRelay, MeasurementConfig,
     };
-    use layerx_client::ai_market::{market_envelope, OperationJournal, OperationRecord};
-    PriceQuote::require_program_interface().map_err(|error| error.to_string())?;
-    let path = PathBuf::from(required("LAYERX_AGENT_INFERENCE_ENROLMENT")?);
-    let document = read_enrolment_file(&path).map_err(|error| error.to_string())?;
-    let bytes = |name: &str| -> Result<Vec<u8>, String> {
-        let text = document[name]
-            .as_str()
-            .ok_or_else(|| format!("inference enrolment {name} is required"))?;
-        layerx_programs::hex::decode(text.strip_prefix("0x").unwrap_or(text))
-            .map_err(|_| format!("inference enrolment {name} is malformed"))
+    let Some(path) = optional("LAYERX_AGENT_INFERENCE_ENROLMENT") else {
+        return Ok(None);
     };
-    let record = |name: &str| -> Result<OperationRecord, String> {
-        let raw = bytes(name)?;
-        let expiry = document["expiry"]
-            .as_u64()
-            .ok_or("inference enrolment expiry is required")?;
-        let record = OperationRecord::from_signed_transaction(raw, [0; 32], expiry)
-            .map_err(|error| format!("inference enrolment {name}: {error:?}"))?;
-        let envelope = market_envelope(&record)
-            .map_err(|error| format!("inference enrolment {name}: {error:?}"))?;
-        let env = layerx_client::ai_market::market_program::codec::decode_envelope(&envelope)
-            .map_err(|error| error.to_string())?;
-        if env.envelope.program.bytes() != config.probe_program.bytes()
-            || env.envelope.chain.bytes()
-                != layerx_client::ai_market::market_program::merged_chain_domain(
-                    config.expected_chain_id,
-                )
-        {
-            return Err(
-                "inference enrolment differs from the configured chain or program".to_owned(),
-            );
-        }
-        let intent = env.request_digest().map_err(|error| error.to_string())?;
-        OperationRecord::from_signed_transaction(
-            record.signed_bytes().to_vec(),
-            intent.bytes(),
-            expiry,
-        )
-        .map_err(|error| format!("inference enrolment {name}: {error:?}"))
-    };
-    let legacy = bytes("manifest_v1")?;
-    if legacy.get(138..170) != Some(inference.runtime_digest.as_slice())
-        || legacy.get(174..206) != Some(inference.model_digest.as_slice())
-    {
-        return Err(
-            "inference enrolment manifest differs from configured model or runtime".to_owned(),
-        );
-    }
-    let mut manifest = SignedManifest {
-        manifest: bytes("manifest_v2")?,
-        proposal: record("enroll")?,
-        acceptance: record("accept")?,
-        publication: record("publish")?,
-    };
-    let mut quote = PriceQuote {
-        lock_bond: record("lock_bond")?,
-        post_bid: record("post_bid")?,
-    };
+    let service = inference_enrolment_service(config, inference)?;
+    let document = read_enrolment_file(Path::new(&path)).map_err(|error| error.to_string())?;
+    let height = service
+        .endpoint
+        .block_number()
+        .map_err(|error| format!("inference enrolment head: {error:?}"))?;
+    let mut document = EnrolmentDocument::parse(&document, &service.context, height)
+        .map_err(|error| error.to_string())?;
     let region: [u8; 2] = required("LAYERX_AGENT_INFERENCE_REGION")?
         .as_bytes()
         .try_into()
@@ -2969,37 +2922,56 @@ fn inference_enrol_host(
         .parse::<u8>()
         .map_err(|_| "inference attestation family must be a byte")?;
     let probe = required("LAYERX_AGENT_INFERENCE_BANDWIDTH_PROBE")?;
-    let journal = OperationJournal::open(Path::new(&required(
-        "LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL",
-    )?))
-    .map_err(|error| format!("inference enrolment journal: {error:?}"))?;
-    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
-        &config.node_endpoint,
-        &[&config.authority_ca_der],
-    )
-    .map_err(|error| format!("inference enrolment endpoint: {error:?}"))?;
-    let keys = endpoint
-        .receipt_keys()
-        .map_err(|error| format!("inference receipt keys: {error:?}"))?;
     let relay = EnrolmentRelay {
-        endpoint: &endpoint,
-        journal: &journal,
-        receipt_keys: &keys,
-        timeout: REQUEST_DEADLINE,
+        endpoint: &service.endpoint,
+        journal: &service.journal,
+        receipt_keys: &service.receipt_keys,
+        timeout: service.timeout,
     };
     relay
         .enrol_host(
             &MeasurementConfig {
-                manifest_v1: &legacy,
+                manifest_v1: &document.legacy,
                 region_code: region,
                 attestation_family,
                 bandwidth_probe: &probe,
             },
-            &mut manifest,
-            &mut quote,
+            &mut document.manifest,
+            &mut document.quote,
         )
         .map_err(|error| error.to_string())?;
-    Ok(())
+    Ok(Some(service))
+}
+
+fn inference_enrolment_service(
+    config: &Config,
+    inference: &layerx_agentd::config::InferenceConfig,
+) -> Result<layerx_agentd::finality::inference_enrol::EnrolmentService, String> {
+    use layerx_agentd::finality::inference_enrol::{
+        EnrolmentContext, EnrolmentService, PriceQuote,
+    };
+    PriceQuote::require_program_interface().map_err(|error| error.to_string())?;
+    let journal = layerx_client::ai_market::OperationJournal::open(Path::new(&required(
+        "LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL",
+    )?))
+    .map_err(|error| format!("inference enrolment journal: {error:?}"))?;
+    let endpoint = SequencerEndpoint::new(&config.node_endpoint, &[&config.authority_ca_der])
+        .map_err(|error| format!("inference enrolment endpoint: {error:?}"))?;
+    let receipt_keys = endpoint
+        .receipt_keys()
+        .map_err(|error| format!("inference receipt keys: {error:?}"))?;
+    Ok(EnrolmentService {
+        endpoint,
+        journal,
+        receipt_keys,
+        timeout: REQUEST_DEADLINE,
+        context: EnrolmentContext {
+            chain_id: config.expected_chain_id,
+            program: config.probe_program.bytes(),
+            model_digest: inference.model_digest,
+            runtime_digest: inference.runtime_digest,
+        },
+    })
 }
 
 fn inference_completion_routes(
@@ -3051,7 +3023,7 @@ fn inference_boot(
     let mut gate = layerx_agentd::boot::InferenceBootGate::default();
     gate.ready(reference, layerx_types::rung::Rung::Committed, &components)
         .map_err(|error| format!("inference boot refused: {error:?}"))?;
-    inference_enrol_host(config, &inference)?;
+    let enrolment = inference_enrol_host(config, &inference)?;
     let market = inference_market::serve_inference_market(inference, gate)?;
     let offer: inference_signal::RoomOffer = serde_json::from_slice(&market.room_profile)
         .map_err(|error| format!("inference room offer is invalid: {error}"))?;
@@ -3068,6 +3040,11 @@ fn inference_boot(
         config.probe_program.bytes(),
         Arc::clone(&market.gate),
     )?;
+    let signal_authority = if let Some(service) = enrolment {
+        signal_authority.with_enrolment(service)
+    } else {
+        signal_authority
+    };
     let deals = InferenceDealRuntime::open(config, &offer)?;
     let snapshot = deals.snapshot()?;
     deals
