@@ -23,9 +23,13 @@ const PaxeerXReceiptsTableItem = ({ item, isLoading }: Props) => {
       <TableCell verticalAlign="middle">
         <Flex overflow="hidden" w="100%" alignItems="center">
           <Skeleton loading={ isLoading } fontWeight={ 600 }>
-            <Link href={ route({ pathname: '/paxeer-x/receipts/[id]', query: { id: item.id } }) }>
+            { item.transaction_hash === null ? (
               <HashStringShorten hash={ item.id } type="long"/>
-            </Link>
+            ) : (
+              <Link href={ route({ pathname: '/tx/[hash]', query: { hash: item.transaction_hash } }) }>
+                <HashStringShorten hash={ item.id } type="long"/>
+              </Link>
+            ) }
           </Skeleton>
           <CopyToClipboard text={ item.id } ml={ 2 } isLoading={ isLoading }/>
         </Flex>

@@ -85,7 +85,6 @@ export const PAXEER_X_ARCHIVE_VERIFICATION_STATUSES = [
   'batch_included',
   'state_proven',
   'checkpoint_finalised',
-  'settlement_anchored',
 ] as const;
 
 export type PaxeerXArchiveVerificationStatus = typeof PAXEER_X_ARCHIVE_VERIFICATION_STATUSES[number];

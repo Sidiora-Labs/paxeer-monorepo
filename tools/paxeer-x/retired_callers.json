@@ -1617,6 +1617,27 @@
         "fee_governance"
       ],
       "citation": "Decision 3125 permits live kernel receipt-authority validation and fee-governance runtime resolution, whose identifiers carry retired names as prefixes while supplying canonical receipt facts and recorded fee schedules to Programs execution."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx",
+      "lines": [
+        "    expect(container.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx",
+      "lines": [
+        "    expect(container.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
+    },
+    {
+      "path": "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx",
+      "lines": [
+        "    expect(row.querySelector('a[href^=\"/paxeer-x/receipts\"]')).toBeNull();"
+      ],
+      "citation": "Decision 3130 retains this negative regression assertion to forbid retired receipt links while the archive component renders native transaction and block links."
     }
   ]
 }
