@@ -499,6 +499,45 @@ pub fn raw_receipt_for_execution_batch(
     global_sequence: u64,
     execution_batch_number: u64,
 ) -> RawReceiptEvidence {
+    raw_receipt_with_times(
+        activity_id,
+        result_code,
+        amount,
+        global_sequence,
+        execution_batch_number,
+        1_000,
+        1_000,
+    )
+}
+
+pub fn raw_receipt_at_time(
+    activity_id: [u8; 32],
+    result_code: i32,
+    amount: u128,
+    global_sequence: u64,
+    timestamp_ms: u64,
+    header_time_ms: u64,
+) -> RawReceiptEvidence {
+    raw_receipt_with_times(
+        activity_id,
+        result_code,
+        amount,
+        global_sequence,
+        7,
+        timestamp_ms,
+        header_time_ms,
+    )
+}
+
+fn raw_receipt_with_times(
+    activity_id: [u8; 32],
+    result_code: i32,
+    amount: u128,
+    global_sequence: u64,
+    execution_batch_number: u64,
+    timestamp_ms: u64,
+    header_time_ms: u64,
+) -> RawReceiptEvidence {
     let key = SigningKey::from_bytes(&[0x3a; 32]);
     let previous_state_root = [0x21; 32];
     let resulting_state_root = [0x22; 32];
@@ -553,7 +592,7 @@ pub fn raw_receipt_for_execution_batch(
         for value in [[0x28; 32], [0x29; 32], [0x2a; 32]] {
             assert_eq!(encoder.bytes(&value, 32), Ok(()));
         }
-        assert_eq!(encoder.u64(1_000), Ok(()));
+        assert_eq!(encoder.u64(timestamp_ms), Ok(()));
         assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
         if let Some(signature) = signature {
             assert_eq!(encoder.bytes(&signature, 64), Ok(()));
@@ -591,7 +630,7 @@ pub fn raw_receipt_for_execution_batch(
         (11, [0x34; 32].to_vec()),
         (12, [0x35; 32].to_vec()),
         (13, [0x36; 32].to_vec()),
-        (14, 1_000_u64.to_be_bytes().to_vec()),
+        (14, header_time_ms.to_be_bytes().to_vec()),
         (15, sequencer_id.to_vec()),
     ];
     for (field, value) in fields {
@@ -801,6 +840,7 @@ fn encoded_receipt(
     success: bool,
     amount: u128,
     sequence_number: u64,
+    timestamp_ms: u64,
     signature: Option<[u8; 64]>,
 ) -> Vec<u8> {
     let previous = [4; 32];
@@ -869,7 +909,7 @@ fn encoded_receipt(
     must(encoder.bytes(&[0; 32], 32));
     must(encoder.bytes(&[0; 32], 32));
     must(encoder.bytes(&KEY_ID, 32));
-    must(encoder.u64(1_000));
+    must(encoder.u64(timestamp_ms));
     must(encoder.u8(u8::from(signature.is_some())));
     if let Some(signature) = signature {
         must(encoder.bytes(&signature, 64));
@@ -905,6 +945,17 @@ pub fn sequencer_receipt_with_details(
     amount: u128,
     sequence_number: u64,
 ) -> (Value, ReceiptKeyEntry) {
+    sequencer_receipt_at_time(raw, success, seed, amount, sequence_number, 1_000)
+}
+
+pub fn sequencer_receipt_at_time(
+    raw: &[u8],
+    success: bool,
+    seed: u8,
+    amount: u128,
+    sequence_number: u64,
+    timestamp_ms: u64,
+) -> (Value, ReceiptKeyEntry) {
     let (transaction, signature) = must(decode_signed(raw));
     let sender = must(recover_sender(&transaction, &signature));
     let tx_hash = transaction_hash(raw);
@@ -918,6 +969,7 @@ pub fn sequencer_receipt_with_details(
         success,
         amount,
         sequence_number,
+        timestamp_ms,
         None,
     );
     let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
@@ -929,6 +981,7 @@ pub fn sequencer_receipt_with_details(
         success,
         amount,
         sequence_number,
+        timestamp_ms,
         Some(signature),
     );
     let key = ReceiptKeyEntry {
@@ -939,7 +992,7 @@ pub fn sequencer_receipt_with_details(
     };
     let view = json!({
         "rung": "receipted", "txHash": rpc_hex(&tx_hash), "nonce": format!("{nonce:#x}"),
-        "seq": format!("{sequence_number:#x}"), "height": "0x96", "index": "0x1", "timestamp": "0x3e8",
+        "seq": format!("{sequence_number:#x}"), "height": "0x96", "index": "0x1", "timestamp": format!("{timestamp_ms:#x}"),
         "status": if success { "0x1" } else { "0x0" }, "returnData": "0xabcd",
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],

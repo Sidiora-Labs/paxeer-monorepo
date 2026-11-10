@@ -887,9 +887,9 @@ fn state_framing_contract(
     assert!(decode_history(&vec![0; 3587]).is_err());
 
     // Common framing budget only: this does not claim integrated feature payload
-    // validity or host resource admission. Settlement payload cap is 81912 plus
+    // validity or host resource admission. Settlement payload cap is 131064 plus
     // its 8-byte header, and complete state includes all 64 framing bytes.
-    let payloads: Vec<Vec<u8>> = [16376, 24568, 24568, 81912, 24568, 24552]
+    let payloads: Vec<Vec<u8>> = [16376, 24568, 24568, 131064, 24568, 24552]
         .iter()
         .map(|&length| vec![0; length])
         .collect();
@@ -904,10 +904,16 @@ fn state_framing_contract(
             &payloads[5],
         ],
     };
-    assert_eq!(maximum_frame.encoded_len()?, 196_608);
-    assert_eq!(encode_state(&maximum_frame, &mut frame)?, 196_608);
+    assert_eq!(
+        maximum_frame.encoded_len()?,
+        layerx_programs_ai_market::MAX_STATE_BYTES
+    );
+    assert_eq!(
+        encode_state(&maximum_frame, &mut frame)?,
+        layerx_programs_ai_market::MAX_STATE_BYTES
+    );
     decode_state(&frame)?;
-    let over_settlement = vec![0; 81913];
+    let over_settlement = vec![0; 131065];
     assert_eq!(
         StateFrame {
             revision: 1,

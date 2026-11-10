@@ -58,8 +58,11 @@ export class EndpointClient {
   }
 
   private hosted(): JsonRpcClient {
+    // Retain the compatibility diagnostic; only registration and funding use this client.
     if (this.hostedRpc === null)
-      throw new JsonRpcTransportError('EndpointClient: hostedUrl required for hosted px_ reads');
+      throw new JsonRpcTransportError(
+        'EndpointClient: hostedUrl required for hosted px_ reads'
+      );
     return this.hostedRpc;
   }
 
