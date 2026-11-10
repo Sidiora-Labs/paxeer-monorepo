@@ -13,7 +13,9 @@ import (
 // services/agent/crates/layerx-client/examples/paxeer_bind_vectors.rs. Valid is the
 // verdict of the Rust strict verifier for Signature over Message.
 type PaxeerBind struct {
-	Name       string
+	Name string
+	// ChainID is the producer's explicit signing domain, including historical
+	// test chains; consumers must not substitute their current network default.
 	ChainID    uint64
 	EVMAddress [20]byte
 	Nonce      uint64

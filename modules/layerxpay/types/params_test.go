@@ -223,8 +223,6 @@ func TestParamsGenesisRecordBounds(t *testing.T) {
 	g.KernelRecords = []kv.Pair{paramsGateRecord(t, EscrowModuleID, false), paramsGateRecord(t, EscrowModuleID, true)}
 	assertParamsInvalidGenesis(t, g.Validate(), "duplicate kernel record 1")
 	g.KernelRecords = make([]kv.Pair, MaxKernelRecords+1)
-	assertParamsInvalidGenesis(t, g.Validate(), "kernel record count 513 exceeds 512")
-	g.KernelRecords = make([]kv.Pair, MaxKernelRecords)
 	for i := range g.KernelRecords {
 		key := make([]byte, MaxKernelKeyBytes)
 		binary.BigEndian.PutUint64(key, uint64(i))
@@ -232,6 +230,16 @@ func TestParamsGenesisRecordBounds(t *testing.T) {
 	}
 	if err := g.Validate(); err != nil {
 		t.Fatalf("maximum-sized kernel records invalid: %v", err)
+	}
+	last := &g.KernelRecords[len(g.KernelRecords)-1]
+	last.Value = append(last.Value, 0)
+	assertParamsInvalidGenesis(t, g.Validate(), "kernel record 512 value exceeds 1024 bytes")
+	last.Value = last.Value[:MaxKernelValueBytes]
+	last.Key = append(last.Key, 0)
+	assertParamsInvalidGenesis(t, g.Validate(), "kernel record 512 has an invalid key")
+	last.Key = last.Key[:3+MaxKernelKeyBytes]
+	if err := g.Validate(); err != nil {
+		t.Fatalf("restored per-record bounds invalid: %v", err)
 	}
 	g.KernelRecords = nil
 	for moduleID := uint16(1); moduleID <= 11; moduleID++ {
@@ -247,7 +255,7 @@ func TestParamsJSONRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const wantDefault = `{"params":{"paused":true,"escrow_enabled":false,"budget_enabled":false,"stream_enabled":false,"service_enabled":false},"kernel_records":null,"agent_stream_metadata":null}`
+	const wantDefault = `{"params":{"paused":true,"escrow_enabled":false,"budget_enabled":false,"stream_enabled":false,"service_enabled":false},"kernel_records":null,"escrow_receipts":null,"agent_stream_metadata":null}`
 	if string(defaultJSON) != wantDefault {
 		t.Fatalf("default JSON = %s, want %s", defaultJSON, wantDefault)
 	}

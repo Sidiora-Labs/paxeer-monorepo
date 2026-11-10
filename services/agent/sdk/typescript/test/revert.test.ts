@@ -26,7 +26,7 @@ const rows = section.split("\n").filter((line) => line.startsWith("| LXP_")).map
   const cells = line.split("|").map((cell) => cell.trim());
   return { code: cells[1] ?? "", message: cells[2] ?? "", retryable: cells[cells.length - 2] };
 });
-const registrySnapshot = { version: "audit-22.30.101-v1", codes: 392, retryable: 54, sha256: "33b199cc9d053de8bf9753bacb5f9e34687a0fded7c15f051f27f5b62b9ec155" } as const;
+const registrySnapshot = { version: "repair-22.39.297-v1", codes: 395, retryable: 54, sha256: "6a9f742816f66fc1707c20ded000821c47bf9ac4715387e825e2da8e2b63615f" } as const;
 assert.ok(section.includes(`SDK registry snapshot: ${registrySnapshot.version}`));
 assert.equal(createHash("sha256").update(section.split("\n").filter(line => line.startsWith("| LXP_")).join("\n") + "\n").digest("hex"), registrySnapshot.sha256);
 assert.equal(rows.length, registrySnapshot.codes);

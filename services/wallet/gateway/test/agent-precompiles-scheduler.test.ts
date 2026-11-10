@@ -1,3 +1,4 @@
+import { startPrecompileRpc } from './support/precompile-rpc.js';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -53,6 +54,7 @@ const environmentKeys = [
 const originalEnvironment = new Map(environmentKeys.map((key) => [key, process.env[key]]));
 let app: FastifyInstance;
 let proxy: Server;
+let localRpc: Awaited<ReturnType<typeof startPrecompileRpc>>;
 let pg: EphemeralPostgres;
 let database: typeof import('../src/db/pool.js');
 let precompiles: typeof import('../src/precompiles.js');
@@ -74,7 +76,8 @@ beforeAll(async () => {
   if (!abiMatch) throw new Error('registered scheduler abiJSON was not found');
   nodeAbi = JSON.parse(abiMatch[1]!) as Abi;
 
-  const upstreamUrl = process.env.HYPERPAXEER_RPC_URL!;
+  localRpc = await startPrecompileRpc('scheduler');
+  const upstreamUrl = localRpc.url;
   proxy = createServer(async (req, res) => {
     try {
       const chunks: Buffer[] = [];
@@ -143,6 +146,7 @@ afterAll(async () => {
       proxy.closeAllConnections();
     });
   }
+  await localRpc?.stop();
   for (const [key, value] of originalEnvironment) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -330,7 +334,12 @@ async function schedulerRoutesTargetServedAddress(): Promise<void> {
   );
   const agent = await provisionAgent('scheduler-address');
   const { addRule } = await import('../src/db/agents.js');
-  await addRule({ did: agent.key.did, effect: 'deny', subject: 'contract', value: servedAddress });
+  await addRule({
+    did: agent.key.did,
+    effect: 'deny',
+    subject: 'contract',
+    value: servedAddress,
+  });
   for (const route of writes) {
     assertTransactionUsesBuiltCall(route.name);
     expect(builtWrite(route).to).toBe(PRECOMPILE_ADDRESSES.scheduler);
@@ -353,11 +362,12 @@ async function schedulerRoutesTargetServedAddress(): Promise<void> {
     expect.soft(response.statusCode, response.body).toBe(route.status);
     expect.soft(response.statusCode, response.body).not.toBe(503);
     expect.soft(response.json().error).not.toBe('precompile_not_served');
-    const calls = rpcCalls.slice(start).filter(
-      (call) =>
-        call.method === 'eth_call' &&
-        (call.params[0] as { data?: Hex }).data !== '0xffffffff'
-    );
+    const calls = rpcCalls
+      .slice(start)
+      .filter(
+        (call) =>
+          call.method === 'eth_call' && (call.params[0] as { data?: Hex }).data !== '0xffffffff'
+      );
     expect.soft(calls).toHaveLength(1);
     for (const call of calls) {
       expect.soft(call.params[0]).toMatchObject({ to: PRECOMPILE_ADDRESSES.scheduler });
@@ -410,7 +420,12 @@ async function schedulerRoutesEncodeNodeAbiSelectors(): Promise<void> {
   const agent = await provisionAgent('scheduler-selectors');
   const { addRule } = await import('../src/db/agents.js');
   for (const selector of selectors) {
-    await addRule({ did: agent.key.did, effect: 'deny', subject: 'selector', value: selector });
+    await addRule({
+      did: agent.key.did,
+      effect: 'deny',
+      subject: 'selector',
+      value: selector,
+    });
   }
   const observed: string[] = [];
   for (const route of writes) {

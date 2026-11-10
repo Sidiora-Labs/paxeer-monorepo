@@ -288,7 +288,12 @@ func TestPxNodeRoot_Account_CommittedReadsAndParity(t *testing.T) {
 				require.Equal(t, err == nil && len(answer) == 32, capabilities[name])
 			}
 		}
-		catalogue := pxRootCall(t, c, "px_getRouteCatalogue")
+		var catalogue map[string]interface{}
+		catalogueCtx, cancelCatalogue := context.WithTimeout(t.Context(), 10*time.Second)
+		err := c.CallContext(catalogueCtx, &catalogue, "px_getRouteCatalogue")
+		cancelCatalogue()
+		require.NoError(t, err)
+		require.NotNil(t, catalogue)
 		require.Equal(t, []interface{}{"/"}, catalogue["rpc_paths"])
 		require.NotEmpty(t, catalogue["services"])
 		require.NotEmpty(t, catalogue["routes"])
@@ -296,9 +301,15 @@ func TestPxNodeRoot_Account_CommittedReadsAndParity(t *testing.T) {
 		require.NoError(t, err)
 		var source map[string]interface{}
 		require.NoError(t, json.Unmarshal(sourceBytes, &source))
+		require.Equal(t, "https://api-mainnet-beta.paxeer.network", source["canonical_origin"])
+		require.Equal(t, source["canonical_origin"], catalogue["canonical_origin"])
+		pxRootAssertSchema(t, "px_getRouteCatalogue", catalogue)
 		serviceIDs := map[string]bool{}
-		for _, entry := range catalogue["services"].([]interface{}) {
-			serviceIDs[entry.(map[string]interface{})["id"].(string)] = true
+		for _, entry := range source["services"].([]interface{}) {
+			service := entry.(map[string]interface{})
+			if service["exposure"] == "product" {
+				serviceIDs[service["id"].(string)] = true
+			}
 		}
 		expectedRoutes := []interface{}{}
 		for _, entry := range source["routes"].([]interface{}) {
@@ -310,6 +321,16 @@ func TestPxNodeRoot_Account_CommittedReadsAndParity(t *testing.T) {
 				delete(route, key)
 			}
 			expectedRoutes = append(expectedRoutes, route)
+		}
+		for _, method := range []string{
+			"px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
+			"px_getInferencePeer", "px_getInferenceReceipts",
+		} {
+			expectedRoutes = append(expectedRoutes, map[string]interface{}{
+				"id": "node_rpc:" + method, "service": "node_rpc", "method": method,
+				"path": "/", "transport": "json-rpc", "authentication": "none",
+				"version": "1", "consumers": []interface{}{"wallet", "explorer", "developer"},
+			})
 		}
 		require.Equal(t, expectedRoutes, catalogue["routes"])
 		readiness := catalogue["readiness"].(map[string]interface{})

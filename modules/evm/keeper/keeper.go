@@ -14,7 +14,10 @@ import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	ibctransferkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/gaskv"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/mem"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
@@ -439,9 +442,29 @@ func (k *Keeper) PrefixStore(ctx sdk.Context, pref []byte) sdk.KVStore {
 }
 
 func (k *Keeper) PurgePrefix(ctx sdk.Context, pref []byte) {
-	store := k.PrefixStore(ctx, pref)
-	if err := store.DeleteAll(nil, nil); err != nil {
-		panic(err)
+	// Tracing can route this store to the next height's multistore; retain
+	// Context's store selection for that path.
+	if ctx.IsTracing() {
+		if err := k.PrefixStore(ctx, pref).DeleteAll(nil, nil); err != nil {
+			panic(err)
+		}
+		return
+	}
+
+	// CacheKV's range-key enumeration merges writes and tombstones without
+	// nested merge iterators, whose repeated Valid/Key calls grow exponentially
+	// with cache depth. Materialize just this range for the metered scan, then
+	// delete from the original context only after enumeration has finished.
+	store := ctx.MultiStore().GetKVStore(k.storeKey)
+	end := sdk.PrefixEndBytes(pref)
+	snapshot := mem.NewStore()
+	for _, key := range store.GetAllKeyStrsInRange(pref, end) {
+		snapshot.Set([]byte(key), store.Get([]byte(key)))
+	}
+	metered := gaskv.NewStore(snapshot, ctx.GasMeter(), storetypes.KVGasConfig(), k.storeKey.Name(), ctx.StoreTracer())
+	keys := metered.GetAllKeyStrsInRange(pref, end)
+	for _, key := range keys {
+		ctx.KVStore(k.storeKey).Delete([]byte(key))
 	}
 }
 

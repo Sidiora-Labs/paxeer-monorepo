@@ -12,9 +12,19 @@ pub const CURRENT_BYTES: usize = 184;
 pub const HISTORY_BYTES: usize = 92;
 pub const HEADER_BYTES: usize = 64;
 pub const LIMIT: usize = 32;
+pub const PARTICIPANTS_PER_CHUNK: usize = 6;
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub const fn participant_chunk_size(count: usize) -> usize {
+    if count == LIMIT {
+        PARTICIPANTS_PER_CHUNK
+    } else {
+        8
+    }
+}
 pub const SECTION_CAP: usize = 9088;
 pub const JOINT_CAP: usize = 24576;
-pub const COMMON_CAP: usize = 196_608;
+pub const COMMON_CAP: usize = crate::MAX_STATE_BYTES;
 pub const UNIT: u32 = 1_000_000;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -295,6 +305,33 @@ impl ReputationState {
         r.matches_segment(key)?;
         Ok(r)
     }
+    // A cursor over the validated worker ordering. Ordered callers visit each record
+    // once; an out-of-order lookup restarts without changing the public lookup behavior.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn ordered_position(&self, worker: WorkerId, cursor: &mut usize) -> usize {
+        let n = usize::from(self.current_len);
+        let mut at = (*cursor).min(n);
+        if at > 0
+            && self
+                .current
+                .guest_index(at - 1)
+                .as_ref()
+                .is_some_and(|r| r.worker >= worker)
+        {
+            at = 0;
+        }
+        while at < n
+            && self
+                .current
+                .guest_index(at)
+                .as_ref()
+                .is_some_and(|r| r.worker < worker)
+        {
+            at += 1;
+        }
+        *cursor = at;
+        at
+    }
     /// Checks the section's slot, ordering and completion invariants.
     ///
     /// # Errors
@@ -358,6 +395,14 @@ impl ReputationState {
         result: Digest32,
     ) -> CodecResult<CompletionIdentity> {
         self.validate()?;
+        self.assess_committed_completion(epoch, result)
+    }
+
+    pub(crate) fn assess_committed_completion(
+        &self,
+        epoch: u64,
+        result: Digest32,
+    ) -> CodecResult<CompletionIdentity> {
         if let Ok(r) = self.lookup_epoch(epoch) {
             if r.result != result {
                 return Err(CONFLICT);
@@ -378,6 +423,12 @@ impl ReputationState {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> CodecResult<usize> {
         self.validate()?;
+        self.encoded_size()
+    }
+    pub(crate) fn encoded_size(&self) -> CodecResult<usize> {
+        if usize::from(self.current_len) > LIMIT || usize::from(self.history_len) > LIMIT {
+            return Err(CAPACITY);
+        }
         let n = HEADER_BYTES
             + usize::from(self.current_len) * CURRENT_BYTES
             + usize::from(self.history_len) * HISTORY_BYTES;
@@ -392,31 +443,15 @@ impl ReputationState {
     )]
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn insert(&mut self, record: ReputationCurrent) -> CodecResult<()> {
+        self.edit()?.insert(record)
+    }
+    pub(crate) fn edit(&mut self) -> CodecResult<ReputationEditor<'_>> {
         self.validate()?;
-        record.validate()?;
-        if let Presence::Present(epoch) = record.last_applied {
-            match self.completed_through {
-                Presence::Present(last) if epoch <= last => (),
-                _ => return Err(WRONG_EPOCH),
-            }
-        }
-        if self.current_len as usize == LIMIT {
-            return Err(CAPACITY);
-        }
-        if self.records().any(|r| r.worker == record.worker) {
-            return Err(CONFLICT);
-        }
-        let n = self.current_len as usize;
-        let index = self
-            .records()
-            .position(|r| r.worker > record.worker)
-            .unwrap_or(n);
-        for i in (index..n).rev() {
-            *self.current.guest_index_mut(i + 1) = *self.current.guest_index(i);
-        }
-        *self.current.guest_index_mut(index) = Some(record);
-        self.current_len += 1;
-        Ok(())
+        self.edit_produced()
+    }
+    pub(crate) fn edit_produced(&mut self) -> CodecResult<ReputationEditor<'_>> {
+        self.encoded_size()?;
+        Ok(ReputationEditor { state: self })
     }
     #[allow(
         dead_code,
@@ -542,4 +577,63 @@ pub fn check_storage_budget(
         return Err(F07_RESOURCE_LIMIT);
     }
     Ok(())
+}
+
+/// A checked, exclusively borrowed reputation state. No caller can mutate its
+/// fields while the editor preserves ordering, completion and record invariants.
+pub(crate) struct ReputationEditor<'a> {
+    state: &'a mut ReputationState,
+}
+impl ReputationEditor<'_> {
+    pub(crate) fn records(&self) -> impl Iterator<Item = &ReputationCurrent> {
+        self.state.records()
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn ordered_record(
+        &self,
+        worker: WorkerId,
+        cursor: &mut usize,
+    ) -> Option<&ReputationCurrent> {
+        let index = self.state.ordered_position(worker, cursor);
+        self.state
+            .current
+            .get(index)
+            .and_then(Option::as_ref)
+            .filter(|r| r.worker == worker)
+    }
+    pub(crate) fn insert(&mut self, record: ReputationCurrent) -> CodecResult<()> {
+        self.insert_ordered(record, &mut 0)
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn insert_ordered(
+        &mut self,
+        record: ReputationCurrent,
+        cursor: &mut usize,
+    ) -> CodecResult<()> {
+        let index = self.state.ordered_position(record.worker, cursor);
+        record.validate()?;
+        if let Presence::Present(epoch) = record.last_applied {
+            match self.state.completed_through {
+                Presence::Present(last) if epoch <= last => (),
+                _ => return Err(WRONG_EPOCH),
+            }
+        }
+        if self.state.current_len as usize == LIMIT {
+            return Err(CAPACITY);
+        }
+        let n = self.state.current_len as usize;
+        if self
+            .state
+            .current
+            .get(index)
+            .and_then(Option::as_ref)
+            .is_some_and(|r| r.worker == record.worker)
+        {
+            return Err(CONFLICT);
+        }
+        self.state.current.guest_copy_within(index..n, index + 1);
+        *self.state.current.guest_index_mut(index) = Some(record);
+        self.state.current_len += 1;
+        Ok(())
+    }
 }

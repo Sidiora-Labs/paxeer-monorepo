@@ -45,10 +45,8 @@ export const PAGE_TYPE_DICT: Record<Route['pathname'], string> = {
   '/feed': 'Price feed',
   '/feed/update/[hash]': 'Price update details',
   '/feed/market/[id]': 'Price feed market',
+  '/paxeer-x/inference': 'Inference',
   '/paxeer-x/account/[hash]': 'Paxeer X account details',
-  '/paxeer-x/anchors': 'Anchor checkpoints',
-  '/paxeer-x/receipts': 'Kernel receipts',
-  '/paxeer-x/receipts/[id]': 'Kernel receipt details',
   '/dispute-games': 'Dispute games',
   '/batches': 'Txn batches',
   '/batches/[number]': 'L2 txn batch details',
@@ -103,6 +101,8 @@ export const PAGE_TYPE_DICT: Record<Route['pathname'], string> = {
   '/api/proxy': 'Node API: Proxy',
   '/api/csrf': 'Node API: CSRF token',
   '/api/healthz': 'Node API: Health check',
+  '/api/assistant': 'Node API: Assistant',
+  '/api/inference': 'Node API: Inference',
   '/api/config': 'Node API: App config',
 };
 

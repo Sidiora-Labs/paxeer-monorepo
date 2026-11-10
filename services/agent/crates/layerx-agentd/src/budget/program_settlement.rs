@@ -608,7 +608,7 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
         reservation_digest: reservation
             .settlement_binding()
             .map_err(|_| ProgramSettlementError::Allocation)?,
-        terminal_receipt: Sha256::digest(receipt.canonical_receipt()).into(),
+        terminal_receipt: receipt.receipt_ref(),
         activity_id: submission.activity_id(),
         global_sequence: receipt.global_sequence(),
         debits,
@@ -702,7 +702,7 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
         reservation_digest: reservation
             .settlement_binding()
             .map_err(|_| ProgramSettlementError::Allocation)?,
-        terminal_receipt: Sha256::digest(receipt.canonical_receipt()).into(),
+        terminal_receipt: receipt.receipt_ref(),
         activity_id: submission.activity_id(),
         global_sequence: receipt.global_sequence(),
         debits,
@@ -1317,7 +1317,7 @@ pub fn verify_native_program_debit_settlement(
         reservation_digest: reservation
             .settlement_binding()
             .map_err(|_| ProgramSettlementError::Allocation)?,
-        terminal_receipt: Sha256::digest(canonical_receipt).into(),
+        terminal_receipt: receipt.receipt_ref(),
         activity_id: submission.activity_id(),
         global_sequence: protocol.global_sequence(),
         debits,

@@ -74,6 +74,7 @@
                 "const": "kernel_unavailable"
               },
               "backend": {
+                "description": "Compatibility diagnostic for an optional hosted backend. Native receipt verification uses governed keys at the receipt height and committed-block evidence for finality.",
                 "enum": [
                   "core_agent_boundary",
                   "public_core",
@@ -622,6 +623,7 @@
                 "const": "kernel_unavailable"
               },
               "backend": {
+                "description": "Compatibility diagnostic for an optional hosted backend. Native receipt verification uses governed keys at the receipt height and committed-block evidence for finality.",
                 "enum": [
                   "core_agent_boundary",
                   "public_core",
@@ -1437,6 +1439,7 @@
                 "const": "kernel_unavailable"
               },
               "backend": {
+                "description": "Compatibility diagnostic for an optional hosted backend. Native receipt verification uses governed keys at the receipt height and committed-block evidence for finality.",
                 "enum": [
                   "core_agent_boundary",
                   "public_core",

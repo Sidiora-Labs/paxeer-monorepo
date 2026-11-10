@@ -1772,6 +1772,16 @@ pub struct VerifiedReceiptEvidence {
 }
 
 impl VerifiedReceiptEvidence {
+    pub(crate) fn block_time_ms(&self) -> Option<u64> {
+        let timestamp_ms = self.verified.receipt().protocol()?.timestamp();
+        let timestamp_ms = if timestamp_ms == 0 {
+            self.inclusion.header().header().timestamp_ms()
+        } else {
+            timestamp_ms
+        };
+        (timestamp_ms > 0).then_some(timestamp_ms)
+    }
+
     pub(crate) const fn execution_receipt(&self) -> &ProofVerifiedReceipt {
         &self.verified
     }
@@ -1992,6 +2002,27 @@ enum StateEvidenceShape {
 }
 
 impl RawStateEvidence {
+    pub(crate) fn verified_block_time_ms(
+        &self,
+        height: u64,
+        verifier: &EvidenceAuthority,
+    ) -> Option<u64> {
+        verifier.verify_state(self).ok()?;
+        let StateEvidenceShape::ModuleWitness { committed, .. } = &self.shape else {
+            return None;
+        };
+        let checkpoint = committed.checkpoint();
+        if checkpoint.height != height {
+            return None;
+        }
+        let time = checkpoint.header.time;
+        u64::try_from(time.seconds)
+            .ok()?
+            .checked_mul(1_000)?
+            .checked_add(u64::from(time.nanos / 1_000_000))
+            .filter(|ms| *ms > 0)
+    }
+
     #[must_use]
     pub fn new(
         canonical_state: Vec<u8>,
@@ -2395,6 +2426,7 @@ mod tests {
 
     #[test]
     fn committed_time_requires_the_handshake_network_and_receipt_authority() {
+        // This checks the current handshake receipt key, with pinned committed validators.
         let (authority, actor, batch, observed) = captured_batch();
         let header = checked(decode_batch_header(batch.maintenance.canonical_header()));
         let wrong_network = checked(

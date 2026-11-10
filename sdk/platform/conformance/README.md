@@ -3,6 +3,14 @@
 Shared receipt vectors for the Paxeer X Network SDKs. Receipt checks run through
 the Go SDK's sequencer, committed and portable receipt verifiers.
 
+The JVM catalogue follows the retained transaction entries for `program.activity`
+and `program.receipt` in `operations.json`, group `O32`: both use
+`eth_getTransactionByHash`, with an empty destination and no contract calls.
+`GeneratedCatalogueProgramsTest.programOperationsNameLayerxprogramsCalls` checks
+the generated transports against that record;
+`programReceiptTracesRetainedTransactionThroughHttp` exercises receipt lookup
+through the real JVM HTTP transport using the retained native Programs receipt.
+
 | Fixture | Cases | Source |
 | --- | --- | --- |
 | [`vector-v1-receipted-positive.json`](fixtures/vector-v1-receipted-positive.json) | Four successful receipted transactions, preserving every V1 source case. | [`sequencer-receipt-v1.json`](fixtures/sequencer-receipt-v1.json), V1; daemon recording: [`daemon/committed-fixture/vectors/vector-v1-receipted-positive.json`](../../../daemon/committed-fixture/vectors/vector-v1-receipted-positive.json). |
