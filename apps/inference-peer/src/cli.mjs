@@ -169,6 +169,7 @@ export function parseCLI(args) {
   const allowed = {
     join: [
       "manifest",
+      "enrolment",
       "identity",
       "attestation",
       "model-digest",
@@ -196,7 +197,7 @@ export function parseCLI(args) {
   if (command === "join") {
     if (positionals.length !== 2 || !values.manifest)
       throw new Error(
-        "Usage: join <host> <room> --manifest <v2-file> [--attestation <PXVE-file>]",
+        "Usage: join <host> <room> --manifest <v2-file> [--enrolment <signed-json-file>] [--attestation <PXVE-file>]",
       );
     digest(positionals[1], "room");
     return {
@@ -242,21 +243,6 @@ async function fileBytes(path, limit) {
   } finally {
     await handle.close();
   }
-}
-
-async function postJSON(url, body) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    redirect: "error",
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new Error(`Host request refused (${response.status})`);
-  }
-  return response.json();
 }
 
 async function listen(server, listenPort) {
@@ -316,12 +302,11 @@ export async function joinCommand(options) {
         digest(accepted.runtime_digest, "runtime digest"))
   )
     throw new Error("Attestation digests differ from accepted deal");
-  // Every local validation above precedes binding, enrolment and the WebSocket hello.
-  if (binding) {
-    const result = await postJSON(route(host, "bind_peer"), binding);
-    if (result.bound !== true) throw new Error("Host did not confirm bindPeer");
+  // Local attestation and deal checks precede enrolment and the WebSocket hello.
+  if (options.enrolment !== undefined) {
+    const document = await fileBytes(options.enrolment, 262144);
+    await identity.enrolPeer(route(host, "enrol_peer"), { document });
   }
-  await identity.enrolPeer(route(host, "enrol_peer"), { manifest });
   const signalURL = new URL("/", host);
   signalURL.protocol = host.protocol === "https:" ? "wss:" : "ws:";
   const signal = new SignalClient(signalURL.href, {
@@ -693,9 +678,8 @@ export function createCPURuntime({ maxSeq = 512 } = {}) {
         endLayer > manifest.layer_count
       )
         throw new Error("Invalid dense attention configuration or range");
-      const { parseSafetensors, tensorF32 } = await import(
-        "../engine/engine/safetensors.js"
-      );
+      const { parseSafetensors, tensorF32 } =
+        await import("../engine/engine/safetensors.js");
       const tensors = new Map();
       for (const shard of shards) {
         for (const [name, tensor] of Object.entries(
