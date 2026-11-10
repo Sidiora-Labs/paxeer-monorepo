@@ -161094,7 +161094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.313]
 title = "Settle the reviewed manifest digest of the launchpad deployment at its producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
