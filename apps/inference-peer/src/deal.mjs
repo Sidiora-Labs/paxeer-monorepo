@@ -1,4 +1,5 @@
 import { MAX_FRAME_BYTES } from "./wire.mjs";
+import { signalHex, validateSignalFrame } from "./signal.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -182,8 +183,13 @@ export async function loadLayerRange({
   endLayer,
   runtime,
   signal,
+  modelSource,
 }) {
-  const manifestURL = sourceURL(offer.model_source?.manifest_url);
+  if (!modelSource?.manifest_url)
+    throw new Error(
+      "Model source must be configured locally; the host offer does not serve it",
+    );
+  const manifestURL = sourceURL(modelSource.manifest_url);
   const bytes = await download(manifestURL, 1048576, signal);
   if (hex(await sha256(bytes)) !== hex(digestBytes(offer.model_digest)))
     throw new Error("Model manifest digest mismatch");
@@ -349,6 +355,7 @@ export class DealClient extends EventTarget {
   #closedListener;
   #model;
   #digest;
+  #dealId;
   #range;
   #next;
   #previous;
@@ -363,6 +370,7 @@ export class DealClient extends EventTarget {
     hostPeerKey,
     acknowledge,
     validateDeal,
+    modelSource,
   }) {
     super();
     if (
@@ -383,6 +391,7 @@ export class DealClient extends EventTarget {
     this.identity = identity;
     this.offer = structuredClone(offer);
     this.runtime = runtime;
+    this.modelSource = structuredClone(modelSource);
     this.mesh = mesh;
     this.hostPeerKey = hostPeerKey;
     this.acknowledge = acknowledge;
@@ -416,13 +425,13 @@ export class DealClient extends EventTarget {
 
   async #handle(frame, peerKey) {
     if (this.#state === "closed") throw new Error("Deal client is closed");
-    if (frame.roomId !== this.roomId) throw new Error("Wrong deal room");
-    if (frame.kind === "deal") {
+    if (frame.type === "deal") {
+      validateSignalFrame(frame);
       if (peerKey !== this.hostPeerKey || this.#state !== "idle")
         throw new Error("Unexpected deal");
       this.#state = "loading";
       try {
-        const deal = structuredClone(frame.payload.deal ?? frame.payload);
+        const deal = structuredClone(frame.deal);
         const digest = await dealDigest(deal);
         for (const name of ["model_digest", "runtime_digest"])
           if (
@@ -440,6 +449,7 @@ export class DealClient extends EventTarget {
         const split = deal.plan.layers[index];
         const loaded = await loadLayerRange({
           offer: this.offer,
+          modelSource: this.modelSource,
           firstLayer: split.first_layer,
           endLayer: split.end_layer,
           runtime: this.runtime,
@@ -472,6 +482,7 @@ export class DealClient extends EventTarget {
         if (this.#abort.signal.aborted)
           throw new Error("Deal client closed during acknowledgement");
         this.#digest = digest;
+        this.#dealId = signalHex(deal.deal_id);
         this.#range = {
           first: split.first_layer,
           end: split.end_layer,
@@ -485,16 +496,28 @@ export class DealClient extends EventTarget {
           index === deal.plan.layers.length - 1
             ? this.hostPeerKey
             : hex(digestBytes(deal.plan.layers[index + 1].peer_key));
-        this.#state = "ready";
-        this.dispatchEvent(
-          new CustomEvent("ready", { detail: { digest: digest.slice() } }),
-        );
+        this.#state = "acknowledged";
       } catch (error) {
         this.close();
         throw error;
       }
       return;
     }
+    if (frame.type === "deal_live") {
+      validateSignalFrame(frame);
+      if (
+        peerKey !== this.hostPeerKey ||
+        this.#state !== "acknowledged" ||
+        signalHex(frame.deal_id) !== this.#dealId
+      )
+        throw new Error("Unexpected live deal");
+      this.#state = "ready";
+      this.dispatchEvent(
+        new CustomEvent("ready", { detail: { digest: this.#digest.slice() } }),
+      );
+      return;
+    }
+    if (frame.roomId !== this.roomId) throw new Error("Wrong deal room");
     if (frame.kind === "bye") {
       if (peerKey !== this.hostPeerKey)
         throw new Error("Only host may end a request");
