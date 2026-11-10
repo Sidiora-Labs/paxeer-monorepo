@@ -12484,6 +12484,12 @@ value = "A case that counts the vectors of a fixture by category selects a vecto
 basis = "Gotcha 4155, decisions 3183, 3209 and 3046."
 affects = ["22.39.340"]
 
+[decision.3229]
+title = "A task that builds the host boundary binary and runs a native lifecycle case of the AI market holds at least 180 minutes"
+value = "The time limit of a task covers its declared build, its declared verification and the work between them on a clean tree. A task whose build compiles the native library with the host boundary binary and whose verification runs a lifecycle case of the AI market through the native process holds a time limit of at least 180 minutes. The counts of builds, verifications and repair cycles of the task stay as they are."
+basis = "Gotcha 4156, decisions 3044 and 3183."
+affects = ["18.1750.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -185168,7 +185174,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 30
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
