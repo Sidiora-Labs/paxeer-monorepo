@@ -39290,3 +39290,27 @@ symbol = "prepare-production.py"
 observed = "Attempt 2 at 31d19566a52b: build exit 0; verification exit 1: pnpm --dir apps/web run test fails fourteen cases, four in e2e/gas-station.test.ts (:73, :86, :102 falsy expression with actual undefined; :191 ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING for the file-linked wallet SDK) and ten in files outside the touches; every history case passes; log /out/logs/verify-2.log."
 assumption = "The ten cases outside the touches fail with the same messages at attempt 1 on an older base, and the tree changes none of the files they read."
 severity = "high"
+
+[finding.22.39.299.1]
+task = "22.39.299"
+file = "services/agent/sdk/typescript/test/repair-22-33-24.test.ts"
+symbol = "repair-22-33-24.test.ts"
+observed = "Attempt 3 at f0d853dce44a: npm ci and pnpm run build exit 0; verification exit 1: node dist/test/repair-22-33-24.test.js fails one of 52 cases, verify_committed_receipt_recorded_inclusion at dist/test/sequencer-receipt-verify.test.js:140 (signed power 7000000000n, want 7000000001n); log /out/logs/verify-2.log."
+assumption = "The refreshed recording holds one absent commit signature; every other case of the aggregator and the sequencer module passes at the attempt-3 tree."
+severity = "high"
+
+[finding.18.1667.1.13]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 13 at 60474c5e3cd1: go build ./daemon/committed-fixture/... exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:388, record vector-v4-committed: bind DID 0: fixture transaction reverted LXP_ADDR_LAYERX_ADDRESS_BOUND; TestRecorderV6GenesisSelection passes; log /out/logs/verify-1.log."
+assumption = "v1ProgramsGenesisAuthority in main.go exports the private key of the keyring entry named fixture, the same account the V4 recorder uses as payer."
+severity = "high"
+
+[finding.22.39.266.2]
+task = "22.39.266"
+file = "tools/platform/cli/README.md"
+symbol = "README.md"
+observed = "Attempt 2 at d25367086cfb: build exit 0; verification exit 101: every module of layerx-platform-cli and layerx-platform-release passes except public_http_uses_system_trust_and_checks_server_identity, which panics at services/platform/tests/support/tls_boundary.rs:186 asking for the boundary binary; log /out/logs/verify-1.log."
+assumption = "The case is an environment prerequisite of the suite, not a defect of the tree."
+severity = "high"
