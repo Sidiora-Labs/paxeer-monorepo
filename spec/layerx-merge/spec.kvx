@@ -198046,7 +198046,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.21]
 title = "Serve OpenAI-compatible and Anthropic-compatible completion routes gated on a funded ask stream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.9", "22.38.17", "22.31.620"]
