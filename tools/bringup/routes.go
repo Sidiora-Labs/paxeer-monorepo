@@ -94,6 +94,9 @@ func callRPC(ctx context.Context, client *http.Client, endpoint, method string, 
 		Result  json.RawMessage `json:"result"`
 		Error   json.RawMessage `json:"error"`
 	}
+	if err := uniqueJSON(data); err != nil {
+		return nil, errors.New("ambiguous RPC envelope")
+	}
 	if err := json.Unmarshal(data, &doc); err != nil || doc.JSONRPC != "2.0" || string(doc.ID) != "1" || len(doc.Result) == 0 || string(doc.Result) == "null" || (len(doc.Error) > 0 && string(doc.Error) != "null") {
 		return nil, errors.New("invalid RPC envelope")
 	}

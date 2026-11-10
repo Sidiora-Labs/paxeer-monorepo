@@ -645,6 +645,10 @@
       "reason": "Repair record files across the repository describe audited findings and qualification evidence rather than production callers."
     },
     {
+      "pattern": "tools/bringup/repair-*.kvx",
+      "reason": "The bringup repair records document historical findings and transport removals rather than production callers."
+    },
+    {
       "pattern": "services/platform/hosted/authority/src/repair_22_31_207/**",
       "reason": "Repair 22.31.207 holds the recorded producer used to qualify the retired authority boundary."
     },
@@ -670,6 +674,16 @@
     }
   ],
   "allowed_references": [
+    {
+      "path": "tools/bringup",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify",
+        "relay-archive"
+      ],
+      "citation": "Decision 3125 and task 22.39.274 retain the shipping merge-disabled module, API and precompile names in the generated runtime dependency inventory and the explicit retired genesis-module and identity-owner rejection checks."
+    },
     {
       "path": "modules/layerxanchor/keeper/custody_reader.go",
       "lines": [
