@@ -1,0 +1,23 @@
+[repair]
+task = "22.39.364"
+decision = "3256"
+gotcha = "4184"
+base_revision = "b14b32fece51e7b81991445f5312b401ba462519"
+file = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+functions = ["AskStreamState::decode", "NodeRpc::ask_stream"]
+lint = "clippy::missing_errors_doc"
+change = "Add Errors sections describing rejected inputs, invalid stream responses and node request failures; signatures and behavior are unchanged."
+
+[lint]
+command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib -- -D warnings"
+log = "/out/logs/lint-22-39-364.log"
+exit = 0
+result = "The single library lint outside the counted gates passed; no further diagnostics in node_rpc.rs or another file of layerx-agentd were emitted. Dependencies emitted warnings retained in the private log."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+verified_revision = "The revision field of the passing verify entry in /out/run/gates.jsonl, printed by hf-done; the passing build entry must name the same revision."
+result = "The private gate ledger records the authoritative revision, command, exit and log; qualification requires both gates to pass at that revision."

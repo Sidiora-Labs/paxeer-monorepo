@@ -552,92 +552,30 @@ fn retained_evm_call_reopens_with_exact_expiry_bytes_and_reservations() {
     let root = test_directory("retained-evm-call");
     let owner = SessionRef::new(tenant(), SessionId([7; 32]));
     let id = [7; 32];
-    let mut store = text(Store::open(&root), "call store");
-    let lifecycle = PreparationLifecycle::default();
-    let limiter = limiter();
-    let hold = text(
-        reserve(
-            &limiter,
-            &ReservationRequest {
-                id,
-                amount: 100,
-                expiry_sequence: CURRENT_SEQUENCE + 1_000,
-                current_sequence: OBSERVED_HEAD_SEQUENCE,
-                applicable_limits: vec![LimitId([1; 16])],
-            },
-        ),
-        "call reservation",
-    );
-    let prepared = evm_prepared();
-    text(
-        lifecycle.register_call(
-            &mut store,
-            &owner,
-            GENERATION,
-            id,
-            &prepared,
-            hold.durable.into_iter().map(|hold| (hold, None)).collect(),
-        ),
-        "register call",
-    );
-    text(
-        lifecycle.transition_call(
-            &mut store,
-            &owner,
-            GENERATION,
-            id,
-            LifecycleState::Signing,
-            OBSERVED_HEAD_SEQUENCE,
-        ),
-        "signing call",
-    );
-    let raw = signed_bytes();
-    assert_eq!(
-        text(
-            lifecycle.retain_signed_call(&mut store, &owner, GENERATION, id, raw.clone(),),
-            "retain call"
-        ),
-        transaction_hash(&raw)
-    );
-    drop(lifecycle);
-    drop(store);
+    let (limiter, prepared, raw) = retain_evm_call(&root, &owner, GENERATION, id, CURRENT_SEQUENCE);
     let mut store = text(Store::open(&root), "reopen call store");
     let lifecycle = PreparationLifecycle::default();
-    assert_eq!(
-        text(
-            lifecycle.restore_calls(&store, &owner.tenant),
-            "restore calls"
-        ),
-        1
-    );
-    assert_eq!(
-        text(
-            lifecycle.prepared_call(&store, &owner, GENERATION, id),
-            "restore preparation"
-        ),
-        prepared
-    );
-    assert_eq!(
-        text(
-            lifecycle.recovered_signed_call(&store, &owner, GENERATION, id),
-            "restore bytes"
-        ),
-        raw
-    );
-    assert_eq!(
-        lifecycle.prepared_call(&store, &owner, GENERATION + 1, id),
-        Err(LifecycleError::AuthorizationMismatch)
-    );
+    assert_restored_evm_call(&store, &lifecycle, &owner, GENERATION, id, &prepared, &raw);
     let key = text(
         layerx_agentd::prepare::DurablePreparation::store_key(&owner.tenant, id),
         "call key",
     );
-    let before = store.get(&key).unwrap().bytes().to_vec();
+    let before = store
+        .get(&key)
+        .unwrap_or_else(|| panic!("test value missing"))
+        .bytes()
+        .to_vec();
     assert_eq!(
         lifecycle.admit_call_submission(&mut store, &owner, GENERATION, id, NOT_AFTER_MS + 1),
         Err(LifecycleError::PreparationExpired)
     );
-    assert_eq!(store.get(&key).unwrap().bytes(), before);
+    assert_eq!(
+        store
+            .get(&key)
+            .unwrap_or_else(|| panic!("test value missing"))
+            .bytes(),
+        before
+    );
     assert_eq!(lifecycle.state(id), Ok(LifecycleState::Signed));
     assert_eq!(lifecycle.has_signed_bytes(id), Ok(true));
     let equality = text(
@@ -686,4 +624,99 @@ fn retained_evm_call_reopens_with_exact_expiry_bytes_and_reservations() {
     assert_eq!(lifecycle.state(id), Err(LifecycleError::NotFound));
     drop(store);
     text(fs::remove_dir_all(root), "remove call store");
+}
+
+fn retain_evm_call(
+    root: &std::path::Path,
+    owner: &SessionRef,
+    generation: u64,
+    id: [u8; 32],
+    current_sequence: u64,
+) -> (BudgetLimiter, EvmPrepared, Vec<u8>) {
+    let mut store = text(Store::open(root), "call store");
+    let lifecycle = PreparationLifecycle::default();
+    let limiter = limiter();
+    let hold = text(
+        reserve(
+            &limiter,
+            &ReservationRequest {
+                id,
+                amount: 100,
+                expiry_sequence: current_sequence + 1_000,
+                current_sequence: OBSERVED_HEAD_SEQUENCE,
+                applicable_limits: vec![LimitId([1; 16])],
+            },
+        ),
+        "call reservation",
+    );
+    let prepared = evm_prepared();
+    text(
+        lifecycle.register_call(
+            &mut store,
+            owner,
+            generation,
+            id,
+            &prepared,
+            hold.durable.into_iter().map(|hold| (hold, None)).collect(),
+        ),
+        "register call",
+    );
+    text(
+        lifecycle.transition_call(
+            &mut store,
+            owner,
+            generation,
+            id,
+            LifecycleState::Signing,
+            OBSERVED_HEAD_SEQUENCE,
+        ),
+        "signing call",
+    );
+    let raw = signed_bytes();
+    assert_eq!(
+        text(
+            lifecycle.retain_signed_call(&mut store, owner, generation, id, raw.clone(),),
+            "retain call"
+        ),
+        transaction_hash(&raw)
+    );
+    drop(lifecycle);
+    drop(store);
+    (limiter, prepared, raw)
+}
+
+fn assert_restored_evm_call(
+    store: &Store,
+    lifecycle: &PreparationLifecycle,
+    owner: &SessionRef,
+    generation: u64,
+    id: [u8; 32],
+    prepared: &EvmPrepared,
+    raw: &[u8],
+) {
+    assert_eq!(
+        text(
+            lifecycle.restore_calls(store, &owner.tenant),
+            "restore calls"
+        ),
+        1
+    );
+    assert_eq!(
+        text(
+            lifecycle.prepared_call(store, owner, generation, id),
+            "restore preparation"
+        ),
+        *prepared
+    );
+    assert_eq!(
+        text(
+            lifecycle.recovered_signed_call(store, owner, generation, id),
+            "restore bytes"
+        ),
+        raw
+    );
+    assert_eq!(
+        lifecycle.prepared_call(store, owner, generation + 1, id),
+        Err(LifecycleError::AuthorizationMismatch)
+    );
 }

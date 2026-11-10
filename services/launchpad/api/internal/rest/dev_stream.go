@@ -99,6 +99,14 @@ var developmentStreamDDL = []string{
 	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.stream_snapshots(snapshot_id uuid PRIMARY KEY,account_id uuid NOT NULL,session_id uuid NOT NULL,auth_epoch bigint NOT NULL CHECK(auth_epoch>=0),filter_digest text NOT NULL CHECK(filter_digest ~ '^[0-9a-f]{64}$'),generation uuid NOT NULL,scope jsonb NOT NULL,initial_offsets jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),expires_at timestamptz NOT NULL,CHECK(expires_at>created_at AND expires_at<=created_at+interval '72 hours'))`,
 	`CREATE INDEX IF NOT EXISTS stream_snapshot_expiry ON ` + DevelopmentStreamSchema + `.stream_snapshots(expires_at)`,
 	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.candle_projection(pool_address text NOT NULL,timeframe text NOT NULL,candle_start bigint NOT NULL,source_revision bigint NOT NULL CHECK(source_revision>0),topic_sequence bigint NOT NULL CHECK(topic_sequence>0),payload bytea NOT NULL,watermark bytea NOT NULL,PRIMARY KEY(pool_address,timeframe,candle_start))`,
+	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.trade_projection(swap_id text PRIMARY KEY,pool_address text NOT NULL,block_number bigint NOT NULL,transaction_index bigint NOT NULL,log_index integer NOT NULL,event_id text NOT NULL UNIQUE,payload bytea NOT NULL CHECK(octet_length(payload)<=262144))`,
+	`CREATE INDEX IF NOT EXISTS trade_projection_pool_order ON ` + DevelopmentStreamSchema + `.trade_projection(pool_address,block_number DESC,transaction_index DESC,log_index DESC,event_id DESC)`,
+	`DO $backfill$ BEGIN IF to_regclass('indexer.swaps') IS NOT NULL THEN
+ INSERT INTO ` + DevelopmentStreamSchema + `.trade_projection(swap_id,pool_address,block_number,transaction_index,log_index,event_id,payload)
+ SELECT s.id,s.pool_address,s.block_number,(convert_from(o.frame,'UTF8')::jsonb->'payload'->'position'->>'transactionIndex')::bigint,s.log_index,o.event_id,convert_to((convert_from(o.frame,'UTF8')::jsonb->'payload')::text,'UTF8')
+ FROM indexer.swaps s JOIN ` + DevelopmentStreamSchema + `.stream_delivery_outbox o ON o.event_id='125:'||lower(s.tx_hash)||':'||s.log_index::text
+ JOIN ` + DevelopmentStreamSchema + `.stream_projection h ON h.partition_id=o.partition_id AND h.topic='market.trades.'||s.pool_address
+ ON CONFLICT(swap_id) DO NOTHING; END IF; END $backfill$`,
 	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.projector_cursor(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),block_number bigint NOT NULL,log_index integer NOT NULL,updated_at timestamptz NOT NULL DEFAULT clock_timestamp())`,
 	`INSERT INTO ` + DevelopmentStreamSchema + `.projector_cursor(singleton,block_number,log_index) VALUES(true,0,-1) ON CONFLICT DO NOTHING`,
 }
@@ -665,6 +673,17 @@ func (d *DevelopmentStream) appendTrades(ctx context.Context, fromBlock int64, f
 		eventID := "125:" + p.position.TransactionHash + ":" + p.position.LogIndex
 		if err = d.appendFrame(ctx, tx, head, eventID, tradeTopic, revision.String(), occurred, watermark, trade); err != nil {
 			return fmt.Errorf("append %s: %w", tradeTopic, err)
+		}
+		transactionIndex, err := strconv.ParseInt(p.position.TransactionIndex, 10, 64)
+		if err != nil {
+			return err
+		}
+		payload, err := json.Marshal(trade)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO `+streamTable("trade_projection")+`(swap_id,pool_address,block_number,transaction_index,log_index,event_id,payload) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(swap_id) DO NOTHING`, p.swap.id, p.swap.pool, p.swap.block, transactionIndex, p.swap.logIndex, eventID, payload); err != nil {
+			return err
 		}
 		if price != nil {
 			priceTopic := "market.price." + p.swap.pool

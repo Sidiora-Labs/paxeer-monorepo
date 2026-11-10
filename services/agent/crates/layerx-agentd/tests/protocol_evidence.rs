@@ -77,23 +77,30 @@ fn cumulative_use_refuses_invalid_or_incomplete_windows_before_receipt_use() {
 }
 
 #[test]
+#[allow(
+    deprecated,
+    reason = "Compatibility coverage retains the archived checkpoint-finalised level."
+)]
 fn trusted_policy_issues_state_evidence_only_for_its_exact_identity() {
     let authority = support::current_node::authority(8, 100, 199);
     let (protocol, checkpoint) = support::current_node::committed_budget([9; 32], 25);
-    let verified = authority
-        .verify_state(&protocol.evidence)
-        .expect("committed state evidence");
+    let verified = lint_success(
+        authority.verify_state(&protocol.evidence),
+        "committed state evidence",
+    );
     assert_eq!(
         verified.level(),
         layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED
     );
     assert_eq!(verified.observed_head_sequence(), 150);
-    let authority = authority
-        .pin_committed_validators("125".to_owned(), checkpoint.validators.clone())
-        .expect("pinned consensus validators");
-    let time = authority
-        .authenticate_committed_time(&checkpoint)
-        .expect("authenticated committed time");
+    let authority = lint_success(
+        authority.pin_committed_validators("125".to_owned(), checkpoint.validators.clone()),
+        "pinned consensus validators",
+    );
+    let time = lint_success(
+        authority.authenticate_committed_time(&checkpoint),
+        "authenticated committed time",
+    );
     assert_eq!(time.observed_core_ms(), 1_700_000_000_123);
     let mut altered = checkpoint.clone();
     altered.commit.votes[0].signature[0] ^= 1;
@@ -114,7 +121,7 @@ fn canonical_genesis_batch_zero_is_inside_a_bounded_trusted_range() {
         endpoint.receipt_keys(),
         Err(layerx_client::sequencer::SequencerError::Malformed)
     );
-    server.join().expect("genesis node server");
+    lint_success(server.join(), "genesis node server");
     let _authority = support::current_node::authority(8, 1, 1);
 }
 
@@ -151,7 +158,7 @@ fn revocation_handover_selects_only_the_key_active_at_each_batch() {
             ));
         }
         let (endpoint, server) = support::serve(exchanges);
-        let keys = endpoint.receipt_keys().expect("node key response");
+        let keys = lint_success(endpoint.receipt_keys(), "node key response");
         let observed = lookup_authenticated(
             &endpoint,
             hash,
@@ -164,18 +171,21 @@ fn revocation_handover_selects_only_the_key_active_at_each_batch() {
         } else {
             assert!(matches!(observed, Err(ReceiptError::Verification(_))));
         }
-        server.join().expect("rotation node server");
+        lint_success(server.join(), "rotation node server");
     }
     let checkpoint = support::current_node::signed_checkpoint(150, 1_700_000_000, 123_000_000);
     for seed in [8, 9] {
-        let authority = support::current_node::authority(seed, 100, 199)
-            .pin_committed_validators("125".to_owned(), checkpoint.validators.clone())
-            .expect("consensus authority");
+        let authority = lint_success(
+            support::current_node::authority(seed, 100, 199)
+                .pin_committed_validators("125".to_owned(), checkpoint.validators.clone()),
+            "consensus authority",
+        );
         assert_eq!(
-            authority
-                .authenticate_committed_time(&checkpoint)
-                .expect("committed chain independent of receipt rotation")
-                .through_sequence(),
+            lint_success(
+                authority.authenticate_committed_time(&checkpoint),
+                "committed chain independent of receipt rotation"
+            )
+            .through_sequence(),
             150
         );
     }
@@ -354,4 +364,12 @@ fn receipt_execution_id_must_bind_the_signed_headers_batch_number() {
         support::evidence_verifier().verify_receipt(&raw),
         Err(ReceiptEvidenceError::BatchIdentity)
     );
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
 }

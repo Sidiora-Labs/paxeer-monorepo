@@ -337,6 +337,9 @@ func RegisterDevelopmentHistorySearchDiscovery(r chi.Router, st *store.Store, ad
 		if admission != nil {
 			handler = admission.Middleware(class)(handler)
 		}
+		if path == "/v2/pools/{poolAddress}/trades" || path == "/v2/pools/{poolAddress}/candles" {
+			handler = logDevelopmentReadFailures(path, handler)
+		}
 		r.Method(method, path, ResponseMetadata(handler))
 	}
 	d := newDevDiscovery(st)

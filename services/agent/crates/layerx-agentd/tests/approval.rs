@@ -35,67 +35,71 @@ pub mod fixture {
     };
     use layerx_wire::encode::Encoder;
 
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the ledger payload cannot be encoded, prepared, or converted into the API fixture types.
     pub fn ledger_prepared(id: u8, expiry: u64) -> Prepared {
-        let mut payload = Encoder::new(512);
-        payload.u16(0x5301).unwrap();
-        payload.u16(10).unwrap();
-        payload.fixed(&[0x11; 32]).unwrap();
-        payload.fixed(&[0x22; 32]).unwrap();
-        payload.fixed(&[0x33; 32]).unwrap();
-        payload.u128(50).unwrap();
-        payload.u64(u64::from(id)).unwrap();
-        payload.fixed(&[id; 32]).unwrap();
-        payload.u64(expiry).unwrap();
-        payload.fixed(&[0x55; 32]).unwrap();
-        payload.u8(0).unwrap();
-        payload.u8(1).unwrap();
-        payload.fixed(&[0x11; 32]).unwrap();
-        payload.fixed(&[0x66; 32]).unwrap();
-        payload.fixed(&[0x77; 64]).unwrap();
-        payload.fixed(&[0x55; 32]).unwrap();
-        payload.u32(125).unwrap();
-        payload.u16(layerx_wire::limits::PROTOCOL_VERSION).unwrap();
-        let transaction = prepare_bound(
-            EvmPreparationState {
-                chain_id: 125,
-                pending_nonce: u64::from(id),
-                base_fee_per_gas: 1,
-                head_height: 10,
-            },
-            EvmPreparationDefaults {
-                max_priority_fee_per_gas: 1,
-                max_fee_per_gas: 3,
-                maximum_payload_bytes: 4096,
-            },
-            EvmPrepareRequest {
-                from: [4; 20],
-                call: PrecompileCall::ledger_transfer(send_authorization::sign(payload.finish())),
-                expected_nonce: Some(u64::from(id)),
-                max_priority_fee_per_gas: None,
-                max_fee_per_gas: None,
-                declared_payload_limit: 4096,
-            },
-            100_000,
-        )
-        .unwrap();
+        let transaction = assert_ok(
+            prepare_bound(
+                EvmPreparationState {
+                    chain_id: 125,
+                    pending_nonce: u64::from(id),
+                    base_fee_per_gas: 1,
+                    head_height: 10,
+                },
+                EvmPreparationDefaults {
+                    max_priority_fee_per_gas: 1,
+                    max_fee_per_gas: 3,
+                    maximum_payload_bytes: 4096,
+                },
+                EvmPrepareRequest {
+                    from: [4; 20],
+                    call: PrecompileCall::ledger_transfer(send_authorization::sign(
+                        ledger_payload(id, expiry),
+                    )),
+                    expected_nonce: Some(u64::from(id)),
+                    max_priority_fee_per_gas: None,
+                    max_fee_per_gas: None,
+                    declared_payload_limit: 4096,
+                },
+                100_000,
+            ),
+            "unexpected error",
+        );
         let source = &transaction.disclosure;
         let canonical = transaction.call.encode_unsigned();
-        let recipient = source
-            .counterparties
-            .iter()
-            .find(|party| party.role == layerx_crypto::disclosure::CounterpartyRole::Recipient)
-            .unwrap();
-        let recipient = AgentDid::new(hex::encode(recipient.account)).unwrap();
+        let recipient = assert_some(
+            source
+                .counterparties
+                .iter()
+                .find(|party| party.role == layerx_crypto::disclosure::CounterpartyRole::Recipient),
+            "expected Some value",
+        );
+        let recipient = assert_ok(
+            AgentDid::new(hex::encode(recipient.account)),
+            "unexpected error",
+        );
         let disclosure = Disclosure {
             canonical_digest: digest(&canonical),
             activity_type: ActivityType(source.activity_type.ordinal()),
-            actor: AgentDid::new(hex::encode(&source.actor)).unwrap(),
-            authority: AuthorityRef::new(hex::encode(&source.authority)).unwrap(),
+            actor: assert_ok(
+                AgentDid::new(hex::encode(&source.actor)),
+                "unexpected error",
+            ),
+            authority: assert_ok(
+                AuthorityRef::new(hex::encode(&source.authority)),
+                "unexpected error",
+            ),
             counterparties: ExplicitSet::allow(
                 source
                     .counterparties
                     .iter()
-                    .map(|party| AgentDid::new(hex::encode(party.account)).unwrap())
+                    .map(|party| {
+                        assert_ok(
+                            AgentDid::new(hex::encode(party.account)),
+                            "unexpected error",
+                        )
+                    })
                     .collect(),
             ),
             amounts: ExplicitSet::allow(
@@ -108,20 +112,57 @@ pub mod fixture {
                     })
                     .collect(),
             ),
-            asset: Asset::new(hex::encode(source.asset)).unwrap(),
+            asset: assert_ok(Asset::new(hex::encode(source.asset)), "unexpected error"),
             fee_limit: Amount(source.fee_limit),
             expiry: TimestampSeconds(source.expiry.payload_expires_at),
-            idempotency_key: IdempotencyRef::new(hex::encode(source.idempotency_key)).unwrap(),
+            idempotency_key: assert_ok(
+                IdempotencyRef::new(hex::encode(source.idempotency_key)),
+                "unexpected error",
+            ),
         };
         Prepared {
-            preparation_ref: PreparationRef::new(format!("prepared-{id}")).unwrap(),
-            unsigned_canonical_bytes: CanonicalBytes::new(canonical).unwrap(),
-            signing_preimage: SigningPreimage::new(transaction.signing_hash.to_vec()).unwrap(),
+            preparation_ref: assert_ok(
+                PreparationRef::new(format!("prepared-{id}")),
+                "unexpected error",
+            ),
+            unsigned_canonical_bytes: assert_ok(CanonicalBytes::new(canonical), "unexpected error"),
+            signing_preimage: assert_ok(
+                SigningPreimage::new(transaction.signing_hash.to_vec()),
+                "unexpected error",
+            ),
             expiry: disclosure.expiry,
             disclosure,
         }
     }
 
+    fn ledger_payload(id: u8, expiry: u64) -> Vec<u8> {
+        let mut payload = Encoder::new(512);
+        assert_ok(payload.u16(0x5301), "unexpected error");
+        assert_ok(payload.u16(10), "unexpected error");
+        assert_ok(payload.fixed(&[0x11; 32]), "unexpected error");
+        assert_ok(payload.fixed(&[0x22; 32]), "unexpected error");
+        assert_ok(payload.fixed(&[0x33; 32]), "unexpected error");
+        assert_ok(payload.u128(50), "unexpected error");
+        assert_ok(payload.u64(u64::from(id)), "unexpected error");
+        assert_ok(payload.fixed(&[id; 32]), "unexpected error");
+        assert_ok(payload.u64(expiry), "unexpected error");
+        assert_ok(payload.fixed(&[0x55; 32]), "unexpected error");
+        assert_ok(payload.u8(0), "unexpected error");
+        assert_ok(payload.u8(1), "unexpected error");
+        assert_ok(payload.fixed(&[0x11; 32]), "unexpected error");
+        assert_ok(payload.fixed(&[0x66; 32]), "unexpected error");
+        assert_ok(payload.fixed(&[0x77; 64]), "unexpected error");
+        assert_ok(payload.fixed(&[0x55; 32]), "unexpected error");
+        assert_ok(payload.u32(125), "unexpected error");
+        assert_ok(
+            payload.u16(layerx_wire::limits::PROTOCOL_VERSION),
+            "unexpected error",
+        );
+        payload.finish()
+    }
+
+    /// # Errors
+    /// Returns an error if the payload or approval state fails the production validation checks.
     pub fn hold(
         registry: &ApprovalRegistry,
         context: ApprovalContext,
@@ -137,6 +178,22 @@ pub mod fixture {
             ApprovalSequence(expiry),
             TimestampSeconds(10),
         )
+    }
+
+    #[track_caller]
+    fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+        match result {
+            Ok(value) => value,
+            Err(error) => panic!("{message}: {error:?}"),
+        }
+    }
+
+    #[track_caller]
+    fn assert_some<T>(value: Option<T>, message: &str) -> T {
+        match value {
+            Some(value) => value,
+            None => panic!("{message}"),
+        }
     }
 }
 
@@ -309,23 +366,10 @@ fn unbound_disclosure_digest_is_refused_before_hold() {
 fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
     use std::sync::Mutex;
 
-    use layerx_agentd::budget::{
-        reserve, BudgetLimiter, LimitConfig, LimitId, LimitScope, ReservationRequest,
-    };
+    use layerx_agentd::budget::{reserve, LimitId, ReservationRequest};
     use layerx_agentd::store::{ObjectKind, Store, TenantKey};
     use layerx_crypto::evm_transaction::decode_unsigned;
     use layerx_types::payload::ModuleRegistry;
-
-    fn limiter() -> BudgetLimiter {
-        BudgetLimiter::new(vec![LimitConfig {
-            id: LimitId([9; 16]),
-            name: "call-replay".to_owned(),
-            scope: LimitScope::Tenant([9; 32]),
-            ceiling: 1_000,
-            consumed: 0,
-        }])
-        .unwrap_or_else(|error| panic!("limiter: {error:?}"))
-    }
 
     for alteration in ["unchanged", "call", "sender", "previous", "previous-timed"] {
         let root = std::env::temp_dir().join(format!(
@@ -352,7 +396,7 @@ fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
                 Store::open(&root).unwrap_or_else(|error| panic!("store: {error}")),
             ));
             let registry = ApprovalRegistry::with_store(Arc::clone(&store));
-            let limiter = limiter();
+            let limiter = replay_limiter();
             let reservation = reserve(
                 &limiter,
                 &ReservationRequest {
@@ -380,50 +424,7 @@ fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
                 .unwrap_or_else(|| panic!("persisted hold"))
                 .bytes()
                 .to_vec();
-            match alteration {
-                "call" => {
-                    let offsets = record
-                        .windows(unsigned.len())
-                        .enumerate()
-                        .filter_map(|(index, value)| (value == unsigned).then_some(index))
-                        .collect::<Vec<_>>();
-                    assert_eq!(offsets.len(), 1);
-                    let start = offsets[0];
-                    let data_offsets = unsigned
-                        .windows(call.data.len())
-                        .enumerate()
-                        .filter_map(|(index, value)| (value == call.data).then_some(index))
-                        .collect::<Vec<_>>();
-                    assert_eq!(data_offsets.len(), 1);
-                    record[start + data_offsets[0] + call.data.len() - 1] ^= 1;
-                    let changed = &record[start..start + unsigned.len()];
-                    assert!(decode_unsigned(changed).is_ok());
-                    let changed_digest = digest(changed);
-                    let digest_offsets = record
-                        .windows(32)
-                        .enumerate()
-                        .filter_map(|(index, value)| {
-                            (value == original.disclosure.canonical_digest).then_some(index)
-                        })
-                        .collect::<Vec<_>>();
-                    assert_eq!(digest_offsets.len(), 1);
-                    record[digest_offsets[0]..digest_offsets[0] + 32]
-                        .copy_from_slice(&changed_digest);
-                }
-                "sender" => {
-                    let offsets = record
-                        .windows(20)
-                        .enumerate()
-                        .filter_map(|(index, value)| (value == [4; 20]).then_some(index))
-                        .collect::<Vec<_>>();
-                    assert_eq!(offsets.len(), 1);
-                    record[offsets[0]..offsets[0] + 20].copy_from_slice(&[6; 20]);
-                }
-                "previous" => record[..8].copy_from_slice(b"LXAPHLD2"),
-                "previous-timed" => record[..8].copy_from_slice(b"LXAPHLD3"),
-                "unchanged" => {}
-                _ => unreachable!(),
-            }
+            alter_replay_record(alteration, &mut record, unsigned, &call, &original);
             store
                 .update_local_batch(vec![(key, record)])
                 .unwrap_or_else(|error| panic!("persist changed record: {error}"));
@@ -433,7 +434,7 @@ fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
                 Store::open(&root).unwrap_or_else(|error| panic!("restart store: {error}")),
             ));
             let restarted = ApprovalRegistry::with_store(store);
-            let replay = restarted.replay_tenant(&tenant, &limiter());
+            let replay = restarted.replay_tenant(&tenant, &replay_limiter());
             if matches!(alteration, "previous" | "previous-timed") {
                 assert_eq!(replay, Err(ApprovalError::CorruptRecord));
             } else {
@@ -464,11 +465,13 @@ fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
 fn ledger_preparation_projects_real_call_and_refuses_semantic_changes() {
     use layerx_crypto::disclosure::call::{bind_call, validate_call, validate_canonical};
     let prepared = fixture::ledger_prepared(21, 500);
-    let call = layerx_crypto::evm_transaction::decode_unsigned(
-        prepared.unsigned_canonical_bytes.as_bytes(),
-    )
-    .unwrap();
-    let source = bind_call(&call, [4; 20]).unwrap();
+    let call = assert_ok(
+        layerx_crypto::evm_transaction::decode_unsigned(
+            prepared.unsigned_canonical_bytes.as_bytes(),
+        ),
+        "unexpected error",
+    );
+    let source = assert_ok(bind_call(&call, [4; 20]), "unexpected error");
     assert_eq!(
         call.to,
         layerx_agentd::prepare::evm::PrecompileTarget::Ledger.address()
@@ -492,7 +495,7 @@ fn ledger_preparation_projects_real_call_and_refuses_semantic_changes() {
     );
     assert_eq!(
         prepared.signing_preimage.as_bytes(),
-        source.signing_digest().unwrap()
+        assert_ok(source.signing_digest(), "unexpected error")
     );
     assert_eq!(
         validate_canonical(&source, prepared.unsigned_canonical_bytes.as_bytes()),
@@ -510,4 +513,77 @@ fn ledger_preparation_projects_real_call_and_refuses_semantic_changes() {
         prepared.unsigned_canonical_bytes.as_bytes()
     )
     .is_err());
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+fn alter_replay_record(
+    alteration: &str,
+    record: &mut [u8],
+    unsigned: &[u8],
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    original: &Prepared,
+) {
+    use layerx_crypto::evm_transaction::decode_unsigned;
+    match alteration {
+        "call" => {
+            let offsets = record
+                .windows(unsigned.len())
+                .enumerate()
+                .filter_map(|(index, value)| (value == unsigned).then_some(index))
+                .collect::<Vec<_>>();
+            assert_eq!(offsets.len(), 1);
+            let start = offsets[0];
+            let data_offsets = unsigned
+                .windows(call.data.len())
+                .enumerate()
+                .filter_map(|(index, value)| (value == call.data).then_some(index))
+                .collect::<Vec<_>>();
+            assert_eq!(data_offsets.len(), 1);
+            record[start + data_offsets[0] + call.data.len() - 1] ^= 1;
+            let changed = &record[start..start + unsigned.len()];
+            assert!(decode_unsigned(changed).is_ok());
+            let changed_digest = digest(changed);
+            let digest_offsets = record
+                .windows(32)
+                .enumerate()
+                .filter_map(|(index, value)| {
+                    (value == original.disclosure.canonical_digest).then_some(index)
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(digest_offsets.len(), 1);
+            record[digest_offsets[0]..digest_offsets[0] + 32].copy_from_slice(&changed_digest);
+        }
+        "sender" => {
+            let offsets = record
+                .windows(20)
+                .enumerate()
+                .filter_map(|(index, value)| (value == [4; 20]).then_some(index))
+                .collect::<Vec<_>>();
+            assert_eq!(offsets.len(), 1);
+            record[offsets[0]..offsets[0] + 20].copy_from_slice(&[6; 20]);
+        }
+        "previous" => record[..8].copy_from_slice(b"LXAPHLD2"),
+        "previous-timed" => record[..8].copy_from_slice(b"LXAPHLD3"),
+        "unchanged" => {}
+        _ => unreachable!(),
+    }
+}
+
+fn replay_limiter() -> layerx_agentd::budget::BudgetLimiter {
+    use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
+    BudgetLimiter::new(vec![LimitConfig {
+        id: LimitId([9; 16]),
+        name: "call-replay".to_owned(),
+        scope: LimitScope::Tenant([9; 32]),
+        ceiling: 1_000,
+        consumed: 0,
+    }])
+    .unwrap_or_else(|error| panic!("limiter: {error:?}"))
 }

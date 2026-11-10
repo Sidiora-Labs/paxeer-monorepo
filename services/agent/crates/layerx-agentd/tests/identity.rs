@@ -128,7 +128,7 @@ fn restored_binding_is_revalidated_and_freeze_is_observed() {
     let peer = repair_support::peer();
     let authorities = [ProtocolAuthority::SessionKey([7; 32])];
     {
-        let mut store = Store::open(&root).expect("initial store");
+        let mut store = lint_success(Store::open(&root), "initial store");
         let (mut authority, worker) = repair_support::authority_peer(vec![(
             200,
             repair_support::identity_document(10, false, &authorities),
@@ -137,13 +137,15 @@ fn restored_binding_is_revalidated_and_freeze_is_observed() {
             authority: &mut authority,
             peer: &peer,
         };
-        let record =
-            register(&mut store, tenant(), did(), &mut resolver).expect("startup registration");
+        let record = lint_success(
+            register(&mut store, tenant(), did(), &mut resolver),
+            "startup registration",
+        );
         assert_eq!(record.head_sequence(), 10);
-        worker.join().expect("initial authority");
+        lint_success(worker.join(), "initial authority");
     } // No pre-restart record, resolver, authority or Store survives.
     {
-        let mut store = Store::open(&root).expect("restart store");
+        let mut store = lint_success(Store::open(&root), "restart store");
         let (mut authority, worker) = repair_support::authority_peer(vec![(
             200,
             repair_support::identity_document(11, false, &authorities),
@@ -153,13 +155,15 @@ fn restored_binding_is_revalidated_and_freeze_is_observed() {
             peer: &peer,
         };
         // main.rs::enrol_mcp_agent uses current core_identity followed by register at startup.
-        let refreshed = register(&mut store, tenant(), did(), &mut resolver)
-            .expect("fresh startup registration");
+        let refreshed = lint_success(
+            register(&mut store, tenant(), did(), &mut resolver),
+            "fresh startup registration",
+        );
         assert_eq!(refreshed.head_sequence(), 11);
         assert_eq!(refreshed.canonical_core_bytes(), b"verified-identity-at-11");
         assert_eq!(refreshed.authorities(), &authorities);
         assert_eq!(refreshed.verification_level(), VerificationLevel::COMMITTED);
-        worker.join().expect("refreshed authority");
+        lint_success(worker.join(), "refreshed authority");
     }
     for (status, document, expected) in [
         (
@@ -173,14 +177,18 @@ fn restored_binding_is_revalidated_and_freeze_is_observed() {
             IdentityError::Unverified,
         ),
     ] {
-        let mut store = Store::open(&root).expect("restart refusal store");
-        let key = layerx_agentd::store::TenantKey::new(
-            tenant(),
-            layerx_agentd::store::ObjectKind::Identity,
-            did().as_bytes().to_vec(),
-        )
-        .expect("identity key");
-        let before = store.get(&key).expect("durable binding").bytes().to_vec();
+        let mut store = lint_success(Store::open(&root), "restart refusal store");
+        let key = lint_success(
+            layerx_agentd::store::TenantKey::new(
+                tenant(),
+                layerx_agentd::store::ObjectKind::Identity,
+                did().as_bytes().to_vec(),
+            ),
+            "identity key",
+        );
+        let before = lint_present(store.get(&key), "durable binding")
+            .bytes()
+            .to_vec();
         let (mut authority, worker) = repair_support::authority_peer(vec![(status, document)]);
         let mut resolver = repair_support::AuthorityIdentity {
             authority: &mut authority,
@@ -190,8 +198,27 @@ fn restored_binding_is_revalidated_and_freeze_is_observed() {
             register(&mut store, tenant(), did(), &mut resolver),
             Err(expected)
         );
-        assert_eq!(store.get(&key).expect("unchanged binding").bytes(), before);
-        worker.join().expect("refused authority");
+        assert_eq!(
+            lint_present(store.get(&key), "unchanged binding").bytes(),
+            before
+        );
+        lint_success(worker.join(), "refused authority");
     }
-    fs::remove_dir_all(root).expect("remove identity store");
+    lint_success(fs::remove_dir_all(root), "remove identity store");
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
 }

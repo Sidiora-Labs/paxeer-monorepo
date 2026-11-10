@@ -18,9 +18,18 @@ fn native_reads_tests_name_no_admission_daemon() {
     let availability_daemon =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../layerx-client/tests/availability_daemon.rs");
     assert!(
-        !availability_daemon
-            .try_exists()
-            .expect("inspect the retired client availability daemon test path"),
+        !lint_success(
+            availability_daemon.try_exists(),
+            "inspect the retired client availability daemon test path"
+        ),
         "the retired client availability daemon test must remain deleted"
     );
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
 }

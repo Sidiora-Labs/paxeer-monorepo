@@ -1,0 +1,107 @@
+[meta]
+task = "22.39.355"
+base_revision = "7210fa174996a581aaf51c130229702d635f59d6"
+decision = "3235"
+gotcha = "4162"
+continuation_base_revision = "35e355459080fda4947f8ddeaca46cf03da2fce8"
+continuation_decisions = "3241, 3183"
+continuation_gotcha = "4169"
+line_basis = "Peer references below name the base revision; host references name the unchanged producer at that revision."
+qualification = "The exact verified candidate revision, command, exit and private log are recorded together by hf-done in /out/run/gates.jsonl and returned in the task evidence; this content does not self-reference its candidate hash."
+build_command = "hf-build"
+verify_command = "hf-done"
+
+[difference.request_target]
+peer = "apps/inference-peer/src/cli.mjs:181"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:777"
+observed = "Peer opened /rooms/<room>/signal; host accepts only GET / HTTP/1.1."
+change = "CLI opens / and SignalClient rejects other request targets."
+
+[difference.encoding]
+peer = "apps/inference-peer/src/transport.mjs:110; apps/inference-peer/src/wire.mjs:1"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:175,189,626,642,727; deals.rs:1150,1285"
+observed = "Peer sent binary kind/roomId/sequence/payload frames; host uses JSON text tagged by type, denies unknown fields and accepts only text opcode 1."
+change = "New signal codec covers all directional frames with exact members and byte lists; wire codec remains only on data channels. Socket counters are removed."
+
+[difference.bounds]
+peer = "apps/inference-peer/src/transport.mjs:27,54,130"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:19,24,70,78,159,167"
+observed = "Peer accepted arbitrary room/key/nonce strings and an incompatible manifest envelope; host uses fixed 32-byte room/key/nonce, raw manifest bytes, typed descriptions/candidates and a 65536-byte limit."
+change = "Validate required/unknown members recursively, byte values and lengths, integer widths, host error codes, UTF-8 byte bounds and JSON text transport. Preserve u64 deal counters without rounding."
+
+[difference.hello]
+peer = "apps/inference-peer/src/identity.mjs:3,383,488; apps/inference-peer/src/transport.mjs:79"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:24,33,40,520,524; deals.rs:1188,1194"
+observed = "Peer sent hello on open with a local nonce and signed peer-hello domain plus text lengths and metadata digest; host sends challenge first and verifies inference-signal/hello domain, zero byte, room bytes and challenge nonce bytes."
+change = "Require the host nonce, sign exact host bytes with PeerIdentity and send raw v2 manifest as an integer list; enrolment metadata signing stays separate."
+
+[difference.offer_and_relay]
+peer = "apps/inference-peer/src/transport.mjs:136,173,180,265"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:78,159,167,175,189,565,604"
+observed = "Peer overloaded offer for SDP/ICE and used to/from/relay inside payload; host sends nested RoomOffer and separate description/candidate frames with to outbound and from inbound, with snake-case nullable ICE members."
+change = "Consume host offer directly and translate WebRTC ICE properties at the adapter boundary; relay no invented recipient member back from the host."
+
+[difference.deal]
+peer = "apps/inference-peer/src/transport.mjs:148,173,326; apps/inference-peer/src/deal.mjs:418,423,470; apps/inference-peer/src/cli.mjs:219,228"
+host = "services/agent/crates/layerx-agentd/src/inference_market/deals.rs:180,245,302,311,321,1122,1233,1285"
+observed = "Peer expected dealId/peers in a binary envelope, sent deal-ack with only dealId from PeerMesh, and posted the signed acknowledgement to an invented HTTP route; host wraps DealFrame in deal, expects signed deal_ack on the socket and announces deal_live."
+change = "Read the real DealFrame, preserve digest layout and signed acknowledgement assertions, send deal_id/digest/signature through SignalClient, and wait for matching deal_live before execution. Mesh setup sends no acknowledgement."
+
+[difference.error_and_close]
+peer = "apps/inference-peer/src/transport.mjs:160,164"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:131,209,580"
+observed = "Peer expected bye on signalling and did not decode host error codes; host sends error with code and closes the socket."
+change = "Report code on Error and close; keep data-channel bye and activation assertions unchanged."
+
+[difference.test_hosts]
+peer = "apps/inference-peer/test/transport.test.mjs:29,123; test/identity.test.mjs:90,191; test/deal.test.mjs:286,321; test/cli.test.mjs:119,160"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:33,520,777; deals.rs:302,1188,1285"
+observed = "Stand-ins spoke the retired peer codec, masking the producer/consumer mismatch; deal acknowledgements incorrectly travelled over the data-channel stand-in."
+change = "Real loopback text WebSockets challenge first and independently verify host hello bytes; fixed vectors verify both signing domains and all directional frames, while deal tests retain activation, shard, replay, cache and token assertions on their real loopback data path."
+
+[unserved.model_source]
+peer = "apps/inference-peer/src/deal.mjs:182; apps/inference-peer/test/deal.test.mjs:191"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:78"
+observed = "Peer required offer.model_source.manifest_url, which RoomOffer does not serve."
+resolution = "Use explicitly configured local modelSource or CLI --model-manifest-url; fail if missing. No wire member is invented."
+
+[unserved.host_peer_key]
+peer = "apps/inference-peer/src/cli.mjs:163,217,238; apps/inference-peer/src/deal.mjs:365"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:78; deals.rs:79,180"
+observed = "Mesh requires a host peer key; offer has layer peer keys and deal plan has host owner bytes, not a separate host WebRTC peer key."
+resolution = "Keep explicit --host-key as a local trusted input; never reinterpret an owner or invent a host_peer_key wire member."
+
+[unserved.http_routes]
+peer = "apps/inference-peer/src/identity.mjs:462; apps/inference-peer/src/cli.mjs:178,180,228"
+host = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs:752,765,777; deals.rs:1233"
+observed = "The signalling listener serves /healthz and upgrade /, not bind_peer, enrol_peer or rooms/<room>/deal_ack HTTP routes."
+resolution = "Remove the HTTP deal_ack call. Existing HTTP enrolment and attestation integrations require a separately routed service; they are not claimed as signalling-host capabilities."
+
+[gotcha.text_and_identity]
+area = "node"
+symptom = "A peer can pass its own binary loopback tests while no host accepts its hello."
+cause = "Client and stand-in shared a retired codec, request path and signing domain."
+do = "Keep host-shaped directional vectors, independent signing-byte verification and challenge-first text WebSocket tests."
+
+[qualification.first_attempt]
+revision = "75f16e115201fba4e7b9e60986ceac6384901812"
+command = "cg spec done 22.39.355 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "58 of 61 tests passed, including both declared signalling cases; two CLI byte comparisons differed only by Buffer versus Uint8Array, and standalonePackageMetadata failed on the pre-existing test script contradiction."
+repair = "Normalize both CLI comparison operands to Buffer and keep strict byte equality; the first attempt left the metadata assertion and full-suite script intact, but decision 3241 assigns the metadata repair to this task in the continuation."
+
+[finding.pre_existing_test_script]
+task = "22.39.355"
+file = "apps/inference-peer/test/vendored_engine.test.mjs:156; apps/inference-peer/package.json:24"
+symbol = "standalonePackageMetadata"
+observed = "Revision 75f16e115201fba4e7b9e60986ceac6384901812: cg spec done 22.39.355 -f layerx-merge --root /work/paxeer-monorepo exited 1, /out/logs/verify-1.log; the unchanged metadata assertion requires node --test test/vendored_engine.test.mjs while the unchanged manifest uses node --test test/*.test.mjs."
+assumption = "The case has been red on main since task 22.39.85 widened the package test script without updating this expectation; decisions 3241 and 3183 assign its repair to this task."
+severity = "note"
+resolution = "Change only the expected manifest.scripts.test text to node --test test/*.test.mjs; retain every other metadata assertion, package.json and the vendored engine unchanged."
+
+[gotcha.strict_byte_container]
+area = "test"
+symptom = "A strict comparison rejects identical bytes stored in Buffer and Uint8Array."
+cause = "Node strict deep equality also compares the container prototype."
+do = "Normalize both byte operands to the same container and keep strict equality over every byte."

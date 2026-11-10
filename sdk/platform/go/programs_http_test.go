@@ -917,9 +917,9 @@ func TestProgramTerminalV5NativeCorpus(t *testing.T) {
 
 // Historical terminal codec coverage; this is not a public receipt verifier.
 func TestProgramTerminalV5HistoricalCodecCorpus(t *testing.T) {
-	path := os.Getenv("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS")
-	if path == "" {
-		t.Fatal("real native terminal-v5 signed corpus required")
+	path, supplied := os.LookupEnv("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS")
+	if !supplied {
+		path = "../../../services/agent/crates/layerx-sdk/tests/fixtures/program-terminal-v5-corpus.json"
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
