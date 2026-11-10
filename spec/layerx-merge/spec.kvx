@@ -11992,6 +11992,12 @@ value = "Decision 3142 merges tools/paxeer-x/retired_callers.json by union, so t
 basis = "Gotcha 4048; decision 3142."
 affects = ["22.39.269", "22.39.270", "22.39.271", "22.39.272", "22.39.273", "22.39.274", "22.39.275", "22.39.277", "22.39.278"]
 
+[decision.3147]
+title = "The restart accounting of the agent daemon counts the spend it requested for each successful receipt, not the receipt amount"
+value = "A node-produced receipt records the transaction value as its amount (decision 3128), and a budgetSpend call carries a zero value with the spend in its calldata. The daemon restart accounting in services/agent/crates/layerx-agentd/src/budget/hold.rs therefore adds, for every successful receipt of current evidence, the amount the daemon requested for that activity (the amount it submitted for the activity id, carried on the persisted receipt), and keeps the receipt amount for legacy evidence; the reconciliation bounds against the protocol record stay as they are."
+basis = "Gotcha 4050. The receipt proves that the activity executed; the spend it settled is known to the daemon that requested it and to the keeper record, and the producer of the receipt never ties the two."
+affects = ["22.39.303", "18.1724.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41652,6 +41658,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.303]
+title = "Count the requested spend of a zero-value receipt in the daemon restart accounting"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/hold.rs", "services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/outbox/recover.rs", "services/agent/crates/layerx-agentd/tests/budget_schema.rs", "services/agent/crates/layerx-agentd/tests/budget_unknown.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/budget_schema.rs", "services/agent/crates/layerx-agentd/tests/budget_unknown.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
+verification_contract = "test -s services/agent/crates/layerx-agentd/repair_22_39_303.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib requested_spend && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test budget_schema --test budget_unknown --test recovery"
+do_1 = "do_1 Decision 3147, gotchas 4050 and 3997. The restart accounting at services/agent/crates/layerx-agentd/src/budget/hold.rs:149-153 sums the amount of every successful receipt as the consumed spend and :177-182 reconciles that sum with spent_this_period of the protocol budget record. Under decision 3128 a receipt amount is the transaction value, and a budgetSpend call carries a zero value with the spend in its calldata (precompiles/layerxpay/layerxpay.go:163, services/agent/crates/layerx-crypto/src/evm_transaction.rs:315), so a node-produced receipt of a pay spend never adds to the sum and a committed spend of 25 is refused as unreconciled. Give PersistedReceipt (src/budget/hold.rs:26) the spend the daemon requested for the activity as a field requested_amount of type u128, fill it at src/human_runtime.rs:2400 from the amount the daemon submitted for that activity id (the reservation it persisted for the activity, else the amount argument of the budgetSpend calldata of the signed transaction whose hash is the activity id, else zero), and let hold.rs:149-153 add requested_amount for current evidence while legacy evidence keeps its receipt amount. Update every construction of the record in src and in the crate tests (tests/budget_schema.rs, tests/budget_unknown.rs, tests/recovery.rs) with the amount those cases already model, and keep every existing assertion."
+symbols = []
 
 [capability.22.39.302]
 title = "Stop copying the locked RPC environment in the subscription test"
@@ -183886,7 +183901,7 @@ title = "Issue #1724: Prove nonzero restart accounting with node-produced transa
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.283"]
+requires = ["22.39.283", "22.39.303"]
 reqs = ["181724.1"]
 capabilities = ["18.1724.1"]
 interfaces = []
@@ -183919,6 +183934,7 @@ do_9 = "Attempt 8 (continue, gotcha 3962): the attempt-7 tree 8e28238080ce stand
 do_10 = "Attempt 9 (continue, gotcha 3971, decision 3120): the attempt-8 tree e8ddcf78cbb1 stands. The task now follows 22.39.283, which regenerates services/agent/Cargo.lock: rebase on main and run the build once and the verification once at the final revision."
 do_11 = "Attempt 10 (continue, gotcha 3997, decision 3128): the attempt-9 tree 444abad99bf5 stands (the current receipt restart fixture, the daemon recovery case). TestCurrentReceiptRestartFixture at rpc/receipt_equality_test.go:482 compares the receipt amount with the budget spend, two values no producer ties together: node/sequencer/receipt.go:426 records the transaction value as the receipt amount and every pay call carries a zero value (precompiles/layerxpay/layerxpay.go:163, services/agent/crates/layerx-crypto/src/evm_transaction.rs:315) with the spend in the calldata. Make the fixture record the transaction value, the receipt amount and the keeper spend as produced and assert each against its producer (value 0, receipt amount 0, the committed budget spent 25 from the keeper state); in services/agent/crates/layerx-agentd/tests/support/current_node.rs replace the hand-built receipt of amount 25 with the captured receipt bytes of the fixture and keep committed_budget at the captured spend, and let tests/outbox_recover.rs:361 read both from the fixture. If the daemon recovery then refuses the receipt because its amount differs from the committed spend, record the exact refusing site in the case message and in the record and stop there without weakening the check (a repair task follows). Run the build once and the verification once at the final revision."
 do_12 = "Attempt 11 (continue, gotcha 4029): the attempt-10 tree f6736f63e485 stands. At node/sequencer/receipt_equality_test.go:543 pass pins[0].KeyId[:] and pins[0].PublicKey[:] to hexutil.Encode, change nothing else, then run the build once and the verification once at the final revision so the built and the verified revision are the same."
+do_13 = "Attempt 12 (continue, gotcha 4050, decision 3147): the attempt-11 tree b7dbe7cd8e73 stands (the committed node capture, the recorded refusing sites). The attempt starts after 22.39.303 lands: rebase the tree onto main and take its restart accounting (receipt_consumed adds the requested spend of each successful current receipt). Fill requested_amount at every persisted-receipt construction the tree adds (tests/support/current_node.rs) with the captured budget_spent of the fixture, replace the refusal explanation in the case message at tests/outbox_recover.rs:261 with the producer facts (transaction value 0, receipt amount 0, requested spend 25), and assert receipt_consumed equals the captured spend and reconciled is true. If legacy_receipt_evidence_is_refused_after_restart at tests/outbox_recover.rs:133 still fails, record the inventory state it observes in the case message and in the issue note and stop there. Change nothing else; then run the build once and the verification once at the final revision."
 
 [task.18.1684.1]
 title = "Issue #1684: Align native receipt references and preserve producer evidence during recovery"
@@ -192589,6 +192605,35 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.303]
+title = "Count the requested spend of a zero-value receipt in the daemon restart accounting"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.303"]
+interfaces = []
+do_1 = "do_1 Decision 3147, gotchas 4050 and 3997. The restart accounting at services/agent/crates/layerx-agentd/src/budget/hold.rs:149-153 sums the amount of every successful receipt as the consumed spend and :177-182 reconciles that sum with spent_this_period of the protocol budget record. Under decision 3128 a receipt amount is the transaction value, and a budgetSpend call carries a zero value with the spend in its calldata (precompiles/layerxpay/layerxpay.go:163, services/agent/crates/layerx-crypto/src/evm_transaction.rs:315), so a node-produced receipt of a pay spend never adds to the sum and a committed spend of 25 is refused as unreconciled. Give PersistedReceipt (src/budget/hold.rs:26) the spend the daemon requested for the activity as a field requested_amount of type u128, fill it at src/human_runtime.rs:2400 from the amount the daemon submitted for that activity id (the reservation it persisted for the activity, else the amount argument of the budgetSpend calldata of the signed transaction whose hash is the activity id, else zero), and let hold.rs:149-153 add requested_amount for current evidence while legacy evidence keeps its receipt amount. Update every construction of the record in src and in the crate tests (tests/budget_schema.rs, tests/budget_unknown.rs, tests/recovery.rs) with the amount those cases already model, and keep every existing assertion."
+do_2 = "do_2 Add a unit test in src/budget/hold.rs named rebuild_accounting_counts_the_requested_spend_of_a_zero_value_receipt that rebuilds the accounting from one verified current receipt of amount 0 and requested spend 25 against a protocol record whose spent_this_period is 25 and asserts receipt_consumed 25 and reconciled true. Record the sites, the former sum and the rule in services/agent/crates/layerx-agentd/repair_22_39_303.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/budget/hold.rs", "services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/outbox/recover.rs", "services/agent/crates/layerx-agentd/tests/budget_schema.rs", "services/agent/crates/layerx-agentd/tests/budget_unknown.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/budget_schema.rs", "services/agent/crates/layerx-agentd/tests/budget_unknown.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_303.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --tests"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/repair_22_39_303.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib requested_spend && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test budget_schema --test budget_unknown --test recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
