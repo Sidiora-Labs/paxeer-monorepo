@@ -11998,6 +11998,18 @@ value = "A node-produced receipt records the transaction value as its amount (de
 basis = "Gotcha 4050. The receipt proves that the activity executed; the spend it settled is known to the daemon that requested it and to the keeper record, and the producer of the receipt never ties the two."
 affects = ["22.39.303", "18.1724.1"]
 
+[decision.3148]
+title = "A cross-roster fuel bound on a chunked operation compares the chunk work net of the state decode baseline"
+value = "Every native operation of the AI market program decodes the roster state before its chunk work, and that decode scales with the state bytes of the roster (62330 at 16 participants and 4 evaluators, 87836 at 32 and 8). The ten-percent bound across rosters on the first aggregation chunk therefore applies to the chunk fuel minus the state decode baseline of the same roster, where the baseline is the fuel of the cheapest read-only operation the fixture issues at the same height on the same state; the absolute fuel margin at the full roster and every other bound stay as they are."
+basis = "Gotcha 4052. The bound guards the chunk work from growing with the roster; the state decode is not chunk work and no chunk restriction removes it."
+affects = ["22.33.223"]
+
+[decision.3149]
+title = "A pinned manifest digest follows its producer and names it"
+value = "node/repair_m1319_test.go pins the SHA-256 of services/platform/hosted/paxeer/deployment.yaml; a task that changes the manifest re-pins the digest in the same commit and the test comment names the producing commit and task. Task 22.39.304 re-pins the digest to the manifest on main after 18.1790.1 and names it; until it lands, tasks that run the node package verify with the case skipped under decision 3130."
+basis = "Gotcha 4051. A restoration pin that stays behind its producer turns every later landing in the package red."
+affects = ["22.39.304", "22.39.248"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41658,6 +41670,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.305]
+title = "Bring the web application unit suite green on main"
+reqs = ["22998.1"]
+touches = ["apps/web/e2e/activity.spec.ts", "apps/web/e2e/api-client.test.ts", "apps/web/e2e/explorer-account.test.ts", "apps/web/e2e/launchpad-reads.test.ts", "apps/web/src"]
+tests = ["apps/web/e2e/activity.spec.ts", "apps/web/e2e/api-client.test.ts", "apps/web/e2e/explorer-account.test.ts", "apps/web/e2e/launchpad-reads.test.ts"]
+verification_contract = "test -s apps/web/repair_22_39_305.kvx && pnpm --dir apps/web run test"
+do_1 = "do_1 Decision 3130, gotcha 4054. pnpm --dir apps/web run test is red on main in ten cases: e2e/activity.spec.ts:447 (explorerPath returns undefined for the class layerx-receipt, want /explorer/receipts/rcpt_001), e2e/api-client.test.ts:103 (the golden vector binding.rebind.action.failure.json belongs to no generated operation) and :208 (src/support/conversation.ts fetches input, not a same-origin app route), e2e/explorer-account.test.ts:95 and :132 (unified_account.layerx_activity must be an object), e2e/launchpad-reads.test.ts:264 (the market rows carry currentFeeBps 5n where the expectation differs), :323 (launchpad_market_failure_degrades_only_its_row) and :443 (four price cases: the live launchpad page must contain its Markets table). For each case find the producer that changed (the explorer link model, the generated client and its golden vectors, the unified account decoder, the launchpad market reads and page) and repair the producer where it drifted from its contract, or align the case with the names the producer now ships (decision 3046); never delete a case and never widen an assertion."
+symbols = []
+
+[capability.22.39.304]
+title = "Re-pin the restored boundary manifest digest after the network-policy restoration"
+reqs = ["22998.1"]
+touches = ["node/repair_m1319_test.go"]
+tests = ["node/repair_m1319_test.go"]
+verification_contract = "test -s node/repair_22_39_304.kvx && go test -count=1 ./node/ -run '^TestRepairM_1319_RestoredBoundaryManifest$'"
+do_1 = "do_1 Decision 3149, gotcha 4051. TestRepairM_1319_RestoredBoundaryManifest at node/repair_m1319_test.go:25 pins the SHA-256 of services/platform/hosted/paxeer/deployment.yaml as decision 2533 restored it (7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066); the manifest changed at 9e17ec8e4d (task 18.1790.1, the network-policy connectivity between the gateway and its hosted peers) and the pin stayed behind, so go test ./node/ is red on main. Re-pin the test to the SHA-256 of the manifest on main (ba84aff353486b744f3b9759fb158219b9de90558366485b483e4793c60dc9a2), name 9e17ec8e4d and 18.1790.1 as the producer of the pinned content in the test comment, state in the same comment that a task changing the manifest re-pins the digest in the same commit, and keep the regular-file check."
+symbols = []
 
 [capability.22.39.303]
 title = "Count the requested spend of a zero-value receipt in the daemon restart accounting"
@@ -160882,6 +160912,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.305]
+title = "Bring the web application unit suite green on main"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.269"]
+reqs = ["22998.1"]
+capabilities = ["22.39.305"]
+interfaces = []
+do_1 = "do_1 Decision 3130, gotcha 4054. pnpm --dir apps/web run test is red on main in ten cases: e2e/activity.spec.ts:447 (explorerPath returns undefined for the class layerx-receipt, want /explorer/receipts/rcpt_001), e2e/api-client.test.ts:103 (the golden vector binding.rebind.action.failure.json belongs to no generated operation) and :208 (src/support/conversation.ts fetches input, not a same-origin app route), e2e/explorer-account.test.ts:95 and :132 (unified_account.layerx_activity must be an object), e2e/launchpad-reads.test.ts:264 (the market rows carry currentFeeBps 5n where the expectation differs), :323 (launchpad_market_failure_degrades_only_its_row) and :443 (four price cases: the live launchpad page must contain its Markets table). For each case find the producer that changed (the explorer link model, the generated client and its golden vectors, the unified account decoder, the launchpad market reads and page) and repair the producer where it drifted from its contract, or align the case with the names the producer now ships (decision 3046); never delete a case and never widen an assertion."
+do_2 = "do_2 Record every case, its cause and its repair in apps/web/repair_22_39_305.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/web/e2e/activity.spec.ts", "apps/web/e2e/api-client.test.ts", "apps/web/e2e/explorer-account.test.ts", "apps/web/e2e/launchpad-reads.test.ts", "apps/web/src"]
+tests = ["apps/web/e2e/activity.spec.ts", "apps/web/e2e/api-client.test.ts", "apps/web/e2e/explorer-account.test.ts", "apps/web/e2e/launchpad-reads.test.ts"]
+planned_paths = ["apps/web/repair_22_39_305.kvx"]
+build_cmd = "pnpm --dir apps/web install --frozen-lockfile --ignore-scripts && pnpm --dir apps/web run typecheck"
+verify_cmd = "test -s apps/web/repair_22_39_305.kvx && pnpm --dir apps/web run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.299]
 title = "Verify the web search aggregator alone and refresh the committed vector pin"
 status = "pending"
@@ -161143,7 +161202,7 @@ touches = ["apps/web/e2e/prepare-production.py", "apps/web/src/api/gateway.ts", 
 tests = []
 planned_paths = ["apps/web/repair_22_39_269.kvx"]
 build_cmd = "pnpm --dir apps/web install --frozen-lockfile --ignore-scripts && pnpm --dir apps/web run typecheck"
-verify_cmd = "test -s apps/web/repair_22_39_269.kvx && pnpm --dir apps/web run test && python3 -m py_compile apps/web/e2e/prepare-production.py && bash -n docker/gas-station/init.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web --path docker/gas-station"
+verify_cmd = "test -s apps/web/repair_22_39_269.kvx && cd apps/web && node --test e2e/gateway-history.test.ts e2e/gas-station.test.ts && cd ../.. && python3 -m py_compile apps/web/e2e/prepare-production.py && bash -n docker/gas-station/init.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/web --path docker/gas-station"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -161156,6 +161215,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4007, decisions 3125 and 3131): the attempt-1 tree 9314aa156e stands (the production preparation, the explorer links and native model, the record). The touches list now names apps/web/e2e/gateway-history.test.ts, apps/web/e2e/gas-station.test.ts and tools/paxeer-x/retired_callers.json. The client routes the NODE_METHODS set of apps/web/src/api/gateway.ts:24 to :40 to LAYERX_NODE_ENDPOINT per decision 2521, so make both cases answer px_getHistory, px_getUnifiedHistory and every other node-root method from their node stub (the native server of gateway-history.test.ts:95, the node stub of gas-station.test.ts) and the hosted operations from the gateway stub, and assert that no node-root method reaches the gateway stub; keep the production client unchanged. Add the allowance entries for every remaining scan finding. Run the build once and the verification once at the final revision."
+do_5 = "Attempt 3 (continue, gotcha 4054, decisions 3130 and 3046): the attempt-2 tree 31d19566a52b stands (the history and gas station cases, the links, the record). Ten red cases of the suite lie outside the touches and are red on main independent of the tree; 22.39.305 repairs them and the verification now runs only e2e/gateway-history.test.ts and e2e/gas-station.test.ts. Four cases of e2e/gas-station.test.ts remain the work of this attempt: at :73, :86 and :102 the asserted expression is undefined because the case reads a field the stubbed answer does not carry, so align the stub with the answer the producer ships or the assertion with the field the producer names; at :191 the case imports the wallet SDK sources through the file-linked package under node_modules, which the test runner cannot strip types from, so import the package entry the SDK builds or the source path outside node_modules as the other cases of the suite do. Then run the build once and the verification once at the final revision."
 
 [task.22.39.268]
 title = "Repair the retired references of the wallet SDK, gateway, demo, deployment and scripts"
@@ -194623,6 +194683,7 @@ do_5 = "Attempt 3 (continue, gotcha 3829): the attempt-2 tree cf1471ba1c8b stand
 do_6 = "Attempt 4 (continue, gotcha 3924): the attempt-3 tree 86e2e0b8456e stands (the repaired lint sites, the record). Rebase on main; at services/agent/crates/layerx-agentd/src/human_runtime.rs:5352 and :5448 use the field shorthand for human; add both sites to the record; run the build once, the verification once and the dependents check once at the final revision."
 do_7 = "Attempt 5 (continue, gotcha 3959, decision 3111): the attempt-4 tree 86962ecb44c2 stands (the daemon source repairs, the record). Task 22.39.279 landed the read_windows field of the gateway test target; rebase on main, change nothing, and run the build once, the verification once and the dependents check once at the final revision."
 do_8 = "Attempt 6 (continue, gotcha 4018): the attempt-5 tree fb2bc4d80ebc stands. Split the function at services/agent/crates/layerx-agentd/src/human_runtime.rs:10665 into named helpers under 100 lines and replace the wildcard import at :22630 with the names the module uses; change no behaviour; add both sites to repair_22_39_222.kvx. Run the build once, the verification once and the dependents check once at the final revision."
+do_9 = "Attempt 7 (requalify, gotcha 4053): the attempt-6 tree f1b5e7751ec1 passed its gates but could not be integrated because services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs conflicts with the production state export of 18.1752.1 (5484ea469e on main), which changed the same adapter functions. Rebase the tree onto main, resolve the adapters so that both the lint repair of attempt 6 and the state export of main stand, keep every other change of the tree, then run the build once and the verification once at the final revision."
 
 [task.22.39.221]
 title = "Bring the layerx-agent-api crate and its test targets under the workspace lints"
@@ -206208,6 +206269,7 @@ do_28 = "Attempt 20 (continue, gotcha 3923): the attempt-19 tree 0c1c636578c6 st
 do_29 = "Attempt 21 (continue, gotcha 3965): the attempt-20 tree d74a1c29af7d stands (the opening fuel repair, the 32 participants and 8 evaluators case, the measurements, the record). The only red case is roster_state_fuel_scaling at tests/fuel_budget.rs:3145: the first ProcessAggregation chunk (selector 0x0502) costs 189384 fuel at 16 and 4 and 276514 at 32 and 8, so the chunk step performs a pass proportional to the roster although it processes eight participants. First measure, with the fuel meter the case already uses, the three roster-proportional passes of one chunk call at 16 and at 32: the whole-state decode (line 1520 of the entry module of the program, with the roster section), the replay table decode and re-encode of every actor slot (state.rs:496 and :423), and the roster load inside epoch::aggregate (entered at line 2196 of the entry module); record the three pairs in the case comment. Then make the chunk step touch only its own region: slice the roster section by the chunk offset instead of decoding the roster whole, check and update only the replay entry of the calling actor in place without re-encoding the full table, and keep the bound checks and the frozen roster digest unchanged. Repeat for BeginAggregation and FinalizeAggregation only where the same pass exists. Do not widen the ten percent tolerance or the 900000 margin. Run the build once and the verification once at the final revision."
 do_30 = "Attempt 22 (continue, gotcha 3977): the attempt-21 tree 3ce387375a31 stands (the chunk-bounded roster slice, the borrowed score cells, the measurements, the guest within the deployment limit). The only red case is roster_state_fuel_scaling at tests/fuel_budget.rs:3218: the first ProcessAggregation chunk costs 175338 fuel at 16 and 4 and 251901 at 32 and 8, and the attempt-21 measurement places the slope in the report-score projection of the vote phase (66026 against 130658), which still walks the score cells of every roster participant on each chunk call. Restrict that projection to the reports of the eight participants of the chunk (iterate the chunk assignments, not the roster), keep the bounds, the frozen roster digest and the identity comparison unchanged, keep the guest within the deployment limit, and record the new pair in the case comment. Do not widen the ten percent tolerance or the 900000 margin. Run the build once and the verification once at the final revision."
 do_31 = "Attempt 23 (continue, gotcha 4026): the attempt-22 tree e0cacaed338e stands (the chunk-restricted report-score projection, the measurements). Two repairs. First, every_routed_operation_fits_the_protocol_cpu_fuel_cap: name application error 2825 from src/errors.rs, find why PostBid at height 898 of the views fixture (tests/fixtures/f11_views.rs:320) is refused on the attempt-22 state when attempt 21 admitted it (a bound the projection change moved, or a bid window the chunk restriction closed), and repair the producer or the fixture at that cause without widening a bound. Second, roster_state_fuel_scaling: the first ProcessAggregation chunk costs 109008 at 16 and 4 and 130979 at 32 and 8; measure the chunk by phase as attempt 21 did and remove the remaining walk that scales with the roster (the frozen roster digest comparison, the assignment lookup, or the score cell borrow) so the pair stays within ten percent; record the new pair in the case comment. Keep the tolerance and the 900000 margin. Run the build once and the verification once at the final revision."
+do_32 = "Attempt 24 (continue, gotcha 4052, decision 3148): the attempt-23 tree e0e47a0e9645 stands (the chunk-restricted projection, the measurements). In roster_state_fuel_scaling measure, for each roster, the state decode baseline: the fuel of the cheapest read-only operation the fixture already issues at the same height on the same state (the F08 view of tests/fixtures/f11_views.rs), and print it beside the chunk pair in the chunk_projection_pair line. Assert the ten-percent bound at tests/fuel_budget.rs:3344 on the chunk fuel minus the baseline of its roster; keep the absolute 900000 margin at 32/8 and every other assertion. If the net pair still exceeds ten percent, record both baselines and the net pair in the measurement note of the record and stop there without widening the bound. Then run the build once and the verification once at the final revision."
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"
@@ -223168,6 +223230,35 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.304]
+title = "Re-pin the restored boundary manifest digest after the network-policy restoration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.304"]
+interfaces = []
+do_1 = "do_1 Decision 3149, gotcha 4051. TestRepairM_1319_RestoredBoundaryManifest at node/repair_m1319_test.go:25 pins the SHA-256 of services/platform/hosted/paxeer/deployment.yaml as decision 2533 restored it (7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066); the manifest changed at 9e17ec8e4d (task 18.1790.1, the network-policy connectivity between the gateway and its hosted peers) and the pin stayed behind, so go test ./node/ is red on main. Re-pin the test to the SHA-256 of the manifest on main (ba84aff353486b744f3b9759fb158219b9de90558366485b483e4793c60dc9a2), name 9e17ec8e4d and 18.1790.1 as the producer of the pinned content in the test comment, state in the same comment that a task changing the manifest re-pins the digest in the same commit, and keep the regular-file check."
+do_2 = "do_2 Record the former pin, the new pin and the producer in node/repair_22_39_304.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/repair_m1319_test.go"]
+tests = ["node/repair_m1319_test.go"]
+planned_paths = ["node/repair_22_39_304.kvx"]
+build_cmd = "go vet ./node/"
+verify_cmd = "test -s node/repair_22_39_304.kvx && go test -count=1 ./node/ -run '^TestRepairM_1319_RestoredBoundaryManifest$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.302]
 title = "Stop copying the locked RPC environment in the subscription test"
 status = "pending"
@@ -223428,7 +223519,7 @@ touches = ["node/app.go", "node/precompiles.go", "node/upgrades.go", "tools/paxe
 tests = []
 planned_paths = ["node/repair_22_39_248.kvx"]
 build_cmd = "go vet ./node/"
-verify_cmd = "test -s node/repair_22_39_248.kvx && go test -count=1 ./node/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path node"
+verify_cmd = "test -s node/repair_22_39_248.kvx && go test -count=1 ./node/ -skip '^TestRepairM_1319_RestoredBoundaryManifest$' && python3 tools/paxeer-x/tests/retired_callers_test.py --path node"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-node-runtime"
@@ -223441,6 +223532,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3984, decision 3125): the attempt-1 tree 8c32e3e5efdd stands (the record of 19 findings). The touches list now names tools/paxeer-x/retired_callers.json. The 19 findings are the imports of modules/layerxanchor and modules/layerxcustody in node/app.go:170 to :185 and node/precompiles.go:8 to :11, the keeper fields and accessors of node/precompiles.go:64 to :151, and retiredAnchorStoreName at node/app.go:1720, which the upgrade handler needs to delete the retired store: add allowed_references entries for the node directory with the symbols layerxanchor, layerxAnchor, layerxcustody and layerxCustody and the reason that the module trees still ship behind the merge switch and the upgrade removes their stores by name (decision 3125). Change no Go source. Rebase on main; run the build once and the verification once at the final revision."
+do_5 = "Attempt 3 (continue, gotcha 4051, decisions 3130 and 3149): the attempt-2 tree 62c2fc2869a8 stands (the eleven catalogue entries, the record). TestRepairM_1319_RestoredBoundaryManifest is red on main independent of the tree and is repaired by 22.39.304; the verification now skips it. Change nothing; run the build once and the verification once at the final revision."
 
 [task.22.39.242]
 title = "Re-record the launchpad producer packet manifest against the current deployment"
