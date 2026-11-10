@@ -39874,3 +39874,27 @@ symbol = "inference_deals.rs"
 observed = "Attempt 1 at a7f84185ecb0 on base 1da5e223456f: build 3 exits 0 (log /out/logs/build-3.log), no verification ran, and the check of the dependent packages exits 101 with E0599 at main.rs:2234 and E0277 at main.rs:2263; log /out/logs/dependents-1.log."
 assumption = "The declared build never compiled the entry file because only the host package builds it."
 severity = "high"
+
+[finding.22.38.13.6]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 6 at 104080e251b3 on base 5080ad62ffe2: the build exits 0 (log /out/logs/build-1.log), no verification ran, and the check of the dependent packages exits 101 with five errors in the cases of the library of layerx-agentd; log /out/logs/dependents-1.log."
+assumption = "The five errors sit on main since commit e0403e4fd2 and in no file of the task."
+severity = "high"
+
+[finding.22.39.340.1]
+task = "22.39.340"
+file = "tests/programs/test_call_activity.c::main"
+symbol = "test_call_activity.c::main"
+observed = "Attempt 1 at 29eddec468fe on base 390496e41e48: build 1 exits 101 at 3cfc366470bf and build 2 exits 101 at 255e853fa630 with three duplicate symbols at the link of the test target repair_22_33_259; no verification ran; log /out/logs/build-2.log."
+assumption = "The duplicate definitions exist on main whenever the test targets of the package are built with the host interface feature."
+severity = "high"
+
+[finding.18.1695.1.2]
+task = "18.1695.1"
+file = "services/launchpad/indexer/internal/app/status_1695_test.go::TestIndexerStatus1695"
+symbol = "status_1695_test.go::TestIndexerStatus1695"
+observed = "Attempt 2 at 693a9066e8ab on base d4e82a5ce755: both builds exit 0 and the verification exits 1, TestIndexerStatus1695 fails at status_1695_test.go:285 with source paxeer-primary: semantic_rpc and the recording reports the unrecorded call eth_getBlockByNumber with latest and true; log /out/logs/verify-2.log."
+assumption = "The recording holds the latest block in its header form and that block holds no transaction."
+severity = "high"
