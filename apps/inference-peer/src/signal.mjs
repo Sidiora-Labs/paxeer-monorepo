@@ -1,7 +1,13 @@
-// JSON signalling types mirror inference_market/{signal,deals}.rs.
+// JSON signalling types mirror inference_market/{signal,deals,laps}.rs.
 export const MAX_SIGNAL_FRAME_BYTES = 65536;
 const encoder = new TextEncoder();
-const CLIENT_TYPES = new Set(["hello", "description", "candidate", "deal_ack"]);
+const CLIENT_TYPES = new Set([
+  "hello",
+  "description",
+  "candidate",
+  "deal_ack",
+  "lap_countersign",
+]);
 const SERVER_TYPES = new Set([
   "challenge",
   "offer",
@@ -9,6 +15,7 @@ const SERVER_TYPES = new Set([
   "candidate",
   "deal",
   "deal_live",
+  "lap_receipt",
   "error",
 ]);
 const ERROR_CODES = new Set([
@@ -50,7 +57,9 @@ function bytes(value, length) {
 }
 function uint(value, bits) {
   if (
-    (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) &&
+    (typeof value !== "number" ||
+      !Number.isSafeInteger(value) ||
+      value < 0) &&
     (bits !== 64 || typeof value !== "bigint" || value < 0n)
   )
     throw new TypeError(`Expected u${bits}`);
@@ -140,6 +149,38 @@ function deal(value) {
   plan(value.plan);
 }
 
+function lap(value) {
+  object(value, ["deal_digest", "host_meter_key", "deadline_ms", "receipt"]);
+  bytes(value.deal_digest, 32);
+  bytes(value.host_meter_key, 32);
+  uint(value.deadline_ms, 64);
+  validateLapReceipt(value.receipt);
+}
+export function validateLapReceipt(receipt) {
+  object(receipt, [
+    "deal_id",
+    "lap_index",
+    "prompt_tokens",
+    "generated_tokens",
+    "cumulative_tokens",
+    "layer_range_digests",
+    "host_signature",
+    "peer_countersignatures",
+  ]);
+  bytes(receipt.deal_id, 32);
+  for (const key of [
+    "lap_index",
+    "prompt_tokens",
+    "generated_tokens",
+    "cumulative_tokens",
+  ])
+    uint(receipt[key], 64);
+  list(receipt.layer_range_digests, (digest) => bytes(digest, 32));
+  bytes(receipt.host_signature, 64);
+  uint(receipt.peer_countersignatures, 32);
+  return receipt;
+}
+
 export function validateSignalFrame(frame, direction = "server") {
   const types =
     direction === "client"
@@ -159,7 +200,8 @@ export function validateSignalFrame(frame, direction = "server") {
         "signature",
         "manifest",
       ]);
-      for (const key of ["room_id", "peer_key", "nonce"]) bytes(frame[key], 32);
+      for (const key of ["room_id", "peer_key", "nonce"])
+        bytes(frame[key], 32);
       bytes(frame.signature, 64);
       bytes(frame.manifest);
       break;
@@ -193,6 +235,17 @@ export function validateSignalFrame(frame, direction = "server") {
     case "deal_live":
       object(frame, ["type", "deal_id"]);
       bytes(frame.deal_id, 32);
+      break;
+    case "lap_receipt":
+      object(frame, ["type", "lap"]);
+      lap(frame.lap);
+      break;
+    case "lap_countersign":
+      object(frame, ["type", "deal_id", "lap_index", "digest", "signature"]);
+      bytes(frame.deal_id, 32);
+      uint(frame.lap_index, 64);
+      bytes(frame.digest, 32);
+      bytes(frame.signature, 64);
       break;
     case "error":
       object(frame, ["type", "code"]);
