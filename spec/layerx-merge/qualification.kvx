@@ -40442,3 +40442,99 @@ symbol = "tests"
 observed = "Attempt 3 at 6eadec21e97b on base 96827b7c7207: build 3 exits 101 at 6eadec21e97b with cannot find value held_digest in this scope at services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs:1722; builds 1 and 2 exit 101 on other unresolved names of divided functions; no verification ran; log /out/logs/build-3.log."
 assumption = "The attempt met the compile errors of its divided functions in counted builds."
 severity = "high"
+
+[finding.17.5.7.22]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 22 at 1b83b5c1cf7a on base c769be3dac5d: the build exits 0; the verification exits 1, the gate runner refuses make workspace-build before it runs with exit 125 and status source-identity-refusal phase=before on four ignored paths; log /out/logs/verify-1.log."
+assumption = "The checkout of the qualification environment held ignored bookkeeping of the spec tool that the gate runner lists."
+severity = "high"
+
+[finding.22.39.117.20]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 20 at ba77c1f483af on base ca5fa4d5ac8a: the build exits 0 at fa40c781de1d; the verification exits 1 at fa40c781de1d, make test of services/launchpad stops with three failed stages of TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery at phase2_test.go:182, the broker refuses a stream with three replicas with error code 10074; log /out/logs/verify-1.log."
+assumption = "The broker of the qualification environment was a single node where the public workflow starts three."
+severity = "high"
+
+[finding.22.39.228.4]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 4 at 50e50b1c3690 on base 1ea516104b8d: the build exits 0 and the verification exits 0 at 50e50b1c3690 with no finding over 73 targets, log /out/logs/verify-1.log; the merge of the tree into main stops with conflicts in seven files of services/agent/crates/layerx-agentd/tests."
+assumption = "The base of the attempt was taken before task 22.39.227 reached main, and both tasks repaired the same seven files."
+severity = "high"
+
+[finding.22.38.20.2]
+task = "22.38.20"
+file = "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"
+symbol = "inference_recovery.rs"
+observed = "Attempt 2 at ab347c7cae95 on base 1c3198620972: build 3 exits 101 at ab347c7cae95, the host package stops with no method named excluded found for the deal engine at src/inference_market/recovery.rs:547 and :677; no verification ran; log /out/logs/build-3.log."
+assumption = "The read of the exclusion set is compiled in test builds only and its file sat outside the paths of the task."
+severity = "high"
+
+[finding.22.39.356.1]
+task = "22.39.356"
+file = "services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer"
+symbol = "inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer"
+observed = "Attempt 1 at 40c075b323bc on base b00ccbc0e0ba: the build exits 0 and the verification exits 1 at 40c075b323bc; three cases pass and the lint command stops with 35 errors in src/inference_market/signal.rs and src/inference_market/deals.rs (missing_errors_doc 26, must_use_candidate 5, dead_code 3, return_self_not_must_use 1); log /out/logs/verify-1.log."
+assumption = "The new target declared the module of the included sources public and carried no allowance, against decisions 3273 and 3276."
+severity = "high"
+
+[finding.17.5.7.23]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 23 at 3e225f080e0d on base cb8c8ad4b426: the build exits 0 and the verification exits 1 at 3e225f080e0d after 1932 s; make workspace-build exits 2, evmone-lib of chain.mk:111 stops with cmake: not found, Error 127; free space after the command 4071649280 bytes; log /out/logs/verify-1.log."
+assumption = "The gate shell held no cmake, which the build of the native libraries of the node needs."
+severity = "high"
+
+[finding.22.39.228.5]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 5 at 7c3b4384ab51 on base 7eeb5ae0336d: the build exits 0 and the verification exits 1 at 7c3b4384ab51; the lint command stops with exit 101 before any lint, no test target named proof_native_reads in the package layerx-agentd; log /out/logs/verify-1.log."
+assumption = "The verification command named a test target by its file name where the manifest declares another name."
+severity = "high"
+
+[finding.22.38.20.3]
+task = "22.38.20"
+file = "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"
+symbol = "inference_recovery.rs"
+observed = "Attempt 3 at 6dad0ae48cc3 on base 0e95489c6625: the build exits 0 and the verification exits 101; twelve cases pass and the case the_recorded_replacement_resumes_generation_at_the_last_countersigned_lap_plus_one stops at tests/inference_deals.rs:1338 with RecordDeal at 260: ApplicationError(20); log /out/logs/verify-1.log."
+assumption = "The program refuses a further deal that names a bid of the earlier deal of the same ask."
+severity = "high"
+
+[finding.22.39.95.14]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 15 at dd3ae7fdbc28 on base 134b9c7b6d94: the build exits 0 and the verification exits 1; the web run passes 1289 cases and two cases of src/widgets/trading/chart-datafeed-recovery.test.ts fail, one after a wait at :699 for a confirmed marker and one after the pool detail read answers 503 DEPENDENCY_UNAVAILABLE; the mobile run is not reached; log /out/logs/verify-1.log."
+assumption = "The development trade read carries no watermark and nothing produces the statistics row of the pool in the joined preparation."
+severity = "high"
+
+[finding.22.38.36.4]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 4 at e94789f96a5d on base cb8c8ad4b426: both builds exit 0, at ee613c9cfa27 and 1b7ab9db09a9, and both verifications exit 1; the first stops when the isolated node exits during readiness after a flag it does not register, the second with paxd exited 1: Error: sequencer config: invalid value: sequencer.nonce-queue-max-per-sender must be positive; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The proof was never run outside the counted gates, so each counted verification found the next fault of the node start."
+severity = "high"
+
+[finding.17.5.7.24]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 24 at 350d001e3ec1 on base ba5000655d05: the build exits 0 and the verification exits 1; make workspace-build exits 2 in paxeer-build with module lookup disabled by GOPROXY=off from admin/types/admin.pb.go:9 on, and the runner answers 125 with source-identity-refusal on engine/executor/lib/libevmone.0.12.0_linux_amd64.so; the free space after the command is 3945545728 bytes; log /out/logs/verify-1.log."
+assumption = "Nothing fetches the modules of the root module before the gate, and the runner does not admit the native library that the build writes."
+severity = "high"
+
+[finding.22.39.228.6]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 6 at 71d096a4b3ed on base 079876b623d7: the build exits 0 and the verification exits 101; the lint reports one error, method with_enrolment is never used at src/inference_market/signal.rs:275, and could not compile layerx-agentd (test inference_signal); log /out/logs/verify-1.log."
+assumption = "The target takes in the signal source without the allowance of decision 3292, and the method arrived with the enrolment route."
+severity = "high"

@@ -1,3 +1,7 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
 use ed25519_dalek::SigningKey;
 use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
 use layerx_crypto::disclosure::call::{bind_call, ledger_selector, ConstructMethod};
@@ -13,23 +17,36 @@ use std::io::Write as _;
 fn compiled_rotation() -> CompiledIntent {
     let owner = SigningKey::from_bytes(&[74; 32]).verifying_key().to_bytes();
     let pending = SigningKey::from_bytes(&[75; 32]).verifying_key().to_bytes();
-    let did = Did::new(format!("did:layerx:{}", hex::encode(owner)).as_bytes()).unwrap();
+    let did = require_ok(
+        Did::new(format!("did:layerx:{}", hex::encode(owner)).as_bytes()),
+        "required test value",
+    );
     assert_ne!(owner, pending);
-    let intent = Intent::v3(IntentKind::KeyRotation(
+    let intent = Intent::v3(IntentKind::KeyRotation(require_ok(
         KeyRotation::new(
             did,
             PublicKey::new(pending),
-            TimestampBound::new(1_800_000_001_000, 1_800_000_002_000).unwrap(),
+            require_ok(
+                TimestampBound::new(1_800_000_001_000, 1_800_000_002_000),
+                "required test value",
+            ),
             Sequence::from_u64(100),
-        )
-        .unwrap(),
-    ));
-    let kind = ActivityType::new(ModuleId::Governance, 2).unwrap();
-    let registry =
-        ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Governance, &[kind]).unwrap()])
-            .unwrap();
-    let compiled = compile(&intent, &registry).unwrap();
-    compiled.verify_disclosure(&intent).unwrap();
+        ),
+        "required test value",
+    )));
+    let kind = require_ok(
+        ActivityType::new(ModuleId::Governance, 2),
+        "required test value",
+    );
+    let registry = require_ok(
+        ModuleRegistry::new(&[require_ok(
+            ModuleRegistration::new(ModuleId::Governance, &[kind]),
+            "required test value",
+        )]),
+        "required test value",
+    );
+    let compiled = require_ok(compile(&intent, &registry), "required test value");
+    require_ok(compiled.verify_disclosure(&intent), "required test value");
     compiled
 }
 
@@ -41,16 +58,18 @@ fn lifecycle_call(payload: Vec<u8>, idempotency_key: [u8; 32]) -> Eip1559Call {
         max_fee_per_gas: 10,
         gas_limit: 100_000,
         to: PrecompileTarget::Auth.address(),
-        data: PrecompileCall {
-            target: PrecompileTarget::Auth,
-            selector: ledger_selector("recordLifecycle(bytes,bytes32)"),
-            arguments: vec![
-                AbiArgument::Bytes(payload),
-                AbiArgument::Word(idempotency_key),
-            ],
-        }
-        .encode()
-        .unwrap(),
+        data: require_ok(
+            PrecompileCall {
+                target: PrecompileTarget::Auth,
+                selector: ledger_selector("recordLifecycle(bytes,bytes32)"),
+                arguments: vec![
+                    AbiArgument::Bytes(payload),
+                    AbiArgument::Word(idempotency_key),
+                ],
+            }
+            .encode(),
+            "required test value",
+        ),
     }
 }
 
@@ -64,11 +83,13 @@ fn compiled_key_rotation_binds_exact_payload_and_idempotency_key() {
 
     // hf-done records the real compiler output and checks the keeper's pinned copy.
     let encoded = hex::encode(payload);
-    writeln!(
-        std::io::stdout().lock(),
-        "compiled_key_rotation_hex={encoded}"
-    )
-    .unwrap();
+    require_ok(
+        writeln!(
+            std::io::stdout().lock(),
+            "compiled_key_rotation_hex={encoded}"
+        ),
+        "required test value",
+    );
     let keeper_test = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../modules/layerxauth/keeper/repair_22_31_496_test.go"
@@ -77,11 +98,11 @@ fn compiled_key_rotation_binds_exact_payload_and_idempotency_key() {
 
     for key in [[0; 32], [0x49; 32]] {
         let call = lifecycle_call(payload.to_vec(), key);
-        let disclosure = bind_call(&call, [0x26; 20]).unwrap();
+        let disclosure = require_ok(bind_call(&call, [0x26; 20]), "required test value");
         assert_eq!(disclosure.activity_type, compiled.activity_type());
         assert_eq!(disclosure.idempotency_key, key);
         assert_eq!(
-            disclosure.construct_method().unwrap(),
+            require_ok(disclosure.construct_method(), "required test value"),
             Some(ConstructMethod::AuthLifecycle {
                 payload: payload.to_vec(),
                 idempotency_key: key,

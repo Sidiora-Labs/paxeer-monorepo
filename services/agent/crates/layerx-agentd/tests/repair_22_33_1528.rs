@@ -1,3 +1,7 @@
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 mod support;
 
 use layerx_agentd::boot::{Gate, GateError, Status, WriteGateError};
@@ -24,8 +28,10 @@ fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
 struct Directory(std::path::PathBuf);
 impl Directory {
     fn new(label: &str) -> Self {
-        let path = support::directory(label);
         use std::os::unix::fs::DirBuilderExt;
+
+        let path = support::directory(label);
+
         must(std::fs::DirBuilder::new().mode(0o700).create(&path));
         Self(path)
     }
@@ -158,24 +164,24 @@ fn send_authorization_restored_preparation_refuses_every_changed_binding() {
     );
     let mut changes = Vec::new();
     for field in 0..10 {
-        let mut changed = restored.clone();
+        let mut tampered = restored.clone();
         match field {
-            0 => changed.transaction.call.nonce += 1,
-            1 => changed.transaction.call.chain_id += 1,
-            2 => changed.transaction.call.max_fee_per_gas += 1,
-            3 => changed.transaction.call.max_priority_fee_per_gas += 1,
-            4 => changed.transaction.call.gas_limit += 1,
-            5 => changed.transaction.call.to[0] ^= 1,
-            6 => changed.transaction.call.data[80] ^= 1,
-            7 => changed.transaction.disclosure_digest[0] ^= 1,
-            8 => changed.transaction.disclosure.idempotency_key[0] ^= 1,
-            9 => changed.actor_address[0] ^= 1,
+            0 => tampered.transaction.call.nonce += 1,
+            1 => tampered.transaction.call.chain_id += 1,
+            2 => tampered.transaction.call.max_fee_per_gas += 1,
+            3 => tampered.transaction.call.max_priority_fee_per_gas += 1,
+            4 => tampered.transaction.call.gas_limit += 1,
+            5 => tampered.transaction.call.to[0] ^= 1,
+            6 => tampered.transaction.call.data[80] ^= 1,
+            7 => tampered.transaction.disclosure_digest[0] ^= 1,
+            8 => tampered.transaction.disclosure.idempotency_key[0] ^= 1,
+            9 => tampered.actor_address[0] ^= 1,
             _ => unreachable!(),
         }
-        changes.push(changed);
+        changes.push(tampered);
     }
-    for changed in changes {
-        assert!(verify_before_submit(&raw, &changed, &restored.actor_address, &registry).is_err());
+    for tampered in changes {
+        assert!(verify_before_submit(&raw, &tampered, &restored.actor_address, &registry).is_err());
     }
     assert_eq!(
         must(verify_before_submit(
@@ -291,12 +297,14 @@ fn readiness_wrong_chain_uncovered_and_rotated_trust_refuse_node_transcript() {
 fn node_produced_uncovered_and_unpinned_receipts_fail_after_transport() {
     let corpus = node::corpus();
     for id in ["V3-key-not-pinned", "V3-height-outside-key-range"] {
-        let case = corpus["cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|case| case["id"] == id)
-            .unwrap();
+        let case = require_some(
+            corpus["cases"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
+                .iter()
+                .find(|case| case["id"] == id),
+            "required test value",
+        );
         let raw = node::unhex(&case["rawTransaction"]);
         let hash = transaction_hash(&raw);
         let (config, server) = node::replay(vec![
