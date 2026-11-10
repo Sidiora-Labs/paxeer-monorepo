@@ -671,6 +671,10 @@
     {
       "pattern": "apps/launchpad/web/public/charting_library/**",
       "reason": "The third-party charting library bundles contain vendor vocabulary rather than retired product callers."
+    },
+    {
+      "path": "services/platform/examples/marketplace/repair-22-31-349.kvx",
+      "reason": "Decision 3125 classifies this historical repair record, including its lx_getSequence test-contract finding, as documentation rather than a live caller."
     }
   ],
   "allowed_references": [
@@ -1371,6 +1375,73 @@
         "sign_disclosed"
       ],
       "citation": "Decision 3125 retains KeystoreSigner and RemoteSigner for typed bind consent and native payer authorization with activity signing refused before I/O, and sign_disclosed_call is the live secp256k1 EIP-1559 replacement matched by the retired sign_disclosed prefix."
+    },
+    {
+      "path": "services/platform/hosted/human/README.md",
+      "lines": [
+        "- Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at",
+        "`/run/layerx/node/layerxd.lni.sock` for the retained-material migration"
+      ],
+      "citation": "Decision 3125 permits documenting the retained socket projection required by test_hosted_human_first_batch_migration_barriers, which cannot establish merged node readiness."
+    },
+    {
+      "path": "services/platform/hosted/human/history_material.py",
+      "lines": [
+        "for name in ('LAYERX_AGENT_SEQUENCER_TRUST_HISTORY', 'LAYERX_AGENT_GENESIS_TRUST', 'LAYERX_AGENT_HANDOVER_FINALITY'):"
+      ],
+      "citation": "Decision 3125 permits the live migration refusal to name obsolete trust inputs that it rejects before publishing authenticated merged-chain receipts."
+    },
+    {
+      "path": "services/platform/hosted/human/material.py",
+      "lines": [
+        "'HUMAN_NODE_LNI': '/run/layerx/node/layerxd.lni.sock',"
+      ],
+      "citation": "Decision 3125 permits the historical socket projection required by test_hosted_human_first_batch_migration_barriers while the current agent uses NODE_RPC_URL and NODE_CHAIN_ID and the projection cannot establish merged node readiness."
+    },
+    {
+      "path": "services/platform/hosted/node/generation_client.py",
+      "lines": [
+        "\"LAYERX_CORE_LNI_SOCKET\",",
+        "if any(key in RETIRED_FIELDS or key.startswith((\"LAYERX_AUTHORITY_\", \"LAYERX_GUARANTOR_\"))"
+      ],
+      "citation": "Decision 3125 permits the live inherited-environment refusal to name obsolete socket settings and authority or guarantor prefixes that it rejects before adopting current generation files."
+    },
+    {
+      "path": "services/platform/hosted/gateway",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the optional hosted backend diagnostic identifier in the gateway OpenRPC contract and backend roster; native receipt verification uses governed chain keys and block commitment."
+    },
+    {
+      "path": "services/platform/hosted/gateway/src",
+      "symbols": [
+        "/v1/programs/call",
+        "/v1/programs/deploy",
+        "/v1/programs/upgrade",
+        "/v1/programs/wind-down",
+        "RouteBinding",
+        "lx_getProgramEvents",
+        "lx_getSequence",
+        "lx_getWalletCaps",
+        "paxeer-x/anchors",
+        "paxeer-x/receipts"
+      ],
+      "citation": "Decision 3125 retains these retired method and route literals as refusal-test inputs and the live hosted upstream RouteBinding configuration type, which is independent of execution intent events."
+    },
+    {
+      "path": "services/platform/tools/dependency-policy.sh",
+      "symbols": [
+        "layerx-paxeer-client"
+      ],
+      "citation": "Decision 3125 preserves the explicit retired crate name in both the full dependency graph ban and the ramp transitive dependency ban so the policy continues to reject it."
+    },
+    {
+      "path": "services/platform/ramps",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifier lxp_verified_receipt_authority_facts on the ramp surface because its receipt_authority prefix does not denote the retired finality service."
     }
   ]
 }

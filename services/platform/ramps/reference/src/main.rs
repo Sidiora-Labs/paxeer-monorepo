@@ -1145,7 +1145,7 @@ fn rebalance_presentation(
     snapshot: &layerx_ramp_toolkit::journal::PaxeerSnapshot,
 ) -> serde_json::Value {
     json!({
-        "settlement_domain": "paxeer",
+        "chain_id": state.layerx.chain_id,
         "external_custody_label": EXTERNAL_CUSTODY_LABEL,
         "operator_account": state.paxeer.operator_account,
         "idempotency_key": snapshot.idempotency_key,
