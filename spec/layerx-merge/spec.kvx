@@ -192879,7 +192879,7 @@ do_4 = "Attempt 2 (continue, gotchas 3984 and 3990, decision 3125): the attempt-
 
 [task.22.39.263]
 title = "Repair the retired references of the platform indexer, registry, core, authority, agent boundary, testnet and webhooks crates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -192972,7 +192972,7 @@ do_4 = "Attempt 2 (continue, gotchas 3984 and 3986, decision 3125): restore serv
 
 [task.22.39.260]
 title = "Repair the retired references of the network gateway, test support, kms and tools of the human service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -193127,7 +193127,7 @@ do_4 = "Attempt 2 (continue, gotcha 4010, decision 3125): the attempt-1 tree f1f
 
 [task.22.39.254]
 title = "Repair the retired references of the agent types crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -194487,7 +194487,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.225]
 title = "Bring the layerx-sdk crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209", "22.39.238", "22.39.283"]
@@ -223320,7 +223320,7 @@ do_4 = "Attempt 2 (continue, gotcha 4009, decision 3125): the attempt-1 tree a17
 
 [task.22.39.275]
 title = "Repair the retired references of the upgrade replay tooling"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -223351,7 +223351,7 @@ do_4 = "Attempt 2 (continue, gotcha 4010, decision 3125): the attempt-1 tree 0a7
 
 [task.22.39.274]
 title = "Repair the retired references of the bringup tooling"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
