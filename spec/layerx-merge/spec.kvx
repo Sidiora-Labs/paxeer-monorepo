@@ -193153,7 +193153,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.266]
 title = "Repair the retired references of the platform command line, emulator core and release tooling"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -194054,7 +194054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.235]
 title = "Bring the layerx-programs-runtime crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209", "22.39.238", "22.39.279"]
