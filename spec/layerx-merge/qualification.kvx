@@ -40538,3 +40538,11 @@ symbol = "tests"
 observed = "Attempt 6 at 71d096a4b3ed on base 079876b623d7: the build exits 0 and the verification exits 101; the lint reports one error, method with_enrolment is never used at src/inference_market/signal.rs:275, and could not compile layerx-agentd (test inference_signal); log /out/logs/verify-1.log."
 assumption = "The target takes in the signal source without the allowance of decision 3292, and the method arrived with the enrolment route."
 severity = "high"
+
+[finding.17.5.7.25]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 25 at 256c1389b92f on base 88db70aa0187: the build exits 0 (log /out/logs/build-1.log) and no verification ran; make workspace-install, run outside the counted gates, exits 2, sh scripts/workspace/check-paxeer-manifests.sh exits 1 with no message in the target workspace-inventory-check; the attempt ended with files changed outside the paths: services/platform/hosted/dashboard/web/node_modules."
+assumption = "The inventory checks of the workspace are stale on main and the link of the dashboard install is not ignored."
+severity = "high"

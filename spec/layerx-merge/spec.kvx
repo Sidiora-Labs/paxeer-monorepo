@@ -12898,6 +12898,18 @@ value = "Three rulings for the gate of wave 6. First, the preparation of run_wav
 basis = "Gotcha 4226, decisions 3211, 3269, 3281, 3286 and 3293."
 affects = ["17.5.7"]
 
+[decision.3298]
+title = "The install target of the workspace passes on a clean checkout, and its inventories describe the tree as it is"
+value = "Four rulings. First, the scanner of the chain manifests names the root where it is now, tools/hpx, and a root that is not a directory stops with a message that names it. Second, the lists are made to agree by completing the inventory and not by narrowing the scan: no root leaves the scan and no prune is added for a directory that holds source. Every manifest that the scan finds is declared with its kind and a class that is true for it. Where no existing class is true, for a member of a Cargo workspace whose lock sits at the root of that workspace, for a vendored crate, for a module of test data, or for a package that another target of the workspace installs and tests, the scanner gains a class that names the cover and checks that the cover exists, as scripts/workspace/check-platform-dependencies.sh does with its covered-by classes. A manifest that no target builds or checks is declared with the weakest class that is true and is recorded as a finding; it is not hidden. Third, the inventory of the platform dependencies follows the same rule: the three found files are declared and the absent one is removed. Fourth, the ignore file ignores the name node_modules as a link as well as a directory. Task 22.39.377 owns the four parts and makes make workspace-install pass from a clean checkout; task 17.5.7 follows it (decisions 3130 and 3211)."
+basis = "Gotcha 4228, decisions 3130, 3183, 3211 and 3297."
+affects = ["22.39.377", "17.5.7"]
+
+[decision.3299]
+title = "A task that changes a package manifest proves the frozen install of every workspace that takes the manifest in"
+value = "A package manifest can belong to more than one pnpm workspace: apps/perps has a lock of its own and is also a member of the workspace of services/wallet. A task that changes a dependency of a manifest searches the workspace files of the repository for the directory of the manifest, runs the frozen install in every workspace found and refreshes the lock of each with the release that its packageManager field pins. A lock is refreshed from the lock of the revision, and only the entries that follow from the manifest change. Task 22.39.378 repairs the lock of the wallet workspace; task 17.5.7 follows it."
+basis = "Gotcha 4229, decisions 3046, 3130 and 3211."
+affects = ["22.39.378", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42558,6 +42570,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.378]
+title = "Refresh the lock of the wallet workspace for the manifest of the perps application"
+reqs = ["22998.1"]
+touches = ["services/wallet/pnpm-lock.yaml", "apps/perps/pnpm-lock.yaml"]
+tests = []
+verification_contract = "test -s services/wallet/repair_22_39_378.kvx && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../../apps/perps && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && git diff --exit-code -- services/wallet/pnpm-lock.yaml apps/perps/pnpm-lock.yaml"
+do_1 = "do_1 Decision 3299, gotcha 4229. In services/wallet the command pnpm install --frozen-lockfile stops with ERR_PNPM_OUTDATED_LOCKFILE: the lock records the specifier ^18.3.5 for @types/react of the member ../../apps/perps (services/wallet/pnpm-lock.yaml:196) and the manifest states 18.3.31 (apps/perps/package.json:77). Begin from the lock of the revision: restore services/wallet/pnpm-lock.yaml with git when an earlier install has rewritten it. Reproduce the refusal once."
+symbols = []
+
+[capability.22.39.377]
+title = "Make the install target of the workspace pass on a clean checkout"
+reqs = ["22998.1"]
+touches = ["scripts/workspace", "tools/workspace", ".gitignore", "Makefile"]
+tests = []
+verification_contract = "test -s tools/workspace/repair_22_39_377.kvx && sh scripts/workspace/check-paxeer-manifests-test.sh && sh scripts/workspace/check-platform-dependencies-test.sh && make workspace-install && git check-ignore -q services/platform/hosted/dashboard/web/node_modules"
+do_1 = "do_1 Decision 3298, gotcha 4228. On a clean checkout run sh scripts/workspace/check-paxeer-manifests.sh and sh scripts/workspace/check-platform-dependencies.sh and record their results: the first exits 1 with no message because the root hpx at :12 is no directory, the second exits 1 at its comparison. In the scanner of the chain manifests name the root tools/hpx, and make a root that is not a directory stop with a message that names it. Keep scripts/workspace/check-paxeer-manifests-test.sh passing and add to it a case for that message."
+symbols = []
 
 [capability.22.39.376]
 title = "Give the development trade read of the launchpad the watermark of the head"
@@ -162435,6 +162465,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.378]
+title = "Refresh the lock of the wallet workspace for the manifest of the perps application"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.378"]
+interfaces = []
+do_1 = "do_1 Decision 3299, gotcha 4229. In services/wallet the command pnpm install --frozen-lockfile stops with ERR_PNPM_OUTDATED_LOCKFILE: the lock records the specifier ^18.3.5 for @types/react of the member ../../apps/perps (services/wallet/pnpm-lock.yaml:196) and the manifest states 18.3.31 (apps/perps/package.json:77). Begin from the lock of the revision: restore services/wallet/pnpm-lock.yaml with git when an earlier install has rewritten it. Reproduce the refusal once."
+do_2 = "do_2 Refresh services/wallet/pnpm-lock.yaml with the pnpm release that the packageManager field of services/wallet/package.json pins, and keep every entry that does not follow from the manifest of the perps application. Change no manifest. Then run the frozen install in apps/perps as well, which has a lock of its own; when it refuses, refresh apps/perps/pnpm-lock.yaml in the same way."
+do_3 = "do_3 Search the workspace files of the repository for other workspaces that take in apps/perps, sdk/wallet or the other members of the wallet workspace, run the frozen install in each and record the result; a refusal in a workspace outside the paths is recorded with its first message and is not repaired here. Read the job of .github/workflows/ci.yml that works in services/wallet (:394) and record whether its install is frozen."
+do_4 = "do_4 Record in services/wallet/repair_22_39_378.kvx the refusal, the changed entries of each lock and the results of do_3. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/pnpm-lock.yaml", "apps/perps/pnpm-lock.yaml"]
+tests = []
+planned_paths = ["services/wallet/repair_22_39_378.kvx"]
+build_cmd = "cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts"
+verify_cmd = "test -s services/wallet/repair_22_39_378.kvx && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../../apps/perps && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && git diff --exit-code -- services/wallet/pnpm-lock.yaml apps/perps/pnpm-lock.yaml"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -285088,6 +285149,41 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.377]
+title = "Make the install target of the workspace pass on a clean checkout"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.377"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3298, gotcha 4228. On a clean checkout run sh scripts/workspace/check-paxeer-manifests.sh and sh scripts/workspace/check-platform-dependencies.sh and record their results: the first exits 1 with no message because the root hpx at :12 is no directory, the second exits 1 at its comparison. In the scanner of the chain manifests name the root tools/hpx, and make a root that is not a directory stop with a message that names it. Keep scripts/workspace/check-paxeer-manifests-test.sh passing and add to it a case for that message."
+do_2 = "do_2 Complete tools/workspace/paxeer-manifest-roots.txt: with the root corrected the scan finds 64 manifests and the inventory declares 34. For each of the 30 undeclared manifests (5 under contracts/bridge, 1 under contracts/launchpad, 4 under sdk/chainflow, 15 under sdk/launchpad, sdk/names, sdk/wallet, the producer crate under sdk/platform/dotnet/tests, the crate under tools/benchmark/loadtest/contracts and the vendored crate under wasm-runtime/libwasmvm) find the target of the Makefile or the workflow that builds, tests or lints it, and declare it with its kind and a class that is true. Remove no root from the scan and add no prune for a directory that holds source. Where no existing class is true, add a class to the scanner that names the cover and checks that it exists (the lock at the root of the Cargo workspace for a member, the vendoring record for a vendored crate, the test that reads a module of test data, the lock or the target that covers a package), in the manner of the covered-by classes of scripts/workspace/check-platform-dependencies.sh, and add a case for every new class to the test file of the scanner. A manifest that no target builds or checks is declared with the weakest class that is true and listed in the record as a finding with its path."
+do_3 = "do_3 Bring tools/workspace/platform-dependency-roots.txt into agreement in the same way: declare services/platform/hosted/paxeer/requirements.txt, services/platform/perf-db/Cargo.toml and services/platform/perf-db/src/storage/repair_139/Cargo.toml with classes that are true, and remove the entry services/platform/hosted/gateway/tests/local/Cargo.toml, which is absent. Run scripts/workspace/check-platform-dependencies-test.sh and keep it passing."
+do_4 = "do_4 In .gitignore make the entry for node_modules match a link as well as a directory, so that the link that developer-dashboard-install writes at services/platform/hosted/dashboard/web/node_modules (Makefile:2636) is ignored. Change no other entry."
+do_5 = "do_5 Outside the counted gates run make workspace-install from a clean checkout until it exits 0 (decisions 3286 and 3287). When a line of its recipe fails, run every remaining line of the recipe once as well, so that one run names every failing step. A cause in the Makefile, in scripts/workspace or in tools/workspace is repaired here; no install line is removed and no check is weakened to pass. A cause outside the paths is recorded with the command, the exit code, the first failing message and its file, and then no counted verification is run. After the install, git status must report no untracked file that the install wrote."
+do_6 = "do_6 Record in tools/workspace/repair_22_39_377.kvx the two results of do_1, every manifest added with its class and its cover, every new class, the findings of do_2, and the result of the install with its duration and the free space before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["scripts/workspace", "tools/workspace", ".gitignore", "Makefile"]
+tests = []
+planned_paths = ["tools/workspace/repair_22_39_377.kvx"]
+build_cmd = "sh -n scripts/workspace/check-paxeer-manifests.sh && sh -n scripts/workspace/check-platform-dependencies.sh && make -n workspace-install > /dev/null"
+verify_cmd = "test -s tools/workspace/repair_22_39_377.kvx && sh scripts/workspace/check-paxeer-manifests-test.sh && sh scripts/workspace/check-platform-dependencies-test.sh && make workspace-install && git check-ignore -q services/platform/hosted/dashboard/web/node_modules"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.363]
 title = "Declare the records under the output roots of the platform SDKs in the pipeline lock"
 status = "done"
@@ -335177,7 +335273,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -335228,6 +335324,7 @@ do_26 = "Attempt 22 (continue, gotcha 4213, decision 3285): the attempt-21 tree 
 do_27 = "Attempt 23 (continue, gotcha 4216, decision 3288): the attempt-22 tree 1b83b5c1cf7a stands (the in-place run behind WAVE_GATE_IN_PLACE, the adapted gate case, the cases for refusal, restoration and the default, the space budget of the runner, the earlier files). The in-place check of run_wave passed and the gate reached its first command, which the source identity check of scripts/gates/run_gate.py refused before it ran, on three backup directories of the spec tool and the lock file beside the specification. The refusal was correct. Change nothing in run_gate.py or gates.py for it: add no path to the permitted outputs and weaken neither check. The checkout is now presented without those paths when the verification starts. Run no gate command outside the counted verification. Run the build once and the verification once on the tree as it is. When the runner then refuses after a command, its log names the paths that the command wrote or changed: repair a cause inside the paths within the allowed cycle, and for a cause outside the paths record the command, the exit code, the listed paths and the file that writes them, and stop. When the gate stops at a command for another cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. On a stop for space record the free space before and after every command (decision 3281), and stop."
 do_28 = "Attempt 24 (continue, gotcha 4221, decision 3293): the attempt-23 tree 3e225f080e0d stands (the Makefile, the web package file, the completion gate case, run_gate.py, gates.py, the wave gate test). The source identity check passed and the gate reached make workspace-build, which stopped at chain.mk:111 for want of cmake in the gate shell; the tool is now provided. Rebase on main and change nothing for it. Run no gate command outside the counted verification. A refusal after a command names the paths that the command wrote or changed: repair inside the paths, record and stop for a cause outside them. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. On a stop for space record the free space before and after every command. Run the build once and the verification once at the final revision."
 do_29 = "Attempt 25 (continue, gotcha 4226, decision 3297): the attempt-24 tree 350d001e3ec1 stands (the Makefile, the web package file, the completion gate case, run_gate.py, gates.py, the wave gate test). The gate passed the native library step and stopped in paxeer-build, which builds the node with the module proxy off while nothing had fetched the modules of the root module; after the command the runner refused the library that chain.mk:129 copies to engine/executor/lib. Make three changes inside the paths. In run_wave of gates.py the preparation for wave 6 becomes make workspace-install human-js-install platform-sample-install; adapt the cases of the wave gate test that pin the preparation. In permitted_output of scripts/gates/run_gate.py admit a file directly in engine/executor/lib whose name begins with libevmone. and ends with .so or .dylib, and only when git ignores it. Add to scripts/gates/test_run_gate.py, which the touches now name, a case that such a file is admitted and that another untracked file in that directory is refused, and run that test file. Change no line with GOPROXY=off and nothing in chain.mk. Then, outside the counted gates, run make workspace-install once; a failure whose cause lies outside the paths is recorded with its first message and its file, and the attempt stops. Then run the six commands of scripts/gates/wave-6.sh once each through scripts/gates/run_gate.py, one command for each call, with the environment that run_wave sets and a log directory of their own. Do not stop at the first command that fails: repair a cause inside the paths, record a cause outside the paths with the command, the exit code, the first failing message and its file, and run the next command. Record the free space before and after every command. When every command has passed, bring the checkout back to the revision, with no changed tracked file and no untracked file outside the ignored paths, and run the build once and the verification once at the final revision. When a cause outside the paths remains, run no counted verification and name every such cause in the final message."
+do_30 = "Attempt 26 (continue after 22.39.377 and 22.39.378 land, gotchas 4228 and 4229, decisions 3298 and 3299): the attempt-25 tree 256c1389b92f stands (the preparation of run_wave with the install target of the workspace, the admission of the native library in permitted_output, the cases of scripts/gates/test_run_gate.py, the earlier changes). The install target stopped in the inventory check of the workspace, which is stale on main and outside the paths of this task; task 22.39.377 repairs it and makes the install pass, and task 22.39.378 repairs the lock of the wallet workspace. The task now requires both. Rebase on main once both are on it and change nothing in scripts/workspace, tools/workspace, the ignore file or a lock. Then proceed as decision 3297 states. Outside the counted gates run make workspace-install once; when it fails, run every remaining line of its recipe once and record every failing line with its first message and its file. Whatever the result of the install, run the six commands of scripts/gates/wave-6.sh once each through scripts/gates/run_gate.py, one command for each call, with the environment that run_wave sets and a log directory of their own, and do not stop at the first command that fails: repair a cause inside the paths, record a cause outside the paths with the command, the exit code, the first failing message and its file, and run the next command. Record the free space before and after every command. Before the counted gates bring the checkout back to the revision, with no changed tracked file and no untracked file outside the ignored paths. Run the build once and the verification once at the final revision only when the install and all six commands have passed; otherwise run no counted verification and name every remaining cause in the final message."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
