@@ -185454,7 +185454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.375]
 title = "Accept a further deal that names the bids of the earlier deal of its ask"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.365"]
