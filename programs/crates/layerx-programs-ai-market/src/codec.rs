@@ -209,7 +209,7 @@ pub const REPORT_MAX_BYTES: usize = 1380;
 pub const WORKER_ROSTER_BYTES: usize = 176;
 pub const EVALUATOR_ROSTER_BYTES: usize = 144;
 pub const EVENT_COMMON_BYTES: usize = 122;
-pub const STATE_SECTION_CAPS: [usize; 6] = [16384, 24576, 24576, 81920, 24576, 24576];
+pub const STATE_SECTION_CAPS: [usize; 6] = [16384, 24576, 24576, 131072, 24576, 24576];
 pub const STATE_GLOBAL_BYTES: usize = 16;
 pub const STATE_SECTION_HEADER_BYTES: usize = 8;
 pub const STATE_FRAMING_BYTES: usize = 64;
@@ -2320,12 +2320,14 @@ pub fn encode_result(v: &ApplicationResult<'_>, out: &mut [u8]) -> CodecResult<u
     v.validate()?;
     output_size(out, 82 + v.payload.len(), MAX_RESULT_BYTES)?;
     let mut w = Writer::new(out);
-    w.u16(SCHEMA_VERSION)?;
-    w.u16(v.status as u16)?;
-    w.u16(v.error.map_or(0, ApplicationError::code))?;
-    w.put(&request_bytes(v.request))?;
-    w.u64(v.revision)?;
-    w.put(v.digest.as_bytes())?;
+    write_fields!(w;
+        u16: SCHEMA_VERSION;
+        u16: v.status as u16;
+        u16: v.error.map_or(0, ApplicationError::code);
+        put: &request_bytes(v.request);
+        u64: v.revision;
+        id32: v.digest.as_bytes();
+    )?;
     w.bytes(v.payload, MAX_RESULT_PAYLOAD_BYTES)?;
     Ok(w.len())
 }

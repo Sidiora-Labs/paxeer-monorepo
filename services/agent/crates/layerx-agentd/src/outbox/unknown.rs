@@ -127,17 +127,18 @@ pub fn resolve_unknown<B: ReceiptLookup>(
         .get(&submission_id)
         .cloned()
         .ok_or(OutboxError::NotFound)?;
-    if record.status.state != SubmissionState::Unknown {
-        return Err(UnknownResolutionError::NotUnknown);
-    }
+    crate::reject_if(record.status.state != SubmissionState::Unknown, || {
+        UnknownResolutionError::NotUnknown
+    })?;
 
     let (transaction, signature) = decode_signed(&record.signed_canonical_bytes)
         .map_err(|_| UnknownResolutionError::Corrupt)?;
     let sender =
         recover_sender(&transaction, &signature).map_err(|_| UnknownResolutionError::Corrupt)?;
-    if transaction_hash(&record.signed_canonical_bytes) != submission_id {
-        return Err(UnknownResolutionError::Corrupt);
-    }
+    crate::reject_if(
+        transaction_hash(&record.signed_canonical_bytes) != submission_id,
+        || UnknownResolutionError::Corrupt,
+    )?;
     let key = state_key(record.tenant.clone(), submission_id)?;
     let mut age = match store.get(&key) {
         Some(value) => decode_state(value.bytes(), submission_id, observed_at_ms)?,
@@ -148,9 +149,9 @@ pub fn resolve_unknown<B: ReceiptLookup>(
             next_attempt_at_ms: observed_at_ms,
         },
     };
-    if observed_at_ms < age.first_observed_at_ms {
-        return Err(UnknownResolutionError::TimeRegressed);
-    }
+    crate::reject_if(observed_at_ms < age.first_observed_at_ms, || {
+        UnknownResolutionError::TimeRegressed
+    })?;
     age.age_ms = observed_at_ms - age.first_observed_at_ms;
     if observed_at_ms < age.next_attempt_at_ms {
         return Ok(UnknownResolution {
@@ -161,13 +162,7 @@ pub fn resolve_unknown<B: ReceiptLookup>(
         });
     }
 
-    age.attempt_count = age
-        .attempt_count
-        .checked_add(1)
-        .ok_or(UnknownResolutionError::Arithmetic)?;
-    age.next_attempt_at_ms = observed_at_ms
-        .checked_add(backoff_ms(submission_id, age.attempt_count))
-        .ok_or(UnknownResolutionError::Arithmetic)?;
+    schedule_unknown_attempt(&mut age, observed_at_ms, submission_id)?;
     store.put_local(key.clone(), encode_state(submission_id, age))?;
 
     let endpoint = boundary.sequencer_endpoint();
@@ -213,6 +208,58 @@ pub fn resolve_unknown<B: ReceiptLookup>(
         });
     }
 
+    resend_missing_receipt(
+        outbox,
+        store,
+        endpoint,
+        MissingReceiptResend {
+            submission_id,
+            sender,
+            nonce: transaction.nonce,
+            signed_canonical_bytes: &record.signed_canonical_bytes,
+            age,
+            key,
+        },
+    )
+}
+fn schedule_unknown_attempt(
+    age: &mut UnknownAge,
+    observed_at_ms: u64,
+    submission_id: [u8; 32],
+) -> Result<(), UnknownResolutionError> {
+    age.attempt_count = age
+        .attempt_count
+        .checked_add(1)
+        .ok_or(UnknownResolutionError::Arithmetic)?;
+    age.next_attempt_at_ms = observed_at_ms
+        .checked_add(backoff_ms(submission_id, age.attempt_count))
+        .ok_or(UnknownResolutionError::Arithmetic)?;
+
+    Ok(())
+}
+
+struct MissingReceiptResend<'a> {
+    submission_id: [u8; 32],
+    sender: [u8; 20],
+    nonce: u64,
+    signed_canonical_bytes: &'a [u8],
+    age: UnknownAge,
+    key: TenantKey,
+}
+fn resend_missing_receipt(
+    outbox: &mut Outbox,
+    store: &mut Store,
+    endpoint: &SequencerEndpoint,
+    request: MissingReceiptResend<'_>,
+) -> Result<UnknownResolution, UnknownResolutionError> {
+    let MissingReceiptResend {
+        submission_id,
+        sender,
+        nonce,
+        signed_canonical_bytes,
+        age,
+        key,
+    } = request;
     let Ok(pending_nonce) = endpoint.pending_nonce(&sender) else {
         return Ok(UnknownResolution {
             state: SubmissionState::Unknown,
@@ -221,7 +268,7 @@ pub fn resolve_unknown<B: ReceiptLookup>(
             resend: ResendObservation::NotWarranted,
         });
     };
-    if pending_nonce > transaction.nonce {
+    if pending_nonce > nonce {
         outbox.transition(
             store,
             submission_id,
@@ -237,8 +284,8 @@ pub fn resolve_unknown<B: ReceiptLookup>(
             resend: ResendObservation::NotWarranted,
         });
     }
-    let resend = if pending_nonce == transaction.nonce {
-        match endpoint.send_raw_transaction(&record.signed_canonical_bytes) {
+    let resend = if pending_nonce == nonce {
+        match endpoint.send_raw_transaction(signed_canonical_bytes) {
             Ok(hash) if hash == submission_id => ResendObservation::Sent,
             Ok(_) | Err(_) => ResendObservation::Indeterminate,
         }

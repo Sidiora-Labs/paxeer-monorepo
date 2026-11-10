@@ -23,7 +23,11 @@ impl CommitTimestamp {
 
     fn encode(self) -> Vec<u8> {
         let mut bytes = Vec::new();
-        varint_field(&mut bytes, 1, self.seconds as u64);
+        varint_field(
+            &mut bytes,
+            1,
+            u64::from_le_bytes(self.seconds.to_le_bytes()),
+        );
         varint_field(&mut bytes, 2, u64::from(self.nanos));
         bytes
     }
@@ -106,6 +110,7 @@ pub struct CommitValidator {
 }
 
 impl CommitValidator {
+    #[must_use]
     pub fn address_for_key(public_key: &[u8; 32]) -> [u8; 20] {
         let digest = Sha256::digest(public_key);
         let mut address = [0; 20];
@@ -114,6 +119,7 @@ impl CommitValidator {
     }
 }
 
+#[must_use]
 pub fn validator_set_hash(validators: &[CommitValidator]) -> [u8; 32] {
     let encoded: Vec<_> = validators
         .iter()
@@ -146,6 +152,7 @@ pub struct BlockCommit {
 }
 
 impl BlockCommit {
+    #[must_use]
     pub fn vote_sign_bytes(&self, chain_id: &str, timestamp: CommitTimestamp) -> Vec<u8> {
         let mut vote = vec![0x08, 0x02, 0x11];
         vote.extend_from_slice(&self.height.to_le_bytes());
@@ -175,12 +182,16 @@ pub struct ServedCheckpoint {
 }
 
 impl ServedCheckpoint {
+    #[must_use]
     pub fn observed_block_hash(&self) -> [u8; 32] {
         self.header.block_hash()
     }
 
     /// Re-reads a saved, authenticated checkpoint from the configured node.
     /// The consensus identity and block remain pinned across reader restarts.
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn reacquire(&self, endpoint: &SequencerEndpoint) -> Result<Self, CheckpointReadError> {
         let trusted = serve_checkpoint(
             self.height,
@@ -204,6 +215,9 @@ impl ServedCheckpoint {
         Ok(observed)
     }
 
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn acquire_at_committed_block(
         endpoint: &SequencerEndpoint,
         height: u64,
@@ -257,6 +271,9 @@ impl ServedCheckpoint {
     }
 
     /// Encodes the authenticated native header for the Programs chain verifier.
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn commitment_proof(
         &self,
     ) -> Result<layerx_programs::chain_proof::decode::CommitmentProof, CheckpointReadError> {
@@ -267,50 +284,11 @@ impl ServedCheckpoint {
             &self.commit,
             &self.validators,
         )?;
-        if verified != *self {
-            return Err(CheckpointReadError::CheckpointBlockMismatch);
-        }
+        crate::reject_if(verified != *self, || {
+            CheckpointReadError::CheckpointBlockMismatch
+        })?;
+        let header = self.commitment_header();
         let h = &self.header;
-        let mut version = Vec::new();
-        varint_field(&mut version, 1, h.version_block);
-        varint_field(&mut version, 2, h.version_app);
-        let mut header = Vec::new();
-        bytes_field(&mut header, 1, &version);
-        bytes_field(&mut header, 2, h.chain_id.as_bytes());
-        varint_field(&mut header, 3, h.height);
-        bytes_field(&mut header, 4, &h.time.encode());
-        bytes_field(
-            &mut header,
-            5,
-            &h.last_block_id
-                .map_or_else(|| vec![0x12, 0], BlockId::encode),
-        );
-        for (field, bytes) in [
-            (
-                6,
-                h.last_commit_hash
-                    .as_ref()
-                    .map_or(&[][..], |h| h.as_slice()),
-            ),
-            (7, h.data_hash.as_ref().map_or(&[][..], |h| h.as_slice())),
-            (8, h.validators_hash.as_slice()),
-            (9, h.next_validators_hash.as_slice()),
-            (10, h.consensus_hash.as_slice()),
-            (11, h.app_hash.as_slice()),
-            (
-                12,
-                h.last_results_hash
-                    .as_ref()
-                    .map_or(&[][..], |h| h.as_slice()),
-            ),
-            (
-                13,
-                h.evidence_hash.as_ref().map_or(&[][..], |h| h.as_slice()),
-            ),
-            (14, h.proposer_address.as_slice()),
-        ] {
-            bytes_field(&mut header, field, bytes);
-        }
         let mut commit = Vec::new();
         varint_field(&mut commit, 1, self.commit.height);
         varint_field(&mut commit, 2, u64::from(self.commit.round));
@@ -366,6 +344,50 @@ impl ServedCheckpoint {
             value: None,
             proof_ops: Vec::new(),
         })
+    }
+    fn commitment_header(&self) -> Vec<u8> {
+        let h = &self.header;
+        let mut version = Vec::new();
+        varint_field(&mut version, 1, h.version_block);
+        varint_field(&mut version, 2, h.version_app);
+        let mut header = Vec::new();
+        bytes_field(&mut header, 1, &version);
+        bytes_field(&mut header, 2, h.chain_id.as_bytes());
+        varint_field(&mut header, 3, h.height);
+        bytes_field(&mut header, 4, &h.time.encode());
+        bytes_field(
+            &mut header,
+            5,
+            &h.last_block_id
+                .map_or_else(|| vec![0x12, 0], BlockId::encode),
+        );
+        for (field, bytes) in [
+            (
+                6,
+                h.last_commit_hash
+                    .as_ref()
+                    .map_or(&[][..], |h| h.as_slice()),
+            ),
+            (7, h.data_hash.as_ref().map_or(&[][..], |h| h.as_slice())),
+            (8, h.validators_hash.as_slice()),
+            (9, h.next_validators_hash.as_slice()),
+            (10, h.consensus_hash.as_slice()),
+            (11, h.app_hash.as_slice()),
+            (
+                12,
+                h.last_results_hash
+                    .as_ref()
+                    .map_or(&[][..], |h| h.as_slice()),
+            ),
+            (
+                13,
+                h.evidence_hash.as_ref().map_or(&[][..], |h| h.as_slice()),
+            ),
+            (14, h.proposer_address.as_slice()),
+        ] {
+            bytes_field(&mut header, field, bytes);
+        }
+        header
     }
 
     pub(crate) fn from_comet_json(
@@ -494,7 +516,7 @@ fn json_base64<const N: usize>(value: &serde_json::Value) -> Result<[u8; N], Che
         count += 6;
         if count >= 8 {
             count -= 8;
-            bytes.push((bits >> count) as u8);
+            bytes.push((bits >> count).to_le_bytes()[0]);
         }
     }
     if bits & ((1 << count) - 1) != 0 {
@@ -539,7 +561,10 @@ fn json_timestamp(value: &serde_json::Value) -> Result<CommitTimestamp, Checkpoi
         30,
         31,
     ];
-    if !(1..=12).contains(&month) || day < 1 || day > days[(month - 1) as usize] {
+    if !(1..=12).contains(&month)
+        || day < 1
+        || day > days[usize::try_from(month - 1).map_err(|_| bad())?]
+    {
         return Err(bad());
     }
     let (hour, minute, second) = (number(11, 13)?, number(14, 16)?, number(17, 19)?);
@@ -557,14 +582,15 @@ fn json_timestamp(value: &serde_json::Value) -> Result<CommitTimestamp, Checkpoi
         {
             return Err(bad());
         }
-        fraction.parse::<u32>().map_err(|_| bad())? * 10_u32.pow(9 - fraction.len() as u32)
+        fraction.parse::<u32>().map_err(|_| bad())?
+            * 10_u32.pow(9 - u32::try_from(fraction.len()).map_err(|_| bad())?)
     };
     year -= i64::from(month <= 2);
     let era = year.div_euclid(400);
     let yoe = year - era * 400;
     let mp = month + if month > 2 { -3 } else { 9 };
     let doy = (153 * mp + 2) / 5 + day - 1;
-    let days = era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
     let timestamp = CommitTimestamp {
         seconds: days * 86400 + hour * 3600 + minute * 60 + second,
         nanos,
@@ -599,6 +625,9 @@ pub struct ProofBundleRequest<'a> {
 }
 
 impl ProofBundleRequest<'_> {
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn acquire(
         &self,
         endpoint: &SequencerEndpoint,
@@ -638,9 +667,9 @@ pub enum CheckpointReadError {
 }
 
 impl CheckpointReadError {
+    #[must_use]
     pub const fn reason(&self) -> &'static str {
         match self {
-            Self::UnavailableCapability(_) => "read.unavailable",
             Self::NotCommitted => "read.not_committed",
             Self::Commit => "read.commit",
             Self::InvalidProof | Self::RootMismatch => "read.invalid_proof",
@@ -648,7 +677,7 @@ impl CheckpointReadError {
             Self::CheckpointBlockMismatch => "read.checkpoint_block_mismatch",
             Self::BelowRequestedRung => "read.below_requested_rung",
             Self::Arithmetic => "read.proof_size",
-            Self::Rpc(_) => "read.unavailable",
+            Self::UnavailableCapability(_) | Self::Rpc(_) => "read.unavailable",
         }
     }
 }
@@ -734,10 +763,10 @@ pub(crate) fn serve_checkpoint(
 
 fn varint(bytes: &mut Vec<u8>, mut value: u64) {
     while value >= 128 {
-        bytes.push((value as u8 & 0x7f) | 0x80);
+        bytes.push((value.to_le_bytes()[0] & 0x7f) | 0x80);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(value.to_le_bytes()[0]);
 }
 
 fn varint_field(bytes: &mut Vec<u8>, field: u8, value: u64) {

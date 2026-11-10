@@ -64,6 +64,7 @@ type identityWire struct {
 	checks   int
 	verifier sharedauth.ServiceRequestVerifier
 	server   *httptest.Server
+	seed     func(sharedauth.IdentityPrincipal)
 }
 
 // platformPKI is the throwaway private PKI of one platform test.
@@ -99,6 +100,9 @@ func newIdentityWire(t *testing.T, pki platformPKI) *identityWire {
 func (w *identityWire) session(bearer, wallet string) sharedauth.IdentityPrincipal {
 	p := sharedauth.IdentityPrincipal{AccountID: uuid.NewString(), SessionID: uuid.NewString(), Wallet: wallet, AuthEpoch: 1, ProofAt: time.Now().Add(-time.Minute).UTC(), AccessExpiresAt: time.Now().Add(time.Hour).UTC()}
 	w.mu.Lock()
+	if w.seed != nil {
+		w.seed(p)
+	}
 	w.sessions[bearer] = p
 	w.mu.Unlock()
 	return p
@@ -264,10 +268,28 @@ func newPlatformHarness(t *testing.T) *platformHarness {
 	h := &platformHarness{devHarness: devHarness{t: t, dbConn: conn, pool: pool, token: token, creator: creator}, db: db}
 	h.pki = newPlatformPKI(t)
 	h.wire = newIdentityWire(t, h.pki)
+	h.wire.seed = func(p sharedauth.IdentityPrincipal) {
+		hash := sha256.Sum256([]byte(p.SessionID))
+		for _, statement := range []struct {
+			sql  string
+			args []any
+		}{
+			{`INSERT INTO users.identity_accounts VALUES($1,$2,clock_timestamp())`, []any{p.AccountID, p.AuthEpoch}},
+			{`INSERT INTO users.identity_wallet_links VALUES($1,$2,125,$3,'private','verified',clock_timestamp())`, []any{uuid.NewString(), p.AccountID, p.Wallet}},
+			{`INSERT INTO users.identity_sessions(session_id,account_id,wallet,auth_epoch,access_hash,csrf_hash,issued_at,access_expires_at,refresh_expires_at,reauthenticated_at,last_seen_at,device_label) VALUES($1,$2,$3,$4,$5,$5,clock_timestamp(),$6,$6,clock_timestamp(),clock_timestamp(),'platform')`, []any{p.SessionID, p.AccountID, p.Wallet, p.AuthEpoch, hash[:], p.AccessExpiresAt}},
+			{`INSERT INTO users.account_state(account_id,wallet,profile,preferences) VALUES($1,$2,'{}','{}')`, []any{p.AccountID, p.Wallet}},
+			{`INSERT INTO chat.interaction_preferences(wallet,inbox) VALUES($1,'everyone')`, []any{p.Wallet}},
+		} {
+			if _, err := conn.Exec(ctx, statement.sql, statement.args...); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
 	// The platform runtime logs in as chat_runtime.
 	platformSecrets(h, db.Runtimes["chat_runtime"].DSN)
 	cfg := platformConfig(h, db)
-	app, err := New(ctx, cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	app, err := New(ctx, cfg, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	if err != nil {
 		t.Fatalf("boot platform app: %v", err)
 	}
@@ -609,7 +631,7 @@ func (h *platformHarness) privateIngress() {
 func TestPlatformWritesAsLeastPrivilegeRuntime(t *testing.T) {
 	h := newPlatformHarness(t)
 	alice, bob := addr(0xa11ce), addr(0xb0b)
-	h.wire.session("Bearer alice-token", alice)
+	ap := h.wire.session("Bearer alice-token", alice)
 	h.wire.session("Bearer bob-token", bob)
 	h.wire.session("Bearer creator-token", h.creator)
 
@@ -662,8 +684,25 @@ func TestPlatformWritesAsLeastPrivilegeRuntime(t *testing.T) {
 	if r := h.do("DELETE", "/comments/"+created.ID, "", nil, bearer("creator-token")); r.status != 200 {
 		t.Fatalf("delete by the pool creator %d %s", r.status, r.body)
 	}
+	// A legacy chat read has the same authenticated membership requirement
+	// as v2 history. Join through the actual ticket-bound stream first.
+	topics := []string{"chat.pool." + h.pool}
+	dialer := websocket.Dialer{Subprotocols: []string{"sidiora.v2", "ticket." + h.wire.ticket(ap, topics)}, HandshakeTimeout: 5 * time.Second, TLSClientConfig: h.client.Transport.(*http.Transport).TLSClientConfig}
+	conn, _, err := dialer.Dial("wss"+strings.TrimPrefix(h.server.URL, "https")+"/v2/stream?topics="+topics[0], http.Header{"Origin": {platformOrigin}, "Authorization": {"Bearer alice-token"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	readFrame(t, conn, "session_accepted")
+	if err := conn.WriteJSON(map[string]any{"type": "join_pool", "pool_address": h.pool}); err != nil {
+		t.Fatal(err)
+	}
+	readFrame(t, conn, "joined_pool")
+	if r := h.do("GET", "/pool/"+h.pool+"/messages", "", nil, nil); r.status != 401 {
+		t.Fatalf("anonymous legacy history %d %s", r.status, r.body)
+	}
 	for _, path := range []string{"/pool/" + h.pool + "/messages", "/users/" + bob + "/followers"} {
-		if r := h.do("GET", path, "", nil, nil); r.status != 200 {
+		if r := h.do("GET", path, "", nil, bearer("alice-token")); r.status != 200 {
 			t.Fatalf("GET %s: %d %s", path, r.status, r.body)
 		}
 	}

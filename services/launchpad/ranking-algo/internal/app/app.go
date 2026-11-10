@@ -480,7 +480,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	// connection, so the binding's NATS fields are not read.
 	native.stream = delivery.StreamWriter{Schema: "api_stream"}
 	checks["ranking"] = native.ready
-	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{CORSOrigins: cfg.CORSAllowedOrigins, Health: sharedhttp.HealthDeps{Custom: checks, State: tracker.Ready, DB: func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) }}})
+	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{CORSOrigins: cfg.CORSAllowedOrigins, Health: sharedhttp.HealthDeps{Custom: checks, State: tracker.Ready, DB: func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) }, Redis: func(c context.Context) error { return rdb.Ping(c).Err() }}})
 	router.Group(func(gr chi.Router) { httpapi.RegisterSnapshots(gr, handler) })
 	router.Get("/internal/v2/rankings/inputs", func(w http.ResponseWriter, request *http.Request) {
 		bounded, cancel := context.WithTimeout(request.Context(), 30*time.Second)
@@ -555,7 +555,7 @@ func (r *nativeRankingRuntime) run(parent context.Context) {
 		go func(newOnly bool) {
 			defer r.workers.Done()
 			_ = r.coordinator.Run(r.ctx, newOnly, func(err error) {
-				r.logger.Error("ranking source refresh failed", slog.String("categoryRun", fmt.Sprint(newOnly)), slog.String("code", "RANKING_INPUT_UNAVAILABLE"))
+				r.logger.Error("ranking source refresh failed", slog.String("categoryRun", fmt.Sprint(newOnly)), slog.String("code", "RANKING_INPUT_UNAVAILABLE"), slog.Any("error", err))
 			})
 		}(newOnly)
 	}
@@ -578,7 +578,7 @@ func (r *nativeRankingRuntime) run(parent context.Context) {
 				for i := 0; i < 6; i++ {
 					worked, err := r.publication.CommitStreamOnce(r.ctx, r.stream, r.binding.MaxAttempts)
 					if err != nil {
-						r.logger.Error("ranking publication failed", slog.String("code", "RANKING_PUBLICATION_UNAVAILABLE"))
+						r.logger.Error("ranking publication failed", slog.String("code", "RANKING_PUBLICATION_UNAVAILABLE"), slog.Any("error", err))
 						break
 					}
 					if !worked {

@@ -403,6 +403,7 @@ impl Default for EvaluatorRegion {
 }
 impl EvaluatorRegion {
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub const fn new() -> Self {
         Self {
             records: [None; MAX_EVALUATORS],
@@ -641,21 +642,35 @@ impl EvaluatorRegion {
     ) -> CodecResult<T> {
         #[cfg(target_arch = "wasm32")]
         {
+            let mut scratch = None;
+            read(Self::decoded(input, &mut scratch)?)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        read(&Self::decode_uncached(input)?)
+    }
+
+    // Keep cache lookup, initialization and strict decoding in one body for
+    // every caller; only the typed consumer remains generic.
+    #[cfg(target_arch = "wasm32")]
+    #[inline(never)]
+    fn decoded<'s>(input: &[u8], scratch: &'s mut Option<Self>) -> CodecResult<&'s Self> {
+        #[cfg(target_arch = "wasm32")]
+        {
             static DECODED: crate::guest_cell::GuestOnce<(&'static [u8], EvaluatorRegion)> =
                 crate::guest_cell::GuestOnce::new();
             if let Some((bytes, value)) = DECODED.get() {
                 if core::ptr::eq(*bytes, input) || crate::codec::equal_bytes(bytes, input) {
-                    return read(value);
+                    return Ok(value);
                 }
             } else if let Some(frozen) = crate::state::current_slice(input) {
                 let (_, value) = DECODED.get_or_try_init(
                     || Ok((frozen, Self::decode_uncached(frozen)?)),
                     NON_CANONICAL,
                 )?;
-                return read(value);
+                return Ok(value);
             }
         }
-        read(&Self::decode_uncached(input)?)
+        Ok(scratch.insert(Self::decode_uncached(input)?))
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]

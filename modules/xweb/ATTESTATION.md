@@ -178,7 +178,7 @@ Vector `evm-api-single` (origin 1):
 
 The shared
 [`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json)
-contains frozen compatibility vectors. `713714` is the historical origin-1 test chain id;
+contains frozen compatibility vectors for the historical origin-1 test chain;
 origin-2 network id `1` is a fixture value. The M-1251 repair preserves this
 corpus byte for byte. Keeper compatibility tests explicitly configure that
 historical test chain, while live origin-1 signing reads the EVM chain id from

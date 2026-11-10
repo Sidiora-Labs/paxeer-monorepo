@@ -15,7 +15,7 @@ import (
 
 const (
 	// ProgramRequestTopic is the guest event topic under which a program
-	// emits a web request (include/layerx/lx_web.h LX_WEB_REQUEST_TOPIC).
+	// emits a web request consumed by RequestFromProgram with origin 2.
 	ProgramRequestTopic = "PAXEERX_WEB_REQUEST_V1"
 
 	// ProgramFeeDomain prefixes the asset id in the fee account id preimage.

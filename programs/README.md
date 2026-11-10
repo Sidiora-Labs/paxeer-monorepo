@@ -395,10 +395,13 @@ refused by the guest's deployment-domain validation. The deployment payload limi
 deployment envelope. The guest must fit within the remaining 524184 bytes. When an
 interface is included, the decoder in [`deploy.c`](../src/modules/programs/deploy.c)
 uses 108 fixed bytes plus the interface bytes, reducing the space for WASM further.
-The production `make paxai-host-boundary-build` target uses this release profile,
-post-processes the guest with `wasm-opt -Oz --strip-debug --strip-producers`, and
-checks that the resulting WASM is at most 524184 bytes before passing that same file
-to the native host-boundary harness. That bound reserves the 104-byte envelope.
+The production `make paxai-host-boundary-build` target builds and packages through
+[`guest-recipe.sh`](crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh),
+the same recipe used by `build-guest.sh` and the historical and candidate RPC guests.
+It requires Binaryen 133, release `opt-level = "z"`, LTO and `cdylib`, with the
+compiler arguments and size pass list defined in that file. It checks that the
+resulting WASM is at most 524184 bytes before passing that same file to the native
+host-boundary harness. That bound reserves the 104-byte envelope.
 A successful Cargo build alone
 does not establish that the final payload fits or that the registering host selected
 the matching guest ABI.

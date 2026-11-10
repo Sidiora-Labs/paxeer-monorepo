@@ -213,7 +213,7 @@ mod deployment {
             );
             assert_ne!(foreign.request_digest()?, request);
             assert_eq!(MAX_ENVELOPE_BYTES, 16_384);
-            assert_eq!(MAX_STATE_BYTES, 196_608);
+            assert_eq!(MAX_STATE_BYTES, 245_760);
             let oversized = vec![0; MAX_ENVELOPE_BYTES + 1];
             assert_eq!(decode_envelope(&oversized).err(), Some(CAPACITY));
             Ok(())
@@ -522,7 +522,8 @@ pub const MAX_PAYLOAD_BYTES: usize = 15_965;
 pub const MAX_RESULT_BYTES: usize = 16_384;
 pub const RESULT_HEADER_BYTES: usize = 82;
 pub const MAX_RESULT_PAYLOAD_BYTES: usize = 16_302;
-pub const MAX_STATE_BYTES: usize = 196_608;
+pub const MAX_STATE_BYTES: usize = 245_760;
+const _: () = assert!(MAX_STATE_BYTES <= layerx_program_sdk::MAX_STORAGE_VALUE_BYTES);
 pub const MAX_EVENT_BYTES: usize = 2_048;
 pub const MAX_EVENTS: usize = 2;
 pub const MAX_WORKERS: usize = 32;

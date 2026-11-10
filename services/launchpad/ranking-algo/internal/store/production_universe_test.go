@@ -66,7 +66,7 @@ func productionUniverseDatabase(t *testing.T) *pgxpool.Pool {
 		`CREATE SCHEMA indexer; CREATE SCHEMA stats; CREATE SCHEMA ranking; CREATE SCHEMA recovery; CREATE EXTENSION IF NOT EXISTS pgcrypto;
 		 CREATE TABLE indexer.delivery_partition_positions(projection_version text,partition_kind text,partition_key text,sequence bigint,position jsonb)`,
 		migrationSQL(t, "60000"), migrationSQL(t, "130000"), migrationSQL(t, "130001"), migrationSQL(t, "190001"),
-		migrationSQL(t, "190000"), migrationSQL(t, "190002"), migrationSQL(t, "440000"),
+		migrationSQL(t, "190000"), migrationSQL(t, "190005"), migrationSQL(t, "190002"), migrationSQL(t, "440000"),
 		migrationSQL(t, "150002"), migrationSQL(t, "150003"), migrationSQL(t, "190004"), migrationSQL(t, "190003"),
 		`INSERT INTO recovery.recovery_control(epoch,region,revision,checkpoint_sha256) VALUES(1,'fixture-loopback',1,repeat('a',64))`,
 	}
@@ -341,6 +341,14 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	}
 	_ = tx.Rollback(ctx)
 
+	// The source owner has a separate observation for the later frozen cutoff.
+	// Keep the original endpoint strict: an earlier observation must not satisfy
+	// a request for a different window, even when the block height is unchanged.
+	reader.Evidence = newFixtureCanonicalEvidence(t, cutoff.Add(time.Second), 200, fmt.Sprintf("0x%064x", 200), map[string]CanonicalPoolEvidence{
+		poolA: {Paused: boolPointer(false), PauseEvidence: strings.Repeat("a", 64)},
+		poolB: {Paused: boolPointer(false), PauseEvidence: strings.Repeat("b", 64)},
+		poolC: {Paused: boolPointer(false), PauseEvidence: strings.Repeat("c", 64)},
+	})
 	// A later heavy run (all heavy heads) supersedes the first and commits as the next stream
 	// sequence; once committed and older than the 900 s cursor horizon the
 	// superseded snapshots are pruned while the current heads stay readable.

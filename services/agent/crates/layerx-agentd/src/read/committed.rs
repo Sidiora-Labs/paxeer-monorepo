@@ -9,6 +9,8 @@ use layerx_types::ids::Did;
 use layerx_types::verify::VerificationLevel;
 use std::collections::BTreeMap;
 
+type InventoryBinding = ([u8; 32], [u8; 32], [u8; 32]);
+
 #[derive(Clone, Debug)]
 pub struct CommittedAccount {
     pub account_id: [u8; 32],
@@ -20,12 +22,15 @@ pub struct CommittedAccount {
     pub authority_key: Option<[u8; 32]>,
 }
 impl CommittedAccount {
+    #[must_use]
     pub fn has_asset(&self) -> bool {
         self.asset.is_some()
     }
+    #[must_use]
     pub fn asset_id(&self) -> [u8; 32] {
         self.asset.map_or([0; 32], |asset| asset.asset_id)
     }
+    #[must_use]
     pub fn balance(&self) -> u128 {
         self.asset.map_or(0, |asset| asset.balance)
     }
@@ -102,7 +107,10 @@ pub struct CommittedBudgetFunding {
 
 impl CommittedBudgetFunding {
     /// Checks the native budget view's funded amount against the independent
-    /// ledger balance. Authentication of both reads belongs to CommittedReads.
+    /// ledger balance. Authentication of both reads belongs to `CommittedReads`.
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn verify_values(
         record: &crate::budget::ProtocolBudgetRecord,
         balance: u128,
@@ -122,12 +130,15 @@ impl CommittedBudgetFunding {
             remaining,
         })
     }
+    #[must_use]
     pub const fn allowance(&self) -> u128 {
         self.allowance
     }
+    #[must_use]
     pub const fn funded_balance(&self) -> u128 {
         self.balance
     }
+    #[must_use]
     pub const fn remaining(&self) -> u128 {
         self.remaining
     }
@@ -203,27 +214,41 @@ impl CommittedGrant {
 }
 
 impl CommittedCaps {
+    #[must_use]
     pub const fn did(&self) -> [u8; 32] {
         self.did
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.checkpoint.app_hash
     }
+    #[must_use]
     pub const fn observed_height(&self) -> u64 {
         self.checkpoint.height
     }
+    #[must_use]
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub const fn level(&self) -> VerificationLevel {
         VerificationLevel::COMMITTED
     }
+    #[must_use]
     pub const fn freshness(&self) -> Freshness {
         checkpoint_freshness(&self.checkpoint)
     }
+    #[must_use]
     pub fn all_accounts(&self) -> &BTreeMap<[u8; 32], CommittedAccount> {
         &self.accounts
     }
+    #[must_use]
     pub fn budgets(&self) -> &[crate::budget::ProtocolBudgetRecord] {
         &self.budgets
     }
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn budget_funding(
         &self,
         id: &[u8; 32],
@@ -234,6 +259,9 @@ impl CommittedCaps {
     }
 
     /// Selects only funded spending power at the inventory's held checkpoint.
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn budget_source(
         &self,
         id: &[u8; 32],
@@ -269,15 +297,22 @@ impl CommittedCaps {
         }
         Ok(funding)
     }
+    #[must_use]
     pub fn grants(&self) -> &[CommittedGrant] {
         &self.grants
     }
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn effective_asset(&self, asset: [u8; 32]) -> Result<CommittedAsset, CommittedReadError> {
         self.assets
             .get(&asset)
             .cloned()
             .ok_or(CommittedReadError::Selector)
     }
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn issuance(&self, asset: [u8; 32]) -> Result<CommittedIssuance, CommittedReadError> {
         let value = self.effective_asset(asset)?;
         let metadata = value.metadata();
@@ -304,9 +339,11 @@ pub struct CommittedIssuance {
     headroom: u128,
 }
 impl CommittedIssuance {
+    #[must_use]
     pub const fn account(&self) -> [u8; 32] {
         self.account
     }
+    #[must_use]
     pub const fn headroom(&self) -> u128 {
         self.headroom
     }
@@ -318,21 +355,31 @@ pub struct CommittedAsset {
     call: CommittedCall,
 }
 impl CommittedAsset {
+    #[must_use]
     pub fn metadata(&self) -> &layerx_client::rpc::payments::AssetMetadata {
         &self.metadata
     }
+    #[must_use]
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub const fn registered(&self) -> bool {
         true
     }
+    #[must_use]
     pub const fn paused(&self) -> bool {
         self.metadata.paused
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.call.state_root()
     }
+    #[must_use]
     pub const fn level(&self) -> VerificationLevel {
         self.call.level()
     }
+    #[must_use]
     pub const fn freshness(&self) -> Freshness {
         self.call.freshness()
     }
@@ -405,7 +452,7 @@ fn dynamic(
     }
     bytes
         .get(start..end)
-        .map(|value| value.to_vec())
+        .map(<[u8]>::to_vec)
         .ok_or(CommittedReadError::Selector)
 }
 
@@ -419,6 +466,7 @@ pub enum CommittedReadError {
 }
 
 impl CommittedReadError {
+    #[must_use]
     pub const fn code(&self) -> &'static str {
         match self {
             Self::CommittedChanged => "read.committed_changed",
@@ -448,30 +496,43 @@ pub struct CommittedCall {
 }
 
 impl CommittedCall {
+    #[must_use]
     pub fn precompile(&self) -> [u8; 20] {
         self.precompile
     }
+    #[must_use]
     pub fn calldata(&self) -> &[u8] {
         &self.calldata
     }
+    #[must_use]
     pub fn canonical_bytes(&self) -> &[u8] {
         &self.canonical_bytes
     }
+    #[must_use]
     pub fn repeated(&self) -> &[u8] {
         &self.repeated
     }
+    #[must_use]
     pub fn checkpoint(&self) -> &ServedCheckpoint {
         &self.checkpoint
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.checkpoint.app_hash
     }
+    #[must_use]
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub const fn level(&self) -> VerificationLevel {
         VerificationLevel::COMMITTED
     }
+    #[must_use]
     pub const fn achieved(&self) -> VerificationLevel {
         self.level()
     }
+    #[must_use]
     pub const fn freshness(&self) -> Freshness {
         Freshness {
             global_sequence: self.checkpoint.height,
@@ -483,6 +544,9 @@ impl CommittedCall {
 }
 
 impl<'a> CommittedReads<'a> {
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn effective_asset(&self, asset: [u8; 32]) -> Result<CommittedAsset, CommittedReadError> {
         let call = self.call(precompile(0x1a), &calldata(b"getAsset(bytes32)", &asset))?;
         let bytes = call.canonical_bytes();
@@ -492,12 +556,14 @@ impl<'a> CommittedReads<'a> {
             symbol: dynamic(bytes, 1, 12, 16)?,
             name: String::from_utf8(dynamic(bytes, 2, 12, 32)?)
                 .map_err(|_| CommittedReadError::Selector)?,
-            decimals: uint(bytes, 3, 1)? as u8,
+            decimals: u8::try_from(uint(bytes, 3, 1)?).map_err(|_| CommittedReadError::Selector)?,
             supply_cap: uint(bytes, 4, 16)?,
             issuer_did: word(bytes, 5)?,
             salt: word(bytes, 6)?,
-            issuer_kind: uint(bytes, 7, 1)? as u8,
-            custody_kind: uint(bytes, 8, 1)? as u8,
+            issuer_kind: u8::try_from(uint(bytes, 7, 1)?)
+                .map_err(|_| CommittedReadError::Selector)?,
+            custody_kind: u8::try_from(uint(bytes, 8, 1)?)
+                .map_err(|_| CommittedReadError::Selector)?,
             custody_reference: dynamic(bytes, 9, 12, 128)?,
             paused: paused == 1,
             total_units: uint(bytes, 11, 16)?,
@@ -515,6 +581,9 @@ impl<'a> CommittedReads<'a> {
         Ok(CommittedAsset { metadata, call })
     }
 
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn inventory(
         &self,
         did: &Did,
@@ -522,41 +591,7 @@ impl<'a> CommittedReads<'a> {
         fee_asset: [u8; 32],
     ) -> Result<CommittedCaps, CommittedReadError> {
         let text = std::str::from_utf8(did.as_bytes()).map_err(|_| CommittedReadError::Selector)?;
-        let public = text
-            .strip_prefix("did:layerx:")
-            .ok_or(CommittedReadError::Selector)?;
-        if public.len() != 64
-            || !public
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        {
-            return Err(CommittedReadError::Selector);
-        }
-        let public: [u8; 32] = hex::decode(public)
-            .map_err(|_| CommittedReadError::Selector)?
-            .try_into()
-            .map_err(|_| CommittedReadError::Selector)?;
-        let owner = layerx_wire::hash::did_id_for_protocol(did, 3)
-            .map_err(|_| CommittedReadError::Selector)?;
-        let addr = layerx_client::sequencer::ADDR_PRECOMPILE;
-        let address = self.call(addr, &calldata(b"getEvmAddrByLayerX(bytes32)", &public))?;
-        let address = word(address.canonical_bytes(), 0)?;
-        if address[..12] != [0; 12] || address[12..] == [0; 20] {
-            return Err(CommittedReadError::Selector);
-        }
-        let unified = self.call(addr, &calldata(b"getUnifiedAccount(address)", &address))?;
-        if word(unified.canonical_bytes(), 0)? != address
-            || word(unified.canonical_bytes(), 2)? != public
-        {
-            return Err(CommittedReadError::Selector);
-        }
-        let main = word(unified.canonical_bytes(), 3)?;
-        let binding = self.call(addr, &calldata(b"getLayerXDid(address)", &address))?;
-        if word(binding.canonical_bytes(), 0)? != public
-            || dynamic(binding.canonical_bytes(), 1, 2, 512)? != did.as_bytes()
-        {
-            return Err(CommittedReadError::Selector);
-        }
+        let (public, owner, main) = self.inventory_binding(did, text)?;
         let mut inventory = CommittedCaps {
             did: owner,
             checkpoint: self.checkpoint.clone(),
@@ -568,32 +603,32 @@ impl<'a> CommittedReads<'a> {
         };
         let selected: std::collections::BTreeSet<_> =
             assets.iter().copied().chain([fee_asset]).collect();
-        if selected.len() > 4096 || selected.contains(&[0; 32]) {
-            return Err(CommittedReadError::Selector);
-        }
+        crate::reject_if(selected.len() > 4096 || selected.contains(&[0; 32]), || {
+            CommittedReadError::Selector
+        })?;
         for asset in selected {
             let metadata = self.effective_asset(asset)?;
             let account = layerx_types::account::AccountId::for_asset(text, asset, fee_asset)
                 .map_err(|_| CommittedReadError::Selector)?;
             let account_id = layerx_wire::hash::account_id_for_protocol(&account, 3)
                 .map_err(|_| CommittedReadError::Selector)?;
-            if asset == fee_asset && account_id != main {
-                return Err(CommittedReadError::Selector);
-            }
+            crate::reject_if(asset == fee_asset && account_id != main, || {
+                CommittedReadError::Selector
+            })?;
             let returned = self.call(
                 precompile(0x1a),
                 &calldata(b"accountId(bytes32,bytes32)", &[owner, asset].concat()),
             )?;
-            if returned.canonical_bytes() != account_id {
-                return Err(CommittedReadError::Selector);
-            }
+            crate::reject_if(returned.canonical_bytes() != account_id, || {
+                CommittedReadError::Selector
+            })?;
             let returned = self.call(
                 precompile(0x1a),
                 &calldata(b"accountOwner(bytes32)", &account_id),
             )?;
-            if returned.canonical_bytes() != owner {
-                return Err(CommittedReadError::Selector);
-            }
+            crate::reject_if(returned.canonical_bytes() != owner, || {
+                CommittedReadError::Selector
+            })?;
             let balance = self.call(
                 precompile(0x1a),
                 &calldata(b"balanceOf(bytes32,bytes32)", &[account_id, asset].concat()),
@@ -615,7 +650,8 @@ impl<'a> CommittedReads<'a> {
                         asset_id: asset,
                         balance: uint(balance.canonical_bytes(), 0, 16)?,
                     }),
-                    next_sequence: uint(sequence.canonical_bytes(), 0, 8)? as u64,
+                    next_sequence: u64::try_from(uint(sequence.canonical_bytes(), 0, 8)?)
+                        .map_err(|_| CommittedReadError::Selector)?,
                     frozen: metadata.paused(),
                     authority_key: Some(public),
                 },
@@ -624,7 +660,53 @@ impl<'a> CommittedReads<'a> {
         }
         Ok(inventory)
     }
+    fn inventory_binding(
+        &self,
+        did: &Did,
+        text: &str,
+    ) -> Result<InventoryBinding, CommittedReadError> {
+        let public = text
+            .strip_prefix("did:layerx:")
+            .ok_or(CommittedReadError::Selector)?;
+        crate::reject_if(
+            public.len() != 64
+                || !public
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+            || CommittedReadError::Selector,
+        )?;
+        let public: [u8; 32] = hex::decode(public)
+            .map_err(|_| CommittedReadError::Selector)?
+            .try_into()
+            .map_err(|_| CommittedReadError::Selector)?;
+        let owner = layerx_wire::hash::did_id_for_protocol(did, 3)
+            .map_err(|_| CommittedReadError::Selector)?;
+        let addr = layerx_client::sequencer::ADDR_PRECOMPILE;
+        let address = self.call(addr, &calldata(b"getEvmAddrByLayerX(bytes32)", &public))?;
+        let address = word(address.canonical_bytes(), 0)?;
+        crate::reject_if(address[..12] != [0; 12] || address[12..] == [0; 20], || {
+            CommittedReadError::Selector
+        })?;
+        let unified = self.call(addr, &calldata(b"getUnifiedAccount(address)", &address))?;
+        crate::reject_if(
+            word(unified.canonical_bytes(), 0)? != address
+                || word(unified.canonical_bytes(), 2)? != public,
+            || CommittedReadError::Selector,
+        )?;
+        let main = word(unified.canonical_bytes(), 3)?;
+        let binding = self.call(addr, &calldata(b"getLayerXDid(address)", &address))?;
+        crate::reject_if(
+            word(binding.canonical_bytes(), 0)? != public
+                || dynamic(binding.canonical_bytes(), 1, 2, 512)? != did.as_bytes(),
+            || CommittedReadError::Selector,
+        )?;
 
+        Ok((public, owner, main))
+    }
+
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn inventory_records(
         &self,
         inventory: &mut CommittedCaps,
@@ -694,6 +776,9 @@ impl<'a> CommittedReads<'a> {
 
     /// Reads both authority views at the held checkpoint and binds the canonical
     /// grant's identity, scope and revocation record before admitting it.
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn grant(
         &self,
         id: [u8; 32],
@@ -718,24 +803,33 @@ impl<'a> CommittedReads<'a> {
             id,
             encoding,
             revoked: revoked == 1,
-            revoked_at: uint(bytes, 2, 8)? as u64,
-            module_mask: uint(scope, 0, 8)? as u64,
-            ordinal_min: uint(scope, 1, 2)? as u16,
-            ordinal_max: uint(scope, 2, 2)? as u16,
+            revoked_at: u64::try_from(uint(bytes, 2, 8)?)
+                .map_err(|_| CommittedReadError::Selector)?,
+            module_mask: u64::try_from(uint(scope, 0, 8)?)
+                .map_err(|_| CommittedReadError::Selector)?,
+            ordinal_min: u16::try_from(uint(scope, 1, 2)?)
+                .map_err(|_| CommittedReadError::Selector)?,
+            ordinal_max: u16::try_from(uint(scope, 2, 2)?)
+                .map_err(|_| CommittedReadError::Selector)?,
             asset: word(scope, 3)?,
             maximum_per_activity: uint(scope, 4, 16)?,
             maximum_total: uint(scope, 5, 16)?,
             spent_total: uint(scope, 6, 16)?,
-            period_length: uint(scope, 7, 8)? as u64,
+            period_length: u64::try_from(uint(scope, 7, 8)?)
+                .map_err(|_| CommittedReadError::Selector)?,
             maximum_per_period: uint(scope, 8, 16)?,
             spent_this_period: uint(scope, 9, 16)?,
-            period_start: uint(scope, 10, 8)? as u64,
+            period_start: u64::try_from(uint(scope, 10, 8)?)
+                .map_err(|_| CommittedReadError::Selector)?,
             purpose: word(scope, 11)?,
         };
         grant.verify_encoding(owner)?;
         Ok(grant)
     }
 
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn program_accounts(
         &self,
         inventory: &mut CommittedCaps,
@@ -768,7 +862,8 @@ impl<'a> CommittedReads<'a> {
                     asset_id: value.asset,
                     balance: value.balance,
                 }),
-                next_sequence: uint(sequence.canonical_bytes(), 0, 8)? as u64,
+                next_sequence: u64::try_from(uint(sequence.canonical_bytes(), 0, 8)?)
+                    .map_err(|_| CommittedReadError::Selector)?,
                 frozen: value.frozen,
                 authority_key: None,
             };
@@ -780,6 +875,9 @@ impl<'a> CommittedReads<'a> {
     }
     /// Resumes from the saved checkpoint, reacquiring its consensus material
     /// and state root from the node before any committed read is served.
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn resume(
         endpoint: &'a SequencerEndpoint,
         checkpoint: &ServedCheckpoint,
@@ -792,6 +890,9 @@ impl<'a> CommittedReads<'a> {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn open(endpoint: &'a SequencerEndpoint, height: u64) -> Result<Self, CommittedReadError> {
         let chain_id = endpoint
             .chain_id()
@@ -816,6 +917,9 @@ impl<'a> CommittedReads<'a> {
     }
 
     /// Reuses the checkpoint already held by the operation instead of selecting another head.
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn at_checkpoint(
         endpoint: &'a SequencerEndpoint,
         checkpoint: &ServedCheckpoint,
@@ -837,10 +941,14 @@ impl<'a> CommittedReads<'a> {
         })
     }
 
+    #[must_use]
     pub fn checkpoint(&self) -> &ServedCheckpoint {
         &self.checkpoint
     }
 
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn capabilities(
         &self,
         precompile: [u8; 20],
@@ -849,6 +957,9 @@ impl<'a> CommittedReads<'a> {
         self.call(precompile, calldata)
     }
 
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn budget_state(
         &self,
         precompile: [u8; 20],
@@ -857,6 +968,9 @@ impl<'a> CommittedReads<'a> {
         self.call(precompile, calldata)
     }
 
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn program_exists(&self, program: [u8; 32]) -> Result<bool, CommittedReadError> {
         let data = calldata(b"getProgram(bytes32)", &program);
         let first = self
@@ -929,6 +1043,9 @@ impl<'a> CommittedReads<'a> {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the requested committed selector, checkpoint or returned state is
+    /// invalid, changes during acquisition, or cannot be read.
     pub fn storage(
         &self,
         address: [u8; 20],
@@ -1299,9 +1416,10 @@ pub(crate) mod tests {
         crate::store::TenantId,
         CommittedCall,
     ) {
+        use std::os::unix::fs::DirBuilderExt;
+
         let mut nonce = [0; 16];
         getrandom::fill(&mut nonce).expect("temporary directory nonce");
-        use std::os::unix::fs::DirBuilderExt;
         let root = std::fs::canonicalize(std::env::temp_dir())
             .expect("canonical temporary directory")
             .join(format!(
@@ -1486,6 +1604,8 @@ pub(crate) mod tests {
 
     #[test]
     fn program_sources_select_the_chain_bound_principal_inventory() {
+        use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind, GrantScope};
+
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let public = [4; 32];
         let did = Did::new(format!("did:layerx:{}", hex::encode(&public)).as_bytes()).expect("DID");
@@ -1528,7 +1648,6 @@ pub(crate) mod tests {
         stable_call(&mut answers, &checkpoint, &budget);
         stable_call(&mut answers, &checkpoint, &integer(75));
         stable_call(&mut answers, &checkpoint, &integer(75));
-        use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind, GrantScope};
         let canonical = AuthorityGrant {
             grantor: owner,
             grantee: owner,
