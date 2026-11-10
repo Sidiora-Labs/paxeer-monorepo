@@ -39986,3 +39986,11 @@ symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
 observed = "Attempt 16 at 87aa7bc4b07b on base a37d2e22f205: the build exits 0 and the verification exits 1 in make -C services/launchpad ci; the indexer module fails in internal/config, internal/decode and internal/receipt with receipt qualification rejected, first at repair_m999_test.go:431; log /out/logs/verify-1.log."
 assumption = "The production comparison of the roles is outside the paths of the task and treats the staged pair as identity."
 severity = "high"
+
+[finding.22.38.17.2]
+task = "22.38.17"
+file = "services/agent/crates/layerx-agentd/tests/inference_deals.rs"
+symbol = "inference_deals.rs"
+observed = "Attempt 2 at 02a1d2a11c73 on base 167ce2a7f0cf: build 3 exits 0 at 02a1d2a11c73 (log /out/logs/build-3.log); the only verification ran at fcdbd6049e5d and exits 1 with 0 passed and 6 failed, each case stopped at tests/inference_deals.rs:1327 with application error 2061; log /out/logs/verify-1.log."
+assumption = "The final tree was built after the last allowed verification and has not been verified."
+severity = "high"
