@@ -184870,7 +184870,7 @@ do_3 = "Attempt 2 (requalify after 22.39.348 lands, gotcha 4143, decision 3219):
 
 [task.22.39.346]
 title = "List each announced browser wallet once in the wallet application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224968,7 +224968,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.357]
 title = "Serve every candle of a development candle page with the snapshot identifier of the page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.314"]
@@ -284088,7 +284088,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.354]
 title = "Load the test certificate of the .NET platform SDK with the loader of the target framework"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
