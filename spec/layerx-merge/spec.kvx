@@ -163679,7 +163679,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.25]
 title = "Present a chain identity in the peer hello and enrol through the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.24", "22.38.15"]
