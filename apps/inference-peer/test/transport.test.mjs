@@ -1,135 +1,31 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { EventEmitter, once } from "node:events";
-import { createServer } from "node:http";
+import { createPublicKey, verify } from "node:crypto";
 import test from "node:test";
 import { PeerMesh, SignalClient } from "../src/transport.mjs";
-import { decodeFrame, encodeFrame, MAX_FRAME_BYTES } from "../src/wire.mjs";
+import {
+  MAX_SIGNAL_FRAME_BYTES,
+  signalBytes,
+  signalHex,
+} from "../src/signal.mjs";
+import {
+  fixedIdentity,
+  fixtures,
+  manifest,
+  roomId,
+  RoomHost,
+  vector,
+} from "./host-signal.mjs";
 
-const roomId = "room-1";
-const hello = {
-  peerKey: "peer-a",
-  signature: "signed-room-and-nonce",
-  nonce: "nonce-1",
-  manifest: { version: 2, runtimeKind: "browser", acceleratorMemory: 1024 },
-};
-
-// A real loopback HTTP upgrade and RFC 6455 binary exchange. This stand-in
-// exercises the platform WebSocket client without implementing chain admission.
-class RoomHost extends EventEmitter {
-  server = createServer();
-  connections = new Set();
-
-  async listen(t, handler) {
-    this.server.on("upgrade", (request, socket, head) => {
-      const accept = createHash("sha1")
-        .update(
-          request.headers["sec-websocket-key"] +
-            "258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
-        )
-        .digest("base64");
-      socket.write(
-        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " +
-          accept +
-          "\r\n\r\n",
-      );
-      this.connections.add(socket);
-      socket.on("error", () => {});
-      socket.on("close", () => this.connections.delete(socket));
-      let buffer = Buffer.from(head);
-      const connection = {
-        socket,
-        frames: [],
-        sequence: 0,
-        send: (kind, payload, overrides = {}) => {
-          const frame = {
-            kind,
-            roomId,
-            sequence: connection.sequence++,
-            payload,
-            ...overrides,
-          };
-          this.sendBytes(socket, encodeFrame(frame));
-          return frame;
-        },
-      };
-      const consume = () => {
-        while (buffer.length >= 2) {
-          const opcode = buffer[0] & 15;
-          assert.equal(
-            buffer[0] & 128,
-            128,
-            "stand-in expects complete WebSocket messages",
-          );
-          assert.equal(buffer[1] & 128, 128, "client messages must be masked");
-          let length = buffer[1] & 127;
-          let offset = 2;
-          if (length === 126) {
-            if (buffer.length < 4) return;
-            length = buffer.readUInt16BE(2);
-            offset = 4;
-          } else if (length === 127) {
-            if (buffer.length < 10) return;
-            length = Number(buffer.readBigUInt64BE(2));
-            offset = 10;
-          }
-          assert.ok(length <= MAX_FRAME_BYTES);
-          if (buffer.length < offset + 4 + length) return;
-          const mask = buffer.subarray(offset, offset + 4);
-          offset += 4;
-          const body = Buffer.from(buffer.subarray(offset, offset + length));
-          for (let i = 0; i < length; i++) body[i] ^= mask[i % 4];
-          buffer = buffer.subarray(offset + length);
-          if (opcode === 8) {
-            socket.end(Buffer.from([0x88, 0]));
-            return;
-          }
-          assert.equal(opcode, 2, "room frames use binary WebSocket messages");
-          const frame = decodeFrame(body);
-          connection.frames.push(frame);
-          handler(connection, frame);
-          this.emit("frame", connection, frame);
-        }
-      };
-      socket.on("data", (data) => {
-        buffer = Buffer.concat([buffer, data]);
-        consume();
-      });
-      consume();
-    });
-    this.server.listen(0, "127.0.0.1");
-    await once(this.server, "listening");
-    t.after(async () => {
-      for (const socket of this.connections) socket.destroy();
-      await new Promise((resolve) => this.server.close(resolve));
-    });
-    return `ws://127.0.0.1:${this.server.address().port}/room`;
-  }
-
-  sendBytes(socket, bytes) {
-    let header;
-    if (bytes.length < 126) header = Buffer.from([0x82, bytes.length]);
-    else if (bytes.length <= 65535) {
-      header = Buffer.alloc(4);
-      header[0] = 0x82;
-      header[1] = 126;
-      header.writeUInt16BE(bytes.length, 2);
-    } else {
-      header = Buffer.alloc(10);
-      header[0] = 0x82;
-      header[1] = 127;
-      header.writeBigUInt64BE(BigInt(bytes.length), 2);
-    }
-    socket.write(Buffer.concat([header, bytes]));
-  }
-}
-
-function client(t, url, options = {}) {
-  const signal = new SignalClient(url, { roomId, hello, ...options });
+async function client(t, url, options = {}) {
+  const signal = new SignalClient(url, {
+    roomId,
+    identity: await fixedIdentity(),
+    manifest,
+    ...options,
+  });
   t.after(() => signal.close());
   return signal;
 }
-
 function eventDetail(target, name) {
   return new Promise((resolve) =>
     target.addEventListener(name, ({ detail }) => resolve(detail), {
@@ -137,179 +33,235 @@ function eventDetail(target, name) {
     }),
   );
 }
-
 async function helloThenOfferThenDealAckInOrder(t) {
-  const host = new RoomHost();
-  const observed = [];
-  const offerPayload = {
-    modelDigest: "model-digest",
-    runtimeDigest: "runtime-digest",
-    layerPlan: [0, 12],
-    price: "10",
-  };
+  const host = new RoomHost(),
+    observed = [];
   const acknowledged = new Promise((resolve) =>
     host.on("frame", (connection, frame) => {
-      if (frame.kind === "deal-ack") resolve({ connection, frame });
+      if (frame.type === "deal_ack") resolve(frame);
     }),
   );
   const url = await host.listen(t, (connection, frame) => {
-    observed.push(frame.kind);
-    if (frame.kind === "hello") {
-      assert.deepEqual(frame.payload, hello);
-      assert.equal(frame.roomId, roomId);
-      assert.equal(frame.sequence, 0);
-      connection.send("offer", offerPayload);
+    observed.push(frame.type);
+    if (frame.type === "hello") {
+      assert.deepEqual(frame, vector("hello"));
+      connection.send(vector("offer"));
       observed.push("offer");
-      connection.send("deal", {
-        dealId: "deal-1",
-        peers: [hello.peerKey, "peer-b"],
+      connection.send(vector("deal"));
+    } else if (frame.type === "deal_ack") {
+      assert.deepEqual(frame, vector("deal_ack"));
+      const key = createPublicKey({
+        key: Buffer.concat([
+          Buffer.from("302a300506032b6570032100", "hex"),
+          Buffer.from(fixtures.key.peer_key_hex, "hex"),
+        ]),
+        format: "der",
+        type: "spki",
       });
+      assert.ok(
+        verify(
+          null,
+          Buffer.concat([
+            Buffer.from("PAXAI/inference-deal-ack/v1\0"),
+            Buffer.from(frame.digest),
+          ]),
+          key,
+          Buffer.from(frame.signature),
+        ),
+      );
+      connection.send(vector("deal_live"));
     }
   });
-  const signal = client(t, url);
-  assert.throws(() => signal.acknowledgeDeal("deal-1"), /No matching deal/);
-  const received = [];
-  signal.addEventListener("frame", ({ detail: frame }) => {
-    received.push(frame.kind);
-    if (frame.kind === "deal") {
-      assert.throws(
-        () => signal.acknowledgeDeal("wrong-deal"),
-        /No matching deal/,
-      );
-      signal.acknowledgeDeal(frame.payload.dealId);
-    }
+  const signal = await client(t, url);
+  assert.throws(
+    () => signal.acknowledgeDeal(vector("deal_ack")),
+    /No matching deal/,
+  );
+  const received = [],
+    ready = eventDetail(signal, "frame");
+  const live = new Promise((resolve, reject) => {
+    signal.addEventListener("error", ({ detail }) => reject(detail));
+    signal.addEventListener("frame", ({ detail: frame }) => {
+      received.push(frame.type);
+      if (frame.type === "deal") {
+        assert.throws(
+          () =>
+            signal.acknowledgeDeal({
+              ...vector("deal_ack"),
+              deal_id: Array(32).fill(99),
+            }),
+          /No matching deal/,
+        );
+        assert.throws(
+          () =>
+            signal.acknowledgeDeal({
+              ...vector("deal_ack"),
+              digest: Array(32).fill(99),
+            }),
+          /digest differs/,
+        );
+        signal.acknowledgeDeal(vector("deal_ack"));
+        assert.equal(signal.state, "acknowledged");
+      }
+      if (frame.type === "deal_live") resolve();
+    });
   });
   const offer = await signal.connect();
-  assert.deepEqual(offer.payload, offerPayload);
-  const { frame } = await acknowledged;
-  assert.deepEqual(observed, ["hello", "offer", "deal-ack"]);
-  assert.deepEqual(received, ["offer", "deal"]);
-  assert.deepEqual(frame.payload, { dealId: "deal-1" });
-  assert.equal(frame.sequence, 1);
+  await ready;
+  assert.deepEqual(offer.offer, vector("offer").offer);
+  const frame = await acknowledged;
+  await live;
+  assert.deepEqual(observed, ["hello", "offer", "deal_ack"]);
+  assert.deepEqual(received, ["offer", "deal", "deal_live"]);
+  assert.deepEqual(frame, vector("deal_ack"));
   assert.equal(signal.state, "ready");
-  assert.throws(() => signal.acknowledgeDeal("deal-1"), /No matching deal/);
+  assert.throws(() => signal.acknowledgeDeal(frame), /No matching deal/);
   await assert.rejects(signal.connect(), /already started/);
 }
-
 async function descriptionsAndCandidatesRelayToNamedPeer(t) {
-  const host = new RoomHost();
-  const peers = new Map();
-  const routed = [];
+  const host = new RoomHost(),
+    peers = new Map(),
+    routed = [];
   const url = await host.listen(t, (connection, frame) => {
-    if (frame.kind === "hello") {
-      peers.set(frame.payload.peerKey, connection);
-      connection.key = frame.payload.peerKey;
-      connection.send("offer", { roomId });
+    if (frame.type === "hello") {
+      connection.key = frame.peer_key;
+      peers.set(signalHex(frame.peer_key), connection);
+      connection.send(vector("offer"));
     } else {
-      assert.equal(frame.kind, "offer");
-      const { to, relay } = frame.payload;
+      assert.ok(["description", "candidate"].includes(frame.type));
+      const to = signalHex(frame.to);
       routed.push(to);
-      peers.get(to).send("offer", { from: connection.key, to, relay });
+      peers
+        .get(to)
+        .send({
+          type: frame.type,
+          from: connection.key,
+          [frame.type]: frame[frame.type],
+        });
     }
   });
-  const a = client(t, url);
-  const b = client(t, url, { hello: { ...hello, peerKey: "peer-b" } });
+  const identity = await fixedIdentity();
+  const pair = await crypto.subtle.generateKey("Ed25519", false, [
+    "sign",
+    "verify",
+  ]);
+  const { PeerIdentity } = await import("../src/identity.mjs");
+  const second = new PeerIdentity(
+    pair.privateKey,
+    Buffer.from(await crypto.subtle.exportKey("raw", pair.publicKey)).toString(
+      "hex",
+    ),
+  );
+  const a = await client(t, url, { identity }),
+    b = await client(t, url, { identity: second });
   await Promise.all([a.connect(), b.connect()]);
-  assert.throws(() => a.relay("peer-b", {}), /one description or candidate/);
+  assert.throws(
+    () => a.relay(second.peerKey, {}),
+    /one description or candidate/,
+  );
   let unexpected = 0;
   a.addEventListener("frame", () => unexpected++);
-  const description = {
-    description: { type: "offer", sdp: "v=0\r\ns=room\r\n" },
-  };
+  const description = vector("description_to").description;
   const incomingDescription = eventDetail(b, "frame");
-  a.relay("peer-b", description);
-  assert.deepEqual((await incomingDescription).payload, {
-    from: hello.peerKey,
-    to: "peer-b",
-    relay: description,
+  a.relay(second.peerKey, { description });
+  assert.deepEqual(await incomingDescription, {
+    type: "description",
+    from: signalBytes(identity.peerKey),
+    description,
   });
   const candidate = {
-    candidate: {
-      candidate: "candidate:1 1 UDP 1 127.0.0.1 1234 typ host",
-      sdpMid: "0",
-    },
+    candidate: vector("candidate_to").candidate.candidate,
+    sdpMid: "0",
+    sdpMLineIndex: 0,
   };
   const incomingCandidate = eventDetail(b, "frame");
-  a.relay("peer-b", candidate);
-  assert.deepEqual((await incomingCandidate).payload.relay, candidate);
-  assert.deepEqual(routed, ["peer-b", "peer-b"]);
+  a.relay(second.peerKey, { candidate });
+  assert.deepEqual(
+    (await incomingCandidate).candidate,
+    vector("candidate_from").candidate,
+  );
+  assert.deepEqual(routed, [second.peerKey, second.peerKey]);
   assert.equal(unexpected, 0);
 }
-
 async function invalidSignallingFramesCloseTheClient(t) {
   const cases = [
     [
       "deal before offer",
-      (host, connection) => connection.send("deal", { dealId: "d" }),
+      (host, connection) => connection.send(vector("deal")),
       /Expected room offer/,
     ],
     [
       "wrong room",
-      (host, connection) => connection.send("offer", {}, { roomId: "other" }),
+      (host, connection) =>
+        connection.send({
+          type: "offer",
+          offer: { ...vector("offer").offer, room_id: Array(32).fill(99) },
+        }),
       /Wrong signalling room/,
     ],
     [
-      "unknown kind",
-      (host, connection) => {
-        const bytes = encodeFrame({
-          kind: "offer",
-          roomId,
-          sequence: 0,
-          payload: {},
-        });
-        bytes[1] = 255;
-        host.sendBytes(connection.socket, bytes);
-      },
-      /Unknown frame kind/,
+      "unknown type",
+      (host, connection) =>
+        host.sendText(connection.socket, '{"type":"future"}'),
+      /Unknown signalling type/,
     ],
     [
       "oversize",
       (host, connection) =>
-        host.sendBytes(connection.socket, new Uint8Array(MAX_FRAME_BYTES + 1)),
+        host.sendText(
+          connection.socket,
+          " ".repeat(MAX_SIGNAL_FRAME_BYTES + 1),
+        ),
       /exceeds 65536/,
     ],
+    [
+      "error code",
+      (host, connection) => connection.send(vector("error")),
+      /degraded/,
+    ],
+    [
+      "binary",
+      (host, connection) =>
+        host.sendText(connection.socket, JSON.stringify(vector("offer")), 2),
+      /binary frame refused/,
+    ],
   ];
-  for (const [name, respond, pattern] of cases) {
+  for (const [name, respond, pattern] of cases)
     await t.test(name, async (t) => {
       const host = new RoomHost();
       const url = await host.listen(t, (connection) =>
         respond(host, connection),
       );
-      const signal = client(t, url);
-      const errorEvent = eventDetail(signal, "error");
+      const signal = await client(t, url),
+        errorEvent = eventDetail(signal, "error");
       await assert.rejects(signal.connect(), pattern);
       assert.match((await errorEvent).message, pattern);
       assert.equal(signal.state, "closed");
     });
-  }
 }
-
-async function replayedSequenceAndDuplicateOfferRefuse(t) {
-  for (const duplicate of [false, true]) {
+async function replayedChallengeAndDuplicateOfferRefuse(t) {
+  for (const duplicate of [false, true])
     await t.test(
-      duplicate ? "duplicate offer" : "replayed sequence",
+      duplicate ? "duplicate offer" : "replayed challenge",
       async (t) => {
         const host = new RoomHost();
         const url = await host.listen(t, (connection) => {
-          connection.send("offer", {});
-          if (duplicate) connection.send("offer", {});
-          else connection.send("deal", { dealId: "d" }, { sequence: 0 });
+          connection.send(vector("offer"));
+          connection.send(vector(duplicate ? "offer" : "challenge"));
         });
-        const signal = client(t, url);
-        const error = eventDetail(signal, "error");
+        const signal = await client(t, url),
+          error = eventDetail(signal, "error");
         await signal.connect();
         assert.match(
           (await error).message,
-          duplicate ? /Duplicate room offer/ : /Replayed signalling/,
+          duplicate ? /Duplicate room offer/ : /Unexpected signalling/,
         );
         assert.equal(signal.state, "closed");
       },
     );
-  }
 }
-
 async function timeoutAndRemoteDisconnectRejectAdmission(t) {
-  for (const disconnect of [false, true]) {
+  for (const disconnect of [false, true])
     await t.test(
       disconnect ? "remote disconnect" : "offer timeout",
       async (t) => {
@@ -317,7 +269,7 @@ async function timeoutAndRemoteDisconnectRejectAdmission(t) {
         const url = await host.listen(t, (connection) => {
           if (disconnect) connection.socket.destroy();
         });
-        const signal = client(t, url, { timeoutMs: 100 });
+        const signal = await client(t, url, { timeoutMs: 100 });
         await assert.rejects(
           signal.connect(),
           disconnect ? /WebSocket closed/ : /timed out/,
@@ -325,79 +277,92 @@ async function timeoutAndRemoteDisconnectRejectAdmission(t) {
         assert.equal(signal.state, "closed");
       },
     );
-  }
 }
-
-async function outgoingOversizeRefusesBeforeSendingHello(t) {
+async function outgoingOversizeRefusesBeforeSending(t) {
   const host = new RoomHost();
   let received = 0;
-  const url = await host.listen(t, () => received++);
-  const signal = client(t, url, {
-    hello: { ...hello, signature: "s".repeat(MAX_FRAME_BYTES) },
+  const url = await host.listen(t, (connection) => {
+    received++;
+    connection.send(vector("offer"));
   });
-  await assert.rejects(signal.connect(), /exceeds 65536/);
-  assert.equal(signal.state, "closed");
-  assert.equal(received, 0);
+  const signal = await client(t, url);
+  await signal.connect();
+  assert.throws(
+    () =>
+      signal.relay("16".repeat(32), {
+        description: { type: "offer", sdp: "x".repeat(MAX_SIGNAL_FRAME_BYTES) },
+      }),
+    /exceeds 65536/,
+  );
+  assert.equal(signal.state, "offered");
+  assert.equal(received, 1);
 }
-
-async function byeClosesTheSignallingSocket(t) {
+async function errorClosesTheSignallingSocket(t) {
   const host = new RoomHost();
   const url = await host.listen(t, (connection) => {
-    connection.send("offer", {});
-    connection.send("bye", { reason: "room closed" });
+    connection.send(vector("offer"));
+    connection.send(vector("error"));
   });
-  const signal = client(t, url);
-  const closed = eventDetail(signal, "close");
+  const signal = await client(t, url),
+    closed = eventDetail(signal, "close"),
+    error = eventDetail(signal, "error");
   const observed = [];
-  signal.addEventListener("frame", ({ detail }) => observed.push(detail.kind));
+  signal.addEventListener("frame", ({ detail }) => observed.push(detail.type));
   await signal.connect();
   await closed;
-  assert.deepEqual(observed, ["offer", "bye"]);
+  assert.deepEqual(observed, ["offer"]);
+  assert.equal((await error).code, "degraded");
   assert.equal(signal.state, "closed");
   signal.close();
   assert.throws(
     () =>
-      signal.relay("peer-b", { candidate: { candidate: "c", sdpMid: "0" } }),
+      signal.relay("16".repeat(32), {
+        candidate: { candidate: "c", sdpMid: "0" },
+      }),
     /Room offer is required/,
   );
 }
-
-function chainIdentityAndRuntimeRequirementsRefuseInvalidInputs() {
-  for (const name of ["peerKey", "signature", "nonce"]) {
+async function chainIdentityAndRuntimeRequirementsRefuseInvalidInputs() {
+  const options = { roomId, identity: await fixedIdentity(), manifest };
+  for (const invalid of [
+    { identity: null },
+    { identity: { sign() {}, peerKey: "" } },
+    { roomId: "" },
+  ])
     assert.throws(
-      () =>
-        new SignalClient("ws://localhost/", {
-          roomId,
-          hello: { ...hello, [name]: "" },
-        }),
-      /required/,
+      () => new SignalClient("ws://localhost/", { ...options, ...invalid }),
+      /required|byte array/,
     );
-  }
   assert.throws(
     () =>
       new SignalClient("ws://localhost/", {
-        roomId,
-        hello: { ...hello, manifest: { version: 1 } },
+        ...options,
+        manifest: Uint8Array.from([0, 1]),
       }),
     /v2 manifest/,
   );
   assert.throws(
-    () => new SignalClient("https://localhost/", { roomId, hello }),
+    () => new SignalClient("https://localhost/", options),
     /WebSocket URL/,
   );
   assert.throws(
-    () => new SignalClient("ws://localhost/", { roomId, hello, timeoutMs: 0 }),
+    () => new SignalClient("ws://localhost/rooms/x/signal", options),
+    /request target/,
+  );
+  assert.throws(
+    () => new SignalClient("ws://localhost/", { ...options, timeoutMs: 0 }),
     /timeoutMs/,
   );
   assert.throws(
-    () =>
-      new SignalClient("ws://localhost/", { roomId, hello, WebSocket: null }),
+    () => new SignalClient("ws://localhost/", { ...options, WebSocket: null }),
     /unavailable/,
   );
-  const signal = new SignalClient("ws://localhost/", { roomId, hello });
+  const signal = new SignalClient("ws://localhost/", options);
   assert.throws(
     () =>
-      signal.relay("peer-b", { description: { type: "offer", sdp: "v=0" } }),
+      signal.relay("16".repeat(32), {
+        description: { type: "offer", sdp: "v=0" },
+      }),
     /Room offer is required/,
   );
   assert.throws(
@@ -409,8 +374,8 @@ function chainIdentityAndRuntimeRequirementsRefuseInvalidInputs() {
 test(helloThenOfferThenDealAckInOrder);
 test(descriptionsAndCandidatesRelayToNamedPeer);
 test(invalidSignallingFramesCloseTheClient);
-test(replayedSequenceAndDuplicateOfferRefuse);
+test(replayedChallengeAndDuplicateOfferRefuse);
 test(timeoutAndRemoteDisconnectRejectAdmission);
-test(outgoingOversizeRefusesBeforeSendingHello);
-test(byeClosesTheSignallingSocket);
+test(outgoingOversizeRefusesBeforeSending);
+test(errorClosesTheSignallingSocket);
 test(chainIdentityAndRuntimeRequirementsRefuseInvalidInputs);

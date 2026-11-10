@@ -79,6 +79,21 @@ func (s *Store) DevelopmentCandlePage(ctx context.Context, r AccountingPageReque
 			return nil, ErrDataIntegrity
 		}
 		page.SeriesModelVersion = doc.SeriesModelVersion
+		var item map[string]json.RawMessage
+		if err = json.Unmarshal(payload, &item); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		item["snapshotId"] = json.RawMessage(strconv.Quote(snapshot))
+		payload, err = json.Marshal(item)
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if interfaces.ValidateJSON("Candle", payload) != nil {
+			rows.Close()
+			return nil, ErrDataIntegrity
+		}
 		page.Items = append(page.Items, json.RawMessage(payload))
 		last = start
 	}
