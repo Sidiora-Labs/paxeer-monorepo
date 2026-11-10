@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// WithPxIndexerURL configures the asset enumeration authority. It is independent
-// of the hosted gateway: metadata is always read from this node's pinned state.
+// WithPxIndexerURL configures the single indexer for px_listAssets and history reads.
+// Asset metadata is read from this node's pinned state.
 func WithPxIndexerURL(endpoint string) ServerOption { return pxIndexerOption{endpoint: endpoint} }
 
 type pxIndexerOption struct {

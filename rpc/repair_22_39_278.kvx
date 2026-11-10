@@ -1,0 +1,286 @@
+[repair.22.39.278]
+acceptance = "22998.1"
+decisions = ["3101", "3104", "3125"]
+inventory_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path rpc"
+inventory_exit = 1
+finding_count = 26
+generator = "python3 rpc/generate_px_catalogue.py"
+implementation = "Regenerate the embedded public route catalogue from tools/paxeer-x/route-catalogue.json, whose committed source already removes retired program ingress and explorer kernel views and their Next data page templates; retain the generated node inference routes."
+retained_paths = "The five declared Go paths have no findings after decision 3104; preserve their live RPC names in comments and code and explicitly allow those names at their source paths under decision 3125 without changing validation."
+allowances = "Six path-specific allowed_references entries preserve px_getNetwork, px_getUnifiedHistory and px_listAssets in their owning Go files and the generated catalogue; the canonical route source remains unchanged."
+qualification = "The hf-build and hf-done rows in /out/run/gates.jsonl identify the exact candidate revision, command, exit code and private evidence log; the final response copies the last gate evidence. This record is part of that candidate, so its revision is identified by the ledger rather than a self-referential hash."
+
+[gotcha.declared_paths]
+observed = "The original inventory reports only the generated catalogue after decision 3104; the five declared Go paths preserve their live RPC identifiers and explain the retained reads, with explicit path-specific allowances rather than comment renaming."
+
+[gotcha.source_projection]
+observed = "The route source is already repaired while its generated node projection still advertises retired endpoints; regenerate with the existing script instead of editing generated JSON by hand."
+
+[finding.1]
+path = "rpc/px_route_catalogue.json"
+line = 282
+component = "programs-ingress"
+symbol = "/v1/programs/call"
+repair = "Remove the retired REST mapping by regenerating from the canonical source; program submission uses EVM transactions to the programs precompile at 0x101D."
+
+[finding.2]
+path = "rpc/px_route_catalogue.json"
+line = 285
+component = "programs-ingress"
+symbol = "/v1/programs/call"
+repair = "Remove the retired REST mapping by regenerating from the canonical source; program submission uses EVM transactions to the programs precompile at 0x101D."
+
+[finding.3]
+path = "rpc/px_route_catalogue.json"
+line = 301
+component = "programs-ingress"
+symbol = "/v1/programs/deploy"
+repair = "Remove the retired REST mapping by regenerating from the canonical source; program submission uses EVM transactions to the programs precompile at 0x101D."
+
+[finding.4]
+path = "rpc/px_route_catalogue.json"
+line = 304
+component = "programs-ingress"
+symbol = "/v1/programs/deploy"
+repair = "Remove the retired REST mapping by regenerating from the canonical source; program submission uses EVM transactions to the programs precompile at 0x101D."
+
+[finding.5]
+path = "rpc/px_route_catalogue.json"
+line = 320
+component = "programs-ingress"
+symbol = "/v1/programs/upgrade"
+repair = "Remove the retired REST mapping by regenerating from the canonical source; program submission uses EVM transactions to the programs precompile at 0x101D."
+
+[finding.6]
+path = "rpc/px_route_catalogue.json"
+line = 323
+component = "programs-ingress"
+symbol = "/v1/programs/upgrade"
+repair = "Remove the retired REST mapping by regenerating from the canonical source; program submission uses EVM transactions to the programs precompile at 0x101D."
+
+[finding.7]
+path = "rpc/px_route_catalogue.json"
+line = 339
+component = "programs-ingress"
+symbol = "/v1/programs/wind-down"
+repair = "Remove the retired REST mapping by regenerating from the canonical source; program submission uses EVM transactions to the programs precompile at 0x101D."
+
+[finding.8]
+path = "rpc/px_route_catalogue.json"
+line = 342
+component = "programs-ingress"
+symbol = "/v1/programs/wind-down"
+repair = "Remove the retired REST mapping by regenerating from the canonical source; program submission uses EVM transactions to the programs precompile at 0x101D."
+
+[finding.9]
+path = "rpc/px_route_catalogue.json"
+line = 12453
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.10]
+path = "rpc/px_route_catalogue.json"
+line = 12456
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.11]
+path = "rpc/px_route_catalogue.json"
+line = 12473
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.12]
+path = "rpc/px_route_catalogue.json"
+line = 12476
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.13]
+path = "rpc/px_route_catalogue.json"
+line = 12493
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.14]
+path = "rpc/px_route_catalogue.json"
+line = 12496
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.15]
+path = "rpc/px_route_catalogue.json"
+line = 12513
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.16]
+path = "rpc/px_route_catalogue.json"
+line = 12516
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.17]
+path = "rpc/px_route_catalogue.json"
+line = 12533
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.18]
+path = "rpc/px_route_catalogue.json"
+line = 12536
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.19]
+path = "rpc/px_route_catalogue.json"
+line = 12553
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.20]
+path = "rpc/px_route_catalogue.json"
+line = 12556
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.21]
+path = "rpc/px_route_catalogue.json"
+line = 37926
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.22]
+path = "rpc/px_route_catalogue.json"
+line = 37927
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.23]
+path = "rpc/px_route_catalogue.json"
+line = 37928
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.24]
+path = "rpc/px_route_catalogue.json"
+line = 38035
+component = "explorer-kernel-views"
+symbol = "paxeer-x/anchors"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.25]
+path = "rpc/px_route_catalogue.json"
+line = 38036
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[finding.26]
+path = "rpc/px_route_catalogue.json"
+line = 38037
+component = "explorer-kernel-views"
+symbol = "paxeer-x/receipts"
+repair = "Remove the retired explorer route or Next data page template by regenerating from the canonical source; native block, transaction and address pages remain available."
+
+[qualification.build_blocker]
+task = "22.39.278"
+file = "rpc/subscribe_test.go"
+symbol = "storedEnv"
+observed = "Revision fe10cc4e13b0061adf1e0a3b14b664ed06f530d9: go vet ./rpc/ ./rpc/config/ exited 1 at rpc/subscribe_test.go:338 because assignment copies the lock-bearing consensus Environment into storedEnv; private evidence is /out/logs/build-1.log."
+assumption = "Attempt 2 expands scope to this test and repairs the recorded copy by keeping the Environment pointer, leaving every assertion unchanged and the separately owned consensus router intact."
+severity = "blocker"
+
+[qualification.attempt_1]
+revision = "fe10cc4e13b0061adf1e0a3b14b664ed06f530d9"
+command = "go vet ./rpc/ ./rpc/config/"
+exit = 1
+log = "/out/logs/build-1.log"
+status = "implemented-not-qualified"
+verification = "Not run: hf-done requires a passing hf-build; the post-repair retired-caller scan was not run separately."
+record_update = "Only this failure record was appended after the gate; no implementation changed and no passing gate is claimed for the resulting tree."
+
+[repair.environment_pointer]
+path = "rpc/subscribe_test.go"
+line = 338
+symbol = "storedEnv"
+repair = "Keep tmClient.Environment as a pointer instead of copying its lock-bearing value; route persisted-header RPC reads through that environment while the node retains its separate consensus router, with no assertion changes."
+
+[qualification.attempt_2]
+evidence = "/out/run/gates.jsonl"
+command = "hf-build followed by hf-done"
+revision = "The candidate revision in the matching build and verify ledger rows identifies this repair record and every task-scoped change."
+policy = "Qualification is established only by the actual bounded gate exit codes and private log paths; the final response copies the final gate evidence verbatim."
+
+[allowed_reference.1]
+path = "rpc/config/config.go"
+symbols = ["px_listAssets"]
+reason = "Decisions 3104 and 3125 retain px_listAssets as a node-root RPC method, with PxIndexerURL configuring its live single-indexer asset enumeration."
+
+[allowed_reference.2]
+path = "rpc/px_account.go"
+symbols = ["px_getNetwork"]
+reason = "Decisions 3104 and 3125 retain px_getNetwork as the node-root discovery method backed by the committed EVM head and optional consensus status."
+
+[allowed_reference.3]
+path = "rpc/px_assets.go"
+symbols = ["px_listAssets"]
+reason = "Decisions 3104 and 3125 retain px_listAssets backed by the single indexer for enumeration and pinned node state for asset metadata."
+
+[allowed_reference.4]
+path = "rpc/px_history.go"
+symbols = ["px_getUnifiedHistory"]
+reason = "Decisions 3104 and 3125 retain px_getUnifiedHistory backed by the single indexer for accounts resolved from pinned node state."
+
+[allowed_reference.5]
+path = "rpc/px_params.go"
+symbols = ["px_listAssets"]
+reason = "Decisions 3104 and 3125 retain the px_listAssets parameter guard that rejects explicit null cursors before pointer decoding."
+
+[allowed_reference.6]
+path = "rpc/px_route_catalogue.json"
+symbols = ["px_getNetwork", "px_getUnifiedHistory", "px_listAssets"]
+reason = "Decisions 3104 and 3125 retain these live node-root RPC method names projected from the canonical route catalogue rather than retiring their public contracts."
+
+[qualification.attempt_2_blocker]
+task = "22.39.278"
+file = "rpc/generate_px_catalogue.py"
+symbol = "GetRouteCatalogue"
+observed = "Revision 240d12836f4ec4f31e2f0555aa5bf3a0c4e3f050: cg spec done 22.39.278 -f layerx-merge --root /work/paxeer-monorepo exited 1 because TestPxNodeRoot_Account_CommittedReadsAndParity at rpc/px_node_root_account_test.go:291 received result lacks canonical_origin; private evidence is /out/logs/verify-1.log."
+assumption = "The pre-existing generator omits canonical_origin and the out-of-scope rpc/px_discovery.go handler does not supply it; the unchanged OpenRPC schema requires that field, so an owning task must repair the producer without weakening validation."
+severity = "blocker"
+
+[qualification.attempt_2_result]
+revision = "240d12836f4ec4f31e2f0555aa5bf3a0c4e3f050"
+build_command = "go vet ./rpc/ ./rpc/config/"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+command = "cg spec done 22.39.278 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+status = "implemented-not-qualified"
+verification = "The RPC suite failed before the configuration tests and retired-caller scan could execute; no passing scan or task completion is claimed."
+record_update = "Only this unrelated-blocker record was appended after the gate; implementation and assertions remain unchanged, and the recorded failure is not rerun."
+
+[qualification.attempt_3]
+decision = "3151"
+skipped_case = "TestPxNodeRoot_Account_CommittedReadsAndParity"
+follow_up_task = "22.39.306"
+note = "Decision 3151 assigns the absent canonical_origin to task 22.39.306, which completes the skipped TestPxNodeRoot_Account_CommittedReadsAndParity case; this task uses the declared verification command with that case excluded and preserves its assertions unchanged."
+merge_resolution = "Preserve the current subscription environment initialized field by field without copying its embedded lock, integrate the seed router clearing on that separate pointer, retain every current assertion, and append the seed RPC allowances beside all current allowed references."
