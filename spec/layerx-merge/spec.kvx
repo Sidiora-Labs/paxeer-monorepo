@@ -185331,7 +185331,7 @@ do_5 = "Attempt 2 (continue, gotcha 4214, decision 3286): the attempt-1 tree b3e
 
 [task.22.39.365]
 title = "Accept a further deal of the room host for a matched ask"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.368", "22.39.227"]
@@ -194730,7 +194730,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.369]
 title = "Serve the committed AI read from a source process beside the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.368"]
