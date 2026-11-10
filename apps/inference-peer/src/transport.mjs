@@ -1,4 +1,15 @@
 import { decodeFrame, encodeFrame, MAX_FRAME_BYTES } from "./wire.mjs";
+import {
+  decodeSignalFrame,
+  encodeSignalFrame,
+  MAX_SIGNAL_FRAME_BYTES,
+  signalBytes,
+  signalHex,
+  validateSignalFrame,
+} from "./signal.mjs";
+import { signHello } from "./identity.mjs";
+import { dealDigest } from "./deal.mjs";
+import { lapCountersignDigest } from "./laps.mjs";
 
 function emit(target, type, detail) {
   target.dispatchEvent(new CustomEvent(type, { detail }));
@@ -11,39 +22,57 @@ function requireText(value, name) {
 
 export class SignalClient extends EventTarget {
   #socket;
-  #sequence = 0;
-  #received = -1;
   #resolve;
   #reject;
   #timer;
   #queue = Promise.resolve();
   #state = "idle";
   #deal;
+  #digest;
+  #lap;
 
   constructor(
     url,
-    { roomId, hello, WebSocket = globalThis.WebSocket, timeoutMs = 10000 },
+    {
+      roomId,
+      identity,
+      manifest,
+      WebSocket = globalThis.WebSocket,
+      timeoutMs = 10000,
+    },
   ) {
     super();
     const parsed = new URL(url);
     if (!["ws:", "wss:"].includes(parsed.protocol))
       throw new TypeError("Expected a WebSocket URL");
-    requireText(roomId, "roomId");
-    for (const name of ["peerKey", "signature", "nonce"])
-      requireText(hello?.[name], name);
-    if (!hello.manifest || hello.manifest.version !== 2)
+    if (
+      parsed.pathname !== "/" ||
+      parsed.search ||
+      parsed.hash ||
+      parsed.username ||
+      parsed.password
+    )
+      throw new TypeError("Signalling request target must be /");
+    this.roomId = signalHex(roomId);
+    if (typeof identity?.sign !== "function")
+      throw new TypeError("Identity signer is required");
+    signalBytes(identity.peerKey);
+    if (
+      !(manifest instanceof Uint8Array) ||
+      manifest[0] !== 0 ||
+      manifest[1] !== 2
+    )
       throw new TypeError("A v2 manifest is required");
     if (typeof WebSocket !== "function")
       throw new Error("WebSocket API is unavailable");
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
       throw new RangeError("Invalid timeoutMs");
     this.url = parsed.href;
-    this.roomId = roomId;
-    this.hello = structuredClone(hello);
+    this.identity = identity;
+    this.manifest = manifest.slice();
     this.WebSocket = WebSocket;
     this.timeoutMs = timeoutMs;
   }
-
   get state() {
     return this.#state;
   }
@@ -58,18 +87,12 @@ export class SignalClient extends EventTarget {
     });
     try {
       const socket = (this.#socket = new this.WebSocket(this.url));
-      socket.binaryType = "arraybuffer";
       this.#timer = setTimeout(
         () => this.#fail(new Error("Room offer timed out")),
         this.timeoutMs,
       );
       socket.addEventListener("open", () => {
-        try {
-          this.#write("hello", this.hello);
-          this.#state = "hello";
-        } catch (error) {
-          this.#fail(error);
-        }
+        if (this.#state === "connecting") this.#state = "challenge";
       });
       socket.addEventListener("message", (event) => {
         this.#queue = this.#queue
@@ -90,76 +113,141 @@ export class SignalClient extends EventTarget {
     }
     return ready;
   }
-
-  #write(kind, payload) {
-    if (this.#sequence > 0xffffffff)
-      throw new RangeError("Signalling sequence exhausted");
+  #write(frame) {
     if (this.#socket?.readyState !== 1)
       throw new Error("Signalling socket is not open");
-    const frame = encodeFrame({
-      kind,
-      roomId: this.roomId,
-      sequence: this.#sequence,
-      payload,
-    });
-    if (this.#socket.bufferedAmount + frame.byteLength > MAX_FRAME_BYTES * 4) {
+    const text = encodeSignalFrame(frame);
+    if (
+      this.#socket.bufferedAmount + new TextEncoder().encode(text).length >
+      MAX_SIGNAL_FRAME_BYTES * 4
+    )
       throw new Error("Signalling backpressure limit reached");
-    }
-    this.#socket.send(frame);
-    this.#sequence++;
+    this.#socket.send(text);
   }
-
   async #receive(data) {
     if (this.#state === "closed") return;
-    const frame = decodeFrame(data);
-    if (frame.roomId !== this.roomId) throw new Error("Wrong signalling room");
-    if (frame.sequence <= this.#received)
-      throw new Error("Replayed signalling sequence");
-    this.#received = frame.sequence;
-    const relay = frame.kind === "offer" && frame.payload.relay !== undefined;
+    const frame = decodeSignalFrame(data);
+    if (frame.type === "error") {
+      const error = new Error(`Signalling host error: ${frame.code}`);
+      error.code = frame.code;
+      throw error;
+    }
+    if (this.#state === "challenge") {
+      if (frame.type !== "challenge")
+        throw new Error("Expected host challenge before hello");
+      const hello = await signHello(this.identity, {
+        roomId: this.roomId,
+        nonce: frame.nonce,
+        manifest: this.manifest,
+      });
+      if (this.#state === "closed") return;
+      this.#write(hello);
+      this.#state = "hello";
+      return;
+    }
     if (this.#state === "hello") {
-      if (frame.kind !== "offer" || relay)
+      if (frame.type !== "offer")
         throw new Error("Expected room offer after hello");
+      if (signalHex(frame.offer.room_id) !== this.roomId)
+        throw new Error("Wrong signalling room");
       this.#state = "offered";
       clearTimeout(this.#timer);
       this.#resolve(frame);
-    } else if (frame.kind === "deal") {
+    } else if (frame.type === "deal") {
       if (this.#state !== "offered" && this.#state !== "ready")
         throw new Error("Unexpected deal");
-      requireText(frame.payload.dealId, "dealId");
-      this.#deal = frame.payload.dealId;
+      if (signalHex(frame.deal.room_id) !== this.roomId)
+        throw new Error("Wrong signalling room");
+      this.#deal = structuredClone(frame.deal);
+      this.#lap = undefined;
+      this.#digest = Array.from(await dealDigest(this.#deal));
+      if (this.#state === "closed") return;
       this.#state = "dealt";
-    } else if (frame.kind === "offer" && !relay) {
+    } else if (frame.type === "deal_live") {
+      if (
+        this.#state !== "acknowledged" ||
+        signalHex(frame.deal_id) !== signalHex(this.#deal.deal_id)
+      )
+        throw new Error("No acknowledged deal matches deal_live");
+      this.#state = "ready";
+    } else if (frame.type === "lap_receipt") {
+      if (
+        this.#state !== "ready" ||
+        signalHex(frame.lap.deal_digest) !== signalHex(this.#digest) ||
+        signalHex(frame.lap.receipt.deal_id) !== signalHex(this.#deal.deal_id)
+      )
+        throw new Error("No live deal matches lap_receipt");
+      this.#lap = {
+        index: BigInt(frame.lap.receipt.lap_index),
+        digest: signalHex(await lapCountersignDigest(frame.lap)),
+      };
+      if (this.#state === "closed") return;
+    } else if (frame.type === "offer")
       throw new Error("Duplicate room offer");
-    } else if (["hello", "deal-ack", "activation"].includes(frame.kind)) {
+    else if (
+      !["description", "candidate"].includes(frame.type) ||
+      !["offered", "dealt", "acknowledged", "ready"].includes(this.#state)
+    )
       throw new Error("Unexpected signalling frame");
-    }
     emit(this, "frame", frame);
-    if (frame.kind === "bye") this.close();
   }
-
-  acknowledgeDeal(dealId) {
-    if (this.#state !== "dealt" || this.#deal !== dealId)
+  acknowledgeDeal(ack) {
+    if (
+      this.#state !== "dealt" ||
+      signalHex(ack?.deal_id) !== signalHex(this.#deal.deal_id)
+    )
       throw new Error("No matching deal to acknowledge");
-    this.#write("deal-ack", { dealId });
-    this.#state = "ready";
+    if (signalHex(ack.digest) !== signalHex(this.#digest))
+      throw new Error("Acknowledgement digest differs from deal");
+    this.#write(ack);
+    this.#state = "acknowledged";
   }
-
+  countersignLap(ack) {
+    validateSignalFrame(ack, "client");
+    if (
+      ack.type !== "lap_countersign" ||
+      this.#state !== "ready" ||
+      !this.#lap ||
+      signalHex(ack.deal_id) !== signalHex(this.#deal.deal_id) ||
+      BigInt(ack.lap_index) !== this.#lap.index ||
+      signalHex(ack.digest) !== this.#lap.digest
+    )
+      throw new Error("No matching lap to countersign");
+    this.#write(ack);
+  }
   relay(to, relay) {
-    if (!["offered", "dealt", "ready"].includes(this.#state))
+    if (!["offered", "dealt", "acknowledged", "ready"].includes(this.#state))
       throw new Error("Room offer is required");
-    requireText(to, "Relay recipient");
     validateRelay(relay);
-    this.#write("offer", { to, relay });
+    if (relay.description)
+      this.#write({
+        type: "description",
+        to: signalBytes(to),
+        description: relay.description,
+      });
+    else {
+      const {
+        candidate,
+        sdpMid = null,
+        sdpMLineIndex = null,
+      } = relay.candidate;
+      this.#write({
+        type: "candidate",
+        to: signalBytes(to),
+        candidate: {
+          candidate,
+          sdp_mid: sdpMid,
+          sdp_m_line_index: sdpMLineIndex,
+        },
+      });
+    }
   }
-
   #fail(error) {
     if (this.#state === "closed") return;
     this.#reject?.(error);
     this.close();
     emit(this, "error", error);
   }
-
   close() {
     if (this.#state === "closed") return;
     this.#state = "closed";
@@ -179,7 +267,11 @@ function validateRelay(relay) {
     requireText(relay.description.sdp, "SDP");
   } else if (relay.candidate && !relay.description) {
     requireText(relay.candidate.candidate, "ICE candidate");
-    requireText(relay.candidate.sdpMid, "ICE mid");
+    if (
+      relay.candidate.sdpMid !== null &&
+      relay.candidate.sdpMid !== undefined
+    )
+      requireText(relay.candidate.sdpMid, "ICE mid");
   } else throw new TypeError("Relay must carry one description or candidate");
 }
 
@@ -201,12 +293,16 @@ export class PeerMesh extends EventTarget {
 
   constructor(
     signal,
-    { peerKey = signal.hello.peerKey, mode = "browser", rtcConfig = {} } = {},
+    {
+      peerKey = signal.identity.peerKey,
+      mode = "browser",
+      rtcConfig = {},
+    } = {},
     native,
   ) {
     super();
     requireText(peerKey, "peerKey");
-    if (peerKey !== signal.hello.peerKey)
+    if (peerKey !== signal.identity.peerKey)
       throw new Error("Mesh identity differs from hello");
     if (!["browser", "native"].includes(mode))
       throw new TypeError("Unknown mesh mode");
@@ -224,10 +320,20 @@ export class PeerMesh extends EventTarget {
     this.rtcConfig = rtcConfig;
     this.#native = native;
     this.#listener = ({ detail: frame }) => {
-      if (frame.kind !== "offer" || !frame.payload.relay) return;
-      const { from, to, relay } = frame.payload;
+      if (!["description", "candidate"].includes(frame.type)) return;
+      const from = signalHex(frame.from);
+      const relay =
+        frame.type === "description"
+          ? { description: frame.description }
+          : {
+              candidate: {
+                candidate: frame.candidate.candidate,
+                sdpMid: frame.candidate.sdp_mid,
+                sdpMLineIndex: frame.candidate.sdp_m_line_index,
+              },
+            };
       const peer = this.#peers.get(from);
-      if (to !== this.peerKey || !peer) {
+      if (!peer) {
         this.#fail(new Error("Relay from outside the deal"));
         return;
       }
@@ -257,7 +363,7 @@ export class PeerMesh extends EventTarget {
       );
     }
     for (const key of deal.peers) requireText(key, "Deal peer key");
-    if (this.signal.state !== "dealt")
+    if (!["dealt", "acknowledged", "ready"].includes(this.signal.state))
       throw new Error("A received deal is required");
     try {
       // Allocate every connection before descriptions can arrive for any of them.
@@ -265,7 +371,6 @@ export class PeerMesh extends EventTarget {
         if (key === this.peerKey) continue;
         this.#addPeer(key);
       }
-      this.signal.acknowledgeDeal(deal.dealId);
       for (const peer of this.#peers.values()) {
         if (this.peerKey > peer.key) continue;
         for (const label of ["control", "activations"]) {
@@ -281,7 +386,9 @@ export class PeerMesh extends EventTarget {
         if (this.mode === "native") peer.pc.setLocalDescription("offer");
         else {
           await peer.pc.setLocalDescription(await peer.pc.createOffer());
-          this.#relay(peer, { description: peer.pc.localDescription.toJSON() });
+          this.#relay(peer, {
+            description: peer.pc.localDescription.toJSON(),
+          });
         }
       }
     } catch (error) {
@@ -328,7 +435,8 @@ export class PeerMesh extends EventTarget {
         this.#relay(peer, { description: { sdp, type } }),
       );
       pc.onLocalCandidate((candidate, sdpMid) => {
-        if (candidate) this.#relay(peer, { candidate: { candidate, sdpMid } });
+        if (candidate)
+          this.#relay(peer, { candidate: { candidate, sdpMid } });
       });
       pc.onDataChannel(attach);
       pc.onStateChange(stateChanged);
@@ -369,7 +477,9 @@ export class PeerMesh extends EventTarget {
         if (this.mode === "native") peer.pc.setLocalDescription("answer");
         else {
           await peer.pc.setLocalDescription(await peer.pc.createAnswer());
-          this.#relay(peer, { description: peer.pc.localDescription.toJSON() });
+          this.#relay(peer, {
+            description: peer.pc.localDescription.toJSON(),
+          });
         }
       }
     } else if (!peer.remote) {
@@ -474,7 +584,9 @@ export class PeerMesh extends EventTarget {
       sequence: peer.sequence,
       payload,
     });
-    const buffered = native ? channel.bufferedAmount() : channel.bufferedAmount;
+    const buffered = native
+      ? channel.bufferedAmount()
+      : channel.bufferedAmount;
     if (buffered + frame.byteLength > MAX_FRAME_BYTES * 4)
       throw new Error("Mesh backpressure limit reached");
     if (native) {

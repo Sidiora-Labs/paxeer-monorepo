@@ -1,0 +1,39 @@
+[task]
+id = "22.39.341"
+decision = "3209"
+acceptance = "22998.1"
+base = "00af874880f4448f88311d4ece767c58b77d7f58"
+status = "Implementation recorded; qualification is exclusively the bounded hf-build/hf-done ledger."
+
+[change.authorization-domain]
+file = "sdk/platform/go/programs.go"
+lines = "1549-1551, 1597-1601, 1606"
+symbols = ["programAuthorizationV2", "verifyProgramTransferAuthorization"]
+repair = "Recognize both account-bound wrapper versions, preserve version 1 source-only decoding, and reject either nested wrapper version before decoding the original transfer set."
+
+[change.destination-account]
+file = "sdk/platform/go/programs.go"
+lines = "1648, 1712-1725, 1746-1748"
+symbol = "verifyProgramTransferAuthorization"
+repair = "Read a u16-length destination name after every source name in version 2 evidence. Derive each named destination with programPrincipalPaymentAccount from the original leg destination identity and asset before hashing the canonical leg. Retain raw destinations for empty names, require at least one named destination, and reject mismatched identities/assets, truncation and trailing bytes."
+
+[change.destination-vectors]
+file = "sdk/platform/go/programs_http_test.go"
+lines = "510-562"
+symbol = "TestProgramDestinationAuthorizationVectors"
+fixture = "programs/fixtures/pay5/destination-authorization-vectors.json"
+vector_count = 1271
+accepted = 2
+refused = 1269
+truncations = 1255
+repair = "Decode and assert every producer vector against its recorded root; require both accepted cases to retain their version 2 transfer classification and refuse a changed root. Assert exact corpus and acceptance counts. Keep TestProgramTransferAuthorizationRecomputesCanonicalRoot unchanged."
+
+[qualification]
+build = "hf-build: go -C sdk/platform/go build ./..."
+verify = "hf-done: cg spec done 22.39.341 -f layerx-merge --root \"$TASK_ROOT\""
+verify_cmd = "test -s sdk/platform/go/repair_22_39_341.kvx && go -C sdk/platform/go test -count=1 -run '^(TestProgramTransferAuthorizationRecomputesCanonicalRoot|TestProgramDestinationAuthorizationVectors)$' ."
+revision = "The terminating hf-done JSON and private /out/run/gates.jsonl name the verified candidate revision containing this record; no source edits follow qualification."
+evidence = "Exact revision, command, exit and private log location are emitted by hf-build/hf-done and retained in /out/run/gates.jsonl. No gate result is claimed in advance."
+
+[gotcha.scope]
+observed = "The initial tree contains runner-owned workflow and task-start bookkeeping outside the allowed files. Preserve it unchanged; the explicit task forbids spec/ and GOTCHA.kvx writes, commits and pushes."

@@ -10,7 +10,7 @@ use layerx_types::payload::{ActivityType, ModuleId};
 use layerx_wire::encode::Encoder;
 
 fn activity_type() -> ActivityType {
-    ActivityType::new(ModuleId::Asset, 5).expect("send activity")
+    assert_ok(ActivityType::new(ModuleId::Asset, 5), "send activity")
 }
 
 fn send_payload() -> Vec<u8> {
@@ -73,29 +73,31 @@ fn send_payload() -> Vec<u8> {
 }
 
 fn prepared() -> EvmPrepared {
-    prepare_bound(
-        EvmPreparationState {
-            chain_id: 17,
-            pending_nonce: 5,
-            base_fee_per_gas: 3,
-            head_height: 88,
-        },
-        PreparationDefaults {
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 12,
-            maximum_payload_bytes: 1_024,
-        },
-        PrepareRequest {
-            from: [0x11; 20],
-            call: PrecompileCall::ledger_transfer(send_payload()),
-            expected_nonce: Some(5),
-            max_priority_fee_per_gas: None,
-            max_fee_per_gas: Some(7),
-            declared_payload_limit: 1_024,
-        },
-        100_000,
+    assert_ok(
+        prepare_bound(
+            EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: 5,
+                base_fee_per_gas: 3,
+                head_height: 88,
+            },
+            PreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 12,
+                maximum_payload_bytes: 1_024,
+            },
+            PrepareRequest {
+                from: [0x11; 20],
+                call: PrecompileCall::ledger_transfer(send_payload()),
+                expected_nonce: Some(5),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: Some(7),
+                declared_payload_limit: 1_024,
+            },
+            100_000,
+        ),
+        "prepare ledger type-2 call",
     )
-    .expect("prepare ledger type-2 call")
 }
 
 #[test]
@@ -163,4 +165,12 @@ fn mutation_after_disclosure_generation_is_refused() {
     let mut changed = original;
     changed.from[0] ^= 1;
     assert!(verify_call_binding(&changed).is_err());
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
 }

@@ -15,8 +15,9 @@ The node URL names the node root, with an explicitly checked chain ID.
 Keep the host signing key and node credentials in the existing private key
 configuration; room pages and browser configuration must not contain them.
 
-The inference-market profile reads the settings below.
-They are loaded by [InferenceConfig](../../../services/agent/crates/layerx-agentd/src/config.rs).
+The inference-market profile reads the settings below through
+[InferenceConfig](../../../services/agent/crates/layerx-agentd/src/config.rs) and
+the [daemon boot path](../../../services/agent/crates/layerx-agentd/src/main.rs).
 
 | Variable | Meaning |
 | --- | --- |
@@ -26,6 +27,7 @@ They are loaded by [InferenceConfig](../../../services/agent/crates/layerx-agent
 | `LAYERX_AGENT_INFERENCE_MODEL_DIGEST` | Digest of the model served by this room |
 | `LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST` | Digest of the exact inference runtime |
 | `LAYERX_AGENT_INFERENCE_ROOM_PROFILE` | Path to the implementation's room profile file |
+| `LAYERX_AGENT_INFERENCE_DRAFT_RUNTIME_KIND` | Optional manifest runtime kind marking draft-capable peers: `0`, `1` or `2`. Unset disables speculative slots; other values reject startup. |
 
 With the required digests, profile file and existing daemon settings already
 configured, start the profile with:
@@ -77,6 +79,18 @@ RecordDeal binds the ask, ordered bids, price, layer plan and current roster
 digest. Wait for chain finality and every peer's signed acknowledgement before
 generation. A missing acknowledgement requires a new plan; a stale roster or
 unfunded ask refuses the record.
+
+Completion requests queue separately for each room at its profile's
+`queue_depth` (default 32 waiting requests). The host rotates fairly between
+asks, preserves arrival order within each ask, and runs at most one request
+per ask at a time. Each room has one generation slot and up to four additional
+speculative slots. A speculative request requires a peer in its live deal whose
+enrolled manifest advertises the configured draft runtime kind; the host checks
+that binding again before serving. Runtime kinds are numeric values without a
+protocol-defined draft designation, so set the optional variable only to the
+kind used for draft models by your peers. Without it, rooms use only the single
+generation slot. A full waiting queue returns HTTP 429 with `Retry-After: 1`
+on both completion routes.
 
 ## Fund, settle and claim
 

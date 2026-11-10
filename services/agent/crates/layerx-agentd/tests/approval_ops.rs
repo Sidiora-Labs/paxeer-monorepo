@@ -356,24 +356,31 @@ fn approval_service_refuses_changed_call_and_changed_disclosure() {
         let limiter = limiter();
         let tenant = tenant("tenant-alpha");
         let held = prepared(22);
-        hold(&registry, context(&tenant, 22), held.clone(), 10, 100).unwrap();
+        assert_ok(
+            hold(&registry, context(&tenant, 22), held.clone(), 10, 100),
+            "unexpected error",
+        );
         let mut changed = held;
         if mutation == "call" {
-            let mut call = layerx_crypto::evm_transaction::decode_unsigned(
-                changed.unsigned_canonical_bytes.as_bytes(),
-            )
-            .unwrap();
+            let mut call = assert_ok(
+                layerx_crypto::evm_transaction::decode_unsigned(
+                    changed.unsigned_canonical_bytes.as_bytes(),
+                ),
+                "unexpected error",
+            );
             call.nonce += 1;
-            changed.unsigned_canonical_bytes =
-                layerx_agent_api::prepare::CanonicalBytes::new(call.encode_unsigned()).unwrap();
+            changed.unsigned_canonical_bytes = assert_ok(
+                layerx_agent_api::prepare::CanonicalBytes::new(call.encode_unsigned()),
+                "unexpected error",
+            );
         } else {
             changed.disclosure.fee_limit =
                 layerx_agent_api::Amount(changed.disclosure.fee_limit.get() + 1);
         }
         let queue = ApprovalSubmissionQueue::default();
         let service = ApprovalService::new(&registry, &limiter, &fixture.expiry);
-        let decision = service
-            .approve(
+        let decision = assert_ok(
+            service.approve(
                 DecisionRequest {
                     tenant: &tenant,
                     approval_id: [22; 32],
@@ -384,9 +391,18 @@ fn approval_service_refuses_changed_call_and_changed_disclosure() {
                 },
                 &changed,
                 &queue,
-            )
-            .unwrap();
+            ),
+            "unexpected error",
+        );
         assert_eq!(decision.outcome, ApprovalOutcome::Defective);
         assert!(queue.is_empty());
+    }
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
     }
 }

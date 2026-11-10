@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -56,10 +57,25 @@ func renderInputs(t *testing.T) runtimedocs.Inputs {
 func TestRenderedProductionDocumentsBoot(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	docs, err := RenderRuntimeDocuments(renderInputs(t), DefaultDeliveryParameters())
+	parameters := DefaultDeliveryParameters()
+	parameters.MaxDeliveryLagMS = 60000
+	pair, _, pin := status1695TLS(t)
+	parameters.DeadLetters = &DeadLetterParameters{SecuritySchema: "security", Audience: "indexer", PolicyVersion: "v1", Issuer: "gateway", PeerCertSHA256: pin, PublicKey: pair.PrivateKey.(ed25519.PrivateKey).Public().(ed25519.PublicKey), AssertionHeader: "X-Service-Assertion", SignatureHeader: "X-Service-Signature"}
+	docs, err := RenderRuntimeDocuments(renderInputs(t), parameters)
 	if err != nil {
 		t.Fatal(err)
 	}
+	missingBudget := parameters
+	missingBudget.MaxDeliveryLagMS = 0
+	if _, err := RenderRuntimeDocuments(renderInputs(t), missingBudget); err == nil {
+		t.Fatal("renderer accepted missing lag budget")
+	}
+	invalidPolicy := parameters
+	invalidPolicy.DeadLetters = &DeadLetterParameters{}
+	if _, err := RenderRuntimeDocuments(renderInputs(t), invalidPolicy); err == nil {
+		t.Fatal("renderer accepted incomplete policy")
+	}
+
 	dir := t.TempDir()
 	read := func(name string, out any) {
 		t.Helper()
@@ -77,6 +93,21 @@ func TestRenderedProductionDocumentsBoot(t *testing.T) {
 	read("receipt.json", &receiptDoc)
 	read("delivery.json", &deliveryDoc)
 	read("lifecycle.json", &lifecycle)
+	tamperedDelivery := deliveryDoc
+	tamperedDelivery.MaxDeliveryLagMS++
+	tamperedPath, _ := status1695Bound(t, tamperedDelivery)
+	if err = config.ReadBoundDocument(tamperedPath, docs["delivery.json"].SHA256, &deliveryRuntimeDocument{}); err == nil {
+		t.Fatal("delivery lag tampering escaped hash binding")
+	}
+	tamperedDelivery = deliveryDoc
+	policyCopy := *deliveryDoc.DeadLetters
+	policyCopy.PolicyVersion = "different"
+	tamperedDelivery.DeadLetters = &policyCopy
+	tamperedPath, _ = status1695Bound(t, tamperedDelivery)
+	if err = config.ReadBoundDocument(tamperedPath, docs["delivery.json"].SHA256, &deliveryRuntimeDocument{}); err == nil {
+		t.Fatal("delivery policy tampering escaped hash binding")
+	}
+
 	cfg := config.Config{IndexerMode: config.ModeLive}
 	cfg.ChainID = 125
 	if err = lifecycle.validate(deliveryDoc, cfg); err != nil {
@@ -84,6 +115,9 @@ func TestRenderedProductionDocumentsBoot(t *testing.T) {
 	}
 	if err = bindRuntimeAnchor(&lifecycle, receiptDoc.Production); err != nil {
 		t.Fatal(err)
+	}
+	if deliveryDoc.MaxDeliveryLagMS != parameters.MaxDeliveryLagMS || !reflect.DeepEqual(deliveryDoc.DeadLetters, parameters.DeadLetters) {
+		t.Fatalf("status configuration lost: %+v", deliveryDoc)
 	}
 	// pnl consumes durable pnl_inventory (consumerId pnl, generation g1,
 	// projectionVersion inventory-v1) on accounting.inventory.v1.
@@ -127,7 +161,9 @@ func TestRenderedProductionDocumentsBoot(t *testing.T) {
 // inventory subject approved (or the subject without a generation) is refused
 // before the first canonical commit, and the market-only document still boots.
 func TestDeliveryInventoryBindingValidated(t *testing.T) {
-	docs, err := RenderRuntimeDocuments(renderInputs(t), DefaultDeliveryParameters())
+	parameters := DefaultDeliveryParameters()
+	parameters.MaxDeliveryLagMS = 60000
+	docs, err := RenderRuntimeDocuments(renderInputs(t), parameters)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,6 +214,7 @@ func TestDeliveryInventoryBindingValidated(t *testing.T) {
 		}
 	}
 	market := DefaultDeliveryParameters()
+	market.MaxDeliveryLagMS = 60000
 	market.InventoryGeneration, market.InventoryProjectionVersion = "", ""
 	marketDocs, err := RenderRuntimeDocuments(renderInputs(t), market)
 	if err != nil {

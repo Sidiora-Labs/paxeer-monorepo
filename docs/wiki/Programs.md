@@ -347,6 +347,21 @@ refused. The positive native per-Asset evidence and negative vectors for that
 refusal live in `programs/fixtures/pay5/account-authorization-vectors.json`,
 alongside native-token and native-merchant fixtures.
 
+A transfer leg may name an identity as its destination and pays that identity's
+one payment account for the leg's asset. If the identity has no payment account
+for that asset, or more than one, the transfer is refused. When at least one
+destination is an identity, the account-bound evidence uses
+`LayerX/programs/402LXP/account-bound-set/v2\0`, followed by the u32 big-endian
+length and bytes of the original authorization, then, for every leg, the u16
+big-endian length and bytes of the source name followed by the u16 big-endian
+length and bytes of the destination name. Source names follow the version 1
+rules; destination names are empty for account-id and asset fee-account
+destinations. The runtime derives each named destination account from the
+identity, asset and canonical name before committing the account endpoints and
+transfer root. Grant and capability checks retain the destination bytes supplied
+by the program. A set without an identity destination keeps its version 1 bytes;
+a version 2 wrapper with all destination names empty is refused.
+
 ---
 
 ## Guest ABI versions and protocol 3

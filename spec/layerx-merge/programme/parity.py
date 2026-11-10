@@ -1,19 +1,37 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
+import shutil
 import subprocess
 import tomllib
+from collections import deque
 from collections.abc import Mapping
 from os import PathLike
 from pathlib import Path, PurePosixPath
 
+from .evidence import evidence_line
 from .kvx import KvxValue, load
 
 ROOT = Path(__file__).resolve().parents[3]
 PARITY_PATH = Path(__file__).resolve().parent / "data/parity.kvx"
 DOC_PATH = PARITY_PATH.parents[2] / "docs/parity-inventory.md"
+TASK_PATHS = {
+    "spec/layerx-merge/programme/data/parity.kvx",
+    "spec/layerx-merge/programme/parity.py",
+    "spec/layerx-merge/programme/tests/test_parity_run.py",
+}
+SELECTOR_ENVIRONMENT = {
+    "apps/wallet/e2e/send.spec.ts::"
+    "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload": {
+        "WALLET_TRANSFER_TRUTH_ANVIL_URL": "LOCAL_NODE_SEQUENCER_RPC",
+        "WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL": "LOCAL_NODE_SEQUENCER_RPC",
+        "WALLET_TRANSFER_TRUTH_SENDER": "LOCAL_NODE_ADDRESS",
+        "WALLET_TRANSFER_TRUTH_SEQUENCER_KEY": "LOCAL_NODE_KEY",
+    }
+}
 
 ORACLE_SECTION = """## 1 Parity oracle
 
@@ -125,10 +143,10 @@ def command_for(row: Mapping[str, KvxValue]) -> str:
             raise ParityError(f"invalid exact selector: {selector}")
         parsed.append((PurePosixPath(path_text), name))
 
-    suffixes = {path.suffix for path, _ in parsed}
+    suffixes = {".ts" if path.suffix == ".tsx" else path.suffix for path, _ in parsed}
     if len(suffixes) != 1:
         raise ParityError("selectors must use one toolchain")
-    suffix = parsed[0][0].suffix
+    suffix = next(iter(suffixes))
     if suffix == ".go":
         packages = {path.parent for path, _ in parsed}
         if len(packages) != 1:
@@ -145,6 +163,100 @@ def command_for(row: Mapping[str, KvxValue]) -> str:
         return shlex.join(["go", "test", "-count=1", target, "-run", pattern])
     if suffix == ".py":
         return shlex.join(["python3", "-m", "pytest", *selectors, "-q"])
+    if suffix == ".c":
+        if any(name != "main" for _, name in parsed):
+            raise ParityError("C selectors must name a test binary's main function")
+        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+        binaries = []
+        for path, _ in dict.fromkeys(parsed):
+            target = str(path.with_suffix(""))
+            if not re.search(
+                rf"^\$\(BUILD_DIR\)/{re.escape(target)}\s*:",
+                makefile,
+                re.MULTILINE,
+            ):
+                raise ParityError(f"no declared Makefile test binary for selector: {path}")
+            binaries.append(PurePosixPath("build") / target)
+        return " && ".join(
+            f"{shlex.join(['make', str(binary)])} && {shlex.quote(str(binary))}"
+            for binary in binaries
+        )
+    if suffix == ".exs":
+        commands = []
+        for path, name in dict.fromkeys(parsed):
+            owner = next(
+                (
+                    parent
+                    for parent in path.parents
+                    if (ROOT / parent / "mix.exs").is_file()
+                ),
+                None,
+            )
+            if owner is None:
+                raise ParityError(f"no owning mix.exs for selector: {path}")
+            source = (ROOT / path).read_text(encoding="utf-8")
+            if not re.search(rf'\btest\s+"{re.escape(name)}"\s*[,\n]', source):
+                raise ParityError(f"no declared ExUnit test: {path}::{name}")
+            umbrella = PurePosixPath("services/explorer/backend")
+            if not path.is_relative_to(umbrella):
+                raise ParityError(f"unsupported Elixir umbrella: {path}")
+            commands.append(
+                shlex.join(
+                    [
+                        "services/explorer/deploy/tools/mix-in-builder.sh",
+                        "test",
+                        str(path.relative_to(umbrella)),
+                        "--only",
+                        f"test:test {name}",
+                    ]
+                )
+            )
+        return " && ".join(commands)
+    if suffix == ".ts":
+        commands = []
+        for path, name in dict.fromkeys(parsed):
+            owner = next(
+                (
+                    parent
+                    for parent in path.parents
+                    if (ROOT / parent / "package.json").is_file()
+                ),
+                None,
+            )
+            if owner is None:
+                raise ParityError(f"no owning package.json for selector: {path}")
+            relative = str(path.relative_to(owner))
+            pattern = rf"(?:^| ){re.escape(name)}$"
+            if path.name.endswith(".spec.ts"):
+                runner = [
+                    "pnpm",
+                    "exec",
+                    "playwright",
+                    "test",
+                    "--config=playwright.wallet-app.config.ts",
+                    relative,
+                    "--grep",
+                    pattern,
+                    "--reporter=line",
+                ]
+            else:
+                runner = [
+                    "pnpm",
+                    "exec",
+                    "vitest",
+                    "run",
+                    relative,
+                    "--testNamePattern",
+                    pattern,
+                    "--reporter=default",
+                    "--no-color",
+                ]
+            if owner == PurePosixPath("apps/explorer"):
+                runner = ["yarn", *runner[2:]]
+            commands.append(
+                "(" + shlex.join(["cd", str(owner)]) + " && " + shlex.join(runner) + ")"
+            )
+        return " && ".join(commands)
     if suffix == ".rs":
         targets = [(_rust_target(path), name) for path, name in parsed]
         crates = {(manifest, crate) for (manifest, crate, _), _ in targets}
@@ -176,31 +288,625 @@ def command_for(row: Mapping[str, KvxValue]) -> str:
     raise ParityError(f"unsupported selector toolchain: {suffix}")
 
 
-def count_go_tests(command: str, root: str | PathLike[str]) -> int:
+def count_go_tests(
+    command: str,
+    root: str | PathLike[str],
+    *,
+    log_path: str | PathLike[str] | None = None,
+) -> int:
     arguments = shlex.split(command)
     if arguments[:2] != ["go", "test"]:
         raise ParityError("expected a go test command")
-    result = subprocess.run(
-        [*arguments, "-json"],
+    if "-json" not in arguments:
+        arguments.append("-json")
+    count = 0
+    with subprocess.Popen(
+        arguments,
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    ) as process:
+        assert process.stdout is not None
+        log = Path(log_path).open("a", encoding="utf-8") if log_path else None
+        try:
+            for line in process.stdout:
+                if log is not None:
+                    log.write(line)
+                if not line.lstrip().startswith("{"):
+                    continue
+                event = json.loads(line)
+                name = event.get("Test")
+                if (
+                    event.get("Action") == "run"
+                    and isinstance(name, str)
+                    and name.startswith("Test")
+                    and "/" not in name
+                ):
+                    count += 1
+        finally:
+            if log is not None:
+                log.close()
+        exit_code = process.wait()
+    if exit_code:
+        raise subprocess.CalledProcessError(exit_code, arguments)
+    return count
+
+
+def _free_space(root: Path) -> str:
+    return subprocess.run(
+        ["df", "-k", str(root)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def _row_output(
+    log_path: Path,
+) -> tuple[list[str], int, list[str], list[str], list[str], list[str]]:
+    tail: deque[str] = deque(maxlen=200)
+    total = 0
+    executed: set[str] = set()
+    passed: set[str] = set()
+    rust_executed: set[str] = set()
+    rust_passed: set[str] = set()
+    with log_path.open(encoding="utf-8", errors="replace") as log:
+        for line in log:
+            total += 1
+            tail.append(line.rstrip("\n"))
+            rust_case = re.fullmatch(
+                r"test ([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)*)"
+                r" \.\.\. (ok|FAILED)",
+                re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line).strip(),
+            )
+            if rust_case:
+                rust_executed.add(rust_case[1])
+                if rust_case[2] == "ok":
+                    rust_passed.add(rust_case[1])
+            if not line.lstrip().startswith("{"):
+                continue
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            name = event.get("Test")
+            if not isinstance(name, str) or "/" in name:
+                continue
+            if event.get("Action") == "run":
+                executed.add(name)
+            elif event.get("Action") == "pass":
+                passed.add(name)
+    return (
+        list(tail),
+        max(0, total - len(tail)),
+        sorted(executed),
+        sorted(passed),
+        sorted(rust_executed),
+        sorted(rust_passed),
+    )
+
+
+def _row_build_outputs(
+    row: Mapping[str, KvxValue], root: Path, cargo_target: Path
+) -> list[Path]:
+    outputs: set[Path] = set()
+    for selector in row["selectors"]:
+        path = PurePosixPath(selector.partition("::")[0])
+        if path.suffix == ".rs":
+            outputs.add(cargo_target)
+        elif path.is_relative_to("apps/wallet") and path.name.endswith(".spec.ts"):
+            outputs.update(
+                root / "apps/wallet" / name
+                for name in ("playwright-report", "test-results", ".next")
+            )
+        elif path.is_relative_to("services/explorer/backend"):
+            outputs.add(root / "services/explorer/backend/_build")
+        elif path.is_relative_to("apps/explorer"):
+            outputs.update(
+                root / "apps/explorer" / name
+                for name in (".next", "playwright-report", "test-results")
+            )
+    return sorted(outputs)
+
+
+def _explorer_build_volume(root: Path) -> str:
+    configured = os.environ.get("MIX_BUILD_VOLUME")
+    if configured:
+        return configured
+    backend = str(root / "services/explorer/backend")
+    checksum = subprocess.run(
+        ["cksum"], input=backend, capture_output=True, text=True, check=True
+    ).stdout.split()[0]
+    basename = re.sub(r"[^A-Za-z0-9_.-]", "-", root.name)
+    return f"explorer-mix-build-{basename}-{checksum}"
+
+
+def _remove_row_outputs(outputs: list[Path]) -> None:
+    for output in outputs:
+        if output.is_symlink():
+            output.unlink()
+        elif output.exists():
+            shutil.rmtree(output)
+
+
+def _tracked_outside_task(root: Path) -> dict[str, bytes | None]:
+    status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "-z", "--untracked-files=no"],
+        cwd=root,
+        capture_output=True,
+        check=True,
+    ).stdout.split(b"\0")
+    changed = {}
+    entries = iter(status)
+    for entry in entries:
+        if not entry:
+            continue
+        paths = [os.fsdecode(entry[3:])]
+        if b"R" in entry[:2] or b"C" in entry[:2]:
+            paths.append(os.fsdecode(next(entries)))
+        for path in paths:
+            if path not in TASK_PATHS:
+                file = root / path
+                changed[path] = file.read_bytes() if file.exists() else None
+    return changed
+
+
+def _restore_row_files(root: Path, before: dict[str, bytes | None]) -> list[str]:
+    after = _tracked_outside_task(root)
+    changed = sorted(
+        path
+        for path in before.keys() | after.keys()
+        if path not in before or path not in after or before[path] != after[path]
+    )
+    if changed:
+        subprocess.run(["git", "checkout", "--", *changed], cwd=root, check=True)
+        for path in changed:
+            if path in before:
+                if before[path] is None:
+                    (root / path).unlink(missing_ok=True)
+                else:
+                    (root / path).write_bytes(before[path])
+    return changed
+
+
+class _SelectorEnvironment:
+    def __init__(
+        self,
+        root: Path,
+        directory: Path,
+        constructs: Mapping[str, Mapping[str, KvxValue]],
+    ) -> None:
+        self.root = root
+        self.directory = directory
+        self.remaining = sum(
+            any(selector in SELECTOR_ENVIRONMENT for selector in row["selectors"])
+            for row in constructs.values()
+        )
+        self.temporary = directory / "node-tmp"
+        self.base = self.temporary / "lx-localnode"
+        self.env_path = self.base / "wallet.env"
+        self.environment = dict(os.environ, TMPDIR=str(self.temporary))
+        self.values: dict[str, str] = {}
+        self.record = {"starts": 0, "stops": 0, "homes": [], "removed": False}
+        self.start_exit: int | None = None
+        self.start_output = ""
+
+    def __enter__(self) -> _SelectorEnvironment:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.close()
+
+    def for_row(self, row: Mapping[str, KvxValue], log_path: Path) -> dict[str, str]:
+        sources = {
+            target: source
+            for selector in row["selectors"]
+            for target, source in SELECTOR_ENVIRONMENT.get(selector, {}).items()
+        }
+        if not sources:
+            return dict(os.environ)
+        if self.start_exit is None:
+            self.temporary.mkdir(mode=0o700, parents=True)
+            self.record["starts"] += 1
+            process = subprocess.run(
+                [
+                    "bash",
+                    "tools/qualification/localnode/v6120-node.sh",
+                    "--sequencer",
+                    "--env-out",
+                    str(self.env_path),
+                ],
+                cwd=self.root,
+                env=self.environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.start_exit = process.returncode
+            startup_output = process.stdout + process.stderr
+            if self.start_exit and "bootstrap-peer did not stop" in startup_output:
+                for peer_log in sorted(self.base.glob("node.*/bootstrap-peer.log")):
+                    with peer_log.open(encoding="utf-8", errors="replace") as log:
+                        peer_tail = "".join(deque(log, maxlen=40))
+                    startup_output += (
+                        f"\n--- last forty lines of {peer_log} ---\n" + peer_tail
+                    )
+            # The bootstrap failure diagnostics must not disclose a signing key.
+            self.start_output = re.sub(
+                r"(?i)(?:0x)?[0-9a-f]{64}",
+                "[redacted]",
+                startup_output,
+            )
+            if self.start_exit == 0:
+                for line in self.env_path.read_text(encoding="utf-8").splitlines():
+                    assignment = shlex.split(line)
+                    if len(assignment) != 1 or "=" not in assignment[0]:
+                        raise ParityError("invalid local node environment assignment")
+                    key, value = assignment[0].split("=", 1)
+                    self.values[key] = value
+        with log_path.open("a", encoding="utf-8") as log:
+            log.write(self.start_output)
+        if self.start_exit:
+            raise subprocess.CalledProcessError(
+                self.start_exit, "local sequencer bootstrap"
+            )
+        if any(not self.values.get(source) for source in sources.values()):
+            raise ParityError(
+                "local node environment is missing a declared selector value"
+            )
+        return dict(
+            os.environ,
+            **{target: self.values[source] for target, source in sources.items()},
+        )
+
+    def finish_row(self, row: Mapping[str, KvxValue]) -> None:
+        if any(selector in SELECTOR_ENVIRONMENT for selector in row["selectors"]):
+            self.remaining -= 1
+            if self.remaining == 0:
+                self.close()
+
+    def close(self) -> None:
+        for home in sorted(self.base.glob("node.*")):
+            subprocess.run(
+                [
+                    "bash",
+                    "tools/qualification/localnode/v6120-node.sh",
+                    "--stop",
+                    str(home),
+                ],
+                cwd=self.root,
+                env=self.environment,
+                capture_output=True,
+                check=True,
+            )
+            self.record["stops"] += 1
+            self.record["homes"].append(str(home))
+            shutil.rmtree(home)
+        if self.temporary.exists():
+            shutil.rmtree(self.temporary)
+            self.record["removed"] = True
+        self.values.clear()
+
+
+def _run_row(
+    command: str, root: Path, environment: dict[str, str], log_path: Path
+) -> int:
+    secret = environment.get("WALLET_TRANSFER_TRUTH_SEQUENCER_KEY")
+    with log_path.open("a", encoding="utf-8") as log, subprocess.Popen(
+        ["bash", "-c", command],
+        cwd=root,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    ) as process:
+        assert process.stdout is not None
+        for line in process.stdout:
+            if secret:
+                line = line.replace(secret, "[redacted]").replace(
+                    secret.removeprefix("0x"), "[redacted]"
+                )
+            log.write(line)
+        return process.wait()
+
+
+def run_all(
+    rows: Mapping[str, Mapping[str, KvxValue]],
+    root: str | PathLike[str],
+    log_dir: str | PathLike[str],
+) -> dict[str, bool]:
+    constructs = {
+        name: row for name, row in rows.items() if name.startswith("construct.")
+    }
+    if not constructs:
+        raise ParityError("parity inventory must contain at least one construct")
+    last_go_row = next(
+        (
+            name
+            for name, row in reversed(constructs.items())
+            if any(
+                selector.partition("::")[0].endswith(".go")
+                for selector in row["selectors"]
+            )
+        ),
+        None,
+    )
+    for name in constructs:
+        if not re.fullmatch(r"construct\.[A-Za-z0-9_-]+", name):
+            raise ParityError(f"invalid parity row name: {name}")
+    root = Path(root).resolve()
+    directory = (root / log_dir).resolve()
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
         cwd=root,
         capture_output=True,
         text=True,
         check=True,
-    )
-    count = 0
-    for line in result.stdout.splitlines():
-        if not line.strip():
-            continue
-        event = json.loads(line)
-        name = event.get("Test")
-        if (
-            event.get("Action") == "run"
-            and isinstance(name, str)
-            and name.startswith("Test")
-            and "/" not in name
-        ):
-            count += 1
-    return count
+    ).stdout.strip()
+    results: dict[str, bool] = {}
+    native_results: dict[str, int] = {}
+    cargo_target = directory / "cargo-target"
+    run_record = {"revision": revision, "free_space_start": _free_space(root)}
+    record_path = directory / "run.json"
+    record_path.write_text(json.dumps(run_record) + "\n", encoding="utf-8")
+    print(f"Parity run start:\n{run_record['free_space_start']}", flush=True)
+    with (
+        (directory / "evidence.log").open("w", encoding="utf-8") as ledger,
+        (directory / "report.jsonl").open("w", encoding="utf-8") as report,
+        (directory / "prerequisites.log").open("w", encoding="utf-8") as prerequisites,
+        _SelectorEnvironment(root, directory, constructs) as selector_environment,
+    ):
+        for name, row in constructs.items():
+            tracked_before = _tracked_outside_task(root)
+            log_path = directory / f"{name}.log"
+            command = f"command_for({name})"
+            count = 0
+            exit_code = 1
+            prerequisite = ""
+            free_space = _free_space(root)
+            log_path.write_text(
+                "# df -k of repository root\n" + free_space, encoding="utf-8"
+            )
+            outputs: list[Path] = []
+            build_volumes: list[str] = []
+            try:
+                command = command_for(row)
+                outputs = _row_build_outputs(row, root, cargo_target)
+                selectors = row["selectors"]
+                suffix = PurePosixPath(selectors[0].partition("::")[0]).suffix
+                environment = selector_environment.for_row(row, log_path)
+                if suffix == ".rs":
+                    environment["CARGO_TARGET_DIR"] = str(cargo_target)
+                if suffix == ".exs":
+                    build_volumes = [_explorer_build_volume(root)]
+                required = []
+                if suffix == ".go":
+                    required.append(
+                        (
+                            "native-libraries",
+                            [
+                                "make",
+                                "build/liblayerx.a",
+                                "programs/target/debug/liblayerx_programs_sandbox.a",
+                            ],
+                        )
+                    )
+                    if any(selector.startswith("node/") for selector in selectors):
+                        required.append(("evmone-lib", ["make", "evmone-lib"]))
+                for prerequisite_name, arguments in required:
+                    native_log = directory / f"{prerequisite_name}.log"
+                    native_command = shlex.join(arguments)
+                    if prerequisite_name not in native_results:
+                        with native_log.open("w", encoding="utf-8") as log:
+                            native_results[prerequisite_name] = subprocess.run(
+                                arguments,
+                                cwd=root,
+                                stdout=log,
+                                stderr=subprocess.STDOUT,
+                                check=False,
+                            ).returncode
+                        prerequisites.write(
+                            evidence_line(
+                                revision,
+                                native_command,
+                                native_results[prerequisite_name],
+                                native_log,
+                            )
+                            + "\n"
+                        )
+                        prerequisites.flush()
+                    native_exit = native_results[prerequisite_name]
+                    if native_exit != 0:
+                        command = native_command + " && " + command
+                        with native_log.open(encoding="utf-8", errors="replace") as log:
+                            native_output = "".join(deque(log, maxlen=200))
+                        prerequisite = " prerequisite=" + json.dumps(
+                            evidence_line(
+                                revision, native_command, native_exit, native_log
+                            )
+                        )
+                        prerequisite += " prerequisite_tail=" + json.dumps(
+                            "\n".join(native_output.splitlines()[-20:])
+                        )
+                        with log_path.open("a", encoding="utf-8") as log:
+                            log.write(
+                                "Native prerequisite failed; row did not run:\n"
+                                + evidence_line(
+                                    revision, native_command, native_exit, native_log
+                                )
+                                + "\n"
+                                + native_output
+                            )
+                        raise subprocess.CalledProcessError(
+                            native_exit, native_command
+                        )
+                if shlex.split(command)[:2] == ["go", "test"]:
+                    command = shlex.join([*shlex.split(command), "-json"])
+                    count = count_go_tests(command, root, log_path=log_path)
+                    exit_code = 0
+                else:
+                    exit_code = _run_row(command, root, environment, log_path)
+                    output = re.sub(
+                        r"\x1b\[[0-?]*[ -/]*[@-~]",
+                        "",
+                        log_path.read_text(encoding="utf-8"),
+                    ).replace("\r", "\n")
+                    if suffix == ".c":
+                        count = len(set(selectors)) if exit_code == 0 else 0
+                    elif suffix == ".exs":
+                        count = sum(
+                            int(tests) - int(excluded or 0) - int(skipped or 0)
+                            for tests, _, excluded, skipped in re.findall(
+                                r"(\d+) tests?, (\d+) failures?"
+                                r"(?:, (\d+) excluded)?(?:, (\d+) skipped)?",
+                                output,
+                            )
+                        )
+                    elif suffix in {".ts", ".tsx"}:
+                        count = sum(
+                            int(match)
+                            for match in re.findall(
+                                r"^\s*(?:Tests\s+)?(\d+) passed\b", output, re.MULTILINE
+                            )
+                        )
+                    elif suffix == ".py":
+                        count = sum(
+                            int(match)
+                            for match in re.findall(r"\b(\d+) passed\b", output)
+                        )
+                    else:
+                        count = sum(
+                            int(match)
+                            for match in re.findall(
+                                r"^test result: ok\. (\d+) passed;",
+                                output,
+                                re.MULTILINE,
+                            )
+                        )
+            except subprocess.CalledProcessError as error:
+                exit_code = error.returncode
+            except (ParityError, OSError, ValueError) as error:
+                exit_code = 1
+                with log_path.open("a", encoding="utf-8") as log:
+                    log.write(f"{type(error).__name__}: {error}\n")
+            finally:
+                selector_environment.finish_row(row)
+                restored_files = _restore_row_files(root, tracked_before)
+            output, omitted, executed, passed, rust_executed, rust_passed = _row_output(
+                log_path
+            )
+            expected_go = {
+                selector.partition("::")[2]
+                for selector in row["selectors"]
+                if selector.partition("::")[0].endswith(".go")
+            }
+            expected_rust = {
+                selector.partition("::")[2]
+                for selector in row["selectors"]
+                if selector.partition("::")[0].endswith(".rs")
+            }
+            missing_go = sorted(expected_go - set(executed))
+            missing_rust = sorted(expected_rust - set(rust_executed))
+            unpassed_go = sorted(expected_go - set(passed))
+            unpassed_rust = sorted(expected_rust - set(rust_passed))
+            results[name] = (
+                exit_code == 0
+                and count > 0
+                and not missing_go
+                and not missing_rust
+                and not unpassed_go
+                and not unpassed_rust
+            )
+            line = evidence_line(revision, command, exit_code, log_path)
+            line += prerequisite
+            if missing_go or missing_rust:
+                line += " missing_tests=" + json.dumps(missing_go + missing_rust)
+            if unpassed_go or unpassed_rust:
+                line += " unpassed_tests=" + json.dumps(unpassed_go + unpassed_rust)
+            line += f" tests={count}"
+            report.write(
+                json.dumps(
+                    {
+                        "row": name,
+                        "selectors": row["selectors"],
+                        "revision": revision,
+                        "command": command,
+                        "exit": exit_code,
+                        "log": str(log_path),
+                        "tests": count,
+                        "passed": results[name],
+                        "evidence": line,
+                        "output": output,
+                        "omitted_lines": omitted,
+                        "go_tests_run": executed,
+                        "go_tests_passed": passed,
+                        "rust_tests_run": rust_executed,
+                        "rust_tests_passed": rust_passed,
+                        "missing_go_tests": missing_go,
+                        "missing_rust_tests": missing_rust,
+                        "unpassed_go_tests": unpassed_go,
+                        "unpassed_rust_tests": unpassed_rust,
+                        "free_space": free_space,
+                        "removed_build_outputs": [str(path) for path in outputs],
+                        "removed_build_volumes": build_volumes,
+                        "restored_files": restored_files,
+                        "environment_sources": {
+                            selector: SELECTOR_ENVIRONMENT[selector]
+                            for selector in row["selectors"]
+                            if selector in SELECTOR_ENVIRONMENT
+                        },
+                    }
+                )
+                + "\n"
+            )
+            report.flush()
+            ledger.write(line + "\n")
+            ledger.flush()
+            log_path.unlink()
+            _remove_row_outputs(outputs)
+            if name == last_go_row:
+                cleanup_command = ["go", "clean", "-cache"]
+                cleanup_log = directory / "go-cache-clean.log"
+                with cleanup_log.open("w", encoding="utf-8") as log:
+                    cleanup = subprocess.run(
+                        cleanup_command,
+                        cwd=root,
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        check=False,
+                    )
+                run_record["go_cache_cleanup"] = {
+                    "after_row": name,
+                    "evidence": evidence_line(
+                        revision,
+                        shlex.join(cleanup_command),
+                        cleanup.returncode,
+                        cleanup_log,
+                    ),
+                }
+                record_path.write_text(json.dumps(run_record) + "\n", encoding="utf-8")
+                cleanup.check_returncode()
+            for volume in build_volumes:
+                subprocess.run(
+                    ["docker", "volume", "rm", volume],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+            print(f"{name}: {line} report={directory / 'report.jsonl'}", flush=True)
+    run_record["free_space_end"] = _free_space(root)
+    run_record["selector_environment"] = selector_environment.record
+    record_path.write_text(json.dumps(run_record) + "\n", encoding="utf-8")
+    print(f"Parity run end:\n{run_record['free_space_end']}", flush=True)
+    return results
 
 
 def zero_test_commands(
@@ -398,9 +1104,7 @@ def _doc_refs(values: KvxValue) -> str:
 def render_doc(rows: Mapping[str, Mapping[str, KvxValue]]) -> str:
     """Render the parity inventory from the KVX rows in source order."""
     entries = [
-        row
-        for name, row in rows.items()
-        if name.startswith(("construct.", "dropped."))
+        row for name, row in rows.items() if name.startswith(("construct.", "dropped."))
     ]
     sections = {
         number: [row for row in entries if row["source_section"] == number]
