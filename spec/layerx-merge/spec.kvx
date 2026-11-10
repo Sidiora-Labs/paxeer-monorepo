@@ -198354,7 +198354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.22]
 title = "Queue requests per room with speculative-decode slots"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.21", "22.31.620"]
