@@ -224017,7 +224017,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.323]
 title = "Repair the receipt, gas conformance, grant and lifecycle cases of the layerxauth precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224047,7 +224047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.322]
 title = "Repair the frozen vector, committed capacity and preimage cases of the xweb module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224138,7 +224138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.315]
 title = "Repair the pool runtime and AirdropEpoch ABCI cases of the launchpad keeper suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
