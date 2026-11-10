@@ -4,6 +4,7 @@ use ureq::tls::{Certificate, RootCerts, TlsConfig, TlsProvider};
 mod tests;
 
 #[doc(hidden)]
+#[must_use]
 pub fn private_ca(ca_der: &[u8]) -> Option<TlsConfig> {
     if ca_der.is_empty() {
         return None;

@@ -584,54 +584,13 @@ pub(crate) fn evaluate_timed_admission(
             let view =
                 CapabilityView::try_from(capability).map_err(|_| EvaluationFailure::InvalidRule)?;
             let request = &session.request;
-            let now = observed.observed_core_ms();
-            if !session.open
-                || policy.version.is_empty()
-                || request.policy_version != policy.version
-                || request.tenant != capability.tenant
-                || request.agent.as_bytes() != capability.agent.as_bytes()
-                || request.authority != capability.authority
-                || intent.effects.is_empty()
-                || intent.core_sequence != observed.through_sequence()
-                || intent.core_sequence >= request.expiry_sequence
-                || !session
-                    .public_expiry_within(now)
-                    .map_err(|_| EvaluationFailure::Internal)?
-                || now < capability.created_at_ms
-                || observed.through_sequence() < capability.created_at_sequence
-                || capability.is_expired(now)
-                || usage.len() > 4096
-                || usage.len() != capability.rate_ceilings.len()
-                || budget.is_some_and(|value| {
-                    value.observed_head_sequence() != observed.through_sequence()
-                })
-            {
+            if !timed_context_admitted(
+                policy, intent, session, capability, observed, usage, budget,
+            )? {
                 return Ok(Decision::deny(
                     &policy.version,
                     DecisionReason::InvalidContext,
                 ));
-            }
-            let mut windows = BTreeSet::new();
-            for evidence in usage {
-                let Some(maximum) = capability.rate_ceilings.get(&evidence.window_seconds()) else {
-                    return Ok(Decision::deny(
-                        &policy.version,
-                        DecisionReason::InvalidContext,
-                    ));
-                };
-                if !windows.insert(evidence.window_seconds())
-                    || evidence.window_seconds() == 0
-                    || evidence.actor() != &request.agent
-                    || evidence.observed_batch_id() != observed.observed_batch_id()
-                    || evidence.observed_core_ms() != now
-                    || evidence.through_sequence() != observed.through_sequence()
-                    || evidence.count() >= *maximum
-                {
-                    return Ok(Decision::deny(
-                        &policy.version,
-                        DecisionReason::InvalidContext,
-                    ));
-                }
             }
             let mut per_asset = BTreeMap::<[u8; 32], u128>::new();
             let mut aggregate = 0_u128;
@@ -671,13 +630,11 @@ pub(crate) fn evaluate_timed_admission(
             }
             let mut covered = vec![false; intent.effects.len()];
             let decision = decide(policy, intent.effects.len(), &mut |rule, index| {
-                if rule.id.is_empty() {
-                    return Err(EvaluationFailure::InvalidRule);
-                }
+                crate::reject_if(rule.id.is_empty(), || EvaluationFailure::InvalidRule)?;
                 let constraints = &rule.constraints;
-                if constraints.maximum_cumulative_count.is_some() {
-                    return Err(EvaluationFailure::CumulativeCountUnavailable);
-                }
+                crate::reject_if(constraints.maximum_cumulative_count.is_some(), || {
+                    EvaluationFailure::CumulativeCountUnavailable
+                })?;
                 let cumulative_admitted = match constraints.maximum_cumulative_amount {
                     Some(maximum) => budget
                         .ok_or(EvaluationFailure::ProtocolBudgetUnavailable)?
@@ -1151,6 +1108,7 @@ mod tests {
 }
 
 impl EvaluationInput<'_> {
+    #[cfg(test)]
     pub(crate) fn program_requirement_context(
         &self,
         tenant: &str,
@@ -1283,4 +1241,55 @@ impl EvaluationInput<'_> {
             "cumulative":cumulative}))
         .map_err(|_| ())
     }
+}
+
+fn timed_context_admitted(
+    policy: &PolicySet,
+    intent: &PolicyIntentRequest,
+    session: &SessionRecord,
+    capability: &TimedCapability,
+    observed: &AuthenticatedCoreTime,
+    usage: &[AuthenticatedTimeWindowUse],
+    budget: Option<&ReconciliationState>,
+) -> Result<bool, EvaluationFailure> {
+    let request = &session.request;
+    let now = observed.observed_core_ms();
+    if !session.open
+        || policy.version.is_empty()
+        || request.policy_version != policy.version
+        || request.tenant != capability.tenant
+        || request.agent.as_bytes() != capability.agent.as_bytes()
+        || request.authority != capability.authority
+        || intent.effects.is_empty()
+        || intent.core_sequence != observed.through_sequence()
+        || intent.core_sequence >= request.expiry_sequence
+        || !session
+            .public_expiry_within(now)
+            .map_err(|_| EvaluationFailure::Internal)?
+        || now < capability.created_at_ms
+        || observed.through_sequence() < capability.created_at_sequence
+        || capability.is_expired(now)
+        || usage.len() > 4096
+        || usage.len() != capability.rate_ceilings.len()
+        || budget.is_some_and(|value| value.observed_head_sequence() != observed.through_sequence())
+    {
+        return Ok(false);
+    }
+    let mut windows = BTreeSet::new();
+    for evidence in usage {
+        let Some(maximum) = capability.rate_ceilings.get(&evidence.window_seconds()) else {
+            return Ok(false);
+        };
+        if !windows.insert(evidence.window_seconds())
+            || evidence.window_seconds() == 0
+            || evidence.actor() != &request.agent
+            || evidence.observed_batch_id() != observed.observed_batch_id()
+            || evidence.observed_core_ms() != now
+            || evidence.through_sequence() != observed.through_sequence()
+            || evidence.count() >= *maximum
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
