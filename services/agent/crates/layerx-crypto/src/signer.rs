@@ -347,6 +347,11 @@ pub trait BindSigner: Signer {
     }
 }
 
+/// Signs a disclosed EIP-1559 call with the sender's secp256k1 key.
+///
+/// # Errors
+/// Refuses mismatched disclosure or sender, unavailable transaction keys and
+/// signatures that do not recover to the requested sender.
 #[must_use]
 pub fn sign_disclosed_call<'a>(
     signer: &'a dyn Signer,
@@ -371,7 +376,9 @@ pub fn sign_disclosed_call<'a>(
     })
 }
 
-/// Ed25519 signer backed by an external OpenSSH-compatible OS key agent.
+/// Ed25519 custodian for bind consent and native payer authorization backed by
+/// an external OpenSSH-compatible OS key agent. Activity signing is refused
+/// before agent I/O; EVM transactions require a separate secp256k1 key.
 pub struct KeystoreSigner {
     socket: PathBuf,
     key_blob: Vec<u8>,

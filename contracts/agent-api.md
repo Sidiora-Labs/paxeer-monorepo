@@ -367,7 +367,6 @@ are reexported by their namespace in [lib.rs](../services/agent/crates/layerx-ag
 | <a id="type-programlifecycleunknown"></a>`ProgramLifecycleUnknown` | Removed legacy unknown wrapper; preserve `Unknown` in `ProgramSubmission`. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
 | <a id="type-programoutcome"></a>`ProgramOutcome` | Canonical core-receipt Programs facts, including runtime/ABI versions, exact result, metering and effect roots. | [receipt.rs](../services/agent/crates/layerx-wire/src/receipt.rs) |
 | <a id="type-programsource"></a>`ProgramSource` | SDK source state: Unpublished, Verified with source/environment digests, or Mismatch with expected/reproduced artifact hashes. | [programs.rs](../services/agent/crates/layerx-sdk/src/programs.rs) |
-| <a id="type-settlementdomain"></a>`SettlementDomain` | Removed from the Agent schema; retained in compatibility proof codecs, with no additional network finality requirement. | [checkpoint.rs](../services/agent/crates/layerx-proof/src/checkpoint.rs) |
 
 ## Receipt round-trip
 

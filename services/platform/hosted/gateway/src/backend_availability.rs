@@ -2,6 +2,7 @@
 pub(crate) enum KernelBackend {
     Component,
     PublicCore,
+    /// Optional hosted compatibility backend; native receipt keys are governed on chain.
     Authority,
     Identity,
     Registry,

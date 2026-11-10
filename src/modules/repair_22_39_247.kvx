@@ -1,0 +1,226 @@
+[meta]
+task = "22.39.247"
+status = "implemented"
+baseline_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path src/modules --path tests/replay"
+baseline_exit = 1
+baseline_findings = 18
+qualification = "Build and verification pending; candidate revision and gate results are recorded externally in /out/run/gates.jsonl."
+
+[constraint.catalogue]
+path = "tools/paxeer-x/retired_callers.json"
+observed = "Step do_2 requires allowed_references for live symbols, but the exact task scope excludes this catalogue; no allowances have been installed."
+assumption = "Retain the live APIs and all assertions; an owning task or explicit scope correction must install justified catalogue allowances."
+resolution = "Decision 3125 and attempt 2 admit the catalogue and require directory allowances for live kernel names."
+
+[constraint.touches]
+observed = "The baseline scan excludes tests/replay as test files and src/modules/asset/README.md as documentation, but the task graph requires changes to all three paths."
+assumption = "Excluded documentation and replay tests require no caller repair; cosmetic edits, symbol renames and test deletion would not repair the reported findings."
+resolution = "Attempt 2 explicitly requires no module source changes; directory allowances cover asset documentation and replay alongside the reported kernel callers."
+
+[finding.1]
+path = "src/modules/governance/lxp_governance.c"
+line = 129
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_proposal_validate"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.2]
+path = "src/modules/governance/lxp_governance.c"
+line = 216
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_proposal_validate"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.3]
+path = "src/modules/governance/lxp_governance.c"
+line = 391
+component = "receive-grant"
+symbol = "lxp_grant"
+identifier = "lxp_grant_decode"
+disposition = "allowed_reference"
+reason = "The matched codec is declared in include/layerx/lxp_authority.h and authenticates session-key or delegated-capability grants, rather than drawing a web payment through retired RECEIVE/GRANT."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.4]
+path = "src/modules/governance/lxp_governance.c"
+line = 414
+component = "receive-grant"
+symbol = "lxp_grant"
+identifier = "lxp_grant_id_compute"
+disposition = "allowed_reference"
+reason = "The matched codec is declared in include/layerx/lxp_authority.h and authenticates session-key or delegated-capability grants, rather than drawing a web payment through retired RECEIVE/GRANT."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.5]
+path = "src/modules/governance/lxp_governance.c"
+line = 416
+component = "receive-grant"
+symbol = "lxp_grant"
+identifier = "lxp_grant_encode"
+disposition = "allowed_reference"
+reason = "The matched codec is declared in include/layerx/lxp_authority.h and authenticates session-key or delegated-capability grants, rather than drawing a web payment through retired RECEIVE/GRANT."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.6]
+path = "src/modules/governance/lxp_governance.c"
+line = 506
+component = "receive-grant"
+symbol = "lxp_grant"
+identifier = "lxp_grant_decode"
+disposition = "allowed_reference"
+reason = "The matched codec is declared in include/layerx/lxp_authority.h and authenticates session-key or delegated-capability grants, rather than drawing a web payment through retired RECEIVE/GRANT."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.7]
+path = "src/modules/governance/lxp_governance.c"
+line = 521
+component = "receive-grant"
+symbol = "lxp_grant"
+identifier = "lxp_grant_encode"
+disposition = "allowed_reference"
+reason = "The matched codec is declared in include/layerx/lxp_authority.h and authenticates session-key or delegated-capability grants, rather than drawing a web payment through retired RECEIVE/GRANT."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.8]
+path = "src/modules/governance/lxp_governance.c"
+line = 528
+component = "receive-grant"
+symbol = "lxp_grant"
+identifier = "lxp_grant_id_compute"
+disposition = "allowed_reference"
+reason = "The matched codec is declared in include/layerx/lxp_authority.h and authenticates session-key or delegated-capability grants, rather than drawing a web payment through retired RECEIVE/GRANT."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.9]
+path = "src/modules/governance/lxp_governance.c"
+line = 626
+component = "receive-grant"
+symbol = "lxp_grant"
+identifier = "lxp_grant_decode"
+disposition = "allowed_reference"
+reason = "The matched codec is declared in include/layerx/lxp_authority.h and authenticates session-key or delegated-capability grants, rather than drawing a web payment through retired RECEIVE/GRANT."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/governance"
+repair = "Installed the src/modules/governance directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.10]
+path = "src/modules/programs/call.c"
+line = 989
+component = "finality-authority"
+symbol = "receipt_authority"
+identifier = "lxp_verified_receipt_authority_facts"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/lxp_receipt.h:128 and include/layerx/lxp_module.h:173 and reads height-bound verified receipt facts from the execution index, rather than the deleted daemon authority service."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.11]
+path = "src/modules/programs/call.c"
+line = 1009
+component = "finality-authority"
+symbol = "receipt_authority"
+identifier = "lxp_ctx_verified_receipt_authority_facts"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/lxp_receipt.h:128 and include/layerx/lxp_module.h:173 and reads height-bound verified receipt facts from the execution index, rather than the deleted daemon authority service."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.12]
+path = "src/modules/programs/fees.c"
+line = 1029
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_proposal_validate"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.13]
+path = "src/modules/programs/fees.c"
+line = 1131
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_stage"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.14]
+path = "src/modules/programs/fees.c"
+line = 1198
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_pending"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.15]
+path = "src/modules/programs/fees.c"
+line = 1219
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_activate"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.16]
+path = "src/modules/programs/fees.c"
+line = 1574
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_observe_batch"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.17]
+path = "src/modules/programs/fees.c"
+line = 1671
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_resolve_runtime"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[finding.18]
+path = "src/modules/programs/occupancy.c"
+line = 896
+component = "fee-relay"
+symbol = "fee_governance"
+identifier = "lxp_programs_fee_governance_observe_batch"
+disposition = "allowed_reference"
+reason = "The matched API is declared in include/layerx/programs.h:262-290 and implements or consumes the retained governed fee schedule, rather than the retired relay activity 0x00090008."
+allowed_reference = "tools/paxeer-x/retired_callers.json:allowed_references:src/modules/programs"
+repair = "Installed the src/modules/programs directory allowance under decision 3125; preserved the live source unchanged."
+
+[continuation.3125]
+source_attempt_revision = "d7f3b63b7576497349fb146af33355a63675da27"
+implementation_base_revision = "2910889b640274b1b6f2bd14a2fba25019093bb2"
+catalogue = "tools/paxeer-x/retired_callers.json"
+paths = ["src/modules/asset", "src/modules/governance", "src/modules/programs", "tests/replay"]
+symbols = ["fee_governance", "lxp_grant", "receipt_authority"]
+reason = "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names as prefixes."
+evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit code and private log path for each bounded gate."

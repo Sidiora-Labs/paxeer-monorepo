@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -33,6 +34,71 @@ type repair995Producer struct {
 	Responses  map[string]repair995Recorded
 }
 
+func repair995AssertManifest(t *testing.T, options receipt.RPCOptions) {
+	t.Helper()
+	recorded, current := options.Manifest, deployment.Current()
+	// Decision 3119: keep the producer's runtime identities until the upgrade;
+	// re-record the packet after the upgrade to restore exact runtime equality.
+	// Copy both role maps so code attestation still sees the recorded hashes.
+	recorded.Roles = make(map[string]deployment.Role, len(options.Manifest.Roles))
+	currentRoles := current.Roles
+	current.Roles = make(map[string]deployment.Role, len(currentRoles))
+	for name, role := range options.Manifest.Roles {
+		approved, ok := currentRoles[name]
+		if !ok || role.Address != approved.Address || role.Kind != approved.Kind {
+			t.Fatalf("recorded role %s must retain the current address and kind", name)
+		}
+		role.RuntimeHash = ""
+		recorded.Roles[name] = role
+	}
+	for name, role := range currentRoles {
+		role.RuntimeHash = ""
+		current.Roles[name] = role
+	}
+	if !reflect.DeepEqual(recorded, current) {
+		t.Fatal("recorded manifest must match the current deployment apart from role runtime hashes")
+	}
+
+	var catalog, reviewed decode.Catalog
+	if err := json.Unmarshal(options.CatalogJSON, &catalog); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &reviewed); err != nil {
+		t.Fatal(err)
+	}
+	if catalog.ManifestSHA256 != current.SourceManifestSHA256 || reviewed.ManifestSHA256 != current.SourceManifestSHA256 {
+		t.Fatal("recorded and reviewed ABIs must bind the current source manifest")
+	}
+	recordedRevisions, reviewedRevisions := map[string]string{}, map[string]string{}
+	for _, contract := range catalog.Contracts {
+		recordedRevisions[contract.Name] = contract.ABIRevision
+	}
+	for _, contract := range reviewed.Contracts {
+		reviewedRevisions[contract.Name] = contract.ABIRevision
+	}
+	if len(recordedRevisions) == 0 || !reflect.DeepEqual(recordedRevisions, reviewedRevisions) {
+		t.Fatal("recorded ABI revisions must match the reviewed catalog")
+	}
+	for _, epoch := range options.Epochs {
+		role := epoch.Deployment.Role
+		if role == deployment.LaunchpadPrecompileRole {
+			role = "EventEmitter"
+		}
+		if epoch.Deployment.ABIRevision == "" || epoch.Deployment.ABIRevision != reviewedRevisions[role] {
+			t.Fatalf("recorded epoch %s must retain its reviewed ABI revision", epoch.Deployment.Role)
+		}
+	}
+	for _, template := range options.Discovery {
+		if template.ABIRevision == "" || template.ABIRevision != reviewedRevisions[template.Role] {
+			t.Fatalf("recorded discovery role %s must retain its reviewed ABI revision", template.Role)
+		}
+	}
+}
+
 func repair995Load(t *testing.T) repair995Producer {
 	t.Helper()
 	raw, err := os.ReadFile("../receipt/testdata/repair53-producer.json")
@@ -43,7 +109,8 @@ func repair995Load(t *testing.T) repair995Producer {
 	if err := json.Unmarshal(raw, &input); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(input.Options.Manifest, deployment.Current()) || len(input.Markets) != 1 || input.NativeSwap == (common.Hash{}) {
+	repair995AssertManifest(t, input.Options)
+	if len(input.Markets) != 1 || input.NativeSwap == (common.Hash{}) {
 		t.Fatal("approved native producer capture required")
 	}
 	return input

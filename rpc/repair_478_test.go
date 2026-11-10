@@ -189,13 +189,17 @@ func repair478Guests(t *testing.T) (before, after []byte) {
 
 func TestFundConsumptionAttribution(t *testing.T) {
 	// Measure each source-changing boundary, including its immediate predecessor.
-	revisions := []string{repair478Base, "075a770edb^", "075a770edb", "2d8083af02^", "2d8083af02", "7dc80ac4fc2fdc96f295d738f48f26c355f6a9a0", "42fc4308cf0d", ""}
+	revisions := []string{repair478Base, "075a770edb^", "075a770edb", "2d8083af02^", "2d8083af02", "7dc80ac4fc2fdc96f295d738f48f26c355f6a9a0", "101f526f032f95aa585c3458967dae66f1bb053c", ""}
 	for _, revision := range revisions {
 		label := revision
 		if label == "" {
 			label = "working-tree"
 		}
 		t.Run(label, func(t *testing.T) {
+			if revision != "" {
+				repair478Command(t, "..", nil, "git", "cat-file", "-e", revision+"^{commit}")
+				repair478Command(t, "..", nil, "git", "merge-base", "--is-ancestor", revision, "origin/main")
+			}
 			guest := repair478PackageGuest(t, repair478RawGuest(t, revision))
 			dir := t.TempDir()
 			receipt := repair478RunObserved(t, guest.packaged, repair478KernelAllowance, false, dir)

@@ -13,6 +13,10 @@
 | `gateway` | `gateway`, `services/platform/hosted/gateway/deployment.yaml` |
 | `paxeer` | `paxeer-boundary` (9443), tracked boundary workload `paxeer` in `services/platform/hosted/paxeer/deployment.yaml` |
 
+The hosted receipt service remains a readiness dependency for payment and receipt
+inspection; proof verification still uses the node receipt and independently
+trusted receipt keys described below.
+
 The tracked Paxeer manifest also declares `paxeer-observer-boundary:9443`, targeting the `observer-https` listener on 9444. Both boundary listeners use the same local native node at `http://127.0.0.1:8545`; the observer endpoint does not represent an independent chain. The deployment command validates and emits this boundary manifest; `node/deployment.yaml` remains the source of native node facts.
 
 `GET /readyz` reports those dependencies and exactly three journeys. Each journey is ready only when every dependency in its row is reachable. Its admission endpoint returns HTTP 200 with `admitted: true` when ready, or HTTP 503 with `admitted: false` and the failing dependency names otherwise.
