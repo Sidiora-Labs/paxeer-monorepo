@@ -116,7 +116,7 @@ fn validate_scores(scores: &ScoreVector<'_>) -> CodecResult<()> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_report_body(value: &ReportBody<'_>, out: &mut [u8]) -> CodecResult<usize> {
     validate_scores(&value.scores)?;
-    common::encode_report(value, out)
+    common::encode_checked_report(value, out)
 }
 /// Decodes a report body, narrowing vector errors to F03 codes.
 ///
@@ -149,7 +149,7 @@ pub fn decode_report_body(input: &[u8]) -> CodecResult<ReportBody<'_>> {
     let scores = ScoreVector::Encoded(r.take(count.checked_mul(36).ok_or(ARITHMETIC)?)?);
     r.finish()?;
     validate_scores(&scores)?;
-    common::decode_report(input)
+    common::decode_report_frame(input)
 }
 /// Encodes a signed report: body, then the 64-byte signature.
 ///
@@ -163,7 +163,7 @@ pub fn encode_signed_report(value: &SignedReport<'_>, out: &mut [u8]) -> CodecRe
         .and_then(|n| n.checked_add(64))
         .ok_or(ARITHMETIC)?;
     room(out, n)?;
-    let body_len = encode_report_body(&value.body, out)?;
+    let body_len = common::encode_checked_report(&value.body, out)?;
     out.guest_index_mut(body_len..n)
         .guest_copy_from_slice(&value.signature.0);
     Ok(n)
@@ -174,6 +174,36 @@ pub fn encode_signed_report(value: &SignedReport<'_>, out: &mut [u8]) -> CodecRe
 /// Returns `NON_CANONICAL` when the length is outside the signed-report bounds; propagates `decode_report_body` refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_signed_report(input: &[u8]) -> CodecResult<SignedReport<'_>> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        static DECODED: crate::guest_cell::GuestCell<
+            crate::guest_cell::Cached<
+                [Option<(&'static [u8], SignedReport<'static>)>; crate::MAX_EVALUATORS],
+            >,
+        > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if !decoded.is_some() {
+            *decoded = crate::guest_cell::Cached::Value([None; crate::MAX_EVALUATORS]);
+        }
+        let crate::guest_cell::Cached::Value(rows) = &mut *decoded else {
+            return Err(NON_CANONICAL);
+        };
+        for (bytes, row) in rows.iter().flatten() {
+            if core::ptr::eq(*bytes, input) || common::equal_bytes(bytes, input) {
+                return Ok(*row);
+            }
+        }
+        if let Some(frozen) = crate::state::current_slice(input) {
+            let row = decode_signed_report_uncached(frozen)?;
+            if let Some(slot) = rows.iter_mut().find(|slot| slot.is_none()) {
+                *slot = Some((frozen, row));
+            }
+            return Ok(row);
+        }
+    }
+    decode_signed_report_uncached(input)
+}
+fn decode_signed_report_uncached(input: &[u8]) -> CodecResult<SignedReport<'_>> {
     if input.len() < common::REPORT_FIXED_BYTES + 64 || input.len() > SIGNED_REPORT_MAX_BYTES {
         return Err(NON_CANONICAL);
     }
@@ -293,10 +323,10 @@ pub fn check_report_context(body: &ReportBody<'_>, context: &ReportContext<'_>) 
     }
     for value in body.scores.entries() {
         let entry = value?;
-        if !context
+        if context
             .workers
-            .iter()
-            .any(|worker| worker.worker == entry.worker)
+            .binary_search_by_key(&entry.worker, |worker| worker.worker)
+            .is_err()
         {
             return Err(F03_UNKNOWN_WORKER);
         }
@@ -344,6 +374,23 @@ pub fn verify_signed_report(
 ) -> Result<ReportDigest, VerificationError> {
     check_report_context(&value.body, context)?;
     let digest = common::report_digest(&value.body)?;
+    verify_report_signature(value, context, digest)
+}
+
+pub(crate) fn verify_report_with_digest(
+    value: &SignedReport<'_>,
+    context: &ReportContext<'_>,
+    digest: ReportDigest,
+) -> Result<ReportDigest, VerificationError> {
+    check_report_context(&value.body, context)?;
+    verify_report_signature(value, context, digest)
+}
+
+fn verify_report_signature(
+    value: &SignedReport<'_>,
+    context: &ReportContext<'_>,
+    digest: ReportDigest,
+) -> Result<ReportDigest, VerificationError> {
     let attestation = common::attestation_digest(digest)?;
     verify_digest(
         context.frozen_grant.signing_key,
