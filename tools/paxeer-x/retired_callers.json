@@ -1277,6 +1277,42 @@
         "SettlementDomain"
       ],
       "citation": "Decision 3125 retains the settlement_domain and SettlementDomain declarations and golden vectors as the schema record of retirement, including the retired markers asserted by verification_level_retires_settlement_values_and_maps_rungs in services/human/tools/schema-check/tests/journey_vocabulary.rs."
+    },
+    {
+      "path": "src/modules/asset",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "src/modules/governance",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "src/modules/programs",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "tests/replay",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
     }
   ]
 }
