@@ -1,0 +1,399 @@
+[meta]
+task = "22.39.365"
+acceptance = "22998.1"
+base_revision = "b4c4957cad4fb61d135e145a3695d14afa26f7d0"
+verified_revision_source = "/out/run/gates.jsonl: final matching passing build and verify candidate revision"
+private_evidence = "/out/run/gates.jsonl and the numbered build/verify log paths recorded there"
+
+[implementation]
+file = "programs/crates/layerx-programs-ai-market/src/rooms.rs:933"
+symbol = "apply_record_deal"
+change = "Refuse AskState::Closed instead of every state other than Open; the existing enum decoder admits only Open, Matched and Closed."
+preservation = "Every other check and error, request encoding and stored record layout is unchanged; the entry arm still sets the ask Matched and inserts each deal by its distinct deal_id without replacing an earlier deal."
+closed_ask = "No operation assigns AskState::Closed; only the decoder recognizes its value, and no closed-ask test was added."
+
+[cases]
+success = "a_matched_ask_accepts_a_further_deal_of_the_room_host records a distinct second deal, fresh bids from admitted peers and a different layer split; reloads persisted state, reads both DealViews, compares the entire earlier deal and matched ask, and checks exact replay retention."
+checks = "a_further_deal_passes_the_checks_of_a_first_deal compares an open ask and the matched ask against the same stale prior-epoch roster, over-ceiling price, duplicate peer across distinct bids and occupied first deal_id; asserts F11_ROSTER_DIGEST_MISMATCH or CONFLICT, unchanged state and sequence, then accepts valid terms."
+authority = "a_further_deal_is_refused_from_another_account checks UNAUTHORIZED for admitted non-host PEER_A, unchanged state and sequence, then host acceptance of the same valid request."
+fixture = "tests/fixtures/f11_rooms_and_deals.rs::recorded_journey includes the further-deal success trajectory for real guest observers."
+existing_case_changes = "None; no existing in-scope case asserted refusal solely because an ask was Matched."
+
+[downstream_review]
+laps = "src/laps.rs:313,338,406,449: settlement lookup, insertion, deal binding and prior-batch checks use deal_id, never ask_id."
+rewards = "src/rewards.rs:1390,2160,3662,3676,3706,4248: settlement and payout cursors use deal IDs; credits merge per worker/epoch with per-deal payout accounting."
+queries = "src/queries.rs:284,312,341,420: RoomView walks every deal for consumed bids, lists only open asks as before, and DealView/ReceiptBatchView bind reads to a deal ID."
+placement = "src/placement.rs:123,150: each deal consumes its own bids; repeated bid consumption remains CONFLICT and matched asks stay out of new-order matching. Fresh bids preserve that rule for a further deal."
+result = "No single-deal-per-ask assumption requires a downstream wire or stored-layout change."
+
+[search]
+paths = "programs/crates/layerx-programs-ai-market/tests; services/agent/crates/layerx-client; services/agent/crates/layerx-agentd"
+patterns = "Matched; AskState::Open; second/further/another deal; RecordDeal; record_deal; CONFLICT"
+outside_scope_file = "services/agent/crates/layerx-agentd/src/inference_market/deals.rs"
+outside_scope_line = 772
+outside_scope_assumption = "refresh_negotiation considers a negotiation valid only if its ask is Open, so it drops a negotiation for a Matched ask; recorded without changing the file."
+retained_case_file = "programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs"
+retained_case_line = 810
+retained_case = "record_deal_removes_its_ask_and_every_consumed_bid_and_rejects_bid_reuse checks an open different ask with a reused bid, not a matched ask; unchanged."
+client = "src/ai_market.rs:531 deal_envelope and :491 verify_recorded_deal bind by room/deal IDs and add no ask-state restriction."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+policy = "Only the final passing hf-done row with a matching build revision establishes completion; no manual verify_cmd run."
+aggregation = "Regenerate the aggregation baseline only if a case reports it stale."
+
+[gotcha.query_path]
+observed = "The requested src/queries directory is implemented as src/queries.rs with placement.rs as its path module."
+resolution = "Reviewed both real source files without adding a duplicate module."
+
+[guest]
+command = "programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh"
+exit = 0
+log = "/out/logs/guest-regeneration.log"
+wasm_bytes = 520452
+limit_bytes = 524184
+headroom_bytes = 3732
+source_sha256 = "71c6100e7b673656351bc4caf19cc264a5eda962b902de1a244b39a04800002a"
+sha256 = "924c77df50925f6138cc5a4d062ddd739090a1d3c46795afecade84e473cdfe6"
+
+[continuation]
+dependent_compile = "Decision 3264 records attempt 1's dependent-check failure in services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs; decision 3267 replaces prerequisite 22.39.228 with completed task 22.39.368, whose repair is merged as f6a140d01d064ed6de3585ce65bbedbe264a80b6 in the current branch."
+source_review = "The current guest source SHA-256 is still 71c6100e7b673656351bc4caf19cc264a5eda962b902de1a244b39a04800002a, identical to the carried-forward regenerated fixture; no guest source changed in the prerequisite merge and no regeneration is needed."
+guest_review = "The carried-forward guest decodes to 520452 bytes, below the 524184-byte limit with 3732 bytes of headroom."
+record_timing = "The prior blocker-only bounded result is superseded by this continuation; the final matching revision and exact gate results are recorded in the private evidence ledger named in meta."
+
+[repair.producer_progress]
+decision = "3277 (gotcha 4205)"
+file = "programs/crates/layerx-programs-ai-market/tests/fixtures/f11_producers.rs"
+opening = "open repeats the authenticated OPEN_EPOCH request, decodes cursor and count from each result, requires strictly advancing bounded cursors and a stable count, requires no captured roster during partial opening, and checks the final captured epoch, config, digest and participant counts against preview_open. An empty roster completes at cursor zero."
+finalization = "settle repeats FinalizeAggregation with the produced input digest, decodes worker count, weight and cursor from every result, checks count against committed progress and advancing bounded cursors, and requires Terminal exactly on the last response."
+state = "Only apply commits the state returned by dispatch; no fixture writes state after either operation. The existing admission, heartbeat, settlement and downstream assertions remain intact."
+guest = "The continuation changes only this fixture and the repair record; the carried-forward guest source digest and 520452-byte artifact are unchanged."
+prior_failure = "The previous fixture finding is replaced by the progress repair; the prechecks below exposed separate native targets still importing the unmodified older producer module."
+prechecks = "All five requested targets ran outside the counted gates; their imports differ from the named fixture and their results are recorded below."
+
+[bounded_result]
+status = "qualification_pending"
+revision_source = "/out/run/gates.jsonl: final matching build and verify candidate revision"
+command = "hf-done"
+policy = "Only the last passing verify row with a matching passing build revision establishes completion; exact command, exit and private log location are stored in that row."
+
+[prechecks.producer_targets]
+base_revision = "6e3abf0ebe494c2a92acb3c9127f7052af1bc430"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast --test f11_lap_settlement --test f11_bonds --test f11_canary_challenge --test f11_payout_split --test f11_views"
+exit = 101
+log = "/out/logs/producer-prechecks-1.log"
+results = "f11_bonds: 13 passed, 4 failed; f11_canary_challenge: 16 passed, 4 failed; f11_lap_settlement: 9 passed, 4 failed; f11_payout_split: 13 passed, 4 failed; f11_views: 9 passed, 4 failed."
+
+[finding.native_producer_import]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs:140"
+symbol = "envelope"
+observed = "Base 6e3abf0ebe494c2a92acb3c9127f7052af1bc430: the exact producer precheck command above exited 101 in /out/logs/producer-prechecks-1.log; each target imports repair_22_33_260.rs at line 1 and the four admission cases fail with fixture step=envelope operation=captured_roster -> encode_envelope (codec.rs:schema): ApplicationError(14), meaning WRONG_ROSTER."
+assumption = "Decision 3282 adds this module to scope; the continuation repair below supersedes this earlier blocker."
+severity = "blocker"
+
+[finding.dependent_inference_laps]
+task = "22.39.365"
+file = "services/agent/crates/layerx-agentd/tests/inference_laps.rs:1282"
+symbol = "LapServerFrame"
+observed = "Revision 4393fe1ca9f1ccffd834fac1773169605594a3dd: cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agent-api -p layerx-agentd -p layerx-agentd-host -p layerx-client -p layerx-crypto -p layerx-identity-binding -p layerx-mcp -p layerx-mcp-test-support -p layerx-proof -p layerx-sdk -p layerx-types -p layerx-wire exited 101 in /out/logs/dependents-1.log: error[E0005]: refutable pattern in local binding; pattern LapServerFrame::CanaryRequest { .. } not covered."
+assumption = "Decision 3282 requires task 22.39.227, now merged into this branch as 0da18409084db4433b643d55a11f020842c6ca43; no services/agent file is changed by this task."
+severity = "blocker"
+
+[bounded_result.continuation]
+revision = "4393fe1ca9f1ccffd834fac1773169605594a3dd"
+build_command = "make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+attempted_gate = "hf-done"
+gate_exit = 7
+dependent_exit = 101
+dependent_log = "/out/logs/dependents-1.log"
+verification = "The declared verify_cmd did not run: hf-done refused the unrelated dependent compilation failure; no completed qualification is claimed."
+record_timing = "Only this failure evidence and status were recorded after the gate; implementation and fixtures remain as built."
+
+
+[repair.native_producer_progress]
+decision = "3282 (gotcha 4210)"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"
+opening = "open repeats the encoded OPEN_EPOCH operation until its returned cursor equals the participant count; every result requires Ok, exact response length, a stable count and a strictly advancing bounded cursor (or the empty roster). Partial calls have no captured roster; the final captured binding and participant counts equal preview_open."
+finalization = "settle repeats FinalizeAggregation with the produced input digest until the returned cursor reaches worker_count; every result requires Ok, exact response length, a strictly advancing bounded cursor and count/weight matching committed progress, with Terminal exactly at completion."
+state = "Only apply commits dispatch output; neither helper writes state after an operation. All existing tests and assertions remain."
+prerequisite = "The runner merged task 22.39.227 before this continuation; no additional rebase or services/agent change is needed."
+guest = "Verified the current source digest equals 71c6100e7b673656351bc4caf19cc264a5eda962b902de1a244b39a04800002a and the carried guest digest equals 924c77df50925f6138cc5a4d062ddd739090a1d3c46795afecade84e473cdfe6 at 520452 bytes. No guest source changed, so decision 3282 retains the artifact."
+precheck_policy = "Run all eleven importing targets before the counted gates; record unrelated failures with their first message and source location. Final evidence is the last matching build and verify rows in /out/run/gates.jsonl."
+
+[prechecks.native_producer_targets]
+revision = "b4c4957cad4fb61d135e145a3695d14afa26f7d0"
+candidate = "Working tree includes the carried attempt-3 changes and native progress repair; final qualified revision is recorded by the gates ledger."
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --no-fail-fast --test f03_evaluator_host --test f04_windows --test f05_aggregation_runtime --test f11_bonds --test f11_canary_challenge --test f11_lap_settlement --test f11_payout_split --test f11_views --test reputation_lifecycle --test rewards_native --test repair_22_33_260"
+log = "/out/logs/native-producer-prechecks-1.log"
+results = "f03_evaluator_host: test result: FAILED. 17 passed; 8 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.98s; f04_windows: test result: FAILED. 23 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.93s; f05_aggregation_runtime: test result: FAILED. 10 passed; 18 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.42s; f11_bonds: test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.53s; f11_canary_challenge: test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.51s; f11_lap_settlement: test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.96s; f11_payout_split: test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.58s; f11_views: test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.37s; repair_22_33_260: test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.17s; reputation_lifecycle: test result: FAILED. 16 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.66s; rewards_native: test result: FAILED. 14 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.43s"
+scope = "All four admission fixtures now pass in all eleven importing targets. Six targets pass completely, including both importing targets of verify_cmd. Other failures are recorded below and are outside verify_cmd; no test or guest source is changed for them."
+exit = 101
+
+[finding.precheck.f03_a09_a10_role_conflicts_refuse_scheduling_and_opening]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:1869"
+symbol = "f03_a09_a10_role_conflicts_refuse_scheduling_and_opening"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f03_a07_a08_revocation_and_seal_orderings]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:1798"
+symbol = "f03_a07_a08_revocation_and_seal_orderings"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f03_a01_a02_explicit_zero_is_a_vote_and_an_omitted_worker_is_none]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:1542"
+symbol = "f03_a01_a02_explicit_zero_is_a_vote_and_an_omitted_worker_is_none"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.native_f03_schedule_capacity_role_conflicts_and_revocation]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:2853"
+symbol = "native_f03_schedule_capacity_role_conflicts_and_revocation"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: native harness /work/paxeer-monorepo/programs/crates/layerx-programs-ai-market/../../../build/paxai-host-boundary/manifest: No such file or directory (os error 2); run make paxai-host-boundary-build"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f03_a16_pending_grants_stay_ineligible_until_accepted]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:2119"
+symbol = "f03_a16_pending_grants_stay_ineligible_until_accepted"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f03_a16_quality_challenge_changes_no_score_or_reward]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:2187"
+symbol = "f03_a16_quality_challenge_changes_no_score_or_reward"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f04_a12_rotation_revocation_and_rollover]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:1810"
+symbol = "f04_a12_rotation_revocation_and_rollover"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f03_a15_eight_maximum_reports_and_resource_rollback]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs:2005"
+symbol = "f03_a15_eight_maximum_reports_and_resource_rollback"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(15)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.a06_missing_commit_and_partial_reveals]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f04_windows.rs:2030"
+symbol = "a06_missing_commit_and_partial_reveals"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(2)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.a10_largest_reports_at_both_identity_bounds]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f04_windows.rs:2165"
+symbol = "a10_largest_reports_at_both_identity_bounds"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(2)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a02_four_scores_select_the_lower_median]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1624"
+symbol = "f05_a02_four_scores_select_the_lower_median"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a04_absent_reports_add_no_observations]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1667"
+symbol = "f05_a04_absent_reports_add_no_observations"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a05_arrival_order_never_changes_bytes_and_seal_height_does]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1680"
+symbol = "f05_a05_arrival_order_never_changes_bytes_and_seal_height_does"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a01_three_distinct_scores_select_the_median]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1592"
+symbol = "f05_a01_three_distinct_scores_select_the_median"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a03_zero_quorum_and_insufficient_quorum_stay_distinct]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1638"
+symbol = "f05_a03_zero_quorum_and_insufficient_quorum_stay_distinct"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f04_a06_expired_commitments_supply_no_rows]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:2191"
+symbol = "f04_a06_expired_commitments_supply_no_rows"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a06_canonical_worker_order_and_display_shares]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1712"
+symbol = "f05_a06_canonical_worker_order_and_display_shares"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a09_no_reports_settles_no_eligible_score]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1787"
+symbol = "f05_a09_no_reports_settles_no_eligible_score"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a11_self_assessment_and_unbacked_persisted_votes]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1861"
+symbol = "f05_a11_self_assessment_and_unbacked_persisted_votes"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a12_settlement_window_and_delayed_completion]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1895"
+symbol = "f05_a12_settlement_window_and_delayed_completion"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a07_display_truncation_and_weight_settlement]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1736"
+symbol = "f05_a07_display_truncation_and_weight_settlement"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a15_worker_replacement_after_freeze]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:2066"
+symbol = "f05_a15_worker_replacement_after_freeze"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a14_revocation_orderings]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:2028"
+symbol = "f05_a14_revocation_orderings"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a17_colluding_low_reports_select_zero]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:2152"
+symbol = "f05_a17_colluding_low_reports_select_zero"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a18_settlement_reads_no_evidence]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:2167"
+symbol = "f05_a18_settlement_reads_no_evidence"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(1797)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a13_cursor_retries_and_once_only_completion]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1939"
+symbol = "f05_a13_cursor_retries_and_once_only_completion"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(2)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a16_refused_steps_keep_committed_progress]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:2104"
+symbol = "f05_a16_refused_steps_keep_committed_progress"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(2)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f05_a08_largest_roster_in_four_chunks]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs:1763"
+symbol = "f05_a08_largest_roster_in_four_chunks"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(2)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f07_a12_atomic_terminal_and_sealed_history_allowed]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs:2490"
+symbol = "f07_a12_atomic_terminal_and_sealed_history_allowed"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: thread 'f07_a12_atomic_terminal_and_sealed_history_allowed' (5907) panicked at crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs:2507:9: assertion `left == right` failed   left: None  right: Some(ApplicationError(22))"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.f07_a11_capacity_and_sizes]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs:2452"
+symbol = "f07_a11_capacity_and_sizes"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: ApplicationError(2)"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.reward_conservation_authority_and_rollback]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs:1951"
+symbol = "reward_conservation_authority_and_rollback"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: native harness /work/paxeer-monorepo/programs/crates/layerx-programs-ai-market/../../../build/paxai-host-boundary/manifest: No such file or directory (os error 2); run make paxai-host-boundary-build"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.reward_reopen_preserves_recipient_balances]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs:2662"
+symbol = "reward_reopen_preserves_recipient_balances"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: native harness /work/paxeer-monorepo/programs/crates/layerx-programs-ai-market/../../../build/paxai-host-boundary/manifest: No such file or directory (os error 2); run make paxai-host-boundary-build"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"
+
+[finding.precheck.reward_finality_recovery_and_capacity]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs:2951"
+symbol = "reward_finality_recovery_and_capacity"
+observed = "Revision b4c4957cad4fb61d135e145a3695d14afa26f7d0 with the progress repair: prechecks.native_producer_targets.command exited 101 in /out/logs/native-producer-prechecks-1.log; first failing message: Error: native harness /work/paxeer-monorepo/programs/crates/layerx-programs-ai-market/../../../build/paxai-host-boundary/manifest: No such file or directory (os error 2); run make paxai-host-boundary-build"
+assumption = "This case is outside the declared verification and remains unchanged under decision 3282; no further investigation or rerun is authorized."
+severity = "note"

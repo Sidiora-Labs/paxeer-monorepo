@@ -759,7 +759,85 @@ fn host_can_close_an_idle_room_and_closed_rooms_refuse_new_work() {
     );
 }
 
+impl Harness {
+    fn further_deal_request(&self, deal: Digest32) -> RecordDealRequest {
+        let mut request = self.deal_request(digest(60), digest(61), deal);
+        request.layers[0] = Some(LayerSplit {
+            bid_id: digest(72),
+            first_layer: 0,
+            end_layer: 12,
+        });
+        request.layers[1] = Some(LayerSplit {
+            bid_id: digest(73),
+            first_layer: 12,
+            end_layer: 20,
+        });
+        request
+    }
+}
+
+fn a_matched_ask_accepts_a_further_deal_of_the_room_host() {
+    use layerx_programs_ai_market::queries::{self, DealView};
+
+    let mut h = Harness::ready(123);
+    let first = h.deal_request(digest(60), digest(61), digest(62));
+    h.deal(&first);
+    let earlier = h.book().deal(first.deal_id).unwrap().unwrap();
+    let ask = h.book().ask(first.ask_id).unwrap().unwrap();
+    assert_eq!(ask.state, AskState::Matched);
+    h.bid(digest(60), digest(72), PEER_A);
+    h.bid(digest(60), digest(73), PEER_B);
+    let further = h.further_deal_request(digest(63));
+    assert_ne!(further.layers, first.layers);
+    let sequence = h.sequence(HOST);
+    let encoded = h.deal(&further);
+    assert_eq!(h.sequence(HOST), sequence + 1);
+    let persisted = h.current.clone();
+    let mut restarted = Harness {
+        current: persisted.clone(),
+        height: h.height,
+        request: h.request,
+    };
+    assert_eq!(restarted.book().counts(), [1, 1, 4, 2]);
+    assert_eq!(restarted.book().ask(first.ask_id).unwrap().unwrap(), ask);
+    assert_eq!(
+        restarted.book().deal(first.deal_id).unwrap().unwrap(),
+        earlier
+    );
+    for request in [&first, &further] {
+        let mut bytes = vec![0; queries::DEAL_VIEW_BYTES];
+        let n =
+            queries::answer_deal_view(&restarted.current, request.deal_id.as_bytes(), &mut bytes)
+                .unwrap();
+        let view = DealView::decode(&bytes[..n]).unwrap();
+        assert_eq!(
+            view.deal,
+            restarted.book().deal(request.deal_id).unwrap().unwrap()
+        );
+        assert_eq!(view.deal.ask_id, first.ask_id);
+        assert_eq!(view.deal.room_id, request.room_id);
+        assert_eq!(view.deal.deal_id, request.deal_id);
+        assert_eq!(view.deal.layers, request.layers);
+        assert_eq!(view.deal.roster_digest, request.roster_digest);
+        assert_eq!(
+            view.deal.agreed_price_per_thousand_tokens,
+            request.agreed_price_per_thousand_tokens
+        );
+        assert_eq!(view.deal.state, DealState::Open);
+        assert_eq!(view.settled_tokens, 0);
+        assert_eq!(view.settled_amount_owed, 0);
+    }
+    let (routed, result, _) = restarted.execute(HOST, &encoded);
+    assert!(matches!(routed, Routed::Unchanged { .. }));
+    assert_eq!(
+        codec::decode_result(&result).unwrap().status,
+        ResultStatus::AlreadyApplied
+    );
+    assert_eq!(restarted.current, persisted);
+}
+
 pub fn recorded_journey() {
+    a_matched_ask_accepts_a_further_deal_of_the_room_host();
     open_ask_bid_deal_persist_with_ordered_layers_and_roster_binding();
     host_can_close_an_idle_room_and_closed_rooms_refuse_new_work();
 }
