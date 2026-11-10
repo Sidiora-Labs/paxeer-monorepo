@@ -225719,7 +225719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.372]
 title = "Serve the candle read after a replay, the trade read and the verified token in the development API of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
