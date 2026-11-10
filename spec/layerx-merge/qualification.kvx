@@ -39818,3 +39818,11 @@ symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
 observed = "Attempt 7 at e2f14a479b62 on base 1b4b14bd3e44: the verification exits 1, internal/source fails in TestRepairM_997_ArchiveCapacityBounds, TestRepairM_997_AuthorizedIncidentSelection and TestRepairM_997_MixedRPCSourceSelection, every other package passes; log /out/logs/verify-2.log."
 assumption = "The historical cases of the package leave state behind that the capacity cases then meet."
 severity = "high"
+
+[finding.22.38.13.5]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 5 at acd6292aedbf on base a8dddadb5a8c: the build exits 2 at the size test of make paxai-host-boundary-build, the guest measures 526407 bytes against the bound 524184; no verification ran; log /out/logs/build-1.log."
+assumption = "The manifest of the attempt builds the guest at opt-level s and the recipe of main packages it at z."
+severity = "high"
