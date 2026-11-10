@@ -365,10 +365,7 @@ fn frozen_checksums() -> Vec<(u16, String)> {
 fn encoded(version: u16, manifest: &str) -> String {
     let mut bytes = version.to_be_bytes().to_vec();
     bytes.extend_from_slice(manifest.as_bytes());
-    let mut hex = String::new();
-    for byte in bytes {
-        hex.push_str(&format!("{byte:02x}"));
-    }
+    let mut hex = hex::encode(bytes);
     hex.push('\n');
     hex
 }
@@ -386,7 +383,7 @@ fn frozen_manifests_are_unchanged_and_v4_only_appends_web_read() {
         let vector = vector(version);
         assert_eq!(vector, encoded(version, manifest), "ABI v{version} vector");
         let digest = Sha256::digest(vector.as_bytes());
-        let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+        let hex = hex::encode(digest);
         assert!(
             checksums.contains(&(version, hex)),
             "ABI v{version} checksum is not frozen"

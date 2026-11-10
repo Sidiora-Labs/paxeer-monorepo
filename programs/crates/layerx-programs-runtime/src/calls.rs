@@ -452,6 +452,9 @@ impl CallGraph {
 const REPLAY_GRAPH_DOMAIN: &[u8] = b"LayerX/programs/replay-call-graph/v1\0";
 
 impl CallGraph {
+    /// # Errors
+    ///
+    /// Returns a replay refusal when the graph encoding, identifiers, frame paths, limits, or recorded visit counts are invalid.
     pub fn replay_state_bytes(
         &self,
         maximum: usize,
@@ -532,15 +535,14 @@ impl CallGraph {
         Ok(out)
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal when the graph encoding, identifiers, frame paths, limits, or recorded visit counts are invalid.
     pub fn decode_untrusted_replay_state(
         encoded: &[u8],
         maximum: usize,
     ) -> Result<Self, crate::replay::ReplayWitnessError> {
         use crate::replay::{maximum_bytes, ReplayCursor, ReplayWitnessError as E};
-        maximum_bytes(maximum)?;
-        if encoded.len() > maximum {
-            return Err(E::Bounds);
-        }
         fn program(cursor: &mut ReplayCursor<'_>) -> Result<ProgramId, E> {
             ProgramId::new(cursor.take(32)?.try_into().map_err(|_| E::Encoding)?)
                 .map_err(|_| E::Encoding)
@@ -553,6 +555,11 @@ impl CallGraph {
             let path = cursor.take(8)?.try_into().map_err(|_| E::Encoding)?;
             CallFrameId::from_canonical(path, cursor.u8()?).map_err(|_| E::Encoding)
         }
+        maximum_bytes(maximum)?;
+        if encoded.len() > maximum {
+            return Err(E::Bounds);
+        }
+
         let mut cursor = ReplayCursor::new(encoded);
         if cursor.take(REPLAY_GRAPH_DOMAIN.len())? != REPLAY_GRAPH_DOMAIN {
             return Err(E::Encoding);
@@ -1968,9 +1975,11 @@ mod single_step_conformance {
 
     #[test]
     fn committed_web_answer_success_replays_real_guest_output_and_metering() {
+        use crate::test_support::AssertSuccess as _;
+
         use crate::abi::{CommittedWebAnswers, WebAnswer};
         use sha2::Digest;
-        let program = ProgramId::new([0x11; 32]).unwrap();
+        let program = ProgramId::new([0x11; 32]).assert_success("test value");
         let mut answers = CommittedWebAnswers::new();
         answers
             .commit(
@@ -1982,18 +1991,18 @@ mod single_step_conformance {
                     response: vec![42],
                 },
             )
-            .unwrap();
+            .assert_success("test value");
         let abi = Abi::new(
             4,
             program,
             AuthorizationContext::new(
-                PrincipalId::new([0x22; 32]).unwrap(),
+                PrincipalId::new([0x22; 32]).assert_success("test value"),
                 CapabilitySet::empty(),
             ),
             Storage::new(),
             &UnavailableReceiptOracle,
         )
-        .unwrap()
+        .assert_success("test value")
         .with_committed_web(std::sync::Arc::new(answers));
         let mut exports = export_section(&[("run", 1)]);
         exports[1] += 9;
@@ -2021,9 +2030,11 @@ mod single_step_conformance {
 
     #[test]
     fn native_storage_event_and_oracle_host_successes_replay_actual_state_and_metering() {
+        use crate::test_support::AssertSuccess as _;
+
         use crate::abi::{CommittedOracleObservations, OracleObservation};
         use crate::Capability;
-        let program = ProgramId::new([0x11; 32]).unwrap();
+        let program = ProgramId::new([0x11; 32]).assert_success("test value");
         let market = [0x33; 32];
         let mut observations = CommittedOracleObservations::new();
         observations
@@ -2034,7 +2045,7 @@ mod single_step_conformance {
                 sequence: 3,
                 source_set_digest: [0x44; 32],
             })
-            .unwrap();
+            .assert_success("test value");
         let capabilities = CapabilitySet::new([
             Capability::StorageRead,
             Capability::StorageWrite,
@@ -2042,16 +2053,23 @@ mod single_step_conformance {
             Capability::SharedStorageWrite,
             Capability::EmitEvent,
         ])
-        .unwrap();
+        .assert_success("test value");
         let abi = Abi::new(
             3,
             program,
-            AuthorizationContext::new(PrincipalId::new([0x22; 32]).unwrap(), capabilities),
+            AuthorizationContext::new(
+                PrincipalId::new([0x22; 32]).assert_success("test value"),
+                capabilities,
+            ),
             Storage::new(),
             &UnavailableReceiptOracle,
         )
-        .unwrap()
+        .assert_success("test value")
         .with_committed_oracle(std::sync::Arc::new(observations));
+        let bytes = storage_oracle_guest(market);
+        check_with_abi(&bytes, 3, Some(WasmValue::I32(42)), abi);
+    }
+    fn storage_oracle_guest(market: [u8; 32]) -> Vec<u8> {
         let mut body = Vec::new();
         let call = |body: &mut Vec<u8>, arguments: &[i32], function: u8, status: i32| {
             for argument in arguments {
@@ -2099,7 +2117,7 @@ mod single_step_conformance {
         let mut data = vec![1, 0, 0x41, 0, 0x0b, 64, b'k', b'v', b't'];
         data.resize(9 + 29, 0);
         data.extend_from_slice(&market);
-        let bytes = module(&[
+        module(&[
             type_section(&[
                 (&[TYPE_I32; 4], &[TYPE_I32]),
                 (&[TYPE_I32; 2], &[TYPE_I32]),
@@ -2126,8 +2144,7 @@ mod single_step_conformance {
             exports,
             code_section(&[func_body(&[], &body)]),
             raw_section(11, &data),
-        ]);
-        check_with_abi(&bytes, 3, Some(WasmValue::I32(42)), abi);
+        ])
     }
 
     fn with_memory(mut exports: Vec<u8>) -> Vec<u8> {
@@ -2179,13 +2196,87 @@ mod single_step_conformance {
 
     #[test]
     fn native_transfer_receipt_and_balance_host_successes_replay_actual_effects_and_metering() {
-        use crate::WasmValue::{I32, I64};
+        let TransferReadFixture {
+            abi,
+            asset,
+            recipient,
+            digest,
+            account,
+            source,
+            pool,
+        } = transfer_read_fixture();
+        let body = transfer_read_guest_body();
+        let bytes = module(&[
+            type_section(&[
+                (
+                    &[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32],
+                    &[TYPE_I32],
+                ),
+                (&[TYPE_I32; 4], &[TYPE_I32]),
+                (&[TYPE_I32; 6], &[TYPE_I32]),
+                (
+                    &[
+                        TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
+                        TYPE_I32, TYPE_I32, TYPE_I32,
+                    ],
+                    &[TYPE_I32],
+                ),
+                (
+                    &[
+                        TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
+                        TYPE_I32,
+                    ],
+                    &[TYPE_I32],
+                ),
+                (&[], &[TYPE_I32]),
+            ]),
+            import_section(&[
+                ("layerx_v1", "transfer_402", 0),
+                ("layerx_v1", "receipt_read", 1),
+                ("layerx_v2", "balance_read", 2),
+                ("layerx_v2", "transfer_program_402", 3),
+                ("layerx_v2", "fund_program_402", 4),
+            ]),
+            function_section(&[5]),
+            raw_section(5, &[1, 1, 1, 1]),
+            with_memory(export_section(&[("run", 5)])),
+            code_section(&[func_body(&[], &body)]),
+            data_section(&[
+                (0, &asset),
+                (32, &recipient),
+                (64, &digest),
+                (96, &account),
+                (128, b"vault"),
+                (160, &source),
+                (192, b"pool"),
+                (224, &pool),
+            ]),
+        ]);
+        check_with_abi(&bytes, 2, Some(WasmValue::I32(42)), abi);
+    }
+    struct TransferReadFixture {
+        abi: Abi,
+        asset: [u8; 32],
+        recipient: [u8; 32],
+        digest: [u8; 32],
+        account: [u8; 32],
+        source: [u8; 32],
+        pool: [u8; 32],
+    }
+
+    fn transfer_read_fixture() -> TransferReadFixture {
+        use crate::test_support::AssertSuccess as _;
+
         use crate::{derive_program_account, BalanceView, Capability, ReceiptView};
-        let program = ProgramId::new([0x11; 32]).unwrap();
-        let principal = PrincipalId::new([0x22; 32]).unwrap();
+        let program = ProgramId::new([0x11; 32]).assert_success("test value");
+        let principal = PrincipalId::new([0x22; 32]).assert_success("test value");
         let (asset, recipient, digest, account) = ([0xa1; 32], [0xb2; 32], [0xd3; 32], [0xc4; 32]);
-        let source = derive_program_account(program, b"vault").unwrap().bytes();
-        let pool = derive_program_account(program, b"pool").unwrap().bytes();
+        let source = derive_program_account(program, b"vault")
+            .assert_success("test value")
+            .bytes();
+        let pool = derive_program_account(program, b"pool")
+            .assert_success("test value")
+            .bytes();
         let capabilities = CapabilitySet::new([
             Capability::Transfer402 {
                 asset,
@@ -2214,7 +2305,7 @@ mod single_step_conformance {
                 receipt_digest: digest,
             },
         ])
-        .unwrap();
+        .assert_success("test value");
         let receipts = [(
             digest,
             ReceiptView {
@@ -2248,7 +2339,20 @@ mod single_step_conformance {
             receipts,
             balances,
         )
-        .unwrap();
+        .assert_success("test value");
+        TransferReadFixture {
+            abi,
+            asset,
+            recipient,
+            digest,
+            account,
+            source,
+            pool,
+        }
+    }
+
+    fn transfer_read_guest_body() -> Vec<u8> {
+        use crate::WasmValue::{I32, I64};
         let mut body = Vec::new();
         expect_call(
             &mut body,
@@ -2313,57 +2417,13 @@ mod single_step_conformance {
             I32(0),
         );
         body.extend_from_slice(&[0x41, 42, 0x0b]);
-        let bytes = module(&[
-            type_section(&[
-                (
-                    &[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32],
-                    &[TYPE_I32],
-                ),
-                (&[TYPE_I32; 4], &[TYPE_I32]),
-                (&[TYPE_I32; 6], &[TYPE_I32]),
-                (
-                    &[
-                        TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
-                        TYPE_I32, TYPE_I32, TYPE_I32,
-                    ],
-                    &[TYPE_I32],
-                ),
-                (
-                    &[
-                        TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
-                        TYPE_I32,
-                    ],
-                    &[TYPE_I32],
-                ),
-                (&[], &[TYPE_I32]),
-            ]),
-            import_section(&[
-                ("layerx_v1", "transfer_402", 0),
-                ("layerx_v1", "receipt_read", 1),
-                ("layerx_v2", "balance_read", 2),
-                ("layerx_v2", "transfer_program_402", 3),
-                ("layerx_v2", "fund_program_402", 4),
-            ]),
-            function_section(&[5]),
-            raw_section(5, &[1, 1, 1, 1]),
-            with_memory(export_section(&[("run", 5)])),
-            code_section(&[func_body(&[], &body)]),
-            data_section(&[
-                (0, &asset),
-                (32, &recipient),
-                (64, &digest),
-                (96, &account),
-                (128, b"vault"),
-                (160, &source),
-                (192, b"pool"),
-                (224, &pool),
-            ]),
-        ]);
-        check_with_abi(&bytes, 2, Some(WasmValue::I32(42)), abi);
+        body
     }
 
     #[test]
     fn native_signature_verify_and_recover_successes_replay_actual_output_and_metering() {
+        use crate::test_support::AssertSuccess as _;
+
         use crate::WasmValue::I32;
         use ed25519_dalek::Signer;
         use sha2::Digest;
@@ -2372,8 +2432,10 @@ mod single_step_conformance {
         let ed_signature = ed_key.sign(message).to_bytes();
         let ed_public = ed_key.verifying_key().to_bytes();
         let digest: [u8; 32] = sha2::Sha256::digest(b"layerx secp256k1 step").into();
-        let secp_key = k256::ecdsa::SigningKey::from_slice(&[9; 32]).unwrap();
-        let (secp_signature, recovery) = secp_key.sign_prehash_recoverable(&digest).unwrap();
+        let secp_key = k256::ecdsa::SigningKey::from_slice(&[9; 32]).assert_success("test value");
+        let (secp_signature, recovery) = secp_key
+            .sign_prehash_recoverable(&digest)
+            .assert_success("test value");
         let secp_signature = secp_signature.to_bytes();
         let compressed = secp_key.verifying_key().to_encoded_point(true);
         let uncompressed = secp_key.verifying_key().to_encoded_point(false);
@@ -2450,13 +2512,15 @@ mod single_step_conformance {
     }
 
     fn check_composed(bytes: &[u8], capabilities: CapabilitySet, catalog: super::ProgramCatalog) {
+        use crate::test_support::AssertSuccess as _;
+
         use crate::abi::context::ExecutionContext;
         let validated = WasmEngine::declared()
-            .unwrap()
+            .assert_success("test value")
             .validate_versioned(2, bytes)
-            .unwrap();
-        let program = ProgramId::new([0x11; 32]).unwrap();
-        let principal = PrincipalId::new([0x22; 32]).unwrap();
+            .assert_success("test value");
+        let program = ProgramId::new([0x11; 32]).assert_success("test value");
+        let principal = PrincipalId::new([0x22; 32]).assert_success("test value");
         let abi = Abi::new(
             2,
             program,
@@ -2464,7 +2528,7 @@ mod single_step_conformance {
             Storage::new(),
             &UnavailableReceiptOracle,
         )
-        .unwrap();
+        .assert_success("test value");
         let composition = super::Composition::new(
             std::rc::Rc::new(catalog),
             super::CallGraph::root(super::CompositionRules::declared(), program, principal),
@@ -2473,7 +2537,7 @@ mod single_step_conformance {
         let fees = FeeSchedule::declared();
         let context =
             ExecutionContext::authenticated(5, 9, crate::RUNTIME_VERSION, 2, fees.version())
-                .unwrap();
+                .assert_success("test value");
         let instance = validated
             .instantiate_composed_response_context_replay_retained(
                 Meter::new(conformance_budget(), fees),
@@ -2490,8 +2554,10 @@ mod single_step_conformance {
 
     #[test]
     fn composed_context_call_response_and_refusal_successes_replay_real_frames_and_metering() {
+        use crate::test_support::AssertSuccess as _;
+
         use crate::WasmValue::{I32, I64};
-        let callee = ProgramId::new([0x55; 32]).unwrap();
+        let callee = ProgramId::new([0x55; 32]).assert_success("test value");
         let callee_bytes = module(&[
             type_section(&[(&[TYPE_I32, TYPE_I32], &[TYPE_I32])]),
             function_section(&[0]),
@@ -2503,9 +2569,9 @@ mod single_step_conformance {
         catalog.insert(
             callee,
             WasmEngine::declared()
-                .unwrap()
+                .assert_success("test value")
                 .validate_versioned(2, &callee_bytes)
-                .unwrap(),
+                .assert_success("test value"),
         );
         let mut body = Vec::new();
         for (field, length, address, expected) in [
@@ -2540,7 +2606,7 @@ mod single_step_conformance {
         );
         expect_call(&mut body, &[I32(42), I32(40), I32(2)], 3, I32(0));
         body.extend_from_slice(&[0x41, 42, 0x0b]);
-        let caller = module(&[
+        let calling_wasm = module(&[
             type_section(&[
                 (&[TYPE_I32; 6], &[TYPE_I32]),
                 (&[TYPE_I32; 8], &[TYPE_I64]),
@@ -2560,8 +2626,9 @@ mod single_step_conformance {
             data_section(&[(0, &callee.bytes()), (32, &[0, 0]), (40, b"ok")]),
         ]);
         check_composed(
-            &caller,
-            CapabilitySet::new([crate::Capability::Call { program: callee }]).unwrap(),
+            &calling_wasm,
+            CapabilitySet::new([crate::Capability::Call { program: callee }])
+                .assert_success("test value"),
             catalog,
         );
         let mut body = Vec::new();
@@ -2586,7 +2653,7 @@ mod single_step_conformance {
     fn push_i32(body: &mut Vec<u8>, mut value: i32) {
         body.push(0x41);
         loop {
-            let byte = (value & 0x7f) as u8;
+            let byte = value.to_le_bytes()[0] & 0x7f;
             value >>= 7;
             if (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0) {
                 body.push(byte);
@@ -2599,7 +2666,7 @@ mod single_step_conformance {
     fn push_i64(body: &mut Vec<u8>, mut value: i64) {
         body.push(0x42);
         loop {
-            let byte = (value & 0x7f) as u8;
+            let byte = value.to_le_bytes()[0] & 0x7f;
             value >>= 7;
             if (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0) {
                 body.push(byte);
@@ -2616,6 +2683,8 @@ mod single_step_conformance {
         input: &[u8],
         expected: &[u8],
     ) {
+        use crate::test_support::AssertSuccess as _;
+
         let parameters = vec![TYPE_I32; arguments.len()];
         let mut exports = export_section(&[("run", 1)]);
         exports[1] += 9;
@@ -2631,9 +2700,15 @@ mod single_step_conformance {
         assert!(!expected.is_empty());
         assert_eq!(expected.len() % 8, 0);
         for (index, chunk) in expected.chunks_exact(8).enumerate() {
-            push_i32(&mut body, 128 + (index as i32) * 8);
+            push_i32(
+                &mut body,
+                128 + i32::try_from(index).assert_success("fixture index") * 8,
+            );
             body.extend_from_slice(&[0x29, 0, 0]);
-            push_i64(&mut body, i64::from_le_bytes(chunk.try_into().unwrap()));
+            push_i64(
+                &mut body,
+                i64::from_le_bytes(chunk.try_into().assert_success("test value")),
+            );
             body.extend_from_slice(&[0x52, 0x04, 0x40, 0, 0x0b]);
         }
         body.extend_from_slice(&[0x41, 42, 0x0b]);
@@ -2654,6 +2729,8 @@ mod single_step_conformance {
 
     #[test]
     fn fixed_hash_and_wide_integer_host_successes_replay_actual_output_and_metering() {
+        use crate::test_support::AssertSuccess as _;
+
         let digests: [&[u8]; 3] = [
             &[
                 0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
@@ -2672,7 +2749,18 @@ mod single_step_conformance {
             ],
         ];
         for (index, digest) in digests.into_iter().enumerate() {
-            check_integer_host("hash", &[index as i32 + 1, 0, 0, 128], 0, &[], digest);
+            check_integer_host(
+                "hash",
+                &[
+                    i32::try_from(index).assert_success("fixture index") + 1,
+                    0,
+                    0,
+                    128,
+                ],
+                0,
+                &[],
+                digest,
+            );
         }
         let mut operands = [0; 96];
         operands[31] = 12;
@@ -2683,8 +2771,9 @@ mod single_step_conformance {
             ("bigint_div_256", 32, 4),
             ("bigint_rem_256", 32, 0),
         ] {
-            let mut output = vec![0; width as usize];
-            output[width as usize - 1] = expected;
+            let mut output =
+                vec![0; usize::try_from(width).assert_success("positive fixture width")];
+            output[usize::try_from(width).assert_success("positive fixture width") - 1] = expected;
             check_integer_host(
                 name,
                 &[0, 32, 32, 32, 128, width],

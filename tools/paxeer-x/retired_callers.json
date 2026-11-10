@@ -1652,6 +1652,21 @@
         "fee_governance"
       ],
       "citation": "Decision 3125 permits live kernel receipt-authority validation and fee-governance runtime resolution, whose identifiers carry retired names as prefixes while supplying canonical receipt facts and recorded fee schedules to Programs execution."
+    },
+    {
+      "path": "tools/platform/cli/src",
+      "symbols": [
+        "lx_getSequence",
+        "lx_getProgramEvents"
+      ],
+      "citation": "Decision 3125 permits these refusal-test literals, which assert that retired RPC requests are rejected before transport and successful retired-method responses remain unavailable."
+    },
+    {
+      "path": "tools/platform/emulator/core",
+      "symbols": [
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live lxp_programs_fee_governance_resolve_runtime identifier, which reads protocol-state fee schedules for emulator occupancy admission and snapshot restoration rather than submitting the retired relay activity."
     }
   ]
 }

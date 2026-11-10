@@ -39466,3 +39466,19 @@ symbol = "px.test.ts"
 observed = "Attempt 5 at 634b81d5b2ee: build exit 0; verification exit 1: 52 test files executed, 1 failed: test/web-search.test.ts fails 3 of 34 cases in webSearchExactPaymentLogReceipts (Missing expected rejection at dist/test/web-search.test.js:112, then two deepStrictEqual failures at :119 and :127 that hold one header too many); the python suite is not reached; log /out/logs/verify-1.log."
 assumption = "The three failures share one cause, the recorded receipt being accepted, and every other file of the suite passes."
 severity = "high"
+
+[finding.22.39.253.2]
+task = "22.39.253"
+file = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+symbol = "retired_env.rs"
+observed = "Attempt 2 at 34783598ec29: build exit 0; verification exit 101: cargo test -p layerx-agentd --lib reports 331 passed and 3 failed, the three human_runtime::retained_settlement_tests cases panicking at src/human_runtime.rs:23779 with Refused at witness_binding; the scan is not reached; log /out/logs/verify-1.log."
+assumption = "The two TLS identity cases are clear and the record carries no base-revision run of the three cases."
+severity = "high"
+
+[finding.22.39.95.10]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 11 at 8155a13897b7: three builds (the second and third after environment repairs) exit 0; verification exit 1: pnpm --dir apps/launchpad/web run test reports 5 failed files and 11 failed cases with 1274 passed (four cases of src/core/network/repair-22-33-901.test.ts, four of src/widgets/trading/chart-datafeed-recovery.test.ts, coin-failure-frames.test.tsx, creation-journey.integration.test.tsx with Network activation attestation is stale, connected-journeys.test.tsx with Route execution reverted); the mobile suite is not reached; log /out/logs/verify-1.log."
+assumption = "Nine of the eleven failures come from two producer defects outside the touches; the two journey repairs were made after the only verification and are unverified."
+severity = "high"

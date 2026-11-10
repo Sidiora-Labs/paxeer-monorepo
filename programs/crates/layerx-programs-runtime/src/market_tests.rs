@@ -137,14 +137,16 @@ fn execute_with_authority(
                 composition: CompositionContext::catalog(catalog, CompositionRules::declared()),
                 response_capacity: 0,
             },
-            crate::ResourceBudget::declared(),
-            None,
-            Some(
-                ExecutionContext::authenticated(height, height, 1, 2, 1)
-                    .unwrap_or_else(|e| panic!("{e:?}")),
-            ),
-            crate::AccessDeclaration::absent(),
-            None,
+            super::AuthorizedV2Budget {
+                active_budget: crate::ResourceBudget::declared(),
+                activity_binding: None,
+                execution_context: Some(
+                    ExecutionContext::authenticated(height, height, 1, 2, 1)
+                        .unwrap_or_else(|e| panic!("{e:?}")),
+                ),
+                access_declaration: crate::AccessDeclaration::absent(),
+                committed: None,
+            },
         )
         .unwrap_or_else(|e| panic!("actual market execution: {e}"))
 }
@@ -482,6 +484,8 @@ impl Committed {
         siblings
     }
     fn evidence(&self, baseline: &[u8], indices: &[u32]) -> Vec<u8> {
+        use crate::test_support::AssertSuccess as _;
+
         let siblings: Vec<Vec<[u8; 32]>> =
             indices.iter().map(|index| self.siblings(*index)).collect();
         let proofs: Vec<MarketStepProof<'_>> = indices
@@ -493,31 +497,39 @@ impl Committed {
                 siblings,
             })
             .collect();
-        let initial = sandbox_module().initial_replay_memory().unwrap();
+        let initial = sandbox_module()
+            .initial_replay_memory()
+            .assert_success("test value");
         let mut memory = initial.clone();
         for leaf in &self.leaves[..=indices[0] as usize] {
             let mut boundary =
                 PortableBoundary::decode_with_header(leaf, MAX_BYTES as usize, &self.header)
-                    .unwrap();
-            memory = boundary.rebuild_memory(&memory).unwrap();
+                    .assert_success("test value");
+            memory = boundary
+                .rebuild_memory(&memory)
+                .assert_success("test value");
         }
         let chunks = crate::replay::ReplayMemory::capture(&memory, &initial)
-            .unwrap()
+            .assert_success("test value")
             .changed_chunks;
         encode_market_step_evidence_with_header(baseline, &proofs, &chunks, &self.header)
             .unwrap_or_else(|e| panic!("step evidence: {e:?}"))
     }
     fn commitment(&self, index: usize) -> [u8; 32] {
-        let mut memory = sandbox_module().initial_replay_memory().unwrap();
+        use crate::test_support::AssertSuccess as _;
+
+        let mut memory = sandbox_module()
+            .initial_replay_memory()
+            .assert_success("test value");
         let mut boundary = None;
         for leaf in &self.leaves[..=index] {
             let mut current =
                 PortableBoundary::decode_with_header(leaf, MAX_BYTES as usize, &self.header)
-                    .unwrap();
-            memory = current.rebuild_memory(&memory).unwrap();
+                    .assert_success("test value");
+            memory = current.rebuild_memory(&memory).assert_success("test value");
             boundary = Some(current);
         }
-        let boundary = boundary.unwrap();
+        let boundary = boundary.assert_success("test value");
         ArbitrationStepCommitment::from_state(&boundary.arbitration)
             .unwrap_or_else(|e| panic!("boundary commitment: {e:?}"))
             .digest
@@ -1274,84 +1286,7 @@ fn compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premat
     let mut dispute = Dispute::open(None);
     let height = CHALLENGED_AT + 1;
     let baseline = dispute.execution.baseline.clone();
-    let reveal = |position: u32, evidence: Vec<u8>| {
-        let mut tail = position.to_be_bytes().to_vec();
-        tail.extend(evidence);
-        input(15, LEASE_A, &tail)
-    };
-    let honest = dispute.reveal_input(0);
-    refused(
-        &mut dispute.storage,
-        PROVIDER,
-        500,
-        &operation(12, LEASE_A),
-        settlement_spends(LEASE_A),
-    );
-    refused(
-        &mut dispute.storage,
-        KEEPER,
-        height,
-        &input(17, LEASE_A, &[]),
-        settlement_spends(LEASE_A),
-    );
-    refused(
-        &mut dispute.storage,
-        KEEPER,
-        height,
-        &input(17, LEASE_A, &honest[38..]),
-        settlement_spends(LEASE_A),
-    );
-    refused(&mut dispute.storage, CHALLENGER, height, &honest, vec![]);
-    refused(&mut dispute.storage, KEEPER, height, &honest, vec![]);
-    refused(
-        &mut dispute.storage,
-        PROVIDER,
-        height,
-        &input(16, LEASE_A, &[1]),
-        vec![],
-    );
-    let out_of_turn = dispute.reveal_input(1);
-    refused(&mut dispute.storage, PROVIDER, height, &out_of_turn, vec![]);
-    refused(
-        &mut dispute.storage,
-        PROVIDER,
-        height,
-        &reveal(0, dispute.execution.committed.evidence(&baseline, &[1])),
-        vec![],
-    );
-    let forged = Execution::capture(LEASE_A, Some(0));
-    refused(
-        &mut dispute.storage,
-        PROVIDER,
-        height,
-        &reveal(0, forged.committed.evidence(&baseline, &[0])),
-        vec![],
-    );
-    let mut tampered = honest.clone();
-    let last = tampered.len() - 1;
-    tampered[last] ^= 1;
-    refused(&mut dispute.storage, PROVIDER, height, &tampered, vec![]);
-    let mut foreign = Storage::new();
-    let mut transaction = foreign.transaction(StorageNamespace::shared(sandbox_program()));
-    transaction
-        .write(b"k", b"v")
-        .unwrap_or_else(|e| panic!("{e:?}"));
-    let _ = transaction.commit();
-    let foreign = foreign
-        .replay_state_bytes(MAX_BYTES as usize)
-        .unwrap_or_else(|e| panic!("{e:?}"));
-    refused(
-        &mut dispute.storage,
-        PROVIDER,
-        height,
-        &reveal(0, dispute.execution.committed.evidence(&foreign, &[0])),
-        vec![],
-    );
-    open_lease(&mut dispute.storage, LEASE_B, height, 400);
-    let mut wrong_lease = honest.clone();
-    wrong_lease[2..34].copy_from_slice(&LEASE_B);
-    refused(&mut dispute.storage, PROVIDER, height, &wrong_lease, vec![]);
-
+    let (honest, foreign) = assert_dispute_reveals_refused(&mut dispute, &baseline, height);
     dispute.collapse(|_, _| false);
     let height = dispute.height + 1;
     let (_, position, ..) = dispute.state();
@@ -1446,6 +1381,95 @@ fn compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premat
         settlement_spends(LEASE_A),
     );
 
+    assert_plain_usage_claim_refused();
+}
+fn assert_dispute_reveals_refused(
+    dispute: &mut Dispute,
+    baseline: &[u8],
+    height: u64,
+) -> (Vec<u8>, Vec<u8>) {
+    let reveal = |position: u32, evidence: Vec<u8>| {
+        let mut tail = position.to_be_bytes().to_vec();
+        tail.extend(evidence);
+        input(15, LEASE_A, &tail)
+    };
+    let honest = dispute.reveal_input(0);
+    refused(
+        &mut dispute.storage,
+        PROVIDER,
+        500,
+        &operation(12, LEASE_A),
+        settlement_spends(LEASE_A),
+    );
+    refused(
+        &mut dispute.storage,
+        KEEPER,
+        height,
+        &input(17, LEASE_A, &[]),
+        settlement_spends(LEASE_A),
+    );
+    refused(
+        &mut dispute.storage,
+        KEEPER,
+        height,
+        &input(17, LEASE_A, &honest[38..]),
+        settlement_spends(LEASE_A),
+    );
+    refused(&mut dispute.storage, CHALLENGER, height, &honest, vec![]);
+    refused(&mut dispute.storage, KEEPER, height, &honest, vec![]);
+    refused(
+        &mut dispute.storage,
+        PROVIDER,
+        height,
+        &input(16, LEASE_A, &[1]),
+        vec![],
+    );
+    let out_of_turn = dispute.reveal_input(1);
+    refused(&mut dispute.storage, PROVIDER, height, &out_of_turn, vec![]);
+    refused(
+        &mut dispute.storage,
+        PROVIDER,
+        height,
+        &reveal(0, dispute.execution.committed.evidence(baseline, &[1])),
+        vec![],
+    );
+    let forged = Execution::capture(LEASE_A, Some(0));
+    refused(
+        &mut dispute.storage,
+        PROVIDER,
+        height,
+        &reveal(0, forged.committed.evidence(baseline, &[0])),
+        vec![],
+    );
+    let mut tampered = honest.clone();
+    let last = tampered.len() - 1;
+    tampered[last] ^= 1;
+    refused(&mut dispute.storage, PROVIDER, height, &tampered, vec![]);
+    let mut foreign = Storage::new();
+    let mut transaction = foreign.transaction(StorageNamespace::shared(sandbox_program()));
+    transaction
+        .write(b"k", b"v")
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    let _ = transaction.commit();
+    let foreign = foreign
+        .replay_state_bytes(MAX_BYTES as usize)
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    refused(
+        &mut dispute.storage,
+        PROVIDER,
+        height,
+        &reveal(0, dispute.execution.committed.evidence(&foreign, &[0])),
+        vec![],
+    );
+    open_lease(&mut dispute.storage, LEASE_B, height, 400);
+    let mut wrong_lease = honest.clone();
+    wrong_lease[2..34].copy_from_slice(&LEASE_B);
+    refused(&mut dispute.storage, PROVIDER, height, &wrong_lease, vec![]);
+
+    (honest, foreign)
+}
+
+fn assert_plain_usage_claim_refused() {
     let mut usage_claim = bonded();
     open_lease(&mut usage_claim, LEASE_B, 2, 400);
     let attested = seal_inputs(&mut usage_claim, LEASE_B);
