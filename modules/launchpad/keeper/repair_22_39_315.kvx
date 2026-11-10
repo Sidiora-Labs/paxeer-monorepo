@@ -1,0 +1,112 @@
+[repair.22.39.315]
+task = "22.39.315"
+mode = "BUILD"
+requirement = "22998.1"
+decisions = ["3162", "3163"]
+gotchas = ["4081", "4082"]
+base_revision = "f738d3da03469c5e6080322b26260492a1879014"
+verified_revision = "The exact candidate revision is pinned by the final hf-done receipt in /out/run/gates.jsonl and the header of its /out/logs/verify-*.log; the hf-build receipt must name that same revision."
+private_evidence_location = "/out/run/gates.jsonl"
+qualification = "hf-build then hf-done on the unchanged candidate; only the gate receipt establishes qualification and exit status."
+
+[baseline]
+revision = "f738d3da03469c5e6080322b26260492a1879014"
+command = "go test -count=1 ./modules/launchpad/keeper/... -run '^(TestCreateMarket|TestEveryPoolMigrates|TestQueryAirdropEpochABCICodes)$'"
+exit = 1
+log = "/out/logs/22.39.315-baseline.log"
+observed = "TestCreateMarket and TestEveryPoolMigrates expected 41 bytes and read 51; all six TestQueryAirdropEpochABCICodes cases failed, with malformed pool reading height 0 and the five registered-error cases reading codespace sdk."
+
+[runtime.rules]
+audit_record = "precompiles/launchpad/repair_36.kvx, task 22.31.36, commit 76d6a76d08d4e02f5830b7a9b880e90ceec89f4f: the native-value guard changed the shared SurfaceRuntime and consequently migration output; its wiring request proposed updating the migration expectation."
+identity_record = "Task 18.1625.1, commit cf4c67eeb4e2c1bce239719fc2cd755568d03d39: aligned SDK and browser identities to the guarded keeper runtime without changing frozen historical manifests."
+installed_record = "sdk/launchpad/shared/config/deployment/repair_22_39_295.kvx, task 22.39.295, decision 3134: current.json identifies the installed 41-byte runtime; manifest.go declares StagedSurfaceRuntimeHash for the guarded 51-byte runtime."
+governing_rule = "Decision 3162 explicitly supersedes the older migration wiring request: historical v6.12.0 pool replay uses its installed runtime and new pools use the staged guarded runtime; a later guarded-pool migration is a separate governed change."
+installed_hash = "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+staged_hash = "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+deployment_version = "paxeer125-v6.12.0"
+activation_height = 37220320
+
+[runtime.writers]
+creation = "modules/launchpad/keeper/market.go:CreateMarket installs SurfaceRuntime at the newly derived pool address; it remains guarded."
+migration = "modules/launchpad/keeper/migrate_v6120.go:runV6120 calls installPoolSurface for every migrated pool; installPoolSurface now decodes the migration-owned constant v6120PoolSurfaceRuntime."
+roles = "modules/launchpad/keeper/surfaces.go:InstallRoleSurfaces writes role addresses, not pool addresses, using SurfaceRuntime; genesis and runV6120 call it."
+later_migrations = "The launchpad sources contain no later pool-code migration writer; migrate_v6120_usdl.go moves custody and does not install pool code."
+
+[case.TestCreateMarket]
+sites = ["modules/launchpad/keeper/market.go:CreateMarket", "modules/launchpad/keeper/market_test.go:TestCreateMarket", "modules/launchpad/keeper/market_test.go:deploymentSurfaceHashes"]
+former = "Creation correctly installed the guarded runtime, but surfaceCode still expected the historical 41-byte runtime."
+current = "Creation asserts exact guarded bytes, length 51, equality with SurfaceRuntime, and Ethereum Keccak-256 equality with the actual StagedSurfaceRuntimeHash declaration in deployment/manifest.go."
+rule = "Decision 3162 and the native-value guard of task 22.31.36; task 22.39.295 separates installed from staged identity."
+
+[case.TestEveryPoolMigrates]
+sites = ["modules/launchpad/keeper/migrate_v6120.go:v6120PoolSurfaceRuntime", "modules/launchpad/keeper/migrate_v6120.go:installPoolSurface", "modules/launchpad/keeper/migrate_v6120_test.go:TestEveryPoolMigrates"]
+former = "Historical replay consumed the creation runtime variable, so the audit repair silently changed the code installed at every migrated pool."
+current = "Every migrated pool receives the migration-owned 41-byte runtime; the original exact-byte and length assertions remain and each installed code hash must equal the installed surface identity read from current.json, distinct from staged."
+rule = "Decision 3162 governs replay fidelity and overrides the older repair_36.kvx request to align migration assertions to the guarded runtime."
+
+[case.TestQueryAirdropEpochABCICodes]
+sites = ["modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go:TestQueryAirdropEpochABCICodes", "sdk/baseapp/abci.go:CreateQueryContext", "sdk/store/rootmulti/store.go:CacheMultiStoreWithVersion"]
+former = "The case committed height 1 in the default legacy store, whose CacheMultiStoreWithVersion refuses all versioned reads; CreateQueryContext returned sdk ErrInvalidRequest before the registered handler ran, and its error response had height 0."
+current = "The case uses the production storev2 rootmulti with synchronous height-1 snapshots, InitChain, a sealed commit and an asserted height-1 query context; all six refusals pass through the real registered launchpad router and BaseApp.Query, then round-trip ResponseQuery through protobuf with exact code, codespace and height checks for explicit height 1 and latest height 0."
+rule = "Use the same committed versioned-store setup as sdk/baseapp/query_grpc_error_test.go; never restore the unsupported legacy versioned-read behavior or substitute working state for a committed query."
+
+[query.registered_root]
+sites = ["modules/launchpad/keeper/grpc_query.go:queryContext", "modules/launchpad/keeper/grpc_query_airdrop_epoch.go:airdropEpochQueryError", "sdk/baseapp/grpcrouter.go:RegisterService", "sdk/baseapp/abci.go:gRPCErrorToSDKError", "sdk/types/errors/abci.go:ABCIInfo"]
+former = "The context failure obscured the handler result; inspection shows no loss of the registered AirdropEpoch root in the existing wrapper."
+current = "Preserve commit 5a618ee5ffe0124de05f97c0c598a73fdea991d4: Unwrap retains the original keeper error for errors.Is/errors.As, Cause exposes its registered SDK root to ABCIInfo, and Error retains the registered error's query context; the repaired case asserts the whole routed error rather than just its extracted root."
+rule = "The query router returns handler errors unchanged; gRPCErrorToSDKError preserves registered ABCI identities before any client-status mapping, and QueryResultWithDebug encodes their public messages."
+
+[query.client_validation]
+site = "modules/launchpad/keeper/grpc_query.go:invalidAddressQueryError"
+former = "The malformed-pool ABCI assertion required address-validation context in the public response, contrary to the current producer rule."
+current = "Direct keeper and routed gRPC errors retain errors.Is(ErrInvalidAddress), InvalidArgument and the safe field-validation context; the unregistered transport wrapper maps to sdk ErrInvalidRequest and exactly invalid request at the non-debug ABCI boundary, with the diagnostic absent from the protobuf response."
+rule = "Issue 1678, producer commit 665402f6ca09: mapped client statuses retain SDK codes with safe public text; unregistered validation diagnostics are not copied into registered roots."
+
+[query.context_failure_height]
+sites = ["sdk/baseapp/abci.go:handleQueryGRPC", "sdk/baseapp/query_grpc_error_test.go:TestIssue1678GRPCQueryRedaction"]
+former = "The early CreateQueryContext error branch returned the encoder's default height 0, unlike the handler-error branch that retained the requested height."
+current = "The early error response retains req.Height without altering error conversion or redaction; real Account queries refusing future height 2 and proofs at height 1 assert exact codespace, code, height, log and absent values/proofs after protobuf round-trip."
+rule = "ABCI query failures identify the requested height consistently; issue 1678's registered identities, client mappings, redaction and debug diagnostics remain intact."
+
+[qualification.gates]
+build_command = "go build ./modules/launchpad/... ./sdk/baseapp/... && go vet ./modules/launchpad/keeper/"
+verify_command = "test -s modules/launchpad/keeper/repair_22_39_315.kvx && go test -count=1 -timeout 30m ./modules/launchpad/keeper/... && go test -count=1 ./sdk/baseapp/ -run 'GRPC|Query'"
+wrapper_command = "cg spec done 22.39.315 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "Use the final hf-done JSON receipt's revision, command, exit and log, together with the matching hf-build receipt; no gate is claimed by this source record before it executes."
+scope = "Only the authorized keeper and baseapp files are edited; root gotcha/spec bookkeeping and publication belong to the runner."
+
+[qualification.result]
+status = "implemented-not-qualified"
+revision = "539eb835e045e4597e5558fcaf8c1807ceb1abcf"
+build_command = "go build ./modules/launchpad/... ./sdk/baseapp/... && go vet ./modules/launchpad/keeper/"
+build_exit = 0
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.39.315 -f layerx-merge --root /work/paxeer-monorepo"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+keeper_result = "The complete go test -count=1 -timeout 30m ./modules/launchpad/keeper/... command passed in 220.644s; the following baseapp GRPC/Query command failed the inherited TestQuery, TestGRPCQuery and TestBaseAppCreateQueryContext/valid_height cases."
+stop_reason = "Record the unrelated out-of-scope test failure without chasing it or rerunning a recorded finding; do not mark the task done."
+
+[qualification.finding.1]
+task = "22.39.315"
+file = "sdk/baseapp/abci_test.go:166"
+symbol = "TestBaseAppCreateQueryContext"
+observed = "At revision 539eb835e045e4597e5558fcaf8c1807ceb1abcf, cg spec done 22.39.315 -f layerx-merge --root /work/paxeer-monorepo exited 1 (log /out/logs/verify-1.log) because valid_height expects success from the legacy store, which refuses the requested versioned height-2 read."
+assumption = "The inherited test must use a committed versioned store in its owning scope; production must retain the legacy store's refusal rather than silently query mutable working state."
+severity = "blocker"
+
+[qualification.finding.2]
+task = "22.39.315"
+file = "sdk/baseapp/deliver_tx_test.go:323"
+symbol = "TestQuery"
+observed = "At revision 539eb835e045e4597e5558fcaf8c1807ceb1abcf, cg spec done 22.39.315 -f layerx-merge --root /work/paxeer-monorepo exited 1 (log /out/logs/verify-1.log) because the inherited legacy-store query expected the committed value goodbye and received an empty value."
+assumption = "The legacy-store query fixture must be repaired in its owning scope without restoring unsupported versioned reads or weakening the committed-value assertion."
+severity = "blocker"
+
+[qualification.finding.3]
+task = "22.39.315"
+file = "sdk/baseapp/deliver_tx_test.go:353"
+symbol = "TestGRPCQuery"
+observed = "At revision 539eb835e045e4597e5558fcaf8c1807ceb1abcf, cg spec done 22.39.315 -f layerx-merge --root /work/paxeer-monorepo exited 1 (log /out/logs/verify-1.log) because SayHello expected success but received sdk code 18 when the legacy store refused its versioned height-1 read."
+assumption = "The inherited gRPC query fixture must use a committed versioned store in its owning scope while retaining its success and greeting assertions."
+severity = "blocker"

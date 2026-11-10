@@ -12,6 +12,7 @@ import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -105,7 +106,7 @@ func TestRepair_146_LifecycleReceipts(t *testing.T) {
 			require.Empty(t, receipt.VmError)
 		} else {
 			require.Equal(t, uint32(ethtypes.ReceiptStatusFailed), receipt.Status)
-			require.Equal(t, vm.ErrExecutionReverted.Error(), response.VmError)
+			require.Equal(t, vm.ErrExecutionReverted.Error()+"|"+reason, response.VmError)
 			require.Equal(t, vm.ErrExecutionReverted.Error()+"|"+reason, receipt.VmError)
 			decoded, err := abi.UnpackRevert(response.ReturnData)
 			require.NoError(t, err)
@@ -137,10 +138,16 @@ func TestRepair_146_LifecycleReceipts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			key := [32]byte{0x91, byte(i + 1)}
 			before := hostSnapshot(t, ctx, hostKey)
+			accountSequence, err := a.LayerXHost.ReadIdentitySequence(ctx, actor.DID)
+			require.NoError(t, err)
+			require.Equal(t, uint64(i), accountSequence)
+			nextSequence, err := lxphost.NextSequence(ctx, hostKey)
+			require.NoError(t, err)
 			branch, _ := ctx.CacheContext()
 			produced, err := a.LayerXAuthKeeper.RecordLifecycle(branch, actor, tc.payload, key)
 			require.NoError(t, err)
 			require.Zero(t, produced.ResultCode)
+			require.Equal(t, nextSequence, produced.GlobalSequence)
 			require.Len(t, produced.Events, 1)
 			require.Equal(t, uint16(0x7110), produced.Events[0].Code)
 			require.Equal(t, before, hostSnapshot(t, ctx, hostKey))
@@ -200,6 +207,9 @@ func TestRepair_146_LifecycleReceipts(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			before := hostSnapshot(t, ctx, hostKey)
+			accountSequence, err := a.LayerXHost.ReadIdentitySequence(ctx, actor.DID)
+			require.NoError(t, err)
+			require.Equal(t, uint64(2), accountSequence)
 			deliver(tc.account, tc.payload, [32]byte{0x92, byte(i + 1)}, tc.reason)
 			require.Equal(t, before, hostSnapshot(t, ctx, hostKey))
 			require.Equal(t, expected, ctx.KVStore(hostKey).Get(identityKey))
