@@ -20165,3 +20165,48 @@ fix = "The touches list names the case; attempt 2 fills the field there and veri
 title = "The boundary binary is a target of the hosted paxeer package, and the command line suite looks for it in its own target directory"
 symptom = "Task 22.39.266 attempt 3 at e183fb31228b: the build of 772 fails with package ID specification layerx-paxeer-boundary did not match any packages (log /out/logs/build-1.log): services/platform/hosted/paxeer/Cargo.toml names the package layerx-platform-paxeer-boundary and layerx-paxeer-boundary is its binary target. The case public_http_uses_system_trust_and_checks_server_identity (services/platform/tests/support/tls_boundary.rs:174 to :186) takes the executable from LAYERX_PAXEER_BOUNDARY_BIN or from the target directory of the running test, which belongs to the tools/platform workspace, not to services/platform where the binary is built."
 fix = "The build names the package and the binary target; the verification passes the binary path through LAYERX_PAXEER_BOUNDARY_BIN under the active target directory."
+
+[gotcha.4069]
+title = "The native V5 corpus case of the agent SDK needs an external corpus path and is red without it"
+symptom = "Task 22.39.257 attempt 2 at f569c69c1642: cargo test -p layerx-sdk --lib fails programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes with Error Verification (log /out/logs/verify-1.log) and the attempt recorded that the case fails the same way at the base revision fbe6b13a1823: services/agent/crates/layerx-sdk/src/program_http.rs:2269 returns Verification when PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS is unset, before any binding is evaluated. tests/sdk/typescript/program-terminal-v5.test.mjs and scripts/qualification/paxeer-x/program-terminal-v5.py read the same variable; no corpus is committed in the repository."
+fix = "Decision 3155: task 22.39.310 commits the recording and lets the case read it when the variable is unset; 22.39.257 verifies with the case skipped."
+
+[gotcha.4070]
+title = "Thirty-four wallet gateway cases in sixteen files remain red after the loopback material of the third attempt"
+symptom = "Task 22.39.290 attempt 3 at 08501fd25a23: pnpm --dir services/wallet/gateway run test reports 16 failed files, 34 failed cases and 401 passing (log /out/logs/verify-2.log). The residual groups: the frozen precompile selector sets of test/precompiles.test.ts and the scheduler and streams route cases differ from the registered node ABI; the scheduler and streams target cases expect CONTRACT_DENYLISTED and SELECTOR_DENYLISTED answers and the settle route reaching eth_estimateGas on the stub; the attestor signing routes, six e2e gateway cases, the evm sign, owner broadcast, sign-client nonce, sponsor budget, hosted SDK round trip and the three human daily cap cases need receipt, nonce, broadcast and budget answers the loopback material does not give; sequencerReceiptMatchesNodeVectors in two files differs from the node vectors; the TxRequest unknown-key case and five provisioning cases time out or refuse against the loopback station."
+fix = "Attempt 4 repairs the groups in that order, taking the node ABI, the node vectors and the published contract as producers (gotcha 3046)."
+
+[gotcha.4071]
+title = "The enrolment relay surfaces the private registry index of a program refusal, and the bond lock answers WRONG_DOMAIN"
+symptom = "Task 22.38.15 attempt 2 at a79a868b133e: bond_lock_precedes_bid_at_the_configured_quote panics at services/agent/crates/layerx-agentd/tests/inference_enrol.rs:38 with ApplicationError(14) (log /out/logs/verify-1.log): the value is the private NonZeroU8 index of programs/crates/layerx-programs-ai-market/src/errors.rs, whose fourteenth registered entry is WRONG_DOMAIN (code 0x0003), and the relay error carries neither the operation nor the registered name, which do_3 of the task requires. The enrolment, acceptance and metadata operations of the same case execute; the LockBond envelope the quote signs is refused at its domain check."
+fix = "Attempt 3 makes the relay refusal name the operation and the registered error, then signs the bond and bid envelopes against the domain the program checks for those operations."
+
+[gotcha.4072]
+title = "The all-selected recording run shares one chain among the recorders and the V2 ledger recorder binds the fixture account first"
+symptom = "Task 18.1667.1 attempt 14 at 156b7d0ceab3: with the V1 Programs authority on its own generated keys, TestRecorderAllSelectedV6Executes still fails at daemon/committed-fixture/main_test.go:402 with record vector-v4-committed: bind DID 0: LXP_ADDR_LAYERX_ADDRESS_BOUND (log /out/logs/verify-1.log). The record command runs every selected recorder in name order on the one chain it configured (main.go:159 to :166), and v2LedgerRecipe in vector_v2.go binds the fixture payer and payee to V2 ledger DIDs before the V4 recorder binds the same payer as DID 0 at vector_v4.go:158; the single-vector runs never meet the collision."
+fix = "Attempt 15 gives each binding recorder its own funded payer and payee keys, or restarts the chain between recorders when a consumer pins the fixture address."
+
+[gotcha.4073]
+title = "The baseline READ_HEADER request of the roster fuel case is refused"
+symptom = "Task 22.33.223 attempt 24 at 5cfc8d6541ce: roster_state_fuel_scaling panics at programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:3216 with baseline READ_HEADER: Refused with an 82-byte result (log /out/logs/verify-1.log): the baseline loop the attempt added issues READ_HEADER and READ_STATE_CHUNK requests with an empty payload and panics on any refusal instead of decoding it, while do_32 named the F08 view of tests/fixtures/f11_views.rs as the baseline read."
+fix = "Attempt 25 builds the header and chunk requests the way the program decodes them or leaves them out, decodes a refusal with the decoder the case carries and excludes the refused read from the baseline."
+
+[gotcha.4074]
+title = "Two Human service lib cases need the runtime clock socket and a fixed subject socket path"
+symptom = "Task 22.39.259 attempt 2 at d6c2e7a6a68c: cargo test -p layerx-human-service --lib fails event_producer::tls_tests::human_journey_and_approval_cross_tls_and_recover_after_sink_loss at services/human/crates/layerx-human-service/src/event_producer_tls.rs:89 with clock authority: Unavailable (RuntimeClock::from_environment reads LAYERX_RUNTIME_CLOCK_SOCKET, unset in the qualification environment) and server::agent_runtime::subject_tests::cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame at src/server/agent_runtime.rs:4716 with typed runtime (AgentRuntime::new on the fixed path /tmp/lxp-subject-wire.sock); 81 other cases pass; the attempt changed one allowance line per file and a doc comment; log /out/logs/verify-1.log."
+fix = "Decision 3156: task 22.39.311 makes the two cases self-contained; 22.39.259 verifies with them skipped."
+
+[gotcha.4075]
+title = "The node package test run exceeds the ten-minute default timeout of go test"
+symptom = "Task 22.39.248 attempt 3 at e5710f324231: go test -count=1 ./node/ with TestRepairM_1319_RestoredBoundaryManifest skipped ends with panic: test timed out after 10m0s while TestFinalizeAdoptedBlockStoresVotes was two seconds in; every case it reached passed; the package reports FAIL after 603 seconds; log /out/logs/verify-1.log."
+fix = "The verification runs the package with a thirty-minute timeout."
+
+[gotcha.4076]
+title = "The go-cgo qualification environment starts with 2.5 GiB free and the parity run fills it"
+symptom = "Task 17.4.6 attempts 8 and 9 (candidate d39fdef814a3 at attempt 9): the parity run stops with OSError Errno 28 No space left on device at spec/layerx-merge/programme/parity.py:532 (log /out/logs/verify-1.log) and the gate shell then fails to write the candidate commit on the full volume, so neither attempt left a result; the go-cgo environment image leaves 2.5 GiB (7.1 GiB once) before the build, while the go and mixed images leave about 18 GiB."
+fix = "Decision 3157: the parity gate runs in the mixed environment; the gate shell removes build outputs and retries the candidate commit when the volume is full."
+
+[gotcha.4077]
+title = "The refreshed committed vector is itself a Ledger settlement, so the wrong-operation case of the exact payment suite delivers"
+symptom = "Task 22.39.288 attempt 5 at 634b81d5b2ee: pnpm --dir services/agent/sdk/typescript run test:self-contained passes 51 of 52 files and fails test/web-search.test.ts (log /out/logs/verify-1.log): the case refuses an authenticated receipt with the wrong settlement operation before delivery reports Missing expected rejection, because it hands the recorded signed receipt of the committed vector to the client as the receipt of a foreign operation, and the vector refreshed by 22.39.299 records a Ledger settlement (module 12, operation 2) that verifyWebSearchPayment in src/web-search.ts:359 accepts; the delivered header then stays in the received list and the two delivery cases that follow see one header too many. The suite is red on main since the refresh and outside the touches of the task."
+fix = "Decision 3158: the case issues its foreign-operation receipt with the producer codec; test/web-search.test.ts joins the touches of 22.39.288."

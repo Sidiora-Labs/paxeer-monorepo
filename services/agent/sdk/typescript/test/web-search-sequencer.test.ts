@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { test, type TestContext } from "node:test";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { encodeSequencerReceipt } from "../src/sequencer-receipt-codec.js";
@@ -50,6 +51,49 @@ async function purchase(entry: ReturnType<typeof recording>, keys: readonly Sequ
 
 function refused(code: string): (error: unknown) => boolean {
   return error => { assert(error instanceof WebSearchError); assert.equal(error.code, code); return true; };
+}
+
+async function web_search_recordings_preserve_producer_bytes(): Promise<void> {
+  const producer = JSON.parse(readFileSync(new URL(
+    "../../../../../../services/interop/crates/x-websearch/tests/fixtures/client-exchange.json", import.meta.url,
+  ), "utf8")) as { readonly exchange: readonly SellerStep[] };
+  for (const [offset, currency] of (["SID", "PAX", "USDC", "USDL"] as const).entries()) {
+    const index = 3 + 2 * offset;
+    const entry = recording("exact", currency);
+    const payment = exactRecording.payments[currency];
+    assert.deepEqual(sellerExchange[index - 1], producer.exchange[index - 1]);
+    assert.deepEqual(sellerExchange[index], producer.exchange[index]);
+    assert.equal(entry.transactionHash, payment.txHash);
+    const rule = exactRecording.endpoints.gateway["*"].find(candidate =>
+      candidate.method === "pax_sequencerReceipt" && candidate.params[0] === payment.txHash);
+    assert(rule);
+    assert.deepEqual(entry.receipt, unhex((rule.result as { readonly receipt: string }).receipt));
+    const verified = await verifySequencerReceipt(entry.receipt, entry.raw, webReceiptKeys);
+    assert.equal(`0x${hex(verified.receipt.activityId)}`, payment.txHash);
+    layerx(entry.paid)["receipt"] = "altered clone";
+    assert.deepEqual(sellerExchange[index], producer.exchange[index]);
+    assert(Object.isFrozen(sellerExchange[index]!.response.headers["PAYMENT-RESPONSE"]));
+    assert(Object.isFrozen(payment));
+    assert(Object.isFrozen(rule.result));
+  }
+}
+
+async function web_search_receipt_verification_snapshots_inputs(): Promise<void> {
+  for (const scheme of ["metered", "exact"] as const) {
+    const entry = recording(scheme);
+    const receipt = entry.receipt.slice();
+    const transaction = entry.raw.slice();
+    const keys = structuredClone(webReceiptKeys);
+    const pending = verifySequencerReceipt(receipt, transaction, keys);
+    receipt.fill(0);
+    transaction.fill(0);
+    keys[0]!.keyId.fill(0);
+    keys[0]!.publicKey.fill(0);
+    const verified = await pending;
+    assert.deepEqual(verified.canonicalBytes, entry.receipt);
+    assert.deepEqual(verified.receiptKey, webReceiptKeys[0]);
+    assert.equal(`0x${hex(verified.receipt.activityId)}`, entry.transactionHash);
+  }
 }
 
 // Re-signing is confined to explicit refusal vectors; no positive receipt is reissued.
@@ -167,5 +211,7 @@ async function web_search_receipt_shape_matches_sequencer(context: TestContext):
 }
 
 test(web_settlement_transaction_is_the_draw_transaction_hash);
+test(web_search_recordings_preserve_producer_bytes);
+test(web_search_receipt_verification_snapshots_inputs);
 test(web_search_client_verifies_the_payment_with_pinned_receipt_keys);
 test(web_search_receipt_shape_matches_sequencer);
