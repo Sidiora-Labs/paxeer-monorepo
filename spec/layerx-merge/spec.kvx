@@ -161009,7 +161009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.299]
 title = "Verify the web search aggregator alone and refresh the committed vector pin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.297"]
@@ -193352,7 +193352,7 @@ do_4 = "Attempt 2 (continue, gotcha 4003): the attempt-1 tree 153cd5aa99 stands.
 
 [task.22.39.251]
 title = "Repair the retired references of the programs runtime crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
