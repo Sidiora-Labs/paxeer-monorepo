@@ -1,8 +1,8 @@
 //! Owner receipt lookup wire contract: presence 0 is Absent, 2 is Submitted
-//! (transaction hash and nonce), and 1 is Found followed by ReceiptLookupFrame.
-//! Verification uses the Human codes 1 SEQUENCER_SIGNED, 2 BATCH_INCLUDED,
-//! 3 STATE_PROVEN, 6 COMMITTED; legacy codes 4 and 5 decode as COMMITTED.
-//! The rung is Rung::wire_rank (0 Submitted, 1 Receipted, 2 Committed).
+//! (transaction hash and nonce), and 1 is Found followed by `ReceiptLookupFrame`.
+//! Verification uses the Human codes 1 `SEQUENCER_SIGNED`, 2 `BATCH_INCLUDED`,
+//! 3 `STATE_PROVEN`, 6 COMMITTED; legacy codes 4 and 5 decode as COMMITTED.
+//! The rung is `Rung::wire_rank` (0 Submitted, 1 Receipted, 2 Committed).
 //! The complete field order and program.receipt JSON projection are maintained in
 //! `contracts/agent-human-peer.md` and `contracts/agent-api.md`. Verification codes
 //! 4 and 5 are historical migration metadata, never additional committed-chain authority.
@@ -31,6 +31,10 @@ pub struct ReceiptLookupFrame {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Preserve the public receipt lookup frame carried by daemon consumers."
+)]
 pub enum ReceiptLookupAnswer {
     Absent,
     Submitted { tx_hash: [u8; 32], nonce: u64 },
@@ -50,6 +54,9 @@ fn fixed(decoder: &mut Decoder<'_>) -> Result<[u8; 32], WireError> {
 }
 
 impl ReceiptLookupFrame {
+    /// # Errors
+    /// Returns an error if the receipt lookup frame is malformed, exceeds its bounds or contains
+    /// an unsupported state or verification level.
     pub fn encode(&self) -> Result<Vec<u8>, WireError> {
         let mut encoder = Encoder::new(MAX_BYTES);
         self.write(&mut encoder)?;
@@ -86,6 +93,9 @@ impl ReceiptLookupFrame {
         encoder.u64(self.inclusion_height)
     }
 
+    /// # Errors
+    /// Returns an error if the receipt lookup frame is malformed, exceeds its bounds or contains
+    /// an unsupported state or verification level.
     pub fn decode(bytes: &[u8]) -> Result<Self, WireError> {
         let mut decoder = Decoder::new(bytes, MAX_BYTES);
         let value = Self::decode_from(&mut decoder)?;
@@ -93,6 +103,9 @@ impl ReceiptLookupFrame {
         Ok(value)
     }
 
+    /// # Errors
+    /// Returns an error if the receipt lookup frame is malformed, exceeds its bounds or contains
+    /// an unsupported state or verification level.
     pub fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, WireError> {
         let canonical_bytes = decoder.bytes_owned(MAX_BYTES)?;
         let authorised_batch = AuthorizedBatch::new(
@@ -106,7 +119,7 @@ impl ReceiptLookupFrame {
             1 => VerificationLevel::SEQUENCER_SIGNED,
             2 => VerificationLevel::BATCH_INCLUDED,
             3 => VerificationLevel::STATE_PROVEN,
-            4 | 5 | 6 => VerificationLevel::COMMITTED,
+            4..=6 => VerificationLevel::COMMITTED,
             _ => return Err(invalid(decoder.offset())),
         };
         let tx_hash = fixed(decoder)?;
@@ -141,6 +154,9 @@ impl ReceiptLookupFrame {
 }
 
 impl ReceiptLookupAnswer {
+    /// # Errors
+    /// Returns an error if the receipt lookup frame is malformed, exceeds its bounds or contains
+    /// an unsupported state or verification level.
     pub fn encode(&self) -> Result<Vec<u8>, WireError> {
         let mut encoder = Encoder::new(MAX_BYTES);
         match self {
@@ -158,6 +174,9 @@ impl ReceiptLookupAnswer {
         Ok(encoder.finish())
     }
 
+    /// # Errors
+    /// Returns an error if the receipt lookup frame is malformed, exceeds its bounds or contains
+    /// an unsupported state or verification level.
     pub fn decode(bytes: &[u8]) -> Result<Self, WireError> {
         let mut decoder = Decoder::new(bytes, MAX_BYTES);
         let value = match decoder.u8()? {
@@ -274,7 +293,7 @@ pub mod owner_health {
     }
 
     /// Serves one bounded loopback health request. The caller supplies a stream with
-    /// an absolute request deadline (the daemon uses DeadlineStream), and probes live
+    /// an absolute request deadline (the daemon uses `DeadlineStream`), and probes live
     /// dependencies only after the distinct inbound health credential is authenticated.
     ///
     /// # Errors

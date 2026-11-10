@@ -39,11 +39,9 @@ impl NodeWork {
 
     fn bytes(&self) -> Result<Vec<u8>, LifecycleError> {
         match self {
-            Self::Head { priority }
-                if matches!(priority, Priority::Submission | Priority::ReceiptResolution) =>
-            {
-                Err(LifecycleError::InvalidWork)
-            }
+            Self::Head {
+                priority: Priority::Submission | Priority::ReceiptResolution,
+            } => Err(LifecycleError::InvalidWork),
             Self::Head { .. } => Ok(b"eth_blockNumber".to_vec()),
             Self::Submit { signed_bytes } => {
                 let (call, signature) =
@@ -113,6 +111,10 @@ pub struct BoundaryCall {
 }
 
 #[derive(Debug)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Preserve the public node response variants returned by boundary execution."
+)]
 pub enum NodeResponse {
     Head(u64),
     Submitted([u8; 32]),
@@ -134,6 +136,9 @@ impl BoundaryCall {
 
     /// Uses the actual sequencer JSON-RPC codec and transport. Cancellation is checked
     /// before crossing the boundary; transmitting writes retain their resolver token.
+    /// # Errors
+    /// Returns an error if the call is cancelled, exceeds its deadline, or fails at the node
+    /// boundary.
     pub fn execute(
         &self,
         node: &SequencerEndpoint,
@@ -179,6 +184,9 @@ pub struct TenantBoundary {
 
 impl TenantBoundary {
     /// Restores unknown ownership from the real durable outbox before accepting work.
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn open(
         store: &mut Store,
         admission: BoundaryAdmission,
@@ -243,6 +251,13 @@ impl TenantBoundary {
         Ok(boundary)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn enqueue(
         &mut self,
         store: &mut Store,
@@ -294,10 +309,7 @@ impl TenantBoundary {
         )?;
         let rate = RateRequest {
             tenant: principal.tenant.as_str().to_owned(),
-            agent: Sha256::digest(principal.agent.as_bytes())
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect(),
+            agent: layerx_programs::hex::encode(&Sha256::digest(principal.agent.as_bytes())),
             session: client.clone(),
             capability: "authenticated".to_owned(),
             operation_class: work.operation_class().to_owned(),
@@ -356,6 +368,9 @@ impl TenantBoundary {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn start_next(
         &mut self,
         store: &mut Store,
@@ -413,6 +428,13 @@ impl TenantBoundary {
     }
 
     /// Completes scheduling ownership. A successful broadcast is still not a receipt.
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn finish_call(
         &mut self,
         store: &mut Store,
@@ -490,6 +512,9 @@ impl TenantBoundary {
     }
 
     /// The authenticated transport invokes this on EOF, reset or explicit cancellation.
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn disconnect(
         &mut self,
         store: &mut Store,
@@ -513,6 +538,9 @@ impl TenantBoundary {
     }
 
     /// Reads the transport's actual EOF instead of treating a caller claim as a disconnect.
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn transport_eof(
         &mut self,
         store: &mut Store,
@@ -539,6 +567,9 @@ impl TenantBoundary {
         }
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn expire(&mut self, store: &mut Store, now: u64) -> Result<(), LifecycleError> {
         let expired = self
             .requests
@@ -560,6 +591,9 @@ impl TenantBoundary {
     }
 
     /// Release only on a terminal state produced by the real outbox resolver.
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn synchronize_resolution(&mut self, id: u64) -> Result<bool, LifecycleError> {
         let view = self
             .tracker
@@ -586,18 +620,27 @@ impl TenantBoundary {
     pub fn outbox_mut(&mut self) -> &mut Outbox {
         &mut self.outbox
     }
+    #[must_use]
     pub fn view(&self, id: u64) -> Option<WorkView> {
         self.tracker.view(id)
     }
+    #[must_use]
     pub fn recovered_request(&self, tenant: &TenantId, submission: [u8; 32]) -> Option<u64> {
         self.recovered.get(&(tenant.clone(), submission)).copied()
     }
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn metrics(&self, now: u64) -> Result<WorkMetrics, LifecycleError> {
         Ok(self.tracker.metrics(now)?)
     }
+    #[must_use]
     pub fn lane_utilization(&self, priority: Priority) -> LaneUtilization {
         self.admission.utilization(priority)
     }
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn rate_utilization(
         &self,
         tenant: &TenantId,
@@ -605,6 +648,9 @@ impl TenantBoundary {
     ) -> Result<Vec<Utilization>, LifecycleError> {
         Ok(self.rate.utilization(tenant.as_str(), now)?)
     }
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn quota_health(
         &self,
         store: &Store,
@@ -617,10 +663,5 @@ impl TenantBoundary {
 
 #[must_use]
 pub fn client_id(principal: &ResolvedPrincipal) -> String {
-    principal
-        .session_id
-        .0
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    layerx_programs::hex::encode(&principal.session_id.0)
 }

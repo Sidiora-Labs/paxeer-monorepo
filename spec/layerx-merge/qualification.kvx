@@ -39818,3 +39818,35 @@ symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
 observed = "Attempt 7 at e2f14a479b62 on base 1b4b14bd3e44: the verification exits 1, internal/source fails in TestRepairM_997_ArchiveCapacityBounds, TestRepairM_997_AuthorizedIncidentSelection and TestRepairM_997_MixedRPCSourceSelection, every other package passes; log /out/logs/verify-2.log."
 assumption = "The historical cases of the package leave state behind that the capacity cases then meet."
 severity = "high"
+
+[finding.22.38.13.5]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 5 at acd6292aedbf on base a8dddadb5a8c: the build exits 2 at the size test of make paxai-host-boundary-build, the guest measures 526407 bytes against the bound 524184; no verification ran; log /out/logs/build-1.log."
+assumption = "The manifest of the attempt builds the guest at opt-level s and the recipe of main packages it at z."
+severity = "high"
+
+[finding.17.5.7.13]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 13 at 0d064cbe7515 on base 2968a4aeb9fb: the verification exits 1, the wave gate returns 125 with status source-identity-refusal phase before for make workspace-build, twelve ignored build directories of the preparation are listed; log /out/logs/verify-1.log."
+assumption = "The preparation leaves build directories that the output policy of the runner does not name."
+severity = "high"
+
+[finding.22.39.338.1]
+task = "22.39.338"
+file = "services/platform/hosted/paxeer/repair_467_test.go::TestRepair467_RestoredContent"
+symbol = "repair_467_test.go::TestRepair467_RestoredContent"
+observed = "Attempt 1 at 29744acf5552 on base 779bb0fbe4b5 (gates at a491cab991c3): the verification exits 1, TestRepair467_RestoredContent at repair_467_test.go:48 and TestRepairM_1319_NativeDeployment at repair_m1319_test.go:453 fail because deployment.yaml has SHA-256 ba84aff35348 and the pin is 7f681de19c1c; log /out/logs/verify-1.log."
+assumption = "The pin was left behind by the commit of task 18.1790.1 that changed the manifest."
+severity = "high"
+
+[finding.18.1749.1.8]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 8 at 934b544b6f52 on base 1da5e223456f: the verification exits 101, reward_reopen_preserves_recipient_balances stops at the Claim at height 290 with receipt result code -736 and no absent account line of the kernel; log /out/logs/verify-1.log."
+assumption = "The runtime compares the receipt root of the resolved account with a root over the identity bytes."
+severity = "high"

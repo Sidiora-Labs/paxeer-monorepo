@@ -47,6 +47,9 @@ import (
 //     the Swap log itself. The watermark is the fill's own block with the
 //     node-reported hash and projectionRevision = the per-pool fill revision,
 //     exactly as production's append_market_trade requires.
+//   - market.candles.<pool>.<interval>: committed chart builder state with
+//     receipt-verified OHLC source positions, atomically appended to history
+//     and the development stream.
 //   - market.stats.<pool>: the development PoolStats document the market reads
 //     serve (stats.pool_stats + indexer state), with the indexer-cursor
 //     watermark (eth_getBlockByNumber reported hash) as its revision.
@@ -95,6 +98,7 @@ var developmentStreamDDL = []string{
 	`CREATE TRIGGER stream_delivery_immutable BEFORE UPDATE ON ` + DevelopmentStreamSchema + `.stream_delivery_outbox FOR EACH ROW EXECUTE FUNCTION ` + DevelopmentStreamSchema + `.stream_immutable()`,
 	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.stream_snapshots(snapshot_id uuid PRIMARY KEY,account_id uuid NOT NULL,session_id uuid NOT NULL,auth_epoch bigint NOT NULL CHECK(auth_epoch>=0),filter_digest text NOT NULL CHECK(filter_digest ~ '^[0-9a-f]{64}$'),generation uuid NOT NULL,scope jsonb NOT NULL,initial_offsets jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),expires_at timestamptz NOT NULL,CHECK(expires_at>created_at AND expires_at<=created_at+interval '72 hours'))`,
 	`CREATE INDEX IF NOT EXISTS stream_snapshot_expiry ON ` + DevelopmentStreamSchema + `.stream_snapshots(expires_at)`,
+	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.candle_projection(pool_address text NOT NULL,timeframe text NOT NULL,candle_start bigint NOT NULL,source_revision bigint NOT NULL CHECK(source_revision>0),topic_sequence bigint NOT NULL CHECK(topic_sequence>0),payload bytea NOT NULL,watermark bytea NOT NULL,PRIMARY KEY(pool_address,timeframe,candle_start))`,
 	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.projector_cursor(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),block_number bigint NOT NULL,log_index integer NOT NULL,updated_at timestamptz NOT NULL DEFAULT clock_timestamp())`,
 	`INSERT INTO ` + DevelopmentStreamSchema + `.projector_cursor(singleton,block_number,log_index) VALUES(true,0,-1) ON CONFLICT DO NOTHING`,
 }
@@ -301,6 +305,9 @@ func (d *DevelopmentStream) Project(ctx context.Context) error {
 		d.statsAt = time.Now()
 	}
 	d.mu.Unlock()
+	if err := d.projectCandles(ctx); err != nil {
+		return err
+	}
 	if len(touched) == 0 && !sweep {
 		return nil
 	}
@@ -308,10 +315,10 @@ func (d *DevelopmentStream) Project(ctx context.Context) error {
 }
 
 type developmentSwap struct {
-	id, poolID, pool, sender, amountIn, amountOut, fee, txHash, token, optical string
-	isBuy                                                                      bool
-	block, timestamp                                                           int64
-	logIndex                                                                   int32
+	id, poolID, pool, sender, amountIn, amountOut, fee, txHash, token, optical, price string
+	isBuy                                                                             bool
+	block, timestamp                                                                  int64
+	logIndex                                                                          int32
 }
 
 type streamReceipt struct {
@@ -497,6 +504,9 @@ func swapPosition(s developmentSwap, r *streamReceipt) (projectedSwap, string) {
 		isBuy := word(0)
 		if isBuy.BitLen() > 1 || (isBuy.Sign() == 1) != s.isBuy || word(1).String() != s.amountIn || word(2).String() != s.amountOut || word(3).String() != s.fee {
 			return projectedSwap{}, "Swap amounts differ from the indexed row"
+		}
+		if s.price != "" && (word(4).String() != s.price || word(5).String() != strconv.FormatInt(s.timestamp, 10) || word(6).String() != strconv.FormatInt(s.block, 10)) {
+			return projectedSwap{}, "Swap price or time differs from committed candle source"
 		}
 		emitter := strings.ToLower(l.Address)
 		if _, err := store.Address(emitter); err != nil {

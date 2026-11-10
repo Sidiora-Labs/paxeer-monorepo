@@ -324,6 +324,8 @@ impl Store {
         })
     }
 
+    /// # Errors
+    /// Returns an error if retained data is corrupt or cannot be encoded, read or committed.
     pub fn open_read_only(root: impl AsRef<Path>) -> Result<Self, StoreError> {
         let protection = ProtectedRoot::open(root.as_ref(), false)?;
         let bytes = protection.read()?.ok_or_else(|| {
@@ -1140,6 +1142,8 @@ impl Store {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if retained data is corrupt or cannot be encoded, read or committed.
     pub fn commit_local_records(
         &mut self,
         records: Vec<(TenantKey, Vec<u8>)>,
