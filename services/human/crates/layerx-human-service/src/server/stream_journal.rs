@@ -60,6 +60,7 @@ impl Event {
     }
 }
 
+/// Strip the legacy top-level field before decoding and rewriting retained events.
 fn settlement_domain(record: &mut Value) -> bool {
     record
         .as_object_mut()

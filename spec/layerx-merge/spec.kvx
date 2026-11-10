@@ -161094,7 +161094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.313]
 title = "Settle the reviewed manifest digest of the launchpad deployment at its producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161338,7 +161338,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.272]
 title = "Repair the retired references of the launchpad web application, protocol catalogue and contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -192974,7 +192974,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.303]
 title = "Count the requested spend of a zero-value receipt in the daemon restart accounting"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193369,7 +193369,7 @@ do_4 = "Attempt 2 (continue, gotcha 4006, decisions 3125 and 3132): the attempt-
 
 [task.22.39.259]
 title = "Repair the retired references of the human service crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -193401,7 +193401,7 @@ do_5 = "Attempt 3 (continue, gotcha 4074, decision 3156): the attempt-2 tree d6c
 
 [task.22.39.257]
 title = "Repair the retired references of the agent wallet SDK, proof, mcp and schema packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -282228,7 +282228,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.309]
 title = "Route the JVM program activity and receipt reads by the retained transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -416446,7 +416446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.308]
 title = "Restore the explorer receipt verification cases against the governed key guard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

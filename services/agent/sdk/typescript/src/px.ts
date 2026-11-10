@@ -139,6 +139,7 @@ export interface PxNetworkHead {
   readonly networkId: string;
   readonly paxeer: PxPaxeerHead;
   readonly layerx: Readonly<Record<string, unknown>> | null;
+  /** Gateway block-commit observation; callers verify inclusion against pinned validators. */
   readonly latestCommittedHeight: bigint;
 }
 
