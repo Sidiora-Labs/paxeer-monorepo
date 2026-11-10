@@ -29,7 +29,7 @@ func renderInputs(t *testing.T) runtimedocs.Inputs {
 	if !ok {
 		t.Fatal("historical chain-125 deployment manifest is not approved")
 	}
-	reviewed, err := os.ReadFile(filepath.Join(root, "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
+	reviewed, err := os.ReadFile(filepath.Join(root, "sdk", "launchpad", "protocol", "catalog", "history", "reviewed-a35ff7c6f532d2f9.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

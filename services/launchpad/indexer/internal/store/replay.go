@@ -76,7 +76,7 @@ func (s *Store) AdmitReplay(ctx context.Context, r ReplayRequest) error {
 		return err
 	}
 	digest := delivery.Hash(body)
-	_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_replay_jobs(job_id,request_digest,request,chain_id,source_stream,target,generation,projection_revision,mode,authorization_id,from_height,to_height,progress_height,status) VALUES($1,$2,$3,125,$4,$5,$6,$7,$8,$9,$10,$11,$10-1,'queued') ON CONFLICT DO NOTHING`, r.JobID, digest, body, r.SourceStream, r.Target, r.Generation, r.ProjectionRevision, r.Mode, r.AuthorizationID, r.FromHeight, r.ToHeight)
+	_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_replay_jobs(job_id,request_digest,request,chain_id,source_stream,target,generation,projection_revision,mode,authorization_id,from_height,to_height,progress_height,status) VALUES($1,$2,$3,125,$4,$5,$6,$7,$8,$9,$10::bigint,$11,$10::bigint-1,'queued') ON CONFLICT DO NOTHING`, r.JobID, digest, body, r.SourceStream, r.Target, r.Generation, r.ProjectionRevision, r.Mode, r.AuthorizationID, r.FromHeight, r.ToHeight)
 	if err != nil {
 		return err
 	}
