@@ -12256,6 +12256,12 @@ value = "A case that serves a signed receipt through a route configures the gove
 basis = "Gotcha 4112, decisions 3180 and 3046, task 22.39.308."
 affects = ["22.39.332"]
 
+[decision.3191]
+title = "A lint finding that arrives with a rebase belongs to the open lint task of the crate"
+value = "While the lint task of a crate is open, a function of main that exceeds a workspace lint and reaches the tree through a rebase is repaired by that task without a change of behaviour, and the record names the site and the commit that brought it. The attempt that only lacked the verification of its final revision is requalified under decision 3186: it rebases, resolves conflicts so that both sides stand, builds once and verifies once."
+basis = "Gotcha 4113, decisions 3186 and 3183."
+affects = ["22.39.222"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -195407,6 +195413,7 @@ do_6 = "Attempt 4 (continue, gotcha 3924): the attempt-3 tree 86e2e0b8456e stand
 do_7 = "Attempt 5 (continue, gotcha 3959, decision 3111): the attempt-4 tree 86962ecb44c2 stands (the daemon source repairs, the record). Task 22.39.279 landed the read_windows field of the gateway test target; rebase on main, change nothing, and run the build once, the verification once and the dependents check once at the final revision."
 do_8 = "Attempt 6 (continue, gotcha 4018): the attempt-5 tree fb2bc4d80ebc stands. Split the function at services/agent/crates/layerx-agentd/src/human_runtime.rs:10665 into named helpers under 100 lines and replace the wildcard import at :22630 with the names the module uses; change no behaviour; add both sites to repair_22_39_222.kvx. Run the build once, the verification once and the dependents check once at the final revision."
 do_9 = "Attempt 7 (requalify, gotcha 4053): the attempt-6 tree f1b5e7751ec1 passed its gates but could not be integrated because services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs conflicts with the production state export of 18.1752.1 (5484ea469e on main), which changed the same adapter functions. Rebase the tree onto main, resolve the adapters so that both the lint repair of attempt 6 and the state export of main stand, keep every other change of the tree, then run the build once and the verification once at the final revision."
+do_10 = "Attempt 8 (requalify, gotcha 4113, decision 3191): the attempt-7 tree 61803b32828f stands (the lint repairs of the library, the six conflicts with main resolved, the witness binding check of settle_retained_native_program_call_with_config in human_runtime.rs moved into a helper, the record). The only clippy error of the verification at fe82a180db25 was that function at 115 of 100 lines, and the final revision was built but not verified. Rebase on main; when the rebase conflicts, resolve it so that the lint repair and the change of main both stand. Run the build once and the verification once at the final revision. When the verification names a finding in a function that arrived with the rebase, repair it without a change of behaviour within the allowed cycles and add the site and the commit that brought it to repair_22_39_222.kvx."
 
 [task.22.39.221]
 title = "Bring the layerx-agent-api crate and its test targets under the workspace lints"
