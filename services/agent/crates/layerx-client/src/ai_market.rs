@@ -78,6 +78,7 @@ pub mod inference_market {
         LayerSplit, OpenRoomRequest, PostAskRequest, PostBidRequest, RecordDealRequest,
     };
     pub use program::types::{Digest32, PrincipalId, RequestId};
+    use sha2::Digest as _;
 
     use super::{
         AiClientError, FinalizedSnapshot, NativeTerms, OperationRequest, PreparedOperation,
@@ -275,6 +276,285 @@ pub mod inference_market {
     /// Returns payload length or codec validation errors for malformed or noncanonical market data.
     pub fn decode_book_view(bytes: &[u8]) -> Result<BookView<'_>, AiClientError> {
         Ok(BookView::decode(bytes)?)
+    }
+
+    pub fn book_view(
+        snapshot: &FinalizedSnapshot,
+        model: Digest32,
+    ) -> Result<Vec<u8>, AiClientError> {
+        let mut bytes = vec![0; program::placement::BOOK_VIEW_MAX_BYTES];
+        let length = program::queries::answer_book_view(
+            snapshot.state_bytes(),
+            model.as_bytes(),
+            &mut bytes,
+        )?;
+        bytes.truncate(length);
+        BookView::decode(&bytes)?;
+        Ok(bytes)
+    }
+
+    pub fn verify_recorded_deal(
+        endpoint: &crate::sequencer::SequencerEndpoint,
+        request: &RecordDealRequest,
+    ) -> Result<(), AiClientError> {
+        use layerx_programs_registry::hex::encode;
+        use serde_json::json;
+
+        let recorded = endpoint
+            .call_raw(
+                "px_getInferenceDeal",
+                &json!([encode(request.deal_id.as_bytes())]),
+            )
+            .map_err(|error| {
+                AiClientError::Submit(crate::rpc::submit::SubmitError::Sequencer(error))
+            })?;
+        let layers = request
+            .layers
+            .iter()
+            .flatten()
+            .map(|split| {
+                json!({
+                    "bid_id": encode(split.bid_id.as_bytes()),
+                    "first_layer": split.first_layer,
+                    "end_layer": split.end_layer,
+                })
+            })
+            .collect::<Vec<_>>();
+        if recorded["deal_id"] != encode(request.deal_id.as_bytes())
+            || recorded["room_id"] != encode(request.room_id.as_bytes())
+            || recorded["ask_id"] != encode(request.ask_id.as_bytes())
+            || recorded["roster_digest"] != encode(request.roster_digest.as_bytes())
+            || recorded["agreed_price_per_thousand_tokens"]
+                != request.agreed_price_per_thousand_tokens.to_string()
+            || recorded["layers"] != json!(layers)
+        {
+            return Err(AiClientError::FinalityMismatch);
+        }
+        Ok(())
+    }
+
+    pub fn deal_envelope(
+        snapshot: &FinalizedSnapshot,
+        deal: &RecordDealRequest,
+        request: RequestId,
+        expiry: u64,
+    ) -> Result<Vec<u8>, AiClientError> {
+        use program::{
+            admission::AdmissionTable,
+            codec::Envelope,
+            state::{self, ActorSlot, Section},
+            types::{Authentication, Presence, RosterDigest},
+        };
+        let shared = state::decode_shared_state(snapshot.state_bytes())?;
+        let admission = AdmissionTable::decode(
+            program::reputation_transition::split_joint(
+                shared.section(Section::ReputationAdmission)?,
+            )?
+            .1,
+        )?;
+        let epoch = admission
+            .current_epoch()
+            .ok_or(program::errors::WRONG_EPOCH)?;
+        let roster = RosterDigest::new(program::roster::roster_digest(&admission, epoch)?.bytes())?;
+        if deal.roster_digest != roster || expiry <= snapshot.binding().execution_height {
+            return Err(program::errors::WRONG_ROSTER.into());
+        }
+        let book = program::rooms::RoomBook::decode(shared.room_market()?.1)?;
+        let room = book
+            .room(deal.room_id)?
+            .ok_or(program::errors::F11_ROOM_UNKNOWN)?;
+        let sequence = (0..43)
+            .filter_map(|i| shared.control.replay.actor(ActorSlot::from_index(i).ok()?))
+            .find(|entry| entry.principal == room.host_key)
+            .map_or(Ok(1), |entry| {
+                entry.last.map_or(Ok(1), |last| {
+                    last.sequence
+                        .checked_add(1)
+                        .ok_or(program::errors::ARITHMETIC)
+                })
+            })?;
+        let operation = record_deal(deal)?;
+        let envelope = Envelope {
+            operation: dispatch::RecordDeal,
+            chain: snapshot.binding().chain,
+            program: snapshot.binding().program,
+            market: snapshot.binding().market,
+            actor: room.host_key,
+            epoch,
+            config: snapshot.binding().config.get(),
+            roster: Presence::Present(roster),
+            sequence,
+            expiry,
+            request,
+            payload: operation.payload(),
+            authentication: Authentication::Native,
+        };
+        let mut bytes = vec![0; program::MAX_ENVELOPE_BYTES];
+        let length = program::codec::encode_envelope(&envelope, &mut bytes)?;
+        bytes.truncate(length);
+        Ok(bytes)
+    }
+
+    /// Read content-addressed namespace artifacts at H-1 and authenticate them under
+    /// the independently pinned validator commit at H before exposing a snapshot.
+    pub fn poll_finalized_market(
+        endpoint: &crate::sequencer::SequencerEndpoint,
+        verifier: &layerx_programs_registry::chain_proof::ChainProofVerifier,
+        program_id: program::types::ProgramId,
+        height: u64,
+        publication_time_ms: u64,
+    ) -> Result<FinalizedSnapshot, AiClientError> {
+        use super::{CommitFinality, ObservedSnapshot, VerifiedProgramState};
+        use program::{
+            codec::{self, ChunkRequest},
+            queries::ReadProof,
+            types::{Presence, StateDigest},
+        };
+        let invalid = || AiClientError::FinalityMismatch;
+        let head = crate::rpc::commit::acquire_committed_header(endpoint, height, verifier)
+            .map_err(|_| invalid())?;
+        let state_height = height
+            .checked_sub(1)
+            .filter(|h| *h != 0)
+            .ok_or_else(invalid)?;
+        let mut key = vec![1, 0, 9];
+        key.extend_from_slice(b"progstor");
+        key.extend_from_slice(program_id.as_bytes());
+        key.push(1);
+        let (namespace, ops) = namespace_artifact(endpoint, &key, state_height, true)?;
+        if namespace.len() != 38 || namespace[..2] != [0, 1] {
+            return Err(invalid());
+        }
+        let mut blob = vec![5, 0, 9];
+        blob.extend_from_slice(&namespace[6..]);
+        let (manifest, _) = namespace_artifact(endpoint, &blob, state_height, false)?;
+        if sha2::Sha256::digest(&manifest).as_slice() != &namespace[6..] {
+            return Err(invalid());
+        }
+        let mut reader = codec::Reader::new(&manifest);
+        if reader.u16()? != 1 {
+            return Err(invalid());
+        }
+        let count = reader.u32()?;
+        if count == 0 || count > 65_536 {
+            return Err(invalid());
+        }
+        let mut state_digest = None;
+        for _ in 0..count {
+            let length = usize::from(reader.u16()?);
+            let name = reader.take(length)?;
+            let digest: [u8; 32] = reader.fixed()?;
+            let _length = reader.u32()?;
+            if name == program::SHARED_STATE_KEY {
+                if state_digest.replace(digest).is_some() {
+                    return Err(invalid());
+                }
+            }
+        }
+        reader.finish()?;
+        let mut blob = vec![5, 0, 9];
+        blob.extend_from_slice(&state_digest.ok_or_else(invalid)?);
+        let (state, _) = namespace_artifact(endpoint, &blob, state_height, false)?;
+        let witness = VerifiedProgramState::verify(
+            &head,
+            &verifier.chain_id,
+            program_id,
+            &namespace,
+            &manifest,
+            &state,
+            &ops,
+        )?;
+        let finality = CommitFinality::from_verified_program(&head, &witness)?;
+        let proof = ReadProof {
+            chain: witness.chain,
+            program: program_id,
+            native_state_root: Digest32::new(witness.native_root)?,
+            observed_sequence: state_height,
+            execution_height: state_height,
+            block_hash: Digest32::new(head.header_hash())?,
+        };
+        let mut chunks = Vec::new();
+        let mut offset = 0_u32;
+        while usize::try_from(offset).map_err(|_| invalid())? < state.len() {
+            let request = ChunkRequest {
+                revision: witness.revision,
+                digest: Presence::Present(StateDigest::new(witness.digest)?),
+                offset,
+                requested: 8192,
+            };
+            let mut payload = [0; 46];
+            codec::encode_chunk_request(&request, &mut payload)?;
+            let mut body = vec![0; 8244];
+            let length = program::queries::read_state_chunk(&state, &payload, &mut body)?;
+            body.truncate(length);
+            let chunk = codec::decode_chunk_response(&body)?;
+            offset = offset
+                .checked_add(u32::try_from(chunk.bytes.len()).map_err(|_| invalid())?)
+                .ok_or_else(invalid)?;
+            chunks.push((proof, body));
+        }
+        ObservedSnapshot::capture(&chunks)?.finalize(Some(&finality), publication_time_ms)
+    }
+
+    fn namespace_artifact(
+        endpoint: &crate::sequencer::SequencerEndpoint,
+        key: &[u8],
+        height: u64,
+        prove: bool,
+    ) -> Result<
+        (
+            Vec<u8>,
+            Vec<layerx_programs_registry::chain_proof::decode::ProofOp>,
+        ),
+        AiClientError,
+    > {
+        use base64::Engine as _;
+        use layerx_programs_registry::chain_proof::decode::ProofOp;
+        let invalid = || AiClientError::FinalityMismatch;
+        let result = endpoint.call_raw("abci_query", &serde_json::json!({
+            "path": "/store/lxphost/key", "data": format!("0x{}", layerx_programs_registry::hex::encode(key)),
+            "height": height.to_string(), "prove": prove
+        })).map_err(|error| AiClientError::Submit(crate::rpc::submit::SubmitError::Sequencer(error)))?;
+        let response = &result["response"];
+        if response["code"].as_u64() != Some(0)
+            || response["height"]
+                .as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                != Some(height)
+        {
+            return Err(invalid());
+        }
+        let decode = |value: &serde_json::Value| -> Result<Vec<u8>, AiClientError> {
+            let text = value.as_str().ok_or_else(invalid)?;
+            if text.len() > 2 * program::MAX_STATE_BYTES {
+                return Err(invalid());
+            }
+            base64::engine::general_purpose::STANDARD
+                .decode(text)
+                .map_err(|_| invalid())
+        };
+        if decode(&response["key"])? != key {
+            return Err(invalid());
+        }
+        let bytes = decode(&response["value"])?;
+        if bytes.is_empty() || bytes.len() > program::MAX_STATE_BYTES {
+            return Err(invalid());
+        }
+        let mut ops = Vec::new();
+        if prove {
+            let rows = response["proofOps"]["ops"]
+                .as_array()
+                .filter(|rows| rows.len() == 2)
+                .ok_or_else(invalid)?;
+            for row in rows {
+                ops.push(ProofOp {
+                    op_type: row["type"].as_str().ok_or_else(invalid)?.to_owned(),
+                    key: decode(&row["key"])?,
+                    data: decode(&row["data"])?,
+                });
+            }
+        }
+        Ok((bytes, ops))
     }
 }
 

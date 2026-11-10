@@ -21,6 +21,7 @@ import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -321,6 +322,36 @@ public final class ProgramsContractTest {
             () -> ProgramsClient.verifyAuthorizationRoot(v2, mutatedRoot));
         assertThrows(IllegalArgumentException.class,
             () -> ProgramsClient.verifyAuthorizationRoot(concatenate(v2, new byte[] {0}), root));
+    }
+
+    @Test
+    void programDestinationAuthorizationVectors() throws Exception {
+        JsonNode vectors = JSON.readTree(Files.readString(Path.of(
+            System.getProperty("layerx.repo.root", "../../.."),
+            "programs/fixtures/pay5/destination-authorization-vectors.json")));
+        assertTrue(vectors.isArray());
+        assertEquals(1271, vectors.size());
+        int accepted = 0;
+        int refused = 0;
+        for (JsonNode vector : vectors) {
+            String name = vector.required("name").asText();
+            byte[] encoded = fixtureBytes(vector, "encoded");
+            byte[] root = fixtureBytes(vector, "root");
+            if (vector.required("accept").asBoolean()) {
+                assertDoesNotThrow(() -> ProgramsClient.verifyAuthorizationRoot(encoded, root), name);
+                byte[] mutatedRoot = root.clone();
+                mutatedRoot[0] ^= 1;
+                assertThrows(IllegalArgumentException.class,
+                    () -> ProgramsClient.verifyAuthorizationRoot(encoded, mutatedRoot), name);
+                accepted++;
+            } else {
+                assertThrows(IllegalArgumentException.class,
+                    () -> ProgramsClient.verifyAuthorizationRoot(encoded, root), name);
+                refused++;
+            }
+        }
+        assertEquals(2, accepted);
+        assertEquals(1269, refused);
     }
 
     @Test
