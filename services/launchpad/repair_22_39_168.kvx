@@ -1,0 +1,483 @@
+[meta]
+task = "22.39.168"
+status = "implemented-awaiting-qualification"
+acceptance = "22998.1"
+policy = "Baseline exclusion removal is a candidate change, not a passing result; only a successful declared verification retires the failures."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+build = "/out/run/gates.jsonl: latest kind=build row; revision, command, exit and log are authoritative"
+verify = "/out/run/gates.jsonl: latest kind=verify row; revision, command, exit and log are authoritative"
+revision = "Resolve the exact candidate revision from matching build/verify ledger rows; both must have the same revision and exit 0 for qualification."
+build_command = "anvil --version > /dev/null && make -C services/launchpad vet"
+verify_command = "cg spec done 22.39.168 -f layerx-merge --root /work/paxeer-monorepo"
+
+[module.ranking-algo]
+path = "services/launchpad/ranking-algo"
+exclusions_removed = 10
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/app::TestNewServesAndRanks", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/app::TestRepairM_934_PublicationEveryCategoryAndRestartRecovery", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/httpapi::TestPhase3ActualReadHandlersRedisLossAndExpiredCursor", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/httpapi::TestPhase3DuplicateModerationUsesActualOwnerReplay", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store::TestCompletedRunActualPostgresAndRedis", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store::TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store::TestPhase3RollbackEmptyAndCompetingCompletions", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store::TestPhase4ActualMeasurementHarness", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store::TestProductionUniverseCompletesAndPublishes", "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store::TestSnapshotStoreLocalPostgres"]
+repair = "Snapshot fixture loads registered migration 190000.sql instead of the retired handoff path and creates its isolated schema. Registered successor 190005.sql admits exactly the eight ranker.Categories values; the production universe fixture and registered runtime bootstrap apply it. Protected frozen-input, visibility/replay and measurement owners are explicitly named; supplied malformed fixtures still fail."
+producers = ["internal/store/snapshots.go", "internal/ranker/snapshot.go", "launchpad/spec/production-system/integration/migrations/190000.sql", "launchpad/spec/production-system/integration/migrations/190005.sql", "launchpad/spec/production-system/integration/migrations/registry.json"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.stats-workers]
+path = "services/launchpad/stats-workers"
+exclusions_removed = 23
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestAccountingIntegrityErrorRollsBackSavepoint", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase2AdmittedOriginCapacity", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase4LaneMeasurementHarness", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase2CanonicalPublicationIdempotencyAndExpiry", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase3RealWorkerSIGKILLAndBrokerRedelivery", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics::TestPhase3CanonicalHostileInputsHaveNoDatabaseEffect", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/app::TestRepair_70_CrossWalletCatchupAndRestart", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumer::TestCanonicalLegacyBridgeReplaysRealPaxeerPool", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi::TestPlatformRoute", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi::TestPrecomputePublishesPlatformUpdate", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase2ActualReceiptBatchAndReplay", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase2IntegratedCanonicalHTTPAgainstSource", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase3RedisRestartAndCanonicalDependencyOutage", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats::TestPhase4RealMeasurementProvidersAndIntegerReference", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/search::TestSearchCapacityReleaseMeasurement", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestHoldingsNumericSchemaAndOrdering", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestRetainedCanonicalReplay", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestCanonicalCatchupMatchesIndependentArchiveDigest", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestCanonicalActorProvenance", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestCanonicalArchiveReplayExactlyOnceAndRejectsConflicts", "github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings::TestPhase4CapacityMeasurement"]
+repair = "Holdings orders by the numeric source balance instead of the text output alias and returns ErrIntegrity without aborting the transaction on an invalid aggregate decrement; the savepoint regression retains exact rollback assertions. Receipt batch reconciliation compares a four-field ROW. Protected archive, origin and measurement inputs keep their exact owner guards."
+producers = ["internal/holdings/postgres.go", "internal/holdings/aggregate_store.go", "internal/projectionstats/postgres.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.trading-charts]
+path = "services/launchpad/trading-charts"
+exclusions_removed = 19
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer::TestFaultBrokerTenMinuteOutageAndPostPublishCrash", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread::TestReportedIdentityLive", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine::TestRepairM_1051_ConcurrentDistinctSwaps", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine::TestRepairM_1051_RollbackAndRedisRestart", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine::TestRepairM_1051_CommittedOutboxRetry", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine::TestRepairM_1051_LateSourceOrder", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine::TestArchive96HourReconstructionPostgres", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi::TestDevelopmentUDFHistoryFromWebhookCandles", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi::TestProductionConcurrentCanonicalHistory", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi::TestProductionCachePoisoningAndETagIsolation", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi::TestProductionOriginTelemetryUsesActualFetch", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi::TestRPCSupplySourceLive", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi::TestRepairM_1050_PartialFailureRetry", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi::TestWebhookValidSwap", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer::TestFaultPoisonQuarantineAndAuditedReprocessing", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer::TestSourceVerifiedBootstrapFromPoolCreationLive", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer::TestConsumerProcessesSwapFromChannel", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer::TestConsumerRejectsBlockNumberAsTimestamp", "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumer::TestConsumerUsesTopLevelBlockTimestamp"]
+repair = "The committed RESP transcript preserves protocol CRLF framing. Retained real-chain, archive and measurement prerequisites name their protected variables; ordinary locally provisioned broker/database cases remain mandatory."
+producers = ["internal/engine/development.go", "internal/engine/repair_m1051_test.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.gateway]
+path = "services/launchpad/gateway"
+exclusions_removed = 12
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/app::TestPlatformPeersThroughGatewayIdentityListener", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/app::TestApp_UploadForwardsToMetadata", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/app::TestRun_GracefulShutdown", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/app::TestDevelopmentRateLimitKeysOnEdgeClientIP", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth::TestIdentityOwnerRealChain125ProofKinds", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth::TestSerialIdentityPhase4ConfiguredWorkload", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy::TestBountyReadsBelongToSocialUpstream", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy::TestRepair_48_ingest_response", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/serve::TestApprovedActualObjectAndWarmCacheRestriction", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/serve::TestApprovedColdConditionalAndBoundedRange", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/serve::TestRepair_50_ApprovedCachePurge", "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage::TestPhase4MediaProductionEnvelope"]
+repair = "Approved-object cases use the public job object endpoint, credentials and Redis URL instead of stale hard-coded fixture endpoints. Bounty routes follow the social upstream, and the retired ingest route returns its production retirement code. Identity and media measurements guard only named protected owner inputs."
+producers = [".github/workflows/launchpad-test.yml", "internal/proxy/connected.go", "sdk/launchpad/shared/auth/reported_hash_backend.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.livestream]
+path = "services/launchpad/livestream"
+exclusions_removed = 9
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer::TestActualProviderCorrelationAdoptsExistingProvision", "github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams::TestEncryptedProviderBindingRetainsNoPlaintext", "github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams::TestRotationIntentWaitsForRevocationAndRejectsStaleOwnerWrite", "github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams::TestInterruptedProvisionBindingPreservesStopIntent", "github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams::TestActualProviderCreationSurvivesCredentialPersistenceInterruption", "github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams::TestPhase4MediaProductionMeasurement", "github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams::TestPhase4MediaRetainsActualDependencyRecoveryPaths", "github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams::TestRepairIntegration_57_001_PrivateIngestKeyRecovery", "github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams::TestV2StreamRoutesWithoutLifecycleAnswerFrozenError"]
+repair = "The retired ingest credential route asserts INGEST_CREDENTIAL_RETIRED with HTTP 410; other missing lifecycle routes retain dependency-unavailable assertions. Private live-provider binding, recovery and measurement inputs are guarded by their owner variable names."
+producers = ["internal/streams/handlers.go", "internal/streams/repair_57_test.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.metadata]
+path = "services/launchpad/metadata"
+exclusions_removed = 10
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app::TestRepairM_1006_FactoryReceiptChainBinding", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app::TestDevelopmentCreationMediaFlow", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app::TestDevelopmentCreatorUpload", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/app::TestDevelopmentV2Reads", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image::TestProductionActualIsolatedDimensionBomb", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestProductionAdversarialActualStorageRecovery", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestProductionReportedCommittedProofVerifierOnPaxeer", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestPublicationRealCreatorQueueRecovery", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestRepairM_1007_CanonicalRetentionRestart", "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata::TestProductionActualScannerMidstreamDisconnect"]
+repair = "The chain emitter loads the ABI from the committed repair37 artifact emitted by the protocol producer instead of the removed precompile ABI. Protected actual storage/scanner/receipt and measurement inputs retain owner variable guards."
+producers = ["sdk/launchpad/protocol/bindings/testdata/repair37/EventEmitter.json", "internal/metadata/dev_v2.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.social]
+path = "services/launchpad/social"
+exclusions_removed = 26
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/app::TestDevelopmentV2SocialSurface", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/app::TestPlatformChatStreamUsesSingleUseTickets", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/app::TestPlatformWritesAsLeastPrivilegeRuntime", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/devsocial::TestMigrationIsRerunnable", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/devsocial::TestRailwayStyleSearchPath", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout::TestConnectedRealR3PublisherKillRestartAndConsumerInbox", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout::TestAdversarialRealPolicyPrivacyRevocationAndUnavailable", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout::TestAdversarialUncertainRealPostgresCommitRetriesOneMessage", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout::TestRepairM_1027_MessageLengthBoundaries", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout::TestRepairM_1027_DefaultAndConfiguredMessageLimits", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout::TestRepairM_1027_PlatformSocketAdmission", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout::TestRepairM_1027_SharedAbuseLimiter", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout::TestRepairM_1027_RestartWindowRecovery", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions::TestConnectedInteractionsPolicyErasureAndCache", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions::TestConnectedBoundedEqualTimestampTraversal", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions::TestConnectedDurableBrokerInbox", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions::TestConnectedAdversarialRemovalReplayAndContent", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions::TestConnectedErasureBoundedRestoreAndHold", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions::TestPhase4InteractionsMeasurement", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/social::TestProofLaunchpadSocial", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/social::TestRepair_68_SocketRESTAndRestartUseDurableMessages", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/social::TestPostgresV2VoiceEndLeaveAndTicket", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice::TestPostgresVoicePolicyPreservesUnavailable", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice::TestRealLiveKitProviderOwnedSessionLifecycle", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice::TestRealLiveKitCreateCrashAdoptsOneSessionAndEndCrashReconciles", "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice::TestRealLiveKitSpeakerEjectionClosesConnectionAndRejectsOldTicket"]
+repair = "Fanout and interaction fixtures apply the registered local schema prerequisites. The voice dependency outage removes the table with its dependent view so real policy reads exercise unavailable storage. Protected LiveKit and interaction measurement credentials are named explicitly."
+producers = ["launchpad/spec/production-system/integration/migrations/370001.sql", "internal/voice/control.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.user]
+path = "services/launchpad/user"
+exclusions_removed = 4
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/account::TestConnectedPhase3LiveSocketRevocationAndHTTPWrites", "github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/account::TestPostgresHTTPV2OwnerExportsAndDeletion", "github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/app::TestDevelopmentProfileWrite", "github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/app::TestDevelopmentProfileReads"]
+repair = "Signed legacy saves follow signed_operation.go. Development writes invalidate ProfileCacheKey, shared with the lowercase legacy reader and PublicURL namespace, preserving read-after-edit assertions. Connected live socket inputs retain protected owner guards."
+producers = ["internal/user/signed_operation.go", "internal/user/handlers.go", "internal/account/development_profile_writes.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.discovery]
+path = "services/launchpad/discovery"
+exclusions_removed = 0
+cases = []
+repair = "No original exclusions exist; ordinary module tests stay in the declared loop."
+producers = ["feed.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.notifications]
+path = "services/launchpad/notifications"
+exclusions_removed = 0
+cases = []
+repair = "No original exclusions exist; ordinary module tests stay in the declared loop."
+producers = ["runtime.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.security]
+path = "services/launchpad/security"
+exclusions_removed = 1
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/security/policy::TestRequestParsing"]
+repair = "The valid mutation uses canonical Name and asserts the decoded value; every invalid body and canonical field policy remains checked."
+producers = ["policy/policy.go", "policy/parsing_test.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[module.security_control]
+path = "services/launchpad/security/control"
+exclusions_removed = 1
+cases = ["github.com/Sidiora-Technologies/KindleLaunch/security/control::TestRepair_65_RoutingRestart"]
+repair = "HTTP client Close only closes idle connections. Restart recovery now uses an explicitly closed listener endpoint to exercise an actually unavailable independent receipt reader; recovery and inventory assertions are unchanged."
+producers = ["chain.go", "repair_65_test.go"]
+evidence = "evidence.ledger; the declared verify command invokes the baseline-aware runner in Makefile order"
+remaining_cases = []
+qualification = "pending declared gate; module success is not asserted"
+
+[protected_fixtures]
+policy = "Decision 2821 as explicitly requested by this task: skip only when a named protected owner input is unset; malformed supplied inputs and all behavior assertions still fail."
+guards = ["TestPhase3ActualReadHandlersRedisLossAndExpiredCursor: L19_PHASE3_HTTP_SCHEMA L19_VISIBILITY_URL L19_PHASE3_EXPIRED_RUN_ID L19_PHASE3_EMPTY_CATEGORY L19_PHASE3_STALE_CATEGORY", "TestPhase3DuplicateModerationUsesActualOwnerReplay: L19_MODERATION_REPLAY_URL L19_MODERATION_EVENT_FILE L19_MODERATION_EVENT_SHA256 L19_MODERATION_TARGET_POOL L19_MODERATION_REPLAY_AUTH_FILE", "TestCompletedRunActualPostgresAndRedis: L19_FROZEN_INPUT_FILE L19_FROZEN_INPUT_SHA256", "TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication: L19_FROZEN_INPUT_FILE L19_FROZEN_INPUT_SHA256 L19_NATS_STREAM", "TestPhase3RollbackEmptyAndCompetingCompletions: L19_FROZEN_INPUT_FILE L19_FROZEN_INPUT_SHA256", "TestPhase4ActualMeasurementHarness: L19_PHASE4_CONFIG_FILE L19_PHASE4_CONFIG_SHA256", "TestPhase2AdmittedOriginCapacity: L15_CAPACITY_ORIGIN L15_CAPACITY_WORKLOAD_FILE", "TestPhase4LaneMeasurementHarness: L15_PHASE4_PLAN L15_PHASE4_OUTPUT", "TestPhase2CanonicalPublicationIdempotencyAndExpiry: L15_CANONICAL_PUBLICATION_FILE", "TestPhase3RealWorkerSIGKILLAndBrokerRedelivery: L15_CANONICAL_PUBLICATION_FILE", "TestPhase3CanonicalHostileInputsHaveNoDatabaseEffect: L15_CANONICAL_PUBLICATION_FILE", "TestPhase2IntegratedCanonicalHTTPAgainstSource: L13_PHASE2_SOURCE_STREAM L13_PHASE2_PROJECTION_VERSION", "TestPhase3RedisRestartAndCanonicalDependencyOutage: L13_PHASE2_SOURCE_STREAM L13_PHASE2_PROJECTION_VERSION", "TestPhase4RealMeasurementProvidersAndIntegerReference: L13_PHASE4_CONFIG_FILE L13_PHASE4_CONFIG_SHA256", "TestSearchCapacityReleaseMeasurement: L20_MEASUREMENT_CONFIG", "TestRetainedCanonicalReplay: L14_ARCHIVE_TOKEN L14_ARCHIVE_START L14_ARCHIVE_END L14_ARCHIVE_STREAM L14_ARCHIVE_EXPECTED_DIGEST L14_ARCHIVE_DECIMALS", "TestCanonicalCatchupMatchesIndependentArchiveDigest: L14_ARCHIVE_TOKEN L14_ARCHIVE_STREAM L14_ARCHIVE_END L14_ARCHIVE_EXPECTED_DIGEST", "TestCanonicalActorProvenance: L14_ARCHIVE_TOKEN L14_ARCHIVE_STREAM L14_ARCHIVE_END L14_ACTOR_FILL_ID L14_ACTOR_TRANSACTION_HASH L14_ACTOR_TRANSFER_LOG_INDEX L14_ACTOR_EXPECTED_ADDRESS", "TestCanonicalArchiveReplayExactlyOnceAndRejectsConflicts: L14_ARCHIVE_TOKEN L14_ARCHIVE_STREAM L14_ARCHIVE_END", "TestPhase4CapacityMeasurement: L14_PHASE4_PLAN L14_PHASE4_PLAN_SHA256 L14_PHASE4_OUTPUT", "TestReportedIdentityLive: NETWORK_RPC_URL", "TestRPCSupplySourceLive: NETWORK_RPC_URL", "TestSourceVerifiedBootstrapFromPoolCreationLive: NETWORK_RPC_URL", "TestFaultPoisonQuarantineAndAuditedReprocessing: L10_TEST_RPC_URL", "TestArchive96HourReconstructionPostgres: L10_ARCHIVE_CHART_SCHEMA L10_ARCHIVE_MANIFESTS L10_ARCHIVE_POOL L10_ARCHIVE_FROM L10_ARCHIVE_TO L10_ARCHIVE_EXPECTED_DIGEST L10_TEST_RPC_URL L10_TEST_S3_BUCKET", "TestProductionConcurrentCanonicalHistory: L11_CANONICAL_ENDPOINT", "TestProductionCachePoisoningAndETagIsolation: L11_CANONICAL_ENDPOINT", "TestProductionOriginTelemetryUsesActualFetch: L11_CANONICAL_ENDPOINT", "TestSerialIdentityPhase4ConfiguredWorkload: L33_PHASE4_MEASUREMENT_INPUT", "TestPhase4MediaProductionEnvelope: L41_ENVELOPE_CONFIG L41_ENVELOPE_CONFIG_SHA256", "TestActualProviderCorrelationAdoptsExistingProvision: L40_TEST_LIVEPEER_URL L40_TEST_LIVEPEER_KEY L40_TEST_LIVEPEER_OPERATION_ID", "TestEncryptedProviderBindingRetainsNoPlaintext: L40_TEST_VAULT_URL L40_TEST_VAULT_TOKEN L40_TEST_VAULT_KEY", "TestRotationIntentWaitsForRevocationAndRejectsStaleOwnerWrite: L40_TEST_VAULT_URL L40_TEST_VAULT_TOKEN L40_TEST_VAULT_KEY", "TestInterruptedProvisionBindingPreservesStopIntent: L40_TEST_VAULT_URL L40_TEST_VAULT_TOKEN L40_TEST_VAULT_KEY", "TestActualProviderCreationSurvivesCredentialPersistenceInterruption: L40_TEST_LIVEPEER_URL L40_TEST_LIVEPEER_KEY L40_TEST_PLAYBACK_WEBHOOK_ID", "TestPhase4MediaProductionMeasurement: L40_MEASUREMENT_MANIFEST L40_MEASUREMENT_MANIFEST_SHA256", "TestProductionActualIsolatedDimensionBomb: KINDLE_RASTER_CGROUP_PARENT", "TestProductionAdversarialActualStorageRecovery: KINDLE_RASTER_CGROUP_PARENT", "TestProductionReportedCommittedProofVerifierOnPaxeer: NETWORK_RPC_URL", "TestPublicationRealCreatorQueueRecovery: KINDLE_PUBLICATION_TEST_URL", "TestProductionActualScannerMidstreamDisconnect: CLAMAV_HOST", "TestPhase4InteractionsMeasurement: L37_PHASE4_ALLOCATION_PATH L37_PHASE4_ALLOCATION_SHA256 L37_PHASE4_ARTIFACT_DIR", "TestRealLiveKitProviderOwnedSessionLifecycle: L38_LIVEKIT_URL L38_LIVEKIT_API_KEY L38_LIVEKIT_API_SECRET", "TestRealLiveKitCreateCrashAdoptsOneSessionAndEndCrashReconciles: L38_LIVEKIT_URL L38_LIVEKIT_API_KEY L38_LIVEKIT_API_SECRET", "TestRealLiveKitSpeakerEjectionClosesConnectionAndRejectsOldTicket: L38_LIVEKIT_URL L38_LIVEKIT_API_KEY L38_LIVEKIT_API_SECRET", "TestConnectedPhase3LiveSocketRevocationAndHTTPWrites: L35_PHASE3_GATEWAY_URL L35_PHASE3_STREAM_URL L35_PHASE3_ORIGIN L35_PHASE3_ACCESS_TOKEN L35_PHASE3_WALLET_PRIVATE_KEY L35_PHASE3_OPERATION_ENVIRONMENT"]
+
+[repair.wiring_retirement]
+producer = "tests/ci/data/launchpad_go_tests.py"
+change = "The wiring suite asserts zero remaining cases, keeps historical baseline records immutable and checks the retired inventory against this task record. Other retiring owners retain their expectations."
+api_entries_restored = ["TestDevelopmentTransactionStatusFromChainRPC", "TestRepair_27_log_free_receipts"]
+api_entry_source = "a41ce5ffb6^:tests/ci/data/launchpad_go_test_baseline.json"
+api_entry_note = "Restored verbatim as explicitly requested; the current task base already contains a41ce5ffb6, which had independently retired them."
+
+[repair.user_profile]
+producer = "internal/user/signed_operation.go"
+signed_operation = "The legacy read fixture signs the canonical method, owner path and exact body digest with a fresh nonce, issued/expires times and profile.update action, as the v3 fixture does."
+cache_invalidation = "shared legacy read/write cache key"
+behaviour = "Development writes evict the same PublicURL-scoped lowercase-owner key used by legacy reads; the original post-edit assertions remain intact."
+
+[repair.security_canonical_field]
+producer = "policy/policy.go"
+canonical_key = "Name"
+behaviour = "The valid untagged destination uses the exact canonical field Name; invalid bodies, canonicalMutationFields and mutationFields retain their checks."
+
+[finding.ranking_schema]
+task = "22.39.168"
+file = "launchpad/spec/production-system/integration/migrations/190000.sql"
+symbol = "snapshots_category_check"
+observed = "The registered ranking snapshots constraint allows six categories while ranker.Categories declares eight including gainers and losers."
+assumption = "Resolved by registered successor 190005.sql; 190000.sql and category assertions remain unchanged."
+severity = "blocker"
+
+[finding.outage_timeout]
+task = "22.39.168"
+file = "services/launchpad/trading-charts/internal/consumer/accounting_test.go"
+symbol = "TestFaultBrokerTenMinuteOutageAndPostPublishCrash"
+observed = "The test requires a real ten-minute outage before recovery, while the baseline-aware runner uses the default ten-minute Go package timeout."
+assumption = "Neither the ten-minute measurement nor the package timeout has been weakened."
+severity = "blocker"
+
+[finding.ranking_evidence]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo/internal/app/app.go"
+symbol = "newNativeApp"
+observed = "The canonical input reader treats missing pause evidence as unavailable, while the native runtime never assigns its Evidence provider."
+assumption = "A real cutoff-bound canonical evidence producer and binding are required; no synthetic evidence is added."
+severity = "blocker"
+
+[environment]
+workflow = ".github/workflows/launchpad-test.yml: jobs.launchpad-go-test"
+variables = "/out/run/launchpad-job-env.sh"
+services = "Fresh session PostgreSQL and reserved Redis; chain-125 Anvil, public object storage, and a three-member real JetStream cluster on the public job ports."
+fixture_binaries = "nginx; redis-server; nats-server v2.11.6; checksum-verified Vault 1.20.2 and LiveKit 1.9.0"
+policy = "Gate processes receive every public job variable. No protected owner transcript or authority is fabricated."
+
+[repair.export_bucket]
+producer = "services/launchpad/user/internal/internaltest/containers.go: externalStore"
+case = "TestConnectedEncryptedExportWorkerAndSingleUseDownload"
+behaviour = "Connected setup creates a unique real S3 bucket from the L35_TEST_OBJECT_BUCKET prefix using L35_TEST_OBJECT_ENDPOINT, L35_TEST_OBJECT_ACCESS_KEY and L35_TEST_OBJECT_SECRET_KEY; cleanup deletes objects and the bucket. Encryption, dependency recovery, owner isolation, single-use and expiry assertions are unchanged."
+baseline = "The account case is already absent from launchpad_go_test_baseline.json; services/launchpad/Makefile delegates to that runner and has no account BASELINE entry."
+evidence = "evidence.ledger; user module in the declared verification"
+
+[continuation.attempt4]
+implementation = "Inherited producer repairs, registered ranking migration, signed legacy profile writes, shared cache invalidation, canonical security mutation, and unique connected export bucket setup are retained."
+retirement = "All twelve target modules have zero candidate baseline entries; entries belonging to the other retiring tasks are retained."
+build_evidence = "evidence.build: matching candidate revision in /out/run/gates.jsonl"
+verify_evidence = "evidence.verify: matching candidate revision in /out/run/gates.jsonl; no passing qualification is claimed before that row exists"
+download_limit = "Stop if a module download exceeds ten minutes; record its module and elapsed time here."
+
+[finding.attempt4_workflow_runner]
+task = "22.39.168"
+file = "tests/ci/test_launchpad_go_tests_wired.py:51"
+symbol = "test_launchpad_workflow_has_go_job"
+observed = "Revision ca93a511ec980e21cac8bec3680dee51396b7ba6: cg spec done 22.39.168 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log records the ubuntu-latest assertion conflicting with the conditional runner expression, both already present at base 637c7baca85b4b8cd4708593c7f3646c4c71b4cb."
+assumption = "The inherited workflow runner assertion is recorded without changing either side under the instruction to record pre-existing failures rather than chase them; the verify command stopped before any target Go module ran."
+severity = "blocker"
+
+[qualification.attempt4]
+status = "implemented-not-qualified"
+revision = "ca93a511ec980e21cac8bec3680dee51396b7ba6"
+build = "/out/run/gates.jsonl: kind=build n=1 exit=0 log=/out/logs/build-1.log"
+verify = "/out/run/gates.jsonl: kind=verify n=1 exit=1 log=/out/logs/verify-1.log"
+result = "Wiring suite: 41 passed, 1 inherited failure; target module verification did not execute, and no successful retirement is claimed."
+
+[continuation.attempt5]
+implementation = "The attempt-4 tree is retained. The wiring case now asserts the existing fork-guarded CI_LINUX_RUNNER expression and matches the shared Linux fallback pattern, requiring ubuntu-24.04; the workflow is unchanged in this continuation."
+build_evidence = "evidence.build: latest candidate revision in /out/run/gates.jsonl"
+verify_evidence = "evidence.verify: latest candidate revision in /out/run/gates.jsonl; qualification requires matching revisions and exit 0"
+download_limit = "Stop if any module download exceeds ten minutes; record the module and elapsed time in this task record."
+
+[finding.attempt5_foundry_version]
+task = "22.39.168"
+file = "tests/ci/test_launchpad_go_tests_wired.py:103"
+symbol = "test_launchpad_workflow_has_go_job"
+observed = "Revision 94e94040b49f17e46807a77f5b3d0cb6b5a0b490: cg spec done 22.39.168 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log records the v1.7.1 Foundry expectation conflicting with the workflow's v1.8.1, both already present at base c5ef8f76c0f9f1d4f3e5192e877668effaecb8b9."
+assumption = "This pre-existing version-pin conflict is recorded without changing either side under the instruction to record pre-existing failures rather than chase them; no target Go module ran."
+severity = "blocker"
+
+[qualification.attempt5]
+status = "implemented-not-qualified"
+revision = "94e94040b49f17e46807a77f5b3d0cb6b5a0b490"
+build = "/out/run/gates.jsonl: kind=build n=1 exit=0 log=/out/logs/build-1.log"
+verify = "/out/run/gates.jsonl: kind=verify n=1 exit=1 log=/out/logs/verify-1.log"
+result = "Runner routing assertion passed; wiring suite: 41 passed, 1 pre-existing Foundry-pin failure; target Go modules did not run and no successful retirement is claimed."
+
+
+[continuation.attempt7]
+base = "7c65ca246479ea68169faf54cef98cfeb9e66537"
+rebase = "HEAD and origin/main both resolve to the supplied base; the attempt-6 changes were already replayed onto main by the runner."
+implementation = "Preserve the inherited module repairs, category migration, wiring expectations and baseline retirements; log the original coordinator error alongside RANKING_INPUT_UNAVAILABLE."
+build_evidence = "evidence.build: latest candidate revision in /out/run/gates.jsonl"
+verify_evidence = "evidence.verify: latest candidate revision in /out/run/gates.jsonl; successful qualification requires the same revision and exit 0 in both rows."
+
+[repair.attempt7_publication_restart]
+case = "TestRepairM_934_PublicationEveryCategoryAndRestartRecovery"
+classification = "fixture"
+cause = "The former SQL transcript supplied aggregate metrics but no canonical pause observations after the metrics producer began treating unknown pause as ineligible, so every category was empty."
+repair = "Use a fresh real PostgreSQL database bootstrapped from the registered migrations, seed coherent typed canonical fills and matching stats commits for sixty-one creations, and bind the existing cutoff-bound evidence transcript shape explicitly to the fixture reader. Reopen real connection pools across application restarts; every membership, nonempty category, durable intent, stream and authority assertion remains."
+producer = "internal/store/canonical_evidence.go; internal/store/universe_features.go; internal/internaltest/runtime_database.go"
+evidence = "evidence.verify"
+
+[repair.attempt7_universe_second_cutoff]
+case = "TestProductionUniverseCompletesAndPublishes"
+classification = "fixture"
+cause = "The second refresh requests cutoff plus one second while the configured evidence origin accepts only the first cutoff, correctly rejecting that request."
+repair = "Bind a distinct strict observation to the second cutoff before its refresh; retain exact height, hash and time checks at both origins and all supersession, sequence and pruning assertions."
+producer = "internal/store/canonical_evidence.go: HTTPCanonicalEvidence.Read"
+evidence = "evidence.verify"
+
+[repair.attempt7_native_readiness]
+case = "TestNewServesAndRanks"
+classification = "service"
+cause = "The native application omitted HealthDeps.Redis. The shared readiness producer treats every missing required check as unhealthy, so the endpoint could never report ready even after successful canonical refreshes. The first gate logs show input refreshes succeeding after the intentionally unavailable startup authority."
+repair = "Wire the actual configured Redis client's bounded Ping into the shared readiness registration, retaining the runtime-role schema, lifecycle, secrets and ranking checks. Keep the ninety-second publication bound and all eight category assertions, and include the returned check statuses if readiness fails. The coordinator and publication logs retain their actual errors alongside the frozen codes."
+producer = "sdk/launchpad/shared/http/health.go: readyHandler"
+evidence = "evidence.verify"
+
+
+[qualification.attempt7_initial]
+revision = "82b258fdbdeacaf7204ff5455d5397189fa5edd7"
+command = "cg spec done 22.39.168 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+result = "Build passed; all 42 wiring cases and ranking store cases passed. Native readiness still failed, and the real restart fixture exposed PostgreSQL's conflicting inference for a parameter shared by numeric nft_id and bigint height. The fixture now casts that shared input explicitly to bigint, preserving both destination types."
+
+[finding.attempt7_publication_diagnostic]
+task = "22.39.168"
+file = "launchpad/spec/production-system/integration/migrations/190003.sql"
+symbol = "api_stream.append_ranking"
+observed = "At revision 82b258fdbdeacaf7204ff5455d5397189fa5edd7, cg spec done 22.39.168 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log) and emitted RANKING_PUBLICATION_UNAVAILABLE after the native refreshes began completing. The existing strict source lookup omits category and can match multiple empty-category digests."
+assumption = "This separate publication symptom is recorded without altering the registered historical function; the publication logger now retains the underlying error if the final declared gate encounters it."
+severity = "suspect"
+
+[continuation.attempt8]
+implementation = "Preserve the attempt-7 tree, repair canonical projection bindings, and expose explicit fixture CA trust only in test connections."
+build_evidence = "evidence.build: latest build row in /out/run/gates.jsonl"
+verify_evidence = "evidence.verify: latest verify row in /out/run/gates.jsonl; qualification requires matching revisions and zero exits"
+environment = "/out/run/launchpad-job-env.sh reproduces the public service inputs; the installed go1.25.8 toolchain is retained because the manifests require Go 1.25 and the session provides that compiler."
+
+[repair.attempt8_cross_wallet]
+case = "TestRepair_70_CrossWalletCatchupAndRestart"
+classification = "fixture"
+cause = "The route-only fixture creates no accounting projection, while PlatformMetrics now requires an explicit projection and its canonical commit relation even for an empty set of pool fills."
+repair = "Apply the real projection repository migration and bind repair70-cross-wallet-v1 before the fee read; assert that the multihop route does not fabricate ordinary pool fills or fees, retaining every route, restart and checkpoint assertion."
+producer = "internal/store/platform.go: platformFees; internal/projectionstats/postgres.go: Repository.MigrationSQL"
+evidence = "evidence.verify"
+
+[repair.attempt8_legacy_bridge]
+case = "TestCanonicalLegacyBridgeReplaysRealPaxeerPool"
+classification = "fixture"
+cause = "The fixture already loads receipt-derived canonical accounting_market_commits under stats-market-v1 but leaves the store unbound."
+repair = "Bind the existing legacyVersion with SetAccountingProjection, matching the native runtime binding; retain all market cap, count, sender, fee, holder and replay assertions."
+producer = "internal/app/app.go: SetAccountingProjection; internal/store/platform.go: platformFees"
+evidence = "evidence.verify"
+
+[repair.attempt8_platform_route]
+case = "TestPlatformRoute"
+classification = "fixture"
+cause = "The cache miss reaches platformFees with an unbound store; the handler returns 500 when canonical accounting configuration is absent."
+repair = "Create the real accounting tables and bind platform-http-v1 in the shared HTTP fixture; the empty transaction set has no canonical fee rows to fabricate. Log the actual store error at the handler boundary without changing the public error response."
+producer = "internal/httpapi/platform.go: platformMetrics; internal/store/platform.go: platformFees"
+evidence = "evidence.verify"
+
+[repair.attempt8_platform_publish]
+case = "TestPrecomputePublishesPlatformUpdate"
+classification = "fixture"
+cause = "The precompute fixture has the same unbound accounting store and absent accounting tables as the platform route."
+repair = "Use the explicitly bound HTTP fixture; retain byte-for-byte cache/publication equality and JSON assertions."
+producer = "internal/httpapi/platform.go: PrecomputePlatformMetrics"
+evidence = "evidence.verify"
+
+[repair.attempt8_phase3_crash]
+case = "TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery; TestPhase3CrashWorker"
+classification = "fixture"
+cause = "Broker fixture connections did not accept an explicit private test CA. The public job instead supplies a local plaintext three-member JetStream cluster."
+repair = "Use internaltest.ConnectNATS for parent and crash-child connections; STATS_TEST_NATS_CA_FILE, when supplied, loads the actual fixture trust root through nats.RootCAs. No TLS or hostname check is disabled; the child inherits the same trust input. Reproduce the public job R3 cluster in this session."
+producer = "internal/internaltest/nats.go; .github/workflows/launchpad-test.yml: Start API NATS fixture"
+evidence = "evidence.verify"
+
+[repair.attempt8_search_broker]
+case = "TestRealBrokerInboxProjectionAndOutboxAtomicity"
+classification = "fixture"
+cause = "The broker fixture connection has the same missing configurable private trust root. capacity_test.go configures the separate protected HTTP measurement client, not this NATS client."
+repair = "Use the shared explicit fixture-CA connection helper and the public loopback broker; retain every inbox, outbox, source-integrity, delivery and atomicity assertion."
+producer = "internal/internaltest/nats.go; internal/search/projection_test.go"
+evidence = "evidence.verify"
+
+[repair.attempt8_optical_source]
+case = "TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers"
+classification = "fixture"
+cause = "The public L13_PHASE2_POSTGRES_DSN names a fresh database with no canonical source view or exact negative-optical buy and sell replay evidence. The test does not connect to NATS or build an HTTP TLS client."
+repair = "No assertion, selection or provenance requirement changed. An approved canonical source recording or real producer command has been requested; no exact-priced inputs or replay evidence are invented."
+producer = "internal/projectionstats/public_http_test.go: TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers; internal/projectionstats/authority.go: qualifiedInput"
+evidence = "evidence.verify"
+
+[finding.attempt8_optical_authority]
+task = "22.39.168"
+file = "services/launchpad/stats-workers/internal/projectionstats/public_http_test.go"
+symbol = "TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers"
+observed = "The public fresh database has no indexer_accounting_fills_v1; the canonical RPC execution producer in services/launchpad/indexer/internal/receipt/rpc.go returns unavailable for every nonzero optical, so its current path cannot emit the exact optical replay evidence this case requires."
+assumption = "Keep the case and its exact negative-optical buy/sell checks intact; qualification requires an approved source or an upstream optical execution-authority implementation outside this task scope."
+severity = "blocker"
+
+[continuation.attempt9]
+decision = "3172; gotcha 4092"
+implementation = "Preserve the attempt-8 implementation and baseline retirement; give the protected optical source its own explicit connection variable and run every remaining module before the declared gates."
+environment = "/out/run/launchpad-job-env.sh retains the sandbox-provisioned PostgreSQL and Redis endpoints and credentials and object-storage endpoint, with MinIO credentials aligned to the public workflow, supplies the public job NATS URLs against a fresh local three-node JetStream cluster, and installs the workflow's checksum-verified Vault and LiveKit plus nginx. Initial diagnostics used the sandbox Go 1.25.8; Go 1.27.3 was subsequently installed from the official Go module proxy for the final public-job gates, with no Makefile compiler override."
+module_checks = "/out/run/preflight-results.json; /out/logs/preflight-summary.log; each module uses a separately created fresh database and the unchanged baseline-aware runner."
+build_evidence = "evidence.build"
+verify_evidence = "evidence.verify"
+
+[repair.attempt9_optical_source]
+case = "TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers"
+classification = "fixture"
+cause = "The fresh public job database is not an optical source recording; RPCQualification.ExecutionPolicy returns unavailable when opticalAddress is nonzero."
+repair = "Read L13_PHASE3_OPTICAL_FILLS_DSN; when unset skip with its exact name as decision 3172 requires, and when supplied execute the existing query, both-side coverage, independent integer calculations and provenance assertions unchanged."
+producer = "services/launchpad/indexer/internal/receipt/rpc.go: RPCQualification.ExecutionPolicy, nonzero opticalAddress branch; its qualified execution evidence must feed indexer.indexer_accounting_fills_v1 as registered by migrations/60000.sql and 150003.sql."
+baseline = "The case is already absent from tests/ci/data/launchpad_go_test_baseline.json in the preserved attempt-8 tree."
+evidence = "evidence.verify"
+
+[repair.attempt9_charts_position]
+classification = "service and fixture"
+cases = ["TestConsumerProcessesSwapFromChannel", "TestConsumerRejectsBlockNumberAsTimestamp", "TestConsumerUsesTopLevelBlockTimestamp", "TestDevelopmentUDFHistoryFromWebhookCandles", "TestWebhookValidSwap", "TestRepairM_1050_PartialFailureRetry"]
+producer = "trading-charts/internal/engine/builder.go and development.go require explicit ChainOrder; development_store.go requires candles.development_state."
+repair = "Carry explicit source positions through Redis and webhook adapters; reject missing or inconsistent height/log positions. Give fixtures their known complete source order, migrate development_state, and use real PostgreSQL plus a rollback-surviving sequence/trigger to interrupt the second retry transaction. Preserve partial failure, retry, idempotence, per-timeframe volume, and durable publication assertions."
+regression = "TestWebhookRequiresConsistentSourcePosition rejects missing or mismatched positions and asserts no candle is written."
+evidence = "evidence.verify"
+
+[repair.attempt9_charts_migration_fixture]
+classification = "fixture"
+cases = ["TestRepairM_1049_HistoryRetirementAndVersionedMigration", "TestRepairM_1049_AppNewRetiresLegacyStreamBeforeUpgrade"]
+producer = "trading-charts/internal/migrate/migrate.go applies every embedded goose migration."
+repair = "Replace the frozen version-2 database transcript with migrated PostgreSQL and the same history row; assert the actual current migration version and unchanged row cardinality. Keep every route, error, unit conversion and unavailable-Redis assertion."
+evidence = "evidence.verify"
+
+[repair.attempt9_charts_outage_budget]
+classification = "job harness"
+case = "TestFaultBrokerTenMinuteOutageAndPostPublishCrash"
+producer = "trading-charts/internal/consumer/accounting_test.go: faultFixture already owns a fifteen-minute context and the broker case measures an actual ten-minute outage."
+repair = "Set public job GOFLAGS=-timeout=15m and assert that wiring so Go's default ten-minute package timeout cannot interrupt the required ten-minute outage before recovery. Retain the measured outage bound and every durable recovery assertion."
+evidence = "evidence.verify"
+
+[repair.attempt9_gateway_identity_peers]
+classification = "fixture"
+case = "TestPlatformPeersThroughGatewayIdentityListener"
+producer = "social and livestream platform startup require coordinator ExpectedSchema documents and least-privilege runtime roles; safety readers use safety_bans_v1."
+repair = "Bootstrap each peer with the registered migration coordinator, pass its schema document and digest, seed canonical creations through the admin connection, and interrupt the actual safety view for the existing dependency-outage assertion."
+evidence = "evidence.verify"
+
+[repair.attempt9_metadata_canonical_store]
+classification = "service and fixture"
+cases = ["TestRepairM_1006_FactoryReceiptChainBinding", "TestDevelopmentCreatorUpload", "TestDevelopmentV2Reads", "TestRepairM_1007_CanonicalRetentionRestart"]
+producer = "metadata/internal/metadata/dev_connected.go persists canonical token identities before reuse; upload admission is a separate dependency."
+repair = "Make the canonical store an explicit read-adapter constructor dependency and initialize its real schema independently of upload configuration. Use real PostgreSQL for the factory receipt case and forward the retention recording's chain-ID request to L34_ANVIL_URL, retaining all receipt, identity, restart and provenance assertions."
+evidence = "evidence.verify"
+
+[repair.attempt9_social_owner_interfaces]
+classification = "fixture"
+cases = ["TestDevelopmentV2SocialSurface", "TestMigrationIsRerunnable", "TestRailwayStyleSearchPath", "TestPlatformChatStreamUsesSingleUseTickets", "TestPlatformWritesAsLeastPrivilegeRuntime", "TestConnectedInteractionsPolicyErasureAndCache", "TestConnectedBoundedEqualTimestampTraversal", "TestConnectedDurableBrokerInbox", "TestConnectedAdversarialRemovalReplayAndContent", "TestConnectedErasureBoundedRestoreAndHold", "TestRepair_68_SocketRESTAndRestartUseDurableMessages"]
+producer = "social migration 00005 and interactions.RuntimeAuthoritySQL consume registered metadata, indexer and identity owner interfaces."
+repair = "Development migration fixtures retain real registered upstream schemas while rebuilding chat through embedded migrations; connected fixtures bootstrap owner functions and record an actually mined chain-125 LOG0 receipt into the registered raw-log/completeness inputs. Platform identity sessions are also present in their real owner tables. The socket restart fixture uses PostgreSQL and real guards instead of an obsolete SQL peer."
+evidence = "evidence.verify"
+
+[repair.attempt9_social_socket_limits]
+classification = "fixture"
+cases = ["TestRepairM_1027_MessageLengthBoundaries", "TestRepairM_1027_DefaultAndConfiguredMessageLimits", "TestRepairM_1027_PlatformSocketAdmission", "TestRepairM_1027_SharedAbuseLimiter", "TestRepairM_1027_RestartWindowRecovery"]
+producer = "devsocial.Policy now validates the authoritative chat.interaction_session_valid guard and private history requires a verified context."
+repair = "Use coordinator-bootstrapped PostgreSQL, seed actual identity owners and canonical pools, count actual durable rows, and supply the authenticated fixture principal to direct private-history reads. Keep all length, rate, fault, restart and delivery assertions."
+evidence = "evidence.verify"
+
+[repair.attempt9_user_deletion_guards]
+classification = "fixture"
+case = "TestPostgresHTTPV2OwnerExportsAndDeletion/deletion creation"
+producer = "user/internal/account/privacy.go: RequestDeletionOperation invokes users.consume_account_deletion_reauth and users.revoke_account_sessions, registered in 330001.sql."
+repair = "Bootstrap the deletion fixture through the users_runtime coordinator and use its real users owner tables and guard functions; preserve signature, reauthentication, revocation, epoch, recovery receipt and two-event delivery assertions."
+evidence = "evidence.verify"
+
+[finding.attempt9_fixture_setup]
+classification = "environment"
+observed = "The initial diagnostic gave trading-charts a custom database name although its fault guard explicitly requires kindle_fixture; the initial MinIO daemon credentials also differed from the public job environment."
+repair = "Recreate the private kindle_fixture database before module checks and start MinIO with the public job credentials. Retain all fixture guards."
+evidence = "/out/run/preflight-results.json; /out/run/recheck-results.json"
+
+[repair.attempt9_followup_roots]
+gateway = "The canonical SocialConnectedRoutes catalog already includes media routes; the peer harness now consumes it once. Graceful shutdown explicitly selects development. Development proxy trust covers local/private proxy addresses so public XFF clients retain separate rate buckets under the shared resolver's all-trusted-chain protection."
+scanner = "Gateway and metadata clean uploads require the real shared ClamAV scanner. The public workflow starts checksum-pinned clamav/clamav and waits for clamdcheck.sh; the sandbox runs the same image at CLAMAV_HOST/CLAMAV_PORT. No scanner response is fabricated."
+metadata = "Development app assembly omitted Deps.LegacyDB, so the legacy upload prerequisite guard returned 503 before validation. It now receives the existing pool, alongside the explicit canonical read store."
+charts = "The registered development_state migration replaces duplicate fixture CREATEs with shape reads. SQL retry and broker retry now have separate real PostgreSQL/Redis cases; the closed-port broker case retains durable pending-intent and no-double-fold assertions."
+social_legacy = "App.New constructed legacy handlers before attaching the selected durable store and request authenticator. The adapters now share the selected runtime. The least-privilege read case joins through its actual single-use-ticket stream and reads with the verified bearer, retaining 200 assertions and adding anonymous 401 coverage."
+social_publisher = "pgx ConnString retains the original DSN, omitting a subsequently assigned RuntimeParams.search_path. The publisher subprocess DSN explicitly encodes the fixture's actual search_path; broker persistence/crash/restart assertions remain unchanged."
+social_replay = "The adversarial generation already holds revision 2/3 removals, so replaying a changed revision 1 is correctly ignored as superseded. The equal-revision integrity case first projects the original revision into an isolated generation, then submits the conflicting payload to that generation and retains ErrIntegrity."
+social_socket = "The socket/restart case uses registered canonical creation rows and interaction_pool_creator rather than an invented pool interface, and the allocated real Redis supports the current INCR/PEXPIRE-NX/PTTL admission transaction."
+user_deletion = "v2OwnerDeletionFixture still delegates directly to connectedLegacyFixture as the schema-source test requires. Its coordinator option loads the registered owning users schema including migration 330001 using the chat-runtime bootstrap; the admin pool executes deletion against users,public. This avoids the unrelated users_runtime operation_ledger_id_seq grant absent from its registered schema."
+preflight = "/out/run/preflight-results.json; /out/run/recheck-results.json; diagnostic failures are intermediate and do not qualify the task"
+
+[repair.attempt9_metadata_publication]
+producer = "internal/metadata/legacy_publication.go: publishLegacy and LegacyPublicationDDL"
+cause = "The development goose schema never created metadata.legacy_publications, although the current legacy upload writes its durable intent before object/pointer publication."
+repair = "Registered embedded successor 00003_legacy_publications.sql creates the exact owner table; the handler fixture reads the installed shape instead of creating a duplicate table. The app test logger preserves handler errors."
+scanner_inputs = "The public job explicitly passes METADATA_TEST_CLAMAV_ADDR and USER_TEST_CLAMAV_ADDR to the same real scanner as CLAMAV_HOST/CLAMAV_PORT, so fixture image branches agree with the runtime scanner; clean-scan and image assertions execute."
+evidence = "evidence.ledger; private diagnostic summaries under /out/logs and /out/run/finalcheck-results.json"
+
+[diagnostic.attempt9_module_rechecks]
+command = "python3 ../../tests/ci/data/launchpad_go_tests.py --module <module>, from services/launchpad"
+initial_ten_modules = "/out/run/preflight-results.json; all ten requested remaining modules executed without stopping at a module failure"
+repaired_modules = "/out/run/repaircheck-results.json; gateway, metadata, social and user exited 0 against fresh allocated PostgreSQL databases and the public Go 1.27.3 job environment"
+charts = "/out/run/finalcheck-results.json: trading-charts row; includes the unchanged actual ten-minute consumer outage"
+remaining_initial_successes = "/out/run/preflight-results.json: livestream, discovery, notifications, security, security/control; final qualification repeats every target with the declared verification"
+gateway_timing = "The initial cold Go 1.27.3 recheck failed the identity local-harness latency assertion; the following recheck passed the same request-count, latency and immutable-capture assertions. The failure now logs the full measured summary; no latency or workload bound changed."
+metadata_cases = ["TestDevelopmentCreationMediaFlow", "TestDevelopmentCreatorUpload"]
+metadata_pointer = "The clean-image legacy upload case resolves the immutable legacy/<operation>/... storage key from token_images instead of the retired logos/logo-<token>.png key, retaining its PNG type/size, public URL and served-byte assertions."
+social_cases = ["TestPlatformWritesAsLeastPrivilegeRuntime", "TestConnectedRealR3PublisherKillRestartAndConsumerInbox", "TestConnectedAdversarialRemovalReplayAndContent", "TestRepair_68_SocketRESTAndRestartUseDurableMessages"]
+social_unique_order = "The two seeded canonical pool creations use distinct log indexes within their transaction, respecting the registered transaction_hash/log_index uniqueness constraint."
+user_case = "TestPostgresHTTPV2OwnerExportsAndDeletion"
+user_ledger = "The coordinator already installed the operation ledger. The deletion case checks its columns rather than issuing duplicate untracked CREATE TABLE statements; signed deletion, reauthentication consumption, session epoch, recovery receipt and durable outbox assertions pass."
+qualification = "Diagnostic success is not the declared gate; final revision and commands resolve through evidence.ledger."
+
+[repair.attempt9_charts_final_fixture_queries]
+producer = "migrations/00001_init.sql: candles.volume_usdl is exact integer text; internal/engine source ordering requires ChainOrder"
+repair = "The real progress assertions sum volume_usdl::numeric and compare the exact integer string. The later block-200 UDF swap now carries its explicit source position, as the first three swaps already do; snapshot change and four-bar assertions remain unchanged."
+prior_outage_pass = "/out/logs/finalcheck-trading-charts.log: consumer package exit 0, actual elapsed 608.666 seconds"
+evidence = "/out/run/chartscheck-results.json; final declared qualification resolves through evidence.ledger"
+
+[repair.attempt9_gate_wiring_environment]
+revision = "d07eb6b48a50b2c090115d587752f1e81dd511f0"
+command = "cg spec done 22.39.168 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+cause = "test_launchpad_all_test_modes_use_package_baseline expected empty default GOFLAGS but inherited the public job's explicit -timeout=15m. The wiring gate stopped before any Go module verification."
+repair = "The wiring case explicitly tests both default GOFLAGS and -timeout=15m for test, race and cover-check, asserting the complete expected runner flags, module argument, profile and coverage lifecycle for each. Every original default-mode assertion remains."
+evidence = "evidence.ledger: latest matching build and verify rows; this record is part of the repaired candidate before either rerun"

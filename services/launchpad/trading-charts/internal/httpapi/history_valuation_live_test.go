@@ -16,6 +16,12 @@ import (
 // TestRPCSupplySourceLive values the live Sidiora token at a recent block bound
 // to the node-reported (CometBFT) block hash the indexer records on Paxeer.
 func TestRPCSupplySourceLive(t *testing.T) {
+	for _, name := range []string{"NETWORK_RPC_URL"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	rpcURL := os.Getenv("NETWORK_RPC_URL")
 	if rpcURL == "" {
 		t.Fatal("NETWORK_RPC_URL must name the Paxeer RPC")

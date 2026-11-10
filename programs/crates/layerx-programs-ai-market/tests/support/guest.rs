@@ -18,11 +18,30 @@ pub const DEPLOYMENT_LIMIT: usize = 524_288;
 pub const BUILD_OPT_LEVEL: &str = "z";
 pub const BUILD_POSTPROCESS: &str =
     "wasm-opt -Oz --flatten --rereloop -Oz --converge --merge-similar-functions -Oz --converge --strip-debug --strip-producers";
+fn assert_build_recipe() {
+    let recipe = include_str!("../fixtures/guest-recipe.sh");
+    assert!(recipe
+        .lines()
+        .any(|line| line == format!("PAXAI_GUEST_OPT_LEVEL={BUILD_OPT_LEVEL}")));
+    let passes = recipe
+        .split_once("PAXAI_GUEST_PASSES=(\n")
+        .unwrap()
+        .1
+        .split_once("\n)")
+        .unwrap()
+        .0
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert_eq!(BUILD_POSTPROCESS, format!("wasm-opt {passes}"));
+}
+
 pub const CPU_FUEL: u64 = DeclaredBudget::protocol_maximum().cpu_fuel();
 
 /// Isolated measurements of the original readers and byte-copy primitive.
 /// This artifact has a diagnostic entrypoint, not a deployment entrypoint.
 pub fn aggregation_baseline_module() -> Checked<Arc<ValidatedModule>> {
+    assert_build_recipe();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let hex = std::fs::read_to_string(root.join("ai-market-aggregation-baseline.hex"))?;
     let hex = hex.trim();
@@ -36,6 +55,16 @@ pub fn aggregation_baseline_module() -> Checked<Arc<ValidatedModule>> {
         .lines()
         .any(|line| line == "purpose = \"aggregation-pass-measurement\""));
     assert!(metadata.lines().any(|line| line == "opt_level = \"z\""));
+    let source = source_digest()?;
+    assert!(metadata
+        .lines()
+        .any(|line| line == format!("source_sha256 = \"{source}\"")));
+    assert!(metadata
+        .lines()
+        .any(|line| line == format!("wasm_bytes = {}", wasm.len())));
+    assert!(metadata
+        .lines()
+        .any(|line| line == format!("postprocess = \"{BUILD_POSTPROCESS}\"")));
     let hash = codec::sha256([wasm.as_slice()])
         .map_err(|e| format!("{e:?}"))?
         .iter()
@@ -89,6 +118,7 @@ fn source_digest() -> Checked<String> {
 }
 
 pub fn module() -> Checked<Arc<ValidatedModule>> {
+    assert_build_recipe();
     let hex = std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/ai-market-opt-z.hex"),
     )

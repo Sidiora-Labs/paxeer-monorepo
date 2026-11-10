@@ -25,10 +25,9 @@ var secp256k1HalfOrder = new(big.Int).Rsh(crypto.S256().Params().N, 1)
 // authorised to attest with at the given epoch.
 type GuarantorSigner func(guarantorID [32]byte, epoch uint64) ([20]byte, bool)
 
-// GuarantorSignature checks the attestation's secp256k1 signature exactly as
-// GuarantorBond._validSignature and lxp_guarantor_attestation_verify do: v is
-// 27 or 28, S is in the lower half order, and the recovered address is the
-// declared, non-zero signer.
+// GuarantorSignature checks a historical attestation's secp256k1 signature:
+// v is 27 or 28, S is in the lower half order, and the recovered address is
+// the declared, non-zero signer. It does not establish block finality.
 func GuarantorSignature(attestation *codec.GuarantorAttestation) error {
 	if attestation.SignatureV != 27 && attestation.SignatureV != 28 {
 		return ErrGuarantorSignature

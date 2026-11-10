@@ -435,12 +435,12 @@ func TestNewServesAndRanks(t *testing.T) {
 		}
 		deadline := time.Now().Add(90 * time.Second)
 		for {
-			code, _ := get(observerClient, "/health/ready")
+			code, body := get(observerClient, "/health/ready")
 			if code == http.StatusOK {
 				break
 			}
 			if time.Now().After(deadline) {
-				t.Fatalf("health/ready = %d after publication window", code)
+				t.Fatalf("health/ready = %d after publication window: %v", code, body)
 			}
 			time.Sleep(time.Second)
 		}

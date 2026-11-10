@@ -1,0 +1,44 @@
+[repair.22.39.351]
+requirement = "22998.1"
+decision = "3217"
+gotcha = "4140"
+base_revision = "26be171234b5e8d436df1b9d57a57997167f32bf"
+starting_revision = "1e8878dafcc8bc3d11d5ca1d45ef94f6a8b91613"
+defect = "PxClient.call parsed every response with JSON.parse before pxQuantity validated the heights; uint64 numeric receipt-key heights above 9007199254740991 rounded and were refused as unsafe numbers."
+producer = "rpc/sequencer_receipt.go:371 ReceiptKey.FirstHeight and LastHeight are uint64 JSON numbers in ReceiptKeysResult."
+change = "For px_getReceiptKeys only, preserve each integer token outside the safe integer range as a decimal string before JSON.parse, skipping entire quoted strings and leaving fractional and exponent tokens unchanged; other methods retain JSON.parse."
+bounds = "pxQuantity still rejects unsafe JavaScript numbers, negative quantities and malformed quantities; pxCounted still refuses counts above 18446744073709551615."
+generated = "No file under typescript/src/generated is changed."
+
+[reader.px]
+file = "services/agent/sdk/typescript/src/px.ts"
+reader = "PxClient.getReceiptKeys -> decodePxReceiptKeys -> pxCounted -> pxQuantity"
+parse = "PxClient.call -> fatal UTF-8 decode -> parseReceiptKeyResponse -> JSON.parse -> decodeJsonRpcResponse; only px_getReceiptKeys selects the lossless token transformation."
+result = "Raw numeric heights remain exact decimal strings until decoded as bounded bigint heights."
+
+[reader.ai_market]
+file = "services/agent/sdk/typescript/src/ai_market.ts:4128"
+reader = "gatewayReceiptKeys -> operations.request at :4132 -> decodeGatewayReceiptKeys at :4082"
+parse = "The caller's Eip1193Requester supplies an already-parsed unknown value; no JSON parser or concrete transport is installed by this reader. For the wallet provider, sdk/wallet/src/provider.ts:640 selects parseReceiptKeyResponse from sdk/wallet/src/rpc.ts:236. Other caller transports own their parse."
+result = "This decoder does not round: it requires safe numeric heights and rejects unsafe numbers or strings before BigInt conversion; its existing acceptance checks are preserved."
+
+[inventory]
+search = "Search all services/agent/sdk/typescript/src for px_getReceiptKeys, receiptKeys, ReceiptKey and receipt_keys, including generated files read-only."
+coverage = "The two readers above are the only px_getReceiptKeys request/answer decoding paths. JsonRpcClient has no receipt-key method; verifier, web-search and x402/draw receive caller-pinned bigint keys rather than decoding this RPC answer."
+
+[reader.outside_scope]
+file = "apps/wallet/e2e/send.spec.ts:58"
+reader = "rpcAt"
+parse = "response.json() rounds unsafe numeric receipt-key heights before sdk/wallet/src/receipt.ts pinHeight rejects them; this helper is outside the authorized task paths and remains unchanged."
+
+[regression]
+test = "typescript/test/px.test.ts::px_receipt_keys_keep_full_range_heights_from_a_raw_node_answer"
+path = "Raw node-wire JSON bytes travel over a real loopback HTTP server through PxClient.send, the method-specific parse and decodePxReceiptKeys."
+assertions = "Exactly preserve lastHeight 9223372036854775807 and 18446744073709551615 and firstHeight 9007199254740993 as bigint; reject raw lastHeight 18446744073709551616 with Invalid gateway count. Existing cases remain intact."
+before_change = "The first getReceiptKeys call reaches pxQuantity with an unsafe number after plain JSON.parse and rejects before the exact-height assertions; this follows from the original code, without running an extra gate."
+
+[qualification]
+verified_revision = "By reference: the successful hf-done candidate revision in /out/run/gates.jsonl; qualification is established only when that gate exits zero."
+build = "npm --prefix services/agent/sdk/typescript ci --no-audit --no-fund && pnpm --dir services/agent/sdk/typescript run build"
+verify = "test -s services/agent/sdk/repair_22_39_351.kvx && grep -q repair_22_39_351.kvx sdk/platform/pipeline.kvx && cd services/agent/sdk/typescript && node dist/test/px.test.js"
+result = "The hf-build and hf-done ledger records the exact candidate revision, command, exit code and private evidence location; no unexecuted gate is claimed here."

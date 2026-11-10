@@ -77,7 +77,11 @@ export function saveTransferObservation(
   observation: TransferObservation,
   origin: TransferOrigin
 ): void {
-  const stored = JSON.parse(JSON.stringify({ ...observation, origin })) as JsonValue;
+  const stored = JSON.parse(
+    JSON.stringify({ ...observation, origin }, (_key, value: unknown) =>
+      typeof value === 'bigint' ? value.toString(10) : value
+    )
+  ) as JsonValue;
   transferObservationsRepository.update((records) =>
     putTransferRecord(records, transferStorageKey(observation.identity), stored)
   );

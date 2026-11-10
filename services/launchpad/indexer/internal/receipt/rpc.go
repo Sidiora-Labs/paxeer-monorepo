@@ -668,7 +668,7 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 	if !private {
 		supplemental, err = historicalEmitterEpochs(owned.Manifest, owned.CatalogJSON)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("historical emitter epochs: %w", err)
 		}
 	}
 	for _, epoch := range supplemental {
@@ -800,7 +800,7 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 		}
 		seenGenerations[generation.ActivationHeight] = true
 		if _, err = a.historicalAuthority(read, generation.ActivationHeight); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("historical authority at %d: %w", generation.ActivationHeight, err)
 		}
 	}
 	return a, nil
@@ -1407,7 +1407,7 @@ func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, addre
 	if err != nil {
 		return out, err
 	}
-	hd, err := digest(b.Header)
+	hd, err := provenanceHeaderDigest(b.Header)
 	if err != nil {
 		return out, err
 	}

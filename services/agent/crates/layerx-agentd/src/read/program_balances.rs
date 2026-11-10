@@ -1,8 +1,11 @@
 //! Program custody reads from layerxprograms at a committed block height.
 
+#[cfg(test)]
 use super::program_node::ProgramReadError;
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
-use layerx_programs::{ProgramId, ProgramLifecycle, VerifiedProgramBalanceRead};
+#[cfg(test)]
+use layerx_programs::VerifiedProgramBalanceRead;
+use layerx_programs::{ProgramId, ProgramLifecycle};
 
 pub use super::program_node::read_committed_program_balances as program_balances_from_protocol;
 
@@ -39,7 +42,7 @@ impl ProtocolProgramBalanceReader {
 }
 
 /// Coordinates of the committed state used by every call in a balance read.
-/// An eth_call answer carries no kernel receipt or state-inclusion proof.
+/// An `eth_call` answer carries no kernel receipt or state-inclusion proof.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CommittedProgramBalanceFreshness {
     pub height: u64,
@@ -76,6 +79,7 @@ pub struct ProgramBalanceRead<F = ProgramBalanceFreshness> {
     pub freshness: F,
 }
 
+#[cfg(test)]
 pub(super) fn program_balances(
     read: &VerifiedProgramBalanceRead,
     staleness_limit: u64,

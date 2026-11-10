@@ -18,6 +18,12 @@ import (
 // identity: the reported hash differs from go-ethereum's recomputed header
 // hash, reads bound to it succeed, and reads bound to any other hash fail.
 func TestReportedIdentityLive(t *testing.T) {
+	for _, name := range []string{"NETWORK_RPC_URL"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	rpcURL := os.Getenv("NETWORK_RPC_URL")
 	if rpcURL == "" {
 		t.Fatal("NETWORK_RPC_URL must name the Paxeer RPC")

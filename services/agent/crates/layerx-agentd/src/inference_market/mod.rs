@@ -18,6 +18,9 @@ pub struct InferenceMarket {
     pub room_profile: Vec<u8>,
 }
 
+/// # Errors
+/// Returns an error if availability cannot be fetched or validated, or the inference server
+/// cannot start or serve its listener.
 pub fn serve_inference_market(
     config: InferenceConfig,
     gate: InferenceBootGate,
@@ -39,6 +42,7 @@ pub fn serve_inference_market(
     })
 }
 
+#[must_use]
 pub fn market_id(chain_id: u64, program: &[u8; 32]) -> [u8; 32] {
     let mut chain = Sha256::new();
     chain.update(b"PAXAI/chain-domain/v1");
@@ -50,6 +54,9 @@ pub fn market_id(chain_id: u64, program: &[u8; 32]) -> [u8; 32] {
     market.finalize().into()
 }
 
+/// # Errors
+/// Returns an error if availability cannot be fetched or validated, or the inference server
+/// cannot start or serve its listener.
 pub fn read_availability(
     agent: &ureq::Agent,
     endpoint: &str,
@@ -90,7 +97,14 @@ pub fn read_availability(
         || binding["chain"] != format!("0x{}", layerx_programs::hex::encode(&chain.finalize()))
         || binding["program"] != format!("0x{}", layerx_programs::hex::encode(program))
         || binding["market"] != format!("0x{market}")
-        || binding["block_height"] != reference.head_sequence.to_string()
+        || binding["block_height"]
+            .as_str()
+            .filter(|text| {
+                (text.len() == 1 || !text.starts_with('0'))
+                    && text.bytes().all(|byte| byte.is_ascii_digit())
+            })
+            .and_then(|text| text.parse::<u64>().ok())
+            != Some(reference.head_sequence)
         || binding["block_hash"]
             != format!("0x{}", layerx_programs::hex::encode(&reference.checkpoint))
         || binding["rank"] != 4
@@ -105,6 +119,9 @@ pub fn read_availability(
     Ok(components)
 }
 
+/// # Errors
+/// Returns an error if availability cannot be fetched or validated, or the inference server
+/// cannot start or serve its listener.
 pub fn observe_availability(
     gate: &Arc<Mutex<InferenceBootGate>>,
     observation: Result<(Reference, Value), String>,
@@ -121,6 +138,9 @@ pub fn observe_availability(
     }
 }
 
+/// # Errors
+/// Returns an error if availability cannot be fetched or validated, or the inference server
+/// cannot start or serve its listener.
 pub fn serve_health(
     stream: &mut (impl Read + Write),
     gate: &Arc<Mutex<InferenceBootGate>>,

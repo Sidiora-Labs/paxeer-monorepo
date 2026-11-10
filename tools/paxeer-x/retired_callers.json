@@ -113,9 +113,7 @@
         "hosted/paxeer/src",
         "paxeer-relay"
       ],
-      "deleted_trees": [
-        "services/platform/hosted/paxeer"
-      ],
+      "deleted_trees": [],
       "replacement": "no relay is needed because the sequencer is the chain; the relay process and its configuration are removed"
     },
     "da": {
@@ -224,10 +222,7 @@
         "lxp_test_golden_replay",
         "history.lxl"
       ],
-      "deleted_trees": [
-        "tests/replay/lxp_test_golden_replay.c",
-        "tests/replay/golden/history.lxl"
-      ],
+      "deleted_trees": [],
       "replacement": "the replay golden and its targets are removed with the batch seal and replica; host determinism of the kept C modules is covered by the host determinism test"
     },
     "custody-credit": {
@@ -679,6 +674,26 @@
     {
       "pattern": "tools/bringup/repair-*.kvx",
       "reason": "The bringup repair records document historical findings and transport removals rather than production callers."
+    },
+    {
+      "path": "api/README.md",
+      "reason": "The protobuf source inventory documents compatibility API directories that still ship; it does not advertise a live deposit or finality authority."
+    },
+    {
+      "path": "modules/README.md",
+      "reason": "The retired-settlement compatibility section explicitly documents retained historical types and the native bank and committed-block replacements."
+    },
+    {
+      "path": "GOTCHA.kvx",
+      "reason": "history records quote retired names by design"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "reason": "history records quote retired names by design"
+    },
+    {
+      "path": "CODEMAP.md",
+      "reason": "history records quote retired names by design"
     }
   ],
   "allowed_references": [
@@ -734,6 +749,13 @@
       "citation": "Decision 3125 retains the live local HTTP error status extractor used by explorer transfer pagination, which does not call the retired mirror checkpoint status method."
     },
     {
+      "path": "sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decisions 3125 and 3202 retain this history snapshot of the frozen reviewed launchpad Treasury ABI for authorized accounting of prior fee transfers, independent of the retired exchange intent store."
+    },
+    {
       "path": "sdk/launchpad/protocol/catalog/reviewed.json",
       "symbols": [
         "recordDeposit"
@@ -753,6 +775,21 @@
         "'EndpointClient: hostedUrl required for hosted px_ reads'"
       ],
       "citation": "Decision 3173 retains the hosted px_ diagnostic pinned by tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract; the hosted client is used only for registration and funding."
+    },
+    {
+      "path": "services/platform/hosted/paxeer/fork-rehearsal.sh",
+      "symbols": [
+        "layerxCustody",
+        "layerxAnchor"
+      ],
+      "citation": "Decision 3203 retains the retired precompile names in the refusal probes of the native fork rehearsal within the Paxeer compatibility root."
+    },
+    {
+      "path": "services/platform/hosted/paxeer/src/comet.rs",
+      "symbols": [
+        "layerxcustody"
+      ],
+      "citation": "Decision 3203 retains the retired custody store name in the refusal case that rejects custody queries within the Paxeer compatibility root."
     },
     {
       "path": "services/wallet/demo/README.md",
@@ -1359,9 +1396,10 @@
         "use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};",
         "    SnapshotBinding, StateCapture, FINALIZED_RANK,",
         "        if !(FINALIZED_RANK..=SETTLEMENT_RANK).contains(&request.required_rank) {",
-        "        let signature = sign_disclosed_call(signer, call, disclosure, *from).await?;"
+        "        let signature = sign_disclosed_call(signer, call, disclosure, *from).await?;",
+        "    let signature = sign_disclosed_call(signer, &call, &disclosure, from).await?;"
       ],
-      "citation": "The envelope-signing (11029) and availability-commit (11028) removals retain EIP-1559 sign_disclosed_call and the AI market committed-block rank from programs/crates/layerx-programs-ai-market/src/queries.rs; these exact lines use the replacements."
+      "citation": "The envelope-signing (11029) and availability-commit (11028) removals retain EIP-1559 sign_disclosed_call and the AI market committed-block rank from programs/crates/layerx-programs-ai-market/src/queries.rs; these exact lines use the replacements. Decision 3202 also retains the exact EIP-1559 signing line added by task 22.38.15."
     },
     {
       "path": "precompiles/layerxexchange/errors.go",
@@ -1542,10 +1580,12 @@
       "path": "tests/replay",
       "symbols": [
         "fee_governance",
+        "history.lxl",
         "lxp_grant",
+        "lxp_test_golden_replay",
         "receipt_authority"
       ],
-      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+      "citation": "Decisions 3125 and 3202 and task 22.39.277 retain the live golden replay source and history.lxl fixture, plus the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry retired names as prefixes."
     },
     {
       "path": "services/agent/crates/layerx-client/src/ai_market.rs",
@@ -2028,6 +2068,180 @@
         "|| authority_replica_id == [0; 32]"
       ],
       "citation": "Decision 3104 retains the live independent program-authority replica identity and its mandatory nonzero validation because that program reader still ships."
+    },
+    {
+      "path": "tools/qualification/audit_repairs/fixtures",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the independent_receipt_authority backend enum in the archived hosted contracts; it is a contract pin, not a call to the removed kernel authority."
+    },
+    {
+      "path": "tools/qualification/paxeer-x",
+      "symbols": [
+        "fee_governance",
+        "lx_getWalletCaps",
+        "signCustody"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the live governed fee test identifiers and explicit retired wallet-method refusal cases, none of which authorizes a retired producer."
+    },
+    {
+      "path": "tools/qualification/paxeer-x/repair-22.31.330.kvx",
+      "lines": [
+        "request = \"Domain 4 storage, tests/storage/lxp_test_batch_wal_recovery.c and src/modules/programs/feed_store.c: these existing storage producer inputs are absent (audit f012); coordinate the separately owned retained-store migration without changing that finding in this task.\""
+      ],
+      "citation": "Decision 3125 retains the exact historical finding about absent storage inputs in this repair record, which does not invoke a retired storage producer."
+    },
+    {
+      "path": "tools/qualification/paxeer-x/repair-22.33.765.kvx",
+      "lines": [
+        "repair = \"Use a disposable source-bound merged paxd generation through the maintained native bootstrap, root node JSON-RPC and hosted root px_getNetwork; require public /rpc and /rpc/schema to be absent, retain private /v1/agent/rpc and daemon /rpc authentication/idempotency checks, replace replica/LNI substitutions and binary fault relays with node/hosted root RPC, and restart the merged node while comparing a retained committed block. Migrate the existing release-kit test's deleted runtime fixture dependency in place.\""
+      ],
+      "citation": "Decision 3125 retains the exact historical repair instruction describing removal of the retired transport rather than a live transport caller."
+    },
+    {
+      "path": "tools/qualification/paxeer-x/fixtures",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the receipt_authority_fixture import because the hosted receipt-authority fixture still ships and consumes committed chain receipts."
+    },
+    {
+      "path": "contracts/launchpad/contracts/core",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live factory call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/interfaces",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live ITreasury.recordDeposit interface for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/periphery",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live router call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/protocol",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live Treasury.recordDeposit implementation that accounts prior token transfers under DEPOSITOR_ROLE, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "layerxproof/codec",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: Historical proof decoding must retain kind 11 and its account names, as asserted by layerxproof/codec/account_kind_test.go."
+    },
+    {
+      "path": "layerxproof/codec/internal/nativefixture",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decisions 3104 and 3125 retain lxphost_receipt_authority_add in the generated byte-exact production host fixture because it validates height-bound receipts and indexes payment facts for Programs execution rather than registering retired daemon finality authority."
+    },
+    {
+      "path": "modules/evm/keeper",
+      "symbols": [
+        "layerxanchor"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: The anchor address remains in the payable set for pre-merge bond execution; retirement is enforced by the precompile upgrade gate."
+    },
+    {
+      "path": "modules/launchpad/keeper",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: TreasuryRecordDeposit implements the live Treasury token-surplus credit method from contracts/launchpad/contracts/protocol/Treasury.sol, unrelated to exchange intents."
+    },
+    {
+      "path": "modules/layerxgov/types",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: Compatibility governance must unpack historical anchor and custody messages and reach the height-aware retirement refusal, as required by TestGovRouteRefusesRetiredAnchorParams."
+    },
+    {
+      "path": "modules/layerxpay/keeper",
+      "symbols": [
+        "layerxcustody"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130 retain the shipped typed asset registry used by CustodyReader and agent streams to resolve native and pointer token asset IDs."
+    },
+    {
+      "path": "modules/xweb/keeper",
+      "symbols": [
+        "PAXEERX_WEB_FEES"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: ProgramFeeDomain is the persisted origin-2 xweb bank escrow derivation domain asserted by program_test.go and program_fulfil_test.go; changing it would strand existing fee accounts."
+    },
+    {
+      "path": "precompiles/common",
+      "symbols": [
+        "LXP_DA_",
+        "layerxanchor"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: The shared registry retains historical anchor error mappings and the live service-delivery refusal LXP_DA_MISSING without reviving the retired kernel -804 emitter."
+    },
+    {
+      "path": "precompiles/launchpad",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130 retain the live Treasury recordDeposit(address,uint256) surplus-credit method, its generated ABI, its two-write gas charge and its role-checked dispatch, which are unrelated to exchange intents."
+    },
+    {
+      "path": "precompiles/layerxauth/internal/repair1503",
+      "symbols": [
+        "fee_governance"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: The auth integration fixture calls production program fee-schedule staging, activation and runtime resolution declared in include/layerx/programs.h, rather than the retired relay activity."
+    },
+    {
+      "path": "precompiles/setup.go",
+      "lines": [
+        "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor\"",
+        "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxcustody\"",
+        "\"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify\"",
+        "ecommon.HexToAddress(layerxverify.LayerXVerifyAddress):   layerxverify.GetVersioned(latestUpgrade, keepers),",
+        "ecommon.HexToAddress(layerxcustody.LayerXCustodyAddress): layerxcustody.GetVersioned(latestUpgrade, keepers),",
+        "ecommon.HexToAddress(layerxanchor.LayerXAnchorAddress):   layerxanchor.GetVersioned(latestUpgrade, keepers),"
+      ],
+      "symbols": [
+        "layerxAnchor",
+        "layerxCustody",
+        "layerxVerify",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+    },
+    {
+      "path": "precompiles/utils",
+      "symbols": [
+        "layerxAnchor",
+        "layerxanchor",
+        "layerxcustody"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: The shipped compatibility precompiles require the existing typed anchor and custody keeper interfaces until the separately governed store deletion."
+    },
+    {
+      "path": "storage/common/keys",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody"
+      ],
+      "citation": "Decisions 3104, 3125 and 3130: These strings are immutable on-disk store names still mounted by node/app.go; changing them would break compatibility state and store migration."
     }
   ]
 }

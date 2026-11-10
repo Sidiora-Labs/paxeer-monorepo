@@ -1,0 +1,67 @@
+[meta]
+task = "22.39.336"
+decision = "3200"
+gotcha = "4124"
+base_revision = "ff064d5aebd059893d28f79879ce178898f86039"
+criterion = "22998.1"
+
+[change.destination]
+file = "src/modules/programs/call.c"
+symbol = "layerx_programs_call_transfer_leg"
+lines = "2212-2220"
+implementation = "After account-id lookup, the fee-account rule and unchanged source resolution, resolve an absent destination with lxp_kernel_program_payment_account(runtime->accounts, to, leg->asset_id, value->ctx->protocol_version, &leg->to)."
+refusal = "Keep the transfer-account diagnostic for every destination resolution failure, propagate its non-LXP_OK result even if the resolver returned a candidate account, and refuse a null account with LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE. No source metadata, leg-written flag, leg count, balances or applied transfers are staged on refusal."
+
+[read.call_source_validation]
+file = "src/modules/programs/call.c"
+symbols = ["transfer_source_validate", "transfer_source_authority_add"]
+representation = "Resolved account. Program funding checks compare the binding to leg->to, leg->to->id, kind and asset; source authorization continues to use the resolved source and does not rewrite the destination."
+
+[read.call_apply]
+file = "src/modules/programs/call.c"
+symbol = "layerx_programs_call_transfer_apply"
+representation = "Resolved account. The completed set contains account pointers; source validation precedes lxp_ctx_emit_monetary_transfer_set or lxp_ctx_emit_transfer_set. There is no second lookup of the program destination bytes."
+
+[read.grant_checks]
+file = "src/modules/programs/transfer.c"
+symbol = "authorize_leg"
+representation = "Program bytes. The separate transfer activity reads leg + 64 into to words before layerx_programs_authorize_402lxp_leg; lxp_programs_transfer_execute_root retains its separate account-id-only lookup."
+call_runtime = "programs/crates/layerx-programs-runtime/src/transfer.rs: TransferLaw::authorize_principal_leg and authorize_program_leg compare transfer.to in frame and root capability checks. ffi_call.rs: submit_kernel_transfer_leg sends those unchanged bytes to the C callback. No grant is broadened or rewritten."
+
+[read.applied_leg]
+file = "src/protocol/lxp_module_ctx.c"
+symbol = "emit_transfer_set"
+representation = "Resolved account. ctx.applied_transfers.legs[i].to is copied from emitted.legs[i].to->id after a successful kernel apply; it records the account actually paid."
+
+[read.receipt_root]
+file = "src/ledger/lxp_journal.c"
+symbol = "lxp_transfer_set_root"
+representation = "Resolved account. The receipt-root leaf encodes legs[i].to->id at offset 33. call.c: layerx_programs_call_transfer_root_byte exposes that receipt root, and layerx_programs_call_terminal_begin checks the supplied root against it."
+
+[read.terminal_receipt]
+file = "src/modules/programs/call.c"
+symbols = ["layerx_programs_call_terminal_applied_byte", "terminal_wrap_applied", "layerx_programs_call_terminal_publish"]
+representation = "Runtime-supplied bytes. Terminal applied-leg bytes are accepted in order, hashed into leaves and compared with the transfer root, then included in the terminal detail and applied-legs digest; they are not independently resolved."
+scope_limitation = "The existing Rust CKernel::verify_402lxp_transfer_set_root in ffi_call.rs compares the C receipt root with AtomicTransferSet::kernel_root and submits kernel_canonical bytes. transfer.rs: bind_account_names rewrites source ids only; canonical_kernel_legs retains transfer.to. Identity destinations therefore still differ from that runtime expectation. These Rust paths are outside this task's scope and are recorded without changing or disabling the receipt checks."
+
+[tests.existing]
+file = "tests/programs/test_call_escrow_principal.c"
+symbols = ["escrow_case", "escrow_from_owned_main_account", "escrow_from_unknown_principal_refused"]
+coverage = "Both existing escrow/source cases and all their assertions remain intact and execute from main."
+
+[tests.destination]
+file = "tests/programs/test_call_escrow_principal.c"
+symbol = "transfer_destination_case"
+lines = "141-310"
+account = "DESTINATION_ACCOUNT calls layerx_programs_call_transfer_leg with an escrow account id, applies the leg, and proves exactly four units are credited to that account while other recipient accounts are unchanged."
+principal = "DESTINATION_PRINCIPAL passes recipient identity bytes with one eligible main account and an excluded escrow account; exactly four units reach the main account, and the applied leg names its account id, asset and amount."
+missing = "DESTINATION_NO_ASSET_ACCOUNT has a main account for another asset and an escrow for the leg asset; the callback returns LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE without a written leg, snapshot, applied transfer, receipt root, balance change or sequence change."
+ambiguous = "DESTINATION_AMBIGUOUS has both main and asset accounts for the leg asset; the real resolver and callback both return LXP_ERR_CONTEXT_MISMATCH, and incomplete-set application is refused without balance or sequence changes."
+execution = "main invokes all four destination cases independently, prints each result, and includes every result in its exit code. All use the real kernel, registry, callback and canonical ledger apply."
+
+[qualification]
+build_gate = "hf-build"
+build_command = "make -C . build/liblayerx.a"
+verify_gate = "hf-done"
+verify_command = "test -s src/modules/programs/repair_22_39_336.kvx && make -C . build/tests/programs_call_escrow_principal && ./build/tests/programs_call_escrow_principal"
+revision_evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit and private log location for each gate; the final response copies the hf-done evidence line. The candidate includes this record, so its own hash is held in that external ledger."

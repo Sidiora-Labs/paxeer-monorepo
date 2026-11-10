@@ -1,5 +1,12 @@
 #![forbid(unsafe_code)]
 
+mod inference_signal {
+    include!("inference_market/signal.rs");
+    pub mod deals {
+        include!("inference_market/deals.rs");
+    }
+}
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
@@ -2045,11 +2052,268 @@ fn program_reader(
 
 struct InferenceSupervision {
     market: layerx_agentd::boot::inference_market::InferenceMarket,
-    signal: HttpPool,
+    signal: inference_signal::deals::DealSignalListener,
+    deals: InferenceDealRuntime,
     completion: HttpPool,
     reader: LayerxdProgramBalanceReader,
     agent: ureq::Agent,
     next_check: Instant,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InferenceDealTerms {
+    signer: layerx_human_kms::attestor::AttestorSignerConfig,
+    assertion_source: PathBuf,
+    journal: PathBuf,
+    actor_did: String,
+    layer_count: u16,
+    layer_memory_mib: u32,
+    validity_blocks: u64,
+    fee_limit: u128,
+    gas_limit: u64,
+    max_fee_per_gas: u128,
+    max_priority_fee_per_gas: u128,
+    resources: [u64; 7],
+}
+
+struct InferenceDealRuntime {
+    engine: Arc<Mutex<inference_signal::deals::DealEngine>>,
+    endpoint: SequencerEndpoint,
+    verifier: layerx_programs::chain_proof::ChainProofVerifier,
+    journal: layerx_client::ai_market::OperationJournal,
+    signer: layerx_human_kms::attestor::AttestorSigner,
+    terms: InferenceDealTerms,
+    program: layerx_client::ai_market::market_program::types::ProgramId,
+}
+
+#[derive(Debug)]
+struct InferenceDealSigner<'a>(&'a layerx_human_kms::attestor::AttestorSigner);
+
+impl layerx_crypto::signer::Signer for InferenceDealSigner<'_> {
+    fn public_key(&self) -> [u8; 32] {
+        self.0.public_key()
+    }
+
+    fn sign<'a>(
+        &'a self,
+        _request: layerx_crypto::signer::SigningRequest<'a>,
+    ) -> layerx_crypto::signer::SignFuture<'a> {
+        Box::pin(std::future::ready(Err(
+            layerx_crypto::signer::SignError::RemoteRefused,
+        )))
+    }
+
+    fn evm_address(&self) -> Option<[u8; 20]> {
+        Some(self.0.evm_address())
+    }
+
+    fn sign_transaction<'a>(
+        &'a self,
+        call: &'a layerx_crypto::evm_transaction::Eip1559Call,
+    ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
+        Box::pin(async move {
+            use layerx_crypto::signer::{AgentSignature, SignError};
+            let mut signature = self
+                .0
+                .sign_evm_transaction(
+                    &layerx_human_kms::attestor::unsigned_evm_transaction(call),
+                    call.chain_id,
+                )
+                .map_err(|_| SignError::RemoteRefused)?;
+            signature[64] = signature[64]
+                .checked_add(27)
+                .ok_or(SignError::ReturnedSignatureInvalid)?;
+            AgentSignature::new(signature).map_err(|_| SignError::ReturnedSignatureInvalid)
+        })
+    }
+}
+
+fn inference_wait<F: std::future::Future>(future: F) -> F::Output {
+    struct WakeThread(thread::Thread);
+    impl std::task::Wake for WakeThread {
+        fn wake(self: Arc<Self>) {
+            self.0.unpark();
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            self.0.unpark();
+        }
+    }
+    let waker = std::task::Waker::from(Arc::new(WakeThread(thread::current())));
+    let mut context = std::task::Context::from_waker(&waker);
+    let mut future = std::pin::pin!(future);
+    loop {
+        match future.as_mut().poll(&mut context) {
+            std::task::Poll::Ready(value) => return value,
+            std::task::Poll::Pending => thread::park(),
+        }
+    }
+}
+
+impl InferenceDealRuntime {
+    fn open(config: &Config, offer: &inference_signal::RoomOffer) -> Result<Self, String> {
+        use inference_signal::deals::{DealConfig, DealEngine};
+        let source = required("LAYERX_AGENT_INFERENCE_DEALS")?;
+        let bytes = zeroize::Zeroizing::new(
+            layerx_agentd::config::read_protected_source(Path::new(&source), 65_536)
+                .map_err(|_| "inference deal configuration is invalid")?,
+        );
+        let terms: InferenceDealTerms = serde_json::from_slice(&bytes)
+            .map_err(|_| "inference deal configuration is malformed")?;
+        if terms.layer_count == 0
+            || terms.layer_memory_mib == 0
+            || terms.validity_blocks == 0
+            || terms.validity_blocks > 256
+            || terms.gas_limit == 0
+            || terms.fee_limit == 0
+            || terms.max_fee_per_gas == 0
+            || terms.max_priority_fee_per_gas > terms.max_fee_per_gas
+            || terms.resources.contains(&0)
+            || !terms.journal.is_absolute()
+        {
+            return Err("inference deal model or transaction terms are invalid".to_owned());
+        }
+        layerx_types::ids::Did::new(terms.actor_did.as_bytes())
+            .map_err(|_| "inference deal signer DID is invalid")?;
+        let mut signer = layerx_human_kms::attestor::AttestorSigner::from_config(&terms.signer)
+            .map_err(|_| "inference deal signer is unavailable")?;
+        let assertion = zeroize::Zeroizing::new(
+            layerx_agentd::config::read_protected_source(&terms.assertion_source, 8192)
+                .map_err(|_| "inference deal signer assertion is unavailable")?,
+        );
+        let assertion = std::str::from_utf8(&assertion)
+            .map_err(|_| "inference deal assertion is malformed")?
+            .trim();
+        signer
+            .set_evm_assertion(assertion)
+            .map_err(|_| "inference deal signer assertion is invalid")?;
+        let journal = layerx_client::ai_market::OperationJournal::open(&terms.journal)
+            .map_err(|error| format!("inference deal journal: {error:?}"))?;
+        let engine = DealEngine::open(
+            &terms.journal.join("negotiation.json"),
+            DealConfig {
+                room_id: offer.room_id,
+                model_digest: offer.model_digest,
+                runtime_digest: offer.runtime_digest,
+                program: config.probe_program.bytes(),
+                layer_count: terms.layer_count,
+                layer_memory_mib: terms.layer_memory_mib,
+            },
+        )
+        .map_err(|error| error.to_string())?;
+        let endpoint =
+            SequencerEndpoint::new_node(&config.node_endpoint, &[&config.authority_ca_der])
+                .map_err(|error| format!("inference deal node: {error:?}"))?;
+        if endpoint
+            .chain_id()
+            .map_err(|error| format!("inference deal chain: {error:?}"))?
+            != config.expected_chain_id
+            || config.expected_chain_id != 125
+        {
+            return Err("inference deal node chain differs".to_owned());
+        }
+        let trust = load_chain_trust_root(&config.chain_trust_root)?;
+        let verifier = layerx_programs::chain_proof::ChainProofVerifier {
+            chain_id: trust.chain_id,
+            validators: trust.validators,
+        };
+        let program = layerx_client::ai_market::market_program::types::ProgramId::new(
+            config.probe_program.bytes(),
+        )
+        .map_err(|error| error.to_string())?;
+        Ok(Self {
+            engine: Arc::new(Mutex::new(engine)),
+            endpoint,
+            verifier,
+            journal,
+            signer,
+            terms,
+            program,
+        })
+    }
+
+    fn snapshot(&self) -> Result<layerx_client::ai_market::FinalizedSnapshot, String> {
+        let height = self
+            .endpoint
+            .block_number()
+            .map_err(|error| format!("inference book head: {error:?}"))?;
+        layerx_client::ai_market::inference_market::poll_finalized_market(
+            &self.endpoint,
+            &self.verifier,
+            self.program,
+            height,
+            now_ms()?,
+        )
+        .map_err(|error| format!("inference committed book: {error:?}"))
+    }
+
+    fn submit_ready(&self) -> Result<(), String> {
+        let engine = self
+            .engine
+            .lock()
+            .map_err(|_| "inference deal engine unavailable")?;
+        let Some(frame) = engine.ready_to_record().cloned() else {
+            return inference_signal::deals::resume_submission(
+                &engine,
+                &self.journal,
+                &self.endpoint,
+            )
+            .map_err(|error| error.to_string());
+        };
+        let height = self
+            .endpoint
+            .block_number()
+            .map_err(|error| format!("inference deal head: {error:?}"))?;
+        let expiry = height
+            .checked_add(self.terms.validity_blocks)
+            .ok_or("inference deal expiry overflow")?;
+        let envelope = engine.envelope(expiry).map_err(|error| error.to_string())?;
+        drop(engine);
+        let from = self.signer.evm_address();
+        let mut actor = [0; 32];
+        actor[12..].copy_from_slice(&from);
+        if actor != frame.plan.embedding_host {
+            return Err("inference signer does not own the room".to_owned());
+        }
+        let nonce = self
+            .endpoint
+            .pending_nonce(&from)
+            .map_err(|error| format!("inference deal nonce: {error:?}"))?;
+        let mut record = inference_wait(layerx_client::ai_market::sign_market_envelope(
+            &envelope,
+            &layerx_client::ai_market::NativeTerms {
+                network_id: 125,
+                actor_did: self.terms.actor_did.as_bytes(),
+                owner_public_key: self.signer.public_key(),
+                account_sequence: nonce,
+                idempotency_key: frame.deal_id,
+                not_before: 0,
+                not_after: expiry,
+                fee_limit: self.terms.fee_limit,
+                capabilities: &[],
+                access_declaration: &[],
+                response_capacity: 16_384,
+                resources: layerx_types::program_call::Resources(self.terms.resources),
+                gas_limit: self.terms.gas_limit,
+                max_fee_per_gas: self.terms.max_fee_per_gas,
+                max_priority_fee_per_gas: self.terms.max_priority_fee_per_gas,
+            },
+            &InferenceDealSigner(&self.signer),
+        ))
+        .map_err(|error| format!("inference deal signature: {error:?}"))?;
+        let mut engine = self
+            .engine
+            .lock()
+            .map_err(|_| "inference deal engine unavailable")?;
+        inference_signal::deals::record_deal(
+            &mut engine,
+            &self.journal,
+            &self.endpoint,
+            &mut record,
+        )
+        .map_err(|error| error.to_string())?;
+        Ok(())
+    }
 }
 
 fn inference_node_config(config: &Config) -> NodeRpcConfig {
@@ -2219,15 +2483,38 @@ fn inference_boot(
         .map_err(|error| format!("inference boot refused: {error:?}"))?;
     inference_enrol_host(config, &inference)?;
     let market = inference_market::serve_inference_market(inference, gate)?;
-    let signal_gate = Arc::clone(&market.gate);
-    let signal = HttpPool::start(
+    let offer: inference_signal::RoomOffer = serde_json::from_slice(&market.room_profile)
+        .map_err(|error| format!("inference room offer is invalid: {error}"))?;
+    if offer.model_digest != market.config.model_digest
+        || offer.runtime_digest != market.config.runtime_digest
+    {
+        return Err("inference room offer disagrees with configured digests".to_owned());
+    }
+    let signal_authority = inference_signal::SignalAuthority::new(
+        agent.clone(),
+        config.node_endpoint.clone(),
+        config.node_bearer.clone(),
+        config.expected_chain_id,
+        config.probe_program.bytes(),
+        Arc::clone(&market.gate),
+    )?;
+    let deals = InferenceDealRuntime::open(config, &offer)?;
+    let snapshot = deals.snapshot()?;
+    deals
+        .engine
+        .lock()
+        .map_err(|_| "inference deal engine unavailable")?
+        .poll(snapshot, now_ms()?)
+        .map_err(|error| error.to_string())?;
+    let signal = inference_signal::deals::DealSignalListener::start(
         market
             .signal_listener
             .try_clone()
             .map_err(|error| error.to_string())?,
-        move |mut stream| {
-            let _ = inference_market::serve_health(&mut stream, &signal_gate);
-        },
+        offer,
+        signal_authority,
+        Arc::clone(&deals.engine),
+        now_ms,
     )?;
     let completion_gate = Arc::clone(&market.gate);
     let completion = HttpPool::start(
@@ -2242,6 +2529,7 @@ fn inference_boot(
     Ok(InferenceSupervision {
         market,
         signal,
+        deals,
         completion,
         reader,
         agent,
@@ -2351,10 +2639,19 @@ fn serve(config: Config) -> Result<(), String> {
             if Instant::now() >= inference.next_check {
                 let observation =
                     inference_observation(&config, &inference.reader, &inference.agent);
-                if let Err(error) = layerx_agentd::boot::inference_market::observe_availability(
+                let observed = layerx_agentd::boot::inference_market::observe_availability(
                     &inference.market.gate,
                     observation,
-                ) {
+                );
+                let result = observed.and_then(|()| {
+                    let snapshot = inference.deals.snapshot()?;
+                    inference
+                        .signal
+                        .tick(snapshot, now_ms()?)
+                        .map_err(|error| error.to_string())?;
+                    inference.deals.submit_ready()
+                });
+                if let Err(error) = result {
                     eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
                 }
                 inference.next_check = Instant::now() + Duration::from_secs(1);

@@ -118,7 +118,7 @@ pub fn chain_digest(chain: &[[u8; 32]]) -> [u8; 32] {
     digest.finalize().into()
 }
 
-/// EvmPrepared activity fields evaluated against every record of the selected chain.
+/// `EvmPrepared` activity fields evaluated against every record of the selected chain.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlanIntent {
     activity: u32,
@@ -829,6 +829,10 @@ pub enum Admission {
 ///
 /// Returns `Restricted`, `Unbound`, `Refused` naming the first failing dimension, the chain
 /// failure, or `Corrupt` for undecodable stored state.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn admit(
     store: &Store,
     tenant: &TenantId,
@@ -995,14 +999,14 @@ pub fn evaluate(
     }
     if record.rate_ceilings.is_empty()
         || record.rate_ceilings.iter().any(|(window, maximum)| {
-            let used = uses
+            let consumed = uses
                 .iter()
                 .filter(|(id, at_ms)| {
                     id != preparation_id
                         && u128::from(*at_ms) + u128::from(*window) * 1000 > u128::from(now_ms)
                 })
                 .count();
-            u64::try_from(used).map_or(true, |used| used >= *maximum)
+            u64::try_from(consumed).map_or(true, |consumed| consumed >= *maximum)
         })
     {
         return Decision::Refuse(Dimension::Rate);
@@ -1087,23 +1091,20 @@ pub fn revoke(
         return Err(TimedError::NotFound.into());
     }
     let key = cleanup_key(tenant, root)?;
-    match store.get(&key) {
-        Some(value) => {
-            let existing = RevocationCleanup::decode(value.bytes())?;
-            if existing.tenant != *tenant || existing.agent != agent || existing.root != *root {
-                return Err(BindingError::Corrupt);
-            }
+    if let Some(value) = store.get(&key) {
+        let existing = RevocationCleanup::decode(value.bytes())?;
+        if existing.tenant != *tenant || existing.agent != agent || existing.root != *root {
+            return Err(BindingError::Corrupt);
         }
-        None => {
-            let cleanup = RevocationCleanup {
-                tenant: tenant.clone(),
-                agent: agent.to_owned(),
-                root: *root,
-                at_ms,
-                at_sequence,
-            };
-            store.put_local(key, cleanup.encode()?)?;
-        }
+    } else {
+        let cleanup = RevocationCleanup {
+            tenant: tenant.clone(),
+            agent: agent.to_owned(),
+            root: *root,
+            at_ms,
+            at_sequence,
+        };
+        store.put_local(key, cleanup.encode()?)?;
     }
     Ok(timed::revoke_subtree(
         store,
@@ -2282,44 +2283,59 @@ pub struct NativePreparationBindingV1 {
 }
 
 impl NativePreparationBindingV1 {
+    #[must_use]
     pub const fn tenant(&self) -> &TenantId {
         &self.tenant
     }
+    #[must_use]
     pub const fn agent(&self) -> &layerx_types::ids::Did {
         &self.agent
     }
+    #[must_use]
     pub const fn session_id(&self) -> crate::session::SessionId {
         self.session_id
     }
+    #[must_use]
     pub const fn generation(&self) -> u64 {
         self.generation
     }
+    #[must_use]
     pub const fn activity(&self) -> layerx_agent_api::identity::NativeActivity {
         self.activity
     }
+    #[must_use]
     pub const fn capability_id(&self) -> [u8; 32] {
         self.capability_id
     }
+    #[must_use]
     pub const fn preparation_id(&self) -> [u8; 32] {
         self.preparation_id
     }
+    #[must_use]
     pub const fn canonical_digest(&self) -> [u8; 32] {
         self.canonical_digest
     }
+    #[must_use]
     pub const fn envelope_digest(&self) -> [u8; 32] {
         self.envelope_digest
     }
+    #[must_use]
     pub const fn purpose_commitment(&self) -> [u8; 32] {
         self.purpose_commitment
     }
+    #[must_use]
     pub const fn purpose_digest(&self) -> [u8; 32] {
         self.purpose_digest
     }
+    #[must_use]
     pub const fn expires_at_ms(&self) -> u64 {
         self.expires_at_ms
     }
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn native_purpose_digest(
     purpose: &layerx_agent_api::identity::NativePreparationPurposeV1,
 ) -> Result<[u8; 32], BindingError> {
@@ -2329,6 +2345,9 @@ pub fn native_purpose_digest(
     Ok(Sha256::digest(canonical).into())
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn inspect_native_preparation(
     sessions: &crate::session::SessionRegistry,
     session: &crate::session::NativeSessionAuthorizationV1,
@@ -2346,7 +2365,7 @@ pub fn inspect_native_preparation(
         purpose,
         core_sequence,
         core_time_ms,
-        Sha256::digest(&prepared.call.encode_unsigned()).into(),
+        Sha256::digest(prepared.call.encode_unsigned()).into(),
     )
 }
 
@@ -2416,19 +2435,22 @@ fn inspect_native_preparation_with_digest(
             .map_err(|_| BindingError::Corrupt)?,
         preparation_id: *preparation_id,
         canonical_digest,
-        envelope_digest: Sha256::digest(&prepared.call.encode_unsigned()).into(),
+        envelope_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
         purpose_commitment: purpose.commitment,
         purpose_digest,
         expires_at_ms: purpose.expires_at_ms,
     })
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn require_native_canonical_purpose(
     prepared: &crate::prepare::EvmPrepared,
     binding: &NativePreparationBindingV1,
 ) -> Result<(), BindingError> {
     crate::prepare::verify_call_binding(prepared).map_err(|_| BindingError::Corrupt)?;
-    let digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
+    let digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
     if digest != binding.canonical_digest
         || prepared.disclosure.actor.as_slice() != prepared.from
         || layerx_agent_api::identity::NativeActivity::from(prepared.disclosure.activity_type)
@@ -2453,20 +2475,27 @@ pub struct NativeCapabilityConstraintsV1 {
 }
 
 impl NativeCapabilityConstraintsV1 {
+    #[must_use]
     pub const fn binding(&self) -> &NativePreparationBindingV1 {
         &self.binding
     }
+    #[must_use]
     pub fn chain(&self) -> &[[u8; 32]] {
         &self.chain
     }
+    #[must_use]
     pub const fn rate_obligations(&self) -> &BTreeMap<[u8; 32], BTreeMap<u64, u64>> {
         &self.rate_obligations
     }
+    #[must_use]
     pub const fn observed_at_ms(&self) -> u64 {
         self.observed_at_ms
     }
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn inspect_native_capability(
     store: &Store,
     binding: NativePreparationBindingV1,
@@ -2474,7 +2503,7 @@ pub fn inspect_native_capability(
     now_ms: u64,
 ) -> Result<NativeCapabilityConstraintsV1, BindingError> {
     crate::prepare::verify_call_binding(prepared).map_err(|_| BindingError::Corrupt)?;
-    let digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
+    let digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
     if digest != binding.canonical_digest
         || prepared.disclosure.actor.as_slice() != prepared.from
         || layerx_agent_api::identity::NativeActivity::from(prepared.disclosure.activity_type)
@@ -2597,6 +2626,9 @@ pub struct NativeEffectFeeV1 {
     pub maximum_amount: u128,
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn native_effect_fee(
     owner: &layerx_types::ids::Did,
     prepared: &crate::prepare::EvmPrepared,
@@ -2636,6 +2668,9 @@ pub fn native_effect_fee(
     }))
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn inspect_native_effect_capability(
     store: &Store,
     binding: NativePreparationBindingV1,
@@ -2648,7 +2683,7 @@ pub fn inspect_native_effect_capability(
     profile: super::NativeAdmissionProfile,
 ) -> Result<NativeCapabilityConstraintsV1, BindingError> {
     crate::prepare::verify_call_binding(prepared).map_err(|_| BindingError::Corrupt)?;
-    let digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
+    let digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
     if digest != binding.canonical_digest
         || prepared.disclosure.actor.as_slice() != prepared.from
         || layerx_agent_api::identity::NativeActivity::from(prepared.disclosure.activity_type)
@@ -2786,87 +2821,49 @@ fn inspect_native_effect_plan(
     let mut ids = Vec::new();
     for capability in chain {
         capability.validate()?;
-        if capability.record.authority != binding.authority {
-            return Err(BindingError::Unbound);
-        }
-        if u128::from(binding.expires_at_ms) > capability.record.not_after_ms()
-            || now_ms >= binding.expires_at_ms
-        {
-            return Err(BindingError::Refused(Dimension::Expiry));
-        }
-        if !capability.activities.contains(&binding.activity) {
-            return Err(BindingError::Refused(Dimension::ActivityType));
-        }
-        if !capability
-            .purpose_commitments
-            .contains(&binding.purpose_commitment)
-        {
-            return Err(BindingError::Refused(Dimension::Purpose));
-        }
-        for effect in plan.effects() {
-            let (account, asset, bound) = match *effect {
-                Effect::Transfer {
-                    to, asset, amount, ..
-                } => (to, Some(asset), amount),
-                Effect::Issuance {
-                    account,
-                    asset,
-                    amount,
-                }
-                | Effect::Destruction {
-                    account,
-                    asset,
-                    amount,
-                } => (account, Some(asset), amount),
-                Effect::Authorization {
-                    account,
-                    asset,
-                    amount,
-                    ..
-                } => (account, asset, amount),
-            };
-            if !capability.record.counterparties.contains(&account) {
-                return Err(BindingError::Refused(Dimension::Counterparty));
-            }
-            if let Some(asset) = asset {
-                if !capability.record.assets.contains(&asset) {
-                    return Err(BindingError::Refused(Dimension::Asset));
-                }
-                if capability
+        crate::reject_if(capability.record.authority != binding.authority, || {
+            BindingError::Unbound
+        })?;
+        crate::reject_if(
+            u128::from(binding.expires_at_ms) > capability.record.not_after_ms()
+                || now_ms >= binding.expires_at_ms,
+            || BindingError::Refused(Dimension::Expiry),
+        )?;
+        crate::reject_if(!capability.activities.contains(&binding.activity), || {
+            BindingError::Refused(Dimension::ActivityType)
+        })?;
+        crate::reject_if(
+            !capability
+                .purpose_commitments
+                .contains(&binding.purpose_commitment),
+            || BindingError::Refused(Dimension::Purpose),
+        )?;
+        inspect_effect_counterparties(&capability, plan)?;
+        for (asset, total) in &gross {
+            crate::reject_if(!capability.record.assets.contains(asset), || {
+                BindingError::Refused(Dimension::Asset)
+            })?;
+            crate::reject_if(
+                capability
                     .record
                     .amount_ceilings
-                    .get(&asset)
-                    .is_none_or(|limit| bound > *limit)
-                {
-                    return Err(BindingError::Refused(Dimension::Amount));
-                }
-            }
-        }
-        for (asset, total) in &gross {
-            if !capability.record.assets.contains(asset) {
-                return Err(BindingError::Refused(Dimension::Asset));
-            }
-            if capability
-                .record
-                .amount_ceilings
-                .get(asset)
-                .is_none_or(|limit| total > limit)
-            {
-                return Err(BindingError::Refused(Dimension::Amount));
-            }
+                    .get(asset)
+                    .is_none_or(|limit| total > limit),
+                || BindingError::Refused(Dimension::Amount),
+            )?;
         }
         for (asset, total) in &principal_totals {
-            if capability
-                .spend_ceilings
-                .get(&(timed::NativeSpendSourceV1::Principal, *asset))
-                .is_none_or(|limit| total > limit)
-            {
-                return Err(BindingError::Refused(Dimension::Amount));
-            }
+            crate::reject_if(
+                capability
+                    .spend_ceilings
+                    .get(&(timed::NativeSpendSourceV1::Principal, *asset))
+                    .is_none_or(|limit| total > limit),
+                || BindingError::Refused(Dimension::Amount),
+            )?;
         }
-        if capability.record.rate_ceilings.is_empty() {
-            return Err(BindingError::Refused(Dimension::Rate));
-        }
+        crate::reject_if(capability.record.rate_ceilings.is_empty(), || {
+            BindingError::Refused(Dimension::Rate)
+        })?;
         ids.push(capability.record.id);
         rates.insert(capability.record.id, capability.record.rate_ceilings);
     }
@@ -2876,6 +2873,52 @@ fn inspect_native_effect_plan(
         rate_obligations: rates,
         observed_at_ms: now_ms,
     })
+}
+fn inspect_effect_counterparties(
+    capability: &timed::NativeTimedCapabilityV1,
+    plan: &SemanticPlan,
+) -> Result<(), BindingError> {
+    for effect in plan.effects() {
+        let (account, asset, bound) = match *effect {
+            Effect::Transfer {
+                to, asset, amount, ..
+            } => (to, Some(asset), amount),
+            Effect::Issuance {
+                account,
+                asset,
+                amount,
+            }
+            | Effect::Destruction {
+                account,
+                asset,
+                amount,
+            } => (account, Some(asset), amount),
+            Effect::Authorization {
+                account,
+                asset,
+                amount,
+                ..
+            } => (account, asset, amount),
+        };
+        crate::reject_if(!capability.record.counterparties.contains(&account), || {
+            BindingError::Refused(Dimension::Counterparty)
+        })?;
+        if let Some(asset) = asset {
+            crate::reject_if(!capability.record.assets.contains(&asset), || {
+                BindingError::Refused(Dimension::Asset)
+            })?;
+            crate::reject_if(
+                capability
+                    .record
+                    .amount_ceilings
+                    .get(&asset)
+                    .is_none_or(|limit| bound > *limit),
+                || BindingError::Refused(Dimension::Amount),
+            )?;
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -2890,22 +2933,30 @@ pub struct VerifiedNativePurposeV1 {
 }
 
 impl VerifiedNativePurposeV1 {
+    #[must_use]
     pub const fn binding(&self) -> &NativePreparationBindingV1 {
         &self.binding
     }
+    #[must_use]
     pub const fn owner_public_key(&self) -> [u8; 32] {
         self.owner_public_key
     }
+    #[must_use]
     pub const fn owner_revocation_sequence(&self) -> u64 {
         self.owner_revocation_sequence
     }
+    #[must_use]
     pub const fn observed_head_sequence(&self) -> u64 {
         self.observed_head_sequence
     }
+    #[must_use]
     pub const fn observed_at_ms(&self) -> u64 {
         self.observed_at_ms
     }
 
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn replay_update(&self, store: &Store) -> Result<(TenantKey, Vec<u8>), BindingError> {
         if let Some(existing) = store.get(&self.replay_key) {
             if existing.class() != crate::store::StorageClass::LocalOnly
@@ -3001,6 +3052,9 @@ pub struct SignedNativeLocalGrantV1 {
 }
 
 impl SignedNativeLocalGrantV1 {
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn signing_bytes(&self) -> Result<Vec<u8>, BindingError> {
         let capability = self.capability.encode()?;
         let session = self.session.encode().map_err(|_| BindingError::Corrupt)?;
@@ -3015,6 +3069,9 @@ impl SignedNativeLocalGrantV1 {
         Ok(bytes)
     }
 
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn signing_digest(&self) -> Result<[u8; 32], BindingError> {
         Ok(Sha256::digest(self.signing_bytes()?).into())
     }
@@ -3031,6 +3088,9 @@ pub struct StagedNativeLocalGrantV1 {
 }
 
 impl StagedNativeLocalGrantV1 {
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn updates(&self, store: &Store) -> Result<Vec<(TenantKey, Vec<u8>)>, BindingError> {
         let updates = [
             &self.scope_update,
@@ -3049,12 +3109,15 @@ impl StagedNativeLocalGrantV1 {
         Ok(updates.into_iter().cloned().collect())
     }
 
+    #[must_use]
     pub const fn grant(&self) -> &SignedNativeLocalGrantV1 {
         &self.grant
     }
+    #[must_use]
     pub const fn observed_head_sequence(&self) -> u64 {
         self.observed_head_sequence
     }
+    #[must_use]
     pub const fn observed_at_ms(&self) -> u64 {
         self.observed_at_ms
     }
@@ -3152,6 +3215,9 @@ pub(crate) fn stage_native_local_grant(
     Ok(staged)
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn restore_native_signed_purpose(
     store: &Store,
     tenant: &TenantId,
@@ -3535,26 +3601,37 @@ pub struct VerifiedNativeSendPurposeV2 {
 }
 
 impl VerifiedNativeSendPurposeV2 {
+    #[must_use]
     pub const fn binding(&self) -> &NativePreparationBindingV1 {
         &self.verified.binding
     }
+    #[must_use]
     pub const fn consent_public_key(&self) -> [u8; 32] {
         self.verified.owner_public_key
     }
+    #[must_use]
     pub const fn owner_revocation_sequence(&self) -> u64 {
         self.verified.owner_revocation_sequence
     }
+    #[must_use]
     pub const fn observed_head_sequence(&self) -> u64 {
         self.verified.observed_head_sequence
     }
+    #[must_use]
     pub const fn observed_at_ms(&self) -> u64 {
         self.verified.observed_at_ms
     }
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn replay_update(&self, store: &Store) -> Result<(TenantKey, Vec<u8>), BindingError> {
         self.verified.replay_update(store)
     }
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn native_send_purpose_digest(
     purpose: &layerx_agent_api::identity::NativeSendPurposeV2,
 ) -> Result<[u8; 32], BindingError> {
@@ -3623,6 +3700,9 @@ pub struct NativeSendAdmission {
 }
 
 impl NativeSendAdmission {
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn verify(
         preparation: &crate::sign::SigningPreparation,
         raw: &[u8],
@@ -3674,23 +3754,31 @@ impl NativeSendAdmission {
         })
     }
 
+    #[must_use]
     pub fn exact_bytes(&self) -> &[u8] {
         self.submission.exact_bytes()
     }
+    #[must_use]
     pub const fn submission(&self) -> &crate::sign::VerifiedSubmission {
         &self.submission
     }
+    #[must_use]
     pub fn preparation_id(&self) -> [u8; 32] {
         Sha256::digest(self.preparation.transaction.call.encode_unsigned()).into()
     }
+    #[must_use]
     pub const fn principal(&self) -> &super::VerifiedLedgerPrincipal {
         &self.principal
     }
+    #[must_use]
     pub const fn preparation(&self) -> &crate::sign::SigningPreparation {
         &self.preparation
     }
 
     /// Consumes the sender/nonce replay slot and retains the exact signed bytes atomically.
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn admit(&self, store: &mut Store, tenant: TenantId) -> Result<(), BindingError> {
         let reference = self.preparation_id();
         let key = native_send_evm_key(tenant.clone(), &reference)?;
@@ -3723,6 +3811,9 @@ impl NativeSendAdmission {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn restore(
         store: &Store,
         tenant: TenantId,
@@ -3748,18 +3839,8 @@ impl NativeSendAdmission {
             issuer,
             fee_account,
             source,
-        ): (
-            [u8; 20],
-            u64,
-            [u8; 32],
-            [u8; 32],
-            Vec<u8>,
-            Vec<u8>,
-            [u8; 32],
-            [u8; 32],
-            [u8; 32],
-            [u8; 32],
-        ) = serde_json::from_slice(value.bytes()).map_err(|_| BindingError::Corrupt)?;
+        ): RetainedNativeSend =
+            serde_json::from_slice(value.bytes()).map_err(|_| BindingError::Corrupt)?;
         if <[u8; 32]>::from(Sha256::digest(&unsigned)) != reference {
             return Err(BindingError::Corrupt);
         }
@@ -3798,6 +3879,9 @@ impl NativeSendAdmission {
     }
 
     /// Evaluates the live native capability chain against the signed transfer and maximum gas debit.
+    /// # Errors
+    /// Returns an error if the preparation, purpose, capability or owner binding is missing,
+    /// corrupt, restricted or conflicting.
     pub fn inspect_capability(
         &self,
         store: &Store,
@@ -3893,6 +3977,9 @@ fn native_evm_chain(
     Ok(chain)
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn inspect_evm_native_registration_capability(
     store: &Store,
     binding: NativePreparationBindingV1,
@@ -3939,6 +4026,9 @@ fn native_send_evm_key(tenant: TenantId, reference: &[u8; 32]) -> Result<TenantK
     )?)
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn stage_native_send_local_grant(
     store: &Store,
     sessions: &crate::session::SessionRegistry,
@@ -3958,6 +4048,9 @@ pub fn stage_native_send_local_grant(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn verify_native_owner_send_purpose(
     store: &Store,
     sessions: &crate::session::SessionRegistry,
@@ -3999,57 +4092,57 @@ pub fn verify_native_owner_send_purpose(
     let record = sessions
         .get(session.tenant(), session.session_id())
         .ok_or(BindingError::Unbound)?;
-    if owner.tenant() != session.tenant()
-        || owner.agent() != session.agent()
-        || owner.session_id() != session.session_id()
-        || owner.generation() != session.generation()
-        || owner.head_sequence() != core_sequence
-        || owner.revocation_sequence() == 0
-        || owner.revocation_sequence() > core_sequence
-        || !record.open
-        || record.generation != session.generation()
-        || &record.request.tenant != session.tenant()
-        || record.request.session_id != session.session_id()
-        || &record.request.agent != session.agent()
-        || core_sequence >= record.request.expiry_sequence
-        || !record
-            .public_expiry_within(core_time_ms)
-            .map_err(|_| BindingError::Unbound)?
-    {
-        return Err(BindingError::Unbound);
-    }
+    crate::reject_if(
+        owner.tenant() != session.tenant()
+            || owner.agent() != session.agent()
+            || owner.session_id() != session.session_id()
+            || owner.generation() != session.generation()
+            || owner.head_sequence() != core_sequence
+            || owner.revocation_sequence() == 0
+            || owner.revocation_sequence() > core_sequence
+            || !record.open
+            || record.generation != session.generation()
+            || &record.request.tenant != session.tenant()
+            || record.request.session_id != session.session_id()
+            || &record.request.agent != session.agent()
+            || core_sequence >= record.request.expiry_sequence
+            || !record
+                .public_expiry_within(core_time_ms)
+                .map_err(|_| BindingError::Unbound)?,
+        || BindingError::Unbound,
+    )?;
     let activity =
         layerx_agent_api::identity::NativeActivity::from(prepared.disclosure.activity_type);
-    if purpose.tenant.as_str() != session.tenant().as_str()
-        || purpose.agent_did.as_str().as_bytes() != session.agent().as_bytes()
-        || purpose.owner_did.as_str().as_bytes() != owner.agent().as_bytes()
-        || purpose
-            .session_id
-            .to_bytes()
-            .map_err(|_| BindingError::Corrupt)?
-            != session.session_id().0
-        || purpose.generation != session.generation()
-        || purpose.preparation_id != *preparation_id
-        || purpose.canonical_digest != canonical_digest
-        || purpose.preparation_id != canonical_digest
-        || purpose.activity != activity
-        || purpose.economic_action != capability_id
-        || purpose.economic_action != session.session_id().0
-        || purpose.idempotency_key != prepared.disclosure.idempotency_key
-        || prepared.disclosure.actor.as_slice() != prepared.from
-        || activity != session.activity()
-        || prepared.observed_head_height > core_sequence
-        || core_time_ms < prepared.disclosure.expiry.not_before
-        || core_time_ms >= purpose.expires_at_ms
-        || record
-            .request
-            .expiry_seconds
-            .and_then(|value| value.checked_mul(1000))
-            .is_none_or(|expiry| purpose.expires_at_ms > expiry)
-        || purpose.expires_at_ms > prepared.disclosure.expiry.not_after
-    {
-        return Err(BindingError::Conflict);
-    }
+    crate::reject_if(
+        purpose.tenant.as_str() != session.tenant().as_str()
+            || purpose.agent_did.as_str().as_bytes() != session.agent().as_bytes()
+            || purpose.owner_did.as_str().as_bytes() != owner.agent().as_bytes()
+            || purpose
+                .session_id
+                .to_bytes()
+                .map_err(|_| BindingError::Corrupt)?
+                != session.session_id().0
+            || purpose.generation != session.generation()
+            || purpose.preparation_id != *preparation_id
+            || purpose.canonical_digest != canonical_digest
+            || purpose.preparation_id != canonical_digest
+            || purpose.activity != activity
+            || purpose.economic_action != capability_id
+            || purpose.economic_action != session.session_id().0
+            || purpose.idempotency_key != prepared.disclosure.idempotency_key
+            || prepared.disclosure.actor.as_slice() != prepared.from
+            || activity != session.activity()
+            || prepared.observed_head_height > core_sequence
+            || core_time_ms < prepared.disclosure.expiry.not_before
+            || core_time_ms >= purpose.expires_at_ms
+            || record
+                .request
+                .expiry_seconds
+                .and_then(|value| value.checked_mul(1000))
+                .is_none_or(|expiry| purpose.expires_at_ms > expiry)
+            || purpose.expires_at_ms > prepared.disclosure.expiry.not_after,
+        || BindingError::Conflict,
+    )?;
     layerx_crypto::ed25519::verify_digest(&purpose.consent_public_key, &signed.signature, &digest)
         .map_err(|_| BindingError::Unbound)?;
     let binding = NativePreparationBindingV1 {
@@ -4062,17 +4155,27 @@ pub fn verify_native_owner_send_purpose(
         capability_id,
         preparation_id: *preparation_id,
         canonical_digest,
-        envelope_digest: Sha256::digest(&prepared.call.encode_unsigned()).into(),
+        envelope_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
         purpose_commitment: purpose.commitment,
         purpose_digest: digest,
         expires_at_ms: purpose.expires_at_ms,
     };
+    retain_native_send_purpose(store, binding, signed, owner, core_sequence, core_time_ms)
+}
+fn retain_native_send_purpose(
+    store: &Store,
+    binding: NativePreparationBindingV1,
+    signed: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
+    owner: &crate::human_runtime::VerifiedNativeSendOwnerV2,
+    core_sequence: u64,
+    core_time_ms: u64,
+) -> Result<VerifiedNativeSendPurposeV2, BindingError> {
+    let preparation_id = &binding.preparation_id;
+    let purpose = &signed.purpose;
     let mut old_object = b"native-purpose-v1:".to_vec();
     old_object.extend_from_slice(preparation_id);
     let old_key = TenantKey::new(binding.tenant.clone(), ObjectKind::Capability, old_object)?;
-    if store.get(&old_key).is_some() {
-        return Err(BindingError::Conflict);
-    }
+    crate::reject_if(store.get(&old_key).is_some(), || BindingError::Conflict)?;
     let mut object = b"native-send-purpose-v1:".to_vec();
     object.extend_from_slice(preparation_id);
     let replay_key = TenantKey::new(binding.tenant.clone(), ObjectKind::Capability, object)?;
@@ -4094,6 +4197,9 @@ pub fn verify_native_owner_send_purpose(
     Ok(verified)
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn inspect_native_send_capability(
     store: &Store,
     purpose: &VerifiedNativeSendPurposeV2,
@@ -4149,6 +4255,9 @@ pub fn inspect_native_send_capability(
     )
 }
 
+/// # Errors
+/// Returns an error if the preparation, purpose, capability or owner binding is missing,
+/// corrupt, restricted or conflicting.
 pub fn restore_native_signed_send_purpose(
     store: &Store,
     tenant: &TenantId,
@@ -4180,3 +4289,16 @@ pub fn restore_native_signed_send_purpose(
     .map_err(|_| BindingError::Corrupt)?;
     Ok(Some(signed))
 }
+
+type RetainedNativeSend = (
+    [u8; 20],
+    u64,
+    [u8; 32],
+    [u8; 32],
+    Vec<u8>,
+    Vec<u8>,
+    [u8; 32],
+    [u8; 32],
+    [u8; 32],
+    [u8; 32],
+);

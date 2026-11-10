@@ -2,6 +2,7 @@ use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retri
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
 use layerx_agent_api::read::VerifiedRead;
 use layerx_agent_api::verify::Rung;
+#[cfg(test)]
 use layerx_types::payload::ModuleRegistry;
 
 use layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES;
@@ -20,6 +21,7 @@ use super::checkpoint_impl::{
     ServedProofBundle,
 };
 
+#[cfg(test)]
 pub(crate) struct ProofBundleScope<'a> {
     pub account: [u8; 32],
     pub asset: [u8; 32],
@@ -28,6 +30,7 @@ pub(crate) struct ProofBundleScope<'a> {
     pub correlation: u64,
 }
 
+#[cfg(test)]
 pub(crate) fn acquire(
     node: &mut SequencerEndpoint,
     _registry: &ModuleRegistry,
@@ -61,13 +64,17 @@ fn read_refusal(correlation: u64, class: ErrorClass, reason: &'static str) -> Ap
         protocol_result_code: None,
         retriability: Retriability::Terminal,
         request_id: RequestId(correlation),
-        reason: ReasonCode::new(reason).expect("static read reason"),
+        reason: ReasonCode::new(reason)
+            .unwrap_or_else(|error| panic!("static read reason: {error:?}")),
     }
 }
 
 /// Binds retained native EIP-1559 bytes to the node's authenticated receipt.
 /// Committed targets still require inclusion and storage material; a signed
 /// receipt alone never promotes the returned verification level.
+/// # Errors
+/// Returns an error if the node read or proof acquisition fails, its request is invalid, or
+/// its evidence does not verify.
 pub fn acquire_native_receipt(
     node: &SequencerEndpoint,
     target: ProofBundleTarget,
@@ -226,53 +233,25 @@ pub(crate) fn verify_bundle(
     } else {
         Rung::Receipted
     };
-    if rung < request.requested_rung || rung < request.target.required_rung() {
-        return Err(CheckpointReadError::BelowRequestedRung);
-    }
-    if receipt.metadata.rung < Rung::Receipted
-        || request.target.activity_id() == [0; 32]
-        || request.target.activity_id() != receipt.metadata.transaction_hash
-        || keccak256(request.raw_transaction) != receipt.metadata.transaction_hash
-        || request.header.height == 0
-        || request.header.height > i64::MAX as u64
-        || request.chain_id.is_empty()
-        || request.chain_id.len() > 50
-        || receipt.metadata.block_height.checked_add(1) != Some(request.header.height)
-        || request.header.chain_id != request.chain_id
-        || request.header.last_results_hash != Some(request.receipts_root)
-    {
-        return Err(CheckpointReadError::TargetMismatch);
-    }
-    let mut size = request.raw_transaction.len();
-    for length in [
-        receipt.canonical_receipt.len(),
-        request.receipt_public_key.len(),
-        1024,
-    ]
-    .into_iter()
-    .chain(request.receipt_proof.iter().map(Vec::len))
-    .chain(request.validators.iter().map(|_| 60))
-    .chain(
-        request
-            .commit
-            .into_iter()
-            .flat_map(|commit| commit.votes.iter().map(|_| 128)),
-    )
-    .chain(request.account_proof.into_iter().flat_map(|proofs| {
-        proofs.iter().flat_map(|witness| {
-            witness
-                .ops
-                .iter()
-                .map(|op| op.key.len() + op.data.len() + op.op_type.len())
-        })
-    })) {
-        size = size
-            .checked_add(length)
-            .ok_or(CheckpointReadError::Arithmetic)?;
-    }
-    if size > MAX_PROOF_BUNDLE_BYTES {
-        return Err(CheckpointReadError::Arithmetic);
-    }
+    crate::reject_if(
+        rung < request.requested_rung || rung < request.target.required_rung(),
+        || CheckpointReadError::BelowRequestedRung,
+    )?;
+    crate::reject_if(
+        receipt.metadata.rung < Rung::Receipted
+            || request.target.activity_id() == [0; 32]
+            || request.target.activity_id() != receipt.metadata.transaction_hash
+            || keccak256(request.raw_transaction) != receipt.metadata.transaction_hash
+            || request.header.height == 0
+            || request.header.height > i64::MAX as u64
+            || request.chain_id.is_empty()
+            || request.chain_id.len() > 50
+            || receipt.metadata.block_height.checked_add(1) != Some(request.header.height)
+            || request.header.chain_id != request.chain_id
+            || request.header.last_results_hash != Some(request.receipts_root),
+        || CheckpointReadError::TargetMismatch,
+    )?;
+    verify_bundle_size(request)?;
     let digest: [u8; 32] = Sha256::digest(&receipt.canonical_receipt).into();
     let signature = receipt.metadata.receipt_signature[..64]
         .try_into()
@@ -301,9 +280,9 @@ pub(crate) fn verify_bundle(
             let state = verify_account(proof, account, checkpoint)?;
             (Some(state), Some(request.header.app_hash))
         } else {
-            if request.account_proof.is_some() {
-                return Err(CheckpointReadError::TargetMismatch);
-            }
+            crate::reject_if(request.account_proof.is_some(), || {
+                CheckpointReadError::TargetMismatch
+            })?;
             (None, None)
         };
     Ok(ServedProofBundle {
@@ -487,16 +466,20 @@ fn u64_word(value: u64) -> [u8; 32] {
     word
 }
 
+#[cfg(test)]
 fn rlp_index(value: u64) -> Vec<u8> {
     if value == 0 {
         return vec![0x80];
     }
     if value < 128 {
-        return vec![value as u8];
+        return vec![value.to_le_bytes()[0]];
     }
     let bytes = value.to_be_bytes();
     let bytes = &bytes[bytes.iter().position(|byte| *byte != 0).unwrap_or(7)..];
-    let mut encoded = vec![0x80 + bytes.len() as u8];
+    let mut encoded = vec![
+        0x80 + u8::try_from(bytes.len())
+            .unwrap_or_else(|_| unreachable!("a u64 has at most eight bytes")),
+    ];
     encoded.extend_from_slice(bytes);
     encoded
 }
@@ -583,6 +566,7 @@ fn list_items(bytes: &[u8]) -> Result<Vec<RlpItem<'_>>, CheckpointReadError> {
     Ok(items)
 }
 
+#[cfg(test)]
 fn nibbles(bytes: &[u8]) -> Vec<u8> {
     bytes
         .iter()
@@ -590,6 +574,7 @@ fn nibbles(bytes: &[u8]) -> Vec<u8> {
         .collect()
 }
 
+#[cfg(test)]
 fn trie_value(
     root: [u8; 32],
     key: &[u8],
@@ -690,12 +675,14 @@ pub struct NativeProofRequest<'a> {
 }
 
 impl NativeProofRequest<'_> {
+    /// # Errors
+    /// Returns an error if node acquisition fails or the committed checkpoint, target, result
+    /// root or proof cannot be verified.
     pub fn acquire(
         &self,
         endpoint: &SequencerEndpoint,
         source: &super::NativeResultSource,
     ) -> Result<VerifiedRead<ProofBundle>, CheckpointReadError> {
-        use layerx_agent_api::prepare::CanonicalBytes;
         use layerx_agent_api::read::{Freshness, RelativeTo};
         self.target
             .encode()
@@ -705,12 +692,12 @@ impl NativeProofRequest<'_> {
         let numeric_chain = endpoint.chain_id().map_err(CheckpointReadError::Rpc)?;
         let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
             .map_err(|_| CheckpointReadError::TargetMismatch)?;
-        if self.requested_rung > Rung::Committed
-            || call.chain_id != numeric_chain
-            || keccak256(self.raw_transaction) != self.target.activity_id()
-        {
-            return Err(CheckpointReadError::TargetMismatch);
-        }
+        crate::reject_if(
+            self.requested_rung > Rung::Committed
+                || call.chain_id != numeric_chain
+                || keccak256(self.raw_transaction) != self.target.activity_id(),
+            || CheckpointReadError::TargetMismatch,
+        )?;
         let keys = endpoint.receipt_keys().map_err(CheckpointReadError::Rpc)?;
         let layerx_client::rpc::receipt::Lookup::Verified(receipt) =
             layerx_client::rpc::receipt::lookup_authenticated(
@@ -724,13 +711,13 @@ impl NativeProofRequest<'_> {
         else {
             return Err(CheckpointReadError::InvalidProof);
         };
-        if receipt.canonical_bytes() != self.served_receipt
-            || receipt.height() == 0
-            || receipt.execution().from != sender
-            || receipt.execution().nonce != call.nonce
-        {
-            return Err(CheckpointReadError::TargetMismatch);
-        }
+        crate::reject_if(
+            receipt.canonical_bytes() != self.served_receipt
+                || receipt.height() == 0
+                || receipt.execution().from != sender
+                || receipt.execution().nonce != call.nonce,
+            || CheckpointReadError::TargetMismatch,
+        )?;
         let block = endpoint
             .block_by_number(receipt.height())
             .map_err(CheckpointReadError::Rpc)?
@@ -740,11 +727,11 @@ impl NativeProofRequest<'_> {
             .checked_add(1)
             .ok_or(CheckpointReadError::Arithmetic)?;
         let checkpoint = source.checkpoint(commitment_height, self.chain_id, self.validators)?;
-        if checkpoint.header.last_block_id.map(|id| id.hash) != Some(block.hash)
-            || checkpoint.header.last_results_hash != Some(block.receipts_root)
-        {
-            return Err(CheckpointReadError::CheckpointBlockMismatch);
-        }
+        crate::reject_if(
+            checkpoint.header.last_block_id.map(|id| id.hash) != Some(block.hash)
+                || checkpoint.header.last_results_hash != Some(block.receipts_root),
+            || CheckpointReadError::CheckpointBlockMismatch,
+        )?;
         let inclusion = source.acquire(receipt.height(), receipt.execution().index)?;
         inclusion.verify_committed(
             receipt.height(),
@@ -754,19 +741,43 @@ impl NativeProofRequest<'_> {
             self.validators,
         )?;
         super::abci_result::verify_native_receipt(&inclusion.result, &receipt)?;
-        let canonical = |bytes: Vec<u8>| {
-            CanonicalBytes::new(bytes).map_err(|_| CheckpointReadError::Arithmetic)
-        };
+        let account_proof = self.acquire_account_proof(endpoint, receipt.height(), &checkpoint)?;
+        let bundle =
+            self.render_proof_bundle(&receipt, &checkpoint, &inclusion, &keys, account_proof)?;
+        let head = endpoint.block_number().map_err(CheckpointReadError::Rpc)?;
+        crate::reject_if(head < commitment_height, || {
+            CheckpointReadError::NotCommitted
+        })?;
+        Ok(VerifiedRead::new(
+            bundle,
+            Rung::Committed,
+            Freshness {
+                chain_head: head,
+                value_height: receipt.height(),
+                relative_to: RelativeTo::Block {
+                    height: block.number,
+                    hash: block.hash,
+                },
+            },
+        ))
+    }
+    fn acquire_account_proof(
+        &self,
+        endpoint: &SequencerEndpoint,
+        height: u64,
+        checkpoint: &ServedCheckpoint,
+    ) -> Result<Option<layerx_agent_api::prepare::CanonicalBytes>, CheckpointReadError> {
         let account_proof = if let ProofBundleTarget::AccountState { account_id, .. } = self.target
         {
-            if self.account_slots.is_empty() || self.account_slots.len() > 1024 {
-                return Err(CheckpointReadError::InvalidProof);
-            }
+            crate::reject_if(
+                self.account_slots.is_empty() || self.account_slots.len() > 1024,
+                || CheckpointReadError::InvalidProof,
+            )?;
             let address = account_address(account_id)?;
             let witnesses = endpoint
-                .storage_witness(&address, self.account_slots, receipt.height())
+                .storage_witness(&address, self.account_slots, height)
                 .map_err(CheckpointReadError::Rpc)?;
-            verify_account(&witnesses, address, &checkpoint)?;
+            verify_account(&witnesses, address, checkpoint)?;
             let rows: Vec<_> = witnesses
                 .iter()
                 .map(|witness| {
@@ -781,15 +792,25 @@ impl NativeProofRequest<'_> {
                     })
                 })
                 .collect();
-            Some(canonical(
+            Some(canonical_proof_bytes(
                 serde_json::to_vec(&rows).map_err(|_| CheckpointReadError::InvalidProof)?,
             )?)
         } else {
-            if !self.account_slots.is_empty() {
-                return Err(CheckpointReadError::TargetMismatch);
-            }
+            crate::reject_if(!self.account_slots.is_empty(), || {
+                CheckpointReadError::TargetMismatch
+            })?;
             None
         };
+        Ok(account_proof)
+    }
+    fn render_proof_bundle(
+        &self,
+        receipt: &layerx_client::rpc::receipt::AuthenticatedReceipt,
+        checkpoint: &ServedCheckpoint,
+        inclusion: &super::AbciResultProof,
+        keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+        account_proof: Option<layerx_agent_api::prepare::CanonicalBytes>,
+    ) -> Result<ProofBundle, CheckpointReadError> {
         let commitment = checkpoint.commitment_proof()?;
         let native_proof = serde_json::json!({
             "algorithm": "comet-abci-results-v1", "height": receipt.height(),
@@ -811,37 +832,63 @@ impl NativeProofRequest<'_> {
         let bundle = ProofBundle {
             format: "layerx-receipt-proof-v2".into(),
             verification_level: Rung::Committed,
-            raw_transaction: canonical(self.raw_transaction.to_vec())?,
-            signed_receipt: canonical(receipt.canonical_bytes().to_vec())?,
+            raw_transaction: canonical_proof_bytes(self.raw_transaction.to_vec())?,
+            signed_receipt: canonical_proof_bytes(receipt.canonical_bytes().to_vec())?,
             receipt_digest: layerx_wire::hash::receipt_digest(&unsigned)
                 .map_err(|_| CheckpointReadError::InvalidProof)?,
             receipt_key: key,
-            block_header: Some(canonical(commitment.signed_header)?),
-            receipt_inclusion: Some(canonical(
+            block_header: Some(canonical_proof_bytes(commitment.signed_header)?),
+            receipt_inclusion: Some(canonical_proof_bytes(
                 serde_json::to_vec(&native_proof).map_err(|_| CheckpointReadError::InvalidProof)?,
             )?),
-            commit: Some(canonical(commitment.commit)?),
-            validator_set: Some(canonical(commitment.validator_set)?),
+            commit: Some(canonical_proof_bytes(commitment.commit)?),
+            validator_set: Some(canonical_proof_bytes(commitment.validator_set)?),
             account_proof,
         };
         bundle
             .validate()
             .map_err(|_| CheckpointReadError::InvalidProof)?;
-        let head = endpoint.block_number().map_err(CheckpointReadError::Rpc)?;
-        if head < commitment_height {
-            return Err(CheckpointReadError::NotCommitted);
-        }
-        Ok(VerifiedRead::new(
-            bundle,
-            Rung::Committed,
-            Freshness {
-                chain_head: head,
-                value_height: receipt.height(),
-                relative_to: RelativeTo::Block {
-                    height: block.number,
-                    hash: block.hash,
-                },
-            },
-        ))
+        Ok(bundle)
     }
+}
+
+fn verify_bundle_size(request: &ProofBundleRequest<'_>) -> Result<(), CheckpointReadError> {
+    let mut size = request.raw_transaction.len();
+    for length in [
+        request.receipt.canonical_receipt.len(),
+        request.receipt_public_key.len(),
+        1024,
+    ]
+    .into_iter()
+    .chain(request.receipt_proof.iter().map(Vec::len))
+    .chain(request.validators.iter().map(|_| 60))
+    .chain(
+        request
+            .commit
+            .into_iter()
+            .flat_map(|commit| commit.votes.iter().map(|_| 128)),
+    )
+    .chain(request.account_proof.into_iter().flat_map(|proofs| {
+        proofs.iter().flat_map(|witness| {
+            witness
+                .ops
+                .iter()
+                .map(|op| op.key.len() + op.data.len() + op.op_type.len())
+        })
+    })) {
+        size = size
+            .checked_add(length)
+            .ok_or(CheckpointReadError::Arithmetic)?;
+    }
+    crate::reject_if(size > MAX_PROOF_BUNDLE_BYTES, || {
+        CheckpointReadError::Arithmetic
+    })?;
+    Ok(())
+}
+
+fn canonical_proof_bytes(
+    bytes: Vec<u8>,
+) -> Result<layerx_agent_api::prepare::CanonicalBytes, CheckpointReadError> {
+    layerx_agent_api::prepare::CanonicalBytes::new(bytes)
+        .map_err(|_| CheckpointReadError::Arithmetic)
 }

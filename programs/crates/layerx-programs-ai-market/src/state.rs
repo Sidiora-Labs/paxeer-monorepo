@@ -146,6 +146,7 @@ impl Clone for ReplayTable {
 
 impl ReplayTable {
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub const fn new() -> Self {
         Self {
             actors: [None; ACTOR_SLOTS],

@@ -5,7 +5,7 @@ outputs = ["agent-api-rust", "agent-rust", "agent-typescript", "agent-python", "
 
 [source.agent-api]
 root = "services/agent/schema/agent-api"
-digest = "84c700cdc9864d654a89f785532e69330400f1b00cecc369ed33394b44a7ede4"
+digest = "b52695f614376ea5d1774545e77458e9ba78729a26bfbdd2069d6f7f928df816"
 
 [source.human-api]
 root = "services/human/schema/human-api"
@@ -17,7 +17,7 @@ digest = "de5e350540972ac952d0235bb0d27ce83f391457eee74178bda8642a044d2655"
 
 [generator.platform-sdkgen]
 root = "sdk/platform/generators"
-digest = "e71aec371ba665f662e5c4f3d8b66ea93f02cf7e231be0056bcc37a3aa16c177"
+digest = "3ef357c7e4bb25267b83fbe0cf32c2812fc020c21aa866b15c798ff142386681"
 
 [generator.agent-sdk-gen]
 root = "services/agent/tools/sdk-gen"
@@ -208,7 +208,11 @@ root = "services/agent/sdk"
 "python/tests/test_x402_draw_sequencer.py" = "handwritten"
 "python/tests/test_x402_http_sequencer.py" = "handwritten"
 "python/tests/test_x402_rpc_surface.py" = "handwritten"
+"repair_22_39_258.kvx" = "handwritten"
+"repair_22_39_288.kvx" = "handwritten"
 "repair_22_39_297.kvx" = "handwritten"
+"repair_22_39_299.kvx" = "handwritten"
+"repair_22_39_351.kvx" = "handwritten"
 "typescript/.gitignore" = "handwritten"
 "typescript/TESTING.md" = "handwritten"
 "typescript/examples/budget-constrained-spending.ts" = "handwritten"
@@ -417,9 +421,9 @@ root = "sdk/platform/jvm"
 
 [files.platform-jvm]
 "pom.xml" = "dabb82bf7a9b0cd81396e747e046b85a3efb83f93bbf086c1482a2a0ba585b60"
-"src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java" = "6a2b553016227029b735567cfa868d48970ef78c75ac9c6f99e730e02907de92"
+"src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java" = "765887da3e46dbabb34cfd815652b6b1f40a1ee5312ae5d6295636e46171e0ce"
 "src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java" = "c8717feda31a337917d4209c212a2f906bab5a2b3a854731fb494e89f42efede"
-"src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java" = "945a4f570c6d1757c2f4d3aa94c85da70b4db1b9f4593c418f6d60d8c46a837a"
+"src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java" = "1aa4a00a33aca8e93205c8bde50221d9da7283f74444304999cc4bf0ab6a8ba2"
 "src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java" = "81b5e4ccb7174db995a9f72b53e08126b65ae1ecdc4e391ed30beea66c6510c5"
 "src/main/java/com/sidiora/layerx/sdk/IdempotencyKey.java" = "2cfba7826e4bb7a6f0d4af63530f43c7aece547cf9f64ff1664b781cc431f6a4"
 "src/main/java/com/sidiora/layerx/sdk/OperationCatalog.java" = "477843c32935ffbc9ecff6dd6a35b78693b059c3d29a59aa021349b4a868e8e3"
@@ -451,6 +455,7 @@ root = "sdk/platform/jvm"
 "repair-22.33.1394.kvx" = "handwritten"
 "repair_22_39_287.kvx" = "handwritten"
 "repair_22_39_301.kvx" = "handwritten"
+"repair_22_39_317.kvx" = "handwritten"
 "src/conformance/java/com/sidiora/layerx/sdk/repair-22.33.1393.kvx" = "handwritten"
 "src/main/java/com/sidiora/layerx/sdk/BoundedHttpResponse.java" = "handwritten"
 "src/main/java/com/sidiora/layerx/sdk/Chains.java" = "handwritten"
