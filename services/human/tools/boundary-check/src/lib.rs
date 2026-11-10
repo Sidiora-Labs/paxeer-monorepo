@@ -10,6 +10,7 @@ const BANNED_DEPENDENCIES: &[&str] = &[
     "layerx-protocol-core",
 ];
 
+// These names are refusal patterns, not dependencies of the checker.
 const RETIRED_CRATES: &[&str] = &["layerx-human-movement-provider", "layerx-paxeer-client"];
 
 const RETIRED_IMPORTS: &[&str] = &[

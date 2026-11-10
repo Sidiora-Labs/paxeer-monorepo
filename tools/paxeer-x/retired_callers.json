@@ -1269,6 +1269,30 @@
         "paxeer-reserve"
       ],
       "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "services/human/crates/layerx-human-kms/src/attestor.rs",
+      "lines": [
+        "let mut future = signer::sign_disclosed_call(&signer, call, disclosure, from);"
+      ],
+      "citation": "Decision 3125 retains this live EIP-1559 disclosure-bound signer from services/agent/crates/layerx-crypto/src/signer.rs; the retired sign_disclosed prefix also matches its sign_disclosed_call replacement."
+    },
+    {
+      "path": "services/human/tools/boundary-check/src/lib.rs",
+      "lines": [
+        "const RETIRED_CRATES: &[&str] = &[\"layerx-human-movement-provider\", \"layerx-paxeer-client\"];",
+        "\"layerx_client::lni\",",
+        "\"layerx_proof::checkpoint::SettlementDomain\",",
+        "\"layerx_wire::activity\","
+      ],
+      "citation": "Decision 3125 retains these exact rejection patterns for retired crates and imports under removals 11047, 11021, 11024, 11028 and 11030; the checker rejects these APIs rather than consuming them."
+    },
+    {
+      "path": "services/human/tools/dependency-policy.sh",
+      "lines": [
+        "banned=\"$banned\"'|layerx-human-movement-provider|layerx-paxeer-client|ctor|inventory)$'"
+      ],
+      "citation": "Decision 3125 retains these exact retired package names solely to reject forbidden dependencies in resolved Cargo metadata under the human two-domain removal 11047."
     }
   ]
 }
