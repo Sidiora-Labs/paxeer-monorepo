@@ -11,6 +11,7 @@ pub enum LapError {
     Deal(DealError),
     Invalid(&'static str),
     Client(AiClientError),
+    #[cfg(test)]
     Signal(SignalError),
     Io(io::Error),
 }
@@ -36,7 +37,14 @@ impl From<io::Error> for LapError {
 }
 impl std::fmt::Display for LapError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "lap processing refused: {self:?}")
+        match self {
+            Self::Deal(error) => write!(f, "lap processing refused: Deal({error:?})"),
+            Self::Invalid(error) => write!(f, "lap processing refused: Invalid({error:?})"),
+            Self::Client(error) => write!(f, "lap processing refused: Client({error:?})"),
+            #[cfg(test)]
+            Self::Signal(error) => write!(f, "lap processing refused: Signal({error:?})"),
+            Self::Io(error) => write!(f, "lap processing refused: Io({error:?})"),
+        }
     }
 }
 impl std::error::Error for LapError {}
@@ -119,6 +127,7 @@ impl LapFrame {
         hash.update(digest.as_bytes());
         Ok(hash.finalize().into())
     }
+    #[cfg(test)]
     pub fn countersign(&self, peer: &HostMeterKey) -> Result<LapCountersignature, LapError> {
         Ok(LapCountersignature {
             deal_id: self.receipt.deal_id,
@@ -253,22 +262,7 @@ impl LapEngine {
             )?
             .0,
         )?;
-        for split in &deal.plan.layers {
-            let bid = book
-                .bid(Digest32::new(split.bid_id)?)?
-                .ok_or(LapError::Invalid("missing bid"))?;
-            let worker = workers
-                .iter()
-                .find(|w| w.owner.bytes() == split.owner)
-                .ok_or(LapError::Invalid("missing peer"))?;
-            if bid.peer_key.bytes() != split.owner
-                || worker.delegate.0 != split.peer_key
-                || worker.metadata.bytes() != split.manifest_digest
-                || bid.capability_digest.bytes() != split.manifest_digest
-            {
-                return Err(LapError::Invalid("peer authority differs"));
-            }
-        }
+        Self::validate_deal_peers(&deal, &book, &workers)?;
         let ask = book
             .ask(recorded.ask_id)?
             .ok_or(LapError::Invalid("missing ask"))?;
@@ -300,67 +294,7 @@ impl LapEngine {
             path: path.to_path_buf(),
         };
         if path.exists() {
-            let bytes = fs::read(path)?;
-            if bytes.len() > 4 * 1024 * 1024 {
-                return Err(LapError::Invalid("lap journal too large"));
-            }
-            let restored: LapSession = serde_json::from_slice(&bytes)
-                .map_err(|_| LapError::Invalid("corrupt lap journal"))?;
-            if restored.deal != engine.session.deal
-                || restored.host_meter_key != host
-                || restored.batch_size != batch_size
-                || restored.lap_size != engine.session.lap_size
-                || restored.maximum_generated != engine.session.maximum_generated
-                || restored.countersign_window_ms != engine.session.countersign_window_ms
-                || restored.stream_id != stream_id
-            {
-                return Err(LapError::Invalid("lap journal binding differs"));
-            }
-            if restored.receipts.len() != restored.proofs.len()
-                || restored.receipts.len() > batch_size
-            {
-                return Err(LapError::Invalid("receipt proof count"));
-            }
-            for (receipt, proof) in restored.receipts.iter().zip(&restored.proofs) {
-                receipt.verify(host)?;
-                proof.frame.receipt.verify(host)?;
-                let mut bitmap = 0;
-                for (i, peer) in restored.deal.plan.layers.iter().enumerate() {
-                    if let Some(signature) = proof.signatures.get(&hex(&peer.peer_key)) {
-                        verify_countersignature(&proof.frame, &peer.peer_key, signature)?;
-                        bitmap |= 1 << i;
-                    }
-                }
-                let mut original = receipt.clone();
-                original.peer_countersignatures = 0;
-                original.host_signature = proof.frame.receipt.host_signature.clone();
-                if original != proof.frame.receipt
-                    || bitmap != receipt.peer_countersignatures
-                    || proof.frame.deal_digest != restored.deal.digest()?
-                {
-                    return Err(LapError::Invalid("receipt proof differs"));
-                }
-            }
-            if let Some(pending) = &restored.pending {
-                pending.frame.receipt.verify(host)?;
-                if pending.frame.deal_digest != restored.deal.digest()? {
-                    return Err(LapError::Invalid("pending deal differs"));
-                }
-                for (key, signature) in &pending.signatures {
-                    let peer = restored
-                        .deal
-                        .plan
-                        .layers
-                        .iter()
-                        .find(|p| hex(&p.peer_key) == *key)
-                        .ok_or(LapError::Invalid("unknown countersigner"))?;
-                    verify_countersignature(&pending.frame, &peer.peer_key, signature)?;
-                }
-            }
-            engine.session = restored;
-            if !engine.session.receipts.is_empty() {
-                engine.batch()?;
-            }
+            engine.restore(host)?;
         } else if market::laps::settlement_from_state(
             state_bytes,
             Digest32::new(engine.session.deal.deal_id)?,
@@ -372,6 +306,95 @@ impl LapEngine {
             engine.persist()?;
         }
         Ok(engine)
+    }
+    fn validate_deal_peers(
+        deal: &DealFrame,
+        book: &RoomBook<'_>,
+        workers: &WorkerTable,
+    ) -> Result<(), LapError> {
+        for split in &deal.plan.layers {
+            let bid = book
+                .bid(Digest32::new(split.bid_id)?)?
+                .ok_or(LapError::Invalid("missing bid"))?;
+            let worker = workers
+                .iter()
+                .find(|w| w.owner.bytes() == split.owner)
+                .ok_or(LapError::Invalid("missing peer"))?;
+            if bid.peer_key.bytes() != split.owner
+                || worker.delegate.0 != split.peer_key
+                || worker.metadata.bytes() != split.manifest_digest
+                || bid.capability_digest.bytes() != split.manifest_digest
+            {
+                return Err(LapError::Invalid("peer authority differs"));
+            }
+        }
+        Ok(())
+    }
+    fn restore(&mut self, host: [u8; 32]) -> Result<(), LapError> {
+        let bytes = fs::read(&self.path)?;
+        if bytes.len() > 4 * 1024 * 1024 {
+            return Err(LapError::Invalid("lap journal too large"));
+        }
+        let restored: LapSession =
+            serde_json::from_slice(&bytes).map_err(|_| LapError::Invalid("corrupt lap journal"))?;
+        if restored.deal != self.session.deal
+            || restored.host_meter_key != host
+            || restored.batch_size != self.session.batch_size
+            || restored.lap_size != self.session.lap_size
+            || restored.maximum_generated != self.session.maximum_generated
+            || restored.countersign_window_ms != self.session.countersign_window_ms
+            || restored.stream_id != self.session.stream_id
+        {
+            return Err(LapError::Invalid("lap journal binding differs"));
+        }
+        if restored.receipts.len() != restored.proofs.len()
+            || restored.receipts.len() > self.session.batch_size
+        {
+            return Err(LapError::Invalid("receipt proof count"));
+        }
+        for (receipt, proof) in restored.receipts.iter().zip(&restored.proofs) {
+            receipt.verify(host)?;
+            proof.frame.receipt.verify(host)?;
+            let mut bitmap = 0;
+            for (i, peer) in restored.deal.plan.layers.iter().enumerate() {
+                if let Some(signature) = proof.signatures.get(&hex(&peer.peer_key)) {
+                    verify_countersignature(&proof.frame, &peer.peer_key, signature)?;
+                    bitmap |= 1 << i;
+                }
+            }
+            let mut original = receipt.clone();
+            original.peer_countersignatures = 0;
+            original
+                .host_signature
+                .clone_from(&proof.frame.receipt.host_signature);
+            if original != proof.frame.receipt
+                || bitmap != receipt.peer_countersignatures
+                || proof.frame.deal_digest != restored.deal.digest()?
+            {
+                return Err(LapError::Invalid("receipt proof differs"));
+            }
+        }
+        if let Some(pending) = &restored.pending {
+            pending.frame.receipt.verify(host)?;
+            if pending.frame.deal_digest != restored.deal.digest()? {
+                return Err(LapError::Invalid("pending deal differs"));
+            }
+            for (key, signature) in &pending.signatures {
+                let peer = restored
+                    .deal
+                    .plan
+                    .layers
+                    .iter()
+                    .find(|p| hex(&p.peer_key) == *key)
+                    .ok_or(LapError::Invalid("unknown countersigner"))?;
+                verify_countersignature(&pending.frame, &peer.peer_key, signature)?;
+            }
+        }
+        self.session = restored;
+        if !self.session.receipts.is_empty() {
+            self.batch()?;
+        }
+        Ok(())
     }
     fn persist(&self) -> Result<(), LapError> {
         let parent = self
@@ -551,6 +574,7 @@ impl LapEngine {
         self.persist()?;
         Ok(true)
     }
+    #[cfg(test)]
     pub fn end_deal(&mut self) -> Result<(), LapError> {
         if self.session.pending.is_some() {
             return Err(LapError::Invalid("pending lap at end"));
@@ -565,6 +589,7 @@ impl LapEngine {
         !self.session.receipts.is_empty()
             && (self.session.receipts.len() == self.session.batch_size || self.session.ending)
     }
+    #[cfg(test)]
     pub fn receipts(&self) -> &[IssuedLap] {
         &self.session.receipts
     }
@@ -619,6 +644,65 @@ impl LapEngine {
         {
             return Err(LapError::Invalid("batch epoch or roster changed"));
         }
+        self.prepare_manifest(&shared, &policy, frozen, &batch)?;
+        let manifest = self
+            .session
+            .artifact_manifest
+            .as_ref()
+            .ok_or(LapError::Invalid("no manifest"))?;
+        match evidence::require_sealed_artifact_chunk_root(&shared, frozen.epoch, manifest, &batch)
+        {
+            Ok(_) => {}
+            Err(error) if error == market::errors::F11_BATCH_UNSEALED => {
+                let root = evidence::manifest_root(manifest)
+                    .map_err(|_| LapError::Invalid("manifest root"))?;
+                let mut payload = 1_u16.to_be_bytes().to_vec();
+                payload.extend_from_slice(&root.bytes());
+                payload.extend_from_slice(policy.current.digest()?.as_bytes());
+                payload.extend_from_slice(
+                    &evidence::decode_manifest(manifest)
+                        .map_err(|_| LapError::Invalid("manifest"))?
+                        .subject,
+                );
+                payload.extend_from_slice(policy.current.commitments.rubric.as_bytes());
+                payload.push(policy.current.assessment_mode);
+                transport.submit(&client::seal_evidence(&payload)?)?;
+                return Ok(false);
+            }
+            Err(error) => return Err(error.into()),
+        }
+        match market::laps::settlement_from_state(&bytes, batch.deal_id)? {
+            Some(settled) if settled.batch == batch => {}
+            Some(settled) if settled.batch.last_lap_index >= batch.first_lap_index => {
+                return Err(LapError::Invalid("conflicting on-chain settlement"))
+            }
+            _ => {
+                transport.submit(&client::settle_laps(&SettleLapsRequest {
+                    batch,
+                    artifact_manifest: manifest,
+                })?)?;
+                return Ok(false);
+            }
+        }
+        self.archive_batch(&batch)?;
+        if !self.report_meter(transport, host)? {
+            return Ok(false);
+        }
+        self.session.receipts.clear();
+        self.session.proofs.clear();
+        self.session.misses.clear();
+        self.session.artifact_manifest = None;
+        self.session.ended = self.session.ending;
+        self.persist()?;
+        Ok(true)
+    }
+    fn prepare_manifest(
+        &mut self,
+        shared: &state::SharedState<'_>,
+        policy: &market::registry_ops::PolicySection<'_>,
+        frozen: market::types::FrozenBinding,
+        batch: &ReceiptBatch,
+    ) -> Result<(), LapError> {
         if self.session.artifact_manifest.is_none() {
             let admission = market::reputation_transition::joint_table(
                 shared.section(Section::ReputationAdmission)?,
@@ -665,45 +749,9 @@ impl LapEngine {
             self.session.artifact_manifest = Some(encoded);
             self.persist()?;
         }
-        let manifest = self
-            .session
-            .artifact_manifest
-            .as_ref()
-            .ok_or(LapError::Invalid("no manifest"))?;
-        match evidence::require_sealed_artifact_chunk_root(&shared, frozen.epoch, manifest, &batch)
-        {
-            Ok(_) => {}
-            Err(error) if error == market::errors::F11_BATCH_UNSEALED => {
-                let root = evidence::manifest_root(manifest)
-                    .map_err(|_| LapError::Invalid("manifest root"))?;
-                let mut payload = 1_u16.to_be_bytes().to_vec();
-                payload.extend_from_slice(&root.bytes());
-                payload.extend_from_slice(policy.current.digest()?.as_bytes());
-                payload.extend_from_slice(
-                    &evidence::decode_manifest(manifest)
-                        .map_err(|_| LapError::Invalid("manifest"))?
-                        .subject,
-                );
-                payload.extend_from_slice(policy.current.commitments.rubric.as_bytes());
-                payload.push(policy.current.assessment_mode);
-                transport.submit(&client::seal_evidence(&payload)?)?;
-                return Ok(false);
-            }
-            Err(error) => return Err(error.into()),
-        }
-        match market::laps::settlement_from_state(&bytes, batch.deal_id)? {
-            Some(settled) if settled.batch == batch => {}
-            Some(settled) if settled.batch.last_lap_index >= batch.first_lap_index => {
-                return Err(LapError::Invalid("conflicting on-chain settlement"))
-            }
-            _ => {
-                transport.submit(&client::settle_laps(&SettleLapsRequest {
-                    batch,
-                    artifact_manifest: manifest,
-                })?)?;
-                return Ok(false);
-            }
-        }
+        Ok(())
+    }
+    fn archive_batch(&self, batch: &ReceiptBatch) -> Result<(), LapError> {
         let archive = self
             .path
             .with_extension(format!("batch-{}.json", batch.first_lap_index));
@@ -731,16 +779,7 @@ impl LapEngine {
             )?
             .sync_all()?;
         }
-        if !self.report_meter(transport, host)? {
-            return Ok(false);
-        }
-        self.session.receipts.clear();
-        self.session.proofs.clear();
-        self.session.misses.clear();
-        self.session.artifact_manifest = None;
-        self.session.ended = self.session.ending;
-        self.persist()?;
-        Ok(true)
+        Ok(())
     }
     pub fn report_meter(
         &self,
@@ -857,8 +896,7 @@ impl LapSignalListener {
                             let engine = Arc::clone(&worker_engine);
                             let laps = Arc::clone(&worker_laps);
                             workers.push(thread::Builder::new().name("inference-deals-peer".to_owned()).spawn(move || {
-                                let _connection = connection;
-                                let _ = serve_lap_connection(&mut stream, &offer, &authority, &_connection, &engine, clock, &laps);
+                                let _ = serve_lap_connection(&mut stream, &offer, &authority, &connection, &engine, clock, &laps);
                             }).map_err(|error| error.to_string())?);
                         }
                         Err(error) if error.kind() == io::ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(5)),
@@ -890,6 +928,10 @@ impl LapSignalListener {
     pub fn check(&self) -> Result<(), String> {
         self.listener.check()
     }
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "needless_pass_by_value: src/main.rs passes an owned FinalizedSnapshot to LapSignalListener::tick"
+    )]
     pub fn tick(
         &mut self,
         snapshot: FinalizedSnapshot,
@@ -914,7 +956,7 @@ impl LapSignalListener {
             .lock()
             .map_err(|_| LapError::Invalid("laps unavailable"))?;
         for frame in live {
-            if !laps.contains_key(&frame.deal_id) {
+            if let std::collections::btree_map::Entry::Vacant(entry) = laps.entry(frame.deal_id) {
                 let path = directory.join(format!("lap-{}.json", hex(&frame.deal_id)));
                 let engine = LapEngine::open(
                     &path,
@@ -923,7 +965,7 @@ impl LapSignalListener {
                     host.public_key(),
                     batch_size,
                 )?;
-                laps.insert(frame.deal_id, engine);
+                entry.insert(engine);
             }
         }
         for engine in laps.values_mut() {
@@ -1096,46 +1138,14 @@ fn serve_lap_connection(
             admitted
         };
         loop {
-            match receive_lap(stream, &writer, &mut fragments)? {
-                LapClientFrame::Countersign(LapAcknowledgement::LapCountersign(ack)) => {
-                    let now = clock().map_err(|_| SignalError::ChainUnavailable)?;
-                    laps.lock()
-                        .map_err(|_| SignalError::Backpressure)?
-                        .get_mut(&ack.deal_id)
-                        .ok_or(SignalError::InvalidFrame)?
-                        .countersign(hello.peer_key, &ack, now)
-                        .map_err(|_| SignalError::BadSignature)?;
-                }
-                LapClientFrame::Deal(DealClientFrame::Acknowledgement(ack)) => {
-                    let now = clock().map_err(|_| SignalError::ChainUnavailable)?;
-                    engine
-                        .lock()
-                        .map_err(|_| SignalError::Backpressure)?
-                        .acknowledge(&hello.peer_key, &ack, now)
-                        .map_err(|error| match error {
-                            DealError::Signal(code) => code,
-                            _ => SignalError::InvalidFrame,
-                        })?;
-                }
-                LapClientFrame::Deal(DealClientFrame::Signal(ClientFrame::Description {
-                    to,
-                    description,
-                })) => relay_description(&connection.shared, &hello.peer_key, &to, description)?,
-                LapClientFrame::Deal(DealClientFrame::Signal(ClientFrame::Candidate {
-                    to,
-                    candidate,
-                })) => relay(
-                    &connection.shared,
-                    &to,
-                    &ServerFrame::Candidate {
-                        from: hello.peer_key,
-                        candidate,
-                    },
-                )?,
-                LapClientFrame::Deal(DealClientFrame::Signal(ClientFrame::Hello(_))) => {
-                    return Err(SignalError::InvalidFrame)
-                }
-            }
+            handle_lap_frame(
+                receive_lap(stream, &writer, &mut fragments)?,
+                connection,
+                engine,
+                clock,
+                laps,
+                &hello.peer_key,
+            )?;
         }
     })();
     if let Err(code) = &result {
@@ -1154,6 +1164,55 @@ fn serve_lap_connection(
         }
     }
     result
+}
+fn handle_lap_frame(
+    frame: LapClientFrame,
+    connection: &Connection,
+    engine: &Arc<Mutex<DealEngine>>,
+    clock: fn() -> Result<u64, String>,
+    laps: &LapSessions,
+    peer: &[u8; 32],
+) -> Result<(), SignalError> {
+    match frame {
+        LapClientFrame::Countersign(LapAcknowledgement::LapCountersign(ack)) => {
+            let now = clock().map_err(|_| SignalError::ChainUnavailable)?;
+            laps.lock()
+                .map_err(|_| SignalError::Backpressure)?
+                .get_mut(&ack.deal_id)
+                .ok_or(SignalError::InvalidFrame)?
+                .countersign(*peer, &ack, now)
+                .map_err(|_| SignalError::BadSignature)?;
+        }
+        LapClientFrame::Deal(DealClientFrame::Acknowledgement(ack)) => {
+            let now = clock().map_err(|_| SignalError::ChainUnavailable)?;
+            engine
+                .lock()
+                .map_err(|_| SignalError::Backpressure)?
+                .acknowledge(peer, &ack, now)
+                .map_err(|error| match error {
+                    DealError::Signal(code) => code,
+                    _ => SignalError::InvalidFrame,
+                })?;
+        }
+        LapClientFrame::Deal(DealClientFrame::Signal(ClientFrame::Description {
+            to,
+            description,
+        })) => relay_description(&connection.shared, peer, &to, description)?,
+        LapClientFrame::Deal(DealClientFrame::Signal(ClientFrame::Candidate { to, candidate })) => {
+            relay(
+                &connection.shared,
+                &to,
+                &ServerFrame::Candidate {
+                    from: *peer,
+                    candidate,
+                },
+            )?;
+        }
+        LapClientFrame::Deal(DealClientFrame::Signal(ClientFrame::Hello(_))) => {
+            return Err(SignalError::InvalidFrame);
+        }
+    }
+    Ok(())
 }
 fn receive_lap(
     stream: &mut TcpStream,
@@ -1205,7 +1264,8 @@ fn receive_lap(
         stream
             .read_exact(&mut mask)
             .map_err(|_| SignalError::InvalidFrame)?;
-        let mut bytes = vec![0; length as usize];
+        let length = usize::try_from(length).map_err(|_| SignalError::FrameTooLarge)?;
+        let mut bytes = vec![0; length];
         stream
             .read_exact(&mut bytes)
             .map_err(|_| SignalError::InvalidFrame)?;
@@ -1213,7 +1273,6 @@ fn receive_lap(
             *byte ^= mask[index % 4];
         }
         match opcode {
-            8 => return Err(SignalError::InvalidFrame),
             9 => {
                 let mut writer = writer.lock().map_err(|_| SignalError::Backpressure)?;
                 write_frame(&mut writer, 10, &bytes).map_err(|_| SignalError::Backpressure)?;
@@ -1255,6 +1314,7 @@ pub fn send_lap(writer: &Arc<Mutex<TcpStream>>, frame: &LapFrame) -> Result<(), 
     write_frame(&mut writer, 1, &bytes)?;
     Ok(())
 }
+#[cfg(test)]
 pub fn receive_countersignature(
     stream: &mut TcpStream,
     writer: &Arc<Mutex<TcpStream>>,

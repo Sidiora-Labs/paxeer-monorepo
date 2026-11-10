@@ -168,6 +168,10 @@ pub struct CompletionBinding {
     pub deal: DealRecord,
 }
 impl CompletionBinding {
+    #[allow(
+        clippy::large_types_passed_by_value,
+        reason = "large_types_passed_by_value: tests/inference_serve.rs passes RoomRecord and DealRecord by value to CompletionBinding::new"
+    )]
     pub fn new(room: RoomRecord, deal: DealRecord) -> Result<Self, ServeError> {
         room.profile
             .validate()
@@ -313,10 +317,12 @@ fn read_frame<T: serde::de::DeserializeOwned>(
 
 /// The producer half of the local completion transport. The lap engine supplies
 /// canonical, signed program receipts alongside the tokenizer's individual tokens.
+#[cfg(test)]
 pub struct CompletionWriter<W> {
     writer: W,
     request: RuntimeRequest,
 }
+#[cfg(test)]
 impl<W: Read + Write> CompletionWriter<W> {
     pub fn accept(mut writer: W) -> Result<Self, ServeError> {
         let request: RuntimeRequest = read_frame(&mut writer, 2 * BODY_LIMIT)?;
@@ -558,6 +564,10 @@ pub struct ServeRoutes {
     journal: Mutex<Journal>,
 }
 impl ServeRoutes {
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "needless_pass_by_value: src/main.rs and tests/inference_serve.rs pass owned receipt paths to ServeRoutes::new"
+    )]
     pub fn new(
         room_id: [u8; 32],
         model_digest: [u8; 32],
@@ -666,6 +676,16 @@ impl ServeRoutes {
         if fields[0] != "POST" {
             return Err(ServeError::new(405, "method_not_allowed"));
         }
+        self.read_completion(stream, &values, shape, ready)
+    }
+
+    fn read_completion(
+        &self,
+        stream: &mut impl Read,
+        values: &BTreeMap<String, &str>,
+        shape: Shape,
+        ready: bool,
+    ) -> Result<Option<CompletionRequest>, ServeError> {
         if values.contains_key("transfer-encoding") {
             return Err(ServeError::invalid());
         }
@@ -713,6 +733,16 @@ impl ServeRoutes {
             .read_exact(&mut bytes)
             .map_err(|_| ServeError::invalid())?;
         let body: Value = serde_json::from_slice(&bytes).map_err(|_| ServeError::invalid())?;
+        self.parse_completion(ask, shape, ready, &body)
+    }
+
+    fn parse_completion(
+        &self,
+        ask: [u8; 32],
+        shape: Shape,
+        ready: bool,
+        body: &Value,
+    ) -> Result<Option<CompletionRequest>, ServeError> {
         let object = body.as_object().ok_or_else(ServeError::invalid)?;
         let model = object
             .get("model")
@@ -807,6 +837,10 @@ impl ServeRoutes {
         }))
     }
 
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "needless_pass_by_value: tests/inference_serve.rs passes owned CompletionRequest, AskGate and CompletionBinding to respond"
+    )]
     pub fn respond(
         &self,
         stream: &mut (impl Read + Write),
@@ -853,6 +887,49 @@ impl ServeRoutes {
         self.complete(stream, request, gate, binding, started)
     }
 
+    fn prepare_runtime_request(
+        &self,
+        request: &CompletionRequest,
+        gate: &AskGate,
+        binding: &CompletionBinding,
+        journal: &Journal,
+        max_tokens: u64,
+    ) -> Result<RuntimeRequest, ServeError> {
+        let previous = journal.cursors.get(&request.ask).copied();
+        if previous.is_some_and(|cursor| cursor.stream != gate.stream.stream_id) {
+            return Err(ServeError::upstream());
+        }
+        let cumulative = previous.map_or(gate.stream.cumulative_meter, |cursor| {
+            cursor.cumulative.max(gate.stream.cumulative_meter)
+        });
+        let outstanding = cumulative
+            .checked_sub(gate.stream.cumulative_meter)
+            .ok_or_else(ServeError::upstream)?;
+        let token_budget = gate
+            .token_budget
+            .checked_sub(outstanding)
+            .filter(|n| *n > 0)
+            .ok_or_else(|| ServeError::new(402, "ask_stream_unfunded"))?;
+        let next_lap = previous
+            .filter(|cursor| cursor.deal == binding.deal.deal_id.bytes())
+            .map_or(0, |cursor| cursor.next_lap);
+        let mut request_id = [0; 32];
+        getrandom::fill(&mut request_id).map_err(|_| ServeError::unavailable())?;
+        Ok(RuntimeRequest {
+            request_id,
+            ask_id: request.ask,
+            room_id: self.room_id,
+            deal_id: binding.deal.deal_id.bytes(),
+            model_digest: self.model_digest,
+            messages: request.messages.clone(),
+            max_generated_tokens: max_tokens,
+            token_budget,
+            next_lap_index: next_lap,
+            cumulative_tokens: cumulative,
+            parameters: request.parameters.clone(),
+        })
+    }
+
     fn complete(
         &self,
         stream: &mut (impl Read + Write),
@@ -885,185 +962,36 @@ impl ServeRoutes {
         // Serialize admission and retain debits before exposing tokens. An unmetered
         // receipt remains charged across the next request and a daemon restart.
         let mut journal = self.journal.lock().map_err(|_| ServeError::unavailable())?;
-        let previous = journal.cursors.get(&request.ask).copied();
-        if previous.is_some_and(|cursor| cursor.stream != gate.stream.stream_id) {
-            return Err(ServeError::upstream());
-        }
-        let cumulative = previous.map_or(gate.stream.cumulative_meter, |cursor| {
-            cursor.cumulative.max(gate.stream.cumulative_meter)
-        });
-        let outstanding = cumulative
-            .checked_sub(gate.stream.cumulative_meter)
-            .ok_or_else(ServeError::upstream)?;
-        let token_budget = gate
-            .token_budget
-            .checked_sub(outstanding)
-            .filter(|n| *n > 0)
-            .ok_or_else(|| ServeError::new(402, "ask_stream_unfunded"))?;
-        let next_lap = previous
-            .filter(|cursor| cursor.deal == binding.deal.deal_id.bytes())
-            .map_or(0, |cursor| cursor.next_lap);
-        let mut request_id = [0; 32];
-        getrandom::fill(&mut request_id).map_err(|_| ServeError::unavailable())?;
-        let runtime_request = RuntimeRequest {
-            request_id,
-            ask_id: request.ask,
-            room_id: self.room_id,
-            deal_id: binding.deal.deal_id.bytes(),
-            model_digest: self.model_digest,
-            messages: request.messages.clone(),
-            max_generated_tokens: max_tokens,
-            token_budget,
-            next_lap_index: next_lap,
-            cumulative_tokens: cumulative,
-            parameters: request.parameters.clone(),
-        };
+        let runtime_request =
+            self.prepare_runtime_request(request, gate, binding, &journal, max_tokens)?;
         let mut runtime = UnixStream::connect(socket)?;
         runtime.set_read_timeout(Some(RUNTIME_TIMEOUT))?;
         runtime.set_write_timeout(Some(RUNTIME_TIMEOUT))?;
         write_frame(&mut runtime, &runtime_request, 2 * BODY_LIMIT)?;
-        let mut usage = LapUsage::default();
-        let mut text = String::new();
-        let mut expected_lap = next_lap;
-        let mut expected_cumulative = cumulative;
-        let mut lap_count = 0;
-        let id = format!(
-            "{}{}",
-            if request.shape == Shape::OpenAi {
-                "chatcmpl-"
-            } else {
-                "msg_"
-            },
-            layerx_programs::hex::encode(&request_id)
-        );
-        let reason = loop {
-            if self
-                .health
-                .lock()
-                .map_err(|_| ServeError::unavailable())?
-                .status()
-                .mode
-                != Mode::Healthy
-            {
-                return Err(ServeError::unavailable());
-            }
-            match read_frame::<RuntimeEvent>(&mut runtime, EVENT_LIMIT)? {
-                RuntimeEvent::Done {
-                    request_id: actual,
-                    reason,
-                } => {
-                    if actual != request_id || lap_count == 0 {
-                        return Err(ServeError::upstream());
-                    }
-                    break if usage.generated_tokens == max_tokens {
-                        FinishReason::Length
-                    } else {
-                        reason
-                    };
-                }
-                RuntimeEvent::Lap {
-                    request_id: actual,
-                    receipt: bytes,
-                    tokens,
-                } => {
-                    if actual != request_id {
-                        return Err(ServeError::upstream());
-                    }
-                    let receipt = OwnedReceipt::decode(&bytes)?;
-                    receipt.verify(&gate.stream.meter_authorities[0])?;
-                    let peers = binding.deal.layers.iter().flatten().count();
-                    let bitmap = if peers == 32 {
-                        u32::MAX
-                    } else {
-                        (1_u32 << peers) - 1
-                    };
-                    let added = receipt
-                        .prompt_tokens
-                        .checked_add(receipt.generated_tokens)
-                        .ok_or_else(ServeError::upstream)?;
-                    let prompt = usage
-                        .prompt_tokens
-                        .checked_add(receipt.prompt_tokens)
-                        .ok_or_else(ServeError::upstream)?;
-                    let generated = usage
-                        .generated_tokens
-                        .checked_add(receipt.generated_tokens)
-                        .ok_or_else(ServeError::upstream)?;
-                    expected_cumulative = expected_cumulative
-                        .checked_add(added)
-                        .ok_or_else(ServeError::upstream)?;
-                    if receipt.deal_id.bytes() != runtime_request.deal_id
-                        || receipt.lap_index != expected_lap
-                        || receipt.cumulative_tokens != expected_cumulative
-                        || receipt.generated_tokens != tokens.len() as u64
-                        || receipt.generated_tokens > profile.lap_size_tokens
-                        || generated > max_tokens
-                        || prompt
-                            .checked_add(generated)
-                            .ok_or_else(ServeError::upstream)?
-                            > token_budget
-                        || receipt.ranges.len() != peers
-                        || receipt.countersigners != bitmap
-                        || lap_count > 0 && receipt.prompt_tokens != 0
-                        || lap_count > 0 && added == 0
-                    {
-                        return Err(ServeError::upstream());
-                    }
-                    let added_bytes = tokens
-                        .iter()
-                        .try_fold(0_usize, |n, piece| n.checked_add(piece.text.len()))
-                        .ok_or_else(ServeError::upstream)?;
-                    if text
-                        .len()
-                        .checked_add(added_bytes)
-                        .is_none_or(|size| size > BODY_LIMIT)
-                    {
-                        return Err(ServeError::upstream());
-                    }
-                    journal.retain(
-                        &RetainedLap {
-                            ask: request.ask,
-                            stream: gate.stream.stream_id,
-                            request: request_id,
-                            key: gate.stream.meter_authorities[0],
-                            receipt: bytes,
-                        },
-                        &receipt,
-                    )?;
-                    expected_lap = expected_lap
-                        .checked_add(1)
-                        .ok_or_else(ServeError::upstream)?;
-                    lap_count += 1;
-                    usage = LapUsage {
-                        prompt_tokens: prompt,
-                        generated_tokens: generated,
-                    };
-                    if request.streaming && !*started {
-                        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-store\r\nConnection: close\r\nX-Accel-Buffering: no\r\n\r\n")?;
-                        *started = true;
-                        start_events(
-                            stream,
-                            request.shape,
-                            &id,
-                            &self.model_alias(),
-                            usage.prompt_tokens,
-                        )?;
-                    }
-                    for token in tokens {
-                        text.push_str(&token.text);
-                        if request.streaming {
-                            token_event(
-                                stream,
-                                request.shape,
-                                &id,
-                                &self.model_alias(),
-                                &token.text,
-                            )?;
-                        }
-                    }
-                }
-            }
+        let mut session = CompletionSession {
+            request,
+            gate,
+            binding,
+            expected_lap: runtime_request.next_lap_index,
+            expected_cumulative: runtime_request.cumulative_tokens,
+            id: format!(
+                "{}{}",
+                if request.shape == Shape::OpenAi {
+                    "chatcmpl-"
+                } else {
+                    "msg_"
+                },
+                layerx_programs::hex::encode(&runtime_request.request_id)
+            ),
+            runtime_request,
+            usage: LapUsage::default(),
+            text: String::new(),
+            lap_count: 0,
         };
+        let reason = session.receive(self, stream, &mut runtime, &mut journal, started)?;
+        let CompletionSession {
+            usage, text, id, ..
+        } = session;
         if request.streaming {
             finish_events(
                 stream,
@@ -1087,6 +1015,177 @@ impl ServeRoutes {
             };
             write_json(stream, 200, &body)
         }
+    }
+}
+
+struct CompletionSession<'a> {
+    request: &'a CompletionRequest,
+    gate: &'a AskGate,
+    binding: &'a CompletionBinding,
+    runtime_request: RuntimeRequest,
+    expected_lap: u64,
+    expected_cumulative: u64,
+    lap_count: i32,
+    usage: LapUsage,
+    text: String,
+    id: String,
+}
+impl CompletionSession<'_> {
+    fn receive(
+        &mut self,
+        routes: &ServeRoutes,
+        stream: &mut impl Write,
+        runtime: &mut UnixStream,
+        journal: &mut Journal,
+        started: &mut bool,
+    ) -> Result<FinishReason, ServeError> {
+        loop {
+            if routes
+                .health
+                .lock()
+                .map_err(|_| ServeError::unavailable())?
+                .status()
+                .mode
+                != Mode::Healthy
+            {
+                return Err(ServeError::unavailable());
+            }
+            match read_frame::<RuntimeEvent>(runtime, EVENT_LIMIT)? {
+                RuntimeEvent::Done {
+                    request_id: actual,
+                    reason,
+                } => {
+                    if actual != self.runtime_request.request_id || self.lap_count == 0 {
+                        return Err(ServeError::upstream());
+                    }
+                    return Ok(
+                        if self.usage.generated_tokens == self.runtime_request.max_generated_tokens
+                        {
+                            FinishReason::Length
+                        } else {
+                            reason
+                        },
+                    );
+                }
+                RuntimeEvent::Lap {
+                    request_id: actual,
+                    receipt: bytes,
+                    tokens,
+                } => {
+                    self.accept_lap(actual, bytes, &tokens, journal)?;
+                    if self.request.streaming && !*started {
+                        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-store\r\nConnection: close\r\nX-Accel-Buffering: no\r\n\r\n")?;
+                        *started = true;
+                        start_events(
+                            stream,
+                            self.request.shape,
+                            &self.id,
+                            &routes.model_alias(),
+                            self.usage.prompt_tokens,
+                        )?;
+                    }
+                    for token in tokens {
+                        self.text.push_str(&token.text);
+                        if self.request.streaming {
+                            token_event(
+                                stream,
+                                self.request.shape,
+                                &self.id,
+                                &routes.model_alias(),
+                                &token.text,
+                            )?;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn accept_lap(
+        &mut self,
+        actual: [u8; 32],
+        bytes: Vec<u8>,
+        tokens: &[TokenPiece],
+        journal: &mut Journal,
+    ) -> Result<(), ServeError> {
+        if actual != self.runtime_request.request_id {
+            return Err(ServeError::upstream());
+        }
+        let receipt = OwnedReceipt::decode(&bytes)?;
+        receipt.verify(&self.gate.stream.meter_authorities[0])?;
+        let peers = self.binding.deal.layers.iter().flatten().count();
+        let bitmap = if peers == 32 {
+            u32::MAX
+        } else {
+            (1_u32 << peers) - 1
+        };
+        let added = receipt
+            .prompt_tokens
+            .checked_add(receipt.generated_tokens)
+            .ok_or_else(ServeError::upstream)?;
+        let prompt = self
+            .usage
+            .prompt_tokens
+            .checked_add(receipt.prompt_tokens)
+            .ok_or_else(ServeError::upstream)?;
+        let generated = self
+            .usage
+            .generated_tokens
+            .checked_add(receipt.generated_tokens)
+            .ok_or_else(ServeError::upstream)?;
+        self.expected_cumulative = self
+            .expected_cumulative
+            .checked_add(added)
+            .ok_or_else(ServeError::upstream)?;
+        if receipt.deal_id.bytes() != self.runtime_request.deal_id
+            || receipt.lap_index != self.expected_lap
+            || receipt.cumulative_tokens != self.expected_cumulative
+            || receipt.generated_tokens != tokens.len() as u64
+            || receipt.generated_tokens > self.binding.room.profile.lap_size_tokens
+            || generated > self.runtime_request.max_generated_tokens
+            || prompt
+                .checked_add(generated)
+                .ok_or_else(ServeError::upstream)?
+                > self.runtime_request.token_budget
+            || receipt.ranges.len() != peers
+            || receipt.countersigners != bitmap
+            || self.lap_count > 0 && receipt.prompt_tokens != 0
+            || self.lap_count > 0 && added == 0
+        {
+            return Err(ServeError::upstream());
+        }
+        let added_bytes = tokens
+            .iter()
+            .try_fold(0_usize, |n, piece| n.checked_add(piece.text.len()))
+            .ok_or_else(ServeError::upstream)?;
+        if self
+            .text
+            .len()
+            .checked_add(added_bytes)
+            .is_none_or(|size| size > BODY_LIMIT)
+        {
+            return Err(ServeError::upstream());
+        }
+        journal.retain(
+            &RetainedLap {
+                ask: self.request.ask,
+                stream: self.gate.stream.stream_id,
+                request: self.runtime_request.request_id,
+                key: self.gate.stream.meter_authorities[0],
+                receipt: bytes,
+            },
+            &receipt,
+        )?;
+        self.expected_lap = self
+            .expected_lap
+            .checked_add(1)
+            .ok_or_else(ServeError::upstream)?;
+        self.lap_count += 1;
+        self.usage = LapUsage {
+            prompt_tokens: prompt,
+            generated_tokens: generated,
+        };
+        Ok(())
     }
 }
 
@@ -1126,7 +1225,7 @@ fn sse(stream: &mut impl Write, event: Option<&str>, value: &Value) -> Result<()
     stream.flush()?;
     Ok(())
 }
-fn chunk(id: &str, model: &str, delta: Value, finish: Value) -> Value {
+fn chunk(id: &str, model: &str, delta: &Value, finish: &Value) -> Value {
     json!({"id":id,"object":"chat.completion.chunk","created":0,"model":model,
         "choices":[{"index":0,"delta":delta,"finish_reason":finish}]})
 }
@@ -1144,8 +1243,8 @@ fn start_events(
             &chunk(
                 id,
                 model,
-                json!({"role":"assistant","content":""}),
-                Value::Null,
+                &json!({"role":"assistant","content":""}),
+                &Value::Null,
             ),
         ),
         Shape::Anthropic => {
@@ -1173,7 +1272,7 @@ fn token_event(
         Shape::OpenAi => sse(
             stream,
             None,
-            &chunk(id, model, json!({"content":text}), Value::Null),
+            &chunk(id, model, &json!({"content":text}), &Value::Null),
         ),
         Shape::Anthropic => sse(
             stream,
@@ -1207,7 +1306,7 @@ fn finish_events(
             sse(
                 stream,
                 None,
-                &chunk(id, model, json!({}), json!(openai_reason(reason))),
+                &chunk(id, model, &json!({}), &json!(openai_reason(reason))),
             )?;
             sse(
                 stream,
