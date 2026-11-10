@@ -12586,6 +12586,30 @@ value = "The workspace lints hold for every test target of the agent daemon. A t
 basis = "Gotchas 4173 and 4170, decisions 3242, 3053 and 3211."
 affects = ["22.39.356", "22.39.228", "22.39.229"]
 
+[decision.3246]
+title = "The Go case over the terminal corpus reads the committed recording when no corpus is supplied"
+value = "TestProgramTerminalV5HistoricalCodecCorpus reads the file named by PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS when the variable is set, and otherwise the committed recording of the Rust SDK, as the Rust and TypeScript cases do. A supplied path that cannot be read still fails, an absent committed recording fails, and no assertion of the case is removed or weakened. The ordinary run of the Go module keeps the case selected. Task 22.39.360 owns the change and task 17.5.7 follows it (decisions 3130 and 3211)."
+basis = "Gotcha 4175, decisions 3130, 3155, 3165 and 3211."
+affects = ["22.39.360", "17.5.7"]
+
+[decision.3247]
+title = "The .NET cases over the receipt vectors follow the published vectors"
+value = "A .NET case over a published vector file selects a case by its id and covers every case the file holds; a value a case pins follows the published vector. No vector file changes for a consumer. A refusal of the .NET SDK for a published case that the vector records as accepted is a defect of the SDK source and is repaired with the cases. Task 22.39.361 owns the four red cases and task 17.5.7 follows it (decisions 3046, 3130 and 3211)."
+basis = "Gotcha 4174, decisions 3046, 3130, 3183 and 3211."
+affects = ["22.39.361", "17.5.7"]
+
+[decision.3248]
+title = "The lint verification of the first group of agent daemon test targets keeps going"
+value = "Decision 3242 holds for task 22.39.226 as for the three later groups: its verification passes the keep going option, so one run reports the lints of every target of the group, and an attempt runs the verification command outside the counted gates and repairs at the source until it is clean before the counted run. No allow attribute and no lint level change (decisions 3052 and 3053)."
+basis = "Gotcha 4176, decisions 3052, 3053 and 3242."
+affects = ["22.39.226"]
+
+[decision.3249]
+title = "The symbols list of a task names only symbols that the code graph indexes"
+value = "The symbols list of a task holds functions and types of source files, the symbols the completion check can find in the code graph. A recipe target, a script, a key of a manifest or of a configuration file is named in the do text and in the paths, and the list stays empty when the task changes no indexed symbol. A completion check that fails only on such an entry is a defect of the task text: the list is corrected and the attempt continues on its tree."
+basis = "Gotcha 4177, decisions 3130 and 3211."
+affects = ["22.39.358"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42246,6 +42270,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.361]
+title = "Follow the published receipt vectors in the .NET SDK cases"
+reqs = ["22998.1"]
+touches = ["sdk/platform/dotnet"]
+tests = []
+verification_contract = "test -s sdk/platform/dotnet/repair_22_39_361.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~SequencerReceiptTests|FullyQualifiedName~PortableReceiptTests'"
+do_1 = "do_1 Decision 3247, gotcha 4174. Four cases of sdk/platform/dotnet/tests/LayerX.Sdk.Tests are red on main. The file sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json holds two cases, V2-layerxledger-revert and V2-pax-transfer-insufficient-funds, and sequencer-receipt-v1.json holds the same two under the vector V2. SequencerReceiptV2RevertDecodesReason expects one case (SequencerReceiptTests.cs:106), PublishedVectorFilesMatchRecordedCases calls it, and PortableReceiptRoundTripsAtReceipted takes the single V2 case (PortableReceiptTests.cs:111). PortableExportMatchesPublishedVectorV5 pins the nanoseconds 153256047 and 245437229 (PortableReceiptTests.cs:183 and :184), where the published vector-v4-committed.json holds 706362949 and 778303533."
+symbols = []
+
+[capability.22.39.360]
+title = "Read the committed terminal corpus in the Go case when none is supplied"
+reqs = ["22998.1"]
+touches = ["sdk/platform/go"]
+tests = ["sdk/platform/go/programs_http_test.go::TestProgramTerminalV5HistoricalCodecCorpus"]
+verification_contract = "test -s sdk/platform/go/repair_22_39_360.kvx && cd sdk/platform/go && env -u PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS go test -count=1 -run 'TestProgramTerminalV5HistoricalCodecCorpus' ."
+do_1 = "do_1 Decision 3246, gotcha 4175. TestProgramTerminalV5HistoricalCodecCorpus (sdk/platform/go/programs_http_test.go:919) stops when the variable PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS is unset. Read how the Rust SDK (services/agent/crates/layerx-sdk/src/program_http.rs:2278) and the TypeScript case (tests/sdk/typescript/program-terminal-v5.test.mjs:8) choose the file: the supplied path when the variable is set, otherwise the committed recording services/agent/crates/layerx-sdk/tests/fixtures/program-terminal-v5-corpus.json."
+symbols = []
 
 [capability.22.39.359]
 title = "Give the runtime document command of the indexer an explicit delivery lag budget"
@@ -164391,7 +164433,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.29]
 title = "Ship the browser peer page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.26", "22.39.355"]
@@ -185383,7 +185425,7 @@ do_8 = "Attempt 5 (continue, gotcha 4168, decision 3240): the attempt-4 tree 26f
 
 [task.18.1749.1]
 title = "Issue #1749: Prove Claim and RefundFree replay preserves recipient balances after reopen"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.33.223", "22.39.333", "22.39.336", "22.39.340", "22.39.353"]
@@ -196292,7 +196334,7 @@ touches = ["services/agent/crates/layerx-agentd/tests"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls [a-h]*.rs | sed 's/.rs$//; s/^/--test /')"
-verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [a-h]*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_226.kvx && cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls [a-h]*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -196306,6 +196348,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4142, decisions 3183 and 3215): the attempt-1 tree da8f9919a12f stands (the repaired lints of the test targets a to h and of tests/support, the record). The second verification ends with 20 errors in seven targets, all inside the paths; the build now compiles the test targets a to h, so a compile error shows in the build. Repair them: tests/approval.rs:85 and :87 (E0507, clone or borrow the actor and the authority instead of moving them out of the shared reference), tests/support/real_authority.rs:108 and :109 and tests/support/mod.rs:401 and :403 (E0308, give the callers the types the repaired helpers now take or return), tests/balance.rs:103, :107, :131, :135 and :160 and tests/availability.rs:287 and :307 (use the returned value in an assertion or bind it with a reason; do not remove the must_use attribute), tests/human_projection_facts.rs:317 (imports the target does not use), :339, :861 and :1256, tests/budget_mutations_layerxpay.rs:10 and tests/checkpoint.rs:95 (read the three fields in an assertion or remove them from the test type). A support item that one target uses and another does not is allowed on the item with a reason that names the targets using it (decision 3057). No test assertion changes its meaning. Before the verification run the clippy command of the verification once and repair what it lists. Reduce the record to product facts. Run the build once and the verification once at the final revision."
 do_5 = "Attempt 3 (continue after 22.39.353 lands, gotcha 4159, decision 3232): the attempt-2 tree 18dabb06132d stands; build 3 compiled the library and the test targets named a to h, and no verification saw the tree. The check of the dependent packages stopped only in the host binary, at three sites of src/inference_market/deals.rs that task 22.39.353 repairs; the task now requires it. Rebase on main once that task is on it and change nothing under src. Run the build once and the verification once on the tree as it is. When the verification still reports a lint, repair it at source within the one allowed cycle (decision 3053: no lint level change, no allowance at crate or module level; decision 3230 for a case over the line bound). After a change of a file that a target of the host package includes by path, keep cargo check of the package layerx-agentd-host with all targets green (decision 3218). Keep tests/repair_22_39_226.kvx to product facts."
+do_6 = "Attempt 4 (continue, gotcha 4176, decision 3248): the attempt-3 tree 5f4a514b235f stands (the lint repairs in the test files a to h, the record). The verification now passes the keep going option, so one run reports the lints of every target of the group. Before the counted gates run the verification command and repair every lint it reports in the files of this task until it is clean: the five in tests/bootstrap_bind_layerx.rs at :199, :463, :584, :607 and :710 (four arguments passed by value and not consumed, one last statement without a semicolon) and any in the targets the earlier runs did not reach. Repair at the source: no allow attribute and no lint level change (decisions 3052 and 3053). An item reported unused is first searched in every target that includes the file (decision 3242). Extend the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.225]
 title = "Bring the layerx-sdk crate and its test targets under the workspace lints"
@@ -198094,7 +198137,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.18]
 title = "Issue, countersign, seal and settle lap receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.4", "22.38.17", "22.31.620", "22.39.353"]
@@ -225003,9 +225046,39 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.360]
+title = "Read the committed terminal corpus in the Go case when none is supplied"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.360"]
+interfaces = []
+do_1 = "do_1 Decision 3246, gotcha 4175. TestProgramTerminalV5HistoricalCodecCorpus (sdk/platform/go/programs_http_test.go:919) stops when the variable PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS is unset. Read how the Rust SDK (services/agent/crates/layerx-sdk/src/program_http.rs:2278) and the TypeScript case (tests/sdk/typescript/program-terminal-v5.test.mjs:8) choose the file: the supplied path when the variable is set, otherwise the committed recording services/agent/crates/layerx-sdk/tests/fixtures/program-terminal-v5-corpus.json."
+do_2 = "do_2 Make the Go case choose the same way: the supplied path when the variable is set, otherwise the committed recording, reached from the package directory. A supplied path that cannot be read fails, an absent committed recording fails, and the case is never skipped. Remove and weaken no assertion of the case, and change neither the recording nor sdk/platform/conformance/run-go.sh."
+do_3 = "do_3 Run the case with the variable unset. An assertion that is red on the committed recording for a cause in the Go SDK source under sdk/platform/go is repaired in this task. A cause that sits in the recording or outside the paths is recorded with the first failing message, its file and line, and the task stops there. Record in sdk/platform/go/repair_22_39_360.kvx the choice of the file, the source revision of the recording, the count of its cases and the result. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/platform/go"]
+tests = ["sdk/platform/go/programs_http_test.go::TestProgramTerminalV5HistoricalCodecCorpus"]
+planned_paths = ["sdk/platform/go/repair_22_39_360.kvx"]
+build_cmd = "cd sdk/platform/go && go vet ."
+verify_cmd = "test -s sdk/platform/go/repair_22_39_360.kvx && cd sdk/platform/go && env -u PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS go test -count=1 -run 'TestProgramTerminalV5HistoricalCodecCorpus' ."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.359]
 title = "Give the runtime document command of the indexer an explicit delivery lag budget"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284122,6 +284195,38 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.361]
+title = "Follow the published receipt vectors in the .NET SDK cases"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.361"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3247, gotcha 4174. Four cases of sdk/platform/dotnet/tests/LayerX.Sdk.Tests are red on main. The file sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json holds two cases, V2-layerxledger-revert and V2-pax-transfer-insufficient-funds, and sequencer-receipt-v1.json holds the same two under the vector V2. SequencerReceiptV2RevertDecodesReason expects one case (SequencerReceiptTests.cs:106), PublishedVectorFilesMatchRecordedCases calls it, and PortableReceiptRoundTripsAtReceipted takes the single V2 case (PortableReceiptTests.cs:111). PortableExportMatchesPublishedVectorV5 pins the nanoseconds 153256047 and 245437229 (PortableReceiptTests.cs:183 and :184), where the published vector-v4-committed.json holds 706362949 and 778303533."
+do_2 = "do_2 Make the cases follow the published vectors. Select the case V2-layerxledger-revert by its id where a case asserts its revert reason, and cover the case V2-pax-transfer-insufficient-funds with the assertions its recorded members support: the verifier result and the rung of its expected member, the canonical bytes, the digest and the result fields the vector records. Read how the Go SDK case over the same file treats the second case and assert no less. Pin the nanoseconds the published committed vector holds. Change no vector file and remove no assertion that still holds."
+do_3 = "do_3 A refusal of the .NET SDK for a published case that the vector records as accepted is repaired in the SDK source under sdk/platform/dotnet, with the Go SDK as the reference for the rule. A cause outside sdk/platform/dotnet is recorded with the first failing message, its file and line, and the task stops there. Record in sdk/platform/dotnet/repair_22_39_361.kvx each of the four cases with its cause and its change, and the counts of the run of the two test classes. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/platform/dotnet"]
+tests = []
+planned_paths = ["sdk/platform/dotnet/repair_22_39_361.kvx"]
+build_cmd = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
+verify_cmd = "test -s sdk/platform/dotnet/repair_22_39_361.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~SequencerReceiptTests|FullyQualifiedName~PortableReceiptTests'"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.358]
 title = "Leave the envelope probes out of the ordinary verification of the platform SDKs"
 status = "pending"
@@ -284135,7 +284240,7 @@ wiring = ["wiring.J42.1"]
 do_1 = "do_1 Decision 3238, gotcha 4166. The recipe of platform-verify-sdks runs dotnet test over the whole project sdk/platform/dotnet/tests/LayerX.Sdk.Tests with no filter (services/platform/Makefile.inc:289), and sdk/platform/conformance/run-go.sh:10 runs go test over the whole module sdk/platform/go. Both select probe cases that read the case file named by the variable PAXEER_X_AGENT_ENVELOPE_CASE, which only tools/qualification/paxeer-x/agent_operation_envelope.py sets. Run both commands once as they stand and list every case that stops for want of that file."
 do_2 = "do_2 Change the two recipe lines so that an ordinary run leaves out exactly the listed cases: in the .NET line a filter that names them (by their trait where every case of the trait needs the file, by name otherwise), in the Go line a skip pattern anchored on the names of the cases. A case that passes without the case file stays selected; the case DirectDaemonSurfaceRefusesPlaintextAndMissingClientCertificateBeforeSending is one. Change no test source, no probe and nothing in tools/qualification, and keep the selection of the envelope program as it is."
 do_3 = "do_3 Run the two changed commands once. A case that is red for another cause is not repaired here: record the case, the first failing message and its file in sdk/platform/repair_22_39_358.kvx, together with the listed probe cases, the two changed lines and the result. Search tests/ci and tools/qualification for a case that pins the text of either line and record a pin with file and line. Run the build once and the verification once at the final revision."
-symbols = ["platform-verify-sdks"]
+symbols = []
 touches = ["services/platform/Makefile.inc", "sdk/platform/conformance/run-go.sh"]
 tests = []
 planned_paths = ["sdk/platform/repair_22_39_358.kvx"]
@@ -284153,6 +284258,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Attempt 3 (continue, gotcha 4177, decision 3249): the attempt-2 tree 7c86fa9f9cd7 stands (the filter of the .NET line in services/platform/Makefile.inc, the skip pattern in sdk/platform/conformance/run-go.sh, the record). The verification command passed on it, and the completion check failed only on the symbols list of the task, which is now empty. Change neither recipe line. Rewrite the record sdk/platform/repair_22_39_358.kvx so that it holds facts of the product only: keep the id, the source revision and the decision of the task section, the two inventories, the selection of the envelope program, the pins, the four results and the result of the selection. Remove the members status, verified_revision and verified_revision_result, the sections gotcha.scope, gotcha.dotnet_no_restore, qualification, qualification.build_1, qualification.verify_1, finding.graph_make_target and repair.evidence_revision, and every member that names a log path. The record names no gate tool and no instruction given to the model session. Replace the five finding sections for the remaining red cases with one section that names task 22.39.361 as the owner of the four .NET cases and task 22.39.360 as the owner of the Go case (decisions 3246 and 3247). Run the build once and the verification once at the final revision."
 
 [task.22.39.354]
 title = "Load the test certificate of the .NET platform SDK with the loader of the target framework"
@@ -334143,7 +334249,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -334185,6 +334291,7 @@ do_17 = "Attempt 15 (continue after 22.39.350 lands, gotcha 4139, decision 3216)
 do_18 = "Attempt 16 (continue after 22.39.352 lands, gotcha 4154, decision 3227): the attempt-15 tree 1328649c1bfc stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes platform-sdk-check and stops in make workspace-build at the build of the Next example of the integration SDK, whose directory is outside the paths of this task and which task 22.39.352 repairs; the task now requires it. Rebase on main once that task is on it and change nothing for the example or for the install targets. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 do_19 = "Attempt 17 (continue after 22.39.353 and 22.39.354 land, gotchas 4159 and 4161, decisions 3232 and 3234): the attempt-16 tree 4b995a314b06 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes the build of the Next example and stops in make workspace-build at agent-build (Makefile:1717), where the host binary of the agent daemon does not compile; task 22.39.353 repairs it. The platform test target also runs the test project of the .NET platform SDK (services/platform/Makefile.inc:289), which does not build under its target framework; task 22.39.354 repairs it. The task now requires both. Rebase on main once both are on it and change nothing for either. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 do_20 = "do_20 Decision 3238, gotcha 4166: the task now requires task 22.39.358, which leaves the probe cases of the agent operation envelope out of the ordinary run of the .NET test project and of the Go module in platform-verify-sdks. Change nothing for those two recipe lines in this task."
+do_21 = "do_21 Decisions 3246 and 3247, gotchas 4174 and 4175: the task now requires tasks 22.39.360 and 22.39.361. With the probe cases left out, the .NET test project still held four red cases over the published receipt vectors and the Go module one red case over the terminal corpus; those two tasks repair them. Change nothing for those cases in this task."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
