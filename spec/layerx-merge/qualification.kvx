@@ -40274,3 +40274,11 @@ symbol = "inference_queue.rs"
 observed = "Attempt 1 at 80d6b40f7673 on base 757b9269075e: the build exits 101 at 80d6b40f7673, the test target repair_22_31_549 does not compile with 12 errors (E0609 no field labels on the type OwnerFixture); no verification ran; log /out/logs/build-1.log."
 assumption = "The red test target is outside the paths of the task."
 severity = "high"
+
+[finding.22.39.117.18]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 18 at 1f397b9aea73 on base 9ef8418ad199: the build exits 0 and the verification exits 1 at 4b8e875f2e9f, the module sdk/launchpad/shared fails in the case TestDecodeIdentitySigningKeyForms at sdk/launchpad/shared/auth/mtls_identity_client_test.go:32 with a padded value accepted, and the later modules did not run; log /out/logs/verify-1.log."
+assumption = "The case fails for a share of its random draws and is unchanged from main."
+severity = "high"
