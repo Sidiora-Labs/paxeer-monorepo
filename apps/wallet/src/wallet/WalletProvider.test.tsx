@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, useLayoutEffect } from 'react';
+import { act, StrictMode, useLayoutEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ethers } from 'ethers';
@@ -71,10 +71,11 @@ async function mount(props: {
   target: EventTarget;
   config?: typeof gateway.config | null;
   identitySession?: IdentitySession | null;
+  strict?: boolean;
 }) {
   await act(async () => {
     root = createRoot(container);
-    root.render(
+    const tree = (
       <WalletProvider
         config={props.config === undefined ? gateway.config : props.config}
         identity={props.identitySession === undefined ? identity() : props.identitySession}
@@ -83,6 +84,7 @@ async function mount(props: {
         <Probe />
       </WalletProvider>
     );
+    root.render(props.strict ? <StrictMode>{tree}</StrictMode> : tree);
   });
 }
 
@@ -110,6 +112,53 @@ function withoutDomainType(types: Record<string, Array<{ name: string; type: str
 }
 
 describe('WalletProvider', () => {
+  async function wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts() {
+    const target = new EventTarget();
+    const { provider, stop } = announceInjected(target);
+    try {
+      for (const strict of [false, false, true]) {
+        await mount({ target, strict });
+        await until(() => wallet().status === 'signed-out');
+        expect(wallet().injected.map((detail) => detail.info.uuid)).toEqual([INJECTED_UUID]);
+        expect(wallet().injected[0]?.provider).toBe(provider);
+
+        await act(async () => {
+          target.dispatchEvent(new Event('eip6963:requestProvider'));
+        });
+        expect(wallet().injected.map((detail) => detail.info.uuid)).toEqual([INJECTED_UUID]);
+
+        const requests = provider.calls.filter(
+          (call) => call.method === 'eth_requestAccounts'
+        ).length;
+        await act(async () => {
+          expect(await wallet().connectInjected(INJECTED_UUID)).toBe(provider.wallet.address);
+        });
+        expect(wallet().status).toBe('ready');
+        expect(wallet().mode).toBe('injected');
+        expect(wallet().address).toBe(provider.wallet.address);
+        expect(provider.calls.filter((call) => call.method === 'eth_requestAccounts')).toHaveLength(
+          requests + 1
+        );
+        expect(gateway.requests).toEqual([]);
+
+        await act(async () => {
+          await wallet().signOut();
+        });
+        await act(async () => {
+          root?.unmount();
+        });
+        root = null;
+      }
+    } finally {
+      stop();
+    }
+  }
+
+  it(
+    wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts.name,
+    wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts
+  );
+
   async function wallet_provider_switches_sends_and_restores_virtual_network_without_signing_out() {
     await runProviderSwitchRestartCoverage();
   }
