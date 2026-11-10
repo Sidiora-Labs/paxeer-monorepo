@@ -12712,6 +12712,18 @@ value = "A task whose steps begin with the reproduction of a fault of a running 
 basis = "Gotcha 4195, decisions 3242 and 3265."
 affects = ["22.39.367"]
 
+[decision.3267]
+title = "The red test target of the agent daemon is repaired by its own short task"
+value = "Task 22.39.368 repairs the target repair_22_31_549 and nothing else: the members peer, labels and credential return to OwnerFixture of tests/bootstrap_bind_layerx.rs with their initialisation, each with one allowance whose reason names the lint dead_code and the including target repair_22_31_549, and the calls of the envelope function in tests/repair_22_31_549.rs pass a reference. This is the repair decision 3257 states; only its owner changes. Task 22.39.365 follows task 22.39.368 in place of task 22.39.228, which amends decision 3264 in that one point, and task 22.39.228 follows task 22.39.368 as well and changes neither of the two files for those errors."
+basis = "Gotchas 4185, 4196 and 4197, decisions 3130, 3211, 3257 and 3264."
+affects = ["22.39.368", "22.39.365", "22.39.228"]
+
+[decision.3268]
+title = "The files outside the tests directory that the targets named r take in are assigned"
+value = "Decision 3218 is applied to the five outside files of gotcha 4196. The file services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs, which only a test target takes in, and the files services/agent/tests/repair_22_33_1571.rs and services/agent/tests/repair_22_33_1573.rs join the paths of task 22.39.228 and are repaired at source there. The file services/agent/tests/limits/exactly_once.rs is repaired by task 22.39.229, which holds it, and task 22.39.228 follows that task by a requires entry and changes nothing in the file. The file programs/crates/layerx-programs-registry/tests/support/chain.rs belongs to another workspace with its own lint table and the two unused items of services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs have their cause in the inclusion: in both cases the including module item of the test target carries one allowance with a reason that names exactly the reported lints. A duplicate_mod finding is repaired by loading the file once in the target: the including target reaches a module that an included file already declares through that file and declares it no second time; no allowance is written for it."
+basis = "Gotcha 4196, decisions 3053, 3183, 3211, 3218 and 3257."
+affects = ["22.39.228", "22.39.229"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42372,6 +42384,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.368]
+title = "Compile the test target repair_22_31_549 of the agent daemon again"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"]
+tests = []
+verification_contract = "test -s tests/ci/repair_22_39_368.kvx && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test bootstrap_bind_layerx --test repair_22_31_549 && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test bootstrap_bind_layerx -- -D warnings"
+do_1 = "do_1 Decision 3267, gotchas 4185 and 4196. The target repair_22_31_549 of the package layerx-agentd takes in tests/bootstrap_bind_layerx.rs at tests/repair_22_31_549.rs:1 and does not compile: E0609 for the members credential, labels and peer of OwnerFixture (tests/bootstrap_bind_layerx.rs:477) and E0308 at the calls of the envelope function, which takes its request by reference since the lint repair of task 22.39.226 (:584). Reproduce the twelve errors with the build of this task."
+symbols = []
 
 [capability.22.39.367]
 title = "End the node process after its close sequence when the termination signal arrives in block sync"
@@ -185105,7 +185126,7 @@ title = "Accept a further deal of the room host for a matched ask"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.228"]
+requires = ["22.39.368"]
 reqs = ["22998.1"]
 capabilities = ["22.39.365"]
 interfaces = []
@@ -185130,6 +185151,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.39.228 lands, gotcha 4193, decision 3264): the attempt-1 tree 203bcd864cfb stands (the check of the RecordDeal operation in src/rooms.rs, the three cases of tests/f11_rooms_and_deals.rs with their fixture, the regenerated guest of 520452 bytes, the record). Its build passed; the check of the dependent packages stopped at the test target repair_22_31_549 of the agent daemon, which is red on main for a cause outside the paths and which task 22.39.228 repairs. The task now requires that task. Rebase on main once it is on it; when the guest source changed on main in the meantime, regenerate the committed guest with tests/fixtures/build-guest.sh and record its size. In the record replace the twelve errors of the dependent check with one sentence that names decision 3264. Run the build once and the verification once at the final revision."
+do_5 = "do_5 Decision 3267, gotcha 4197: the task now requires task 22.39.368 in place of task 22.39.228. Task 22.39.368 repairs the red target repair_22_31_549 of the agent daemon, after which the check of the dependent packages compiles. Where the note of the attempt names task 22.39.228, read task 22.39.368. Nothing else changes for this task."
 
 [task.22.39.349]
 title = "Link the test targets of the programs runtime crate with the host interface feature"
@@ -194432,6 +194454,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.368]
+title = "Compile the test target repair_22_31_549 of the agent daemon again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.368"]
+interfaces = []
+do_1 = "do_1 Decision 3267, gotchas 4185 and 4196. The target repair_22_31_549 of the package layerx-agentd takes in tests/bootstrap_bind_layerx.rs at tests/repair_22_31_549.rs:1 and does not compile: E0609 for the members credential, labels and peer of OwnerFixture (tests/bootstrap_bind_layerx.rs:477) and E0308 at the calls of the envelope function, which takes its request by reference since the lint repair of task 22.39.226 (:584). Reproduce the twelve errors with the build of this task."
+do_2 = "do_2 Return the three members to OwnerFixture with the types and the initialisation they had before that lint repair (read the history of the file), and give each one allowance of dead_code with a reason that names the including target repair_22_31_549, because the own target of the file does not read them. In tests/repair_22_31_549.rs pass a reference at each call of the envelope function. Change no assertion, no case and no other item of either file, and no file outside the two."
+do_3 = "do_3 Outside the counted gates run cargo check with the keep going option over all targets of the package layerx-agentd and record every target that does not compile with its first error; a second red target is not repaired here. Run the cases of the target repair_22_31_549 once outside the counted gates when their fixture starts in the qualification environment; a failing case is recorded with its first message and is not repaired here. Record in tests/ci/repair_22_39_368.kvx the twelve errors, the change and those two results. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"]
+tests = []
+planned_paths = ["tests/ci/repair_22_39_368.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test bootstrap_bind_layerx --test repair_22_31_549"
+verify_cmd = "test -s tests/ci/repair_22_39_368.kvx && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test bootstrap_bind_layerx --test repair_22_31_549 && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test bootstrap_bind_layerx -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.364]
 title = "Document the errors of the ask stream reads of the agent daemon library"
 status = "done"
@@ -196531,13 +196583,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decisions 3242 and 3245, gotcha 4170: the verification now passes the keep going option, so one run reports every target of the list. Before the counted gates, run the lint command of the verification yourself and repair what it reports at source, as often as needed, until it reports nothing. Before an item reported as never used is removed, search every target that includes its file by path or by module: an item that another target uses stays, in the file of the target that uses it or in a module both include. A function over the line bound is divided into functions of the same file with every assertion kept in order (decision 3230). Keep cargo check of the package layerx-agentd-host with all targets green. Then run the build once and the verification once."
+do_5 = "do_5 Decision 3268, gotcha 4196: the file services/agent/tests/limits/exactly_once.rs of the paths of this task is also taken in by the target repair_22_33_1571 through services/agent/tests/repair_22_33_1571.rs:19, and task 22.39.228 follows this task for it. Repair the findings of that file at source so that it is clean in every target that takes it in, the target repair_22_33_1571 included: run the lint command over that target once outside the counted gates and repair what it reports inside services/agent/tests/limits. Change nothing in services/agent/tests/repair_22_33_1571.rs."
 
 [task.22.39.228]
 title = "Bring the agent daemon test targets named r under the workspace lints"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.222", "22.39.353", "22.39.364"]
+requires = ["22.39.222", "22.39.353", "22.39.364", "22.39.368", "22.39.229"]
 reqs = ["22998.1"]
 capabilities = ["22.39.228"]
 interfaces = []
@@ -196545,7 +196598,7 @@ do_1 = "do_1 Decision 3053, gotcha 3749. Run the verification command of this ta
 do_2 = "do_2 Repair every recorded lint at its source as decision 3053 states (digit separators, fallible conversions or the bounded allowance on the expression with a reason, removed double parentheses, distinct names, written Errors and Panics sections, the deprecated allowance with a reason only on the test or compatibility item that retains the deprecated item, removed conditional branches of copied test support); no lint level change, no crate or module level allowance, no public signature change, no test assertion change, and nothing outside the touched paths changes."
 do_3 = "do_3 Record each lint with its repair and the final count of zero in the record; run the build once and the verification once at the final revision and record both by reference. If lints remain after the allowed repair cycles, record the remaining count by file and stop the attempt."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests"]
+touches = ["services/agent/crates/layerx-agentd/tests", "services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs", "services/agent/tests/repair_22_33_1571.rs", "services/agent/tests/repair_22_33_1573.rs"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
@@ -196563,6 +196616,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decisions 3242 and 3245, gotcha 4170: the verification now passes the keep going option, so one run reports every target of the list. Before the counted gates, run the lint command of the verification yourself and repair what it reports at source, as often as needed, until it reports nothing. Before an item reported as never used is removed, search every target that includes its file by path or by module: an item that another target uses stays, in the file of the target that uses it or in a module both include. A function over the line bound is divided into functions of the same file with every assertion kept in order (decision 3230). Keep cargo check of the package layerx-agentd-host with all targets green. Then run the build once and the verification once."
 do_5 = "Attempt 2 (continue after 22.39.364 lands, gotcha 4184, decision 3256): the attempt-1 tree 85055bc6a89c stands (the record). The lint command stops in the library before it reaches a test target: missing_errors_doc at src/node_rpc.rs:225 and :409, which task 22.39.364 repairs; the task now requires it. Rebase on main once that task is on it, then take the inventory of the test targets named r and repair their lints as the do items of the task state. Replace the two library findings of the record with one sentence that names decision 3256. Run the build once and the verification once at the final revision."
+do_6 = "Attempt 3 (continue after 22.39.368 and 22.39.229 land, gotcha 4196, decisions 3267 and 3268): the attempt-2 tree 3864ee686cb0 stands (the source repairs in 79 files, the divided functions, the record). The twelve errors of the target repair_22_31_549 are repaired by task 22.39.368, which the task now requires; rebase on main and change neither tests/bootstrap_bind_layerx.rs nor tests/repair_22_31_549.rs for them. The paths now also hold services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs, services/agent/tests/repair_22_33_1571.rs and services/agent/tests/repair_22_33_1573.rs: repair their findings at source. The file services/agent/tests/limits/exactly_once.rs is repaired by task 22.39.229, which the task now requires; change nothing in it. For programs/crates/layerx-programs-registry/tests/support/chain.rs and for the two unused items of services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs the including module item of the test target carries one allowance with a reason that names exactly the reported lints. Repair each duplicate_mod finding by loading the file once in the target and write no allowance for it. Before any counted gate, build every target of the build command with an ordinary cargo build and run the lint command of the verification yourself, as often as needed, until the build is green and the lint run reports nothing. Keep cargo check of the package layerx-agentd with all targets and of the package layerx-agentd-host with all targets green. Shorten the record: keep the counts by file and lint and one line for each kind of repair, and remove the list of single findings. Then run the build once and the verification once at the final revision."
 
 [task.22.39.227]
 title = "Bring the agent daemon test targets named i-q under the workspace lints"

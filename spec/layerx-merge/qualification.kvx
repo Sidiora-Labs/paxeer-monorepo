@@ -40306,3 +40306,11 @@ symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
 observed = "Attempt 14 at 9595a4a873fb on base 9ef8418ad199: the build exits 0 and the verification exits 1 at 9595a4a873fb after 2892 seconds; 48 of 50 rows exit 0 and the two wallet rows exit 1 with no test run, v6120-node: bootstrap-peer did not stop; log /out/logs/verify-1.log."
 assumption = "The stall of the node process is intermittent and sits in the node source outside the paths of the parity task."
 severity = "high"
+
+[finding.22.39.228.2]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 2 at 3864ee686cb0 on base c9e42b221901: build 1 exits 101 at e3d8584fcd88, build 2 exits 101 at 3960bdec88b5 and build 3 exits 101 at 3864ee686cb0 with twelve errors in the target repair_22_31_549; no verification ran; log /out/logs/build-3.log."
+assumption = "The red target is older than the task and the attempt ran its counted builds before the tree compiled."
+severity = "high"
