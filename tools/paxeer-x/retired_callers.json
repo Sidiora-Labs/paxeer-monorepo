@@ -1189,6 +1189,13 @@
       "citation": "The envelope-signing (11029) and availability-commit (11028) removals retain EIP-1559 sign_disclosed_call and the AI market committed-block rank from programs/crates/layerx-programs-ai-market/src/queries.rs; these exact lines use the replacements."
     },
     {
+      "path": "services/agent/crates/layerx-client/src/ai_market.rs",
+      "symbols": [
+        "FINALIZED_RANK"
+      ],
+      "citation": "Decision 3125 retains the live FINALIZED_RANK from programs/crates/layerx-programs-ai-market/src/queries.rs because ObservedSnapshot::finalize assigns it only after matching the verified Comet block commit and ICS23 program-state witness to the captured state."
+    },
+    {
       "path": "precompiles/layerxexchange/errors.go",
       "lines": [
         "\t\treturn \"LXP_DA_MISSING\""
