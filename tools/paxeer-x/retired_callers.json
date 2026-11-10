@@ -1442,6 +1442,30 @@
         "receipt_authority"
       ],
       "citation": "Decision 3125 permits the live kernel identifier lxp_verified_receipt_authority_facts on the ramp surface because its receipt_authority prefix does not denote the retired finality service."
+    },
+    {
+      "path": "services/agent/crates/layerx-types/src",
+      "symbols": [
+        "SETTLEMENT_ANCHORED",
+        "SettlementAnchored",
+        "paxeer-reserve",
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 permits the reserve-account refusal cases and the deprecated archive verification labels, whose current decoders, policy comparisons and write-rung mapping explicitly refuse current authority."
+    },
+    {
+      "path": "services/agent/crates/layerx-types/src/historical",
+      "symbols": [
+        "settlement_domain"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the live historical settlement_domains document reader for archive compatibility without using its configuration as current chain trust."
+    },
+    {
+      "path": "services/agent/crates/layerx-types/src/vectors",
+      "symbols": [
+        "settlement_domain"
+      ],
+      "citation": "Decisions 3104 and 3125 retain settlement_domain in the published historical checkpoint vectors and their live loader so existing archive verification corpora remain readable."
     }
   ]
 }

@@ -100,6 +100,9 @@ fn decode_signed(value: &Value, operation: Operation) -> Result<SignedObservatio
 
 impl AgentEnvelopeTransport {
     /// Sends the current API signature carrier without dropping its recovery byte.
+    /// # Errors
+    ///
+    /// Returns `InvalidRequest` for a signature other than 65 bytes, and preserves the signing operation transport, refusal, unknown-outcome and response decoding errors.
     pub fn sign_request(
         &self,
         request_id: RequestId,
