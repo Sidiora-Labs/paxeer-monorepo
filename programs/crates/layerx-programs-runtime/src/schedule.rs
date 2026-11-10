@@ -314,8 +314,10 @@ impl ParallelScheduler {
         Self {
             strategy: SchedulingStrategy::Parallel,
             maximum_workers: const {
-                NonZeroUsize::new(DEFAULT_MAXIMUM_SCHEDULER_WORKERS)
-                    .expect("scheduler worker default is nonzero")
+                match NonZeroUsize::new(DEFAULT_MAXIMUM_SCHEDULER_WORKERS) {
+                    Some(workers) => workers,
+                    None => panic!("scheduler worker default is nonzero"),
+                }
             },
         }
     }
@@ -548,6 +550,8 @@ mod tests {
     }
 
     fn access(activity: &Activity) -> ScheduleAccess {
+        use crate::test_support::AssertSuccess as _;
+
         let mut modes = BTreeMap::new();
         for &tag in &activity.reads {
             modes.entry(tag).or_insert(AccessMode::Read);
@@ -559,10 +563,10 @@ mod tests {
             AccessSet::new(
                 [],
                 modes.into_iter().map(|(tag, mode)| {
-                    AccountAccess::new(account(tag), ASSET, mode).expect("nonzero account")
+                    AccountAccess::new(account(tag), ASSET, mode).assert_success("nonzero account")
                 }),
             )
-            .expect("bounded access set"),
+            .assert_success("bounded access set"),
         )
     }
 
@@ -622,10 +626,12 @@ mod tests {
     }
 
     fn strategies() -> Vec<ParallelScheduler> {
+        use crate::test_support::AssertSuccess as _;
+
         let mut strategies = vec![ParallelScheduler::serial(), ParallelScheduler::parallel()];
         for workers in [1, 2, 3, 8, 64] {
             strategies.push(ParallelScheduler::parallel_with_workers(
-                NonZeroUsize::new(workers).expect("nonzero workers"),
+                NonZeroUsize::new(workers).assert_success("nonzero workers"),
             ));
         }
         strategies
@@ -633,6 +639,8 @@ mod tests {
 
     #[test]
     fn partition_is_a_pure_canonical_function_of_batch_contents() {
+        use crate::test_support::AssertSuccess as _;
+
         for (accounts, seed) in [(3, 11), (12, 7), (40, 5), (250, 3)] {
             let activities = batch(64, accounts, seed);
             let scheduled = accesses(&activities);
@@ -649,7 +657,7 @@ mod tests {
                     assert_eq!(member, next, "levels must be canonical contiguous ranges");
                     next += 1;
                     levels[member] = level;
-                    for &predecessor in plan.graph().predecessors(member).expect("member") {
+                    for &predecessor in plan.graph().predecessors(member).assert_success("member") {
                         assert!(levels[predecessor] < level);
                     }
                 }
@@ -732,6 +740,8 @@ mod tests {
 
     #[test]
     fn parallel_and_refused_parallelism_commit_the_canonical_serial_result() {
+        use crate::test_support::AssertSuccess as _;
+
         for (accounts, seed) in [(1, 1), (4, 2), (16, 3), (64, 4), (250, 5)] {
             let activities = batch(64, accounts, seed);
             let scheduled = accesses(&activities);
@@ -750,7 +760,7 @@ mod tests {
                         },
                         |index, outcome| commits.push((index, outcome)),
                     )
-                    .expect("staged batch");
+                    .assert_success("staged batch");
                 assert_eq!(state, expected_state, "{scheduler:?}");
                 assert_eq!(commits, expected_commits, "{scheduler:?}");
             }
@@ -826,14 +836,16 @@ mod tests {
 
     #[test]
     fn actor_sequence_conflicts_across_distinct_principals() {
+        use crate::test_support::AssertSuccess as _;
+
         let actor = [0x11; 32];
         let left = ProtocolScheduleEffects::new(AccessSet::empty(), [actor, [0x21; 32]])
-            .expect("nonzero identities");
+            .assert_success("nonzero identities");
         let right = ProtocolScheduleEffects::new(AccessSet::empty(), [actor, [0x22; 32]])
-            .expect("nonzero identities");
+            .assert_success("nonzero identities");
         let independent =
             ProtocolScheduleEffects::new(AccessSet::empty(), [[0x12; 32], [0x23; 32]])
-                .expect("nonzero identities");
+                .assert_success("nonzero identities");
 
         let actor_conflict =
             ConflictGraph::from_accesses(&[scheduled(left.clone()), scheduled(right)]);

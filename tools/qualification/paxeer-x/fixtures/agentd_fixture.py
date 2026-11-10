@@ -12,6 +12,7 @@ import ssl
 import stat
 import subprocess
 import time
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[4]
 REQUIRED = {'layerx-agentd', 'paxd', 'layerx-gateway', 'layerx-program-registry'}
@@ -200,10 +201,18 @@ class AgentdFixture:
             path = Path(config.get(name, ''))
             require(path.is_absolute() and path.resolve() == path and self.directory in path.parents,
                     'daemon durable path must be canonical and disposable: ' + name)
-        for name in ('LAYERX_AGENT_HUMAN_SOCKET', 'LAYERX_AGENT_HUMAN_NODE_LNI'):
+        for name in ('LAYERX_AGENT_HUMAN_SOCKET',):
             path = Path(config.get(name, ''))
             require(path.is_absolute() and path.resolve() == path and self.directory in path.parents,
                     'daemon socket must be canonical and disposable: ' + name)
+        node = urlsplit(config.get('LAYERX_AGENT_NODE_RPC_URL', ''))
+        require(node.scheme == 'http' and node.hostname == '127.0.0.1'
+                and node.port is not None and node.path in ('', '/')
+                and not node.username and not node.password and not node.query and not node.fragment,
+                'daemon node RPC must be an owned loopback root endpoint')
+        require(str(node.port) in {self.values[name] for name in self.document.get('ports', [])},
+                'daemon node RPC port must belong to the disposable fixture')
+        require(config.get('LAYERX_AGENT_NODE_CHAIN_ID') == '125', 'daemon must use Paxeer chain 125')
         policies = config.get('LAYERX_POLICY_SOURCES', '')
         require(bool(policies), 'configured policies are required for the Programs owner')
         for declaration in policies.split(','):

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "deploymentVersion": "paxeer125-v6.12.0",
-  "sourceManifestSha256": "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a",
+  "sourceManifestSha256": "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b",
   "chainId": 125,
   "activationHeight": 37220320,
   "status": "active",
@@ -16,42 +16,42 @@
     "ProtocolConfig": {
       "address": "0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "Router": {
       "address": "0x78FB06f525cD964388f2305A489035263E31C6e4",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "Quoter": {
       "address": "0x793006f4F321b8863F26DBD75b11bAa01DA181dc",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "SidioraFactory": {
       "address": "0x3993D004166738d1069B5C4e0a923f7B9D5D8830",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "PoolRegistry": {
       "address": "0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "FeeAccumulator": {
       "address": "0x7b14808b72f61664cDb79D25E6d1587655571a66",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "SidioraNFT": {
       "address": "0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "FeesRouter": {
       "address": "0x05681dA6f611C2dfFD3E92611F6dE2d247647927",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "OpticalRegistry": {
       "address": "0x0FB5E510372Bd3EddFED16A5Dd766d4473CffcF0",
@@ -75,7 +75,7 @@
     "Treasury": {
       "address": "0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723",
       "kind": "surface",
-      "runtimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
     },
     "LaunchpadPrecompile": {
       "address": "0x0000000000000000000000000000000000001017",

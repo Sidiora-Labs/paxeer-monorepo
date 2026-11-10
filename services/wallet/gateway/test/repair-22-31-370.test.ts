@@ -28,6 +28,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { TestChain } from './support/chain.js';
+import { loadProductionWalletSdk } from './support/node-receipts.js';
 
 // Committed loopback TLS credentials; these protect no deployed service.
 const TLS_FIXTURE = [
@@ -610,7 +611,6 @@ let rpcModule: typeof import('../src/rpc/pool.js');
 let attestors: import('../src/attestor/client.js').AttestorClient;
 let rpc: import('../src/rpc/pool.js').RpcPool;
 let app: FastifyInstance;
-let sdkLoader: Awaited<ReturnType<(typeof import('vitest/node'))['createViteServer']>>;
 let proxy: HttpServer;
 let proxyUrl: string;
 let idp: HttpServer;
@@ -1295,7 +1295,6 @@ afterAll(async () => {
   if (station) await close(station);
   if (chain) await chain.stop();
   if (idp) await close(idp);
-  await sdkLoader?.close();
   if (work) rmSync(work, { recursive: true, force: true });
   expect(db?.errors ?? []).toEqual([]);
   expect(fixtureErrors).toEqual([]);
@@ -1535,26 +1534,7 @@ async function humanUnknownSendKeepsDailySpendAfterReopen() {
 }
 
 async function hostedEvmSdkRoundTrip() {
-  const { createViteServer } = await import('vitest/node');
-  sdkLoader = await createViteServer({
-    configFile: false,
-    root: fileURLToPath(new URL('../../../../', import.meta.url)),
-    cacheDir: join(work, 'sdk-loader-cache'),
-    server: { middlewareMode: true },
-    resolve: {
-      alias: [
-        {
-          find: '@sidiora/layerx-sdk/browser',
-          replacement: fileURLToPath(
-            new URL('../../../agent/sdk/typescript/src/browser.ts', import.meta.url)
-          ),
-        },
-      ],
-    },
-  });
-  const { PaxeerWallet } = await sdkLoader.ssrLoadModule(
-    fileURLToPath(new URL('../../../../sdk/wallet/src/index.ts', import.meta.url))
-  );
+  const { PaxeerWallet } = loadProductionWalletSdk();
   const memory = new Map<string, string>();
   const sdk = new PaxeerWallet({
     apiUrl: proxyUrl,

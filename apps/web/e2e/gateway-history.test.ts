@@ -31,6 +31,24 @@ registerHooks({
 
 const gateway = await import("../src/api/gateway.ts");
 
+const NODE_ROOT_METHODS: ReadonlySet<string> = new Set([
+  "px_resolveAccount",
+  "px_getAccount",
+  "px_getBalances",
+  "px_listAssets",
+  "px_getNetwork",
+  "px_getCapabilities",
+  "px_getRouteCatalogue",
+  "px_getHistory",
+  "px_getUnifiedHistory",
+  "px_listHolderRecords",
+  "px_getCommit",
+  "px_getValidators",
+  "px_getReceiptKeys",
+  "px_getSequenceBatch",
+  "pax_sequencerReceipt",
+]);
+
 const POSITION = "00000000000000070000000100000002";
 
 // The gateway's whole px_getUnifiedHistory answer, recorded over the loopback
@@ -63,11 +81,30 @@ async function body(request: IncomingMessage): Promise<{ id: string; method: str
 
 export async function serving(
   answer: (method: string) => unknown,
-  run: (calls: { method: string; params: unknown[]; }[], nodeOrigin: string) => Promise<void>,
+  run: (calls: { method: string; params: unknown[]; }[], nodeOrigin: string, hostedCalls: string[]) => Promise<void>,
 ) {
   const calls: { method: string; params: unknown[]; }[] = [];
+  const hostedCalls: string[] = [];
   const unexpected: string[] = [];
   const server = createServer((request, response) => {
+    if (request.method !== "POST" || request.url !== "/") {
+      unexpected.push(`${request.method} ${request.url}`); response.writeHead(404).end(); return;
+    }
+    void body(request).then((call) => {
+      hostedCalls.push(call.method);
+      if (NODE_ROOT_METHODS.has(call.method) || !["eth_blockNumber", "eth_getTransactionReceipt"].includes(call.method)) {
+        unexpected.push(call.method); response.writeHead(400).end(); return;
+      }
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify({
+        jsonrpc: "2.0", id: call.id,
+        result: call.method === "eth_blockNumber" ? "0xc" : {
+          transactionHash: recorded.result.items[0]!.tx_id, blockNumber: "0xa", status: "0x1", logs: [],
+        },
+      }));
+    });
+  });
+  const native = createServer((request, response) => {
     if (request.method !== "POST" || request.url !== "/") {
       unexpected.push(`${request.method} ${request.url}`); response.writeHead(404).end(); return;
     }
@@ -77,51 +114,34 @@ export async function serving(
       }
       calls.push({ method: call.method, params: call.params });
       response.setHeader("content-type", "application/json");
-      response.end(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          id: call.id,
-          result: answer(call.method),
-        }),
-      );
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: call.id, result: answer(call.method) }));
     });
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  assert.ok(address !== null && typeof address === "object");
-  const previous = process.env.LAYERX_GATEWAY_URL;
-  process.env.LAYERX_GATEWAY_URL = `http://127.0.0.1:${String(address.port)}/`;
-  const native = createServer((request, response) => {
-    if (request.method !== "POST" || request.url !== "/") {
-      unexpected.push(`${request.method} ${request.url}`); response.writeHead(404).end(); return;
-    }
-    void body(request).then((call) => {
-      if (call.method !== "eth_blockNumber" && call.method !== "eth_getTransactionReceipt") {
-        unexpected.push(call.method); response.writeHead(400).end(); return;
-      }
-      response.setHeader("content-type", "application/json");
-      response.end(JSON.stringify({
-        jsonrpc: "2.0", id: call.id,
-        result: call.method === "eth_blockNumber" ? "0xc" : {
-          transactionHash: recorded.result.items[0]!.tx_id, blockNumber: "0xa", status: "0x1", logs: [],
-        }
-      }));
-    });
-  });
-  await new Promise<void>((resolve) => native.listen(0, "127.0.0.1", resolve));
-  const nativeAddress = native.address();
-  assert.ok(nativeAddress !== null && typeof nativeAddress === "object");
-  const nodeOrigin = `http://127.0.0.1:${nativeAddress.port}/`;
-  assert.notEqual(nodeOrigin, process.env.LAYERX_GATEWAY_URL);
+  const previousGateway = process.env.LAYERX_GATEWAY_URL;
+  const previousNode = process.env.LAYERX_NODE_ENDPOINT;
   try {
-    await run(calls, nodeOrigin);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    assert.ok(address !== null && typeof address === "object");
+    process.env.LAYERX_GATEWAY_URL = `http://127.0.0.1:${address.port}/`;
+    await new Promise<void>((resolve) => native.listen(0, "127.0.0.1", resolve));
+    const nativeAddress = native.address();
+    assert.ok(nativeAddress !== null && typeof nativeAddress === "object");
+    const nodeOrigin = `http://127.0.0.1:${nativeAddress.port}/`;
+    process.env.LAYERX_NODE_ENDPOINT = nodeOrigin;
+    assert.notEqual(nodeOrigin, process.env.LAYERX_GATEWAY_URL);
+    await run(calls, nodeOrigin, hostedCalls);
   } finally {
     await Promise.all([server, native].map((peer) => new Promise<void>((resolve, reject) => {
+      if (!peer.listening) return resolve();
       peer.close((error) => error === undefined ? resolve() : reject(error));
       peer.closeAllConnections();
     })));
-    if (previous === undefined) delete process.env.LAYERX_GATEWAY_URL;
-    else process.env.LAYERX_GATEWAY_URL = previous;
+    if (previousGateway === undefined) delete process.env.LAYERX_GATEWAY_URL;
+    else process.env.LAYERX_GATEWAY_URL = previousGateway;
+    if (previousNode === undefined) delete process.env.LAYERX_NODE_ENDPOINT;
+    else process.env.LAYERX_NODE_ENDPOINT = previousNode;
+    assert.deepEqual(hostedCalls.filter((method) => NODE_ROOT_METHODS.has(method)), [], "no node-root method may reach the hosted gateway");
     assert.deepEqual(unexpected, [], "method ownership and root paths must match each producer");
   }
 }
@@ -274,23 +294,22 @@ test("the web app names no switched-off history or registration method", () => {
 });
 
 export async function native_history_uses_distinct_root_node_and_hosted_gateway() {
-  await serving(() => recorded.result, async (calls, nodeOrigin) => {
-    const hostedOrigin = process.env.LAYERX_GATEWAY_URL;
+  await serving(() => recorded.result, async (calls, nodeOrigin, hostedCalls) => {
+    assert.equal(process.env.LAYERX_NODE_ENDPOINT, nodeOrigin);
+    assert.notEqual(process.env.LAYERX_GATEWAY_URL, nodeOrigin);
     const history = await gateway.unifiedHistory(ADDRESS);
-    process.env.LAYERX_GATEWAY_URL = nodeOrigin;
-    try {
-      const height = await gateway.ethBlockNumber();
-      assert.equal(height, 12n);
-      const nativeHash = history.items[0]!.txId;
-      assert.match(nativeHash, /^0x[0-9a-f]{64}$/u);
-      const receipt = await gateway.ethTransactionReceipt(nativeHash);
-      assert.ok(receipt);
-      assert.equal(receipt.transactionHash, nativeHash);
-      assert.equal(receipt.blockNumber, BigInt(history.items[0]!.blockHeight));
-      assert.equal(receipt.status, "success");
-      assert.ok(receipt.blockNumber <= height);
-      assert.deepEqual(calls.map((call) => call.method), ["px_getUnifiedHistory"]);
-    } finally { process.env.LAYERX_GATEWAY_URL = hostedOrigin; }
+    const height = await gateway.ethBlockNumber();
+    assert.equal(height, 12n);
+    const nativeHash = history.items[0]!.txId;
+    assert.match(nativeHash, /^0x[0-9a-f]{64}$/u);
+    const receipt = await gateway.ethTransactionReceipt(nativeHash);
+    assert.ok(receipt);
+    assert.equal(receipt.transactionHash, nativeHash);
+    assert.equal(receipt.blockNumber, BigInt(history.items[0]!.blockHeight));
+    assert.equal(receipt.status, "success");
+    assert.ok(receipt.blockNumber <= height);
+    assert.deepEqual(calls.map((call) => call.method), ["px_getUnifiedHistory"]);
+    assert.deepEqual(hostedCalls, ["eth_blockNumber", "eth_getTransactionReceipt"]);
   });
 }
 

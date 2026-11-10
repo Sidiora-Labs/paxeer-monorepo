@@ -1,0 +1,18 @@
+[repair.22.39.306]
+acceptance = "22998.1"
+decision = "3151"
+gotcha = "4060"
+continuation_decision = "3166"
+continuation_gotcha = "4086"
+site = "rpc/px_node_root_account_test.go:711 via pxRootCall and pxRootAssertSchema in TestPxNodeRoot_Account_CommittedReadsAndParity; rpc/px_discovery.go:GetRouteCatalogue"
+former_answer = "The generated node catalogue contained schema, chain_id, services and routes; GetRouteCatalogue added readiness and rpc_paths, but canonical_origin was absent despite being present in the canonical source."
+rule = "services/platform/hosted/gateway/openrpc.json requires canonical_origin to equal https://api-mainnet-beta.paxeer.network, node_rpc to contain origin https://api-mainnet-beta.paxeer.network, rpc_path / and chain_id 125, and hosted_gateway to contain location_source operator-provided, rpc_path / and catalogue_path /v1/routes; sdk/wallet/src/endpoint.ts consumes the canonical origin."
+implementation = "Project canonical_origin directly from tools/paxeer-x/route-catalogue.json and regenerate rpc/px_route_catalogue.json; preserve all generated values and add node_rpc using the projected canonical_origin and chain_id, hosted_gateway using the schema constants, and the existing readiness and rpc_paths runtime fields."
+test = "TestPxNodeRoot_Account_CommittedReadsAndParity retains its schema, source-route parity and readiness assertions and additionally checks the canonical source constant and the transported origin over HTTP and WebSocket; expected routes are the source routes for product services with private fields removed, followed in generator order by the five node_rpc inference routes with their complete public fields."
+build_command = "go vet ./rpc/"
+verify_command = "test -s rpc/repair_22_39_306.kvx && python3 rpc/generate_px_catalogue.py && git diff --quiet -- rpc/px_route_catalogue.json && go test -count=1 ./rpc/ -run '^TestPxNodeRoot_Account_CommittedReadsAndParity$'"
+verified_revision = "The exact candidate revision is recorded by hf-done in /out/run/gates.jsonl alongside command, exit and private log; this repair record is included in that candidate."
+
+[finding.existing_contract]
+observed = "The existing OpenRPC result additionally requires node_rpc and hosted_gateway, which the current projection and handler do not emit; the generator also appends five node_rpc inference routes absent from the source used by the existing route parity assertion."
+assumption = "Decision 3166 authorizes serving both schema-defined objects and comparing the complete public source projection followed by the generator-appended node_rpc routes while retaining every other assertion."

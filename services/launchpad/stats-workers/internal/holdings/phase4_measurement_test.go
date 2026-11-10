@@ -11,6 +11,12 @@ import (
 )
 
 func TestPhase4CapacityMeasurement(t *testing.T) {
+	for _, name := range []string{"L14_PHASE4_PLAN", "L14_PHASE4_PLAN_SHA256", "L14_PHASE4_OUTPUT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	path, digest, output := os.Getenv("L14_PHASE4_PLAN"), os.Getenv("L14_PHASE4_PLAN_SHA256"), os.Getenv("L14_PHASE4_OUTPUT")
 	if path == "" || digest == "" || output == "" {
 		t.Fatal("approved real Phase4 plan, SHA256 and fresh output directory required")

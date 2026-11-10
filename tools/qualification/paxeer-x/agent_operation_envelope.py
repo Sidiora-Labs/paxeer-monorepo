@@ -118,7 +118,7 @@ RULED_REFUSALS = {'faucet.claim': (503, 'UnavailableCapability', 'unavailable_ca
 CLASSES = {'TransportFailure', 'Deadline', 'ProtocolIncompatibility', 'UnavailableCapability', 'CoreRejection',
            'VerificationFailure', 'PolicyRefusal', 'CapabilityRefusal', 'BudgetRefusal', 'RateLimit',
            'IdempotencyConflict', 'InternalFault'}
-LEVELS = ('Unverified', 'SequencerSigned', 'BatchIncluded', 'StateProven', 'CheckpointFinalised', 'SettlementAnchored')
+LEVELS = ('Unverified', 'SequencerSigned', 'BatchIncluded', 'StateProven', 'CheckpointFinalised')
 SOURCES = ('services/agent/crates', 'services/agent/Cargo.toml', 'services/agent/Cargo.lock', 'services/agent/schema/agent-api', 'services/agent/sdk/typescript/src',
            'services/agent/sdk/typescript/test', 'services/agent/sdk/typescript/package.json', 'services/agent/sdk/typescript/package-lock.json',
            'services/agent/sdk/typescript/tsconfig.json', 'services/agent/sdk/python', 'services/platform/hosted/gateway', 'services/platform/Cargo.toml',
@@ -2272,7 +2272,7 @@ class Qualification:
                                  400, 'ProtocolIncompatibility', 'envelope.malformed')
         # ExportOfflineWire accepts requested_rung and rejects the legacy field before dispatch.
         self.served_read_refused(SERVED_READ_REFUSALS[6], 'export.offline',
-                                 dict(export, requested_verification_level='SettlementAnchored'),
+                                 dict(export, requested_verification_level='CheckpointFinalised'),
                                  400, 'ProtocolIncompatibility', 'envelope.unknown_field')
 
         discover = req['operation.program.discover']['request']

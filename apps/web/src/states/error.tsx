@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import { copyEntry, human_copy_catalog } from "../../copy/runtime.ts";
-import { errorCodeVariants } from "../api/generated";
+import { errorCodeVariants } from "../api/index.ts";
 import { formatCopy } from "../../copy/format.ts";
 import { DesktopConfirmation, MobileConfirmation } from "../kit/confirm";
 import { DesktopDetail, MobileDetail } from "../kit/pattern-detail";

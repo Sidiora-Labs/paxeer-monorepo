@@ -1465,7 +1465,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record EvidenceMaterial(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, HumanModels.Rung rung, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceMaterial(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) HumanModels.Rung rung, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
             public EvidenceMaterial {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");
@@ -1551,7 +1551,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record IntentEndpoint(HumanModels.IntentEndpointKind kind, String account, String layerx_public_key, String evm_address, HumanModels.IntentAddressResolution resolution) implements SchemaTypes.GeneratedResponse {
+        public record IntentEndpoint(HumanModels.IntentEndpointKind kind, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String account, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String layerx_public_key, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String evm_address, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) HumanModels.IntentAddressResolution resolution) implements SchemaTypes.GeneratedResponse {
             public IntentEndpoint {
                 Objects.requireNonNull(kind, "kind");
             }
@@ -1569,7 +1569,7 @@ public final class GeneratedSchema {
                 throw new IllegalArgumentException("unknown schema variant");
             }
         }
-        public record IntentLeg(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long index, String mechanism, HumanModels.IntentDomain domain, HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, HumanModels.Money money, HumanModels.Money fee, HumanModels.IntentPayment payment, String to, String data, BigInteger chainId) implements SchemaTypes.GeneratedResponse {
+        public record IntentLeg(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long index, String mechanism, HumanModels.IntentDomain domain, HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, HumanModels.Money money, HumanModels.Money fee, String to, String calldata, BigInteger chain_id, ProtocolAmount value, BigInteger nonce, BigInteger gas_limit, ProtocolAmount max_fee_per_gas, ProtocolAmount max_priority_fee_per_gas) implements SchemaTypes.GeneratedResponse {
             public IntentLeg {
                 Objects.requireNonNull(mechanism, "mechanism");
                 Objects.requireNonNull(domain, "domain");
@@ -1577,11 +1577,17 @@ public final class GeneratedSchema {
                 Objects.requireNonNull(destination, "destination");
                 Objects.requireNonNull(money, "money");
                 Objects.requireNonNull(fee, "fee");
-                Objects.requireNonNull(payment, "payment");
                 Objects.requireNonNull(to, "to");
-                Objects.requireNonNull(data, "data");
-                Objects.requireNonNull(chainId, "chainId");
-                SchemaTypes.protocolU64(chainId);
+                Objects.requireNonNull(calldata, "calldata");
+                Objects.requireNonNull(chain_id, "chain_id");
+                SchemaTypes.protocolU64(chain_id);
+                Objects.requireNonNull(value, "value");
+                Objects.requireNonNull(nonce, "nonce");
+                SchemaTypes.protocolU64(nonce);
+                Objects.requireNonNull(gas_limit, "gas_limit");
+                SchemaTypes.protocolU64(gas_limit);
+                Objects.requireNonNull(max_fee_per_gas, "max_fee_per_gas");
+                Objects.requireNonNull(max_priority_fee_per_gas, "max_priority_fee_per_gas");
             }
         }
         public record IntentLegBinding(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long leg_index, String action_key, String actor, String authority, String relationship, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long account_sequence, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long not_before, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long not_after, HumanModels.Money fee_limit) implements SchemaTypes.GeneratedResponse {
@@ -2965,7 +2971,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramActivityRequest, ProgramActivityResponse> PROGRAM_ACTIVITY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.activity", false, ProgramActivityRequest.class, ProgramActivityResponse.class);
-        public static final ProgramTransport PROGRAM_ACTIVITY_TRANSPORT = new ProgramTransport("eth_getLogs", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)"));
+        public static final ProgramTransport PROGRAM_ACTIVITY_TRANSPORT = new ProgramTransport("eth_getTransactionByHash", "", List.of());
         public record ProgramCallRequest(JsonNode idempotency_key) implements SchemaTypes.GeneratedRequest {
             public ProgramCallRequest {
                 Objects.requireNonNull(idempotency_key, "idempotency_key");
@@ -3060,7 +3066,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramReceiptResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramReceiptRequest, ProgramReceiptResponse> PROGRAM_RECEIPT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.receipt", false, ProgramReceiptRequest.class, ProgramReceiptResponse.class);
-        public static final ProgramTransport PROGRAM_RECEIPT_TRANSPORT = new ProgramTransport("eth_getLogs", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)"));
+        public static final ProgramTransport PROGRAM_RECEIPT_TRANSPORT = new ProgramTransport("eth_getTransactionByHash", "", List.of());
         public record ProgramSimulateRequest() implements SchemaTypes.GeneratedRequest {
         }
         public record ProgramSimulateResponse(JsonNode committed, JsonNode program_id, JsonNode terminal_result, JsonNode terminal_kind, JsonNode response, JsonNode block, JsonNode rung) implements SchemaTypes.GeneratedResponse {
@@ -3983,7 +3989,7 @@ public final class GeneratedSchema {
         public static final SchemaTypes.TypedOperation<AuthenticatorStatusRequest, AuthenticatorStatusResponse> AUTHENTICATOR_STATUS = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, "authenticator.status", false, AuthenticatorStatusRequest.class, AuthenticatorStatusResponse.class);
         public record EvidenceGetRequest() implements SchemaTypes.GeneratedRequest {
         }
-        public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, HumanModels.Rung rung, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
+        public record EvidenceGetResponse(String evidence_id, @JsonProperty("class") HumanModels.EvidenceClass class_, HumanModels.HumanVerificationLevel verification, String content_type, String bytes_base64, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) HumanModels.Rung rung, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) Long inclusion_height) implements SchemaTypes.GeneratedResponse {
             public EvidenceGetResponse {
                 Objects.requireNonNull(evidence_id, "evidence_id");
                 Objects.requireNonNull(class_, "class");

@@ -115,7 +115,7 @@ func TestResolutionFeeTokenRateAge(t *testing.T) {
 	}
 	charge, err = k.GetFeeTokenCharge(ctx.WithBlockHeight(100+raised+1), payer)
 	require.ErrorIs(t, err, evmkeeper.ErrFeeTokenRateStale)
-	require.EqualError(t, err, "fee-token rate is stale: rate_update_height 100 at block_height 100101 exceeds max_fee_token_rate_age 100000 for denom \"usid\"")
+	require.EqualError(t, err, "rate_update_height 100 at block_height 100101 exceeds max_fee_token_rate_age 100000 for denom \"usid\": fee-token rate is stale")
 	require.Nil(t, charge)
 	charge, err = k.GetFeeTokenCharge(ctx.WithBlockHeight(99), payer)
 	require.ErrorIs(t, err, evmkeeper.ErrFeeTokenRateInvalid)

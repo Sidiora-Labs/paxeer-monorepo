@@ -128,6 +128,12 @@ func TestProductionRevisionChangesOnHistoricalCorrection(t *testing.T) {
 	}
 }
 func TestProductionConcurrentCanonicalHistory(t *testing.T) {
+	for _, name := range []string{"L11_CANONICAL_ENDPOINT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint := os.Getenv("L11_CANONICAL_ENDPOINT")
 	dsn := os.Getenv("L11_HISTORY_POSTGRES_DSN")
 	redisURL := os.Getenv("L11_HISTORY_REDIS_URL")
@@ -192,6 +198,12 @@ func TestProductionConcurrentCanonicalHistory(t *testing.T) {
 }
 
 func TestProductionCachePoisoningAndETagIsolation(t *testing.T) {
+	for _, name := range []string{"L11_CANONICAL_ENDPOINT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint, dsn, redisURL := os.Getenv("L11_CANONICAL_ENDPOINT"), os.Getenv("L11_HISTORY_POSTGRES_DSN"), os.Getenv("L11_HISTORY_REDIS_URL")
 	if endpoint == "" || dsn == "" || redisURL == "" {
 		t.Fatal("real canonical API, PostgreSQL and Redis required")
@@ -389,6 +401,12 @@ func TestProductionCacheRejectsMalformedValues(t *testing.T) {
 }
 
 func TestProductionOriginTelemetryUsesActualFetch(t *testing.T) {
+	for _, name := range []string{"L11_CANONICAL_ENDPOINT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	endpoint, dsn := os.Getenv("L11_CANONICAL_ENDPOINT"), os.Getenv("L11_HISTORY_POSTGRES_DSN")
 	if endpoint == "" || dsn == "" {
 		t.Fatal("real canonical API and PostgreSQL required")

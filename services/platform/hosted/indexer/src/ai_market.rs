@@ -44,7 +44,7 @@ pub use layerx_programs_ai_market::queries::{
 };
 pub use layerx_programs_ai_market::types::Presence;
 
-/// Canonical publication minimum finalized rank.
+/// Canonical publication rank after block commit and native membership verification.
 pub const MINIMUM_PUBLICATION_RANK: u8 = FINALIZED_RANK;
 /// F02 authority freshness limit in execution heights.
 pub const AUTHORITY_FRESHNESS_HEIGHTS: u64 = 8;

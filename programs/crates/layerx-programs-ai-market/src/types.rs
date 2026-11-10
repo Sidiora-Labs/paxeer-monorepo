@@ -146,7 +146,11 @@ pub(crate) struct CheckedIdentityBytes<'a>(&'a [u8; 32]);
 impl<'a> CheckedIdentityBytes<'a> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn new(bytes: &'a [u8; 32]) -> CodecResult<Self> {
-        if *bytes == [0; 32] {
+        Self::new_inline(bytes)
+    }
+    #[inline(always)]
+    pub(crate) fn new_inline(bytes: &'a [u8; 32]) -> CodecResult<Self> {
+        if identity_is_zero(bytes) {
             Err(NON_CANONICAL)
         } else {
             Ok(Self(bytes))
@@ -190,11 +194,78 @@ impl<T> InitialField for Presence<T> {
     }
 }
 
+#[inline(never)]
+pub(crate) fn identity_equal(left: &[u8; 32], right: &[u8; 32]) -> bool {
+    identity_equal_inline(left, right)
+}
+
+#[inline(always)]
+pub(crate) fn identity_equal_inline(left: &[u8; 32], right: &[u8; 32]) -> bool {
+    let left = left.as_chunks::<8>().0;
+    let right = right.as_chunks::<8>().0;
+    (u64::from_ne_bytes(left[0]) ^ u64::from_ne_bytes(right[0]))
+        | (u64::from_ne_bytes(left[1]) ^ u64::from_ne_bytes(right[1]))
+        | (u64::from_ne_bytes(left[2]) ^ u64::from_ne_bytes(right[2]))
+        | (u64::from_ne_bytes(left[3]) ^ u64::from_ne_bytes(right[3]))
+        == 0
+}
+
+/// Lexicographic byte order, comparing equal eight-byte words in one step.
+/// Only the first different word needs a byte comparison.
+#[inline(never)]
+pub(crate) fn identity_order(left: &[u8; 32], right: &[u8; 32]) -> core::cmp::Ordering {
+    for (left, right) in left.as_chunks::<8>().0.iter().zip(right.as_chunks::<8>().0) {
+        let left = u64::from_le_bytes(*left);
+        let right = u64::from_le_bytes(*right);
+        let different = left ^ right;
+        if different != 0 {
+            // Select the first differing byte without swapping both words.
+            let shift = different.trailing_zeros() & !7;
+            return ((left >> shift) as u8).cmp(&((right >> shift) as u8));
+        }
+    }
+    core::cmp::Ordering::Equal
+}
+
+#[inline(always)]
+fn identity_is_zero(bytes: &[u8; 32]) -> bool {
+    let words = bytes.as_chunks::<8>().0;
+    u64::from_ne_bytes(words[0])
+        | u64::from_ne_bytes(words[1])
+        | u64::from_ne_bytes(words[2])
+        | u64::from_ne_bytes(words[3])
+        == 0
+}
+
+macro_rules! identity_comparison {
+    ($name:ident) => {
+        impl Ord for $name {
+            #[inline]
+            fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+                identity_order(self.as_bytes(), other.as_bytes())
+            }
+        }
+        impl PartialOrd for $name {
+            #[inline]
+            fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+        impl PartialEq for $name {
+            #[inline]
+            fn eq(&self, other: &Self) -> bool {
+                identity_equal(self.as_bytes(), other.as_bytes())
+            }
+        }
+    };
+}
+
 macro_rules! id32 {
     ($($name:ident),+ $(,)?) => {$ (
-        #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+        #[derive(Clone, Copy, Eq, Hash)]
         #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         pub struct $name([u8; 32]);
+        identity_comparison!($name);
         impl InitialField for $name {
             #[cfg_attr(target_arch = "wasm32", inline(never))]
             #[cfg_attr(not(target_arch = "wasm32"), inline)]
@@ -213,7 +284,7 @@ macro_rules! id32 {
             /// Returns `NON_CANONICAL` when the bytes are all zero.
             #[cfg_attr(target_arch = "wasm32", inline(never))]
             pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
-                if bytes == [0; 32] { Err(NON_CANONICAL) } else { Ok(Self(bytes)) }
+                if identity_is_zero(&bytes) { Err(NON_CANONICAL) } else { Ok(Self(bytes)) }
             }
             pub const fn bytes(self) -> [u8; 32] { self.0 }
             pub const fn as_bytes(&self) -> &[u8; 32] { &self.0 }
@@ -232,9 +303,10 @@ id32!(
     TaskId
 );
 
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Eq, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Digest32([u8; 32]);
+identity_comparison!(Digest32);
 impl InitialField for Digest32 {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn initial(_: CheckedIdentityBytes<'_>) -> Self {
@@ -260,7 +332,7 @@ impl Digest32 {
     /// Returns `NON_CANONICAL` when the bytes are all zero.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
-        if bytes == [0; 32] {
+        if identity_is_zero(&bytes) {
             Err(NON_CANONICAL)
         } else {
             Ok(Self(bytes))
@@ -298,7 +370,7 @@ macro_rules! digest {
             /// Returns `NON_CANONICAL` when the bytes are all zero.
             #[cfg_attr(target_arch = "wasm32", inline(never))]
             pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
-                if bytes == [0; 32] { Err(NON_CANONICAL) } else { Ok(Self(Digest32(bytes))) }
+                if identity_is_zero(&bytes) { Err(NON_CANONICAL) } else { Ok(Self(Digest32(bytes))) }
             }
             pub const fn bytes(self) -> [u8; 32] { self.0.bytes() }
             pub const fn as_bytes(&self) -> &[u8; 32] { self.0.as_bytes() }
@@ -341,7 +413,7 @@ impl Salt32 {
     /// # Errors
     /// Returns `F04_SALT_INVALID` when the bytes are all zero.
     pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
-        if bytes == [0; 32] {
+        if identity_is_zero(&bytes) {
             Err(crate::errors::F04_SALT_INVALID)
         } else {
             Ok(Self(bytes))
@@ -387,7 +459,7 @@ impl Score {
     ///
     /// # Errors
     /// Returns `F03_SCORE_RANGE` when the value exceeds 1,000,000.
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
     pub fn new(value: u32) -> CodecResult<Self> {
         if value > 1_000_000 {
             Err(F03_SCORE_RANGE)

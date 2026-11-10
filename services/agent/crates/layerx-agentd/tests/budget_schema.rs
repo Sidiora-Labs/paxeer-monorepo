@@ -53,6 +53,7 @@ fn verified_core_budget_record_reconciles_local_accounting() {
         .unwrap_or_else(|error| panic!("record: {error:?}"));
     assert_eq!(record.budget_id, BUDGET_ID);
     assert_eq!(record.remaining(), 475);
+    assert_eq!(record.period_end_ms(), 1_080);
     assert_eq!(record.window_end_sequence(), 1_080);
     assert_eq!(
         ProtocolBudgetRecord::decode(b"budget-state-schema-unavailable"),
@@ -60,11 +61,7 @@ fn verified_core_budget_record_reconciles_local_accounting() {
     );
 
     let verifier = support::pinned_evidence_verifier();
-    let mut local = LocalAccounting {
-        consumed: 11,
-        window_start_sequence: 70,
-        last_receipt: None,
-    };
+    let mut local = LocalAccounting::at_period_start(11, 70, None);
     let receipts = [SpendReceiptEvidence {
         expected_activity_id: [0x44; 32],
         evidence: support::raw_receipt_at([0x44; 32], 0, 25, 90),
@@ -75,14 +72,10 @@ fn verified_core_budget_record_reconciles_local_accounting() {
     assert_eq!(state.local_after(), 25);
     assert_eq!(state.observed_head_sequence(), 99);
     assert_eq!(local.consumed, 25);
-    assert_eq!(local.window_start_sequence, 80);
+    assert_eq!(local.window_start_ms(), 80);
     assert_eq!(local.last_receipt, Some([0x44; 32]));
 
-    let mut untouched = LocalAccounting {
-        consumed: 11,
-        window_start_sequence: 70,
-        last_receipt: None,
-    };
+    let mut untouched = LocalAccounting::at_period_start(11, 70, None);
     let opaque = ProtocolBudgetState {
         evidence: support::raw_state_leaf(b"budget-state-schema-unavailable".to_vec(), 99),
     };
@@ -100,6 +93,7 @@ fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
     let verifier = support::pinned_evidence_verifier();
     let receipts = [PersistedReceipt {
         expected_activity_id: [0x61; 32],
+        requested_amount: 25,
         evidence: support::raw_receipt([0x61; 32], 0, 25),
     }];
     let retained = verifier
@@ -141,6 +135,7 @@ fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
         .into_iter()
         .map(|record| PersistedReceipt {
             expected_activity_id: record.activity_id,
+            requested_amount: 25,
             evidence: record.evidence,
         })
         .collect();

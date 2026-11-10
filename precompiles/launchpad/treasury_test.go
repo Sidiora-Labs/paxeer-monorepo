@@ -301,10 +301,14 @@ func TestTreasurySurfaceServesTheABI(t *testing.T) {
 	require.Equal(t, "8752a472e571a816aea92eec8dae9baf628e840f4929fbcc2d155e6233ff68a7",
 		hex.EncodeToString(e.treasury.Events["Deposited"].ID.Bytes()))
 
-	// The generation 2 Treasury holds the surface runtime.
+	// The generation 2 Treasury role holds the guarded runtime, distinct from
+	// the installed runtime preserved by historical v6.12.0 pool replay.
 	require.Equal(t, common.HexToAddress("0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723"), e.surface)
-	require.Len(t, e.stateDB.GetCode(e.surface), 41)
+	require.Len(t, e.stateDB.GetCode(e.surface), 51)
 	require.Equal(t, treasurySurfaceRuntime, e.stateDB.GetCode(e.surface))
+	require.Equal(t, launchpadkeeper.SurfaceRuntime, e.stateDB.GetCode(e.surface))
+	require.Equal(t, common.HexToHash("0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"),
+		crypto.Keccak256Hash(e.stateDB.GetCode(e.surface)))
 
 	// Views.
 	require.Equal(t, [32]byte(depositorRole), e.view("DEPOSITOR_ROLE"))

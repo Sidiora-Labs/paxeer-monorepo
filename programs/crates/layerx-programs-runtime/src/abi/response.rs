@@ -335,11 +335,13 @@ mod tests {
     use super::{CallResponse, ResponseRefusal, ResponseRegion, MAX_CALL_RESPONSE_BYTES};
 
     fn canonical(region: &ResponseRegion) -> Vec<u8> {
+        use crate::test_support::AssertSuccess as _;
+
         let mut bytes = Vec::new();
         region.canonical_state_write(|part| bytes.extend_from_slice(part));
         assert_eq!(
             region.canonical_state_len(),
-            Ok(u64::try_from(bytes.len()).expect("canonical length"))
+            Ok(u64::try_from(bytes.len()).assert_success("canonical length"))
         );
         assert_eq!(
             ResponseRegion::from_untrusted_canonical_bytes(&bytes).as_ref(),
@@ -350,7 +352,9 @@ mod tests {
 
     #[test]
     fn unpublished_region_returns_the_entry_code_with_empty_bytes() {
-        let region = ResponseRegion::new(0).expect("zero capacity");
+        use crate::test_support::AssertSuccess as _;
+
+        let region = ResponseRegion::new(0).assert_success("zero capacity");
         assert_eq!(
             region.finish(4),
             Ok(CallResponse {
@@ -363,7 +367,9 @@ mod tests {
 
     #[test]
     fn exact_capacity_and_exact_maximum_publish_whole() {
-        let mut region = ResponseRegion::new(3).expect("capacity");
+        use crate::test_support::AssertSuccess as _;
+
+        let mut region = ResponseRegion::new(3).assert_success("capacity");
         let response = CallResponse {
             code: 1,
             bytes: vec![0, 0xff, 7],
@@ -372,7 +378,8 @@ mod tests {
         assert_eq!(region.finish(1), Ok(response));
         canonical(&region);
 
-        let mut maximum = ResponseRegion::new(MAX_CALL_RESPONSE_BYTES).expect("maximum capacity");
+        let mut maximum =
+            ResponseRegion::new(MAX_CALL_RESPONSE_BYTES).assert_success("maximum capacity");
         let response = CallResponse {
             code: 2,
             bytes: vec![0xa5; MAX_CALL_RESPONSE_BYTES],
@@ -390,7 +397,9 @@ mod tests {
 
     #[test]
     fn over_capacity_is_a_sticky_typed_refusal_never_a_truncation() {
-        let mut region = ResponseRegion::new(3).expect("capacity");
+        use crate::test_support::AssertSuccess as _;
+
+        let mut region = ResponseRegion::new(3).assert_success("capacity");
         let refusal = ResponseRefusal::CapacityExceeded {
             bytes: 4,
             capacity: 3,
@@ -444,7 +453,7 @@ mod transport_tests {
     fn constant(code: &mut Vec<u8>, mut value: i32) {
         code.push(OP_I32_CONST);
         loop {
-            let byte = (value & 0x7f) as u8;
+            let byte = value.to_le_bytes()[0] & 0x7f;
             value >>= 7;
             if (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0) {
                 code.push(byte);
@@ -484,13 +493,15 @@ mod transport_tests {
     }
 
     fn responder(code: i32, published: Option<&[u8]>) -> Vec<u8> {
+        use crate::test_support::AssertSuccess as _;
+
         let mut entry = Vec::new();
         if let Some(bytes) = published {
             constant(&mut entry, code);
             constant(&mut entry, 0);
             constant(
                 &mut entry,
-                i32::try_from(bytes.len()).expect("response length"),
+                i32::try_from(bytes.len()).assert_success("response length"),
             );
             entry.extend([OP_CALL, 0, OP_DROP]);
         }
@@ -519,14 +530,16 @@ mod transport_tests {
     }
 
     fn fanout_root(callees: &[ProgramId], edges: &[Edge], published: (i32, i32)) -> Vec<u8> {
+        use crate::test_support::AssertSuccess as _;
+
         let mut entry = Vec::new();
         for (index, edge) in edges.iter().enumerate() {
             constant(
                 &mut entry,
-                RESULTS_POINTER + 8 * i32::try_from(index).expect("edge index"),
+                RESULTS_POINTER + 8 * i32::try_from(index).assert_success("edge index"),
             );
             for value in [
-                32 * i32::try_from(edge.callee).expect("callee index"),
+                32 * i32::try_from(edge.callee).assert_success("callee index"),
                 32,
                 0,
                 0,
@@ -550,7 +563,7 @@ mod transport_tests {
             SENTINEL;
             edges
                 .iter()
-                .map(|edge| usize::try_from(edge.capacity).expect("capacity"))
+                .map(|edge| usize::try_from(edge.capacity).assert_success("capacity"))
                 .sum()
         ];
         let first_output = edges.first().map_or(0, |edge| edge.output);
@@ -587,7 +600,9 @@ mod transport_tests {
         output_bytes: u64,
         response_capacity: usize,
     ) -> Result<V2AuthorizedExecutionRecord, ExecutionError> {
-        let engine = WasmEngine::declared().expect("engine");
+        use crate::test_support::AssertSuccess as _;
+
+        let engine = WasmEngine::declared().assert_success("engine");
         let mut catalog = ProgramCatalog::new();
         let mut grants = Vec::new();
         for (program, wasm) in children {
@@ -595,23 +610,25 @@ mod transport_tests {
                 *program,
                 engine
                     .validate_candidate_v2(wasm)
-                    .expect("child validation"),
+                    .assert_success("child validation"),
             );
             grants.push(Capability::Call { program: *program });
         }
-        let root = engine.validate_candidate_v2(root).expect("root validation");
+        let root = engine
+            .validate_candidate_v2(root)
+            .assert_success("root validation");
         Executor::new(
             ResourceBudget::declared().with_output_bytes(output_bytes),
             FeeSchedule::declared(),
         )
         .execute_authorized_candidate(
-            &mut Default::default(),
+            &mut crate::Storage::default(),
             AuthorizedExecutionRequest {
                 module: &root,
-                program: ProgramId::new([0x40; 32]).expect("root program"),
+                program: ProgramId::new([0x40; 32]).assert_success("root program"),
                 authorization: AuthorizationContext::new(
-                    PrincipalId::new([0x41; 32]).expect("principal"),
-                    CapabilitySet::new(grants).expect("call grants"),
+                    PrincipalId::new([0x41; 32]).assert_success("principal"),
+                    CapabilitySet::new(grants).assert_success("call grants"),
                 ),
                 receipts: &UnavailableReceiptOracle,
                 entrypoint: CALL_ENTRY_EXPORT,
@@ -623,17 +640,21 @@ mod transport_tests {
     }
 
     fn packed(bytes: &[u8], edge: usize) -> u64 {
+        use crate::test_support::AssertSuccess as _;
+
         let word: [u8; 8] = bytes[edge * 8..edge * 8 + 8]
             .try_into()
-            .expect("packed result word");
+            .assert_success("packed result word");
         u64::from_le_bytes(word)
     }
 
     #[test]
     fn sibling_fanout_reads_only_its_own_edge_response_and_meters_each_copy() {
-        let first = ProgramId::new([0x51; 32]).expect("first callee");
-        let silent = ProgramId::new([0x52; 32]).expect("silent callee");
-        let last = ProgramId::new([0x53; 32]).expect("last callee");
+        use crate::test_support::AssertSuccess as _;
+
+        let first = ProgramId::new([0x51; 32]).assert_success("first callee");
+        let silent = ProgramId::new([0x52; 32]).assert_success("silent callee");
+        let last = ProgramId::new([0x53; 32]).assert_success("last callee");
         let first_bytes = [0xa1, 0x00, 0xa3];
         let last_bytes = [0xc1];
         let edges = [
@@ -660,10 +681,10 @@ mod transport_tests {
             (silent, responder(6, None)),
             (last, responder(7, Some(&last_bytes))),
         ];
-        let capacity = usize::try_from(published).expect("published length");
-        let record =
-            execute(&root, &children, u64::MAX, capacity).expect("fan-out response activity");
-        let response = record.response().expect("root success response");
+        let capacity = usize::try_from(published).assert_success("published length");
+        let record = execute(&root, &children, u64::MAX, capacity)
+            .assert_success("fan-out response activity");
+        let response = record.response().assert_success("root success response");
         assert_eq!(response.code, 0);
         assert_eq!(response.bytes.len(), capacity);
         assert_eq!(packed(&response.bytes, 0), (5 << 32) | 3);
@@ -676,7 +697,7 @@ mod transport_tests {
             .call_graph()
             .edges()
             .iter()
-            .map(|edge| edge.callee())
+            .map(crate::calls::CallEdge::callee)
             .collect();
         assert_eq!(callees, vec![first, silent, last]);
         let metered = (first_bytes.len() + last_bytes.len() + capacity) as u64;
@@ -694,7 +715,9 @@ mod transport_tests {
 
     #[test]
     fn nested_response_past_the_caller_capacity_fails_typed_without_truncation() {
-        let callee = ProgramId::new([0x61; 32]).expect("callee");
+        use crate::test_support::AssertSuccess as _;
+
+        let callee = ProgramId::new([0x61; 32]).assert_success("callee");
         let bytes = [1, 2, 3, 4];
         let children = [(callee, responder(9, Some(&bytes)))];
         let exact = fanout_root(
@@ -706,8 +729,8 @@ mod transport_tests {
             }],
             (RESULTS_POINTER, 12),
         );
-        let record = execute(&exact, &children, u64::MAX, 12).expect("exact capacity");
-        let response = record.response().expect("exact response");
+        let record = execute(&exact, &children, u64::MAX, 12).assert_success("exact capacity");
+        let response = record.response().assert_success("exact response");
         assert_eq!(packed(&response.bytes, 0), (9 << 32) | 4);
         assert_eq!(&response.bytes[8..12], &bytes);
 

@@ -609,7 +609,7 @@ mod tests {
             .encode_u16(256)
             .unwrap_or_else(|error| panic!("u16: {error:?}"));
         calldata
-            .encode_u32(65536)
+            .encode_u32(65_536)
             .unwrap_or_else(|error| panic!("u32: {error:?}"));
         calldata
             .encode_u64(4_294_967_296)
@@ -846,8 +846,24 @@ mod tests {
         decoder.validate_canonical(0)?;
         assert_eq!(decoder.position, payload.len());
         assert_eq!(decoder.decoded_size, payload.len());
-        assert!(MAX_CALLDATA_BYTES - 1 < DECODED_SIZE_LIMIT);
+        const {
+            assert!(MAX_CALLDATA_BYTES - 1 < DECODED_SIZE_LIMIT);
+        }
         Ok(())
+    }
+
+    #[test]
+    fn legacy_codec_errors_retain_their_diagnostics() {
+        for (error, message) in [
+            (CodecError::InvalidInteger, "integer encoding is invalid"),
+            (CodecError::InvalidArray, "array encoding is malformed"),
+            (
+                CodecError::InvalidUnion,
+                "tagged union encoding is malformed",
+            ),
+        ] {
+            assert_eq!(error.to_string(), message);
+        }
     }
 
     #[test]

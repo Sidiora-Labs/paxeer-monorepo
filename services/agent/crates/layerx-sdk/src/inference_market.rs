@@ -14,20 +14,26 @@ pub struct InferenceRead {
 }
 
 impl InferenceRead {
+    #[must_use]
     pub const fn method(&self) -> &'static str {
         self.method
     }
 
+    #[must_use]
     pub const fn params(&self) -> &Value {
         &self.params
     }
 
+    /// # Errors
+    ///
+    /// Preserves RPC transport, timeout, remote refusal and response decoding errors.
     pub fn execute(&self, rpc: &RpcClient) -> Result<Value, RpcError> {
         rpc.call_bounded(self.method, &self.params, Duration::from_secs(30))
     }
 }
 
 impl InferenceMarket {
+    #[must_use]
     pub fn get_inference_rooms() -> InferenceRead {
         InferenceRead {
             method: "px_getInferenceRooms",
@@ -35,25 +41,29 @@ impl InferenceMarket {
         }
     }
 
+    #[must_use]
     pub fn get_inference_room(room: Digest32) -> InferenceRead {
         read_id("px_getInferenceRoom", room.as_bytes())
     }
 
+    #[must_use]
     pub fn get_inference_deal(deal: Digest32) -> InferenceRead {
         read_id("px_getInferenceDeal", deal.as_bytes())
     }
 
+    #[must_use]
     pub fn get_inference_peer(peer: PrincipalId) -> InferenceRead {
         read_id("px_getInferencePeer", peer.as_bytes())
     }
 
+    #[must_use]
     pub fn get_inference_receipts(deal: Digest32) -> InferenceRead {
         read_id("px_getInferenceReceipts", deal.as_bytes())
     }
 }
 
 fn read_id(method: &'static str, id: &[u8; 32]) -> InferenceRead {
-    let encoded: String = id.iter().map(|byte| format!("{byte:02x}")).collect();
+    let encoded: String = crate::rpc::encode_hex(id);
     InferenceRead {
         method,
         params: json!([encoded]),
@@ -70,6 +80,9 @@ pub struct AskFunding {
     pub host_authority_key: [u8; 32],
 }
 
+/// # Errors
+///
+/// Returns `InvalidRequest` for a zero settlement account, rate, rate unit, cap or host authority key.
 pub fn fund_ask(request: &AskFunding) -> Result<Vec<u8>, RpcError> {
     if request.settlement_account == [0; 20]
         || request.rate == 0

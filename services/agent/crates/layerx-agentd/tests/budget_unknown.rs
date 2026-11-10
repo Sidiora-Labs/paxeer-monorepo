@@ -71,6 +71,7 @@ fn writes_are_refused_when_no_canonical_protocol_budget_schema_exists() {
         &[],
         &[PersistedReceipt {
             expected_activity_id: [2; 32],
+            requested_amount: 100,
             evidence: support::raw_receipt([2; 32], 0, 100),
         }],
         &protocol(200),
@@ -104,10 +105,12 @@ fn restart_rejects_duplicate_receipt_and_activity_evidence() {
             &[
                 PersistedReceipt {
                     expected_activity_id: [3; 32],
+                    requested_amount: 100,
                     evidence: receipt.clone(),
                 },
                 PersistedReceipt {
                     expected_activity_id: [3; 32],
+                    requested_amount: 100,
                     evidence: receipt,
                 },
             ],
@@ -124,10 +127,12 @@ fn restart_rejects_duplicate_receipt_and_activity_evidence() {
             &[
                 PersistedReceipt {
                     expected_activity_id: [4; 32],
+                    requested_amount: 100,
                     evidence: support::raw_receipt_at([4; 32], 0, 100, 9),
                 },
                 PersistedReceipt {
                     expected_activity_id: [4; 32],
+                    requested_amount: 100,
                     evidence: support::raw_receipt_at([4; 32], 0, 100, 10),
                 },
             ],

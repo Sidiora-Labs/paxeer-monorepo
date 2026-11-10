@@ -14,19 +14,16 @@ import {
   toHex,
   type Hex,
 } from 'viem';
-import type {
-  SequencerReceiptAnswer,
-  ReceiptKeyPin,
-} from '../../../../../sdk/wallet/src/types.js';
+import type { SequencerReceiptAnswer, ReceiptKeyPin } from '../../../../../sdk/wallet/src/types.js';
 import type { SequencerReceiptVerification } from '../../../../agent/sdk/typescript/src/verifier.js';
-import { PGlite, pgcrypto, PGLiteSocketServer } from '../../src/db/testDatabase.js';
+import { startPostgresEngine } from './postgres.js';
 import {
   ADDR_PRECOMPILE,
   addrAbi,
   bindMessage,
   sponsoredBindAbi,
   verifyEd25519,
-} from '../../src/provision/bind.js';
+} from '../../src/provision/protocol.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
 const walletSource = resolve(root, 'sdk/wallet/src');
@@ -55,16 +52,14 @@ type ReceiptVerifier = {
 
 // Load the committed production sources without requiring an out-of-scope SDK
 // build. The aliases select the same implementations as the SDK browser export.
-function productionReceiptModules(): ReceiptCodec & ReceiptVerifier {
+function withProductionSources<T>(load: () => T): T {
   const hook = registerHooks({
     resolve(specifier, context, next) {
-      const parent = context.parentURL?.startsWith('file:')
-        ? fileURLToPath(context.parentURL)
-        : '';
+      const parent = context.parentURL?.startsWith('file:') ? fileURLToPath(context.parentURL) : '';
       if (parent.startsWith(walletSource + '/') || parent.startsWith(agentSource + '/')) {
         let target: string | undefined;
         if (specifier === '@sidiora/layerx-sdk/browser')
-          target = resolve(agentSource, 'verifier.ts');
+          target = resolve(agentSource, 'browser.ts');
         else if (specifier.startsWith('@noble/')) target = walletRequire.resolve(specifier);
         else if (specifier.startsWith('.') && specifier.endsWith('.js')) {
           const source = resolve(dirname(parent), specifier.slice(0, -3) + '.ts');
@@ -95,13 +90,26 @@ function productionReceiptModules(): ReceiptCodec & ReceiptVerifier {
     },
   });
   try {
-    return {
-      ...(walletRequire(resolve(walletSource, 'receipt.ts')) as ReceiptCodec),
-      ...(walletRequire(resolve(agentSource, 'verifier.ts')) as ReceiptVerifier),
-    };
+    return load();
   } finally {
     hook.deregister();
   }
+}
+
+function productionReceiptModules(): ReceiptCodec & ReceiptVerifier {
+  return withProductionSources(() => ({
+    ...(walletRequire(resolve(walletSource, 'receipt.ts')) as ReceiptCodec),
+    ...(walletRequire(resolve(agentSource, 'verifier.ts')) as ReceiptVerifier),
+  }));
+}
+
+export function loadProductionWalletSdk(): typeof import('../../../../../sdk/wallet/src/index.js') {
+  return withProductionSources(
+    () =>
+      walletRequire(
+        resolve(walletSource, 'index.ts')
+      ) as typeof import('../../../../../sdk/wallet/src/index.js')
+  );
 }
 
 let modules: (ReceiptCodec & ReceiptVerifier) | undefined;
@@ -272,9 +280,7 @@ export async function authenticateNodeReceipt(
     firstHeight: BigInt(evidence.pinnedKey.firstHeight),
     lastHeight: BigInt(evidence.pinnedKey.lastHeight),
   };
-  const answer = modules.decodeSequencerReceipt(value, keccak256(evidence.rawTransaction), [
-    pin,
-  ]);
+  const answer = modules.decodeSequencerReceipt(value, keccak256(evidence.rawTransaction), [pin]);
   assert.notEqual(answer.rung, 'submitted');
   if (answer.rung === 'submitted') throw new Error('execution receipt required');
   const verified = await modules.verifySequencerReceipt(
@@ -334,11 +340,7 @@ export async function authenticateSponsoredBindReceipt(
   assert(bind.functionName === 'bindLayerX');
   assert.equal(bind.args[0], recording.didPublicKey);
   assert(
-    verifyEd25519(
-      bind.args[0],
-      bindMessage(recording.chainId, recording.user, 0n),
-      bind.args[1]
-    )
+    verifyEd25519(bind.args[0], bindMessage(recording.chainId, recording.user, 0n), bind.args[1])
   );
   assert.equal(recording.boundDid, `did:layerx:${bind.args[0].slice(2)}`);
   assert.equal(quote.sponsor.toLowerCase(), answer.sponsor);
@@ -351,8 +353,7 @@ export async function authenticateSponsoredBindReceipt(
   ]);
   assert.equal(BigInt(bound[0]!.data), 0n);
   const sponsored = answer.logs.filter(
-    (log) =>
-      log.topics[0] === keccak256(Buffer.from('Sponsored(address,address,uint256,uint256)'))
+    (log) => log.topics[0] === keccak256(Buffer.from('Sponsored(address,address,uint256,uint256)'))
   );
   assert.equal(sponsored.length, 1);
   assert.equal(sponsored[0]!.address, recording.user);
@@ -373,10 +374,7 @@ export async function authenticateSponsoredBindReceipt(
   );
   assert.equal(BigInt(recording.positive.userBalanceBefore), 0n);
   assert.equal(BigInt(recording.positive.userBalanceAfter), 0n);
-  assert.equal(
-    recording.positive.delegationDesignator,
-    `0xef0100${recording.delegate.slice(2)}`
-  );
+  assert.equal(recording.positive.delegationDesignator, `0xef0100${recording.delegate.slice(2)}`);
   assert.equal(answer.receipt, recording.positive.signedReceipt);
   return answer;
 }
@@ -388,12 +386,12 @@ export async function openReceiptDatabase() {
   // env.ts may have been loaded by RpcPool before setup. A previously opened
   // singleton must not keep the setup.ts localhost URL after this assignment.
   await database.closePool();
-  env.DATABASE_POOL_MAX = 1;
-  const db = await PGlite.create({ extensions: { pgcrypto } });
-  const socket = new PGLiteSocketServer({ db, port: 0, host: '127.0.0.1', maxConnections: 10 });
+  // Provisioning holds a subject-lock session while other queries run. It
+  // needs independent PostgreSQL sessions rather than PGlite's single session.
+  const db = await startPostgresEngine();
   try {
-    await socket.start();
-    const url = `postgres://postgres:postgres@${socket.getServerConn()}/postgres`;
+    const url = db.url;
+    process.env.DATABASE_URL = url;
     env.DATABASE_URL = url;
     await (await import('../../src/db/migrate.js')).runMigrations();
     const ready = await database.query<{ ready: number }>('select 1::int as ready');
@@ -402,14 +400,12 @@ export async function openReceiptDatabase() {
       url,
       async stop(): Promise<void> {
         await database.closePool();
-        await socket.stop();
-        await db.close();
+        await db.stop();
       },
     };
   } catch (error) {
     await database.closePool();
-    await socket.stop();
-    await db.close();
+    await db.stop();
     throw error;
   }
 }

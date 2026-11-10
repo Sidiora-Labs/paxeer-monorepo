@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -68,7 +69,10 @@ func keeperSurfaceRuntime(t *testing.T) []byte {
 	return code
 }
 
-const surfaceRuntimeHash = "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993"
+// surfaceRuntime is the runtime installed at the v6.12.0 activation.
+var surfaceRuntime = common.FromHex("0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3")
+
+const surfaceRuntimeHash = "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
 
 // attestedSurfaceManifest preserves canonical identities and uses isolated USDL code.
 func attestedSurfaceManifest(t *testing.T, usdlCode []byte) Manifest {
@@ -158,7 +162,6 @@ func attestSurface(t *testing.T, mutate func(*rpcBackend, Manifest)) (Activation
 	t.Helper()
 	usdlCode := common.FromHex("0x6080604052600080fd")
 	m := attestedSurfaceManifest(t, usdlCode)
-	surfaceRuntime := keeperSurfaceRuntime(t)
 	f := fixtures(t)
 	b := &rpcBackend{
 		codes: map[common.Address][]byte{},
@@ -211,16 +214,34 @@ func attestSurface(t *testing.T, mutate func(*rpcBackend, Manifest)) (Activation
 }
 
 func TestAttestSurfaceAndPrecompileRoles(t *testing.T) {
-	surfaceRuntime := keeperSurfaceRuntime(t)
+	if got := crypto.Keccak256Hash(keeperSurfaceRuntime(t)).Hex(); got != StagedSurfaceRuntimeHash {
+		t.Fatalf("staged surface runtime hash = %s, want %s", got, StagedSurfaceRuntimeHash)
+	}
 	if got := crypto.Keccak256Hash(surfaceRuntime).Hex(); got != surfaceRuntimeHash {
-		t.Fatalf("surface runtime hash = %s, want %s", got, surfaceRuntimeHash)
+		t.Fatalf("installed surface runtime hash = %s, want %s", got, surfaceRuntimeHash)
+	}
+	data, err := os.ReadFile("../../../../../services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var packet struct {
+		Options struct {
+			Manifest Manifest
+		}
+	}
+	if err := json.Unmarshal(data, &packet); err != nil {
+		t.Fatal(err)
+	}
+	m, recorded := Current(), packet.Options.Manifest
+	if m.DeploymentVersion != recorded.DeploymentVersion || m.ActivationHeight != recorded.ActivationHeight || m.ActivationHeight != 37220320 {
+		t.Fatalf("current activation differs from recorded production packet: %s at %d", m.DeploymentVersion, m.ActivationHeight)
 	}
 	surfaces := 0
-	for name, role := range Current().Roles {
+	for name, role := range m.Roles {
 		if role.Kind == "surface" {
 			surfaces++
-			if role.RuntimeHash != crypto.Keccak256Hash(surfaceRuntime).Hex() {
-				t.Fatalf("canonical %s surface pin differs from keeper: %s", name, role.RuntimeHash)
+			if role != recorded.Roles[name] || role.RuntimeHash != surfaceRuntimeHash || role.RuntimeHash == StagedSurfaceRuntimeHash {
+				t.Fatalf("canonical %s surface differs from installed production identity: %+v", name, role)
 			}
 		}
 	}
@@ -261,6 +282,20 @@ func TestAttestSurfaceAndPrecompileRoles(t *testing.T) {
 		}
 		if err := a.ValidateFamilyFor(m, p, []string{"Router", LaunchpadPrecompileRole, "EventEmitter"}, true); err != nil {
 			t.Fatalf("ValidateFamilyFor: %v", err)
+		}
+	})
+	t.Run("staged runtime is not the current role identity", func(t *testing.T) {
+		a, m, p, _ := attestSurface(t, func(b *rpcBackend, m Manifest) {
+			b.codes[common.HexToAddress(m.Roles["Router"].Address)] = keeperSurfaceRuntime(t)
+		})
+		if !hasIssue(a, "unknown_runtime_hash", "Router") || a.Identities["Router"].Verified || a.Eligible {
+			t.Fatalf("uninstalled staged role identity was accepted: issues = %v", a.Issues)
+		}
+		if err := a.ValidateFor(m, p); err == nil {
+			t.Fatal("ValidateFor accepted the staged runtime as current")
+		}
+		if err := a.ValidateFamilyFor(m, p, []string{"Router"}, false); err == nil {
+			t.Fatal("ValidateFamilyFor accepted the staged runtime as current")
 		}
 	})
 	t.Run("surface holds other code", func(t *testing.T) {
