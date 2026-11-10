@@ -161504,7 +161504,7 @@ do_4 = "Attempt 2 (continue, gotchas 3984 and 3992, decisions 3125 and 3126): th
 
 [task.22.39.258]
 title = "Repair the retired references of the TypeScript and Python agent SDKs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245", "22.39.288"]
@@ -192957,7 +192957,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.312]
 title = "Repair the retained settlement cases of the agent daemon refused at the witness binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
