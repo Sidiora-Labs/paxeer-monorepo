@@ -12556,6 +12556,12 @@ value = "Decision 3044 relaunches from main an attempt that the model endpoint e
 basis = "Gotcha 4168, decisions 3044 and 3183."
 affects = ["18.1750.1"]
 
+[decision.3241]
+title = "A case that pins a script of a package manifest follows the manifest"
+value = "The script of the manifest is the producer and a case that pins its text is the consumer (decision 3046). The test script of apps/inference-peer runs every test file of the package, node --test test/*.test.mjs, and stays so; the case standalonePackageMetadata expects that text. A task that changes a script of a manifest changes the cases that pin it in the same commit. The red case sits under the paths of task 22.39.355 and inside its verification, so that task repairs it (decision 3183)."
+basis = "Gotcha 4169, decisions 3046, 3183 and 3130."
+affects = ["22.39.355", "22.38.29"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -161966,6 +161972,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotcha 4169, decisions 3241 and 3183): the attempt-1 tree 4fcc000f4f5c stands (src/signal.mjs, the changes of cli.mjs, deal.mjs, identity.mjs and transport.mjs, the fixture test/fixtures/host-signal-frames.json, the test files, the README and the record). 60 of 61 cases pass. The one red case, standalonePackageMetadata of apps/inference-peer/test/vendored_engine.test.mjs:156, expects the test script node --test test/vendored_engine.test.mjs while package.json holds node --test test/*.test.mjs since task 22.39.85. The case is under the paths of this task and inside its verification, so it belongs to this task: change the expected text at :156 to the script that package.json holds, and change no other assertion of that case, no script of package.json and nothing of the vendored engine. Correct the record: the case was red on main since task 22.39.85 and is repaired here. Run the build once and the verification once at the final revision."
 
 [task.22.39.352]
 title = "Build the Next example of the integration SDK beside an own install of the agent SDK"
