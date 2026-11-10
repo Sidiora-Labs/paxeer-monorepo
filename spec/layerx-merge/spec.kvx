@@ -283685,7 +283685,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.350]
 title = "Regenerate the platform SDKs after the agent API schema change of the retired reference repair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
