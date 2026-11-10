@@ -139,7 +139,7 @@ fn fixed_bytes<const N: usize>(value: &str) -> Result<[u8; N], Failure> {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(bytes)
 }
 
 fn catalogued(name: &str) -> Result<Operation, Failure> {
@@ -203,22 +203,7 @@ fn load() -> Result<(Probe, Vec<String>), Failure> {
     if url::Url::parse(endpoint)?.host_str() != Some(server_name.as_str()) {
         return Err("endpoint host differs from server_name; the SDK verifies the URL host".into());
     }
-    let credential_document: Value =
-        serde_json::from_slice(&std::fs::read(text(&case, "credential_file")?)?)?;
-    let document = credential_document
-        .as_object()
-        .ok_or("credential file is not an object")?;
-    let expected: BTreeSet<&str> = ["tenant", "session_id", "token_id", "generation"].into();
-    if document.keys().map(String::as_str).collect::<BTreeSet<_>>() != expected {
-        return Err("credential file does not carry exactly the session coordinates".into());
-    }
-    let coordinates = Coordinates {
-        tenant: text(&credential_document, "tenant")?.to_owned(),
-        session_id: bytes32(text(&credential_document, "session_id")?)?,
-        token_id: bytes32(text(&credential_document, "token_id")?)?,
-        generation: canonical_u64(text(&credential_document, "generation")?)
-            .ok_or("generation is not a canonical decimal u64")?,
-    };
+    let coordinates = load_coordinates(&case)?;
     let credential = coordinates.credential()?;
     let key_text = std::fs::read_to_string(text(&case, "gateway_api_key_file")?)?;
     let (key_id, secret) = key_text
@@ -235,30 +220,7 @@ fn load() -> Result<(Probe, Vec<String>), Failure> {
     }
     let transport = AgentEnvelopeTransport::connect(base, Some(gateway_key), Some(&ca_pem))
         .map_err(|error| format!("gateway transport refused: {error:?}"))?;
-    let operations = field(&case, "operations")?
-        .as_array()
-        .ok_or("operations is not an array")?
-        .iter()
-        .map(|name| {
-            name.as_str()
-                .map(str::to_owned)
-                .ok_or_else(|| Failure::from("operation name is not a string"))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let catalogue: Vec<&str> = Operation::ALL
-        .iter()
-        .map(|operation| operation.name())
-        .collect();
-    if operations.len() != catalogue.len()
-        || operations
-            .iter()
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .map(String::as_str)
-            .ne(catalogue.iter().copied().collect::<BTreeSet<_>>())
-    {
-        return Err("operations do not equal the generated catalogue".into());
-    }
+    let operations = load_operations(&case)?;
     let cases = field(&case, "cases")?
         .as_array()
         .ok_or("cases is not an array")?
@@ -306,9 +268,7 @@ fn load() -> Result<(Probe, Vec<String>), Failure> {
     ))
 }
 
-#[path = "support/owner_result.rs"]
-mod owner_result;
-use owner_result::{assert_exact_owner_result, outcome_json};
+use audit::owner_result::{assert_exact_owner_result, outcome_json};
 
 impl Probe {
     fn request_id(&mut self) -> RequestId {
@@ -317,7 +277,7 @@ impl Probe {
         id
     }
 
-    /// SHA-256(KEY_DOMAIN || run nonce (32 bytes of requests.allowed_mutation.idempotency_key)
+    /// SHA-256(KEY_DOMAIN || run nonce (32 bytes of `requests.allowed_mutation.idempotency_key`)
     /// || "rust" || NUL || case id): distinct per language and case, verifiable by the harness.
     fn fresh_key(&self, case: &str, _request_id: RequestId) -> Result<Key, Failure> {
         let nonce = self.provisioned_key("allowed_mutation")?;
@@ -1008,96 +968,7 @@ impl Probe {
         let response = outcome.map_err(|error| format!("native operation failed: {error:?}"))?;
         match operation {
             Operation::Prepare => {
-                let value = decode_native_preparation(&response.value)
-                    .ok_or("native preparation decoder refused")?;
-                let purpose = field(field(&request, "purpose")?, "purpose")?;
-                let activity = field(&request, "activity")?;
-                let digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-                let transaction =
-                    layerx_crypto::evm_transaction::decode_unsigned(&value.canonical_bytes)?;
-                if layerx_crypto::evm_transaction::decode_signed(&value.canonical_bytes).is_ok() {
-                    return Err("preparation must precede external signing".into());
-                }
-                layerx_sdk::agent_envelope::validate_unsigned_preparation(&value, digest, digest)
-                    .map_err(|error| format!("unsigned preparation binding: {error:?}"))?;
-                use layerx_agent_api::identity::{
-                    AgentDid, CapabilityId, NativePreparationPurposeV1, SessionId, TenantId,
-                };
-                let signed_purpose = field(&request, "purpose")?;
-                let owner_key = bytes32(text(signed_purpose, "owner_public_key")?)?;
-                let authority = text(&request, "authority")?;
-                if authority.strip_prefix("did:layerx:").unwrap_or(authority) != hex(&owner_key) {
-                    return Err(
-                        "unsigned preparation authority differs from its purpose owner".into(),
-                    );
-                }
-                let owner_purpose = NativePreparationPurposeV1 {
-                    tenant: TenantId::new(text(purpose, "tenant")?)
-                        .map_err(|error| format!("tenant: {error:?}"))?,
-                    agent_did: AgentDid::new(text(purpose, "agent_did")?)
-                        .map_err(|error| format!("agent: {error:?}"))?,
-                    session_id: SessionId::new(text(purpose, "session_id")?)
-                        .map_err(|error| format!("session: {error:?}"))?,
-                    generation: canonical_u64(text(purpose, "generation")?)
-                        .ok_or("purpose generation")?,
-                    expires_at_ms: canonical_u64(text(purpose, "expires_at_ms")?)
-                        .ok_or("purpose expiry")?,
-                    capability_id: CapabilityId::new(text(purpose, "capability_id")?)
-                        .map_err(|error| format!("capability: {error:?}"))?,
-                    preparation_id: bytes32(text(purpose, "preparation_id")?)?,
-                    canonical_digest: bytes32(text(purpose, "canonical_digest")?)?,
-                    commitment: bytes32(text(purpose, "commitment")?)?,
-                };
-                let purpose_bytes = owner_purpose
-                    .canonical_bytes()
-                    .map_err(|error| format!("purpose: {error:?}"))?;
-                layerx_crypto::ed25519::verify_digest(
-                    &owner_key,
-                    &fixed_bytes(text(signed_purpose, "signature")?)?,
-                    &Sha256::digest(purpose_bytes).into(),
-                )
-                .map_err(|error| format!("owner purpose signature: {error:?}"))?;
-                let sender = fixed_bytes::<20>(text(&entry, "evm_sender")?)?;
-                layerx_crypto::disclosure::call::bind_call(&transaction, sender)
-                    .map_err(|error| format!("unsigned call disclosure: {error:?}"))?;
-                let signing = transaction.signing_hash();
-                if value.preparation_id != digest
-                    || digest != bytes32(text(purpose, "canonical_digest")?)?
-                    || value.preparation_id != bytes32(text(purpose, "preparation_id")?)?
-                    || value.signing_preimage != signing
-                    || u64::from(value.activity.module)
-                        != canonical_u64(text(activity, "module")?).ok_or("native module")?
-                    || u64::from(value.activity.ordinal)
-                        != canonical_u64(text(activity, "ordinal")?).ok_or("native ordinal")?
-                    || text(purpose, "tenant")? != self.coordinates.tenant
-                    || bytes32(text(purpose, "session_id")?)? != self.coordinates.session_id
-                    || canonical_u64(text(purpose, "generation")?)
-                        != Some(self.coordinates.generation)
-                    || value.approval_required
-                        != field(&entry, "expected_approval_required")?
-                            .as_bool()
-                            .ok_or("expected approval flag")?
-                    || value
-                        .approval_id
-                        .is_some_and(|id| id != value.preparation_id)
-                {
-                    return Err(
-                        "native preparation lost signed purpose or full identity binding".into(),
-                    );
-                }
-                let mut extra = response.value.clone();
-                extra
-                    .as_object_mut()
-                    .ok_or("native response object")?
-                    .insert("legacy_activity_type".into(), json!(value.activity.ordinal));
-                if decode_native_preparation(&extra).is_some() {
-                    return Err("native decoder accepted unknown field".into());
-                }
-                let mut truncated = response.value.clone();
-                truncated["activity"]["module"] = json!(value.activity.module);
-                if decode_native_preparation(&truncated).is_some() {
-                    return Err("native decoder accepted numeric module".into());
-                }
+                self.check_native_preparation(&entry, &request, &response)?;
             }
             Operation::ApprovalList => {
                 let value = decode_native_approval_list(&response.value)
@@ -1271,46 +1142,8 @@ fn proof_bundle_decoder_negatives(
         decode_proof_bundle_request(request).ok_or("valid proof request missing")?;
     let read = decode_proof_bundle_response(&typed_request, response)
         .ok_or("valid proof response missing")?;
-    let mut request_cases = Vec::new();
-    for target in [String::new(), "00".to_owned(), "00".repeat(68)] {
-        let mut changed = request.clone();
-        changed["target"] = json!(target);
-        request_cases.push(changed);
-    }
     let target = typed_request.selector.as_bytes();
-    for offset in [0_usize, 2] {
-        let mut bytes = target.to_vec();
-        bytes[offset] = 255;
-        let mut changed = request.clone();
-        changed["target"] = json!(hex(&bytes));
-        request_cases.push(changed);
-    }
-    let mut zero_activity = target.to_vec();
-    zero_activity[3..35].fill(0);
-    let mut changed = request.clone();
-    changed["target"] = json!(hex(&zero_activity));
-    request_cases.push(changed);
-    if target.len() == 67 {
-        let mut zero_account = target.to_vec();
-        zero_account[35..].fill(0);
-        let mut changed = request.clone();
-        changed["target"] = json!(hex(&zero_account));
-        request_cases.push(changed);
-    }
-    let mut changed = request.clone();
-    changed["target"] = json!(format!("{}A", hex(target)));
-    request_cases.push(changed);
-    let mut changed = request.clone();
-    changed["requested_rung"] = json!("Finalised");
-    request_cases.push(changed);
-    let mut changed = request.clone();
-    changed["sequencer_key"] = json!("00".repeat(32));
-    request_cases.push(changed);
-    for changed in request_cases {
-        if decode_proof_bundle_request(&changed).is_some() {
-            return Err("SDK accepted a malformed PB1 request".into());
-        }
-    }
+    assert_malformed_bundle_requests(request, target)?;
     let mut response_cases = Vec::new();
     let mut changed = response.value.clone();
     let mut wrong_target = target.to_vec();
@@ -1348,58 +1181,7 @@ fn proof_bundle_decoder_negatives(
         changed["value"][name] = value;
         response_cases.push(changed);
     }
-    let original = read.value.signed_receipt.as_bytes().to_vec();
-    let mut frames: Vec<Vec<u8>> = Vec::new();
-    let mut changed = original.clone();
-    changed[0] ^= 1;
-    frames.push(changed);
-    let mut changed = original.clone();
-    changed[1] = 0;
-    frames.push(changed);
-    let mut changed = original.clone();
-    changed[2..4].fill(0);
-    frames.push(changed);
-    let mut changed = original.clone();
-    changed.pop();
-    frames.push(changed);
-    let mut changed = original.clone();
-    changed.push(0);
-    frames.push(changed);
-    if read.value.account_proof.is_some() {
-        let mut changed = response.value.clone();
-        changed["value"]
-            .as_object_mut()
-            .ok_or("bundle not object")?
-            .remove("accountProof");
-        response_cases.push(changed);
-    }
-    for bytes in frames {
-        let mut changed = response.value.clone();
-        changed["value"]["signedReceipt"] = json!(format!("0x{}", hex(&bytes)));
-        response_cases.push(changed);
-    }
-    for rung in ["submitted", "CheckpointFinalised", "SettlementAnchored"] {
-        let mut changed = response.value.clone();
-        changed["achieved_verification_level"] = json!(rung);
-        response_cases.push(changed);
-    }
-    for (field, value) in [
-        ("chain_head", json!("01")),
-        ("value_height", json!("18446744073709551616")),
-        ("latest_sealed_batch", json!(1)),
-        ("latest_finalised_checkpoint", json!("00")),
-        ("relative_to", json!({"checkpoint":"00".repeat(32)})),
-    ] {
-        let mut changed = response.value.clone();
-        changed["freshness"][field] = value;
-        response_cases.push(changed);
-    }
-    let mut changed = response.value.clone();
-    changed["freshness"]
-        .as_object_mut()
-        .ok_or("freshness not object")?
-        .remove("chain_head");
-    response_cases.push(changed);
+    append_malformed_bundle_frames(response, &read.value, &mut response_cases)?;
     for value in response_cases {
         let changed = ApiSuccess {
             request_id: response.request_id,
@@ -1486,4 +1268,253 @@ fn envelope_preparation_uses_unsigned_owner_preview_before_external_sign() {
 #[test]
 fn authenticated_bootstrap_operations_assert_exact_owner_results() {
     audit::authenticated_registration_and_session_reach_exact_owner_results();
+}
+
+fn load_coordinates(case: &Value) -> Result<Coordinates, Failure> {
+    let credential_document: Value =
+        serde_json::from_slice(&std::fs::read(text(case, "credential_file")?)?)?;
+    let document = credential_document
+        .as_object()
+        .ok_or("credential file is not an object")?;
+    let expected: BTreeSet<&str> = ["tenant", "session_id", "token_id", "generation"].into();
+    if document.keys().map(String::as_str).collect::<BTreeSet<_>>() != expected {
+        return Err("credential file does not carry exactly the session coordinates".into());
+    }
+    let coordinates = Coordinates {
+        tenant: text(&credential_document, "tenant")?.to_owned(),
+        session_id: bytes32(text(&credential_document, "session_id")?)?,
+        token_id: bytes32(text(&credential_document, "token_id")?)?,
+        generation: canonical_u64(text(&credential_document, "generation")?)
+            .ok_or("generation is not a canonical decimal u64")?,
+    };
+    Ok(coordinates)
+}
+
+impl Probe {
+    fn check_native_preparation(
+        &self,
+        entry: &Value,
+        request: &Value,
+        response: &ApiSuccess<Value>,
+    ) -> Result<(), Failure> {
+        let value = decode_native_preparation(&response.value)
+            .ok_or("native preparation decoder refused")?;
+        let purpose = field(field(request, "purpose")?, "purpose")?;
+        let activity = field(request, "activity")?;
+        let digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
+        let transaction = layerx_crypto::evm_transaction::decode_unsigned(&value.canonical_bytes)?;
+        if layerx_crypto::evm_transaction::decode_signed(&value.canonical_bytes).is_ok() {
+            return Err("preparation must precede external signing".into());
+        }
+        layerx_sdk::agent_envelope::validate_unsigned_preparation(&value, digest, digest)
+            .map_err(|error| format!("unsigned preparation binding: {error:?}"))?;
+        verify_native_purpose(request, purpose)?;
+        let sender = fixed_bytes::<20>(text(entry, "evm_sender")?)?;
+        layerx_crypto::disclosure::call::bind_call(&transaction, sender)
+            .map_err(|error| format!("unsigned call disclosure: {error:?}"))?;
+        let signing = transaction.signing_hash();
+        if value.preparation_id != digest
+            || digest != bytes32(text(purpose, "canonical_digest")?)?
+            || value.preparation_id != bytes32(text(purpose, "preparation_id")?)?
+            || value.signing_preimage != signing
+            || u64::from(value.activity.module)
+                != canonical_u64(text(activity, "module")?).ok_or("native module")?
+            || u64::from(value.activity.ordinal)
+                != canonical_u64(text(activity, "ordinal")?).ok_or("native ordinal")?
+            || text(purpose, "tenant")? != self.coordinates.tenant
+            || bytes32(text(purpose, "session_id")?)? != self.coordinates.session_id
+            || canonical_u64(text(purpose, "generation")?) != Some(self.coordinates.generation)
+            || value.approval_required
+                != field(entry, "expected_approval_required")?
+                    .as_bool()
+                    .ok_or("expected approval flag")?
+            || value
+                .approval_id
+                .is_some_and(|id| id != value.preparation_id)
+        {
+            return Err("native preparation lost signed purpose or full identity binding".into());
+        }
+        let mut extra = response.value.clone();
+        extra
+            .as_object_mut()
+            .ok_or("native response object")?
+            .insert("legacy_activity_type".into(), json!(value.activity.ordinal));
+        if decode_native_preparation(&extra).is_some() {
+            return Err("native decoder accepted unknown field".into());
+        }
+        let mut truncated = response.value.clone();
+        truncated["activity"]["module"] = json!(value.activity.module);
+        if decode_native_preparation(&truncated).is_some() {
+            return Err("native decoder accepted numeric module".into());
+        }
+        Ok(())
+    }
+}
+
+fn verify_native_purpose(request: &Value, purpose: &Value) -> Result<(), Failure> {
+    use layerx_agent_api::identity::{
+        AgentDid, CapabilityId, NativePreparationPurposeV1, SessionId, TenantId,
+    };
+    let signed_purpose = field(request, "purpose")?;
+    let owner_key = bytes32(text(signed_purpose, "owner_public_key")?)?;
+    let authority = text(request, "authority")?;
+    if authority.strip_prefix("did:layerx:").unwrap_or(authority) != hex(&owner_key) {
+        return Err("unsigned preparation authority differs from its purpose owner".into());
+    }
+    let owner_purpose = NativePreparationPurposeV1 {
+        tenant: TenantId::new(text(purpose, "tenant")?)
+            .map_err(|error| format!("tenant: {error:?}"))?,
+        agent_did: AgentDid::new(text(purpose, "agent_did")?)
+            .map_err(|error| format!("agent: {error:?}"))?,
+        session_id: SessionId::new(text(purpose, "session_id")?)
+            .map_err(|error| format!("session: {error:?}"))?,
+        generation: canonical_u64(text(purpose, "generation")?).ok_or("purpose generation")?,
+        expires_at_ms: canonical_u64(text(purpose, "expires_at_ms")?).ok_or("purpose expiry")?,
+        capability_id: CapabilityId::new(text(purpose, "capability_id")?)
+            .map_err(|error| format!("capability: {error:?}"))?,
+        preparation_id: bytes32(text(purpose, "preparation_id")?)?,
+        canonical_digest: bytes32(text(purpose, "canonical_digest")?)?,
+        commitment: bytes32(text(purpose, "commitment")?)?,
+    };
+    let purpose_bytes = owner_purpose
+        .canonical_bytes()
+        .map_err(|error| format!("purpose: {error:?}"))?;
+    layerx_crypto::ed25519::verify_digest(
+        &owner_key,
+        &fixed_bytes(text(signed_purpose, "signature")?)?,
+        &Sha256::digest(purpose_bytes).into(),
+    )
+    .map_err(|error| format!("owner purpose signature: {error:?}"))?;
+    Ok(())
+}
+
+fn assert_malformed_bundle_requests(request: &Value, target: &[u8]) -> Result<(), Failure> {
+    let mut request_cases = Vec::new();
+    for target in [String::new(), "00".to_owned(), "00".repeat(68)] {
+        let mut changed = request.clone();
+        changed["target"] = json!(target);
+        request_cases.push(changed);
+    }
+    for offset in [0_usize, 2] {
+        let mut bytes = target.to_vec();
+        bytes[offset] = 255;
+        let mut changed = request.clone();
+        changed["target"] = json!(hex(&bytes));
+        request_cases.push(changed);
+    }
+    let mut zero_activity = target.to_vec();
+    zero_activity[3..35].fill(0);
+    let mut changed = request.clone();
+    changed["target"] = json!(hex(&zero_activity));
+    request_cases.push(changed);
+    if target.len() == 67 {
+        let mut zero_account = target.to_vec();
+        zero_account[35..].fill(0);
+        let mut changed = request.clone();
+        changed["target"] = json!(hex(&zero_account));
+        request_cases.push(changed);
+    }
+    let mut changed = request.clone();
+    changed["target"] = json!(format!("{}A", hex(target)));
+    request_cases.push(changed);
+    let mut changed = request.clone();
+    changed["requested_rung"] = json!("Finalised");
+    request_cases.push(changed);
+    let mut changed = request.clone();
+    changed["sequencer_key"] = json!("00".repeat(32));
+    request_cases.push(changed);
+    for changed in request_cases {
+        if decode_proof_bundle_request(&changed).is_some() {
+            return Err("SDK accepted a malformed PB1 request".into());
+        }
+    }
+    Ok(())
+}
+
+fn append_malformed_bundle_frames(
+    response: &ApiSuccess<Value>,
+    bundle: &ProofBundle,
+    response_cases: &mut Vec<Value>,
+) -> Result<(), Failure> {
+    let original = bundle.signed_receipt.as_bytes().to_vec();
+    let mut frames: Vec<Vec<u8>> = Vec::new();
+    let mut changed = original.clone();
+    changed[0] ^= 1;
+    frames.push(changed);
+    let mut changed = original.clone();
+    changed[1] = 0;
+    frames.push(changed);
+    let mut changed = original.clone();
+    changed[2..4].fill(0);
+    frames.push(changed);
+    let mut changed = original.clone();
+    changed.pop();
+    frames.push(changed);
+    let mut changed = original.clone();
+    changed.push(0);
+    frames.push(changed);
+    if bundle.account_proof.is_some() {
+        let mut changed = response.value.clone();
+        changed["value"]
+            .as_object_mut()
+            .ok_or("bundle not object")?
+            .remove("accountProof");
+        response_cases.push(changed);
+    }
+    for bytes in frames {
+        let mut changed = response.value.clone();
+        changed["value"]["signedReceipt"] = json!(format!("0x{}", hex(&bytes)));
+        response_cases.push(changed);
+    }
+    for rung in ["submitted", "CheckpointFinalised", "SettlementAnchored"] {
+        let mut changed = response.value.clone();
+        changed["achieved_verification_level"] = json!(rung);
+        response_cases.push(changed);
+    }
+    for (field, value) in [
+        ("chain_head", json!("01")),
+        ("value_height", json!("18446744073709551616")),
+        ("latest_sealed_batch", json!(1)),
+        ("latest_finalised_checkpoint", json!("00")),
+        ("relative_to", json!({"checkpoint":"00".repeat(32)})),
+    ] {
+        let mut changed = response.value.clone();
+        changed["freshness"][field] = value;
+        response_cases.push(changed);
+    }
+    let mut changed = response.value.clone();
+    changed["freshness"]
+        .as_object_mut()
+        .ok_or("freshness not object")?
+        .remove("chain_head");
+    response_cases.push(changed);
+    Ok(())
+}
+
+fn load_operations(case: &Value) -> Result<Vec<String>, Failure> {
+    let operations = field(case, "operations")?
+        .as_array()
+        .ok_or("operations is not an array")?
+        .iter()
+        .map(|name| {
+            name.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| Failure::from("operation name is not a string"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let catalogue: Vec<&str> = Operation::ALL
+        .iter()
+        .map(|operation| operation.name())
+        .collect();
+    if operations.len() != catalogue.len()
+        || operations
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(String::as_str)
+            .ne(catalogue.iter().copied().collect::<BTreeSet<_>>())
+    {
+        return Err("operations do not equal the generated catalogue".into());
+    }
+    Ok(operations)
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	feetokenprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/feetoken"
+	launchpadprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/launchpad"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/clearing"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/eip712"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/orob"
@@ -492,6 +493,9 @@ func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan
 	versions, err := app.migrateMergeState(cached, plan, fromVM)
 	if err != nil {
 		return versions, err
+	}
+	if err := launchpadprecompile.InstallRoleSurfaces(cached, &app.EvmKeeper, app.LaunchpadKeeper); err != nil {
+		return versions, fmt.Errorf("upgrade %s: launchpad role surfaces: %w", MergeUpgrade, err)
 	}
 	if !found {
 		app.UpgradeKeeper.ClearUpgradePlan(cached)

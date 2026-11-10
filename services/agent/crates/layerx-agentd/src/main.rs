@@ -202,6 +202,7 @@ pub(crate) use self::serve_http::{
 
 struct Config {
     inference: Option<layerx_agentd::config::InferenceConfig>,
+    inference_availability: Option<InferenceAvailabilityConfig>,
     listen: String,
     bearer: String,
     node_endpoint: String,
@@ -930,6 +931,15 @@ fn start_shared_owner(
     if let Some(source) = export_trust {
         operations.install_export_trust(source, deadline);
     }
+    match std::env::var("LAYERX_AGENT_STATE_EXPORT_SOURCE") {
+        Ok(path) => operations.install_state_export_source(
+            layerx_agentd::config::StateExportSource::load(std::path::Path::new(&path))?,
+        ),
+        Err(std::env::VarError::NotPresent) => {}
+        Err(std::env::VarError::NotUnicode(_)) => {
+            return Err("state export source path is not UTF-8".to_owned())
+        }
+    }
 
     if let Some(sources) = policy_sources {
         operations
@@ -1652,6 +1662,172 @@ fn program_budget_denomination_sources(
         .map_err(|error| format!("{SETTING} is invalid: {error}"))
 }
 
+/// Credentials and trust for the hosted AI projection, independent of node RPC.
+/// Deliberately does not implement Debug: neither keys nor credential-bearing inputs
+/// belong in startup diagnostics.
+struct InferenceAvailabilityConfig {
+    endpoint: String,
+    authorization: ureq::http::HeaderValue,
+    roots: Vec<ureq::tls::Certificate<'static>>,
+}
+
+impl InferenceAvailabilityConfig {
+    fn load(
+        inference: bool,
+        node_credential: &str,
+        authority_credential: &str,
+        setting: impl Fn(&str) -> Option<String>,
+    ) -> Result<Option<Self>, String> {
+        if !inference {
+            return Ok(None);
+        }
+        let required = |name: &str| {
+            setting(name)
+                .filter(|value| !value.trim().is_empty() && value.trim() == value)
+                .ok_or_else(|| format!("{name} is required and must be nonblank"))
+        };
+        const ENDPOINT: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_ENDPOINT";
+        const KEY: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_API_KEY";
+        const CA: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_CA_FILE";
+        let endpoint = required(ENDPOINT)?;
+        let uri = endpoint
+            .parse::<ureq::http::Uri>()
+            .map_err(|_| format!("{ENDPOINT} must be a canonical HTTPS endpoint"))?;
+        if uri.scheme_str() != Some("https")
+            || uri.host().is_none_or(str::is_empty)
+            || uri.authority().is_none_or(|a| a.as_str().contains('@'))
+            || uri.query().is_some()
+            || endpoint.contains(['#', '\\'])
+            || uri.port_u16() == Some(0)
+            || (uri.port().is_some() && uri.port_u16().is_none())
+        {
+            return Err(format!("{ENDPOINT} must be a canonical HTTPS endpoint"));
+        }
+        let key = zeroize::Zeroizing::new(required(KEY)?);
+        let credential = key.strip_prefix("LayerX-Key ").unwrap_or(&key);
+        if credential.is_empty()
+            || credential.len() > 4096
+            || credential
+                .bytes()
+                .any(|b| b.is_ascii_whitespace() || b.is_ascii_control())
+            || [node_credential, authority_credential].iter().any(|node| {
+                credential == *node || credential.strip_prefix("Bearer ") == Some(*node)
+            })
+        {
+            return Err(format!("{KEY} must be a distinct gateway credential"));
+        }
+        let mut authorization =
+            ureq::http::HeaderValue::from_str(&format!("LayerX-Key {credential}"))
+                .map_err(|_| format!("{KEY} must be a valid gateway credential"))?;
+        authorization.set_sensitive(true);
+        let path = required(CA)?;
+        let file = fs::File::open(path).map_err(|_| format!("{CA} is unreadable"))?;
+        if !file
+            .metadata()
+            .map_err(|_| format!("{CA} is unreadable"))?
+            .is_file()
+        {
+            return Err(format!("{CA} must contain certificate roots"));
+        }
+        let mut bytes = Vec::new();
+        file.take(1_048_577)
+            .read_to_end(&mut bytes)
+            .map_err(|_| format!("{CA} is unreadable"))?;
+        if bytes.is_empty() || bytes.len() > 1_048_576 {
+            return Err(format!("{CA} must contain bounded certificate roots"));
+        }
+        let roots = if bytes.starts_with(b"-----BEGIN") {
+            ureq::tls::parse_pem(&bytes)
+                .map(|item| match item {
+                    Ok(ureq::tls::PemItem::Certificate(cert)) => Ok(cert),
+                    _ => Err(format!("{CA} must contain certificate roots")),
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            vec![ureq::tls::Certificate::from_der(&bytes).to_owned()]
+        };
+        let mut validation = rustls::RootCertStore::empty();
+        for root in &roots {
+            validation
+                .add(rustls::pki_types::CertificateDer::from(root.der().to_vec()))
+                .map_err(|_| format!("{CA} must contain valid certificate roots"))?;
+        }
+        if validation.is_empty() {
+            return Err(format!("{CA} must contain certificate roots"));
+        }
+        Ok(Some(Self {
+            endpoint: endpoint.trim_end_matches('/').to_owned(),
+            authorization,
+            roots,
+        }))
+    }
+
+    fn client(&self) -> Result<ureq::Agent, String> {
+        let endpoint = self
+            .endpoint
+            .parse::<ureq::http::Uri>()
+            .map_err(|_| "inference gateway endpoint is invalid")?;
+        let authorization = self.authorization.clone();
+        Ok(ureq::Agent::config_builder()
+            .timeout_global(Some(REQUEST_DEADLINE))
+            .http_status_as_error(false)
+            .max_redirects(0)
+            .tls_config(
+                ureq::tls::TlsConfig::builder()
+                    .provider(ureq::tls::TlsProvider::Rustls)
+                    .root_certs(ureq::tls::RootCerts::new_with_certs(&self.roots))
+                    .build(),
+            )
+            // read_availability retains the common bounded decoder and all binding
+            // checks. Its legacy Bearer header is replaced only on this dedicated
+            // gateway client and only for its configured HTTPS origin.
+            .middleware(
+                move |mut request: ureq::http::Request<ureq::SendBody>,
+                      next: ureq::middleware::MiddlewareNext| {
+                    if request.uri().scheme() != endpoint.scheme()
+                        || request.uri().authority() != endpoint.authority()
+                        || !request.uri().path().starts_with(&format!(
+                            "{}/v1/ai/markets/",
+                            endpoint.path().trim_end_matches('/')
+                        ))
+                    {
+                        return Err(ureq::Error::Tls("inference gateway request origin refused"));
+                    }
+                    let prefix =
+                        format!("{}/v1/ai/markets/", endpoint.path().trim_end_matches('/'));
+                    let market = request
+                        .uri()
+                        .path()
+                        .strip_prefix(&format!("{prefix}0x"))
+                        .and_then(|path| path.strip_suffix("/snapshot"))
+                        .filter(|market| {
+                            market.len() == 64
+                                && market.bytes().all(|byte| {
+                                    byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
+                                })
+                        })
+                        .ok_or(ureq::Error::Tls("inference gateway snapshot route refused"))?;
+                    // The shared reader uses a prefixed digest; the gateway route
+                    // accepts the producer's canonical unprefixed market identifier.
+                    let path = format!("{prefix}{market}/snapshot");
+                    let mut parts = request.uri().clone().into_parts();
+                    parts.path_and_query = Some(path.parse().map_err(|_| {
+                        ureq::Error::Tls("inference gateway snapshot route refused")
+                    })?);
+                    *request.uri_mut() = ureq::http::Uri::from_parts(parts).map_err(|_| {
+                        ureq::Error::Tls("inference gateway snapshot route refused")
+                    })?;
+                    request
+                        .headers_mut()
+                        .insert(ureq::http::header::AUTHORIZATION, authorization.clone());
+                    next.handle(request)
+                },
+            )
+            .build()
+            .into())
+    }
+}
+
 fn config() -> Result<Config, String> {
     let inference = match human_owner_mode::Mode::from_environment()? {
         human_owner_mode::Mode::InferenceMarket => {
@@ -1663,6 +1839,12 @@ fn config() -> Result<Config, String> {
     let bearer = required("LAYERX_AGENT_PROGRAM_BEARER_TOKEN")?;
     let node_bearer = required("LAYERX_AGENT_NODE_BEARER_TOKEN")?;
     let authority_bearer = required("LAYERX_AGENT_AUTHORITY_BEARER_TOKEN")?;
+    let inference_availability = InferenceAvailabilityConfig::load(
+        inference.is_some(),
+        &node_bearer,
+        &authority_bearer,
+        |name| env::var(name).ok(),
+    )?;
     if !listen.starts_with("127.0.0.1:")
         || bearer.len() < 32
         || node_bearer.len() < 32
@@ -1687,6 +1869,7 @@ fn config() -> Result<Config, String> {
     let program_budget_denomination_sources = program_budget_denomination_sources(&tenants)?;
     Ok(Config {
         inference,
+        inference_availability,
         listen,
         policy_sources,
         native_policy_sources,
@@ -1851,7 +2034,12 @@ fn program_reader(
     .map_err(|error: ProgramReadError| {
         format!("agent program reader configuration failed: {error:?}")
     })?;
-    Ok(reader)
+    let source = layerx_agentd::read::NativeResultSource::connect(
+        &config.node_endpoint,
+        Some(&config.authority_ca_der),
+    )
+    .map_err(|_| "agent native node source configuration failed")?;
+    Ok(reader.with_consensus_source(source))
 }
 
 struct InferenceSupervision {
@@ -1892,10 +2080,14 @@ fn inference_observation(
         head_sequence: height,
         checkpoint: block.hash,
     };
+    let availability = config
+        .inference_availability
+        .as_ref()
+        .ok_or("inference gateway configuration is required")?;
     let components = layerx_agentd::boot::inference_market::read_availability(
         agent,
-        &config.node_endpoint,
-        &config.node_bearer,
+        &availability.endpoint,
+        "", // Authentication is supplied by the gateway-only client middleware.
         config.expected_chain_id,
         &config.probe_program.bytes(),
         reference,
@@ -1909,19 +2101,11 @@ fn inference_boot(
     reader: LayerxdProgramBalanceReader,
 ) -> Result<InferenceSupervision, String> {
     use layerx_agentd::boot::inference_market;
-    let roots = [ureq::tls::Certificate::from_der(&config.authority_ca_der).to_owned()];
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(REQUEST_DEADLINE))
-        .http_status_as_error(false)
-        .max_redirects(0)
-        .tls_config(
-            ureq::tls::TlsConfig::builder()
-                .provider(ureq::tls::TlsProvider::Rustls)
-                .root_certs(ureq::tls::RootCerts::new_with_certs(&roots))
-                .build(),
-        )
-        .build()
-        .into();
+    let agent = config
+        .inference_availability
+        .as_ref()
+        .ok_or("inference gateway configuration is required")?
+        .client()?;
     let (reference, components) = inference_observation(config, &reader, &agent)?;
     let mut gate = layerx_agentd::boot::InferenceBootGate::default();
     gate.ready(reference, layerx_types::rung::Rung::Committed, &components)
@@ -2162,5 +2346,1329 @@ fn main() {
     ) {
         eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
         std::process::exit(2);
+    }
+}
+
+#[cfg(test)]
+#[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/chain.rs"]
+mod inference_availability_chain;
+
+#[cfg(test)]
+mod inference_availability_tests {
+    use super::inference_availability_chain as chain;
+    use super::*;
+    use layerx_platform_gateway::{
+        ai_views, gateway_digest, http,
+        store::{KeyRecord, RedisEndpoint, RedisStore},
+    };
+    use serde_json::{json, Value};
+    use std::net::{SocketAddr, TcpStream};
+    use std::process::{Child, Command, Stdio};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use zeroize::Zeroizing;
+    const NODE_KEY: &str = "node-only-credential-01234567890123456789";
+    const AUTHORITY_KEY: &str = "authority-only-credential-0123456789012345";
+    const ENDPOINT: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_ENDPOINT";
+    const KEY: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_API_KEY";
+    const CA: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_CA_FILE";
+
+    struct CertificateFixture {
+        certificate: rcgen::CertifiedKey<rcgen::KeyPair>,
+        tls: Arc<rustls::ServerConfig>,
+    }
+    impl CertificateFixture {
+        fn new() -> Self {
+            let certificate = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()])
+                .expect("certificate");
+            let tls = Arc::new(
+                rustls::ServerConfig::builder_with_provider(Arc::new(
+                    rustls::crypto::ring::default_provider(),
+                ))
+                .with_safe_default_protocol_versions()
+                .expect("TLS versions")
+                .with_no_client_auth()
+                .with_single_cert(
+                    vec![certificate.cert.der().clone()],
+                    rustls::pki_types::PrivatePkcs8KeyDer::from(
+                        certificate.signing_key.serialize_der(),
+                    )
+                    .into(),
+                )
+                .expect("TLS certificate"),
+            );
+            Self { certificate, tls }
+        }
+        fn write(&self, root: &Path, prefix: &str) -> PathBuf {
+            fs::write(
+                root.join(format!("{prefix}.pem")),
+                self.certificate.cert.pem(),
+            )
+            .expect("certificate PEM");
+            fs::write(
+                root.join(format!("{prefix}.key")),
+                self.certificate.signing_key.serialize_pem(),
+            )
+            .expect("key PEM");
+            let path = root.join(format!("{prefix}.der"));
+            fs::write(&path, self.certificate.cert.der()).expect("certificate DER");
+            path
+        }
+    }
+
+    struct RedisProcess(Child);
+    impl Drop for RedisProcess {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+    fn durable_keys(
+        root: &Path,
+        certificate: &CertificateFixture,
+    ) -> (RedisProcess, Arc<RedisStore>) {
+        let socket = TcpListener::bind("127.0.0.1:0").expect("Redis port reservation");
+        let port = socket.local_addr().expect("Redis port").port();
+        certificate.write(root, "redis");
+        let acl = root.join("redis.acl");
+        fs::write(
+            &acl,
+            "user default off\nuser gateway on >integration-secret ~* &* +@all\n",
+        )
+        .expect("Redis ACL");
+        let config = root.join("redis.conf");
+        fs::write(&config, format!("bind 127.0.0.1\nport 0\ntls-port {port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\naclfile {}\nappendonly yes\nappendfsync always\ndir {}\n", root.join("redis.pem").display(), root.join("redis.key").display(), root.join("redis.pem").display(), acl.display(), root.display())).expect("Redis configuration");
+        drop(socket);
+        let process = RedisProcess(
+            Command::new("redis-server")
+                .arg(config)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .expect("real durable Redis"),
+        );
+        let store = Arc::new(RedisStore::new(
+            RedisEndpoint::parse(&format!("rediss://localhost:{port}")).expect("Redis endpoint"),
+            native_tls::Certificate::from_der(certificate.certificate.cert.der())
+                .expect("Redis root"),
+            Zeroizing::new("gateway".into()),
+            Zeroizing::new("integration-secret".into()),
+        ));
+        let until = Instant::now() + Duration::from_secs(10);
+        while store.key("readiness").is_err() {
+            assert!(Instant::now() < until, "real Redis did not become ready");
+            thread::sleep(Duration::from_millis(20));
+        }
+        (process, store)
+    }
+    fn issue(store: &RedisStore, id: &str) -> (KeyRecord, String) {
+        let secret = format!("lxp_live_{}", "42".repeat(32));
+        let salt = "12".repeat(32);
+        let record = KeyRecord {
+            key_id: id.into(),
+            principal_digest: "34".repeat(32),
+            secret_digest: gateway_digest(&[b"gateway-key-v1", salt.as_bytes(), secret.as_bytes()]),
+            salt,
+            signer_public_key: "56".repeat(32),
+            scopes: "read".into(),
+            quota_requests: 1000,
+            quota_window_seconds: 60,
+            epoch: 1,
+            disabled: false,
+        };
+        store
+            .issue_key(&record, &format!("issue-{id}"))
+            .expect("durable gateway key issuance");
+        (record, format!("{id}:{secret}"))
+    }
+
+    struct HttpsPeer {
+        address: SocketAddr,
+        stopping: Arc<AtomicBool>,
+        worker: Option<thread::JoinHandle<()>>,
+    }
+    impl HttpsPeer {
+        fn start(
+            tls: Arc<rustls::ServerConfig>,
+            handler: impl Fn(http::IncomingRequest) -> Option<http::OutgoingResponse> + Send + 'static,
+        ) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("HTTPS listener");
+            let address = listener.local_addr().expect("HTTPS address");
+            listener
+                .set_nonblocking(true)
+                .expect("nonblocking HTTPS listener");
+            let stopping = Arc::new(AtomicBool::new(false));
+            let stop = stopping.clone();
+            let worker = thread::spawn(move || {
+                while !stop.load(Ordering::Acquire) {
+                    let (tcp, _) = match listener.accept() {
+                        Ok(stream) => stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(2));
+                            continue;
+                        }
+                        Err(error) => panic!("HTTPS accept: {error}"),
+                    };
+                    tcp.set_read_timeout(Some(Duration::from_secs(3)))
+                        .expect("HTTPS read bound");
+                    tcp.set_write_timeout(Some(Duration::from_secs(3)))
+                        .expect("HTTPS write bound");
+                    let connection =
+                        rustls::ServerConnection::new(tls.clone()).expect("TLS server connection");
+                    let mut stream = rustls::StreamOwned::new(connection, tcp);
+                    if let Ok(request) = http::read_request(&mut stream, 65_536) {
+                        if let Some(response) = handler(request) {
+                            let _ = http::write_response(&mut stream, &response);
+                        }
+                    }
+                }
+            });
+            Self {
+                address,
+                stopping,
+                worker: Some(worker),
+            }
+        }
+        fn url(&self) -> String {
+            format!("https://localhost:{}", self.address.port())
+        }
+    }
+    impl Drop for HttpsPeer {
+        fn drop(&mut self) {
+            self.stopping.store(true, Ordering::Release);
+            if let Some(worker) = self.worker.take() {
+                if !thread::panicking() {
+                    worker.join().expect("HTTPS peer stopped");
+                }
+            }
+        }
+    }
+    fn response(value: Value) -> http::OutgoingResponse {
+        http::OutgoingResponse {
+            status: 200,
+            content_type: "application/json".into(),
+            headers: Vec::new(),
+            body: serde_json::to_vec(&value).expect("wire response"),
+            retry_after: None,
+        }
+    }
+    fn availability(
+        values: &BTreeMap<String, String>,
+    ) -> Result<Option<InferenceAvailabilityConfig>, String> {
+        InferenceAvailabilityConfig::load(true, NODE_KEY, AUTHORITY_KEY, |key| {
+            values.get(key).cloned()
+        })
+    }
+    fn fixture_config(
+        values: &BTreeMap<String, String>,
+        node: &HttpsPeer,
+        node_ca: Vec<u8>,
+        profile: PathBuf,
+    ) -> Config {
+        Config {
+            inference: Some(layerx_agentd::config::InferenceConfig {
+                signal_listen: "127.0.0.1:0".parse().expect("signal address"),
+                serve_listen: "127.0.0.1:0".parse().expect("completion address"),
+                model_digest: [1; 32],
+                runtime_digest: [2; 32],
+                room_profile: profile,
+            }),
+            inference_availability: availability(values).expect("gateway configuration"),
+            listen: "127.0.0.1:0".into(),
+            bearer: "program-only-credential-0123456789012345".into(),
+            node_endpoint: node.url(),
+            expected_chain_id: 125,
+            node_bearer: NODE_KEY.into(),
+            authority_endpoint: format!("{}/authority", node.url()),
+            authority_bearer: AUTHORITY_KEY.into(),
+            authority_ca_der: node_ca,
+            authority_replica_id: [1; 32],
+            chain_trust_root: PathBuf::new(),
+            staleness_ms: 60_000,
+            deployment_journal: String::new(),
+            probe_program: ProgramId::new([11; 32]).expect("program"),
+            policy_sources: BTreeMap::new(),
+            native_policy_sources: BTreeMap::new(),
+            native_effect_policy_sources: BTreeMap::new(),
+            program_budget_denomination_sources: BTreeMap::new(),
+        }
+    }
+    fn assert_health(supervision: &InferenceSupervision, healthy: bool) {
+        for listener in [
+            &supervision.market.signal_listener,
+            &supervision.market.completion_listener,
+        ] {
+            let mut stream = TcpStream::connect(listener.local_addr().expect("health address"))
+                .expect("health connection");
+            stream
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .expect("health deadline");
+            stream
+                .write_all(b"GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+                .expect("health request");
+            let mut wire = String::new();
+            stream.read_to_string(&mut wire).expect("health response");
+            assert!(wire.starts_with(if healthy {
+                "HTTP/1.1 200 "
+            } else {
+                "HTTP/1.1 503 "
+            }));
+            let body: Value =
+                serde_json::from_str(wire.split_once("\r\n\r\n").expect("health body").1)
+                    .expect("health JSON");
+            assert_eq!(body["ready"], healthy);
+        }
+    }
+
+    #[test]
+    fn inference_availability_uses_gateway_credentials() {
+        use layerx_agentd::boot::inference_market::{observe_availability, read_availability};
+        let directory = tempfile::tempdir().expect("fixture directory");
+        let node_certificate = CertificateFixture::new();
+        let gateway_certificate = CertificateFixture::new();
+        let gateway_ca = gateway_certificate.write(directory.path(), "gateway");
+        let (_redis, keys) = durable_keys(directory.path(), &gateway_certificate);
+        let (record, credential) = issue(&keys, "inference-first");
+        let database = directory.path().join("ai.sqlite");
+        let (market, committed) = ai_producer::ingest(&database, 1000, 4, true);
+        let unavailable_database = directory.path().join("ai-unavailable.sqlite");
+        ai_producer::ingest(&unavailable_database, 1000, 4, false);
+        let room_enabled = Arc::new(AtomicBool::new(true));
+        let node_room_enabled = room_enabled.clone();
+        let (_, unavailable_status, _) = ai_producer::consensus(1000, false);
+        let unavailable_block_hash = layerx_programs::hex::decode_digest(
+            unavailable_status["sync_info"]["latest_block_hash"]
+                .as_str()
+                .expect("unavailable producer block hash"),
+        )
+        .expect("unavailable block hash");
+        let (_, status, _) = ai_producer::consensus(1000, true);
+        let block_hash = layerx_programs::hex::decode_digest(
+            status["sync_info"]["latest_block_hash"]
+                .as_str()
+                .expect("producer block hash"),
+        )
+        .expect("block hash");
+        let paths = Arc::new(Mutex::new(Vec::new()));
+        let recorded = paths.clone();
+        let node = HttpsPeer::start(node_certificate.tls.clone(), move |request| {
+            assert!(
+                !request.path.contains("/snapshot"),
+                "snapshots belong to the gateway"
+            );
+            assert!(!request
+                .headers
+                .values()
+                .any(|v| v.contains("lxp_live_") || v.starts_with("LayerX-Key ")));
+            recorded
+                .lock()
+                .expect("node requests")
+                .push(request.path.clone());
+            let call: Value = serde_json::from_slice(&request.body).expect("node RPC request");
+            Some(response(
+                json!({"jsonrpc":"2.0","id":call["id"],"result":ai_producer::node_result(call["method"].as_str().expect("RPC method"),
+                if node_room_enabled.load(Ordering::Acquire) { block_hash } else { unavailable_block_hash },
+                node_room_enabled.load(Ordering::Acquire))}),
+            ))
+        });
+        let fault = Arc::new(Mutex::new(None::<String>));
+        let gateway_requests = Arc::new(Mutex::new(0_usize));
+        let start_gateway = || {
+            let views = ai_views::AiViews::open(&database, 1, [0x5a; 32])
+                .expect("real durable projection reader");
+            let unavailable_views = ai_views::AiViews::open(&unavailable_database, 1, [0x5a; 32])
+                .expect("real unavailable projection reader");
+            let room_enabled = room_enabled.clone();
+            let snapshot_path = format!("/v1/ai/markets/{market}/snapshot");
+            let keys = keys.clone();
+            let fault = fault.clone();
+            let count = gateway_requests.clone();
+            HttpsPeer::start(gateway_certificate.tls.clone(), move |request| {
+                assert_eq!(request.path, snapshot_path);
+                assert!(
+                    !request
+                        .headers
+                        .values()
+                        .any(|v| v.contains(NODE_KEY) || v.contains(AUTHORITY_KEY)),
+                    "node credentials must stay off the gateway"
+                );
+                *count.lock().expect("gateway request count") += 1;
+                let fault = fault.lock().expect("gateway fault").clone();
+                if fault.as_deref() == Some("disconnect") {
+                    return None;
+                }
+                let mut answer = ai_views::respond(
+                    if room_enabled.load(Ordering::Acquire) {
+                        &views
+                    } else {
+                        &unavailable_views
+                    },
+                    &keys,
+                    &request.method,
+                    &request.path,
+                    request.headers.get("authorization").map(String::as_str),
+                    Some(1000),
+                    5_000_000,
+                )
+                .expect("real gateway AI route");
+                // Negative cases corrupt one field of the real authenticated producer
+                // response. Successful responses are always the untouched gateway bytes.
+                if answer.status == 200 {
+                    if let Some(field) = fault {
+                        let mut value: Value =
+                            serde_json::from_slice(&answer.body).expect("producer response");
+                        value["result"]["binding"][&field] = json!("invalid-binding");
+                        answer.body = serde_json::to_vec(&value).expect("corrupted response");
+                    }
+                }
+                Some(answer)
+            })
+        };
+        let mut gateway = start_gateway();
+        let mut values = BTreeMap::from([
+            (ENDPOINT.into(), gateway.url()),
+            (KEY.into(), credential.clone()),
+            (CA.into(), gateway_ca.to_string_lossy().into_owned()),
+        ]);
+        assert!(
+            InferenceAvailabilityConfig::load(false, NODE_KEY, AUTHORITY_KEY, |_| panic!(
+                "gateway settings must only load in inference mode"
+            ))
+            .expect("other modes")
+            .is_none()
+        );
+        for name in [ENDPOINT, KEY, CA] {
+            let mut missing = values.clone();
+            missing.remove(name);
+            let error = availability(&missing)
+                .err()
+                .expect("missing setting must refuse");
+            assert!(error.contains(name));
+            assert!(!error.contains(&credential));
+        }
+        for endpoint in [
+            "http://localhost",
+            "https://secret@localhost",
+            "https://localhost/?secret",
+            "https://localhost/#secret",
+            "https://localhost:0",
+        ] {
+            let mut invalid = values.clone();
+            invalid.insert(ENDPOINT.into(), endpoint.into());
+            let error = availability(&invalid)
+                .err()
+                .expect("invalid HTTPS origin must refuse");
+            assert!(!error.contains("secret"));
+        }
+        for key in [" ", NODE_KEY, AUTHORITY_KEY, "secret\r\nInjected: header"] {
+            let mut invalid = values.clone();
+            invalid.insert(KEY.into(), key.into());
+            let error = availability(&invalid)
+                .err()
+                .expect("invalid key must refuse");
+            assert!(error.starts_with(KEY));
+            assert!(
+                !error.contains(NODE_KEY)
+                    && !error.contains(AUTHORITY_KEY)
+                    && !error.contains("Injected")
+            );
+        }
+        for root in [
+            directory.path().join("missing.der"),
+            directory.path().to_owned(),
+        ] {
+            let mut invalid = values.clone();
+            invalid.insert(CA.into(), root.to_string_lossy().into_owned());
+            assert!(availability(&invalid).is_err());
+        }
+        let invalid_ca = directory.path().join("invalid.der");
+        fs::write(&invalid_ca, b"invalid root").expect("invalid certificate fixture");
+        let mut invalid = values.clone();
+        invalid.insert(CA.into(), invalid_ca.to_string_lossy().into_owned());
+        assert!(availability(&invalid).is_err());
+        let profile = directory.path().join("room-profile");
+        fs::write(&profile, b"room profile").expect("room profile");
+        let mut config = fixture_config(
+            &values,
+            &node,
+            node_certificate.certificate.cert.der().to_vec(),
+            profile,
+        );
+        let reader = || {
+            program_reader(&config, ai_producer::verifier(), Registry::new())
+                .expect("production node reader")
+        };
+        let node_reader = reader();
+        let gate = Arc::new(Mutex::new(layerx_agentd::boot::InferenceBootGate::default()));
+        let refuse = |settings: &BTreeMap<String, String>| {
+            let availability = availability(settings)
+                .expect("valid configuration")
+                .expect("inference configuration");
+            let client = availability.client().expect("gateway client");
+            let reference = layerx_agentd::degraded::Reference {
+                head_sequence: 1000,
+                checkpoint: if room_enabled.load(Ordering::Acquire) {
+                    block_hash
+                } else {
+                    unavailable_block_hash
+                },
+            };
+            read_availability(
+                &client,
+                &availability.endpoint,
+                "",
+                125,
+                &[11; 32],
+                reference,
+            )
+            .expect_err("availability must be refused")
+        };
+        let mut wrong_key = values.clone();
+        wrong_key.insert(KEY.into(), "unknown:lxp_live_invalid".into());
+        assert_eq!(refuse(&wrong_key), "inference availability read refused");
+        keys.revoke_key(
+            &record.key_id,
+            &record.principal_digest,
+            "revoke-inference-first",
+        )
+        .expect("durable revocation");
+        assert_eq!(refuse(&values), "inference availability read refused");
+        let (_, replacement) = issue(&keys, "inference-replacement");
+        values.insert(KEY.into(), replacement);
+        let node_ca_file = node_certificate.write(directory.path(), "node");
+        let mut wrong_roots = values.clone();
+        wrong_roots.insert(CA.into(), node_ca_file.to_string_lossy().into_owned());
+        assert_eq!(refuse(&wrong_roots), "inference availability read failed");
+        for field in [
+            "chain",
+            "program",
+            "market",
+            "block_height",
+            "block_hash",
+            "rank",
+        ] {
+            *fault.lock().expect("fault") = Some(field.into());
+            assert_eq!(
+                refuse(&values),
+                "inference availability is not bound to the current committed program"
+            );
+        }
+        *fault.lock().expect("fault") = None;
+        room_enabled.store(false, Ordering::Release);
+        assert!(
+            refuse(&values).contains("F11Unavailable"),
+            "an unavailable F11 must close availability"
+        );
+        *fault.lock().expect("fault") = Some("disconnect".into());
+        assert_eq!(refuse(&values), "inference availability read failed");
+        *fault.lock().expect("fault") = None;
+        config.inference_availability =
+            availability(&values).expect("replacement gateway configuration");
+        let agent = config
+            .inference_availability
+            .as_ref()
+            .expect("configuration")
+            .client()
+            .expect("client");
+        let observation = inference_observation(&config, &node_reader, &agent);
+        assert!(
+            observation
+                .as_ref()
+                .is_err_and(|error| error.contains("F11Unavailable")),
+            "the production observation must reach the F11 refusal: {observation:?}"
+        );
+        assert!(inference_boot(
+            &config,
+            config.inference.clone().expect("inference mode"),
+            program_reader(&config, ai_producer::verifier(), Registry::new()).expect("reader"),
+        )
+        .err()
+        .expect("unavailable F11 must refuse boot")
+        .contains("F11Unavailable"));
+        assert!(observe_availability(&gate, observation).is_err());
+        assert_ne!(
+            gate.lock().expect("gate").status().mode,
+            layerx_agentd::degraded::Mode::Healthy
+        );
+        assert!(!paths.lock().expect("node requests").is_empty());
+        assert!(*gateway_requests.lock().expect("gateway requests") > 0);
+        // Reopen the real gateway reader and replay the producer capture, preserving
+        // its durable snapshot identity across recovery.
+        drop(gateway);
+        room_enabled.store(true, Ordering::Release);
+        let (_, recovered) = ai_producer::ingest(&database, 1000, 4, true);
+        assert_eq!(committed, recovered);
+        gateway = start_gateway();
+        values.insert(ENDPOINT.into(), gateway.url());
+        config.inference_availability =
+            availability(&values).expect("reopened gateway configuration");
+        let availability = config
+            .inference_availability
+            .as_ref()
+            .expect("gateway configuration");
+        let client = availability.client().expect("gateway client");
+        let mut response = client
+            .get(&format!(
+                "{}/v1/ai/markets/0x{market}/snapshot",
+                gateway.url()
+            ))
+            .call()
+            .expect("authenticated real gateway");
+        assert_eq!(response.status().as_u16(), 200);
+        let produced: Value = response
+            .body_mut()
+            .read_json()
+            .expect("indexer-produced snapshot");
+        assert_eq!(produced["result"]["committed"], true);
+        assert_eq!(
+            produced["result"]["snapshot_id"],
+            format!("0x{}", committed["id"].as_str().expect("snapshot id"))
+        );
+        // This case's own capture funds TaskPolicyV1::minimum_epoch_funding through
+        // rewards::apply(FUND), producing F06, then dispatches OpenRoom with a
+        // RoomProfile::minimum_bond above zero, producing the decodable placement
+        // book that feature_availability projects as available F11.
+        assert_eq!(
+            produced["result"]["components"]["F11"], "available",
+            "the real producer must expose available F11 before inference startup can succeed"
+        );
+        let supervision = inference_boot(
+            &config,
+            config.inference.clone().expect("inference mode"),
+            program_reader(&config, ai_producer::verifier(), Registry::new()).expect("reader"),
+        )
+        .expect("healthy inference boot with the real gateway");
+        assert_health(&supervision, true);
+        *fault.lock().expect("fault") = Some("disconnect".into());
+        assert!(observe_availability(
+            &supervision.market.gate,
+            inference_observation(&config, &supervision.reader, &supervision.agent)
+        )
+        .is_err());
+        assert_health(&supervision, false);
+        *fault.lock().expect("fault") = None;
+        observe_availability(
+            &supervision.market.gate,
+            inference_observation(&config, &supervision.reader, &supervision.agent),
+        )
+        .expect("supervision recovery through real gateway");
+        assert_health(&supervision, true);
+    }
+
+    mod ai_producer {
+        use ed25519_dalek::{Signer as _, SigningKey};
+        use layerx_committed_proof::{
+            commit::{BlockIdFlag, Commit, CommitSig},
+            header::{
+                validators_hash, BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp,
+                Validator,
+            },
+            proto::{encode_length_delimited, encode_varint, encode_varint_field},
+            ProofError,
+        };
+        use layerx_indexer::ai_market::ViewError;
+        use layerx_indexer::codec::hex;
+        use layerx_programs_ai_market::{
+            codec::{
+                self, decode_envelope, derive_market, derive_worker, encode_envelope, Envelope,
+            },
+            dispatch,
+            errors::ApplicationError,
+            policy::{PolicyCommitments, RoomProfile, TaskPolicyV1, TASK_POLICY_BYTES},
+            queries::{read_state_chunk, CaptureFacts, QueryError, ReadProof, StateCapture},
+            registry::{derive_rewards_account, F01_SECTION_CAP},
+            registry_ops::{self, Outcome},
+            rewards::{self, FundRequest, FUNDING_POLICY_VERSION, FUND_PAYLOAD_BYTES},
+            rooms::{OpenRoomRequest, OPEN_ROOM_REQUEST_BYTES},
+            state::{self, Section, SharedState},
+            types::{
+                AccountId, AssetId, Authentication, ChainDomain, Digest32, MarketId,
+                MetadataDigest, Presence, PrincipalId, ProgramId, PublicKey32, RequestId,
+                RosterDigest, RubricDigest, StateDigest,
+            },
+            workers::{WorkerCurrent, WorkerState, WorkerTable, WORKER_TABLE_MAX_BYTES},
+            MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
+        };
+        use serde_json::{json, Value};
+        use sha2::{Digest as _, Sha256};
+        use std::fs;
+
+        fn chain_bytes() -> [u8; 32] {
+            let mut digest = Sha256::new();
+            digest.update(b"PAXAI/chain-domain/v1");
+            digest.update(125_u64.to_be_bytes());
+            digest.finalize().into()
+        }
+        const PROGRAM: [u8; 32] = [11; 32];
+        const OWNER: [u8; 32] = [12; 32];
+        const ASSET: [u8; 32] = [13; 32];
+        const REFUND: [u8; 32] = [14; 32];
+        const CHUNK_RESPONSE_MAX: usize = 8_244;
+        const CHAIN_ID: &str = "ai-market-finality";
+        fn clock() -> time::OffsetDateTime {
+            static CLOCK: std::sync::OnceLock<time::OffsetDateTime> = std::sync::OnceLock::new();
+            *CLOCK.get_or_init(|| {
+                time::OffsetDateTime::now_utc()
+                    .replace_nanosecond(0)
+                    .expect("whole-second fixture clock")
+            })
+        }
+        fn stamp(nanos: u32) -> String {
+            clock()
+                .replace_nanosecond(nanos)
+                .expect("fixture nanoseconds")
+                .format(&time::format_description::well_known::Rfc3339)
+                .expect("fixture timestamp")
+        }
+        const PUBLISHED_AT_MS: u64 = 2_000;
+        const NOW_MS: u64 = 5_000_000;
+        const SECRET: [u8; 32] = [0x5A; 32];
+
+        #[derive(Debug)]
+        struct Failure(String);
+        type Checked<T = ()> = Result<T, Failure>;
+        macro_rules! convert { ($($error:ty),+ $(,)?) => {$ (
+    impl From<$error> for Failure { fn from(error:$error)->Self {Self(format!("{error:?}"))} }
+)+}; }
+        convert!(
+            ApplicationError,
+            QueryError,
+            ProofError,
+            ViewError,
+            layerx_wire::WireError,
+            std::io::Error,
+            &'static str
+        );
+        fn chain() -> Checked<ChainDomain> {
+            Ok(ChainDomain::new(chain_bytes())?)
+        }
+        fn program() -> Checked<ProgramId> {
+            Ok(ProgramId::new(PROGRAM)?)
+        }
+        fn market() -> Checked<MarketId> {
+            Ok(derive_market(chain()?, program()?)?)
+        }
+        fn market_hex() -> Checked<String> {
+            Ok(hex(market()?.as_bytes()))
+        }
+        fn principal(bytes: [u8; 32]) -> Checked<PrincipalId> {
+            Ok(PrincipalId::new(bytes)?)
+        }
+        fn digest(byte: u8) -> Checked<Digest32> {
+            Ok(Digest32::new([byte; 32])?)
+        }
+
+        fn policy() -> Checked<TaskPolicyV1> {
+            Ok(TaskPolicyV1::bounded_default(
+                1,
+                1,
+                PolicyCommitments {
+                    model_artifact: digest(1)?,
+                    dataset_artifact: [2; 32],
+                    benchmark_suite: digest(3)?,
+                    rubric: RubricDigest::new([4; 32])?,
+                    task_schema: digest(5)?,
+                    result_schema: digest(6)?,
+                    service_terms: digest(7)?,
+                },
+                100,
+                1,
+            )?)
+        }
+
+        fn encode_shared(shared: &SharedState<'_>) -> Checked<Vec<u8>> {
+            let mut out = vec![0; shared.encoded_len()?];
+            let mut scratch = vec![0; Section::Control.payload_cap()];
+            let n = state::encode_shared_state(shared, &mut out, &mut scratch)?;
+            out.truncate(n);
+            Ok(out)
+        }
+
+        /// Real F01 CREATE through `registry_ops::apply`.
+        fn created_state() -> Checked<Vec<u8>> {
+            let mut encoded_policy = vec![0; TASK_POLICY_BYTES];
+            policy()?.encode(&mut encoded_policy)?;
+            let rewards = derive_rewards_account(program()?, AssetId::new(ASSET)?)?;
+            let mut payload = OWNER.to_vec();
+            payload.extend_from_slice(&ASSET);
+            payload.extend_from_slice(rewards.as_bytes());
+            payload.extend_from_slice(&REFUND);
+            payload.push(0);
+            payload.extend_from_slice(&encoded_policy);
+            payload.extend_from_slice(&[16; 32]);
+            let envelope = Envelope {
+                operation: dispatch::CREATE,
+                chain: chain()?,
+                program: program()?,
+                market: market()?,
+                actor: principal(OWNER)?,
+                epoch: 0,
+                config: 1,
+                roster: Presence::Absent,
+                sequence: 1,
+                expiry: 1_000_000,
+                request: RequestId::new([1; 32])?,
+                payload: &payload,
+                authentication: Authentication::Native,
+            };
+            let mut encoded = vec![0; 16_384];
+            let n = encode_envelope(&envelope, &mut encoded)?;
+            let validated = decode_envelope(encoded.get(..n).ok_or("envelope")?)?;
+            let ctx = registry_ops::CallContext {
+                chain: chain()?,
+                program: program()?,
+                principal: principal(OWNER)?,
+                height: 1000,
+            };
+            let mut section = vec![0; F01_SECTION_CAP];
+            let mut event = vec![0; MAX_EVENT_BYTES];
+            match registry_ops::apply(&ctx, None, &validated, &mut section, &mut event)? {
+                Outcome::Applied { state, .. } => encode_shared(&state),
+                Outcome::AlreadyApplied(_) => Err(Failure("fresh create retried".to_owned())),
+            }
+        }
+
+        fn worker(slot: u8, nonce: u8, state: WorkerState) -> Checked<WorkerCurrent> {
+            Ok(WorkerCurrent {
+                worker: derive_worker(market()?, principal([20; 32])?, [nonce; 32])?,
+                owner: principal([20; 32])?,
+                delegate: PublicKey32([slot + 50; 32]),
+                metadata: MetadataDigest::new([30; 32])?,
+                generation: 2,
+                key_version: 2,
+                metadata_revision: 4,
+                valid_from: 200,
+                expiry: 400,
+                revocation_sequence: 0,
+                effective_epoch: 1,
+                last_sequence: 0,
+                last_request_id: [0; 32],
+                last_request_digest: [0; 32],
+                last_result_digest: [0; 32],
+                state,
+                slot,
+                last_metadata_height: 200,
+            })
+        }
+
+        fn funded_state() -> Checked<Vec<u8>> {
+            let current = created_state()?;
+            let mut payload = vec![0; FUND_PAYLOAD_BYTES];
+            FundRequest {
+                amount: policy()?.minimum_epoch_funding,
+                refund_recipient: AccountId::new(REFUND)?,
+                policy_version: FUNDING_POLICY_VERSION,
+                consent: true,
+            }
+            .encode(&mut payload)?;
+            let envelope = Envelope {
+                operation: dispatch::FUND,
+                chain: chain()?,
+                program: program()?,
+                market: market()?,
+                actor: principal(OWNER)?,
+                epoch: 0,
+                config: 1,
+                roster: Presence::Absent,
+                sequence: 2,
+                expiry: 1_000_000,
+                request: RequestId::new([2; 32])?,
+                payload: &payload,
+                authentication: Authentication::Native,
+            };
+            let mut encoded = vec![0; 16_384];
+            let n = encode_envelope(&envelope, &mut encoded)?;
+            let validated = decode_envelope(encoded.get(..n).ok_or("fund envelope")?)?;
+            let ctx = registry_ops::CallContext {
+                chain: chain()?,
+                program: program()?,
+                principal: principal(OWNER)?,
+                height: 1000,
+            };
+            let mut next = vec![0; MAX_STATE_BYTES];
+            let mut scratch = vec![0; rewards::SCRATCH_BYTES];
+            let mut event = vec![0; MAX_EVENT_BYTES];
+            let rewards::Outcome::Applied { state_len, .. } = rewards::apply(
+                &ctx,
+                &validated,
+                &current,
+                &mut next,
+                &mut scratch,
+                &mut event,
+            )?
+            else {
+                return Err(Failure("fresh funding retried".to_owned()));
+            };
+            next.truncate(state_len);
+            assert_eq!(
+                layerx_programs_ai_market::queries::feature_availability(&next)?[5],
+                layerx_programs_ai_market::queries::Availability::Available,
+                "Fund must produce the real F06 reward state"
+            );
+            Ok(next)
+        }
+
+        fn room_state() -> Checked<Vec<u8>> {
+            let current = funded_state()?;
+            let shared = state::decode_shared_state(&current)?;
+            let header =
+                registry_ops::PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?
+                    .header;
+            let admission = layerx_programs_ai_market::admission::AdmissionTable::decode(
+                layerx_programs_ai_market::reputation_transition::split_joint(
+                    shared.section(Section::ReputationAdmission)?,
+                )?
+                .1,
+            )?;
+            let roster = RosterDigest::new(
+                layerx_programs_ai_market::roster::roster_digest(&admission, 0)?.bytes(),
+            )?;
+            let request = OpenRoomRequest {
+                room_id: digest(40)?,
+                model_digest: policy()?.commitments.model_artifact,
+                runtime_digest: digest(41)?,
+                profile: RoomProfile {
+                    minimum_bond: 100,
+                    canary_ratio_bps: 250,
+                    lap_size_tokens: 256,
+                    challenge_window_blocks: 120,
+                    slash_fraction_bps: 2500,
+                    host_share_bps: 1000,
+                    protocol_share_bps: 500,
+                    settlement_account: AccountId::new(REFUND)?,
+                    max_generated_tokens: 4096,
+                    queue_depth: 32,
+                    liveness_timeout_ms: 30_000,
+                    acknowledgement_window_ms: 5_000,
+                    canary_relative_tolerance_bps: 100,
+                },
+            };
+            let mut payload = vec![0; OPEN_ROOM_REQUEST_BYTES];
+            let n = request.encode(&mut payload)?;
+            payload.truncate(n);
+            let envelope = Envelope {
+                operation: dispatch::OpenRoom,
+                chain: chain()?,
+                program: program()?,
+                market: market()?,
+                actor: principal(OWNER)?,
+                epoch: 0,
+                config: 1,
+                roster: Presence::Present(roster),
+                sequence: 3,
+                expiry: 1_000_000,
+                request: RequestId::new([3; 32])?,
+                payload: &payload,
+                authentication: Authentication::Native,
+            };
+            let mut encoded = vec![0; 16_384];
+            let n = encode_envelope(&envelope, &mut encoded)?;
+            let mut next = vec![0; MAX_STATE_BYTES];
+            let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
+            let mut event = vec![0; MAX_EVENT_BYTES];
+            let mut result = vec![0; MAX_RESULT_BYTES];
+            let routed = dispatch::route(
+                &registry_ops::CallContext {
+                    chain: chain()?,
+                    program: program()?,
+                    principal: principal(OWNER)?,
+                    height: header.origin_height,
+                },
+                &encoded[..n],
+                Some(&current),
+                dispatch::Buffers {
+                    next: &mut next,
+                    scratch: &mut scratch,
+                    event: &mut event,
+                    result: &mut result,
+                },
+            )?;
+            let dispatch::Routed::Applied { state_len, .. } = routed else {
+                return Err(Failure(format!("fresh OpenRoom did not apply: {routed:?}")));
+            };
+            next.truncate(state_len);
+            assert_eq!(
+                layerx_programs_ai_market::queries::feature_availability(&next)?[10],
+                layerx_programs_ai_market::queries::Availability::Available,
+                "OpenRoom must produce the real F11 placement book",
+            );
+            Ok(next)
+        }
+
+        /// Funded market plus an F02 worker table; even slots available, odd slots retired. Seat
+        /// `slot` is held by the worker derived from nonce `slot + nonce_base`.
+        fn market_with_workers(count: u8, nonce_base: u8, room_enabled: bool) -> Checked<Vec<u8>> {
+            let base = if room_enabled {
+                room_state()?
+            } else {
+                funded_state()?
+            };
+            let shared = state::decode_shared_state(&base)?;
+            let mut table = WorkerTable::new();
+            for slot in 0..count {
+                let status = if slot % 2 == 0 {
+                    WorkerState::Available
+                } else {
+                    WorkerState::Retired
+                };
+                table.insert(&worker(slot, slot + nonce_base, status)?)?;
+            }
+            let mut section = vec![0; WORKER_TABLE_MAX_BYTES];
+            let n = table.encode(&mut section)?;
+            let identity = section.get(..n).ok_or("worker table")?;
+            encode_shared(&shared.replace_section(Section::IdentityRoster, identity)?)
+        }
+
+        fn chunk_payload(
+            revision: u64,
+            pinned: Option<StateDigest>,
+            offset: u32,
+            requested: u16,
+        ) -> Vec<u8> {
+            let mut payload = revision.to_be_bytes().to_vec();
+            payload.extend_from_slice(&pinned.map_or([0; 32], StateDigest::bytes));
+            payload.extend_from_slice(&offset.to_be_bytes());
+            payload.extend_from_slice(&requested.to_be_bytes());
+            payload
+        }
+
+        fn read_all(state_bytes: &[u8]) -> Checked<Vec<Vec<u8>>> {
+            let mut out = vec![0; CHUNK_RESPONSE_MAX];
+            let n = read_state_chunk(state_bytes, &chunk_payload(0, None, 0, 8192), &mut out)?;
+            let first = codec::decode_chunk_response(&out[..n])?;
+            let (revision, pinned, total) = (first.revision, first.digest, first.total_bytes);
+            let mut bodies = vec![out[..n].to_vec()];
+            for offset in (8192..total).step_by(8192) {
+                let payload = chunk_payload(revision, Some(pinned), offset, 8192);
+                let n = read_state_chunk(state_bytes, &payload, &mut out)?;
+                bodies.push(out[..n].to_vec());
+            }
+            Ok(bodies)
+        }
+
+        fn validators() -> Vec<Validator> {
+            let mut validators: Vec<_> = (1..=4)
+                .map(|value| Validator {
+                    pub_key: SigningKey::from_bytes(&[value; 32])
+                        .verifying_key()
+                        .to_bytes(),
+                    voting_power: 1,
+                })
+                .collect();
+            validators.sort_by_key(|v| Sha256::digest(v.pub_key)[..20].to_vec());
+            validators
+        }
+
+        fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
+            let mut commit = Commit {
+                height: header.height as u64,
+                round: 0,
+                block_id: BlockId {
+                    hash: header.hash().to_vec(),
+                    part_set_header: PartSetHeader {
+                        total: 1,
+                        hash: vec![0xA5; 32],
+                    },
+                },
+                signatures: Vec::new(),
+            };
+            let mut seeds: Vec<u8> = (1..=4).collect();
+            seeds.sort_by_key(|v| {
+                Sha256::digest(SigningKey::from_bytes(&[*v; 32]).verifying_key().as_bytes())[..20]
+                    .to_vec()
+            });
+            for value in seeds {
+                let Some((_, tamper)) = signers.iter().find(|(signer, _)| *signer == value) else {
+                    commit.signatures.push(CommitSig::absent());
+                    continue;
+                };
+                let key = SigningKey::from_bytes(&[value; 32]);
+                let timestamp = Timestamp {
+                    seconds: clock().unix_timestamp(),
+                    nanos: 123,
+                };
+                let mut vote = Vec::new();
+                encode_varint_field(1, 2, &mut vote);
+                vote.push(0x11);
+                vote.extend_from_slice(&commit.height.to_le_bytes());
+                let mut parts = Vec::new();
+                encode_varint_field(
+                    1,
+                    u64::from(commit.block_id.part_set_header.total),
+                    &mut parts,
+                );
+                encode_length_delimited(2, &commit.block_id.part_set_header.hash, &mut parts);
+                let mut block = Vec::new();
+                encode_length_delimited(1, &commit.block_id.hash, &mut block);
+                encode_length_delimited(2, &parts, &mut block);
+                encode_length_delimited(4, &block, &mut vote);
+                let mut time = Vec::new();
+                encode_varint_field(1, timestamp.seconds as u64, &mut time);
+                encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
+                encode_length_delimited(5, &time, &mut vote);
+                encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
+                let mut sign_bytes = Vec::new();
+                encode_varint(vote.len() as u64, &mut sign_bytes);
+                sign_bytes.extend_from_slice(&vote);
+                let mut signature = key.sign(&sign_bytes).to_bytes();
+                if *tamper {
+                    signature[40] ^= 1;
+                }
+                commit.signatures.push(CommitSig {
+                    block_id_flag: BlockIdFlag::Commit,
+                    validator_address: Sha256::digest(key.verifying_key().as_bytes())[..20]
+                        .to_vec(),
+                    timestamp,
+                    signature: Some(signature),
+                });
+            }
+            commit
+        }
+
+        fn header(height: u64, root: Digest32) -> Header {
+            Header {
+                chain_id: CHAIN_ID.to_owned(),
+                height: height as i64,
+                app_hash: root.bytes().to_vec(),
+                version: ConsensusVersion { block: 11, app: 1 },
+                time: Timestamp {
+                    seconds: clock().unix_timestamp(),
+                    nanos: 0,
+                },
+                last_block_id: BlockId::default(),
+                last_commit_hash: vec![1; 32],
+                data_hash: layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[
+                    &Sha256::digest(&batch(height)),
+                ])
+                .to_vec(),
+                validators_hash: validators_hash(&validators()),
+                next_validators_hash: validators_hash(&validators()).to_vec(),
+                consensus_hash: vec![3; 32],
+                last_results_hash: vec![4; 32],
+                evidence_hash: vec![5; 32],
+                proposer_address: Sha256::digest(validators()[0].pub_key)[..20].to_vec(),
+            }
+        }
+
+        struct Material {
+            header: Header,
+            commit: Commit,
+            proof: Vec<u8>,
+        }
+        // Canonical native fixture: the namespace head/manifest layout emitted by lxphost,
+        // with ICS23 leaf operations encoded by the production protobuf codec.
+        fn namespace(
+            state: &[u8],
+            program: [u8; 32],
+            cell: &[u8],
+        ) -> (super::chain::ChainFixture, Vec<u8>, Vec<u8>) {
+            let mut manifest = vec![0, 1];
+            manifest.extend(1_u32.to_be_bytes());
+            manifest.extend((cell.len() as u16).to_be_bytes());
+            manifest.extend(cell);
+            manifest.extend(Sha256::digest(state));
+            manifest.extend((state.len() as u32).to_be_bytes());
+            let mut head = vec![0, 1];
+            head.extend(1_u32.to_be_bytes());
+            head.extend(Sha256::digest(&manifest));
+            let mut key = b"\x01\x00\x09progstor".to_vec();
+            key.extend(program);
+            key.push(1);
+            let fixture = super::chain::ChainFixture::new(
+                CHAIN_ID,
+                &[[1; 32], [2; 32], [3; 32], [4; 32]],
+                vec![(key.clone(), head), (vec![2], 2_u64.to_be_bytes().to_vec())],
+            )
+            .expect("real IAVL namespace and host marker");
+            (fixture, key, manifest)
+        }
+
+        fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, [u8; 32]) {
+            let (fixture, key, manifest) = namespace(state, program, cell);
+            let ops = fixture.prove(&key).expect("namespace proof");
+            let encoded = &ops[0].data;
+            assert_eq!(encoded[0], 10);
+            let mut offset = 1;
+            while encoded[offset] & 128 != 0 {
+                offset += 1;
+            }
+            offset += 1;
+            let proof = &encoded[offset..];
+            (serde_json::to_vec(&json!({"membership":{"proof":proof,"multistore":ops[1].data},"manifest":manifest})).expect("native namespace proof"), fixture.header.app_hash.as_slice().try_into().expect("root"))
+        }
+
+        pub(super) fn batch(height: u64) -> Vec<u8> {
+            let mut bytes = b"PAXEER/v1/sequence-batch\0".to_vec();
+            bytes.extend(height.to_be_bytes());
+            bytes.extend(1_u64.to_be_bytes());
+            bytes.extend(2_u64.to_be_bytes());
+            bytes.resize(b"PAXEER/v1/sequence-batch\0".len() + 216, 0);
+            bytes
+        }
+
+        pub(super) fn node_result(method: &str, block_hash: [u8; 32], room_enabled: bool) -> Value {
+            let state = market_with_workers(4, 0, room_enabled).expect("market producer");
+            let (fixture, _, _) =
+                namespace(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY);
+            let (_, _, committed) = consensus(1000, room_enabled);
+            match method {
+                "eth_chainId" => json!("0x7d"),
+                "eth_blockNumber" => json!("0x3e8"),
+                "px_getReceiptKeys" => {
+                    json!({"keys":[{"keyId":format!("0x{}", "01".repeat(32)),"publicKey":format!("0x{}", hex(&validators()[0].pub_key)),"firstHeight":1,"lastHeight":2000}]})
+                }
+                "eth_getBlockByNumber" => {
+                    json!({"number":"0x3e8","hash":format!("0x{}",hex(&block_hash)),"parentHash":format!("0x{}","01".repeat(32)),"timestamp":"0x3e8","transactionsRoot":format!("0x{}","02".repeat(32)),"receiptsRoot":format!("0x{}","03".repeat(32)),"transactions":[]})
+                }
+                "commit" => committed,
+                "validators" => {
+                    json!({"block_height":"1000","count":"4","total":"4","validators":validators().iter().map(|v|json!({"address":hex(&Sha256::digest(v.pub_key)[..20]),"pub_key":{"type":"tendermint/PubKeyEd25519","value":layerx_platform_internal::base64::encode(&v.pub_key)},"voting_power":"1"})).collect::<Vec<_>>()})
+                }
+                "block" => {
+                    json!({"block":{"header":{"height":"1000"},"data":{"txs":[layerx_platform_internal::base64::encode(&batch(1000))]}}})
+                }
+                "abci_query" => {
+                    json!({"response":{"code":0,"height":"999","key":"Ag==","value":layerx_platform_internal::base64::encode(&2_u64.to_be_bytes()),"proof_ops":{"ops":fixture.prove(&[2]).expect("host marker proof").iter().map(|op|json!({"type":op.op_type,"key":layerx_platform_internal::base64::encode(&op.key),"data":layerx_platform_internal::base64::encode(&op.data)})).collect::<Vec<_>>()}}})
+                }
+                _ => panic!("unexpected node method {method}"),
+            }
+        }
+
+        pub(super) fn verifier() -> layerx_programs::ProtocolDeploymentVerifier {
+            layerx_programs::ProtocolDeploymentVerifier::from_chain_trust(
+                CHAIN_ID,
+                validators()
+                    .iter()
+                    .map(|v| {
+                        let voting_power = u64::try_from(v.voting_power)
+                            .expect("validator voting power must not be negative");
+                        layerx_programs::chain_proof::validators::TrustedValidator::new(
+                            v.pub_key,
+                            voting_power,
+                        )
+                    })
+                    .collect(),
+                60_000,
+            )
+            .expect("fixture chain trust")
+        }
+
+        fn certify_at(state: &[u8], height: u64) -> Checked<Material> {
+            let program = PROGRAM;
+            let cell = layerx_programs_ai_market::SHARED_STATE_KEY;
+            let (proof, root) = native_membership(state, program, cell);
+            let header = header(height, Digest32::new(root)?);
+            let commit = signed(&header, &[(1, false), (2, false), (3, false), (4, false)]);
+            Ok(Material {
+                header,
+                commit,
+                proof,
+            })
+        }
+
+        fn capture_state(
+            state: &[u8],
+            material: &Material,
+        ) -> Checked<(
+            ReadProof,
+            Vec<Vec<u8>>,
+            layerx_programs_ai_market::queries::CaptureFacts,
+        )> {
+            let proof = ReadProof {
+                chain: chain()?,
+                program: program()?,
+                native_state_root: Digest32::new(
+                    material
+                        .header
+                        .app_hash
+                        .as_slice()
+                        .try_into()
+                        .expect("root"),
+                )?,
+                observed_sequence: material.header.height as u64,
+                execution_height: material.header.height as u64,
+                block_hash: Digest32::new(material.header.hash())?,
+            };
+            let chunks = read_all(state)?;
+            let mut bytes = vec![0; MAX_STATE_BYTES];
+            let mut capture = StateCapture::new(&mut bytes);
+            for chunk in &chunks {
+                capture.accept(&proof, chunk)?;
+            }
+            let (assembled, facts) = capture.finish()?;
+            assert_eq!(assembled, state);
+            Ok((proof, chunks, facts))
+        }
+
+        pub(super) fn consensus(height: u64, room_enabled: bool) -> (Value, Value, Value) {
+            let state = market_with_workers(4, 0, room_enabled).expect("real market state");
+            let material = certify_at(&state, height).expect("signed consensus material");
+            let h = &material.header;
+            let c = &material.commit;
+            let block = |b: &BlockId| json!({"hash":hex(&b.hash),"parts":{"total":b.part_set_header.total,"hash":hex(&b.part_set_header.hash)}});
+            let header = json!({"version":{"block":h.version.block.to_string(),"app":h.version.app.to_string()},
+            "chain_id":h.chain_id,"height":h.height.to_string(),"time":stamp(0),
+            "last_block_id":block(&h.last_block_id),"last_commit_hash":hex(&h.last_commit_hash),"data_hash":hex(&h.data_hash),
+            "validators_hash":hex(&h.validators_hash),"next_validators_hash":hex(&h.next_validators_hash),
+            "consensus_hash":hex(&h.consensus_hash),"app_hash":hex(&h.app_hash),"last_results_hash":hex(&h.last_results_hash),
+            "evidence_hash":hex(&h.evidence_hash),"proposer_address":hex(&h.proposer_address)});
+            let commit = json!({"height":c.height.to_string(),"round":c.round,"block_id":block(&c.block_id),
+            "signatures":c.signatures.iter().map(|v|json!({"block_id_flag":2,"validator_address":hex(&v.validator_address),
+                "timestamp":stamp(123),"signature":v.signature.as_ref().map(|v|layerx_platform_internal::base64::encode(v))})).collect::<Vec<_>>()});
+            let status = json!({"sync_info":{"latest_block_height":h.height.to_string(),"latest_block_hash":hex(&h.hash()),"latest_app_hash":hex(&h.app_hash),"catching_up":false}});
+            let authority = json!({"chain_id":CHAIN_ID,"validators":validators().iter().map(|v|json!({"public_key":hex(&v.pub_key),"voting_power":v.voting_power})).collect::<Vec<_>>()});
+            (
+                authority,
+                status,
+                json!({"signed_header":{"header":header,"commit":commit}}),
+            )
+        }
+
+        pub(super) fn ingest(
+            database: &std::path::Path,
+            height: u64,
+            count: u8,
+            room_enabled: bool,
+        ) -> (String, Value) {
+            let state = market_with_workers(count, 0, room_enabled).expect("real market producer");
+            let material = certify_at(&state, height).expect("native membership and signed commit");
+            let (_, chunks, _) =
+                capture_state(&state, &material).expect("real whole-root chunk codec");
+            let config = serde_json::json!({"chain":chain_bytes(),"program":PROGRAM,"consensus_chain_id":CHAIN_ID,
+            "validators": validators().iter().map(|v|serde_json::json!({"pub_key":v.pub_key,"voting_power":v.voting_power})).collect::<Vec<_>>(),
+            "source":"http://127.0.0.1:1","ca_der":null,"allow_remote_plaintext":false});
+            let path = database.with_extension("config.json");
+            fs::write(&path, serde_json::to_vec(&config).expect("runtime config"))
+                .expect("runtime config file");
+            let (mut runtime, _) = layerx_indexer::ai_runtime::RuntimeConfig::read(&path)
+                .expect("runtime config")
+                .open(database)
+                .expect("real projection runtime");
+            let h = &material.header;
+            let c = &material.commit;
+            // The transport carries the real read_state_chunk output and signed
+            // native membership evidence; AiRuntime authenticates the entire capture.
+            let proof = layerx_indexer::ai_market::BlockCommitProof {
+                header: h,
+                commit: c,
+                store_proof: &material.proof,
+            };
+            let payload = layerx_indexer::ai_runtime::encode_committed_read(
+                chain().expect("chain"),
+                program().expect("program"),
+                height,
+                &proof,
+                &chunks,
+            )
+            .expect("production committed transport encoder");
+            let record = runtime
+                .ingest(&payload, 1_000_000)
+                .expect("committed market ingestion");
+            assert!(record.projection.finalized());
+            let market = market_hex().expect("market identifier");
+            (
+                market,
+                serde_json::json!({"height":height,"id":hex(record.snapshot_id.as_bytes())}),
+            )
+        }
     }
 }

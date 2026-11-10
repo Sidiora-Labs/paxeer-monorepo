@@ -13,6 +13,7 @@ LEGACY_FILES = ('trust-history', 'genesis-handover-trust.lxt', 'handover-finalit
 
 
 def refuse_legacy(material):
+    """Reject retained pre-merge inputs before any current receipt is published."""
     material = Path(material)
     for role in CHAIN_ROLES:
         for name in LEGACY_FILES:
@@ -23,6 +24,7 @@ def refuse_legacy(material):
         path = material / 'authority-config' / name
         require(not path.exists() and not path.is_symlink(), path,
                 'retained pre-merge trust requires explicit migration; preserve original material')
+    # These names are refusal inputs, never configuration emitted for a consumer.
     for name in ('LAYERX_AGENT_SEQUENCER_TRUST_HISTORY', 'LAYERX_AGENT_GENESIS_TRUST', 'LAYERX_AGENT_HANDOVER_FINALITY'):
         path = material / 'agent-config' / name
         require(not path.exists() and not path.is_symlink(), path,

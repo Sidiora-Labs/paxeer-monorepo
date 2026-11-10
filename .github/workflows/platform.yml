@@ -422,18 +422,21 @@ jobs:
           make platform-real-android-integration
 
   programs-acceptance:
+    name: Programs acceptance release gate
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
     uses: ./.github/workflows/programs-conformance.yml
     with:
       scope: acceptance
 
   agent-sanitizers:
+    name: Agent sanitizer release gate
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
     uses: ./.github/workflows/agent.yml
     with:
       lane: sanitizers
 
   agent-fuzz-corpus:
+    name: Agent fuzz corpus release gate
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
     uses: ./.github/workflows/agent.yml
     with:

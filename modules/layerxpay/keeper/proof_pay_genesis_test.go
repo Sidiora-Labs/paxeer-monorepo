@@ -5,9 +5,8 @@
 // reopen their on-disk stores and hosts. A second export includes a real service
 // withdrawal, so observing it requires reading fresh producer state.
 //
-// Keeper-owned service records are validated before import writes. The legacy
-// AppModuleBasic validator still checks only the envelope; wiring it to
-// keeper.ValidateOwnedGenesis is recorded for the application owning domain.
+// Keeper-owned service records are decoded at the JSON validation boundary and
+// validated again before import writes.
 package keeper_test
 
 import (
@@ -223,7 +222,9 @@ func TestProofPayGenesis(t *testing.T) {
 			badWire, err := json.Marshal(malformed)
 			require.NoError(t, err)
 			consumer := openProofPayGenesisNode(t, t.TempDir())
-			require.NoError(t, consumer.module.ValidateGenesis(consumer.cdc, nil, badWire))
+			validationErr := consumer.module.ValidateGenesis(consumer.cdc, nil, badWire)
+			require.ErrorIs(t, validationErr, types.ErrInvalidGenesis)
+			require.ErrorContains(t, validationErr, "invalid offer::1 record body: LXP_NON_CANONICAL")
 			require.ErrorIs(t, keeper.ValidateOwnedGenesis(malformed), types.ErrInvalidGenesis)
 			require.Empty(t, consumer.module.InitGenesis(consumer.ctx, consumer.cdc, wire))
 			before := consumer.snapshot(t)

@@ -10,10 +10,6 @@ import sys
 
 EXCLUDED_SOURCES = {
     'src/storage/lxp_projection.c',
-    'src/network/lx_oracle_adapter.c',
-    'src/sequencer/lx_oracle_root.c',
-    'src/paxeer/lxp_da_challenge_record.c',
-    'src/guarantor/lxp_da_challenge.c',
 }
 OS_SYMBOLS = re.compile(
     r'^(time|clock_gettime|gettimeofday|rand|random|getenv|getpid|gethostname|stat|'

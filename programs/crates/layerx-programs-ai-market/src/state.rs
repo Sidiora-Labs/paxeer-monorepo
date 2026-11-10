@@ -581,6 +581,27 @@ pub struct SharedState<'a> {
     pub feature_sections: [&'a [u8]; 5],
     pub control: Control<'a>,
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn encode_room_market_parts(
+    prefix: &[u8],
+    book: &[u8],
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    let len = prefix
+        .len()
+        .checked_add(book.len())
+        .and_then(|n| n.checked_add(13))
+        .ok_or(ARITHMETIC)?;
+    if len > Section::SettlementClaims.payload_cap() || out.len() < len {
+        return Err(CAPACITY);
+    }
+    let mut w = Writer::new(out);
+    w.put(prefix)?;
+    w.put(book)?;
+    w.u32(u32::try_from(book.len()).map_err(|_| ARITHMETIC)?)?;
+    w.put(b"PAXAI/F11")?;
+    Ok(w.len())
+}
 impl<'s> SharedState<'s> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn room_market(&self) -> CodecResult<(&'s [u8], &'s [u8])> {
@@ -604,20 +625,7 @@ impl<'s> SharedState<'s> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode_room_market(&self, book: &[u8], out: &mut [u8]) -> CodecResult<usize> {
         let (prefix, _) = self.room_market()?;
-        let len = prefix
-            .len()
-            .checked_add(book.len())
-            .and_then(|n| n.checked_add(13))
-            .ok_or(ARITHMETIC)?;
-        if len > Section::SettlementClaims.payload_cap() || out.len() < len {
-            return Err(CAPACITY);
-        }
-        let mut w = Writer::new(out);
-        w.put(prefix)?;
-        w.put(book)?;
-        w.u32(u32::try_from(book.len()).map_err(|_| ARITHMETIC)?)?;
-        w.put(b"PAXAI/F11")?;
-        Ok(w.len())
+        encode_room_market_parts(prefix, book, out)
     }
 
     /// Records a successful role request; the state is unchanged on any refusal.

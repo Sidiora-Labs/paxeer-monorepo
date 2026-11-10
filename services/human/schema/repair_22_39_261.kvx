@@ -1,0 +1,644 @@
+[repair]
+task = "22.39.261"
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/human/schema"
+inventory_exit = 1
+finding_count = 76
+decisions = ["3101","3104"]
+replacement = "Remove the retired domain vocabulary and optional tags; the merged network supplies chain id 125 and validator-set trust at the verified height."
+baseline_generation = "Regenerated all declarations from v1.kvx, its includes and compatibility.kvx using baseline_manifest source ordering; the built schema-check generator refreshes the manifest during qualification."
+gates = "hf-build followed by hf-done; exact candidate revision, command, exit and private log location are recorded in /out/run/gates.jsonl."
+qualification_log = "/out/logs/verify-1.log"
+
+[scope_conflict]
+file_shapes = "services/human/tools/schema-check/tests/merged_schema_shapes.rs"
+symbol_shapes = "wallet_sign_request_carries_eip1559_fields"
+observed_shapes = "This existing test requires the removed optional domain tag and its retirement metadata despite req.11024 retiring the vocabulary."
+file_retired = "services/human/tools/schema-check/tests/merged_schema_retired.rs"
+symbol_retired = "real_schema_marks_eleven_operations_retired"
+observed_retired = "This existing test requires the retired domain type declaration that the scoped scanner rejects."
+resolution = "Preserve both tests unchanged: their paths and the catalogue are outside the authorized scope; qualification must report the contradiction rather than weakening a check."
+
+[finding.1]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 333
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.2]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 333
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.3]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 855
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.4]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 855
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.5]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 858
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.6]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 859
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.7]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 861
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.8]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 861
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.9]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 863
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.10]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 864
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.11]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 981
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.12]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 981
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.13]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 984
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.14]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 985
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.15]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 985
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.16]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 988
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.17]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 990
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.18]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 990
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.19]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 993
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.20]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 994
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.21]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 994
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.22]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 997
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.23]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1019
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.24]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1020
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.25]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1021
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.26]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1022
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.27]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1023
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.28]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1028
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.29]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1028
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.30]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1030
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.31]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1031
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.32]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1033
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.33]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1033
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.34]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1036
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.35]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1037
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.36]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1037
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.37]
+path = "services/human/schema/human-api/baseline.kvx"
+line = 1041
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Regenerate the frozen baseline from the repaired schema source declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.38]
+path = "services/human/schema/human-api/compatibility.kvx"
+line = 3
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Replace the domain-expansion policy with merged-network and offline-export trust semantics."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.39]
+path = "services/human/schema/human-api/compatibility.kvx"
+line = 3
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Replace the domain-expansion policy with merged-network and offline-export trust semantics."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.40]
+path = "services/human/schema/human-api/golden/deposit.confirm.request.json"
+line = 6
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional tag while preserving every other vector field."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.41]
+path = "services/human/schema/human-api/golden/deposit.start.request.json"
+line = 12
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional tag while preserving every other vector field."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.42]
+path = "services/human/schema/human-api/golden/exit.eligibility.response.json"
+line = 9
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional tag while preserving every other vector field."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.43]
+path = "services/human/schema/human-api/golden/exit.start.request.json"
+line = 9
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional tag while preserving every other vector field."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.44]
+path = "services/human/schema/human-api/golden/withdraw.claim.request.json"
+line = 6
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional tag while preserving every other vector field."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.45]
+path = "services/human/schema/human-api/golden/withdraw.start.request.json"
+line = 13
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional tag while preserving every other vector field."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.46]
+path = "services/human/schema/human-api/journeys.kvx"
+line = 39
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.47]
+path = "services/human/schema/human-api/journeys.kvx"
+line = 39
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.48]
+path = "services/human/schema/human-api/journeys.kvx"
+line = 40
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.49]
+path = "services/human/schema/human-api/journeys.kvx"
+line = 41
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.50]
+path = "services/human/schema/human-api/journeys.kvx"
+line = 58
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.51]
+path = "services/human/schema/human-api/journeys.kvx"
+line = 58
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.52]
+path = "services/human/schema/human-api/journeys.kvx"
+line = 59
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.53]
+path = "services/human/schema/human-api/journeys.kvx"
+line = 60
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.54]
+path = "services/human/schema/human-api/movement.kvx"
+line = 43
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the retired enum and its unused custody-domain policy declarations."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.55]
+path = "services/human/schema/human-api/movement.kvx"
+line = 63
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.56]
+path = "services/human/schema/human-api/movement.kvx"
+line = 63
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.57]
+path = "services/human/schema/human-api/movement.kvx"
+line = 64
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.58]
+path = "services/human/schema/human-api/movement.kvx"
+line = 69
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.59]
+path = "services/human/schema/human-api/movement.kvx"
+line = 91
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.60]
+path = "services/human/schema/human-api/movement.kvx"
+line = 91
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.61]
+path = "services/human/schema/human-api/movement.kvx"
+line = 92
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.62]
+path = "services/human/schema/human-api/movement.kvx"
+line = 97
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.63]
+path = "services/human/schema/human-api/movement.kvx"
+line = 97
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.64]
+path = "services/human/schema/human-api/movement.kvx"
+line = 98
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.65]
+path = "services/human/schema/human-api/movement.kvx"
+line = 103
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.66]
+path = "services/human/schema/human-api/movement.kvx"
+line = 103
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.67]
+path = "services/human/schema/human-api/movement.kvx"
+line = 104
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.68]
+path = "services/human/schema/human-api/movement.kvx"
+line = 110
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.69]
+path = "services/human/schema/human-api/movement.kvx"
+line = 110
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.70]
+path = "services/human/schema/human-api/movement.kvx"
+line = 111
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.71]
+path = "services/human/schema/human-api/movement.kvx"
+line = 116
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.72]
+path = "services/human/schema/human-api/movement.kvx"
+line = 116
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.73]
+path = "services/human/schema/human-api/movement.kvx"
+line = 117
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.74]
+path = "services/human/schema/human-api/movement.kvx"
+line = 123
+component = "settlement-domain"
+symbol = "SettlementDomain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.75]
+path = "services/human/schema/human-api/movement.kvx"
+line = 123
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[finding.76]
+path = "services/human/schema/human-api/movement.kvx"
+line = 124
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field or its metadata; retain the remaining fields and operation retirement markers."
+allowed_reference = "tools/paxeer-x/retired_callers.json: allowed_references path services/human/schema/human-api, symbols settlement_domain and SettlementDomain; decision 3125 supersedes the attempt-1 removal above."
+
+[continuation]
+attempt = 2
+attempt_1_revision = "1b7ae12e257089f3a659333f7c6afe8b0debb08b"
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+decisions = ["3101", "3104", "3125"]
+gotchas = ["3984", "3986"]
+main_alignment = "The supplied base equals origin/main; the attempt-1 edits were restored from that main revision, so no rebase is necessary."
+historical_record = "The repair and scope_conflict sections and each finding repair describe attempt 1; the allowed_reference fields and this continuation describe the final disposition."
+reversal_reason = "Decision 3125 retains the settlement_domain and SettlementDomain declarations and golden vectors as the schema record of retirement, including the retired markers asserted by verification_level_retires_settlement_values_and_maps_rungs in services/human/tools/schema-check/tests/journey_vocabulary.rs."
+restored_paths = ["services/human/schema/human-api/baseline.kvx", "services/human/schema/human-api/compatibility.kvx", "services/human/schema/human-api/journeys.kvx", "services/human/schema/human-api/movement.kvx", "services/human/schema/human-api/golden/deposit.confirm.request.json", "services/human/schema/human-api/golden/deposit.start.request.json", "services/human/schema/human-api/golden/exit.eligibility.response.json", "services/human/schema/human-api/golden/exit.start.request.json", "services/human/schema/human-api/golden/withdraw.claim.request.json", "services/human/schema/human-api/golden/withdraw.start.request.json"]
+finding_count = 76
+disposition = "All 76 recorded findings retain their main content and are allowed references under the two named symbols; no test or assertion changes."
+baseline = "Restored the generated baseline byte for byte from main alongside its unchanged source declarations; no generated declaration is edited by hand."
+qualification = "Run hf-build then hf-done at the final candidate; the last verify row in /out/run/gates.jsonl names the verified revision, exact command, exit and private evidence log."
+qualification_log = "/out/logs/verify-1.log"
