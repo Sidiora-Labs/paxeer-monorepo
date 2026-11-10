@@ -12538,6 +12538,12 @@ value = "A test transcript that stands in for a node and answers eth_sendTransac
 basis = "Gotcha 4163, decisions 2829 and 3183."
 affects = ["22.39.95"]
 
+[decision.3238]
+title = "An ordinary run of an SDK test project leaves out the probe cases of the agent operation envelope"
+value = "A probe case reads the case file that the envelope program of the qualification tools writes, and refuses without it; that refusal stays. An ordinary run of a test project, in the recipe of platform-verify-sdks, in the Go conformance runner and in a verification command of a task, leaves out exactly the cases that need the case file and no other case. The envelope program keeps selecting the probe cases by name and requires the pass line of each case and their count, so leaving them out of an ordinary run hides no failure. No probe gains a pass without its case file, and no test source changes for this ruling. Task 22.39.358 owns the two recipes and task 17.5.7 follows it (decisions 3130 and 3211)."
+basis = "Gotcha 4166, decisions 3052, 3130, 3183 and 3211."
+affects = ["22.39.358", "22.39.354", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42198,6 +42204,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.358]
+title = "Leave the envelope probes out of the ordinary verification of the platform SDKs"
+reqs = ["22998.1"]
+touches = ["services/platform/Makefile.inc", "sdk/platform/conformance/run-go.sh"]
+tests = []
+verification_contract = "test -s sdk/platform/repair_22_39_358.kvx && grep 'dotnet test sdk/platform/dotnet/tests' services/platform/Makefile.inc | grep -q -e '--filter' && grep 'go test' sdk/platform/conformance/run-go.sh | grep -q -e '-skip' && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~DirectDaemonSurfaceRefusesPlaintextAndMissingClientCertificateBeforeSending' && cd sdk/platform/go && go test -count=1 -run 'TestAgentEnvelope|TestAgentOperationEnvelope' -skip '^TestAgentOperationEnvelopeProcessCases$' ."
+do_1 = "do_1 Decision 3238, gotcha 4166. The recipe of platform-verify-sdks runs dotnet test over the whole project sdk/platform/dotnet/tests/LayerX.Sdk.Tests with no filter (services/platform/Makefile.inc:289), and sdk/platform/conformance/run-go.sh:10 runs go test over the whole module sdk/platform/go. Both select probe cases that read the case file named by the variable PAXEER_X_AGENT_ENVELOPE_CASE, which only tools/qualification/paxeer-x/agent_operation_envelope.py sets. Run both commands once as they stand and list every case that stops for want of that file."
+symbols = ["platform-verify-sdks"]
 
 [capability.22.39.357]
 title = "Serve every candle of a development candle page with the snapshot identifier of the page"
@@ -284018,6 +284033,38 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.358]
+title = "Leave the envelope probes out of the ordinary verification of the platform SDKs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.354"]
+reqs = ["22998.1"]
+capabilities = ["22.39.358"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3238, gotcha 4166. The recipe of platform-verify-sdks runs dotnet test over the whole project sdk/platform/dotnet/tests/LayerX.Sdk.Tests with no filter (services/platform/Makefile.inc:289), and sdk/platform/conformance/run-go.sh:10 runs go test over the whole module sdk/platform/go. Both select probe cases that read the case file named by the variable PAXEER_X_AGENT_ENVELOPE_CASE, which only tools/qualification/paxeer-x/agent_operation_envelope.py sets. Run both commands once as they stand and list every case that stops for want of that file."
+do_2 = "do_2 Change the two recipe lines so that an ordinary run leaves out exactly the listed cases: in the .NET line a filter that names them (by their trait where every case of the trait needs the file, by name otherwise), in the Go line a skip pattern anchored on the names of the cases. A case that passes without the case file stays selected; the case DirectDaemonSurfaceRefusesPlaintextAndMissingClientCertificateBeforeSending is one. Change no test source, no probe and nothing in tools/qualification, and keep the selection of the envelope program as it is."
+do_3 = "do_3 Run the two changed commands once. A case that is red for another cause is not repaired here: record the case, the first failing message and its file in sdk/platform/repair_22_39_358.kvx, together with the listed probe cases, the two changed lines and the result. Search tests/ci and tools/qualification for a case that pins the text of either line and record a pin with file and line. Run the build once and the verification once at the final revision."
+symbols = ["platform-verify-sdks"]
+touches = ["services/platform/Makefile.inc", "sdk/platform/conformance/run-go.sh"]
+tests = []
+planned_paths = ["sdk/platform/repair_22_39_358.kvx"]
+build_cmd = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj && cd sdk/platform/go && go vet ."
+verify_cmd = "test -s sdk/platform/repair_22_39_358.kvx && grep 'dotnet test sdk/platform/dotnet/tests' services/platform/Makefile.inc | grep -q -e '--filter' && grep 'go test' sdk/platform/conformance/run-go.sh | grep -q -e '-skip' && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~DirectDaemonSurfaceRefusesPlaintextAndMissingClientCertificateBeforeSending' && cd sdk/platform/go && go test -count=1 -run 'TestAgentEnvelope|TestAgentOperationEnvelope' -skip '^TestAgentOperationEnvelopeProcessCases$' ."
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.354]
 title = "Load the test certificate of the .NET platform SDK with the loader of the target framework"
 status = "pending"
@@ -284036,7 +284083,7 @@ touches = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests"]
 tests = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs"]
 planned_paths = ["sdk/platform/dotnet/repair_22_39_354.kvx"]
 build_cmd = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
-verify_cmd = "test -s sdk/platform/dotnet/repair_22_39_354.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~AgentOperationEnvelopeTests'"
+verify_cmd = "test -s sdk/platform/dotnet/repair_22_39_354.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~DirectDaemonSurfaceRefusesPlaintextAndMissingClientCertificateBeforeSending'"
 gate_kind = "planned"
 sandbox_profile = "sdk-all"
 owner_role = "fm-platform"
@@ -284049,6 +284096,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Attempt 2 (continue, gotcha 4166, decision 3238): the attempt-1 tree da0a2a0815a6 stands (the certificate of AgentOperationEnvelopeTests.cs is loaded through X509CertificateLoader.LoadCertificate, the record). The project builds under the .NET SDK 10.0.403 with no warning. The five red cases are probe cases that read the case file of the envelope program and are not part of the verification of this task; the verification command now selects the case of the class that needs no case file. Change no test source for the probes. In the record replace the result of the five probe cases with one sentence that names decision 3238. Run the build once and the verification once on the tree as it is."
 
 [task.22.39.350]
 title = "Regenerate the platform SDKs after the agent API schema change of the retired reference repair"
@@ -334006,7 +334054,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -334047,6 +334095,7 @@ do_16 = "Attempt 14 (continue after 22.39.339 lands, gotcha 4129, decision 3207)
 do_17 = "Attempt 15 (continue after 22.39.350 lands, gotcha 4139, decision 3216): the attempt-14 tree 26531ad69081 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now runs its commands and stops in make workspace-build at platform-sdk-check, because the source agent-api of the platform SDK pipeline changed on main without a regeneration. The generated roots and sdk/platform/pipeline.kvx are outside the paths of this task and task 22.39.350 regenerates them; the task now requires it. Rebase on main once that task is on it, regenerate nothing and change no file of the pipeline here. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 do_18 = "Attempt 16 (continue after 22.39.352 lands, gotcha 4154, decision 3227): the attempt-15 tree 1328649c1bfc stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes platform-sdk-check and stops in make workspace-build at the build of the Next example of the integration SDK, whose directory is outside the paths of this task and which task 22.39.352 repairs; the task now requires it. Rebase on main once that task is on it and change nothing for the example or for the install targets. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 do_19 = "Attempt 17 (continue after 22.39.353 and 22.39.354 land, gotchas 4159 and 4161, decisions 3232 and 3234): the attempt-16 tree 4b995a314b06 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes the build of the Next example and stops in make workspace-build at agent-build (Makefile:1717), where the host binary of the agent daemon does not compile; task 22.39.353 repairs it. The platform test target also runs the test project of the .NET platform SDK (services/platform/Makefile.inc:289), which does not build under its target framework; task 22.39.354 repairs it. The task now requires both. Rebase on main once both are on it and change nothing for either. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
+do_20 = "do_20 Decision 3238, gotcha 4166: the task now requires task 22.39.358, which leaves the probe cases of the agent operation envelope out of the ordinary run of the .NET test project and of the Go module in platform-verify-sdks. Change nothing for those two recipe lines in this task."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"

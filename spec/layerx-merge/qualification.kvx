@@ -40122,3 +40122,11 @@ symbol = "page.test.mjs"
 observed = "Attempt 2 at 3badf29fc311 on base 7618069d673f: the build exits 0 and the verification exits 1, ERR_MODULE_NOT_FOUND for the package jsdom imported from apps/inference-peer/test/page.test.mjs; log /out/logs/verify-1.log."
 assumption = "The manifest of the peer package is outside the paths of the task and the page follows a frame form the host does not speak."
 severity = "high"
+
+[finding.22.39.354.1]
+task = "22.39.354"
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs"
+symbol = "AgentOperationEnvelopeTests.cs"
+observed = "Attempt 1 at da0a2a0815a6 on base 7618069d673f: the build exits 0 at 71fb7b5b4736; the verification exits 1 at 71fb7b5b4736 with one case passed and five failed with agent envelope probe input refused: PAXEER_X_AGENT_ENVELOPE_CASE; log /out/logs/verify-1.log."
+assumption = "The verification command of the task selected probe cases that need a case file of the qualification tools."
+severity = "high"
