@@ -1106,6 +1106,7 @@ fn requested_level_accepts_each_declared_kebab_case_spelling() {
 
 #[test]
 fn requested_level_refuses_retired_camel_case_spellings() {
+    // Keep the retired spelling here to prove the public decoder refuses it.
     for name in [
         "Unverified",
         "SequencerSigned",

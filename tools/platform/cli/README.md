@@ -349,6 +349,12 @@ metadata and committed observations are not authenticated native state proofs.
 Unknown methods, malformed responses and unavailable account evidence exit nonzero. Retired `lx_` methods are
 explicitly refused by the CLI RPC allowlist.
 
+EVM sender nonces come from `eth_getTransactionCount [address, "pending"]`.
+Program event readers use node `eth_getLogs` for PLX and xweb events, or the
+chain's LXP Query/ProgramEvents interface. The CLI RPC allowlist does not yet
+admit those event queries. Its inline RPC tests retain negative coverage for
+retired methods; those literals do not enable a transport path.
+
 ## MCP payment surface
 
 The [MCP catalogue](../../../services/agent/crates/layerx-mcp/src/catalogue.rs)

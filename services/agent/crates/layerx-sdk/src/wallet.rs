@@ -379,7 +379,8 @@ impl Wallet<'_> {
             .map(|(hash, _)| hash)
     }
 
-    /// Submits once and retains the exact signed transaction for receipt binding.
+    /// Signs the disclosed EIP-1559 call with the signer's secp256k1 key,
+    /// submits once and retains the exact signed transaction for receipt binding.
     async fn execute_signed(
         &self,
         prepared: PreparedPayment,

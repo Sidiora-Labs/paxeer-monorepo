@@ -1751,6 +1751,7 @@ impl KmsProvider for EnvelopeKms {
             {
                 return Err(CustodyError::Kms(KmsError::Integrity));
             }
+            // Bind the disclosure to the current secp256k1 EIP-1559 transaction.
             let signature =
                 sign_disclosed_call(&signer, request.call, request.disclosure, request.from)
                     .await

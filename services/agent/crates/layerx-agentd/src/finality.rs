@@ -19,6 +19,9 @@
 //! aliases. Callers must migrate to `wait_for_rung`, `VerifiedReceipt` and
 //! `VerifiedBlock`; archive verification levels cannot substitute for rungs.
 
+#[path = "inference_market/enrol.rs"]
+pub mod inference_enrol;
+
 use std::collections::BTreeSet;
 
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerBlock, SequencerReceipt};
@@ -975,4 +978,78 @@ fn decode_record(
         height,
         block,
     })
+}
+
+pub fn wait_for_market_acceptance(
+    journal: &layerx_client::ai_market::OperationJournal,
+    record: &mut layerx_client::ai_market::OperationRecord,
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    receipt_keys: &[ReceiptKeyEntry],
+    timeout: std::time::Duration,
+) -> Result<layerx_client::rpc::receipt::AuthenticatedReceipt, inference_enrol::EnrolError> {
+    use layerx_client::ai_market::{
+        market_envelope, market_program::codec, program_refusal, AiClientError,
+    };
+    use layerx_client::rpc::receipt::AuthenticatedLookupContext;
+    use std::time::{Duration, Instant};
+    if timeout.is_zero() || timeout > Duration::from_secs(30) {
+        return Err(inference_enrol::EnrolError::Finality(
+            FinalityError::InvalidDeadline,
+        ));
+    }
+    let started = Instant::now();
+    loop {
+        if started.elapsed() >= timeout {
+            return Err(inference_enrol::EnrolError::Deadline);
+        }
+        if let Some(receipt) = journal.resolve_receipt(
+            record,
+            endpoint,
+            AuthenticatedLookupContext { receipt_keys },
+        )? {
+            let (call, signature) =
+                decode_signed(record.signed_bytes()).map_err(AiClientError::from)?;
+            if receipt.execution().to != call.to
+                || receipt.execution().nonce != call.nonce
+                || receipt.execution().from
+                    != layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                        .map_err(AiClientError::from)?
+            {
+                return Err(AiClientError::ReceiptMismatch.into());
+            }
+            let mut progress =
+                SubmissionProgress::accepted(record.idempotency_key(), record.activity_id());
+            progress
+                .observe_receipt(receipt.canonical_bytes(), receipt_keys)
+                .map_err(inference_enrol::EnrolError::Finality)?;
+            let reached = wait_for_rung(
+                &mut progress,
+                record.idempotency_key(),
+                Rung::Receipted,
+                0,
+                0,
+                1,
+            )
+            .map_err(inference_enrol::EnrolError::Finality)?;
+            if reached.deadline_elapsed {
+                return Err(inference_enrol::EnrolError::Deadline);
+            }
+            if !receipt.execution().success {
+                let envelope = market_envelope(record)?;
+                let operation = codec::decode_envelope(&envelope)?.envelope.operation;
+                if let Ok(Some(error)) =
+                    program_refusal(operation, &receipt.execution().return_data)
+                {
+                    return Err(error.into());
+                }
+                return Err(inference_enrol::EnrolError::ExecutionRefused);
+            }
+            return Ok(receipt);
+        }
+        let remaining = timeout.saturating_sub(started.elapsed());
+        if remaining.is_zero() {
+            return Err(inference_enrol::EnrolError::Deadline);
+        }
+        std::thread::sleep(remaining.min(Duration::from_millis(20)));
+    }
 }

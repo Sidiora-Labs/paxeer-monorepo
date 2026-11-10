@@ -38,6 +38,25 @@ describe('PaxeerXReceiptsTable', () => {
     fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
   });
 
+  it('receipt_rows_link_only_to_their_native_transaction_and_block', function receiptRowsLinkOnlyToTheirNativeTransactionAndBlock() {
+    const { container } = renderTable();
+
+    for (const item of [ receipt, accountless ]) {
+      const row = container.querySelector(`[data-receipt="${ item.id }"]`) as HTMLElement;
+
+      expect(Array.from(row.querySelectorAll('a')).map((link) => link.getAttribute('href')))
+        .toEqual([ `/tx/${ item.transaction_hash }`, `/block/${ item.block_number }` ]);
+      expect(row.querySelector('[data-rung]')).toBeNull();
+    }
+
+    const kernelRow = container.querySelector(`[data-receipt="${ PAXEER_X_KERNEL_RECEIPTS_ITEM.id }"]`) as HTMLElement;
+
+    expect(kernelRow.querySelectorAll('td')[0]?.textContent).toBe('0x0000000000...0033');
+    expect(kernelRow.querySelectorAll('[aria-label="copy"]')).toHaveLength(2);
+    expect(kernelRow.querySelector('a')).toBeNull();
+    expect(container.querySelector('a[href^="/paxeer-x/receipts"]')).toBeNull();
+  });
+
   it('heads the table with the receipt columns in order', () => {
     const { container } = renderTable();
 
@@ -53,12 +72,12 @@ describe('PaxeerXReceiptsTable', () => {
       .toEqual(items.map((item) => item.id));
   });
 
-  it('links a receipt id to its own page and the block to the block page', () => {
+  it('links a receipt id to its transaction and the block to the block page', () => {
     const { container } = renderTable();
 
     const row = container.querySelector(`[data-receipt="${ receipt.id }"]`) as HTMLElement;
 
-    expect(row.querySelector(`a[href="/paxeer-x/receipts/${ receipt.id }"]`)).toBeTruthy();
+    expect(row.querySelector(`a[href="/tx/${ receipt.transaction_hash }"]`)).toBeTruthy();
     expect(row.querySelector(`a[href="/block/${ receipt.block_number }"]`)?.textContent)
       .toBe(String(receipt.block_number));
   });

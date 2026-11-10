@@ -1,6 +1,6 @@
 import { copyEntry } from "../../copy/runtime.ts";
 import {
-  humanApi,
+  abortableHumanApi,
   decodeSupportCreateRequest,
   decodeSupportReplyRequest,
   type JsonValue,
@@ -120,9 +120,9 @@ export class SupportChatSession {
   constructor(options: SupportChatSessionOptions) {
     this.#shell = options.shell;
     this.#traceId = options.traceId;
-    this.#client = options.client ?? humanApi({
-      fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.any([this.#controller.signal, AbortSignal.timeout(10_000)]) }),
-    });
+    this.#client = options.client ?? abortableHumanApi(
+      () => AbortSignal.any([this.#controller.signal, AbortSignal.timeout(10_000)]),
+    );
     this.#storageOption = options.storage;
     this.#snapshot = this.#buildSnapshot();
   }

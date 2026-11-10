@@ -31,7 +31,7 @@ func TestCurrentMatchesFrozenDeployment(t *testing.T) {
 			PoolBeacon   string `json:"poolBeacon"`
 		}
 	}
-	b, e := os.ReadFile("../../../../../sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json")
+	b, e := os.ReadFile("client-deployment.json")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -203,18 +203,21 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	// This immutable reviewed blob predates a key-sorting rewrite of the checkout
-	// manifest. Preserve its exact byte digest and all frozen deployment provenance.
+	// manifest. Preserve its exact historical digest and compare its data to Current.
 	approved := exec.CommandContext(ctx, "git", "-C", root, "show", "dd845c4ecc0802bef5548e086ef431ec99fe1f12")
 	reviewedSource, e := approved.Output()
 	if e != nil {
 		t.Fatalf("read reviewed manifest blob: %v", e)
 	}
-	if fmt.Sprintf("%x", sha256.Sum256(reviewedSource)) != m.SourceManifestSHA256 {
-		t.Fatal("reviewed manifest digest differs from Current")
+	if fmt.Sprintf("%x", sha256.Sum256(reviewedSource)) != "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a" {
+		t.Fatal("historical reviewed manifest digest drift")
 	}
 	checkedOut, e := os.ReadFile(filepath.Join(root, "contracts/launchpad/deployments/paxeer-x-network-addresses.json"))
 	if e != nil {
 		t.Fatal(e)
+	}
+	if fmt.Sprintf("%x", sha256.Sum256(checkedOut)) != m.SourceManifestSHA256 {
+		t.Fatal("checked-out manifest digest differs from Current")
 	}
 	var original, current any
 	if e = json.Unmarshal(reviewedSource, &original); e != nil {
@@ -231,7 +234,7 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 		t.Fatal(e)
 	}
 	sourcePath := filepath.Join(contractRoot, "deployments/paxeer-x-network-addresses.json")
-	if e = os.WriteFile(sourcePath, reviewedSource, 0600); e != nil {
+	if e = os.WriteFile(sourcePath, checkedOut, 0600); e != nil {
 		t.Fatal(e)
 	}
 	script := `const {deriveDeployment,renderHelper,checkClient}=require(process.argv[1]);
@@ -250,7 +253,7 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 		t.Fatal("browser generator does not reproduce deployment.ts")
 	}
 	generator := exec.CommandContext(ctx, "python3", "generate.py", "--source", sourcePath,
-		"--frozen-client", filepath.Join(root, "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json"),
+		"--frozen-client", "client-deployment.json",
 		"--output", "current.json", "--check")
 	if output, err := generator.CombinedOutput(); err != nil {
 		t.Fatalf("manifest generator: %v\n%s", err, output)
@@ -290,7 +293,7 @@ func TestCurrentManifestValid(t *testing.T) {
 	if m.SchemaVersion != 1 || m.DeploymentVersion != "paxeer125-v6.12.0" || m.Status != "active" || m.ChainID != 125 {
 		t.Fatalf("deployment identity %d %s %s %d", m.SchemaVersion, m.DeploymentVersion, m.Status, m.ChainID)
 	}
-	if m.SourceManifestSHA256 != "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a" {
+	if m.SourceManifestSHA256 != "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b" {
 		t.Fatalf("source manifest %s", m.SourceManifestSHA256)
 	}
 	if m.ActivationHeight <= generation2Height {

@@ -24,6 +24,7 @@ pub struct UnknownCeilingReservation {
 pub struct RecoveryInputs<'a, E = crate::protocol_evidence::RawReceiptEvidence> {
     pub verifier: EvidenceAuthority,
     pub unknown_budget_ids: &'a [[u8; 32]],
+    /// Current receipts retain the requested spend; legacy receipts retain their receipt amount.
     pub budget_receipts: &'a [PersistedReceipt<E>],
     pub protocol_budget: ProtocolBudgetState,
     pub ceiling_maximum: u128,
