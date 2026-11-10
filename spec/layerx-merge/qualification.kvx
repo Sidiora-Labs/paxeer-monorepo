@@ -39962,3 +39962,35 @@ symbol = "status_1695_test.go::TestIndexerStatus1695"
 observed = "Attempt 3 at 9c471ae564fa on base a61b1b58f649: build 2 exits 0 and verification 2 exits 1, TestIndexerStatus1695 fails at status_1695_test.go:397 with ingestion lease fenced or expired; log /out/logs/verify-2.log."
 assumption = "The case acquires a lease that its own earlier acquisition still holds."
 severity = "high"
+
+[finding.22.39.340.3]
+task = "22.39.340"
+file = "tests/programs/test_call_activity.c::main"
+symbol = "test_call_activity.c::main"
+observed = "Attempt 3 at b98f9b64f6b6 on base 26be171234b5: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; build/tests/programs_call_activity fails at tests/programs/test_call_activity.c:1542 for protocol 3; log /out/logs/verify-1.log."
+assumption = "The new native case of the task was never run before this verification and one of its conditions is false."
+severity = "high"
+
+[finding.22.39.227.1]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 1 at 12bf6e0d70d7 on base 70d7aa5849dc: build 3 exits 0 at 12bf6e0d70d7 (log /out/logs/build-3.log); the only verification ran at 0d1bbd64d440 and exits 1 with lint errors in seven test targets; log /out/logs/verify-1.log."
+assumption = "The final tree was built after the last allowed verification and has not been verified."
+severity = "high"
+
+[finding.22.39.117.16]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 16 at 87aa7bc4b07b on base a37d2e22f205: the build exits 0 and the verification exits 1 in make -C services/launchpad ci; the indexer module fails in internal/config, internal/decode and internal/receipt with receipt qualification rejected, first at repair_m999_test.go:431; log /out/logs/verify-1.log."
+assumption = "The production comparison of the roles is outside the paths of the task and treats the staged pair as identity."
+severity = "high"
+
+[finding.22.38.17.2]
+task = "22.38.17"
+file = "services/agent/crates/layerx-agentd/tests/inference_deals.rs"
+symbol = "inference_deals.rs"
+observed = "Attempt 2 at 02a1d2a11c73 on base 167ce2a7f0cf: build 3 exits 0 at 02a1d2a11c73 (log /out/logs/build-3.log); the only verification ran at fcdbd6049e5d and exits 1 with 0 passed and 6 failed, each case stopped at tests/inference_deals.rs:1327 with application error 2061; log /out/logs/verify-1.log."
+assumption = "The final tree was built after the last allowed verification and has not been verified."
+severity = "high"
