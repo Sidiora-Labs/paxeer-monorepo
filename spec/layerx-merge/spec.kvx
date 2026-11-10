@@ -224049,7 +224049,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.334]
 title = "Describe the frozen vectors of the web module attestation document without the foreign chain id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -283011,7 +283011,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.317]
 title = "Bring the JVM platform SDK suite to green against the fixtures and vectors on main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
