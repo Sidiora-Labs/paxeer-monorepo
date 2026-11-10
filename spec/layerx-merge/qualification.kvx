@@ -40466,3 +40466,11 @@ symbol = "tests"
 observed = "Attempt 4 at 50e50b1c3690 on base 1ea516104b8d: the build exits 0 and the verification exits 0 at 50e50b1c3690 with no finding over 73 targets, log /out/logs/verify-1.log; the merge of the tree into main stops with conflicts in seven files of services/agent/crates/layerx-agentd/tests."
 assumption = "The base of the attempt was taken before task 22.39.227 reached main, and both tasks repaired the same seven files."
 severity = "high"
+
+[finding.22.38.20.2]
+task = "22.38.20"
+file = "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"
+symbol = "inference_recovery.rs"
+observed = "Attempt 2 at ab347c7cae95 on base 1c3198620972: build 3 exits 101 at ab347c7cae95, the host package stops with no method named excluded found for the deal engine at src/inference_market/recovery.rs:547 and :677; no verification ran; log /out/logs/build-3.log."
+assumption = "The read of the exclusion set is compiled in test builds only and its file sat outside the paths of the task."
+severity = "high"
