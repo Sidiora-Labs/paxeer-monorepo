@@ -9,10 +9,12 @@ std::thread_local! {
     };
 }
 
+#[cfg(feature = "host-ffi")]
 pub(crate) fn clear_captured_fault() {
     CAPTURED_FAULT.with(|fault| fault.borrow_mut().clear());
 }
 
+#[cfg(feature = "host-ffi")]
 pub(crate) fn copy_captured_fault(buffer: &mut [u8]) -> usize {
     CAPTURED_FAULT.with(|fault| {
         let fault = fault.borrow();

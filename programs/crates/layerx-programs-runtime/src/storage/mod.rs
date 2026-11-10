@@ -6,6 +6,7 @@
 use core::fmt::{self, Display};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+type ReplayStorageOverlay = Vec<(Vec<u8>, Option<Vec<u8>>)>;
 
 mod namespace;
 #[path = "scan.rs"]
@@ -141,7 +142,12 @@ fn namespace_cells(
     namespace: StorageNamespace,
 ) -> impl Iterator<Item = (&StorageAddress, &Vec<u8>)> {
     cells
-        .range(StorageAddress { namespace, key: Vec::new() }..)
+        .range(
+            StorageAddress {
+                namespace,
+                key: Vec::new(),
+            }..,
+        )
         .take_while(move |(address, _)| address.namespace == namespace)
 }
 
@@ -207,7 +213,10 @@ impl Storage {
         self.accessed_namespaces.borrow().contains(&namespace)
     }
 
-    pub(crate) fn try_for_each_commitment_entry<E>(&self, mut visit: impl FnMut(Vec<u8>, &[u8]) -> Result<(), E>) -> Result<(), E> {
+    pub(crate) fn try_for_each_commitment_entry<E>(
+        &self,
+        mut visit: impl FnMut(Vec<u8>, &[u8]) -> Result<(), E>,
+    ) -> Result<(), E> {
         for (address, value) in &self.cells {
             visit(Self::commitment_key(address), value)?;
         }
@@ -406,13 +415,12 @@ impl Storage {
         &self,
         namespace: StorageNamespace,
     ) -> Result<u64, StorageError> {
-        namespace_cells(&self.cells, namespace)
-            .try_fold(0u64, |total, (address, value)| {
-                let cell_bytes = metered_bytes(&address.key, Some(value))?;
-                total
-                    .checked_add(cell_bytes)
-                    .ok_or(StorageError::SizeOverflow)
-            })
+        namespace_cells(&self.cells, namespace).try_fold(0u64, |total, (address, value)| {
+            let cell_bytes = metered_bytes(&address.key, Some(value))?;
+            total
+                .checked_add(cell_bytes)
+                .ok_or(StorageError::SizeOverflow)
+        })
     }
 
     /// Reads one protocol-owned canonical state cell. This host-side seam is
@@ -498,7 +506,12 @@ impl Storage {
         validate_key(prefix)?;
         Ok(self
             .cells
-            .range(StorageAddress { namespace, key: prefix.to_vec() }..)
+            .range(
+                StorageAddress {
+                    namespace,
+                    key: prefix.to_vec(),
+                }..,
+            )
             .take_while(|(address, _)| {
                 address.namespace == namespace && address.key.starts_with(prefix)
             })
@@ -761,34 +774,68 @@ mod replay_visit_tests {
         let program = ProgramId::new([1; 32]).unwrap_or_else(|error| panic!("program: {error}"));
         let mut storage = Storage::new();
         let mut transaction = storage.transaction(StorageNamespace::shared(program));
-        transaction.write(b"a", b"one").unwrap_or_else(|error| panic!("write: {error}"));
-        transaction.write(b"b", b"two").unwrap_or_else(|error| panic!("write: {error}"));
-        transaction.commit();
+        transaction
+            .write(b"a", b"one")
+            .unwrap_or_else(|error| panic!("write: {error}"));
+        transaction
+            .write(b"b", b"two")
+            .unwrap_or_else(|error| panic!("write: {error}"));
+        let _ = transaction.commit();
         let mut count = 0;
-        let result = storage.try_for_each_commitment_entry(|_, _| { count += 1; Err(()) });
-        assert_eq!(result, Err(())); assert_eq!(count, 1);
-        let mut original = Vec::new(); storage.for_each_commitment_entry(|key, value| original.push((key, value.to_vec())));
+        let result = storage.try_for_each_commitment_entry(|_, _| {
+            count += 1;
+            Err(())
+        });
+        assert_eq!(result, Err(()));
+        assert_eq!(count, 1);
+        let mut original = Vec::new();
+        storage.for_each_commitment_entry(|key, value| original.push((key, value.to_vec())));
         let mut bounded = Vec::new();
-        storage.try_for_each_commitment_entry(|key, value| { bounded.push((key, value.to_vec())); Ok::<_, ()>(()) }).unwrap_or_else(|()| panic!("traversal"));
+        storage
+            .try_for_each_commitment_entry(|key, value| {
+                bounded.push((key, value.to_vec()));
+                Ok::<_, ()>(())
+            })
+            .unwrap_or_else(|()| panic!("traversal"));
         assert_eq!(bounded, original);
     }
 }
 
 const STORAGE_REPLAY_DOMAIN: &[u8] = b"LayerX/programs/replay-storage-state/v1\0";
 
-fn replay_storage_field(out: &mut Vec<u8>, value: &[u8], maximum: usize) -> Result<(), crate::replay::ReplayWitnessError> {
+fn replay_storage_field(
+    out: &mut Vec<u8>,
+    value: &[u8],
+    maximum: usize,
+) -> Result<(), crate::replay::ReplayWitnessError> {
     use crate::replay::{append, ReplayWitnessError as E};
-    append(out, &u32::try_from(value.len()).map_err(|_| E::Bounds)?.to_be_bytes(), maximum)?;
+    append(
+        out,
+        &u32::try_from(value.len())
+            .map_err(|_| E::Bounds)?
+            .to_be_bytes(),
+        maximum,
+    )?;
     append(out, value, maximum)
 }
 fn replay_namespace(bytes: &[u8]) -> Result<StorageNamespace, crate::replay::ReplayWitnessError> {
     use crate::replay::ReplayWitnessError as E;
-    if bytes.len() != 33 && bytes.len() != 65 { return Err(E::Encoding); }
-    let program = ProgramId::new(bytes[..32].try_into().map_err(|_| E::Encoding)?).map_err(|_| E::Encoding)?;
+    if bytes.len() != 33 && bytes.len() != 65 {
+        return Err(E::Encoding);
+    }
+    let program = ProgramId::new(bytes[..32].try_into().map_err(|_| E::Encoding)?)
+        .map_err(|_| E::Encoding)?;
     match bytes[32] {
-        0 if bytes.len() == 65 => Ok(StorageNamespace::principal(program, PrincipalId::new(bytes[33..].try_into().map_err(|_| E::Encoding)?).map_err(|_| E::Encoding)?)),
+        0 if bytes.len() == 65 => Ok(StorageNamespace::principal(
+            program,
+            PrincipalId::new(bytes[33..].try_into().map_err(|_| E::Encoding)?)
+                .map_err(|_| E::Encoding)?,
+        )),
         1 if bytes.len() == 33 => Ok(StorageNamespace::shared(program)),
-        2 if bytes.len() == 65 => Ok(StorageNamespace::protocol_private(program, bytes[33..].try_into().map_err(|_| E::Encoding)?)),
+        2 if bytes.len() == 65 => Ok(StorageNamespace::protocol_private(
+            program,
+            bytes[33..].try_into().map_err(|_| E::Encoding)?,
+        )),
         _ => Err(E::Encoding),
     }
 }
@@ -799,13 +846,28 @@ fn replay_storage_copy(bytes: &[u8]) -> Result<Vec<u8>, crate::replay::ReplayWit
 }
 
 impl Storage {
-    pub fn replay_state_bytes(&self, maximum: usize) -> Result<Vec<u8>, crate::replay::ReplayWitnessError> {
+    /// # Errors
+    ///
+    /// Returns a decoding refusal for malformed, oversized, or inconsistent canonical state.
+    pub fn replay_state_bytes(
+        &self,
+        maximum: usize,
+    ) -> Result<Vec<u8>, crate::replay::ReplayWitnessError> {
         use crate::replay::{append, maximum_bytes, ReplayWitnessError as E};
         maximum_bytes(maximum)?;
-        let accessed = self.accessed_namespaces.try_borrow().map_err(|_| E::StateUnavailable)?;
+        let accessed = self
+            .accessed_namespaces
+            .try_borrow()
+            .map_err(|_| E::StateUnavailable)?;
         let mut out = Vec::new();
         append(&mut out, STORAGE_REPLAY_DOMAIN, maximum)?;
-        append(&mut out, &u32::try_from(self.cells.len()).map_err(|_| E::Bounds)?.to_be_bytes(), maximum)?;
+        append(
+            &mut out,
+            &u32::try_from(self.cells.len())
+                .map_err(|_| E::Bounds)?
+                .to_be_bytes(),
+            maximum,
+        )?;
         for (address, value) in &self.cells {
             let mut namespace = [0; 65];
             let length = address.namespace.write_canonical(&mut namespace);
@@ -814,7 +876,13 @@ impl Storage {
             replay_storage_field(&mut out, value, maximum)?;
         }
         for namespaces in [&self.frozen_namespaces, &*accessed] {
-            append(&mut out, &u32::try_from(namespaces.len()).map_err(|_| E::Bounds)?.to_be_bytes(), maximum)?;
+            append(
+                &mut out,
+                &u32::try_from(namespaces.len())
+                    .map_err(|_| E::Bounds)?
+                    .to_be_bytes(),
+                maximum,
+            )?;
             for namespace in namespaces {
                 let mut bytes = [0; 65];
                 let length = namespace.write_canonical(&mut bytes);
@@ -824,53 +892,105 @@ impl Storage {
         Ok(out)
     }
 
-    pub fn decode_untrusted_replay_state(bytes: &[u8], maximum: usize) -> Result<Self, crate::replay::ReplayWitnessError> {
+    /// # Errors
+    ///
+    /// Returns a decoding refusal for malformed, oversized, or inconsistent canonical state.
+    pub fn decode_untrusted_replay_state(
+        bytes: &[u8],
+        maximum: usize,
+    ) -> Result<Self, crate::replay::ReplayWitnessError> {
         use crate::replay::{maximum_bytes, ReplayCursor, ReplayWitnessError as E};
         maximum_bytes(maximum)?;
-        if bytes.len() > maximum { return Err(E::Bounds); }
+        if bytes.len() > maximum {
+            return Err(E::Bounds);
+        }
         let mut cursor = ReplayCursor::new(bytes);
-        if cursor.take(STORAGE_REPLAY_DOMAIN.len())? != STORAGE_REPLAY_DOMAIN { return Err(E::Encoding); }
+        if cursor.take(STORAGE_REPLAY_DOMAIN.len())? != STORAGE_REPLAY_DOMAIN {
+            return Err(E::Encoding);
+        }
         let mut cells = BTreeMap::new();
         let count = usize::try_from(cursor.u32()?).map_err(|_| E::Bounds)?;
-        if count > bytes.len() / (12 + 33 + 1) { return Err(E::Bounds); }
+        if count > bytes.len() / (12 + 33 + 1) {
+            return Err(E::Bounds);
+        }
         for _ in 0..count {
             let namespace = replay_namespace(cursor.field()?)?;
             let key = cursor.field()?;
             let value = cursor.field()?;
             validate_key(key).map_err(|_| E::Encoding)?;
-            if value.len() > MAX_STORAGE_VALUE_BYTES { return Err(E::Bounds); }
-            let address = StorageAddress { namespace, key: replay_storage_copy(key)? };
-            if cells.last_key_value().is_some_and(|(previous, _)| previous >= &address) { return Err(E::Encoding); }
+            if value.len() > MAX_STORAGE_VALUE_BYTES {
+                return Err(E::Bounds);
+            }
+            let address = StorageAddress {
+                namespace,
+                key: replay_storage_copy(key)?,
+            };
+            if cells
+                .last_key_value()
+                .is_some_and(|(previous, _)| previous >= &address)
+            {
+                return Err(E::Encoding);
+            }
             cells.insert(address, replay_storage_copy(value)?);
         }
         let mut read_namespaces = || -> Result<BTreeSet<StorageNamespace>, E> {
             let count = usize::try_from(cursor.u32()?).map_err(|_| E::Bounds)?;
-            if count > bytes.len() / (4 + 33) { return Err(E::Bounds); }
+            if count > bytes.len() / (4 + 33) {
+                return Err(E::Bounds);
+            }
             let mut namespaces = BTreeSet::new();
             for _ in 0..count {
                 let namespace = replay_namespace(cursor.field()?)?;
-                if namespaces.last().is_some_and(|previous| previous >= &namespace) { return Err(E::Encoding); }
+                if namespaces
+                    .last()
+                    .is_some_and(|previous| previous >= &namespace)
+                {
+                    return Err(E::Encoding);
+                }
                 namespaces.insert(namespace);
             }
             Ok(namespaces)
         };
         let frozen_namespaces = read_namespaces()?;
         let accessed_namespaces = RefCell::new(read_namespaces()?);
-        if !cursor.done() { return Err(E::Encoding); }
-        let restored = Self { cells, frozen_namespaces, accessed_namespaces };
-        if restored.replay_state_bytes(maximum)?.as_slice() != bytes { return Err(E::Encoding); }
+        if !cursor.done() {
+            return Err(E::Encoding);
+        }
+        let restored = Self {
+            cells,
+            frozen_namespaces,
+            accessed_namespaces,
+        };
+        if restored.replay_state_bytes(maximum)?.as_slice() != bytes {
+            return Err(E::Encoding);
+        }
         Ok(restored)
     }
 
-    pub(crate) fn bounded_replay_overlay(&self, baseline: &Self, maximum: usize) -> Result<Vec<(Vec<u8>, Option<Vec<u8>>)>, crate::replay::ReplayWitnessError> {
+    pub(crate) fn bounded_replay_overlay(
+        &self,
+        baseline: &Self,
+        maximum: usize,
+    ) -> Result<ReplayStorageOverlay, crate::replay::ReplayWitnessError> {
         use crate::replay::ReplayWitnessError as E;
         crate::replay::maximum_bytes(maximum)?;
         let mut entries = Vec::new();
         let mut encoded_bytes = 4_usize;
-        if encoded_bytes > maximum { return Err(E::Bounds); }
+        if encoded_bytes > maximum {
+            return Err(E::Bounds);
+        }
         self.try_for_each_commitment_delta(baseline, |key, value| {
-            let additional = 5_usize.checked_add(key.len()).and_then(|n| match value { None => Some(n), Some(value) => n.checked_add(4)?.checked_add(value.len()) }).ok_or(E::Bounds)?;
-            encoded_bytes = encoded_bytes.checked_add(additional).filter(|n| *n <= maximum).ok_or(E::Bounds)?;
+            let additional = 5_usize
+                .checked_add(key.len())
+                .and_then(|n| match value {
+                    None => Some(n),
+                    Some(value) => n.checked_add(4)?.checked_add(value.len()),
+                })
+                .ok_or(E::Bounds)?;
+            encoded_bytes = encoded_bytes
+                .checked_add(additional)
+                .filter(|n| *n <= maximum)
+                .ok_or(E::Bounds)?;
             entries.try_reserve_exact(1).map_err(|_| E::Allocation)?;
             entries.push((key, value.map(replay_storage_copy).transpose()?));
             Ok::<_, E>(())
@@ -887,70 +1007,136 @@ mod storage_replay_tests {
 
     #[test]
     fn restores_real_cells_freeze_policy_and_access_history_without_defaulting() {
+        use crate::test_support::AssertSuccess as _;
+
         let program = ProgramId::new([1; 32]).unwrap_or_else(|error| panic!("program: {error}"));
-        let principal = PrincipalId::new([2; 32]).unwrap_or_else(|error| panic!("principal: {error}"));
+        let principal =
+            PrincipalId::new([2; 32]).unwrap_or_else(|error| panic!("principal: {error}"));
         let principal_namespace = StorageNamespace::principal(program, principal);
         let shared = StorageNamespace::shared(program);
         let frozen = StorageNamespace::protocol_private(program, [3; 32]);
         let mut storage = Storage::new();
-        storage.write(principal_namespace, b"a", b"one").unwrap_or_else(|error| panic!("write: {error}"));
-        storage.write(principal_namespace, b"b", b"two").unwrap_or_else(|error| panic!("write: {error}"));
+        storage
+            .write(principal_namespace, b"a", b"one")
+            .unwrap_or_else(|error| panic!("write: {error}"));
+        storage
+            .write(principal_namespace, b"b", b"two")
+            .unwrap_or_else(|error| panic!("write: {error}"));
         assert_eq!(storage.read(shared, b"absent"), Ok(None));
         storage.frozen_namespaces.insert(frozen);
-        let maximum = crate::MAX_TRACE_STATE_BYTES as usize;
-        let encoded = storage.replay_state_bytes(maximum).unwrap_or_else(|error| panic!("encode: {error:?}"));
-        let restored = Storage::decode_untrusted_replay_state(&encoded, encoded.len()).unwrap_or_else(|error| panic!("decode: {error:?}"));
+        let maximum = usize::try_from(crate::MAX_TRACE_STATE_BYTES)
+            .assert_success("trace ceiling fits the target pointer width");
+        let encoded = storage
+            .replay_state_bytes(maximum)
+            .unwrap_or_else(|error| panic!("encode: {error:?}"));
+        let restored = Storage::decode_untrusted_replay_state(&encoded, encoded.len())
+            .unwrap_or_else(|error| panic!("decode: {error:?}"));
         assert_eq!(restored.cells, storage.cells);
         assert_eq!(restored.frozen_namespaces, storage.frozen_namespaces);
-        assert_eq!(*restored.accessed_namespaces.borrow(), *storage.accessed_namespaces.borrow());
-        assert_eq!(restored.read(frozen, b"absent"), Err(StorageError::FrozenNamespace));
-        assert_eq!(restored.read(principal_namespace, b"a"), Ok(Some(b"one".to_vec())));
+        assert_eq!(
+            *restored.accessed_namespaces.borrow(),
+            *storage.accessed_namespaces.borrow()
+        );
+        assert_eq!(
+            restored.read(frozen, b"absent"),
+            Err(StorageError::FrozenNamespace)
+        );
+        assert_eq!(
+            restored.read(principal_namespace, b"a"),
+            Ok(Some(b"one".to_vec()))
+        );
         assert_eq!(restored.replay_state_bytes(maximum), Ok(encoded.clone()));
-        assert_eq!(storage.replay_state_bytes(encoded.len() - 1), Err(ReplayWitnessError::Bounds));
-        let mut trailing = encoded.clone(); trailing.push(0);
+        assert_eq!(
+            storage.replay_state_bytes(encoded.len() - 1),
+            Err(ReplayWitnessError::Bounds)
+        );
+        let mut trailing = encoded.clone();
+        trailing.push(0);
         assert!(Storage::decode_untrusted_replay_state(&trailing, maximum).is_err());
-        for length in 0..encoded.len() { assert!(Storage::decode_untrusted_replay_state(&encoded[..length], maximum).is_err()); }
+        for length in 0..encoded.len() {
+            assert!(Storage::decode_untrusted_replay_state(&encoded[..length], maximum).is_err());
+        }
         let mut unknown_namespace = encoded;
         unknown_namespace[STORAGE_REPLAY_DOMAIN.len() + 4 + 4 + 32] = 255;
-        assert_eq!(Storage::decode_untrusted_replay_state(&unknown_namespace, maximum), Err(ReplayWitnessError::Encoding));
+        assert_eq!(
+            Storage::decode_untrusted_replay_state(&unknown_namespace, maximum),
+            Err(ReplayWitnessError::Encoding)
+        );
     }
 
     #[test]
     fn refuses_duplicate_namespace_sets_and_preserves_an_empty_cells_access_log() {
+        use crate::test_support::AssertSuccess as _;
+
         let program = ProgramId::new([4; 32]).unwrap_or_else(|error| panic!("program: {error}"));
         let namespace = StorageNamespace::shared(program);
         let storage = Storage::new();
         assert_eq!(storage.read(namespace, b"missing"), Ok(None));
-        let maximum = crate::MAX_TRACE_STATE_BYTES as usize;
-        let encoded = storage.replay_state_bytes(maximum).unwrap_or_else(|error| panic!("encode: {error:?}"));
-        let restored = Storage::decode_untrusted_replay_state(&encoded, maximum).unwrap_or_else(|error| panic!("decode: {error:?}"));
+        let maximum = usize::try_from(crate::MAX_TRACE_STATE_BYTES)
+            .assert_success("trace ceiling fits the target pointer width");
+        let encoded = storage
+            .replay_state_bytes(maximum)
+            .unwrap_or_else(|error| panic!("encode: {error:?}"));
+        let restored = Storage::decode_untrusted_replay_state(&encoded, maximum)
+            .unwrap_or_else(|error| panic!("decode: {error:?}"));
         assert!(restored.cells.is_empty());
         assert!(restored.accessed_namespaces.borrow().contains(&namespace));
         let mut malformed = STORAGE_REPLAY_DOMAIN.to_vec();
         malformed.extend_from_slice(&0_u32.to_be_bytes());
         malformed.extend_from_slice(&2_u32.to_be_bytes());
-        for _ in 0..2 { replay_storage_field(&mut malformed, &namespace.canonical_bytes(), maximum).unwrap_or_else(|error| panic!("field: {error:?}")); }
+        for _ in 0..2 {
+            replay_storage_field(&mut malformed, &namespace.canonical_bytes(), maximum)
+                .unwrap_or_else(|error| panic!("field: {error:?}"));
+        }
         malformed.extend_from_slice(&0_u32.to_be_bytes());
-        assert_eq!(Storage::decode_untrusted_replay_state(&malformed, maximum), Err(ReplayWitnessError::Encoding));
+        assert_eq!(
+            Storage::decode_untrusted_replay_state(&malformed, maximum),
+            Err(ReplayWitnessError::Encoding)
+        );
     }
 
     #[test]
     fn fallible_delta_matches_real_legacy_delta_and_stops_on_first_refusal() {
+        use crate::test_support::AssertSuccess as _;
+
         let program = ProgramId::new([5; 32]).unwrap_or_else(|error| panic!("program: {error}"));
         let namespace = StorageNamespace::shared(program);
         let mut baseline = Storage::new();
-        baseline.write(namespace, b"a", b"old").unwrap_or_else(|error| panic!("write: {error}"));
-        baseline.write(namespace, b"b", b"remove").unwrap_or_else(|error| panic!("write: {error}"));
+        baseline
+            .write(namespace, b"a", b"old")
+            .unwrap_or_else(|error| panic!("write: {error}"));
+        baseline
+            .write(namespace, b"b", b"remove")
+            .unwrap_or_else(|error| panic!("write: {error}"));
         let mut current = baseline.clone();
-        current.write(namespace, b"a", b"new").unwrap_or_else(|error| panic!("write: {error}"));
-        current.delete(namespace, b"b").unwrap_or_else(|error| panic!("delete: {error}"));
-        current.write(namespace, b"c", b"added").unwrap_or_else(|error| panic!("write: {error}"));
+        current
+            .write(namespace, b"a", b"new")
+            .unwrap_or_else(|error| panic!("write: {error}"));
+        current
+            .delete(namespace, b"b")
+            .unwrap_or_else(|error| panic!("delete: {error}"));
+        current
+            .write(namespace, b"c", b"added")
+            .unwrap_or_else(|error| panic!("write: {error}"));
         let mut original = Vec::new();
-        current.for_each_commitment_delta(&baseline, |key, value| original.push((key, value.map(<[u8]>::to_vec))));
+        current.for_each_commitment_delta(&baseline, |key, value| {
+            original.push((key, value.map(<[u8]>::to_vec)));
+        });
         original.sort_by(|left, right| left.0.cmp(&right.0));
-        assert_eq!(current.bounded_replay_overlay(&baseline, crate::MAX_TRACE_STATE_BYTES as usize), Ok(original));
+        assert_eq!(
+            current.bounded_replay_overlay(
+                &baseline,
+                usize::try_from(crate::MAX_TRACE_STATE_BYTES)
+                    .assert_success("trace ceiling fits the target pointer width")
+            ),
+            Ok(original)
+        );
         let mut visited = 0;
-        let result = current.try_for_each_commitment_delta(&baseline, |_, _| { visited += 1; Err(()) });
-        assert_eq!(result, Err(())); assert_eq!(visited, 1);
+        let result = current.try_for_each_commitment_delta(&baseline, |_, _| {
+            visited += 1;
+            Err(())
+        });
+        assert_eq!(result, Err(()));
+        assert_eq!(visited, 1);
     }
 }

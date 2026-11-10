@@ -12016,6 +12016,30 @@ value = "A case that verifies a recorded committed receipt asserts the signed po
 basis = "Gotcha 4055, decision 3046. The recording is the producer; the case asserts what the producer recorded."
 affects = ["22.39.299"]
 
+[decision.3151]
+title = "The node route catalogue serves the canonical origin the public documents declare"
+value = "px_getRouteCatalogue answers canonical_origin with the public root-node origin https://api-mainnet-beta.paxeer.network, the constant services/platform/hosted/gateway/openrpc.json declares and the wallet SDK decodes; the value enters the node projection from the catalogue source tools/paxeer-x/route-catalogue.json through rpc/generate_px_catalogue.py so the generated rpc/px_route_catalogue.json carries it, and the handler keeps serving the projection unchanged. Task 22.39.306 makes the change after 22.39.278 lands; until then 22.39.278 verifies with TestPxNodeRoot_Account_CommittedReadsAndParity skipped."
+basis = "Gotcha 4060, decisions 2521 and 2810. The node is the producer of the catalogue; the document and the SDK already consume the field."
+affects = ["22.39.306", "22.39.278"]
+
+[decision.3152]
+title = "The launchpad query validation text reaches the command line and REST clients"
+value = "The validation messages the launchpad keeper returns with codes.InvalidArgument (invalid address, must be a 0x-prefixed 40-hex-digit address, amount_in must be a positive base-10 integer) reach the command line and REST clients of the module through the test network; task 22.39.307 finds the site on the client query path that replaces the status message with the registered text of abci code 18 and restores the message, or, if the replacement is a deliberate producer change, aligns the four client suites to the producer and records which. Until it lands 22.39.249 verifies the launchpad keeper, types, launchpadtest, legacy and simulation packages without the client packages."
+basis = "Gotcha 4062, decision 3130. The suites are red before the attempt and outside its touches."
+affects = ["22.39.307", "22.39.249"]
+
+[decision.3153]
+title = "The explorer receipt verification cases follow the governed key guard and the recorded fixtures"
+value = "The seventeen cases of committed_vectors_test.exs, status_committed_test.exs, status_test.exs and sequencer_receipt_test.exs under apps/explorer/test/explorer/chain/paxeer_x that answer {:error, :r3} since 6c6128318f are restored by task 22.39.308: the fixtures and vectors are the producers, the key guard of sequencer_receipt.ex admits the governed non-digest key ids of 18.1806.1 and the digest key ids the recorded vectors carry, and a case asserts the outcome the recording yields (gotcha 3046). Until it lands 22.39.271 verifies the thirteen other files of the directory."
+basis = "Gotcha 4063, decision 3130. The cases are red before the attempt and outside its touches."
+affects = ["22.39.308", "22.39.271"]
+
+[decision.3154]
+title = "The JVM program activity and receipt transports follow the retained transaction record"
+value = "program.activity and program.receipt read by eth_getTransactionByHash with no destination and no contract call in every platform SDK, as sdk/platform/conformance/operations.json records since ef56c71945 and the dotnet SDK already does; sdk/platform/generators/generate_jvm.py maps the two operations that way, the generated JVM schema and the pipeline record are regenerated and resealed by the generators, and GeneratedCatalogueProgramsTest asserts the record. Task 22.39.309 makes the change; 17.5.7 requires it."
+basis = "Gotcha 4065, decision 3046. The retained record is the producer of the transport; the JVM generator is the outlier."
+affects = ["22.39.309", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41676,6 +41700,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.309]
+title = "Route the JVM program activity and receipt reads by the retained transaction"
+reqs = ["22998.1"]
+touches = ["sdk/platform/generators/generate_jvm.py", "sdk/platform/jvm", "sdk/platform/pipeline.kvx", "sdk/platform/conformance"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java"]
+verification_contract = "test -s sdk/platform/repair_22_39_309.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=GeneratedCatalogueProgramsTest -Dsurefire.failIfNoSpecifiedTests=false"
+do_1 = "do_1 Decision 3154, gotcha 4065. GeneratedCatalogueProgramsTest.programOperationsNameLayerxprogramsCalls (sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java:25) reads the retained transaction method of program.activity and program.receipt from sdk/platform/conformance/operations.json (eth_getTransactionByHash, no destination, no contract call) and fails because sdk/platform/generators/generate_jvm.py:24 and :29 map the two operations to an eth_getLogs read of the ProgramCallOutcome event at 0x000000000000000000000000000000000000101d. Change the two mappings of the generator to the retained transaction method with an empty destination and an empty call list, regenerate the JVM schema and every other generated file the generators maintain through the generator pipeline (the drift suite of sdk/platform/generators must pass), and reseal sdk/platform/pipeline.kvx the way the pipeline does. Change no other SDK and no case."
+symbols = []
+
+[capability.22.39.308]
+title = "Restore the explorer receipt verification cases against the governed key guard"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs", "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x"]
+tests = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"]
+verification_contract = "test -s services/explorer/backend/repair_22_39_308.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_test.exs apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
+do_1 = "do_1 Decision 3153, gotcha 4063. cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x reports seventeen failures that all answer {:error, :r3}: committed_vectors_test.exs:8 (expected committed, r7, r8), two cases of status_committed_test.exs (expected committed and receipted), four receipted-rung cases of status_test.exs and ten cases of sequencer_receipt_test.exs (among them the landing block signed by four of four validators at :228 and :231, the R2, R4, R5, R7 and R8 refusals). The key guard of apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex changed at 6c6128318f (18.1806.1): the digest equality between key id and public key dropped, first_height must exceed zero and last_height is bounded. Determine, case by case, which guard clause refuses the key the case passes (the key list the case builds, the first and last heights of the recorded vectors under test/support/fixture/paxeer_x, the key ids of the recorded vectors) and whether the recorded fixtures or the key set the case builds carry a value the governed guard no longer admits."
+symbols = []
+
+[capability.22.39.307]
+title = "Restore the launchpad query validation text on the client paths"
+reqs = ["22998.1"]
+touches = ["modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper", "modules/launchpad/client/cli", "modules/launchpad/client/rest"]
+tests = ["modules/launchpad/client/cli", "modules/launchpad/client/rest"]
+verification_contract = "test -s modules/launchpad/repair_22_39_307.kvx && go test -count=1 ./modules/launchpad/client/... && go test -count=1 ./modules/launchpad/keeper/..."
+do_1 = "do_1 Decision 3152, gotcha 4062. go test -count=1 ./modules/launchpad/client/... fails TestCmdQueryAirdropNetwork (modules/launchpad/client/cli/query_airdrop_test.go:187), TestCmdQueryFeeRightNetwork (query_feeright_test.go:178), TestRepair_35_QuoteUint256 (repair_35_test.go:189) and TestRESTRegistryRoutes (modules/launchpad/client/rest/grpc_query_registry_test.go:216): each receives rpc error: code = InvalidArgument desc = invalid request where the case expects the validation text the keeper returns (invalidAddressQueryError.GRPCStatus at modules/launchpad/keeper/grpc_query.go:32, the amount_in message at grpc_query_quote.go:19 and :24). Find the site on the query path of the test network client (the abci query conversion, a gateway interceptor or the keeper itself) that replaces the status message with the registered text of abci code 18, and name the commit that introduced it in the record."
+symbols = []
+
+[capability.22.39.306]
+title = "Serve the canonical origin in the node route catalogue"
+reqs = ["22998.1"]
+touches = ["rpc/px_discovery.go", "rpc/generate_px_catalogue.py", "rpc/px_route_catalogue.json", "tools/paxeer-x/route-catalogue.json", "rpc/px_node_root_account_test.go"]
+tests = ["rpc/px_node_root_account_test.go"]
+verification_contract = "test -s rpc/repair_22_39_306.kvx && python3 rpc/generate_px_catalogue.py && git diff --quiet -- rpc/px_route_catalogue.json && go test -count=1 ./rpc/ -run '^TestPxNodeRoot_Account_CommittedReadsAndParity$'"
+do_1 = "do_1 Decision 3151, gotcha 4060. TestPxNodeRoot_Account_CommittedReadsAndParity fails at rpc/px_node_root_account_test.go:711 because the px_getRouteCatalogue answer lacks canonical_origin, which services/platform/hosted/gateway/openrpc.json declares as the required constant https://api-mainnet-beta.paxeer.network and sdk/wallet/src/endpoint.ts decodes. Add canonical_origin with that value to the catalogue source tools/paxeer-x/route-catalogue.json, carry it through rpc/generate_px_catalogue.py into the generated rpc/px_route_catalogue.json (regenerate with the script, never by hand), and keep GetRouteCatalogue at rpc/px_discovery.go:61 serving the projection unchanged so the field reaches the answer. Keep every other field and the route parity the case asserts against the source."
+symbols = []
 
 [capability.22.39.305]
 title = "Bring the web application unit suite green on main"
@@ -161073,7 +161133,7 @@ title = "Bring the agent SDK px surfaces and receipt cases to the gateway contra
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.39.297"]
+requires = ["22.39.297", "22.39.299"]
 reqs = ["22998.1"]
 capabilities = ["22.39.288"]
 interfaces = []
@@ -161098,6 +161158,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotchas 4019 and 4020, decision 3137): the attempt-1 tree c7da4d6fd3 stands (the px method set of src/px.ts:45 with all twenty-one names of the gateway contract, the Python mirror, the inclusion evidence cases). The task now follows 22.39.297, which brings revert.test.ts and the generated tables to the current registry; rebase on main after it lands. Build the final tree before verifying: the attempt-1 verification ran on a dist older than the committed sources, which is why px_methods_list_is_the_hosted_gateway_px_set, receipt_keys_shape and commit_inclusion_refuses_unrelated_valid_commit reported the old code. If readiness_hosted of repair-22-33-23.test.ts still fails on the fresh build, compare the readiness the stub answers at :146 to :149 with the observation the case records and align the case with the producer. Run the build once and the verification once at the final revision."
+do_5 = "Attempt 5 (continue after 22.39.299 lands, gotcha 4066): the attempt-4 tree 6214136f2301 stands (the px method set, the Python mirror, the inclusion evidence cases, the fresh build, the record). The task now requires 22.39.299, which refreshes test/fixtures/repair-22-33-24/committed.json from the daemon vector and carries the digest 5013cd232ee9 the vector on main hashes. Rebase on main after 22.39.299 lands and take its recording; change nothing else, then run the build once and the verification once at the final revision."
 
 [task.22.39.281]
 title = "Darken the light muted explorer label to meet the 3:1 contrast of the design brief"
@@ -161178,7 +161239,7 @@ touches = ["apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/lib/metadat
 tests = []
 planned_paths = ["apps/explorer/repair_22_39_270.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn lint:tsc"
-verify_cmd = "test -s apps/explorer/repair_22_39_270.kvx && cd apps/explorer && yarn vitest run ui/paxeerX/anchors ui/paxeerX/chains ui/paxeerX/feed ui/paxeerX/receipts && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
+verify_cmd = "test -s apps/explorer/repair_22_39_270.kvx && cd apps/explorer && yarn vitest run ui/paxeerX/anchors ui/paxeerX/chains ui/paxeerX/feed ui/paxeerX/receipts && cd ../.. && python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/explorer"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -161191,10 +161252,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4008, decisions 3125 and 3130): the attempt-1 tree 797672453a stands (the receipts and anchors pages, the openapi document, the archive types, the record). The verification now runs the anchors, chains, feed and receipts directories; the account specs belong to task 22.39.292. The touches list now names PaxeerXReceiptsListItem.spec.tsx, PaxeerXReceiptsTable.spec.tsx and PaxeerXReceiptsTableItem.spec.tsx: make them assert the links the repaired components render (a receipt that carries a transaction hash links to the transaction page, one without it to the receipt page, the block to the block page, and no rung badge), without reintroducing a link the catalogue finding retired; record each spec change with the finding it follows. Add the allowance entries for every remaining scan finding in tools/paxeer-x/retired_callers.json. Run the build once and the verification once at the final revision."
+do_5 = "Attempt 3 (continue, gotcha 4061): the attempt-2 tree e0a022007b7a stands (the receipts and anchors pages, the openapi document, the archive types, the three list specs, the record). The verification now returns to the repository root before the retired-reference scan. Change nothing; run the build once and the verification once at the final revision."
 
 [task.22.39.269]
 title = "Repair the retired references of the web application and the gas station container"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -183651,7 +183713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.300]
 title = "Pin the Fund attribution boundaries to commits reachable from main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192688,7 +192750,7 @@ interfaces = []
 do_1 = "do_1 Decision 3147, gotchas 4050 and 3997. The restart accounting at services/agent/crates/layerx-agentd/src/budget/hold.rs:149-153 sums the amount of every successful receipt as the consumed spend and :177-182 reconciles that sum with spent_this_period of the protocol budget record. Under decision 3128 a receipt amount is the transaction value, and a budgetSpend call carries a zero value with the spend in its calldata (precompiles/layerxpay/layerxpay.go:163, services/agent/crates/layerx-crypto/src/evm_transaction.rs:315), so a node-produced receipt of a pay spend never adds to the sum and a committed spend of 25 is refused as unreconciled. Give PersistedReceipt (src/budget/hold.rs:26) the spend the daemon requested for the activity as a field requested_amount of type u128, fill it at src/human_runtime.rs:2400 from the amount the daemon submitted for that activity id (the reservation it persisted for the activity, else the amount argument of the budgetSpend calldata of the signed transaction whose hash is the activity id, else zero), and let hold.rs:149-153 add requested_amount for current evidence while legacy evidence keeps its receipt amount. Update every construction of the record in src and in the crate tests (tests/budget_schema.rs, tests/budget_unknown.rs, tests/recovery.rs) with the amount those cases already model, and keep every existing assertion."
 do_2 = "do_2 Add a unit test in src/budget/hold.rs named rebuild_accounting_counts_the_requested_spend_of_a_zero_value_receipt that rebuilds the accounting from one verified current receipt of amount 0 and requested spend 25 against a protocol record whose spent_this_period is 25 and asserts receipt_consumed 25 and reconciled true. Record the sites, the former sum and the rule in services/agent/crates/layerx-agentd/repair_22_39_303.kvx. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/src/budget/hold.rs", "services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/outbox/recover.rs", "services/agent/crates/layerx-agentd/tests/budget_schema.rs", "services/agent/crates/layerx-agentd/tests/budget_unknown.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/hold.rs", "services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/outbox/recover.rs", "services/agent/crates/layerx-agentd/tests/budget_schema.rs", "services/agent/crates/layerx-agentd/tests/budget_unknown.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/budget_schema.rs", "services/agent/crates/layerx-agentd/tests/budget_unknown.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_303.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --tests"
@@ -192704,6 +192766,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 4067): the attempt-1 tree d89a01cab119 stands (the requested_amount field, the fill at the persisted-receipt construction, the rebuilt accounting, the unit case, the updated constructions in the three named suites). The touches list now names services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs: fill requested_amount there with the amount that case already models, keep its assertions, change nothing else, then run the build once and the verification once at the final revision."
 
 [task.22.39.294]
 title = "Declare the inference market module of the TypeScript SDK in the platform pipeline lock"
@@ -192898,8 +192961,8 @@ symbols = []
 touches = ["tools/platform/cli/README.md", "tools/platform/cli/src/rpc.rs", "tools/platform/emulator/core/emulator_core.c", "tools/platform/cli/tests/fixtures/openrpc.json", "tools/paxeer-x/retired_callers.json"]
 tests = []
 planned_paths = ["tools/platform/repair_22_39_266.kvx"]
-build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release --tests && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-paxeer-boundary"
-verify_cmd = "test -s tools/platform/repair_22_39_266.kvx && cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/platform"
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release --tests && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --bin layerx-paxeer-boundary"
+verify_cmd = "test -s tools/platform/repair_22_39_266.kvx && LAYERX_PAXEER_BOUNDARY_BIN=${CARGO_TARGET_DIR:-$(pwd)/services/platform/target}/debug/layerx-paxeer-boundary cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli -p layerx-platform-release && python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/platform"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -192913,6 +192976,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotchas 3984 and 3987, decisions 3125 and 3126): the attempt-1 tree 574ea4cc57b3 stands (the record of 19 findings, the README, rpc.rs and emulator_core.c repairs). The touches list now names tools/platform/cli/tests/fixtures/openrpc.json and tools/paxeer-x/retired_callers.json. Copy services/platform/hosted/gateway/openrpc.json over the fixture so positional_requests_match_published_contract (cli/src/rpc.rs:665) compares equal, and bring assert_published_methods to the contract where the copied methods differ (gotcha 3046). The lx_getSequence and lx_getProgramEvents sites of cli/src/rpc.rs:682 to :858 are the refusal cases that assert the switched-off methods stay refused and the fee_governance sites name live identifiers carrying the retired prefix: add allowed_references entries for tools/platform/cli/src with those symbols and reasons (decision 3125). Rebase on main; run the build once and the verification once at the final revision."
 do_5 = "Attempt 3 (continue, gotcha 4057): the attempt-2 tree d25367086cfb stands (the copied contract fixture, the published methods, the catalogue entries, the record). The build now also builds layerx-paxeer-boundary from services/platform/Cargo.toml, which public_http_uses_system_trust_and_checks_server_identity requires. Change nothing; run the build once and the verification once at the final revision."
+do_6 = "Attempt 4 (continue, gotcha 4068): the attempt-2 tree d25367086cfb stands (the copied contract fixture, the published methods, the catalogue entries, the record). The build now names the package layerx-platform-paxeer-boundary with its binary target layerx-paxeer-boundary, and the verification passes the built binary to the suite through LAYERX_PAXEER_BOUNDARY_BIN under the active target directory. Change nothing; run the build once and the verification once at the final revision."
 
 [task.22.39.265]
 title = "Repair the retired references of the ramps, examples and tools of the platform"
@@ -193257,7 +193321,7 @@ do_4 = "Attempt 2 (continue, gotcha 4004, decisions 3129 and 3130): the attempt-
 
 [task.22.39.252]
 title = "Repair the retired references of the ai-market program crate and the programs overview"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -193816,6 +193880,7 @@ do_8 = "Attempt 6 (continue, gotcha 3969): the attempt-5 tree b8e4850b4acc stand
 do_9 = "Attempt 7 (continue, gotcha 3993): the attempt-6 tree 24dd6e16c37b stands (the runtime lint repairs, the record). Repair the 21 remaining sites and nothing else: tests/determinism.rs:15 takes the argument by reference and :20 collects the iterator without format; tests/repair_22_33_218.rs:443, :499 and :627 and tests/repair_22_33_229.rs:70, :78, :122 and :152 match the error variant instead of unwrap_err; tests/repair_22_33_229.rs:2 to :11 and :16 put the identifiers of the doc comment in code marks; :165 asserts the computed condition instead of a constant. Keep the case semantics unchanged and add the sites to the record. Run the build once and the verification once at the final revision."
 do_10 = "Attempt 8 (continue, gotcha 4028, decision 3139): the attempt-7 tree 56fc622cfe85 stands. Rewrite the three bindings at tests/repair_22_33_218.rs:443, :501 and :631 as let-else: let Err(refusal) = expr else panic with the existing message; change nothing else, add the three sites to the record. Run the build once and the verification once at the final revision."
 do_11 = "Attempt 9 (continue, gotcha 4038): the attempt-8 tree a746cb12c7d8 stands. At programs/crates/layerx-programs-runtime/tests/program_replay.rs:256 write the splice range as offset..=offset, change nothing else, then run the build once and the verification once at the final revision."
+do_12 = "Attempt 10 (continue, gotcha 4058): the attempt-9 tree 693a252c2d98 stands. At programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs:128 and :160 replace result.as_ref().unwrap_err() with a let-else binding of the Err variant that panics with the unexpected Ok value, keep every assertion, change nothing else, then run the build once and the verification once at the final revision."
 
 [task.18.1758.1]
 title = "Issue #1758: Preserve capability-install replay compatibility across reply encoding changes"
@@ -223238,9 +223303,68 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.307]
+title = "Restore the launchpad query validation text on the client paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.307"]
+interfaces = []
+do_1 = "do_1 Decision 3152, gotcha 4062. go test -count=1 ./modules/launchpad/client/... fails TestCmdQueryAirdropNetwork (modules/launchpad/client/cli/query_airdrop_test.go:187), TestCmdQueryFeeRightNetwork (query_feeright_test.go:178), TestRepair_35_QuoteUint256 (repair_35_test.go:189) and TestRESTRegistryRoutes (modules/launchpad/client/rest/grpc_query_registry_test.go:216): each receives rpc error: code = InvalidArgument desc = invalid request where the case expects the validation text the keeper returns (invalidAddressQueryError.GRPCStatus at modules/launchpad/keeper/grpc_query.go:32, the amount_in message at grpc_query_quote.go:19 and :24). Find the site on the query path of the test network client (the abci query conversion, a gateway interceptor or the keeper itself) that replaces the status message with the registered text of abci code 18, and name the commit that introduced it in the record."
+do_2 = "do_2 If the replacement is not a deliberate product change, restore the validation text on that path so the gRPC status carries the keeper message with codes.InvalidArgument and abci code 18 as the cases assert, and change nothing in the cases. If the replacement is a deliberate producer change (a decision or a record names it), leave the producer and align the four suites to the text the producer returns (gotcha 3046), recording the producer and the commit in the record."
+do_3 = "do_3 Record the site, the former and the current text and the rule in modules/launchpad/repair_22_39_307.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper", "modules/launchpad/client/cli", "modules/launchpad/client/rest"]
+tests = ["modules/launchpad/client/cli", "modules/launchpad/client/rest"]
+planned_paths = ["modules/launchpad/repair_22_39_307.kvx"]
+build_cmd = "go build ./modules/launchpad/... && go vet ./modules/launchpad/client/..."
+verify_cmd = "test -s modules/launchpad/repair_22_39_307.kvx && go test -count=1 ./modules/launchpad/client/... && go test -count=1 ./modules/launchpad/keeper/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.306]
+title = "Serve the canonical origin in the node route catalogue"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.39.278"]
+reqs = ["22998.1"]
+capabilities = ["22.39.306"]
+interfaces = []
+do_1 = "do_1 Decision 3151, gotcha 4060. TestPxNodeRoot_Account_CommittedReadsAndParity fails at rpc/px_node_root_account_test.go:711 because the px_getRouteCatalogue answer lacks canonical_origin, which services/platform/hosted/gateway/openrpc.json declares as the required constant https://api-mainnet-beta.paxeer.network and sdk/wallet/src/endpoint.ts decodes. Add canonical_origin with that value to the catalogue source tools/paxeer-x/route-catalogue.json, carry it through rpc/generate_px_catalogue.py into the generated rpc/px_route_catalogue.json (regenerate with the script, never by hand), and keep GetRouteCatalogue at rpc/px_discovery.go:61 serving the projection unchanged so the field reaches the answer. Keep every other field and the route parity the case asserts against the source."
+do_2 = "do_2 Run the case once and record the site, the former answer and the rule in rpc/repair_22_39_306.kvx. Run the build once and the verification once at the final revision; the verification regenerates the projection and requires that the committed file matches."
+symbols = []
+touches = ["rpc/px_discovery.go", "rpc/generate_px_catalogue.py", "rpc/px_route_catalogue.json", "tools/paxeer-x/route-catalogue.json", "rpc/px_node_root_account_test.go"]
+tests = ["rpc/px_node_root_account_test.go"]
+planned_paths = ["rpc/repair_22_39_306.kvx"]
+build_cmd = "go vet ./rpc/"
+verify_cmd = "test -s rpc/repair_22_39_306.kvx && python3 rpc/generate_px_catalogue.py && git diff --quiet -- rpc/px_route_catalogue.json && go test -count=1 ./rpc/ -run '^TestPxNodeRoot_Account_CommittedReadsAndParity$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.304]
 title = "Re-pin the restored boundary manifest digest after the network-policy restoration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -223357,7 +223481,7 @@ do_3 = "Attempt 2 (continue, gotcha 4036, decision 3143): the attempt-1 tree 4b5
 
 [task.22.39.291]
 title = "Give the pay module its stream ask activity entry and a canonical escrow genesis fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.298"]
@@ -223403,7 +223527,7 @@ touches = ["rpc/config/config.go", "rpc/px_account.go", "rpc/px_assets.go", "rpc
 tests = []
 planned_paths = ["rpc/repair_22_39_278.kvx"]
 build_cmd = "go vet ./rpc/ ./rpc/config/"
-verify_cmd = "test -s rpc/repair_22_39_278.kvx && go test -count=1 ./rpc/ -run '^TestPxNodeRoot' && go test -count=1 ./rpc/config/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path rpc"
+verify_cmd = "test -s rpc/repair_22_39_278.kvx && go test -count=1 ./rpc/ -run '^TestPxNodeRoot' -skip '^TestPxNodeRoot_Account_CommittedReadsAndParity$' && go test -count=1 ./rpc/config/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path rpc"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-rpc-api"
@@ -223416,6 +223540,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4009, decision 3125): the attempt-1 tree a17034fa0a stands. The touches list now names rpc/subscribe_test.go and tools/paxeer-x/retired_callers.json. Repair rpc/subscribe_test.go:338 so the case no longer copies the environment value (keep a pointer to the environment, or build the stored environment field by field without the embedded lock) and keep its assertions unchanged; then carry out the retired-reference repairs of the px route files and add the allowance entries for the live identifiers. Run the build once and the verification once at the final revision; the scan must report no finding."
+do_5 = "Attempt 3 (continue, gotcha 4060, decision 3151): the attempt-2 tree e2a082f7cf79 stands (the regenerated catalogue without the retired programs ingress routes, the repaired subscribe case, the px route repairs, the allowance entries, the record). The absent canonical_origin is the work of task 22.39.306, which follows this task; the verification now skips TestPxNodeRoot_Account_CommittedReadsAndParity. Add to rpc/repair_22_39_278.kvx a note naming the skipped case and the task that completes it; change nothing else, then run the build once and the verification once at the final revision."
 
 [task.22.39.275]
 title = "Repair the retired references of the upgrade replay tooling"
@@ -223496,7 +223621,7 @@ touches = ["modules/layerxgov/types/proposal.go", "modules/layerxpay/keeper/keep
 tests = []
 planned_paths = ["modules/layerxgov/repair_22_39_249.kvx"]
 build_cmd = "go build ./modules/layerxgov/... ./modules/layerxpay/... ./modules/launchpad/... ./modules/evm/... ./modules/xweb/... ./precompiles/ ./precompiles/layerxauth/... ./precompiles/utils/ ./precompiles/common/ ./precompiles/addr/ ./precompiles/launchpad/... ./layerxproof/... ./storage/common/..."
-verify_cmd = "test -s modules/layerxgov/repair_22_39_249.kvx && go test -count=1 ./modules/layerxgov/... ./modules/launchpad/... ./modules/evm/... ./modules/xweb/... ./precompiles/layerxauth/... ./precompiles/utils/ ./precompiles/common/ ./precompiles/addr/ ./precompiles/launchpad/... ./layerxproof/... ./storage/common/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxgov --path modules/layerxpay --path modules/launchpad --path modules/evm --path modules/xweb --path modules --path api --path precompiles --path precompiles/layerxauth --path precompiles/utils --path precompiles/common --path precompiles/addr --path precompiles/launchpad --path layerxproof --path storage/common"
+verify_cmd = "test -s modules/layerxgov/repair_22_39_249.kvx && go test -count=1 ./modules/layerxgov/... ./modules/launchpad/keeper/... ./modules/launchpad/types/... ./modules/launchpad/launchpadtest/... ./modules/launchpad/legacy/... ./modules/launchpad/simulation/... ./modules/evm/... ./modules/xweb/... ./precompiles/layerxauth/... ./precompiles/utils/ ./precompiles/common/ ./precompiles/addr/ ./precompiles/launchpad/... ./layerxproof/... ./storage/common/... && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxgov --path modules/layerxpay --path modules/launchpad --path modules/evm --path modules/xweb --path modules --path api --path precompiles --path precompiles/layerxauth --path precompiles/utils --path precompiles/common --path precompiles/addr --path precompiles/launchpad --path layerxproof --path storage/common"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
@@ -223509,6 +223634,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotchas 4002 and 4010, decision 3130): the attempt-1 tree fc156cad1c stands (the layerxproof codec and verify repairs, the xweb program keeper, the addr precompile, the record). The pay module cases that failed are red before the attempt and belong to task 22.39.291; the verification now runs without ./modules/layerxpay/... in its go test list. The touches list now names tools/paxeer-x/retired_callers.json: add the allowed_references entries the scan still reports (one entry per directory with its symbols and a one-sentence reason, inserted in path order per decision 3125) and repair every remaining finding at its source. Run the build once and the verification once at the final revision; the scan must report no finding."
+do_5 = "Attempt 3 (continue, gotcha 4062, decision 3152): the attempt-2 tree 6ba915fa4d32 stands (the layerxproof codec and verify repairs, the xweb program keeper, the addr precompile, the allowance entries, the record). The launchpad client suites are the work of task 22.39.307; the verification now runs the launchpad keeper, types, launchpadtest, legacy and simulation packages in place of the whole module tree. Add to modules/layerxgov/repair_22_39_249.kvx a note naming the four client cases and the task that completes them; change nothing else, then run the build once and the verification once at the final revision."
 
 [task.22.39.248]
 title = "Repair the retired references of the node wiring"
@@ -223578,6 +223704,7 @@ do_7 = "Attempt 5 (continue, gotcha 3974, decision 3119): discard the attempt-4 
 do_8 = "Attempt 6 (continue, gotcha 3994, decision 3127): the attempt-5 tree stands (the three comparison helpers of decision 3119, the recorded packet). Replace receipt.NewRPCQualification at repair_53_test.go:247, repair_m999_test.go:366 and repair_m995_test.go:316 with receipt.NewPrivateFixtureRPCQualification (internal/receipt/rpc.go:572) built from a PrivateFixtureRPCOptions whose DeploymentVersion, ActivationHeight and Roles come from the recorded packet, with the CatalogJSON, Epochs, Discovery, GenesisHash and Timeout the case already uses; keep the three comparisons against deployment.Current() and the address, kind and ABI revision assertions; change no production source; record the reason in the record. Run the build once and the verification once at the final revision."
 do_9 = "Attempt 7 (continue, gotcha 4015, decisions 3134 and 3135): return repair_53_test.go:247, repair_m999_test.go:366 and repair_m995_test.go:316 to receipt.NewRPCQualification with the recorded packet, keeping the three comparison helpers of decision 3119 and the recorded packet of the attempt-5 tree; decision 3127 is withdrawn. The task now follows 22.39.295, which returns the approved v6.12.0 manifest to the installed surface hash the packet carries, so the attestation path accepts the packet; rebase on main after it lands, change nothing else, and run the build once and the verification once at the final revision."
 do_10 = "Attempt 8 (continue, gotcha 4045): the attempt-7 tree 89d19a64ae5b stands unchanged (the three sites returned to receipt.NewRPCQualification with the recorded packet, the comparison helpers, the record). Rebase on main, where 22.39.295 landed at 609cd3c9df and the attestation accepts the installed surface hash the packet carries; change nothing, then run the build once and the verification once at the final revision."
+do_11 = "Attempt 9 (continue, gotcha 4059): the attempt-8 tree adf2a52050f1 stands (the three sites on receipt.NewRPCQualification, the comparison helpers, the record). In services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json re-record Markets[0].Creation.Provenance with the provenance the current derivation yields for the factory address at the recorded creation log: deploymentId equal to the manifest deploymentVersion paxeer125-v6.12.0, and abiRevision, emitterCodeEpoch, poolCodeEpoch, receiptSHA256 and headerSHA256 as SourceProvenance (services/launchpad/indexer/internal/receipt/rpc.go:1418) derives them from the recorded responses; obtain the values by running the qualification once over the recorded responses and reading the derived provenance at identity.go:784, never by hand. If the derivation reads a response the packet lacks, record that response from the deployment the manifest names and add it to Responses. Change nothing else; then run the build once and the verification once at the final revision."
 
 [task.18.1854.1]
 title = "Issue #1854: Align the C# behavior qualification framework assertion with .NET 10"
@@ -281798,6 +281925,37 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.309]
+title = "Route the JVM program activity and receipt reads by the retained transaction"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.309"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3154, gotcha 4065. GeneratedCatalogueProgramsTest.programOperationsNameLayerxprogramsCalls (sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java:25) reads the retained transaction method of program.activity and program.receipt from sdk/platform/conformance/operations.json (eth_getTransactionByHash, no destination, no contract call) and fails because sdk/platform/generators/generate_jvm.py:24 and :29 map the two operations to an eth_getLogs read of the ProgramCallOutcome event at 0x000000000000000000000000000000000000101d. Change the two mappings of the generator to the retained transaction method with an empty destination and an empty call list, regenerate the JVM schema and every other generated file the generators maintain through the generator pipeline (the drift suite of sdk/platform/generators must pass), and reseal sdk/platform/pipeline.kvx the way the pipeline does. Change no other SDK and no case."
+do_2 = "do_2 Record the two mappings, the retained record entry they now follow and the regenerated files in sdk/platform/repair_22_39_309.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/platform/generators/generate_jvm.py", "sdk/platform/jvm", "sdk/platform/pipeline.kvx", "sdk/platform/conformance"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java"]
+planned_paths = ["sdk/platform/repair_22_39_309.kvx"]
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && make platform-sdk-generate"
+verify_cmd = "test -s sdk/platform/repair_22_39_309.kvx && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=GeneratedCatalogueProgramsTest -Dsurefire.failIfNoSpecifiedTests=false"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.237]
 title = "Regenerate the platform SDKs after the agent API schema change"
 status = "done"
@@ -331588,7 +331746,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -331622,6 +331780,7 @@ do_9 = "Attempt 7 (requalify, gotcha 3927): the attempt-6 tree 9b215c97f3d5 stan
 do_10 = "Attempt 8 (continue, gotchas 3979 to 3981, decision 3123): the attempt-7 tree 631acc08d200 stands unchanged. The task now requires 22.39.287, which restores the JVM SDK test compile so the local JVM artifacts of the platform samples install, and the qualification environment provisions the .NET SDK channel the project files target before the platform sample installation. Rebase on main after 22.39.287 lands and run the build once and the verification once at the final revision."
 do_11 = "Attempt 9 (continue, gotcha 4012, decision 3133): the attempt-8 tree 5510aaff11 stands unchanged. The gate now fails inside make platform-build at platform-sdk-check because layerx-platform-sdkgen --check refuses services/agent/sdk/typescript/src/inference_market.ts as an unclassified file; task 22.39.294 declares it in sdk/platform/pipeline.kvx and the task now requires 22.39.294. Rebase on main after 22.39.294 lands and run the build once and the verification once at the final revision."
 do_12 = "Attempt 10 (continue after 22.39.301 lands, gotcha 4043, decision 3144): the attempt-9 tree 0b7715be4a92 stands unchanged. The gate fails inside make platform-jvm-dependencies-install because GeneratedCatalogueProgramsTest expects the native preparation record of the schema before its regeneration at dd11131421; task 22.39.301 aligns the test and the task now requires 22.39.301. Rebase on main after 22.39.301 lands and run the build once and the verification once at the final revision."
+do_13 = "Attempt 11 (continue after 22.39.309 lands, gotcha 4065, decision 3154): the attempt-9 tree 0b7715be4a92 stands unchanged. The JVM dependency installation fails because GeneratedCatalogueProgramsTest asserts the retained transaction method of program.activity and program.receipt while the generated JVM transports read eth_getLogs; task 22.39.309 aligns the generator and the generated schema and the task now requires it. Rebase on main after 22.39.309 lands and run the build once and the verification once at the final revision."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -350466,7 +350625,7 @@ do_1 = "do_1 Decisions 3101 and 3104. Run python3 tools/paxeer-x/tests/retired_c
 do_2 = "do_2 Repair every finding at its source. A reference to a retired symbol whose catalogue entry names a replacement is rewritten to that replacement, or removed together with its dead code path when nothing reaches it. A reference the catalogue retired although the symbol is live on main (the replacement text keeps the name, or the symbol belongs to the merge-disabled surface of a module tree that still ships) is added to allowed_references of tools/paxeer-x/retired_callers.json with the path and a one-sentence reason. No finding is silenced by renaming a symbol to an equivalent name, and no generated file is edited by hand: regenerate it from its source."
 do_3 = "do_3 Record each finding with its repair or its allowed reference in the record. Run the build once and the verification once at the final revision; the verification ends with the scan of the task paths and must report no finding."
 symbols = []
-touches = ["tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json", "tools/qualification/paxeer-x/agent_operation_envelope.py", "tools/qualification/paxeer-x/fixtures/agentd_fixture.py", "tools/qualification/paxeer-x/fixtures/caps_fixture.py", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py", "tools/qualification/paxeer-x/human-movement-kms-assembly.py", "tools/qualification/paxeer-x/paid-web-contract.py", "tools/qualification/paxeer-x/program_fee_governance.py", "tools/qualification/paxeer-x/router-authority-schema.py", "tools/qualification/paxeer-x/router-complete-readiness.py", "tools/qualification/paxeer-x/unified-account-identity.py", "tools/qualification/paxeer-x/wallet-custody-recovery.py", "tools/paxeer-x/retired_callers.json"]
+touches = ["tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json", "tools/qualification/paxeer-x/agent_operation_envelope.py", "tools/qualification/paxeer-x/fixtures/agentd_fixture.py", "tools/qualification/paxeer-x/fixtures/caps_fixture.py", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py", "tools/qualification/paxeer-x/human-movement-kms-assembly.py", "tools/qualification/paxeer-x/paid-web-contract.py", "tools/qualification/paxeer-x/program_fee_governance.py", "tools/qualification/paxeer-x/router-authority-schema.py", "tools/qualification/paxeer-x/router-complete-readiness.py", "tools/qualification/paxeer-x/unified-account-identity.py", "tools/qualification/paxeer-x/wallet-custody-recovery.py", "tools/paxeer-x/retired_callers.json", "tools/qualification/audit_repairs/test_repair_22_33_1053.py"]
 tests = []
 planned_paths = ["tools/qualification/repair_22_39_273.kvx"]
 build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pytest -q --collect-only tools/qualification > /dev/null"
@@ -350483,6 +350642,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4011, decisions 3125 and 3130): the attempt-1 tree 5022aa2d5a stands (the paxeer-x fixtures and the envelope, the record). The twenty red audit-record cases are red before the attempt and belong to task 22.39.293; the verification now ignores their fourteen files. Run the scan over tools/qualification, repair every finding at its source and add the allowed_references entries for the live identifiers in tools/paxeer-x/retired_callers.json (now in the touches). Run the build once and the verification once at the final revision; the scan must report no finding."
+do_5 = "Attempt 3 (continue, gotcha 4064): the attempt-2 tree 5dc5c523ab1e stands (the fixture and the qualification sources, the allowance entries, the record). The touches list now names tools/qualification/audit_repairs/test_repair_22_33_1053.py: at :76 assert the exports map the package carries, the conditional form with types and default for the root and the abis entries both pointing at ./src/index.ts and ./src/abis.ts (gotcha 3046), and note the producer commit 1caf032cb4 in the case message. Change nothing else; then run the build once and the verification once at the final revision."
 
 [task.22.39.264]
 title = "Repair the retired references of the hosted human and node scripts of the platform"
@@ -415981,6 +416141,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.308]
+title = "Restore the explorer receipt verification cases against the governed key guard"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.308"]
+interfaces = []
+do_1 = "do_1 Decision 3153, gotcha 4063. cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x reports seventeen failures that all answer {:error, :r3}: committed_vectors_test.exs:8 (expected committed, r7, r8), two cases of status_committed_test.exs (expected committed and receipted), four receipted-rung cases of status_test.exs and ten cases of sequencer_receipt_test.exs (among them the landing block signed by four of four validators at :228 and :231, the R2, R4, R5, R7 and R8 refusals). The key guard of apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex changed at 6c6128318f (18.1806.1): the digest equality between key id and public key dropped, first_height must exceed zero and last_height is bounded. Determine, case by case, which guard clause refuses the key the case passes (the key list the case builds, the first and last heights of the recorded vectors under test/support/fixture/paxeer_x, the key ids of the recorded vectors) and whether the recorded fixtures or the key set the case builds carry a value the governed guard no longer admits."
+do_2 = "do_2 Repair at the producer: the recorded fixtures and the daemon vectors are the producers of key ids and heights; the guard admits the governed non-digest key ids of 18.1806.1 and the digest key ids the recorded vectors carry, with the height bounds the vectors satisfy; a case that builds its own key set builds one the guard admits, and every case asserts the outcome the recording yields (gotcha 3046). Keep every tagged case of 18.1806.1 passing. No case is weakened to accept r3."
+do_3 = "do_3 Record each case with its refusing clause and its repair in services/explorer/backend/repair_22_39_308.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs", "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x"]
+tests = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"]
+planned_paths = ["services/explorer/backend/repair_22_39_308.kvx"]
+build_cmd = "cd services/explorer/backend && mix deps.get && mix compile"
+verify_cmd = "test -s services/explorer/backend/repair_22_39_308.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_committed_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_test.exs apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.271]
 title = "Repair the retired references of the explorer backend and the signature provider sources"
 status = "pending"
@@ -415998,7 +416188,7 @@ touches = ["services/explorer/backend/README.md", "services/explorer/backend/app
 tests = []
 planned_paths = ["services/explorer/backend/repair_22_39_271.kvx"]
 build_cmd = "cd services/explorer/backend && mix deps.get && mix compile"
-verify_cmd = "test -s services/explorer/backend/repair_22_39_271.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x && python3 -m json.tool services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json > /dev/null && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/explorer/backend --path services/explorer/services"
+verify_cmd = "test -s services/explorer/backend/repair_22_39_271.kvx && cd services/explorer/backend && mix test apps/explorer/test/explorer/chain/paxeer_x/account_binding_test.exs apps/explorer/test/explorer/chain/paxeer_x/anchor_test.exs apps/explorer/test/explorer/chain/paxeer_x/archive_readonly_test.exs apps/explorer/test/explorer/chain/paxeer_x/capabilities_boot_test.exs apps/explorer/test/explorer/chain/paxeer_x/capabilities_retired_probe_test.exs apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs apps/explorer/test/explorer/chain/paxeer_x/comet_commit_test.exs apps/explorer/test/explorer/chain/paxeer_x/finality_heights_test.exs apps/explorer/test/explorer/chain/paxeer_x/identity_test.exs apps/explorer/test/explorer/chain/paxeer_x/import_test.exs apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs apps/explorer/test/explorer/chain/paxeer_x/receipt_test.exs && cd ../../.. && python3 -m json.tool services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json > /dev/null && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/explorer/backend --path services/explorer/services"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -416011,6 +416201,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3998, decision 3125): the attempt-1 tree 7482c7b35 stands (the archive receipt schema, the chain receipt, the migration, the zksync fetcher references, the runtime config, the sig-provider sources, the record). The qualification environment now detects the bare TEST_DATABASE_URL the explorer reads from services/explorer/backend/apps/explorer/config/test.exs and exports a database for it before the gate, so mix test reaches a Postgres. Run the scan over the task paths, repair every finding at its source and add the allowed_references entries for the live identifiers in tools/paxeer-x/retired_callers.json (now in the touches). Run the build once and the verification once at the final revision; the scan must report no finding."
+do_5 = "Attempt 3 (continue, gotchas 4061 and 4063, decision 3153): the attempt-2 tree 72d646417636 stands (the documentation of receipt.ex, the archive receipt schema, the migration note, the zksync fetcher notes, the runtime configuration note, the signature provider sources, the allowance entries, the record). The seventeen refused cases of the four receipt verification files are the work of task 22.39.308; the verification now runs the thirteen other files of the directory and returns to the repository root before the json.tool step and the scan. Add to services/explorer/backend/repair_22_39_271.kvx a note naming the four files and the task that completes them; change nothing else, then run the build once and the verification once at the final revision."
 
 [task.18.1806.1]
 title = "Issue #1806: Accept governed non-digest key IDs during receipt verification"

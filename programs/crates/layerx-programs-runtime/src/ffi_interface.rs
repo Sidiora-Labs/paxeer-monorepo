@@ -289,9 +289,8 @@ fn decode(input: &[u8]) -> Result<Interface, i32> {
             .any(|cap| cap.first() == Some(&10))
     });
     let expected_domain = match abi {
-        1 => DOMAIN,
         2 if dynamic => DOMAIN_V2,
-        2 => DOMAIN,
+        1 | 2 => DOMAIN,
         3 => DOMAIN_V3,
         4 => DOMAIN_V4,
         _ => return Err(VERSION_UNSUPPORTED),

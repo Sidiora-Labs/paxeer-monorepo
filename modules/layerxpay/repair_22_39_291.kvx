@@ -1,0 +1,97 @@
+[task]
+id = "22.39.291"
+mode = "BUILD"
+base = "2910889b640274b1b6f2bd14a2fba25019093bb2"
+acceptance = "22998.1"
+
+[repair.activity]
+site = "modules/layerxpay/types/activity.go MethodActivity; precompiles/layerxpay/stream.go openAskStream; modules/layerxpay/keeper/stream_open.go StreamOpenForAsk"
+change = "Register streamOpenForAsk as ActivityStreamOpen, StreamModuleID, and 236 bytes: the 204-byte fixed open payload plus its single 32-byte meter authority. Preserve every existing entry."
+tests = "TestMethodActivityMatchesKernelTypes freezes the ABI/kernel row beside streamOpen; TestMethodActivitySharedOrdinals checks the real EncodeStreamOpen output length; TestCheckWritePauseExitPaths explicitly requires the ABI sweep to include streamOpenForAsk and retains every pause, family, gate and store assertion."
+
+[repair.genesis]
+site = "modules/layerxpay/module_test.go TestPayAppModuleGenesisAndServices"
+change = "Replace the opaque escrow-state placeholder with a typed fixed-width escrow hold at its canonical hold:<id> kernel key, retain the enable record, and validate the bytes through the production DecodeEscrowRecord and Keeper.GetEscrow paths."
+tests = "Preserve all import, export, restoration and service assertions. Both the original unknown escrow key and truncated hold bytes fail genesis import without modifying the exported state; the real hold reader returns ErrEscrowCorruptState, false and a zero record for the placeholder."
+
+[repair.view_inventory]
+site = "modules/layerxpay/keeper/gate_test.go TestCheckWriteViewsUngated"
+change = "Pin the ungated ABI view inventory to eighteen, including askStreamOf, while retaining every gating and store assertion."
+qualification_base = "1c275076a4ee21935406ccf600a75d4d1c0b8d55"
+prerequisite = "Task 22.39.298 merged at bcc8cfba08307540a76d838a4a6724d4390c50bc is already an ancestor of the qualification base and repairs the historical keeper genesis, proof, recovery and types params findings recorded below."
+
+[gotcha]
+codec = "The escrow record codec exposes DecodeEscrowRecord but no record encoder; binary.Write encodes the fixed-width typed EscrowRecord in big-endian wire order and the production decoder checks equality before import."
+errors = "GenesisState.Validate rejects truncated canonical holds before keeper validation; genesis checks assert ErrInvalidGenesis and the exact producer-specific error, while the reader checks ErrEscrowCorruptState with ErrorIs and the unknown key checks its exact corruption message."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+revision = "The final kind=verify ledger row names the verified candidate revision and must match the successful kind=build revision."
+build = "hf-build: go build ./modules/layerxpay/... && go vet ./modules/layerxpay/..."
+verify = "hf-done: cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "test -s modules/layerxpay/repair_22_39_291.kvx && go test -count=1 ./modules/layerxpay/..."
+policy = "The gate ledger supplies exact revision, command, exit and private log location after execution; this record makes no advance success claim. Evidence stays external so build and verification use the same candidate. The runner owns publication."
+
+[qualification.task_repair]
+revision = "4c8c89da716772bd5d5773b8e482851fab1e3013"
+command = "cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new placeholder/hold case incorrectly expected the keeper corruption text from InitGenesis even though GenesisState.Validate rejects truncated canonical hold bodies first."
+repair = "Assert the exact error for each rejection layer while retaining ErrInvalidGenesis, ErrEscrowCorruptState on the direct keeper read, false presence, zero record, application panic and unchanged export assertions."
+
+[finding.view_inventory]
+task = "22.39.291"
+file = "modules/layerxpay/keeper/gate_test.go:187"
+symbol = "TestCheckWriteViewsUngated"
+observed = "At revision 4c8c89da716772bd5d5773b8e482851fab1e3013, cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo exited 1; the unchanged assertion expects 17 views but the ABI has 18 including askStreamOf; private log /out/logs/verify-1.log."
+assumption = "The existing view inventory pin predates this repair and is independent of the stream write activity registration."
+severity = "blocker"
+
+[finding.metadata]
+task = "22.39.291"
+file = "modules/layerxpay/keeper/genesis_test.go:90"
+symbol = "TestPayGenesisRefusesMalformedAgentStreamMetadata"
+observed = "At revision 4c8c89da716772bd5d5773b8e482851fab1e3013, cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo exited 1; the unchanged metadata-only fixture has no matching agent stream; private log /out/logs/verify-1.log."
+assumption = "The existing fixture conflicts with stricter metadata validation outside this task's scope."
+severity = "blocker"
+
+[finding.keeper_genesis]
+task = "22.39.291"
+file = "modules/layerxpay/keeper/genesis_test.go:188"
+symbol = "TestPayGenesisRoundTrip; TestPayGenesisRefusesGateDrift"
+observed = "At revision 4c8c89da716772bd5d5773b8e482851fab1e3013, cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo exited 1; the unchanged records and per_record_bounds fixtures use unknown escrow keys at lines 188 and 273; private log /out/logs/verify-1.log."
+assumption = "These separate keeper fixtures need their own canonical-record migration outside the declared scope."
+severity = "blocker"
+
+[finding.recovery]
+task = "22.39.291"
+file = "modules/layerxpay/keeper/repair_131_test.go:81"
+symbol = "TestRepair_131_SnapshotGrowth"
+observed = "At revision 4c8c89da716772bd5d5773b8e482851fab1e3013, cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo exited 1; recovery validation reports stream result has no stream; private log /out/logs/verify-1.log."
+assumption = "Recovery chunk validation is independent of the activity table and application fixture changed here."
+severity = "blocker"
+
+[finding.opaque_offer]
+task = "22.39.291"
+file = "modules/layerxpay/keeper/proof_pay_genesis_test.go:226"
+symbol = "TestProofPayGenesis; TestRepairM_1304_GenesisProofGap"
+observed = "At revision 4c8c89da716772bd5d5773b8e482851fab1e3013, cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo exited 1; both rounds of the unchanged opaque_record_decode_refusal case expect acceptance of an invalid offer::1 body, including its wrapper invocation; private log /out/logs/verify-1.log."
+assumption = "The old proof expectation conflicts with canonical service-record validation outside this task's scope."
+severity = "blocker"
+
+[finding.record_bounds]
+task = "22.39.291"
+file = "modules/layerxpay/types/params_test.go:226"
+symbol = "TestParamsGenesisRecordBounds"
+observed = "At revision 4c8c89da716772bd5d5773b8e482851fab1e3013, cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo exited 1; validation reports invalid key before the unchanged test's expected 513-record count error; private log /out/logs/verify-1.log."
+assumption = "Record-bound validation precedence is independent of this task's changes."
+severity = "blocker"
+
+[finding.genesis_json]
+task = "22.39.291"
+file = "modules/layerxpay/types/params_test.go:252"
+symbol = "TestParamsJSONRoundTrip"
+observed = "At revision 4c8c89da716772bd5d5773b8e482851fab1e3013, cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo exited 1; default genesis JSON includes escrow_receipts:null absent from the unchanged expected JSON; private log /out/logs/verify-1.log."
+assumption = "The existing JSON expectation predates the escrow receipts field outside this task's scope."
+severity = "blocker"
