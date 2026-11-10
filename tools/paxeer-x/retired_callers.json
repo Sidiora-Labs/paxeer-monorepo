@@ -683,6 +683,13 @@
   ],
   "allowed_references": [
     {
+      "path": "programs/crates/layerx-programs-ai-market/src/queries.rs",
+      "symbols": [
+        "FINALIZED_RANK"
+      ],
+      "citation": "Decision 3125 retains the live snapshot wire discriminator and rank bounds used by the market program and its consumers; callers authenticate finality separately with a verified block commit and program-state proof."
+    },
+    {
       "path": "Makefile",
       "symbols": [
         "bridge_credit",
