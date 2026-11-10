@@ -599,13 +599,9 @@ fn decode_metadata(
         return Err(IngestError::CorruptEvent);
     }
     let level = match bytes[4] {
-        0 => legacy::VerificationLevel::UNVERIFIED,
-        1 => legacy::VerificationLevel::SEQUENCER_SIGNED,
-        2 => legacy::VerificationLevel::BATCH_INCLUDED,
-        3 => legacy::VerificationLevel::STATE_PROVEN,
-        4 | 6 => legacy::VerificationLevel::COMMITTED,
-        5 => legacy::VerificationLevel::SETTLEMENT_ANCHORED,
-        _ => return Err(IngestError::CorruptEvent),
+        4 => legacy::VerificationLevel::COMMITTED,
+        rank => legacy::VerificationLevel::from_wire_rank(rank)
+            .map_err(|_| IngestError::CorruptEvent)?,
     };
     let mut reference = [0_u8; 32];
     reference.copy_from_slice(&bytes[6..38]);
@@ -1324,6 +1320,27 @@ mod tests {
             },
         )
         .unwrap()
+    }
+
+    #[test]
+    fn retired_rank_five_is_refused_in_durable_event_metadata() {
+        let checkpoint = ServedCheckpoint::test_fixture(11, 1234, 0);
+        let mut event = receipted_log(&checkpoint, 0);
+        for receipt in [None, Some([9; 32])] {
+            event.receipt_reference = receipt;
+            let mut metadata = encode_metadata(&event);
+            metadata[4] = 5;
+            assert!(matches!(
+                decode_metadata(&metadata),
+                Err(IngestError::CorruptEvent)
+            ));
+            let mut pending = encode_pending(&event).unwrap();
+            pending[4 + event.canonical_bytes.len() + 4] = 5;
+            assert!(matches!(
+                decode_pending(&pending),
+                Err(IngestError::CorruptEvent)
+            ));
+        }
     }
 
     #[test]
