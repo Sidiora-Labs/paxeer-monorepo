@@ -944,6 +944,29 @@
       ]
     },
     {
+      "path": "services/human/crates/layerx-human-service/src/audit",
+      "symbols": [
+        "EvmPayoutBinding"
+      ],
+      "citation": "Task 22.39.259, decision 3125: the signing-audit variant and its stable wire tag 4 remain live to encode and decode retained journal records."
+    },
+    {
+      "path": "services/human/crates/layerx-human-service/src/custody",
+      "symbols": [
+        "EvmPayoutBinding",
+        "sign_disclosed"
+      ],
+      "citation": "Task 22.39.259, decision 3125: wallet rebinding retains its tag-4 audit mapping, and sign_disclosed_call is the live disclosure-checked secp256k1 EIP-1559 signer carrying the retired helper name as a prefix."
+    },
+    {
+      "path": "services/human/crates/layerx-human-service/src/server",
+      "symbols": [
+        "settlement_domain",
+        "sign_disclosed"
+      ],
+      "citation": "Task 22.39.259, decision 3125: settlement_domain strips the retired field from older journal records, and sign_disclosed_call remains the live disclosure-checked EIP-1559 attestor transaction signer."
+    },
+    {
       "path": "services/human/tools/boundary-check/src/lib.rs",
       "lines": [
         "if body.contains(\"lni::transport::Uds\")",

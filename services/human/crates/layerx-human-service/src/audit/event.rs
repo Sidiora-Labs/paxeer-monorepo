@@ -93,6 +93,7 @@ pub enum SigningOperation {
     DidRegistration,
     KeyRotation,
     RecoveryRegistration,
+    /// Stable wire tag 4, retained for existing signing-audit records.
     EvmPayoutBinding,
     LxpSend,
     LxpReceive,
