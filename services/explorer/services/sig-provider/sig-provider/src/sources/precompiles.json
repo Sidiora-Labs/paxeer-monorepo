@@ -6043,90 +6043,90 @@
       "anonymous": false
     },
     {
-      "type": "event",
-      "name": "BridgeOut",
+      "anonymous": false,
       "inputs": [
         {
+          "indexed": true,
+          "internalType": "uint64",
           "name": "chain",
-          "type": "uint64",
-          "indexed": true,
-          "internalType": "uint64"
+          "type": "uint64"
         },
         {
+          "indexed": true,
+          "internalType": "address",
           "name": "asset",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
+          "type": "address"
         },
         {
+          "indexed": false,
+          "internalType": "uint256",
           "name": "amount",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
+          "type": "uint256"
         },
         {
+          "indexed": false,
+          "internalType": "address",
           "name": "recipient",
-          "type": "address",
-          "indexed": false,
-          "internalType": "address"
+          "type": "address"
         },
         {
-          "name": "nonce",
-          "type": "uint64",
           "indexed": true,
-          "internalType": "uint64"
+          "internalType": "uint64",
+          "name": "nonce",
+          "type": "uint64"
         }
       ],
-      "anonymous": false
+      "name": "BridgeOut",
+      "type": "event"
     },
     {
-      "type": "event",
-      "name": "BridgeIn",
+      "anonymous": false,
       "inputs": [
         {
+          "indexed": true,
+          "internalType": "uint64",
           "name": "chain",
-          "type": "uint64",
-          "indexed": true,
-          "internalType": "uint64"
+          "type": "uint64"
         },
         {
+          "indexed": true,
+          "internalType": "bytes32",
           "name": "txHash",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
+          "type": "bytes32"
         },
         {
+          "indexed": true,
+          "internalType": "address",
           "name": "recipient",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
+          "type": "address"
         },
         {
+          "indexed": false,
+          "internalType": "uint64",
           "name": "logIndex",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
+          "type": "uint64"
         },
         {
+          "indexed": false,
+          "internalType": "address",
           "name": "asset",
-          "type": "address",
-          "indexed": false,
-          "internalType": "address"
+          "type": "address"
         },
         {
+          "indexed": false,
+          "internalType": "uint256",
           "name": "amount",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
+          "type": "uint256"
         },
         {
-          "name": "denom",
-          "type": "string",
           "indexed": false,
-          "internalType": "string"
+          "internalType": "string",
+          "name": "denom",
+          "type": "string"
         }
       ],
-      "anonymous": false
+      "name": "BridgeIn",
+      "type": "event"
     },
     {
       "type": "event",
@@ -7418,27 +7418,27 @@
       "stateMutability": "view"
     },
     {
-      "type": "function",
-      "name": "getAttestors",
       "inputs": [],
+      "name": "getAttestors",
       "outputs": [
         {
+          "internalType": "address[]",
           "name": "signers",
-          "type": "address[]",
-          "internalType": "address[]"
+          "type": "address[]"
         },
         {
+          "internalType": "uint256[]",
           "name": "bonds",
-          "type": "uint256[]",
-          "internalType": "uint256[]"
+          "type": "uint256[]"
         },
         {
+          "internalType": "uint32",
           "name": "threshold",
-          "type": "uint32",
-          "internalType": "uint32"
+          "type": "uint32"
         }
       ],
-      "stateMutability": "view"
+      "stateMutability": "view",
+      "type": "function"
     },
     {
       "type": "function",
@@ -7903,17 +7903,17 @@
       "stateMutability": "view"
     },
     {
-      "type": "function",
-      "name": "isPaused",
       "inputs": [],
+      "name": "isPaused",
       "outputs": [
         {
+          "internalType": "bool",
           "name": "",
-          "type": "bool",
-          "internalType": "bool"
+          "type": "bool"
         }
       ],
-      "stateMutability": "view"
+      "stateMutability": "view",
+      "type": "function"
     },
     {
       "type": "function",
@@ -26037,194 +26037,194 @@
       "stateMutability": "view"
     },
     {
-      "type": "function",
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "chain",
+          "type": "uint64"
+        },
+        {
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
       "name": "bridgeOut",
-      "inputs": [
-        {
-          "name": "chain",
-          "type": "uint64",
-          "internalType": "uint64"
-        },
-        {
-          "name": "asset",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "amount",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "recipient",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
       "outputs": [
         {
+          "internalType": "uint64",
           "name": "nonce",
-          "type": "uint64",
-          "internalType": "uint64"
+          "type": "uint64"
         }
       ],
-      "stateMutability": "nonpayable"
+      "stateMutability": "nonpayable",
+      "type": "function"
     },
     {
-      "type": "function",
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "chain",
+          "type": "uint64"
+        },
+        {
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
       "name": "getCap",
-      "inputs": [
-        {
-          "name": "chain",
-          "type": "uint64",
-          "internalType": "uint64"
-        },
-        {
-          "name": "asset",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
       "outputs": [
         {
+          "internalType": "string",
           "name": "denom",
-          "type": "string",
-          "internalType": "string"
+          "type": "string"
         },
         {
+          "internalType": "uint256",
           "name": "maxInFlight",
-          "type": "uint256",
-          "internalType": "uint256"
+          "type": "uint256"
         },
         {
+          "internalType": "uint256",
           "name": "maxPerTx",
-          "type": "uint256",
-          "internalType": "uint256"
+          "type": "uint256"
         },
         {
+          "internalType": "uint256",
           "name": "inFlight",
-          "type": "uint256",
-          "internalType": "uint256"
+          "type": "uint256"
         }
       ],
-      "stateMutability": "view"
+      "stateMutability": "view",
+      "type": "function"
     },
     {
-      "type": "function",
-      "name": "bridgeIn",
       "inputs": [
         {
+          "internalType": "uint64",
           "name": "chain",
-          "type": "uint64",
-          "internalType": "uint64"
+          "type": "uint64"
         },
         {
+          "internalType": "address",
           "name": "vault",
-          "type": "address",
-          "internalType": "address"
+          "type": "address"
         },
         {
+          "internalType": "bytes32",
           "name": "txHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
+          "type": "bytes32"
         },
         {
+          "internalType": "uint64",
           "name": "logIndex",
-          "type": "uint64",
-          "internalType": "uint64"
+          "type": "uint64"
         },
         {
+          "internalType": "bytes32",
           "name": "recipient",
-          "type": "bytes32",
-          "internalType": "bytes32"
+          "type": "bytes32"
         },
         {
+          "internalType": "address",
           "name": "asset",
-          "type": "address",
-          "internalType": "address"
+          "type": "address"
         },
         {
+          "internalType": "uint256",
           "name": "amount",
-          "type": "uint256",
-          "internalType": "uint256"
+          "type": "uint256"
         },
         {
+          "internalType": "bytes[]",
           "name": "signatures",
-          "type": "bytes[]",
-          "internalType": "bytes[]"
+          "type": "bytes[]"
         }
       ],
+      "name": "bridgeIn",
       "outputs": [
         {
+          "internalType": "string",
           "name": "denom",
-          "type": "string",
-          "internalType": "string"
+          "type": "string"
         }
       ],
-      "stateMutability": "nonpayable"
+      "stateMutability": "nonpayable",
+      "type": "function"
     },
     {
-      "type": "function",
-      "name": "isNullified",
       "inputs": [
         {
+          "internalType": "uint64",
           "name": "chain",
-          "type": "uint64",
-          "internalType": "uint64"
+          "type": "uint64"
         },
         {
+          "internalType": "bytes32",
           "name": "txHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
+          "type": "bytes32"
         },
         {
+          "internalType": "uint64",
           "name": "logIndex",
-          "type": "uint64",
-          "internalType": "uint64"
+          "type": "uint64"
         }
       ],
+      "name": "isNullified",
       "outputs": [
         {
+          "internalType": "bool",
           "name": "",
-          "type": "bool",
-          "internalType": "bool"
+          "type": "bool"
         }
       ],
-      "stateMutability": "view"
+      "stateMutability": "view",
+      "type": "function"
     },
     {
-      "type": "function",
-      "name": "getChain",
       "inputs": [
         {
+          "internalType": "uint64",
           "name": "chain",
-          "type": "uint64",
-          "internalType": "uint64"
+          "type": "uint64"
         }
       ],
+      "name": "getChain",
       "outputs": [
         {
+          "internalType": "bool",
           "name": "registered",
-          "type": "bool",
-          "internalType": "bool"
+          "type": "bool"
         },
         {
+          "internalType": "address",
           "name": "vault",
-          "type": "address",
-          "internalType": "address"
+          "type": "address"
         },
         {
+          "internalType": "uint64",
           "name": "finalityDepth",
-          "type": "uint64",
-          "internalType": "uint64"
+          "type": "uint64"
         },
         {
+          "internalType": "bool",
           "name": "enabled",
-          "type": "bool",
-          "internalType": "bool"
+          "type": "bool"
         }
       ],
-      "stateMutability": "view"
+      "stateMutability": "view",
+      "type": "function"
     },
     {
       "type": "function",

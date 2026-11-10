@@ -1,0 +1,185 @@
+[meta]
+task = "22.39.248"
+mode = "BUILD"
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path node"
+inventory_exit = 1
+inventory_findings = 19
+decisions = ["3101", "3104", "3125"]
+scope_resolution = "Attempt 2 admits tools/paxeer-x/retired_callers.json; decision 3125 permits the live node retirement wiring through a directory allowance without Go source changes."
+source_revision = "a304e0de9b7022810dce7ad8ce657fb87b6a0cdd"
+main_ancestor = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+rebase = "The supplied task base already contains local main; the attempt-1 record is preserved on that base."
+qualification_evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit code and private log for hf-build and hf-done."
+qualification = "Only a passing hf-done at the hf-build candidate qualifies this repair; the private gate ledger is authoritative for the verified revision and result."
+
+[finding.1]
+path = "node/app.go"
+line = 170
+component = "anchor"
+symbol = "layerxanchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the module import: AppModuleBasic supplies historical codecs, and the service registration preserves the retirement-gated message route without restoring migrations."
+
+[finding.2]
+path = "node/app.go"
+line = 171
+component = "anchor"
+symbol = "layerxanchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the keeper import: runV610Upgrade sets historical parameters and runMergeUpgrade calls RetireAtMerge to return guarantor bonds."
+
+[finding.3]
+path = "node/app.go"
+line = 172
+component = "anchor"
+symbol = "layerxanchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the types import: historical store upgrades, module-account permissions and the anchor store deletion must use the existing module identity."
+
+[finding.4]
+path = "node/app.go"
+line = 183
+component = "custody-deposit"
+symbol = "layerxcustody"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the module import: historical genesis and migrations, governance retirement refusal and export still use the shipping module."
+
+[finding.5]
+path = "node/app.go"
+line = 184
+component = "custody-deposit"
+symbol = "layerxcustody"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the keeper import: the merge handler releases escrow and cancels pending claims through ReleaseRetired, and ledger and host adapters retain the keeper."
+
+[finding.6]
+path = "node/app.go"
+line = 185
+component = "custody-deposit"
+symbol = "layerxcustody"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the types import: historical store additions, module-account setup, governance routing and genesis ordering require the existing module identity."
+
+[finding.7]
+path = "node/app.go"
+line = 1720
+component = "anchor"
+symbol = "layerxanchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the exact store identity: AnchorStoreDeleteUpgrade must delete the existing anchor store after retirement, as TestAnchorStoreDeletedAtStep asserts."
+
+[finding.8]
+path = "node/precompiles.go"
+line = 8
+component = "anchor"
+symbol = "layerxanchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the keeper import: AnchorK supplies the constructed keeper to the registered precompile for historical reads until the store-deletion gate refuses them."
+
+[finding.9]
+path = "node/precompiles.go"
+line = 11
+component = "custody-deposit"
+symbol = "layerxcustody"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the keeper import: LayerXCustodyK implements the typed precompile keeper interface for historical execution and retirement refusal."
+
+[finding.10]
+path = "node/precompiles.go"
+line = 64
+component = "anchor"
+symbol = "layerxAnchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the keeper field: it carries the real application keeper through retirement rather than substituting a nil keeper or a fake implementation."
+
+[finding.11]
+path = "node/precompiles.go"
+line = 65
+component = "custody-deposit"
+symbol = "layerxCustody"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the keeper field: the precompile adapter carries the same real keeper used by the merge release and historical execution."
+
+[finding.12]
+path = "node/precompiles.go"
+line = 101
+component = "anchor"
+symbol = "layerxAnchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the field initialization: TestPrecompileKeepersAnchorKCarriesTheKeeper requires pointer identity with the application's anchor keeper."
+
+[finding.13]
+path = "node/precompiles.go"
+line = 102
+component = "custody-deposit"
+symbol = "layerxCustody"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the field initialization: the adapter must supply the application's keeper to the still-registered historical custody precompile."
+
+[finding.14]
+path = "node/precompiles.go"
+line = 151
+component = "anchor"
+symbol = "layerxAnchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the AnchorK return: TestAnchorPrecompileStaysRegisteredWithoutModule requires a nonnil keeper even after the anchor module leaves the migration lifecycle."
+
+[finding.15]
+path = "node/precompiles.go"
+line = 155
+component = "custody-deposit"
+symbol = "layerxCustody"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the LayerXCustodyK return: the shared typed Keepers contract and historical precompile constructors consume this live adapter method."
+
+[finding.16]
+path = "node/upgrades.go"
+line = 18
+component = "anchor"
+symbol = "layerxanchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the types import: historical activation includes the anchor identity while activationModulesPresent explicitly excludes its retired migration lifecycle."
+
+[finding.17]
+path = "node/upgrades.go"
+line = 22
+component = "custody-deposit"
+symbol = "layerxcustody"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the types import: activation preserves the historical custody address and module dependency, with post-merge behavior gated by the real keeper."
+
+[finding.18]
+path = "node/upgrades.go"
+line = 40
+component = "anchor"
+symbol = "layerxanchor"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the precompile import: activationPrecompileGate registers the existing address against the upgrade module so retirement refusals remain reachable after store deletion."
+
+[finding.19]
+path = "node/upgrades.go"
+line = 45
+component = "verify"
+symbol = "layerxverify"
+allowed_reference_catalogue = "tools/paxeer-x/retired_callers.json"
+allowed_reference_path = "node"
+disposition = "Retain the precompile import: the historical address remains registered against the upgrade module to return the required disabled-module error."

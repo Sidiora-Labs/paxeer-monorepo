@@ -7,9 +7,6 @@ use crate::json::{self, JsonError, JsonValue};
 /// Schema identifier of the declared checkpoint settlement document.
 pub const CHECKPOINT_SETTLEMENT_SCHEMA: &str = "layerx/checkpoint-settlement/1";
 
-/// Repository-relative path of the declared checkpoint settlement document.
-pub const CHECKPOINT_SETTLEMENT_PATH: &str = "contracts/config/checkpoint-settlement.json";
-
 /// One bonded guarantor declared for a settlement domain.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DeclaredGuarantor {
@@ -67,7 +64,7 @@ impl DeclaredSettlementDomain {
         self.network_id
     }
 
-    /// Returns the `GuarantorBond` contract address attestations commit to.
+    /// Returns the historical bond contract address attestations commit to.
     #[must_use]
     pub const fn settlement_contract(&self) -> [u8; 20] {
         self.settlement_contract

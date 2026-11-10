@@ -21,12 +21,12 @@ JAVA_KEYWORDS = {
 }
 
 PROGRAM_CALLS = {
-    "program.activity": ("eth_getLogs", ["ProgramCallOutcome"]),
+    "program.activity": ("eth_getTransactionByHash", []),
     "program.call": ("eth_sendRawTransaction", ["call"]),
     "program.deploy": ("eth_sendRawTransaction", ["deploy"]),
     "program.discover": ("eth_call", ["getProgram"]),
     "program.interface": ("eth_call", ["getInterface"]),
-    "program.receipt": ("eth_getLogs", ["ProgramCallOutcome"]),
+    "program.receipt": ("eth_getTransactionByHash", []),
     "program.simulate": ("eth_call", ["simulateCall"]),
     "program.upgrade": ("eth_sendRawTransaction", ["upgrade"]),
     "program.wind-down": (
@@ -478,9 +478,10 @@ def render_operations(plane: Plane, specs: list[dict[str, object]],
                 raise SystemExit(f"missing layerxprograms transport for {spec['wire']}")
             rpc, calls = transports[spec["wire"]]
             arguments = ", ".join(json.dumps(call) for call in calls)
+            destination = "0x000000000000000000000000000000000000101d" if calls else ""
             lines.append(
                 f"        public static final ProgramTransport {constant_name(spec['wire'])}_TRANSPORT = "
-                f'new ProgramTransport("{rpc}", "0x000000000000000000000000000000000000101d", '
+                f'new ProgramTransport("{rpc}", "{destination}", '
                 f"List.of({arguments}));"
             )
     if plane.name == "Agent":

@@ -31,7 +31,7 @@ fn replay_trap_in_engine(bytes: &[u8], expected: TrapCode, engine: &Engine) {
     let instantiate = || {
         let mut store = Store::new(engine, ());
         store.enable_execution_replay_observer_with_limits(128, 64 * 1024 * 1024, 64 * 1024 * 1024);
-        let instance = Linker::<()>::new(&engine)
+        let instance = Linker::<()>::new(engine)
             .instantiate(&mut store, &compiled)
             .unwrap_or_else(|error| panic!("real instantiate: {error}"))
             .start(&mut store)
@@ -47,7 +47,7 @@ fn replay_trap_in_engine(bytes: &[u8], expected: TrapCode, engine: &Engine) {
         result
             .as_ref()
             .err()
-            .and_then(|error| error.trap_code())
+            .and_then(wasmi::core::Trap::trap_code)
             .as_ref()
             .map(std::mem::discriminant),
         Some(std::mem::discriminant(&expected))
@@ -123,6 +123,8 @@ fn reference_operand_and_float_instructions_preserve_real_admission_refusals() {
 
 #[test]
 fn fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let wrong_signature = module(&[
         type_section(&[(&[], &[TYPE_I32]), (&[], &[TYPE_I64])]),
         function_section(&[0, 1]),
@@ -136,7 +138,7 @@ fn fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly() {
     ]);
     replay_trap(&wrong_signature, TrapCode::BadSignature);
     let mut config = wasmi::Config::default();
-    config.set_stack_limits(wasmi::StackLimits::new(128, 4096, 8).unwrap());
+    config.set_stack_limits(wasmi::StackLimits::new(128, 4096, 8).assert_success("test value"));
     let engine = Engine::new(&config);
     replay_trap_in_engine(
         &module(&[
@@ -152,8 +154,10 @@ fn fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly() {
 
 #[test]
 fn fixed_initial_stack_exhaustion_is_refused_before_observation() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let mut config = wasmi::Config::default();
-    config.set_stack_limits(wasmi::StackLimits::new(128, 4096, 8).unwrap());
+    config.set_stack_limits(wasmi::StackLimits::new(128, 4096, 8).assert_success("test value"));
     let engine = Engine::new(&config);
     let bytes = module(&[
         type_section(&[(&[], &[TYPE_I32])]),
@@ -161,20 +165,24 @@ fn fixed_initial_stack_exhaustion_is_refused_before_observation() {
         export_section(&[("run", 0)]),
         code_section(&[func_body(&[(4096, TYPE_I32)], &[0x10, 0, 0x0b])]),
     ]);
-    let compiled = Module::new(&engine, &bytes[..]).unwrap();
+    let compiled = Module::new(&engine, &bytes[..]).assert_success("test value");
     let mut store = Store::new(&engine, ());
     store.enable_execution_replay_observer_with_limits(128, 64 * 1024 * 1024, 64 * 1024 * 1024);
     let instance = Linker::<()>::new(&engine)
         .instantiate(&mut store, &compiled)
-        .unwrap()
+        .assert_success("test value")
         .start(&mut store)
-        .unwrap();
+        .assert_success("test value");
     let result = instance
         .get_typed_func::<(), i32>(&store, "run")
-        .unwrap()
+        .assert_success("test value")
         .call(&mut store, ());
     assert!(matches!(
-        result.unwrap_err().trap_code(),
+        (match result {
+            Err(error) => error,
+            Ok(value) => panic!("expected stack exhaustion, got {value}"),
+        })
+        .trap_code(),
         Some(TrapCode::StackOverflow)
     ));
     assert_eq!(store.execution_observer_error(), None);
@@ -234,7 +242,9 @@ fn fixed_bulk_memory_and_passive_element_bounds_traps_replay_exactly() {
 
 #[test]
 fn reference_stack_table_operations_preserve_declared_integer_profile_refusals() {
-    let engine = WasmEngine::declared().unwrap();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let engine = WasmEngine::declared().assert_success("test value");
     for body in [
         &[0xd0, 0x70, 0x1a, 0x41, 0, 0x0b][..],
         &[0x41, 0, 0x25, 0, 0x1a, 0x41, 0, 0x0b],
@@ -262,11 +272,13 @@ fn reference_stack_table_operations_preserve_declared_integer_profile_refusals()
 
 #[test]
 fn actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::{
         AuthorizationContext, AuthorizedExecutionRequest, CapabilitySet, CompositionContext,
-        CompositionRules, ExecutionError, ExecutionFault, Executor, FeeSchedule, MeterRefusal,
-        PrincipalId, ProgramCatalog, ProgramId, ProgramReplayProfile, ResourceBudget, ResourceKind,
-        Storage, UnavailableReceiptOracle,
+        CompositionRules, ExecutionError, Executor, FeeSchedule, MeterRefusal, PrincipalId,
+        ProgramCatalog, ProgramId, ProgramReplayProfile, ResourceBudget, ResourceKind, Storage,
+        UnavailableReceiptOracle,
     };
     let mut exports = export_section(&[("layerx_reserve", 0), ("layerx_call", 1)]);
     exports[1] += 9;
@@ -285,8 +297,8 @@ fn actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal() {
             func_body(&[], &[0x03, 0x40, 0x0c, 0, 0x0b, 0x41, 0, 0x0b]),
         ]),
     ]);
-    let engine = WasmEngine::declared().unwrap();
-    let validated = engine.validate_v2(&bytes).unwrap();
+    let engine = WasmEngine::declared().assert_success("test value");
+    let validated = engine.validate_v2(&bytes).assert_success("test value");
     let declared = ResourceBudget::declared();
     let budget = ResourceBudget::new_complete(
         2,
@@ -297,17 +309,20 @@ fn actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal() {
         declared.output_bytes(),
         declared.table_elements(),
     );
-    let executor = Executor::new(budget, FeeSchedule::declared())
-        .with_program_replay_profile(ProgramReplayProfile::new(128, 1_048_576).unwrap());
+    let executor = Executor::new(budget, FeeSchedule::declared()).with_program_replay_profile(
+        ProgramReplayProfile::new(128, 1_048_576).assert_success("test value"),
+    );
     let mut storage = Storage::new();
-    let original = storage.replay_state_bytes(1_048_576).unwrap();
+    let original = storage
+        .replay_state_bytes(1_048_576)
+        .assert_success("test value");
     let result = executor.execute_authorized_v2(
         &mut storage,
         AuthorizedExecutionRequest {
             module: &validated,
-            program: ProgramId::new([1; 32]).unwrap(),
+            program: ProgramId::new([1; 32]).assert_success("test value"),
             authorization: AuthorizationContext::new(
-                PrincipalId::new([2; 32]).unwrap(),
+                PrincipalId::new([2; 32]).assert_success("test value"),
                 CapabilitySet::empty(),
             ),
             receipts: &UnavailableReceiptOracle,
@@ -323,61 +338,29 @@ fn actual_runtime_meter_exhaustion_before_capture_preserves_resource_refusal() {
     assert!(
         matches!(result, Err(ExecutionError::Resource(MeterRefusal::BudgetExceeded { resource: ResourceKind::Cpu, limit: 2, attempted })) if attempted > 2)
     );
-    assert_eq!(storage.replay_state_bytes(1_048_576).unwrap(), original);
+    assert_eq!(
+        storage
+            .replay_state_bytes(1_048_576)
+            .assert_success("test value"),
+        original
+    );
 }
 
 #[test]
 fn metered_fuel_exhaustion_golden_replays_every_step_and_its_host_trap_exactly() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::execute::{
-        instantiate_market_sandbox_untrusted, market_sandbox_input_digest,
-        observe_market_sandbox_step, MarketSandboxRequest,
+        instantiate_market_sandbox_untrusted, observe_market_sandbox_step, MarketSandboxRequest,
     };
     use layerx_programs_runtime::portable_replay::PortableBoundary;
-    use layerx_programs_runtime::replay::{
-        market_sandbox_baseline_root, market_sandbox_namespace, MarketSandboxReplayAuthority,
-    };
     use layerx_programs_runtime::{
-        ExecutionFault, FeeSchedule, MeterRefusal, PrincipalId, ProgramId, ProgramReplayProfile,
-        ResourceBudget, ResourceKind, Storage, RUNTIME_VERSION,
+        ExecutionFault, MeterRefusal, ProgramReplayProfile, ResourceKind,
     };
-    use sha2::{Digest, Sha256};
-    let mut body = [0x41, 0, 0x1a].repeat(20_000);
-    body.extend_from_slice(&[0x41, 0, 0x0b]);
-    let wasm = module(&[
-        type_section(&[(&[], &[TYPE_I32])]),
-        function_section(&[0]),
-        export_section(&[("compute", 0)]),
-        code_section(&[func_body(&[], &body)]),
-    ]);
-    let validated = WasmEngine::declared()
-        .unwrap()
-        .validate_versioned(2, &wasm)
-        .unwrap();
-    let program = ProgramId::new(Sha256::digest(&wasm).into()).unwrap();
-    let tenant = PrincipalId::new(Sha256::digest(b"fuel-golden-tenant").into()).unwrap();
-    let lease: [u8; 32] = Sha256::digest(b"fuel-golden-lease").into();
-    let baseline = Storage::new();
-    let fees = FeeSchedule::declared();
-    let authority = MarketSandboxReplayAuthority {
-        profile_binding: Sha256::digest(b"fuel-golden-profile").into(),
-        namespace: market_sandbox_namespace(program, lease).unwrap(),
-        lease_id: lease,
-        namespace_limit: 1024,
-        program,
-        tenant,
-        payment_account: tenant.bytes(),
-        code_hash: validated.code_hash(),
-        input_digest: market_sandbox_input_digest("compute", &[]).unwrap(),
-        runtime_version: RUNTIME_VERSION,
-        abi_version: 2,
-        fee_schedule_version: fees.version(),
-        metering_schedule_version: validated.metering_schedule_version(),
-        budget: ResourceBudget::new_complete(20_000, 65_536, 1024, 1024, 1, 64, 0),
-        fees,
-        fee_budget: 1_000_000_000,
-        baseline_state_root: market_sandbox_baseline_root(&baseline).unwrap(),
-        baseline_storage: baseline,
-    };
+    let FuelExhaustionFixture {
+        validated,
+        authority,
+    } = fuel_exhaustion_fixture();
     let execute = || {
         instantiate_market_sandbox_untrusted(&validated, &authority)
             .unwrap_or_else(|error| panic!("market sandbox instance: {error:?}"))
@@ -386,7 +369,8 @@ fn metered_fuel_exhaustion_golden_replays_every_step_and_its_host_trap_exactly()
                 entrypoint: "compute",
                 args: &[],
                 authority: &authority,
-                replay_profile: ProgramReplayProfile::new(128, 1_048_576).unwrap(),
+                replay_profile: ProgramReplayProfile::new(128, 1_048_576)
+                    .assert_success("test value"),
             })
             .unwrap_or_else(|error| panic!("metered exhaustion capture: {error:?}"))
     };
@@ -410,7 +394,9 @@ fn metered_fuel_exhaustion_golden_replays_every_step_and_its_host_trap_exactly()
     let boundaries: Vec<PortableBoundary> = execution
         .boundary_leaves
         .iter()
-        .map(|leaf| PortableBoundary::decode_untrusted(leaf, 1_048_576).unwrap())
+        .map(|leaf| {
+            PortableBoundary::decode_untrusted(leaf, 1_048_576).assert_success("test value")
+        })
         .collect();
     assert!(boundaries.len() >= 2);
     for pair in boundaries.windows(2) {
@@ -422,11 +408,14 @@ fn metered_fuel_exhaustion_golden_replays_every_step_and_its_host_trap_exactly()
             post.trap = None;
         }
         assert_eq!(
-            observed.reencode_untrusted(1_048_576).unwrap(),
-            post.reencode_untrusted(1_048_576).unwrap()
+            observed
+                .reencode_untrusted(1_048_576)
+                .assert_success("test value"),
+            post.reencode_untrusted(1_048_576)
+                .assert_success("test value")
         );
     }
-    let terminal = boundaries.last().unwrap();
+    let terminal = boundaries.last().assert_success("test value");
     let trap = terminal
         .trap
         .as_ref()
@@ -440,7 +429,69 @@ fn metered_fuel_exhaustion_golden_replays_every_step_and_its_host_trap_exactly()
         .unwrap_or_else(|| panic!("replayed fuel trap"));
     assert!(matches!(replayed.code, Some(TrapCode::OutOfFuel)) && replayed.host_trap);
     assert_eq!(
-        observed.reencode_untrusted(1_048_576).unwrap(),
-        terminal.reencode_untrusted(1_048_576).unwrap()
+        observed
+            .reencode_untrusted(1_048_576)
+            .assert_success("test value"),
+        terminal
+            .reencode_untrusted(1_048_576)
+            .assert_success("test value")
     );
+}
+struct FuelExhaustionFixture {
+    validated: layerx_programs_runtime::ValidatedModule,
+    authority: layerx_programs_runtime::replay::MarketSandboxReplayAuthority,
+}
+fn fuel_exhaustion_fixture() -> FuelExhaustionFixture {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    use layerx_programs_runtime::execute::market_sandbox_input_digest;
+    use layerx_programs_runtime::replay::{
+        market_sandbox_baseline_root, market_sandbox_namespace, MarketSandboxReplayAuthority,
+    };
+    use layerx_programs_runtime::{
+        FeeSchedule, PrincipalId, ProgramId, ResourceBudget, Storage, RUNTIME_VERSION,
+    };
+    use sha2::{Digest, Sha256};
+    let mut body = [0x41, 0, 0x1a].repeat(20_000);
+    body.extend_from_slice(&[0x41, 0, 0x0b]);
+    let wasm = module(&[
+        type_section(&[(&[], &[TYPE_I32])]),
+        function_section(&[0]),
+        export_section(&[("compute", 0)]),
+        code_section(&[func_body(&[], &body)]),
+    ]);
+    let validated = WasmEngine::declared()
+        .assert_success("test value")
+        .validate_versioned(2, &wasm)
+        .assert_success("test value");
+    let program = ProgramId::new(Sha256::digest(&wasm).into()).assert_success("test value");
+    let tenant =
+        PrincipalId::new(Sha256::digest(b"fuel-golden-tenant").into()).assert_success("test value");
+    let lease: [u8; 32] = Sha256::digest(b"fuel-golden-lease").into();
+    let baseline = Storage::new();
+    let fees = FeeSchedule::declared();
+    let authority = MarketSandboxReplayAuthority {
+        profile_binding: Sha256::digest(b"fuel-golden-profile").into(),
+        namespace: market_sandbox_namespace(program, lease).assert_success("test value"),
+        lease_id: lease,
+        namespace_limit: 1024,
+        program,
+        tenant,
+        payment_account: tenant.bytes(),
+        code_hash: validated.code_hash(),
+        input_digest: market_sandbox_input_digest("compute", &[]).assert_success("test value"),
+        runtime_version: RUNTIME_VERSION,
+        abi_version: 2,
+        fee_schedule_version: fees.version(),
+        metering_schedule_version: validated.metering_schedule_version(),
+        budget: ResourceBudget::new_complete(20_000, 65_536, 1024, 1024, 1, 64, 0),
+        fees,
+        fee_budget: 1_000_000_000,
+        baseline_state_root: market_sandbox_baseline_root(&baseline).assert_success("test value"),
+        baseline_storage: baseline,
+    };
+    FuelExhaustionFixture {
+        validated,
+        authority,
+    }
 }

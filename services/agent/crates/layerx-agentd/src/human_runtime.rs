@@ -2397,11 +2397,22 @@ pub fn recover_tenant_budget_with_evidence<E: Clone + Into<BudgetReceiptEvidence
         .receipts_with_evidence
         .iter()
         .filter(|receipt| window.contains(&receipt.global_sequence))
-        .map(|receipt| PersistedReceipt {
-            expected_activity_id: receipt.activity_id,
-            evidence: receipt.evidence.clone().into(),
+        .map(|receipt| {
+            Ok(PersistedReceipt {
+                expected_activity_id: receipt.activity_id,
+                requested_amount: crate::budget::requested_amount(
+                    store,
+                    tenant,
+                    receipt.activity_id,
+                )
+                .map_err(|error| RecoveryRefusal::Recovery {
+                    budget_id,
+                    reason: format!("{error:?}"),
+                })?,
+                evidence: receipt.evidence.clone().into(),
+            })
         })
-        .collect();
+        .collect::<Result<_, RecoveryRefusal>>()?;
     let evidence_missing = request
         .receipts_without_evidence
         .iter()
@@ -4022,6 +4033,30 @@ fn settle_retained_native_program_call_with_config(
         || witness.activity_id() != terminal.activity_id()
         || witness.terminal_receipt() != terminal.receipt_ref()
     {
+        #[cfg(test)]
+        {
+            if witness.reservation_id() != preparation_id {
+                eprintln!(
+                    "retained settlement witness.reservation_id differs: witness={}, prepared={}",
+                    hex::encode(witness.reservation_id()),
+                    hex::encode(preparation_id),
+                );
+            }
+            if witness.activity_id() != terminal.activity_id() {
+                eprintln!(
+                    "retained settlement witness.activity_id differs: witness={}, terminal={}",
+                    hex::encode(witness.activity_id()),
+                    hex::encode(terminal.activity_id()),
+                );
+            }
+            if witness.terminal_receipt() != terminal.receipt_ref() {
+                eprintln!(
+                    "retained settlement witness.terminal_receipt differs: witness={}, terminal={}",
+                    hex::encode(witness.terminal_receipt()),
+                    hex::encode(terminal.receipt_ref()),
+                );
+            }
+        }
         return Err(refused_at("witness_binding"));
     }
     let staged = budgets
@@ -14585,19 +14620,27 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         {
             return Ok(None);
         }
+        let store = self
+            .store
+            .lock()
+            .map_err(|_| HumanOperationError::Unavailable)?;
         let receipts: Vec<PersistedReceipt<BudgetReceiptEvidence>> = with_evidence
             .iter()
             .filter(|receipt| window.contains(&receipt.global_sequence))
-            .map(|receipt| PersistedReceipt {
-                expected_activity_id: receipt.activity_id,
-                evidence: receipt.evidence.clone(),
+            .map(|receipt| {
+                Ok(PersistedReceipt {
+                    expected_activity_id: receipt.activity_id,
+                    requested_amount: crate::budget::requested_amount(
+                        &store,
+                        tenant,
+                        receipt.activity_id,
+                    )
+                    .map_err(|_| HumanOperationError::Refused)?,
+                    evidence: receipt.evidence.clone(),
+                })
             })
-            .collect();
+            .collect::<Result<_, HumanOperationError>>()?;
         let accounting = {
-            let store = self
-                .store
-                .lock()
-                .map_err(|_| HumanOperationError::Unavailable)?;
             let mut unknown_budget_ids = Vec::new();
             for object_id in store.list_object_ids(tenant, ObjectKind::Budget) {
                 let Some(id) = object_id.strip_prefix(b"unknown-budget:".as_slice()) else {
@@ -24399,6 +24442,39 @@ mod retained_settlement_tests {
             let prepared = must(carrier.restore_prepared(&self.registry));
             assert_eq!(prepared.observed_head_height, 8);
             assert_eq!(prepared.signing_hash, prepared.call.signing_hash());
+        }
+    }
+
+    #[test]
+    fn retained_settlement_uses_the_protocol_receipt_reference() {
+        for failed in [false, true] {
+            let mut fixture = Fixture::new(failed);
+            let canonical = fixture.terminal.canonical_receipt();
+            let decoded = must(layerx_wire::receipt::decode(canonical));
+            let unsigned = must(layerx_wire::receipt::encode_unsigned(&decoded));
+            let reference = must(layerx_wire::hash::receipt_digest(&unsigned));
+            let signed_hash: [u8; 32] = Sha256::digest(canonical).into();
+            assert_ne!(signed_hash, reference);
+            assert_eq!(fixture.terminal.receipt_ref(), reference);
+            assert!(must(fixture.settle()));
+            assert!(fixture.settlement_recorded());
+            assert_eq!(
+                fixture.durable().extensions.get(&9),
+                Some(&reference.to_vec())
+            );
+            assert_eq!(
+                fixture.durable().state,
+                if failed {
+                    LifecycleState::Failed
+                } else {
+                    LifecycleState::Executed
+                }
+            );
+            assert_eq!(
+                fixture.budgets.consumed(fixture.limit),
+                Ok(if failed { 0 } else { 3 })
+            );
+            assert_eq!(fixture.budgets.held_exposure(fixture.limit), Ok(0));
         }
     }
 

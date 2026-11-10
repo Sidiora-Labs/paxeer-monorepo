@@ -287,12 +287,14 @@ const RECOVERY_PUBLIC_KEY: &str = "041a7a569e91dbf60581509c7fc946d1003b60c7dee85
 
 #[test]
 fn secp256k1_recover_published_test_vector_1() {
-    let digest = hex::decode(RECOVERY_DIGEST).unwrap();
-    let signature = hex::decode(RECOVERY_SIGNATURE).unwrap();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let digest = hex::decode(RECOVERY_DIGEST).assert_success("test value");
+    let signature = hex::decode(RECOVERY_SIGNATURE).assert_success("test value");
     let expected: [u8; 65] = hex::decode(RECOVERY_PUBLIC_KEY)
-        .unwrap()
+        .assert_success("test value")
         .try_into()
-        .unwrap();
+        .assert_success("test value");
     assert_eq!(recover_secp256k1(&digest, &signature, 0), Ok(expected));
     assert_eq!(verify_secp256k1(&digest, &expected, &signature), Ok(()));
 }
@@ -300,7 +302,7 @@ fn secp256k1_recover_published_test_vector_1() {
 fn signed_i32(mut value: i32) -> Vec<u8> {
     let mut bytes = Vec::new();
     loop {
-        let byte = (value & 0x7f) as u8;
+        let byte = value.to_le_bytes()[0] & 0x7f;
         value >>= 7;
         let done = (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0);
         bytes.push(if done { byte } else { byte | 0x80 });
@@ -312,14 +314,16 @@ fn signed_i32(mut value: i32) -> Vec<u8> {
 
 #[test]
 fn published_recovery_bytes_cross_the_real_signature_recover_host_transport() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     use layerx_programs_runtime::test_support::{
         code_section, func_body, function_section, import_section, module, raw_section,
         type_section, unsigned_leb, OP_CALL, OP_END, OP_I32_CONST, TYPE_I32,
     };
     use layerx_programs_runtime::{WasmEngine, WasmValue, ABI_V2_MODULE};
-    let digest = hex::decode(RECOVERY_DIGEST).unwrap();
-    let signature = hex::decode(RECOVERY_SIGNATURE).unwrap();
-    let expected = hex::decode(RECOVERY_PUBLIC_KEY).unwrap();
+    let digest = hex::decode(RECOVERY_DIGEST).assert_success("test value");
+    let signature = hex::decode(RECOVERY_SIGNATURE).assert_success("test value");
+    let expected = hex::decode(RECOVERY_PUBLIC_KEY).assert_success("test value");
     let mut run = Vec::new();
     for value in [0, 32, 32, 64, 0, 128, 65] {
         run.push(OP_I32_CONST);
@@ -330,7 +334,9 @@ fn published_recovery_bytes_cross_the_real_signature_recover_host_transport() {
     let mut compare = vec![OP_I32_CONST, 1];
     for (index, byte) in expected.iter().enumerate() {
         compare.push(OP_I32_CONST);
-        compare.extend(signed_i32(128 + i32::try_from(index).unwrap()));
+        compare.extend(signed_i32(
+            128 + i32::try_from(index).assert_success("test value"),
+        ));
         compare.extend([0x2d, 0, 0, OP_I32_CONST]); // i32.load8_u
         compare.extend(signed_i32(i32::from(*byte)));
         compare.extend([0x46, 0x71]); // i32.eq, i32.and
@@ -356,10 +362,12 @@ fn published_recovery_bytes_cross_the_real_signature_recover_host_transport() {
         code_section(&[func_body(&[], &run), func_body(&[], &compare)]),
         raw_section(11, &data),
     ]);
-    let engine = WasmEngine::declared().unwrap();
+    let engine = WasmEngine::declared().assert_success("test value");
     for version in 2..=layerx_programs_runtime::ABI_V5_VERSION {
-        let validated = engine.validate_versioned(version, &wasm).unwrap();
-        let mut instance = validated.instantiate().unwrap();
+        let validated = engine
+            .validate_versioned(version, &wasm)
+            .assert_success("test value");
+        let mut instance = validated.instantiate().assert_success("test value");
         assert_eq!(
             instance.call("key_is_exact", &[]),
             Ok(vec![WasmValue::I32(0)])

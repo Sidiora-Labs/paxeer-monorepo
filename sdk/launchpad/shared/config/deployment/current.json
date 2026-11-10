@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "deploymentVersion": "paxeer125-v6.12.0",
-  "sourceManifestSha256": "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a",
+  "sourceManifestSha256": "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b",
   "chainId": 125,
   "activationHeight": 37220320,
   "status": "active",

@@ -21,8 +21,6 @@ pub enum AccountNamespace {
     SystemInsurance,
     /// `system:fees`.
     SystemFees,
-    /// `system:paxeer-reserve`.
-    SystemPaxeerReserve,
     /// `system:paxeer-withdrawals`.
     SystemPaxeerWithdrawals,
     /// `system:treasury`, the treasury module account.
@@ -63,8 +61,6 @@ impl AccountId {
             AccountNamespace::SystemInsurance
         } else if canonical == "system:fees" {
             AccountNamespace::SystemFees
-        } else if canonical == "system:paxeer-reserve" {
-            AccountNamespace::SystemPaxeerReserve
         } else if canonical == "system:paxeer-withdrawals" {
             AccountNamespace::SystemPaxeerWithdrawals
         } else if canonical == "system:treasury" {
@@ -186,12 +182,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn custody_reserve_namespace_is_exact() {
-        assert_eq!(
-            AccountId::parse("system:paxeer-reserve").map(|account| account.namespace()),
-            Ok(AccountNamespace::SystemPaxeerReserve)
-        );
-        for name in ["system:paxeer-reserve:pax", "system:paxeer-reserve:sid"] {
+    fn custody_reserve_namespace_is_refused() {
+        for name in [
+            "system:paxeer-reserve",
+            "system:paxeer-reserve:pax",
+            "system:paxeer-reserve:sid",
+            "system:paxeer-reserve:usdc",
+            "system:paxeer-reserve:usdl",
+        ] {
             assert_eq!(AccountId::parse(name), Err(AccountError::UnknownNamespace));
         }
     }

@@ -154,6 +154,33 @@ impl ExecutionContext {
     }
 }
 
+impl ExecutionContext {
+    pub(crate) fn from_untrusted_canonical_bytes(
+        bytes: &[u8],
+    ) -> Result<Self, crate::replay::ReplayWitnessError> {
+        use crate::replay::{ReplayCursor, ReplayWitnessError as E};
+        let mut cursor = ReplayCursor::new(bytes);
+        let context = Self {
+            activity_sequence: cursor.u64()?,
+            batch_height: cursor.u64()?,
+            runtime_version: cursor.u16()?,
+            abi_version: cursor.u16()?,
+            fee_schedule_version: cursor.u32()?,
+        };
+        if !cursor.done()
+            || context.activity_sequence == 0
+            || context.batch_height == 0
+            || context.runtime_version == 0
+            || context.abi_version == 0
+            || context.fee_schedule_version == 0
+            || context.canonical_bytes() != bytes
+        {
+            return Err(E::Encoding);
+        }
+        Ok(context)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{ContextField, ContextRefusal, ExecutionContext};
@@ -221,32 +248,5 @@ mod tests {
             ExecutionContext::authenticated(u64::MAX, u64::MAX, u16::MAX, u16::MAX, u32::MAX)
                 .unwrap_or_else(|error| panic!("maximum canonical context: {error:?}"));
         assert_eq!(maximum.canonical_bytes(), [255; 24]);
-    }
-}
-
-impl ExecutionContext {
-    pub(crate) fn from_untrusted_canonical_bytes(
-        bytes: &[u8],
-    ) -> Result<Self, crate::replay::ReplayWitnessError> {
-        use crate::replay::{ReplayCursor, ReplayWitnessError as E};
-        let mut cursor = ReplayCursor::new(bytes);
-        let context = Self {
-            activity_sequence: cursor.u64()?,
-            batch_height: cursor.u64()?,
-            runtime_version: cursor.u16()?,
-            abi_version: cursor.u16()?,
-            fee_schedule_version: cursor.u32()?,
-        };
-        if !cursor.done()
-            || context.activity_sequence == 0
-            || context.batch_height == 0
-            || context.runtime_version == 0
-            || context.abi_version == 0
-            || context.fee_schedule_version == 0
-            || context.canonical_bytes() != bytes
-        {
-            return Err(E::Encoding);
-        }
-        Ok(context)
     }
 }
