@@ -29,11 +29,11 @@ alone is not proof that a registration transaction was submitted or committed.
 authorization. This signs the scoped native digest, preserving canonical
 payment payload compatibility. It does not authorize an activity envelope.
 `SigningDisclosure` distinguishes bind consent, payer authorization and the
-deprecated activity purpose. The public generic activity request constructor is
-removed. `sign_disclosed` remains deprecated for live local consumers; SSH and
-remote custody explicitly refuse its activity purpose before I/O. Remote protocol v1
-supports the scoped payer digest; raw bind signing is explicitly refused until
-the remote peer contract is versioned to support it.
+deprecated activity purpose. `SigningRequest::new` validates retained activity
+disclosures for auditing; every key boundary refuses to sign that purpose before
+I/O. Remote protocol v1 supports the scoped payer digest. `BindSigner::sign_bind`
+uses the separate v2 bind frame, decoded by `remote::decode_bind_request`, for
+raw bind consent; the generic v1 request path refuses bind consent.
 
 `send::ledger_payment_call(payload, CallOptions)` embeds the authenticated
 native payment payload in canonical precompile ABI. `disclosure::call::bind_call`

@@ -4,7 +4,7 @@ Hosted services provide application ingress, identity, proof verification, index
 
 Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the build library mirror, not RPC.
 
-This page binds service families and historical registry anchors to their maintained source. The [gateway contract](platform-gateway.md) owns public ingress; [middleware](platform-middleware.md) owns application payment verification, [ramps](platform-ramps.md) own independent external-funds workflows, and [protobuf APIs](proto-api.md) own node gRPC/REST declarations. The [standalone relay/archive service is retired](platform-relay-archive.md).
+This page binds service families and historical registry anchors to their maintained source. The [gateway contract](platform-gateway.md) owns public ingress; [middleware](platform-middleware.md) owns application payment verification, [ramps](platform-ramps.md) own independent external-funds workflows, and [protobuf APIs](proto-api.md) own node gRPC/REST declarations. Full and archive `paxd` nodes supply historical chain data; the [indexer](#indexer-http-routes) supplies ordered application projections.
 
 ## Env vars
 
@@ -186,7 +186,6 @@ The source defines commit and reveal windows within each 128-height epoch and jo
 
 Key releases are durable intents; tombstones, holds and retention high-water marks constrain recovery and deletion. Restoring below a live revocation or retention watermark must not become ready. Artifact service responses are off-chain storage evidence, not protocol receipts. Preserve tenant, publisher and access-envelope bindings when adapting its HTTP and file formats.
 
-<a id="paxai-storage-keeper-file-formats"></a>
 <a id="paxai-worker-cli-commands"></a>
 <a id="paxai-worker-config-keys"></a>
 <a id="paxai-worker-env-vars"></a>
@@ -195,7 +194,7 @@ Key releases are durable intents; tombstones, holds and retention high-water mar
 
 ## PaxAI worker and storage
 
-[paxai-worker/src](../services/platform/hosted/paxai-worker/src) separates signed service transport, authenticated discovery, membership, jobs, runners, metadata and storage. [main.rs](../services/platform/hosted/paxai-worker/src/main.rs) wires the service; [src/bin](../services/platform/hosted/paxai-worker/src/bin) contains helper entry points. Worker configuration, persisted job/metadata formats and keeper material are governed by these readers, not generic node configuration.
+[paxai-worker/src](../services/platform/hosted/paxai-worker/src) separates signed service transport, authenticated discovery, membership, jobs, runners, metadata and storage. [main.rs](../services/platform/hosted/paxai-worker/src/main.rs) wires the service; [src/bin](../services/platform/hosted/paxai-worker/src/bin) contains helper entry points. Worker configuration and persisted job/metadata formats are governed by these readers, not generic node configuration. Historical chain availability comes from archive nodes and requires no separate storage reservation service.
 
 Verify discovery and authorization before accepting work. Preserve restart state and the exact network/program/job identity in storage and submissions. Worker completion and stored artifacts do not establish an on-chain reward or finality; inspect the committed market state and proof at their owning boundary.
 

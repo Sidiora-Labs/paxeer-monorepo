@@ -14,7 +14,7 @@ fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(bytes)
 }
 
 fn id(value: u8) -> [u8; 32] {

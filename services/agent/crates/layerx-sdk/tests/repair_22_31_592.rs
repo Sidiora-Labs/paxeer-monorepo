@@ -29,13 +29,38 @@ fn grant_document() -> Value {
     })
 }
 
+fn assert_hosted_faucet_contract(request: &Value) {
+    let contract: Value = serde_json::from_str(OPENRPC)
+        .unwrap_or_else(|error| panic!("hosted OpenRPC contract: {error:?}"));
+    let method = contract["methods"]
+        .as_array()
+        .unwrap_or_else(|| panic!("OpenRPC methods"))
+        .iter()
+        .find(|method| method["name"] == request["method"])
+        .unwrap_or_else(|| panic!("requested method exists in hosted contract"));
+    assert_eq!(method["paramStructure"], "by-position");
+    let params = method["params"]
+        .as_array()
+        .unwrap_or_else(|| panic!("declared params"));
+    assert_eq!(params.len(), 2);
+    assert_eq!(params[0]["name"], "did");
+    assert_eq!(params[1]["name"], "signer_public_key");
+    assert_eq!(params[0]["required"], true);
+    assert_eq!(params[1]["required"], true);
+}
+
 fn answering_server(result: Value) -> (RpcClient, JoinHandle<()>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local hosted RPC");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("bind local hosted RPC: {error:?}"));
     let endpoint = format!(
         "http://{}{HOSTED_PATH}",
-        listener.local_addr().expect("listener address")
+        listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("listener address: {error:?}"))
     );
-    listener.set_nonblocking(true).expect("nonblocking accept");
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("nonblocking accept: {error:?}"));
     let server = thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(10);
         let mut socket = loop {
@@ -50,18 +75,21 @@ fn answering_server(result: Value) -> (RpcClient, JoinHandle<()>) {
         };
         socket
             .set_read_timeout(Some(Duration::from_secs(5)))
-            .expect("read timeout");
+            .unwrap_or_else(|error| panic!("read timeout: {error:?}"));
         socket
             .set_write_timeout(Some(Duration::from_secs(5)))
-            .expect("write timeout");
+            .unwrap_or_else(|error| panic!("write timeout: {error:?}"));
         let mut header = Vec::new();
         while !header.ends_with(b"\r\n\r\n") {
             assert!(header.len() < 8192, "HTTP header bound");
             let mut byte = [0];
-            socket.read_exact(&mut byte).expect("read HTTP header");
+            socket
+                .read_exact(&mut byte)
+                .unwrap_or_else(|error| panic!("read HTTP header: {error:?}"));
             header.push(byte[0]);
         }
-        let header = std::str::from_utf8(&header).expect("UTF-8 HTTP header");
+        let header = std::str::from_utf8(&header)
+            .unwrap_or_else(|error| panic!("UTF-8 HTTP header: {error:?}"));
         assert_eq!(
             header.lines().next(),
             Some(format!("POST {HOSTED_PATH} HTTP/1.1").as_str()),
@@ -75,47 +103,40 @@ fn answering_server(result: Value) -> (RpcClient, JoinHandle<()>) {
         };
         assert_eq!(header_value("content-type"), Some("application/json"));
         let length = header_value("content-length")
-            .expect("content-length header")
+            .unwrap_or_else(|| panic!("content-length header"))
             .parse::<usize>()
-            .expect("content length");
+            .unwrap_or_else(|error| panic!("content length: {error:?}"));
         assert!(length <= 4096, "faucet request body bound");
         let mut body = vec![0; length];
-        socket.read_exact(&mut body).expect("read HTTP body");
-        let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
+        socket
+            .read_exact(&mut body)
+            .unwrap_or_else(|error| panic!("read HTTP body: {error:?}"));
+        let request: Value = serde_json::from_slice(&body)
+            .unwrap_or_else(|error| panic!("JSON-RPC request: {error:?}"));
         assert_eq!(request["jsonrpc"], "2.0");
         assert!(request["id"].is_string());
         assert_eq!(request["method"], "px_requestFunds");
         assert_eq!(request["params"], json!([DID, "ab".repeat(32)]));
 
-        let contract: Value = serde_json::from_str(OPENRPC).expect("hosted OpenRPC contract");
-        let method = contract["methods"]
-            .as_array()
-            .expect("OpenRPC methods")
-            .iter()
-            .find(|method| method["name"] == request["method"])
-            .expect("requested method exists in hosted contract");
-        assert_eq!(method["paramStructure"], "by-position");
-        let params = method["params"].as_array().expect("declared params");
-        assert_eq!(params.len(), 2);
-        assert_eq!(params[0]["name"], "did");
-        assert_eq!(params[1]["name"], "signer_public_key");
-        assert_eq!(params[0]["required"], true);
-        assert_eq!(params[1]["required"], true);
+        assert_hosted_faucet_contract(&request);
 
         let response = serde_json::to_vec(&json!({
             "jsonrpc": "2.0", "id": request["id"], "result": result
         }))
-        .expect("encode JSON-RPC response");
+        .unwrap_or_else(|error| panic!("encode JSON-RPC response: {error:?}"));
         write!(
             socket,
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             response.len()
         )
-        .expect("write response header");
-        socket.write_all(&response).expect("write response body");
+        .unwrap_or_else(|error| panic!("write response header: {error:?}"));
+        socket
+            .write_all(&response)
+            .unwrap_or_else(|error| panic!("write response body: {error:?}"));
     });
     (
-        RpcClient::connect_hosted(&endpoint, None).expect("configure hosted RPC"),
+        RpcClient::connect_hosted(&endpoint, None)
+            .unwrap_or_else(|error| panic!("configure hosted RPC: {error:?}")),
         server,
     )
 }
@@ -125,8 +146,11 @@ fn request_funds_posts_hosted_px_method_and_decodes_funded_grant() {
     let document = grant_document();
     let (client, server) = answering_server(document.clone());
     let result = client.request_funds(DID, &SIGNER_PUBLIC_KEY);
-    server.join().expect("hosted RPC request assertions");
-    let grant: FaucetGrant = result.expect("confirmed funded grant");
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("hosted RPC request assertions: {error:?}"));
+    let grant: FaucetGrant =
+        result.unwrap_or_else(|error| panic!("confirmed funded grant: {error:?}"));
     assert_eq!(grant.funding_id, "ef".repeat(32));
     assert_eq!(grant.transaction_id, "cd".repeat(32));
     assert_eq!(grant.amount, 10_000_000_000_000_000_000_u128);
@@ -141,7 +165,9 @@ fn request_funds_refuses_an_unfunded_hosted_answer() {
     document["funded"] = json!(false);
     let (client, server) = answering_server(document);
     let result = client.request_funds(DID, &SIGNER_PUBLIC_KEY);
-    server.join().expect("hosted RPC request assertions");
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("hosted RPC request assertions: {error:?}"));
     assert!(
         matches!(result, Err(RpcError::InvalidResponse)),
         "{result:?}"
@@ -150,12 +176,17 @@ fn request_funds_refuses_an_unfunded_hosted_answer() {
 
 fn assert_no_retired_faucet_method(path: &Path) -> usize {
     let mut source_count = 0;
-    for entry in std::fs::read_dir(path).expect("read SDK source directory") {
-        let path = entry.expect("source entry").path();
+    for entry in std::fs::read_dir(path)
+        .unwrap_or_else(|error| panic!("read SDK source directory: {error:?}"))
+    {
+        let path = entry
+            .unwrap_or_else(|error| panic!("source entry: {error:?}"))
+            .path();
         if path.is_dir() {
             source_count += assert_no_retired_faucet_method(&path);
         } else if path.extension().is_some_and(|extension| extension == "rs") {
-            let source = std::fs::read_to_string(&path).expect("read Rust source");
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("read Rust source: {error:?}"));
             assert!(
                 !source.contains(concat!("lx_", "requestFunds")),
                 "retired faucet method in {}",

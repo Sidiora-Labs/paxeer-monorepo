@@ -376,3 +376,28 @@ func TestCurrentManifestValid(t *testing.T) {
 		}
 	}
 }
+
+func TestManifestInstalledAndStagedSurfaceIdentities(t *testing.T) {
+	m := Current()
+	if m.DeploymentVersion != "paxeer125-v6.12.0" || m.ActivationHeight != 37220320 {
+		t.Fatalf("installed deployment epoch changed: %s at %d", m.DeploymentVersion, m.ActivationHeight)
+	}
+	if StagedSurfaceRuntimeHash != "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993" || StagedSurfaceRuntimeHash == surfaceRuntimeHash {
+		t.Fatalf("staged surface identity = %s", StagedSurfaceRuntimeHash)
+	}
+	generator, err := os.ReadFile("generate.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, hash := range map[string]string{"SURFACE_RUNTIME_HASH": surfaceRuntimeHash, "STAGED_SURFACE_RUNTIME_HASH": StagedSurfaceRuntimeHash} {
+		if !strings.Contains(string(generator), "\n"+name+" = '"+hash+"'\n") {
+			t.Fatalf("manifest generator %s differs from Go identity %s", name, hash)
+		}
+	}
+	for _, name := range []string{"ProtocolConfig", "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "Treasury"} {
+		role := m.Roles[name]
+		if role.Kind != "surface" || role.RuntimeHash != surfaceRuntimeHash || role.RuntimeHash == StagedSurfaceRuntimeHash {
+			t.Fatalf("%s does not carry the installed surface identity: %+v", name, role)
+		}
+	}
+}

@@ -176,7 +176,7 @@ pub struct SendRequest {
     pub fee_limit: u128,
 }
 
-/// A fully signed SEND ready for the LNI together with its identifying facts.
+/// A signed EIP-1559 SEND ready for node JSON-RPC, with its identifying facts.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SignedSend {
     pub canonical: Vec<u8>,
@@ -361,6 +361,7 @@ fn build_send_for_accounts(
         },
     )
     .map_err(|error| SendError::Invalid(format!("send call is invalid: {error:?}")))?;
+    // Validate the disclosure and recover the secp256k1 sender before submission.
     let signature = complete(layerx_crypto::signer::sign_disclosed_call(
         transaction_signer,
         &disclosed.call,
