@@ -40130,3 +40130,11 @@ symbol = "AgentOperationEnvelopeTests.cs"
 observed = "Attempt 1 at da0a2a0815a6 on base 7618069d673f: the build exits 0 at 71fb7b5b4736; the verification exits 1 at 71fb7b5b4736 with one case passed and five failed with agent envelope probe input refused: PAXEER_X_AGENT_ENVELOPE_CASE; log /out/logs/verify-1.log."
 assumption = "The verification command of the task selected probe cases that need a case file of the qualification tools."
 severity = "high"
+
+[finding.18.1750.1.2]
+task = "18.1750.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_signed_replay_authentication"
+symbol = "rewards_native.rs::reward_signed_replay_authentication"
+observed = "Attempt 4 at 26f0461cc2e4 on base e2a410709802: no build and no verification finished; the build was running with the native harness compiled and every bring-up execution at kernel status 0 (log /out/logs/build-1.log) when the model session exits 1 on a content flag of the model endpoint; log /out/logs/run-task.log."
+assumption = "The tree is complete and unverified; only the gates are missing."
+severity = "high"
