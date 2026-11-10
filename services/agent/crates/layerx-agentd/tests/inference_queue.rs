@@ -1,4 +1,8 @@
-pub mod signal {
+#[allow(
+    dead_code,
+    reason = "The host binary uses these signalling, deal and completion items; this test target exercises a subset."
+)]
+mod signal {
     include!("../src/inference_market/signal.rs");
     pub mod deals {
         include!("../src/inference_market/deals.rs");

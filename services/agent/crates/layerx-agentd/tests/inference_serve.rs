@@ -1,3 +1,7 @@
+#[allow(
+    dead_code,
+    reason = "The host binary uses these signalling, deal and completion items; this test target exercises a subset."
+)]
 mod signal {
     include!("../src/inference_market/signal.rs");
     pub mod deals {
@@ -277,7 +281,7 @@ fn publish<W: Read + Write>(
         .iter()
         .enumerate()
         .map(|(index, text)| TokenPiece {
-            token_id: index as u32,
+            token_id: must(u32::try_from(index)),
             text: (*text).to_owned(),
         })
         .collect();
@@ -387,7 +391,7 @@ fn funded_ask_streams_tokens_and_usage_equals_the_canonical_lap_counts() {
     let routes = Arc::new(directory.routes());
     let worker = directory.worker();
     let (release, proceed) = mpsc::channel();
-    let (first_lap, produced) = mpsc::channel();
+    let (first_lap, lap_ready) = mpsc::channel();
     let producer = thread::spawn(move || {
         let (socket, _) = must(worker.accept());
         let mut writer = must(CompletionWriter::accept(socket));
@@ -402,7 +406,7 @@ fn funded_ask_streams_tokens_and_usage_equals_the_canonical_lap_counts() {
     });
     let (mut client, server) = listener(Arc::clone(&routes), Some(funded(20)), binding(3));
     must(client.write_all(&wire("/v1/chat/completions", &body(&routes, true))));
-    must(produced.recv_timeout(Duration::from_secs(5)));
+    must(lap_ready.recv_timeout(Duration::from_secs(5)));
     let mut client = BufReader::new(client);
     let mut response = String::new();
     loop {

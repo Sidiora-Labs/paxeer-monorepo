@@ -1,4 +1,4 @@
-//! Production ingestion of committed ProgramRead captures. The configured source supplies
+//! Production ingestion of committed `ProgramRead` captures. The configured source supplies
 //! whole same-root chunk responses and native membership plus signed block-commit evidence.
 //! No source assertion, cached binding or elapsed time substitutes for that verification.
 use std::path::Path;
@@ -192,7 +192,7 @@ impl TryFrom<CommitDocument> for Commit {
     }
 }
 
-/// Versioned capture transport. Chunks are the producer's encoded read_state_chunk
+/// Versioned capture transport. Chunks are the producer's encoded `read_state_chunk`
 /// responses, not a separately assembled JSON representation of application state.
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -207,8 +207,12 @@ struct CommittedReadDocument {
     chunks: Vec<Vec<u8>>,
 }
 
-/// Producer adapter for a native committed ProgramRead and its exact chunk responses.
+/// Producer adapter for a native committed `ProgramRead` and its exact chunk responses.
 /// Receivers independently authenticate every field before changing a projection.
+///
+/// # Errors
+/// Returns `ViewError::InvalidEncoding` if JSON serialization fails, or
+/// `ViewError::CapacityExceeded` if the document exceeds `COMMITTED_READ_MAX_BYTES`.
 pub fn encode_committed_read(
     chain: ChainDomain,
     program: ProgramId,
@@ -245,6 +249,11 @@ pub struct AiRuntime {
 }
 
 impl AiRuntime {
+    /// Opens both durable projections for the configured chain and program.
+    ///
+    /// # Errors
+    /// Returns a store error if either projection cannot open or initialize the
+    /// database, or an integrity error if reputation initialization is refused.
     pub fn open(
         path: &Path,
         authority: FinalityAuthority,
@@ -264,6 +273,12 @@ impl AiRuntime {
 
     /// Decode, authenticate and durably publish one complete capture. Invalid consensus,
     /// namespace membership, domain or chunks cannot publish even an observed outbox row.
+    ///
+    /// # Errors
+    /// Returns an integrity error for an oversized or malformed capture, an unsupported
+    /// version, a wrong domain, invalid consensus or membership evidence, incomplete
+    /// or inconsistent chunks, a rollback, or a refused projection admission.
+    /// Returns a store error if reading or publishing either projection fails.
     pub fn ingest(&mut self, bytes: &[u8], now_ms: u64) -> Result<SnapshotRecord, IndexError> {
         if bytes.len() > COMMITTED_READ_MAX_BYTES {
             return Err(view_error(ViewError::CapacityExceeded));
@@ -358,6 +373,10 @@ impl AiRuntime {
     }
 
     /// One daemon iteration, including fresh source observation and durable readiness.
+    ///
+    /// # Errors
+    /// Propagates polling and durable observation errors; returns a source error
+    /// when the source is idle before any finalized capture has been stored.
     pub fn daemon_poll(
         &mut self,
         observations: &crate::store::Store,
@@ -390,6 +409,11 @@ impl AiRuntime {
 
     /// Poll the committed-read source at the last durable finalized sequence. HTTP 204
     /// alone means idle; all other unavailable or malformed responses remain errors.
+    ///
+    /// # Errors
+    /// Returns source errors for failed requests or unexpected HTTP responses,
+    /// store errors for cursor reads, and integrity errors for invalid captures
+    /// or a capture that does not advance the finalized cursor.
     pub fn poll(
         &mut self,
         source: &Endpoint,
@@ -460,12 +484,23 @@ struct ValidatorConfig {
     voting_power: i64,
 }
 impl RuntimeConfig {
+    /// Reads the operator configuration document.
+    ///
+    /// # Errors
+    /// Returns a configuration error if the file cannot be read or does not decode
+    /// as the expected JSON configuration, including unknown fields.
     pub fn read(path: &Path) -> Result<Self, IndexError> {
         let bytes = std::fs::read(path)
             .map_err(|e| IndexError::Config(format!("AI configuration: {e}")))?;
         serde_json::from_slice(&bytes)
             .map_err(|e| IndexError::Config(format!("AI configuration: {e}")))
     }
+    /// Opens the configured source and durable projections.
+    ///
+    /// # Errors
+    /// Returns configuration errors for invalid chain/program identifiers, an unreadable
+    /// trust anchor, or invalid endpoint security and URL settings. Propagates errors
+    /// from opening the durable projections.
     pub fn open(self, database: &Path) -> Result<(AiRuntime, Endpoint), IndexError> {
         let chain = ChainDomain::new(self.chain)
             .map_err(|_| IndexError::Config("invalid AI chain".to_owned()))?;

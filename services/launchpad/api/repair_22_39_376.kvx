@@ -1,0 +1,8 @@
+[repair.22.39.376]
+title = "Development trade reads carry the chain head watermark"
+change = "The trade route resolves the development indexer head through the development market chain reader and writes a TradesResponse envelope with that watermark and its projection revision. Trades above the head or at its height with another block hash are omitted. A head that cannot be resolved leaves watermark and revision null; quality remains partial. Candle and other HSD envelopes remain as before."
+consumer = "apps/launchpad/web/src/widgets/trading/udf-datafeed.ts"
+members = ["quality", "watermark.integrity", "watermark.height", "watermark.blockHash", "revision", "position.height", "position.blockHash"]
+test = "TestRepair_22_39_376_trade_read_carries_the_head_watermark"
+result = "Two reads after committed swaps must carry one healthy head revision and only positions at or below that head; a lagging head omits the later committed swap."
+verification = "The qualified revision and private log are recorded by the hf-done gate."

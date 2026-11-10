@@ -91,7 +91,7 @@ async function jsonBody(request) {
 }
 
 // This host uses real HTTP and RFC 6455 sockets; the CLI's transport is unchanged.
-async function roomHost(t, { binding = true } = {}) {
+async function roomHost(t) {
   const events = [],
     sockets = new Set();
   let enrolled, receivedHello, upgradePath;
@@ -99,15 +99,18 @@ async function roomHost(t, { binding = true } = {}) {
     events.push(request.url);
     const body = await jsonBody(request);
     response.setHeader("content-type", "application/json");
-    if (request.url === "/bind_peer") {
-      assert.equal(body.family, 0);
-      assert.equal(body.modelDigest, modelDigest);
-      assert.equal(body.runtimeDigest, runtimeDigest);
-      assert.equal(Buffer.from(body.envelope, "hex").length, 161);
-      response.end(JSON.stringify({ bound: binding }));
-    } else if (request.url === "/enrol_peer") {
+    if (request.url === "/enrol_peer") {
       enrolled = body;
-      response.end(JSON.stringify({ enrolled: true }));
+      const vector = JSON.parse(
+        await import("node:fs/promises").then((fs) =>
+          fs.readFile(
+            new URL("fixtures/host-enrol-route.json", import.meta.url),
+            "utf8",
+          ),
+        ),
+      );
+      assert.deepEqual(body, vector.request);
+      response.end(JSON.stringify(vector.accepted.body));
     } else response.writeHead(404).end("{}");
   });
   server.on("upgrade", (request, socket, head) => {
@@ -203,11 +206,7 @@ function verifyManifestAndHello(host, peer, bytes) {
   assert.deepEqual(hello.room_id, signalBytes(room));
   assert.deepEqual(hello.peer_key, signalBytes(peer.peerKey));
   assert.deepEqual(hello.nonce, vector("challenge").nonce);
-  assert.equal(host.enrolled.manifest.peerKey, peer.peerKey);
-  assert.equal(
-    host.enrolled.manifest.bytes,
-    Buffer.from(bytes).toString("hex"),
-  );
+  assert.equal(host.enrolled, undefined);
   assert.deepEqual(Buffer.from(hello.manifest), Buffer.from(bytes));
   const key = createPublicKey({
     key: Buffer.concat([
@@ -217,19 +216,6 @@ function verifyManifestAndHello(host, peer, bytes) {
     format: "der",
     type: "spki",
   });
-  const metadata = createHash("sha256")
-    .update("PAXAI/participant-metadata/v2\0")
-    .update(bytes)
-    .digest();
-  assert.equal(host.enrolled.manifest.metadataDigest, metadata.toString("hex"));
-  assert.ok(
-    verify(
-      null,
-      metadata,
-      key,
-      Buffer.from(host.enrolled.manifest.signature, "hex"),
-    ),
-  );
   assert.ok(
     verify(
       null,
@@ -280,7 +266,7 @@ async function joinParsesArgumentsAndSendsSignedHello(t) {
   const status = await started;
   assert.equal(status.state, "offered");
   assert.equal(status.room, room);
-  assert.deepEqual(host.events, ["/enrol_peer", "upgrade", "hello"]);
+  assert.deepEqual(host.events, ["upgrade", "hello"]);
   assert.equal(host.upgradePath, "/");
   verifyManifestAndHello(host, files.peer, files.bytes);
   const statusPort = new URL(status.statusURL).port;
@@ -333,7 +319,7 @@ function signedEnvelope(report) {
   return Buffer.concat([header, signature]);
 }
 
-async function attestationBindingPrecedesEnrollmentAndHello(t) {
+async function localAttestationPrecedesHello(t) {
   const files = await inputs(t),
     host = await roomHost(t);
   const report = keccak256(
@@ -361,12 +347,7 @@ async function attestationBindingPrecedesEnrollmentAndHello(t) {
     statusPort: 0,
   });
   t.after(() => session.close());
-  assert.deepEqual(host.events, [
-    "/bind_peer",
-    "/enrol_peer",
-    "upgrade",
-    "hello",
-  ]);
+  assert.deepEqual(host.events, ["upgrade", "hello"]);
   verifyManifestAndHello(host, files.peer, files.bytes);
   assert.equal(
     (await statusCommand({ port: new URL(session.url).port })).state,
@@ -405,32 +386,24 @@ async function mismatchedAttestationIsRefusedBeforeAnySend(t) {
   }
 }
 
-async function unconfirmedBindingStopsBeforeEnrollment(t) {
+async function invalidEnrolmentFileStopsBeforeAnySend(t) {
   const files = await inputs(t),
-    host = await roomHost(t, { binding: false });
-  const attestation = join(files.dir, "quote.pxve");
-  await writeFile(
-    attestation,
-    signedEnvelope(
-      keccak256(
-        Buffer.from(files.peer.peerKey + modelDigest + runtimeDigest, "hex"),
-      ),
-    ),
-  );
-  await assert.rejects(
-    joinCommand({
-      host: host.host,
-      room,
-      identity: files.identity,
-      manifest: files.manifest,
-      attestation,
-      "model-digest": modelDigest,
-      "runtime-digest": runtimeDigest,
-      statusPort: 0,
-    }),
-    /did not confirm bindPeer/,
-  );
-  assert.deepEqual(host.events, ["/bind_peer"]);
+    host = await roomHost(t);
+  const enrolment = join(files.dir, "enrolment.json");
+  for (const body of ["{", "x".repeat(262145)]) {
+    await writeFile(enrolment, body);
+    await assert.rejects(
+      joinCommand({
+        host: host.host,
+        room,
+        identity: files.identity,
+        manifest: files.manifest,
+        enrolment,
+        statusPort: 0,
+      }),
+    );
+    assert.deepEqual(host.events, []);
+  }
 }
 
 async function serveForwardsAskBearerAndStreamsBeforeHostFinishes(t) {
@@ -750,9 +723,9 @@ async function cpuDensePathRunsCausalAttentionAndIsolatesCaches() {
 }
 
 test(joinParsesArgumentsAndSendsSignedHello, { timeout: 15000 });
-test(attestationBindingPrecedesEnrollmentAndHello, { timeout: 10000 });
+test(localAttestationPrecedesHello, { timeout: 10000 });
 test(mismatchedAttestationIsRefusedBeforeAnySend, { timeout: 10000 });
-test(unconfirmedBindingStopsBeforeEnrollment, { timeout: 10000 });
+test(invalidEnrolmentFileStopsBeforeAnySend, { timeout: 10000 });
 test(serveForwardsAskBearerAndStreamsBeforeHostFinishes, { timeout: 10000 });
 test(servePreservesHostRefusalsAndRejectsUnknownRoutes, { timeout: 10000 });
 test(serveCancelsUpstreamWhenLocalClientDisconnects, { timeout: 10000 });

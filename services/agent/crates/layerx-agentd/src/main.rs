@@ -3,6 +3,10 @@
 use inference_canary::CanaryRuntime as InferenceCanaryRuntime;
 use inference_signal::deals::laps::canary as inference_canary;
 
+#[allow(
+    dead_code,
+    reason = "Including targets do not use every signal.rs item; decision 3218 permits dead_code on the including module"
+)]
 mod inference_signal {
     include!("inference_market/signal.rs");
     pub mod deals {
@@ -23,7 +27,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -59,11 +63,9 @@ use layerx_agentd::session::{SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::store::{Store, TenantId};
 use layerx_client::frame::transport::Limits;
-type PxEndpoint = layerx_client::px::PxEndpoint;
 type SequencerEndpoint = layerx_client::sequencer::SequencerEndpoint;
 use layerx_programs::{
-    hex, DeploymentProof, DeploymentRecord, ProgramId, ProgramLifecycle,
-    ProtocolDeploymentVerifier, Registry,
+    hex, DeploymentProof, DeploymentRecord, ProgramId, ProtocolDeploymentVerifier, Registry,
 };
 use layerx_types::ids::Did;
 
@@ -839,6 +841,20 @@ fn export_trust_source(
 }
 
 type OwnerStatus = mpsc::Receiver<Result<(), String>>;
+type OwnerStarted = (
+    OwnerStatus,
+    SharedAgentOwner<RemoteHumanAuthority>,
+    mpsc::SyncSender<Result<(), String>>,
+    Arc<Mutex<Store>>,
+);
+
+#[derive(Clone, Copy)]
+struct OwnerPolicies<'a> {
+    ordinary: Option<&'a BTreeMap<TenantId, PathBuf>>,
+    native: &'a BTreeMap<TenantId, PathBuf>,
+    effects: &'a BTreeMap<TenantId, PathBuf>,
+    denominations: &'a BTreeMap<TenantId, PathBuf>,
+}
 
 fn start_human_owner(mcp: Option<McpBoot>) -> Result<OwnerStatus, String> {
     let runtime_clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
@@ -851,10 +867,12 @@ fn start_human_owner(mcp: Option<McpBoot>) -> Result<OwnerStatus, String> {
         mcp,
         None,
         None,
-        None,
-        &native_policy_sources,
-        &native_effect_policy_sources,
-        &denomination_sources,
+        OwnerPolicies {
+            ordinary: None,
+            native: &native_policy_sources,
+            effects: &native_effect_policy_sources,
+            denominations: &denomination_sources,
+        },
         runtime_clock,
     )
     .map(|(receiver, _, _, _)| receiver)
@@ -863,33 +881,20 @@ fn start_human_owner(mcp: Option<McpBoot>) -> Result<OwnerStatus, String> {
 fn start_shared_owner(
     mcp: Option<McpBoot>,
     programs: Option<ProgramOperations>,
-
     export_trust: Option<layerx_agentd::export::ExportTrustSource>,
-
-    policy_sources: Option<&BTreeMap<TenantId, PathBuf>>,
-    native_policy_sources: &BTreeMap<TenantId, PathBuf>,
-    native_effect_policy_sources: &BTreeMap<TenantId, PathBuf>,
-    program_budget_denomination_sources: &BTreeMap<TenantId, PathBuf>,
-
+    policies: OwnerPolicies<'_>,
     clock: Arc<dyn layerx_types::clock::Clock>,
-) -> Result<
-    (
-        OwnerStatus,
-        SharedAgentOwner<RemoteHumanAuthority>,
-        mpsc::SyncSender<Result<(), String>>,
-        Arc<Mutex<Store>>,
-    ),
-    String,
-> {
+) -> Result<OwnerStarted, String> {
     let peers = human_peers()?;
     let tenants = human_policy_tenants(&peers)?;
-    if !native_policy_sources.keys().eq(tenants.iter()) {
+    if !policies.native.keys().eq(tenants.iter()) {
         return Err(
             "LAYERX_NATIVE_POLICY_SOURCES must cover exactly the configured Human tenants"
                 .to_owned(),
         );
     }
-    if program_budget_denomination_sources
+    if policies
+        .denominations
         .keys()
         .any(|tenant| !tenants.contains(tenant))
     {
@@ -948,50 +953,12 @@ fn start_shared_owner(
         clock,
     )
     .map_err(|error| format!("human operations are invalid: {error:?}"))?;
-    if let Some(source) = export_trust {
-        operations.install_export_trust(source, deadline);
-    }
-    match std::env::var("LAYERX_AGENT_STATE_EXPORT_SOURCE") {
-        Ok(path) => operations.install_state_export_source(
-            layerx_agentd::config::StateExportSource::load(std::path::Path::new(&path))?,
-        ),
-        Err(std::env::VarError::NotPresent) => {}
-        Err(std::env::VarError::NotUnicode(_)) => {
-            return Err("state export source path is not UTF-8".to_owned())
-        }
-    }
-
-    if let Some(sources) = policy_sources {
-        operations
-            .attach_policies(sources)
-            .map_err(|error| format!("tenant policies are invalid: {error:?}"))?;
-    }
-
-    operations
-        .attach_native_policies(native_policy_sources)
-        .map_err(|error| format!("native tenant policies are invalid: {error}"))?;
-    operations
-        .attach_native_effect_policies(native_effect_policy_sources)
-        .map_err(|error| format!("native effect policy source invalid: {error}"))?;
-
-    operations
-        .attach_program_budget_denominations(program_budget_denomination_sources)
-        .map_err(|error| format!("Program budget denominations are invalid: {error}"))?;
+    configure_owner_policies(&mut operations, export_trust, deadline, policies)?;
 
     let socket_uid = required("LAYERX_AGENT_HUMAN_SOCKET_UID")?
         .parse()
         .map_err(|_| "human socket uid is invalid")?;
-    let operator_secret = layerx_agentd::config::read_protected_source(&session_secret_path, 4096)
-        .map_err(|error| format!("human session operator secret is unavailable: {error:?}"))?;
-    let session_keys = SessionKeyRegistry::open(
-        session_key_root,
-        operator_secret,
-        required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
-            .parse()
-            .map_err(|_| "human network id is invalid")?,
-        socket_uid,
-    )
-    .map_err(|error| format!("human session key registry is invalid: {error:?}"))?;
+    let session_keys = human_session_keys(session_key_root, &session_secret_path, socket_uid)?;
     let mut unified = UnifiedAgentOwner::new(
         operations,
         Arc::clone(&shared_store),
@@ -1008,6 +975,84 @@ fn start_shared_owner(
     }
     unified.mcp_enrolment = mcp_republish;
     let owner = SharedAgentOwner::new(unified);
+    start_owner_listener(
+        owner,
+        shared_store,
+        socket_path,
+        socket_uid,
+        human_limits,
+        deadline,
+        peers,
+    )
+}
+
+fn configure_owner_policies(
+    operations: &mut ProductionHumanOperations<RemoteHumanAuthority>,
+    export_trust: Option<layerx_agentd::export::ExportTrustSource>,
+    deadline: Duration,
+    policies: OwnerPolicies<'_>,
+) -> Result<(), String> {
+    if let Some(source) = export_trust {
+        operations.install_export_trust(source, deadline);
+    }
+    match std::env::var("LAYERX_AGENT_STATE_EXPORT_SOURCE") {
+        Ok(path) => operations.install_state_export_source(
+            layerx_agentd::config::StateExportSource::load(std::path::Path::new(&path))?,
+        ),
+        Err(std::env::VarError::NotPresent) => {}
+        Err(std::env::VarError::NotUnicode(_)) => {
+            return Err("state export source path is not UTF-8".to_owned())
+        }
+    }
+
+    if let Some(sources) = policies.ordinary {
+        operations
+            .attach_policies(sources)
+            .map_err(|error| format!("tenant policies are invalid: {error:?}"))?;
+    }
+
+    operations
+        .attach_native_policies(policies.native)
+        .map_err(|error| format!("native tenant policies are invalid: {error}"))?;
+    operations
+        .attach_native_effect_policies(policies.effects)
+        .map_err(|error| format!("native effect policy source invalid: {error}"))?;
+
+    operations
+        .attach_program_budget_denominations(policies.denominations)
+        .map_err(|error| format!("Program budget denominations are invalid: {error}"))?;
+
+    Ok(())
+}
+
+fn human_session_keys(
+    session_key_root: PathBuf,
+    session_secret_path: &Path,
+    socket_uid: u32,
+) -> Result<SessionKeyRegistry, String> {
+    let operator_secret =
+        layerx_agentd::config::read_protected_source(session_secret_path, 4096)
+            .map_err(|error| format!("human session operator secret is unavailable: {error:?}"))?;
+    SessionKeyRegistry::open(
+        session_key_root,
+        operator_secret,
+        required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
+            .parse()
+            .map_err(|_| "human network id is invalid")?,
+        socket_uid,
+    )
+    .map_err(|error| format!("human session key registry is invalid: {error:?}"))
+}
+
+fn start_owner_listener(
+    owner: SharedAgentOwner<RemoteHumanAuthority>,
+    shared_store: Arc<Mutex<Store>>,
+    socket_path: PathBuf,
+    socket_uid: u32,
+    human_limits: Limits,
+    deadline: Duration,
+    peers: BTreeMap<u32, (String, String)>,
+) -> Result<OwnerStarted, String> {
     let server = HumanUnixServer::bind(
         HumanListenerConfig {
             endpoint: socket_path,
@@ -1046,7 +1091,7 @@ fn start_shared_owner(
 /// configured. A configured listener without its complete TLS material refuses boot.
 fn start_agent_rpc(
     owner: SharedAgentOwner<RemoteHumanAuthority>,
-    shared_store: Arc<Mutex<Store>>,
+    shared_store: &Arc<Mutex<Store>>,
 ) -> Result<Option<HttpPool>, String> {
     let Some(listen) = optional("LAYERX_AGENTD_RPC_LISTEN") else {
         return Ok(None);
@@ -1087,7 +1132,7 @@ fn start_agent_rpc(
         })
         .transpose()?
         .unwrap_or_default();
-    attach_mcp_payers(&owner, &shared_store, &mut mcp_bindings)?;
+    attach_mcp_payers(&owner, shared_store, &mut mcp_bindings)?;
     let listener = TcpListener::bind(&listen)
         .map_err(|error| format!("agent rpc listener failed: {error}"))?;
     HttpPool::start(listener, move |stream| {
@@ -1245,7 +1290,7 @@ enum RpcExchangeResponse {
     Ordinary(AgentRpcResponse),
     Mcp {
         id: layerx_agent_api::error::RequestId,
-        result: layerx_mcp::server::DaemonToolResult,
+        result: Box<layerx_mcp::server::DaemonToolResult>,
     },
 }
 
@@ -1301,7 +1346,7 @@ impl RpcExchangeResponse {
                     .current_core_sequence()
                     .map_err(|_| "MCP current head is unavailable".to_owned())?;
                 let mut attempted = false;
-                let outcome = result.release_current(sequence, |value| {
+                let outcome = (*result).release_current(sequence, |value| {
                     use layerx_mcp::boundary::BoundaryRefusal;
                     let response = match value {
                         Ok(value) => agent_rpc::mcp_result_response(id, value),
@@ -1354,19 +1399,17 @@ impl RpcExchangeResponse {
     }
 }
 
-fn agent_rpc_exchange<S: Read>(
+fn agent_rpc_malformed() -> AgentRpcResponse {
+    agent_rpc::refusal(
+        400,
+        ErrorClass::ProtocolIncompatibility,
+        "envelope.malformed",
+    )
+}
+
+fn read_agent_rpc_head<S: Read>(
     stream: &mut S,
-    network: &str,
-    owner: &SharedAgentOwner<RemoteHumanAuthority>,
-    mcp_bindings: &[layerx_mcp::binding::Binding],
-) -> RpcExchangeResponse {
-    let malformed = || {
-        agent_rpc::refusal(
-            400,
-            ErrorClass::ProtocolIncompatibility,
-            "envelope.malformed",
-        )
-    };
+) -> Result<(Vec<u8>, usize, usize), AgentRpcResponse> {
     let mut bytes = vec![0_u8; HEADER_LIMIT];
     let mut length = 0_usize;
     let head_end = loop {
@@ -1377,17 +1420,30 @@ fn agent_rpc_exchange<S: Read>(
             break end + 4;
         }
         if length == bytes.len() {
-            return agent_rpc::refusal(
+            return Err(agent_rpc::refusal(
                 431,
                 ErrorClass::ProtocolIncompatibility,
                 "envelope.malformed",
-            )
-            .into();
+            ));
         }
         match stream.read(&mut bytes[length..]) {
-            Ok(0) | Err(_) => return malformed().into(),
+            Ok(0) | Err(_) => return Err(agent_rpc_malformed()),
             Ok(count) => length += count,
         }
+    };
+    Ok((bytes, length, head_end))
+}
+
+fn agent_rpc_exchange<S: Read>(
+    stream: &mut S,
+    network: &str,
+    owner: &SharedAgentOwner<RemoteHumanAuthority>,
+    mcp_bindings: &[layerx_mcp::binding::Binding],
+) -> RpcExchangeResponse {
+    let malformed = agent_rpc_malformed;
+    let (bytes, length, head_end) = match read_agent_rpc_head(stream) {
+        Ok(head) => head,
+        Err(response) => return response.into(),
     };
     let Ok(head) = std::str::from_utf8(&bytes[..head_end - 4]) else {
         return malformed().into();
@@ -1476,8 +1532,17 @@ fn agent_rpc_exchange<S: Read>(
     {
         return malformed().into();
     }
-    let invocation = match agent_rpc::decode_mcp_invocation(&body) {
-        Ok(None) => return agent_rpc::handle_rpc(owner, &body).into(),
+    dispatch_agent_rpc_body(&body, owner, mcp_bindings)
+}
+
+fn dispatch_agent_rpc_body(
+    body: &[u8],
+    owner: &SharedAgentOwner<RemoteHumanAuthority>,
+    mcp_bindings: &[layerx_mcp::binding::Binding],
+) -> RpcExchangeResponse {
+    use sha2::Digest as _;
+    let invocation = match agent_rpc::decode_mcp_invocation(body) {
+        Ok(None) => return agent_rpc::handle_rpc(owner, body).into(),
         Err(response) => return response.into(),
         Ok(Some(invocation)) => invocation,
     };
@@ -1500,24 +1565,16 @@ fn agent_rpc_exchange<S: Read>(
                 .into()
         }
     };
-    let sequence = match owner.current_core_sequence() {
-        Ok(sequence) => sequence,
-        Err(_) => {
-            return agent_rpc::mcp_result_refusal(id, ErrorClass::InternalFault, "unavailable")
-                .into()
-        }
+    let Ok(sequence) = owner.current_core_sequence() else {
+        return agent_rpc::mcp_result_refusal(id, ErrorClass::InternalFault, "unavailable").into();
     };
-    use sha2::Digest as _;
-    let encoded = match serde_json::to_vec(&invocation.arguments) {
-        Ok(encoded) => encoded,
-        Err(_) => {
-            return agent_rpc::mcp_result_refusal(
-                id,
-                ErrorClass::ProtocolIncompatibility,
-                "mcp.malformed",
-            )
-            .into()
-        }
+    let Ok(encoded) = serde_json::to_vec(&invocation.arguments) else {
+        return agent_rpc::mcp_result_refusal(
+            id,
+            ErrorClass::ProtocolIncompatibility,
+            "mcp.malformed",
+        )
+        .into();
     };
     let request_digest = sha2::Sha256::new()
         .chain_update(b"LXP/mcp/daemon-invocation/v1\0")
@@ -1545,16 +1602,15 @@ fn agent_rpc_exchange<S: Read>(
         idempotency_key: invocation.idempotency_key,
         request_digest,
     };
-    let environment = match agent_rpc::mcp_owner_environment(owner, id, &invocation.credential) {
-        Ok(environment) => Some(layerx_mcp::binding::OwnerEnvironment {
+    let environment = agent_rpc::mcp_owner_environment(owner, id, &invocation.credential)
+        .ok()
+        .map(|environment| layerx_mcp::binding::OwnerEnvironment {
             registry: environment.registry,
             core_time_ms: environment.core_time_ms,
             head_sequence: environment.head_sequence,
             native_effect_profile: environment.native_effect_profile,
             native_send_profile: environment.native_send_profile,
-        }),
-        Err(_) => None,
-    };
+        });
     match binding.daemon_invocation(
         control,
         invocation.credential,
@@ -1567,7 +1623,10 @@ fn agent_rpc_exchange<S: Read>(
             agent_rpc::dispatch_mcp_owner(owner, id, credential, operation, arguments, key)
         },
     ) {
-        Ok(result) => RpcExchangeResponse::Mcp { id, result },
+        Ok(result) => RpcExchangeResponse::Mcp {
+            id,
+            result: Box::new(result),
+        },
         Err(layerx_mcp::binding::DaemonInvocationError::Authority(error)) => {
             mcp_authority_response(id, &error).into()
         }
@@ -1698,6 +1757,9 @@ impl InferenceAvailabilityConfig {
         authority_credential: &str,
         setting: impl Fn(&str) -> Option<String>,
     ) -> Result<Option<Self>, String> {
+        const ENDPOINT: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_ENDPOINT";
+        const KEY: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_API_KEY";
+        const CA: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_CA_FILE";
         if !inference {
             return Ok(None);
         }
@@ -1706,9 +1768,6 @@ impl InferenceAvailabilityConfig {
                 .filter(|value| !value.trim().is_empty() && value.trim() == value)
                 .ok_or_else(|| format!("{name} is required and must be nonblank"))
         };
-        const ENDPOINT: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_ENDPOINT";
-        const KEY: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_API_KEY";
-        const CA: &str = "LAYERX_AGENT_INFERENCE_GATEWAY_CA_FILE";
         let endpoint = required(ENDPOINT)?;
         let uri = endpoint
             .parse::<ureq::http::Uri>()
@@ -2146,7 +2205,7 @@ impl InferenceLapRuntime {
         let host =
             Arc::new(layerx_client::ai_market::inference_market::HostMeterKey::from_seed(seed));
         let mut evidence_signers = Vec::new();
-        let mut seen = BTreeSet::new();
+        let mut authorities = BTreeSet::new();
         for source in &terms.evidence_signers {
             let mut signer =
                 layerx_human_kms::attestor::AttestorSigner::from_config(&source.signer)
@@ -2162,7 +2221,7 @@ impl InferenceLapRuntime {
                         .trim(),
                 )
                 .map_err(|_| "invalid evidence assertion")?;
-            if !seen.insert(signer.evm_address()) {
+            if !authorities.insert(signer.evm_address()) {
                 return Err("duplicate evidence signer".to_owned());
             }
             evidence_signers.push(signer);
@@ -2468,6 +2527,78 @@ impl inference_canary::CanaryTransport for InferenceLapTransport<'_> {
     }
 }
 
+struct InferenceHealthRequest<'a, S> {
+    head: std::io::Cursor<Vec<u8>>,
+    stream: &'a mut S,
+}
+impl<S: Read> Read for InferenceHealthRequest<'_, S> {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        if self.head.position() < self.head.get_ref().len() as u64 {
+            self.head.read(bytes)
+        } else {
+            self.stream.read(bytes)
+        }
+    }
+}
+impl<S: Write> Write for InferenceHealthRequest<'_, S> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.stream.write(bytes)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.stream.flush()
+    }
+}
+
+fn inference_lap_request<'a>(
+    head: &'a [u8],
+    bearer: &str,
+) -> Result<(&'a str, usize), &'static str> {
+    if head.len() > 8192 {
+        return Err("lap headers exceed bound");
+    }
+    let head = std::str::from_utf8(head).map_err(|_| "invalid lap headers")?;
+    let mut lines = head.split("\r\n");
+    let route = lines.next().ok_or("missing lap route")?;
+    if !matches!(
+        route,
+        "POST /internal/inference/laps HTTP/1.1"
+            | "POST /internal/inference/canaries/prepare HTTP/1.1"
+            | "POST /internal/inference/canaries/answers HTTP/1.1"
+    ) {
+        return Err("unknown lap route");
+    }
+    let mut length = None;
+    let mut authorized = false;
+    for line in lines.filter(|line| !line.is_empty()) {
+        let (name, value) = line.split_once(':').ok_or("invalid lap header")?;
+        if name.eq_ignore_ascii_case("authorization") {
+            if authorized || value.trim() != format!("Bearer {bearer}") {
+                return Err("lap authentication refused");
+            }
+            authorized = true;
+        } else if name.eq_ignore_ascii_case("content-length") {
+            if length.is_some() {
+                return Err("duplicate lap length");
+            }
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .map_err(|_| "invalid lap length")?,
+            );
+        } else if name.eq_ignore_ascii_case("transfer-encoding") {
+            return Err("lap transfer encoding refused");
+        }
+    }
+    let length = length
+        .filter(|length| *length <= 65_536)
+        .ok_or("lap body exceeds bound")?;
+    if !authorized || bearer.is_empty() {
+        return Err("lap authentication required");
+    }
+    Ok((route, length))
+}
+
 fn inference_serve_lap_output(
     stream: &mut (impl Read + Write),
     gate: &Arc<Mutex<layerx_agentd::boot::InferenceBootGate>>,
@@ -2489,29 +2620,8 @@ fn inference_serve_lap_output(
         head.push(byte[0]);
     }
     if !head.starts_with(b"POST ") {
-        struct HealthRequest<'a, S> {
-            head: std::io::Cursor<Vec<u8>>,
-            stream: &'a mut S,
-        }
-        impl<S: Read> Read for HealthRequest<'_, S> {
-            fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
-                if self.head.position() < self.head.get_ref().len() as u64 {
-                    self.head.read(bytes)
-                } else {
-                    self.stream.read(bytes)
-                }
-            }
-        }
-        impl<S: Write> Write for HealthRequest<'_, S> {
-            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-                self.stream.write(bytes)
-            }
-            fn flush(&mut self) -> std::io::Result<()> {
-                self.stream.flush()
-            }
-        }
         return layerx_agentd::boot::inference_market::serve_health(
-            &mut HealthRequest {
+            &mut InferenceHealthRequest {
                 head: std::io::Cursor::new(head),
                 stream,
             },
@@ -2519,49 +2629,7 @@ fn inference_serve_lap_output(
         );
     }
     let result = (|| {
-        if head.len() > 8192 {
-            return Err("lap headers exceed bound");
-        }
-        let head = std::str::from_utf8(&head).map_err(|_| "invalid lap headers")?;
-        let mut lines = head.split("\r\n");
-        let route = lines.next().ok_or("missing lap route")?;
-        if !matches!(
-            route,
-            "POST /internal/inference/laps HTTP/1.1"
-                | "POST /internal/inference/canaries/prepare HTTP/1.1"
-                | "POST /internal/inference/canaries/answers HTTP/1.1"
-        ) {
-            return Err("unknown lap route");
-        }
-        let mut length = None;
-        let mut authorized = false;
-        for line in lines.filter(|line| !line.is_empty()) {
-            let (name, value) = line.split_once(':').ok_or("invalid lap header")?;
-            if name.eq_ignore_ascii_case("authorization") {
-                if authorized || value.trim() != format!("Bearer {bearer}") {
-                    return Err("lap authentication refused");
-                }
-                authorized = true;
-            } else if name.eq_ignore_ascii_case("content-length") {
-                if length.is_some() {
-                    return Err("duplicate lap length");
-                }
-                length = Some(
-                    value
-                        .trim()
-                        .parse::<usize>()
-                        .map_err(|_| "invalid lap length")?,
-                );
-            } else if name.eq_ignore_ascii_case("transfer-encoding") {
-                return Err("lap transfer encoding refused");
-            }
-        }
-        let length = length
-            .filter(|length| *length <= 65_536)
-            .ok_or("lap body exceeds bound")?;
-        if !authorized || bearer.is_empty() {
-            return Err("lap authentication required");
-        }
+        let (route, length) = inference_lap_request(&head, bearer)?;
         if gate
             .lock()
             .map_err(|_| "lap gate unavailable")?
@@ -2899,68 +2967,21 @@ fn inference_observation(
 fn inference_enrol_host(
     config: &Config,
     inference: &layerx_agentd::config::InferenceConfig,
-) -> Result<(), String> {
+) -> Result<Option<layerx_agentd::finality::inference_enrol::EnrolmentService>, String> {
     use layerx_agentd::finality::inference_enrol::{
-        read_enrolment_file, EnrolmentRelay, MeasurementConfig, PriceQuote, SignedManifest,
+        read_enrolment_file, EnrolmentDocument, EnrolmentRelay, MeasurementConfig,
     };
-    use layerx_client::ai_market::{market_envelope, OperationJournal, OperationRecord};
-    PriceQuote::require_program_interface().map_err(|error| error.to_string())?;
-    let path = PathBuf::from(required("LAYERX_AGENT_INFERENCE_ENROLMENT")?);
-    let document = read_enrolment_file(&path).map_err(|error| error.to_string())?;
-    let bytes = |name: &str| -> Result<Vec<u8>, String> {
-        let text = document[name]
-            .as_str()
-            .ok_or_else(|| format!("inference enrolment {name} is required"))?;
-        layerx_programs::hex::decode(text.strip_prefix("0x").unwrap_or(text))
-            .map_err(|_| format!("inference enrolment {name} is malformed"))
+    let Some(path) = optional("LAYERX_AGENT_INFERENCE_ENROLMENT") else {
+        return Ok(None);
     };
-    let record = |name: &str| -> Result<OperationRecord, String> {
-        let raw = bytes(name)?;
-        let expiry = document["expiry"]
-            .as_u64()
-            .ok_or("inference enrolment expiry is required")?;
-        let record = OperationRecord::from_signed_transaction(raw, [0; 32], expiry)
-            .map_err(|error| format!("inference enrolment {name}: {error:?}"))?;
-        let envelope = market_envelope(&record)
-            .map_err(|error| format!("inference enrolment {name}: {error:?}"))?;
-        let env = layerx_client::ai_market::market_program::codec::decode_envelope(&envelope)
-            .map_err(|error| error.to_string())?;
-        if env.envelope.program.bytes() != config.probe_program.bytes()
-            || env.envelope.chain.bytes()
-                != layerx_client::ai_market::market_program::merged_chain_domain(
-                    config.expected_chain_id,
-                )
-        {
-            return Err(
-                "inference enrolment differs from the configured chain or program".to_owned(),
-            );
-        }
-        let intent = env.request_digest().map_err(|error| error.to_string())?;
-        OperationRecord::from_signed_transaction(
-            record.signed_bytes().to_vec(),
-            intent.bytes(),
-            expiry,
-        )
-        .map_err(|error| format!("inference enrolment {name}: {error:?}"))
-    };
-    let legacy = bytes("manifest_v1")?;
-    if legacy.get(138..170) != Some(inference.runtime_digest.as_slice())
-        || legacy.get(174..206) != Some(inference.model_digest.as_slice())
-    {
-        return Err(
-            "inference enrolment manifest differs from configured model or runtime".to_owned(),
-        );
-    }
-    let mut manifest = SignedManifest {
-        manifest: bytes("manifest_v2")?,
-        proposal: record("enroll")?,
-        acceptance: record("accept")?,
-        publication: record("publish")?,
-    };
-    let mut quote = PriceQuote {
-        lock_bond: record("lock_bond")?,
-        post_bid: record("post_bid")?,
-    };
+    let service = inference_enrolment_service(config, inference)?;
+    let document = read_enrolment_file(Path::new(&path)).map_err(|error| error.to_string())?;
+    let height = service
+        .endpoint
+        .block_number()
+        .map_err(|error| format!("inference enrolment head: {error:?}"))?;
+    let mut document = EnrolmentDocument::parse(&document, &service.context, height)
+        .map_err(|error| error.to_string())?;
     let region: [u8; 2] = required("LAYERX_AGENT_INFERENCE_REGION")?
         .as_bytes()
         .try_into()
@@ -2969,37 +2990,56 @@ fn inference_enrol_host(
         .parse::<u8>()
         .map_err(|_| "inference attestation family must be a byte")?;
     let probe = required("LAYERX_AGENT_INFERENCE_BANDWIDTH_PROBE")?;
-    let journal = OperationJournal::open(Path::new(&required(
-        "LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL",
-    )?))
-    .map_err(|error| format!("inference enrolment journal: {error:?}"))?;
-    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
-        &config.node_endpoint,
-        &[&config.authority_ca_der],
-    )
-    .map_err(|error| format!("inference enrolment endpoint: {error:?}"))?;
-    let keys = endpoint
-        .receipt_keys()
-        .map_err(|error| format!("inference receipt keys: {error:?}"))?;
     let relay = EnrolmentRelay {
-        endpoint: &endpoint,
-        journal: &journal,
-        receipt_keys: &keys,
-        timeout: REQUEST_DEADLINE,
+        endpoint: &service.endpoint,
+        journal: &service.journal,
+        receipt_keys: &service.receipt_keys,
+        timeout: service.timeout,
     };
     relay
         .enrol_host(
             &MeasurementConfig {
-                manifest_v1: &legacy,
+                manifest_v1: &document.legacy,
                 region_code: region,
                 attestation_family,
                 bandwidth_probe: &probe,
             },
-            &mut manifest,
-            &mut quote,
+            &mut document.manifest,
+            &mut document.quote,
         )
         .map_err(|error| error.to_string())?;
-    Ok(())
+    Ok(Some(service))
+}
+
+fn inference_enrolment_service(
+    config: &Config,
+    inference: &layerx_agentd::config::InferenceConfig,
+) -> Result<layerx_agentd::finality::inference_enrol::EnrolmentService, String> {
+    use layerx_agentd::finality::inference_enrol::{
+        EnrolmentContext, EnrolmentService, PriceQuote,
+    };
+    PriceQuote::require_program_interface().map_err(|error| error.to_string())?;
+    let journal = layerx_client::ai_market::OperationJournal::open(Path::new(&required(
+        "LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL",
+    )?))
+    .map_err(|error| format!("inference enrolment journal: {error:?}"))?;
+    let endpoint = SequencerEndpoint::new(&config.node_endpoint, &[&config.authority_ca_der])
+        .map_err(|error| format!("inference enrolment endpoint: {error:?}"))?;
+    let receipt_keys = endpoint
+        .receipt_keys()
+        .map_err(|error| format!("inference receipt keys: {error:?}"))?;
+    Ok(EnrolmentService {
+        endpoint,
+        journal,
+        receipt_keys,
+        timeout: REQUEST_DEADLINE,
+        context: EnrolmentContext {
+            chain_id: config.expected_chain_id,
+            program: config.probe_program.bytes(),
+            model_digest: inference.model_digest,
+            runtime_digest: inference.runtime_digest,
+        },
+    })
 }
 
 fn inference_completion_routes(
@@ -3036,70 +3076,21 @@ fn inference_completion_routes(
     .map_err(|error| format!("inference queue configuration: {error}"))
 }
 
-fn inference_boot(
+fn inference_completion_listener(
     config: &Config,
-    inference: layerx_agentd::config::InferenceConfig,
-    reader: LayerxdProgramBalanceReader,
-) -> Result<InferenceSupervision, String> {
-    use layerx_agentd::boot::inference_market;
-    let agent = config
-        .inference_availability
-        .as_ref()
-        .ok_or("inference gateway configuration is required")?
-        .client()?;
-    let (reference, components) = inference_observation(config, &reader, &agent)?;
-    let mut gate = layerx_agentd::boot::InferenceBootGate::default();
-    gate.ready(reference, layerx_types::rung::Rung::Committed, &components)
-        .map_err(|error| format!("inference boot refused: {error:?}"))?;
-    inference_enrol_host(config, &inference)?;
-    let market = inference_market::serve_inference_market(inference, gate)?;
-    let offer: inference_signal::RoomOffer = serde_json::from_slice(&market.room_profile)
-        .map_err(|error| format!("inference room offer is invalid: {error}"))?;
-    if offer.model_digest != market.config.model_digest
-        || offer.runtime_digest != market.config.runtime_digest
-    {
-        return Err("inference room offer disagrees with configured digests".to_owned());
-    }
-    let signal_authority = inference_signal::SignalAuthority::new(
-        agent.clone(),
-        config.node_endpoint.clone(),
-        config.node_bearer.clone(),
-        config.expected_chain_id,
-        config.probe_program.bytes(),
-        Arc::clone(&market.gate),
-    )?;
-    let deals = InferenceDealRuntime::open(config, &offer)?;
-    let snapshot = deals.snapshot()?;
-    deals
-        .laps
-        .initialize_canaries(snapshot.state_bytes(), offer.room_id)?;
-    deals
-        .engine
-        .lock()
-        .map_err(|_| "inference deal engine unavailable")?
-        .poll(snapshot, now_ms()?)
-        .map_err(|error| error.to_string())?;
-    let signal = inference_signal::deals::laps::LapSignalListener::start(
-        market
-            .signal_listener
-            .try_clone()
-            .map_err(|error| error.to_string())?,
-        offer.clone(),
-        signal_authority,
-        Arc::clone(&deals.engine),
-        now_ms,
-        Arc::new(Mutex::new(BTreeMap::new())),
-        Arc::clone(&deals.laps.canaries),
-    )?;
-    let signal = Arc::new(Mutex::new(signal));
-    let completion_signal = Arc::clone(&signal);
+    market: &layerx_agentd::boot::inference_market::InferenceMarket,
+    offer: &inference_signal::RoomOffer,
+    deals: &InferenceDealRuntime,
+    signal: &Arc<Mutex<inference_signal::deals::laps::LapSignalListener>>,
+) -> Result<HttpPool, String> {
+    let completion_signal = Arc::clone(signal);
     let completion_host = Arc::clone(&deals.laps.host);
     let completion_canaries = Arc::clone(&deals.laps.canaries);
     let canary_answer_timeout_ms = deals.laps.canary_answer_timeout_ms;
     let completion_bearer = config.bearer.clone();
     let completion_gate = Arc::clone(&market.gate);
-    let completion_routes = inference_completion_routes(config, &market, &offer, &deals)?;
-    let completion = HttpPool::start(
+    let completion_routes = inference_completion_routes(config, market, offer, deals)?;
+    HttpPool::start(
         market
             .completion_listener
             .try_clone()
@@ -3134,7 +3125,71 @@ fn inference_boot(
                 );
             }
         },
+    )
+}
+
+fn inference_boot(
+    config: &Config,
+    inference: layerx_agentd::config::InferenceConfig,
+    reader: LayerxdProgramBalanceReader,
+) -> Result<InferenceSupervision, String> {
+    use layerx_agentd::boot::inference_market;
+    let agent = config
+        .inference_availability
+        .as_ref()
+        .ok_or("inference gateway configuration is required")?
+        .client()?;
+    let (reference, components) = inference_observation(config, &reader, &agent)?;
+    let mut gate = layerx_agentd::boot::InferenceBootGate::default();
+    gate.ready(reference, layerx_types::rung::Rung::Committed, &components)
+        .map_err(|error| format!("inference boot refused: {error:?}"))?;
+    let enrolment = inference_enrol_host(config, &inference)?;
+    let market = inference_market::serve_inference_market(inference, gate)?;
+    let offer: inference_signal::RoomOffer = serde_json::from_slice(&market.room_profile)
+        .map_err(|error| format!("inference room offer is invalid: {error}"))?;
+    if offer.model_digest != market.config.model_digest
+        || offer.runtime_digest != market.config.runtime_digest
+    {
+        return Err("inference room offer disagrees with configured digests".to_owned());
+    }
+    let signal_authority = inference_signal::SignalAuthority::new(
+        agent.clone(),
+        config.node_endpoint.clone(),
+        config.node_bearer.clone(),
+        config.expected_chain_id,
+        config.probe_program.bytes(),
+        Arc::clone(&market.gate),
     )?;
+    let signal_authority = if let Some(service) = enrolment {
+        signal_authority.with_enrolment(service)
+    } else {
+        signal_authority
+    };
+    let deals = InferenceDealRuntime::open(config, &offer)?;
+    let snapshot = deals.snapshot()?;
+    deals
+        .laps
+        .initialize_canaries(snapshot.state_bytes(), offer.room_id)?;
+    deals
+        .engine
+        .lock()
+        .map_err(|_| "inference deal engine unavailable")?
+        .poll(snapshot, now_ms()?)
+        .map_err(|error| error.to_string())?;
+    let signal = inference_signal::deals::laps::LapSignalListener::start(
+        market
+            .signal_listener
+            .try_clone()
+            .map_err(|error| error.to_string())?,
+        offer.clone(),
+        signal_authority,
+        Arc::clone(&deals.engine),
+        now_ms,
+        Arc::new(Mutex::new(BTreeMap::new())),
+        Arc::clone(&deals.laps.canaries),
+    )?;
+    let signal = Arc::new(Mutex::new(signal));
+    let completion = inference_completion_listener(config, &market, &offer, &deals, &signal)?;
     Ok(InferenceSupervision {
         market,
         signal,
@@ -3146,16 +3201,16 @@ fn inference_boot(
     })
 }
 
-fn serve(config: Config) -> Result<(), String> {
+fn serve(config: &Config) -> Result<(), String> {
     if config.inference.is_some() {
         let node =
-            NodeRpc::connect_with_ca(&inference_node_config(&config), &config.authority_ca_der)
+            NodeRpc::connect_with_ca(&inference_node_config(config), &config.authority_ca_der)
                 .map_err(|error| format!("inference node RPC readiness failed: {error}"))?;
         readiness_gate(&node)
             .map_err(|error| format!("inference node RPC readiness failed: {error:?}"))?;
     }
-    let mcp = mcp_enrolment(&config)?
-        .map(|enrolment| mcp_boot(&config, enrolment))
+    let mcp = mcp_enrolment(config)?
+        .map(|enrolment| mcp_boot(config, enrolment))
         .transpose()?;
     let runtime_clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
         .map_err(|error| format!("runtime clock unavailable: {error}"))?;
@@ -3175,21 +3230,21 @@ fn serve(config: Config) -> Result<(), String> {
         verifier,
         registry,
         receipt_keys,
-    } = program_authority_boot(&config, &mut native)?;
+    } = program_authority_boot(config, &mut native)?;
     let mut inference = config
         .inference
         .clone()
         .map(|inference| {
             inference_boot(
-                &config,
+                config,
                 inference,
-                program_reader(&config, verifier.clone(), registry.clone())?,
+                program_reader(config, verifier.clone(), registry.clone())?,
             )
         })
         .transpose()?;
     let route =
-        ProgramBalanceReadRoute::new(program_reader(&config, verifier.clone(), registry.clone())?);
-    let programs = ProgramOperations::new(program_reader(&config, verifier, registry)?);
+        ProgramBalanceReadRoute::new(program_reader(config, verifier.clone(), registry.clone())?);
+    let programs = ProgramOperations::new(program_reader(config, verifier, registry)?);
     let export_trust = receipt_keys
         .map(|keys| export_trust_source(keys, &config.authority_ca_der))
         .transpose()?;
@@ -3197,13 +3252,15 @@ fn serve(config: Config) -> Result<(), String> {
         mcp,
         Some(programs),
         export_trust,
-        Some(&config.policy_sources),
-        &config.native_policy_sources,
-        &config.native_effect_policy_sources,
-        &config.program_budget_denomination_sources,
+        OwnerPolicies {
+            ordinary: Some(&config.policy_sources),
+            native: &config.native_policy_sources,
+            effects: &config.native_effect_policy_sources,
+            denominations: &config.program_budget_denomination_sources,
+        },
         runtime_clock,
     )?;
-    let rpc = start_agent_rpc(owner, shared_store)?;
+    let rpc = start_agent_rpc(owner, &shared_store)?;
     drop(status);
     let node_config = NodeRpcConfig {
         url: config.node_endpoint.clone(),
@@ -3231,6 +3288,22 @@ fn serve(config: Config) -> Result<(), String> {
     } else {
         None
     };
+    supervise_services(
+        config,
+        &human,
+        program.as_ref(),
+        &mut inference,
+        rpc.as_ref(),
+    )
+}
+
+fn supervise_services(
+    config: &Config,
+    human: &OwnerStatus,
+    program: Option<&HttpPool>,
+    inference: &mut Option<InferenceSupervision>,
+    rpc: Option<&HttpPool>,
+) -> Result<(), String> {
     loop {
         match human.try_recv() {
             Ok(result) => return result,
@@ -3239,10 +3312,10 @@ fn serve(config: Config) -> Result<(), String> {
             }
             Err(mpsc::TryRecvError::Empty) => {}
         }
-        if let Some(program) = &program {
+        if let Some(program) = program {
             program.check()?;
         }
-        if let Some(inference) = &mut inference {
+        if let Some(inference) = inference.as_mut() {
             inference
                 .signal
                 .lock()
@@ -3251,7 +3324,7 @@ fn serve(config: Config) -> Result<(), String> {
             inference.completion.check()?;
             if Instant::now() >= inference.next_check {
                 let observation =
-                    inference_observation(&config, &inference.reader, &inference.agent);
+                    inference_observation(config, &inference.reader, &inference.agent);
                 let observed = layerx_agentd::boot::inference_market::observe_availability(
                     &inference.market.gate,
                     observation,
@@ -3310,7 +3383,7 @@ fn serve(config: Config) -> Result<(), String> {
                 inference.next_check = Instant::now() + Duration::from_secs(1);
             }
         }
-        if let Some(rpc) = &rpc {
+        if let Some(rpc) = rpc {
             rpc.check()?;
         }
         thread::sleep(SUPERVISION_INTERVAL);
@@ -3398,9 +3471,9 @@ fn main() {
         return;
     }
     if let Err(error) = human_owner_mode::run(
-        || config().and_then(serve),
+        || config().and_then(|config| serve(&config)),
         human_owner::serve_human_owner,
-        || config().and_then(serve),
+        || config().and_then(|config| serve(&config)),
     ) {
         eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
         std::process::exit(2);
@@ -3408,6 +3481,12 @@ fn main() {
 }
 
 #[cfg(test)]
+#[allow(
+    dead_code,
+    clippy::too_many_lines,
+    clippy::manual_let_else,
+    reason = "Shared chain.rs belongs to the programs workspace; decision 3218 permits its reported dead_code, too_many_lines and manual_let_else on this inclusion"
+)]
 #[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/chain.rs"]
 mod inference_availability_chain;
 
@@ -3437,13 +3516,13 @@ mod inference_availability_tests {
     impl CertificateFixture {
         fn new() -> Self {
             let certificate = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()])
-                .expect("certificate");
+                .unwrap_or_else(|error| panic!("certificate: {error:?}"));
             let tls = Arc::new(
                 rustls::ServerConfig::builder_with_provider(Arc::new(
                     rustls::crypto::ring::default_provider(),
                 ))
                 .with_safe_default_protocol_versions()
-                .expect("TLS versions")
+                .unwrap_or_else(|error| panic!("TLS versions: {error:?}"))
                 .with_no_client_auth()
                 .with_single_cert(
                     vec![certificate.cert.der().clone()],
@@ -3452,7 +3531,7 @@ mod inference_availability_tests {
                     )
                     .into(),
                 )
-                .expect("TLS certificate"),
+                .unwrap_or_else(|error| panic!("TLS certificate: {error:?}")),
             );
             Self { certificate, tls }
         }
@@ -3461,14 +3540,15 @@ mod inference_availability_tests {
                 root.join(format!("{prefix}.pem")),
                 self.certificate.cert.pem(),
             )
-            .expect("certificate PEM");
+            .unwrap_or_else(|error| panic!("certificate PEM: {error:?}"));
             fs::write(
                 root.join(format!("{prefix}.key")),
                 self.certificate.signing_key.serialize_pem(),
             )
-            .expect("key PEM");
+            .unwrap_or_else(|error| panic!("key PEM: {error:?}"));
             let path = root.join(format!("{prefix}.der"));
-            fs::write(&path, self.certificate.cert.der()).expect("certificate DER");
+            fs::write(&path, self.certificate.cert.der())
+                .unwrap_or_else(|error| panic!("certificate DER: {error:?}"));
             path
         }
     }
@@ -3484,17 +3564,21 @@ mod inference_availability_tests {
         root: &Path,
         certificate: &CertificateFixture,
     ) -> (RedisProcess, Arc<RedisStore>) {
-        let socket = TcpListener::bind("127.0.0.1:0").expect("Redis port reservation");
-        let port = socket.local_addr().expect("Redis port").port();
+        let socket = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("Redis port reservation: {error:?}"));
+        let port = socket
+            .local_addr()
+            .unwrap_or_else(|error| panic!("Redis port: {error:?}"))
+            .port();
         certificate.write(root, "redis");
         let acl = root.join("redis.acl");
         fs::write(
             &acl,
             "user default off\nuser gateway on >integration-secret ~* &* +@all\n",
         )
-        .expect("Redis ACL");
+        .unwrap_or_else(|error| panic!("Redis ACL: {error:?}"));
         let config = root.join("redis.conf");
-        fs::write(&config, format!("bind 127.0.0.1\nport 0\ntls-port {port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\naclfile {}\nappendonly yes\nappendfsync always\ndir {}\n", root.join("redis.pem").display(), root.join("redis.key").display(), root.join("redis.pem").display(), acl.display(), root.display())).expect("Redis configuration");
+        fs::write(&config, format!("bind 127.0.0.1\nport 0\ntls-port {port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\naclfile {}\nappendonly yes\nappendfsync always\ndir {}\n", root.join("redis.pem").display(), root.join("redis.key").display(), root.join("redis.pem").display(), acl.display(), root.display())).unwrap_or_else(|error| panic!("Redis configuration: {error:?}"));
         drop(socket);
         let process = RedisProcess(
             Command::new("redis-server")
@@ -3502,12 +3586,13 @@ mod inference_availability_tests {
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
-                .expect("real durable Redis"),
+                .unwrap_or_else(|error| panic!("real durable Redis: {error:?}")),
         );
         let store = Arc::new(RedisStore::new(
-            RedisEndpoint::parse(&format!("rediss://localhost:{port}")).expect("Redis endpoint"),
+            RedisEndpoint::parse(&format!("rediss://localhost:{port}"))
+                .unwrap_or_else(|error| panic!("Redis endpoint: {error:?}")),
             native_tls::Certificate::from_der(certificate.certificate.cert.der())
-                .expect("Redis root"),
+                .unwrap_or_else(|error| panic!("Redis root: {error:?}")),
             Zeroizing::new("gateway".into()),
             Zeroizing::new("integration-secret".into()),
         ));
@@ -3535,7 +3620,7 @@ mod inference_availability_tests {
         };
         store
             .issue_key(&record, &format!("issue-{id}"))
-            .expect("durable gateway key issuance");
+            .unwrap_or_else(|error| panic!("durable gateway key issuance: {error:?}"));
         (record, format!("{id}:{secret}"))
     }
 
@@ -3549,11 +3634,14 @@ mod inference_availability_tests {
             tls: Arc<rustls::ServerConfig>,
             handler: impl Fn(http::IncomingRequest) -> Option<http::OutgoingResponse> + Send + 'static,
         ) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("HTTPS listener");
-            let address = listener.local_addr().expect("HTTPS address");
+            let listener = TcpListener::bind("127.0.0.1:0")
+                .unwrap_or_else(|error| panic!("HTTPS listener: {error:?}"));
+            let address = listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("HTTPS address: {error:?}"));
             listener
                 .set_nonblocking(true)
-                .expect("nonblocking HTTPS listener");
+                .unwrap_or_else(|error| panic!("nonblocking HTTPS listener: {error:?}"));
             let stopping = Arc::new(AtomicBool::new(false));
             let stop = stopping.clone();
             let worker = thread::spawn(move || {
@@ -3567,11 +3655,11 @@ mod inference_availability_tests {
                         Err(error) => panic!("HTTPS accept: {error}"),
                     };
                     tcp.set_read_timeout(Some(Duration::from_secs(3)))
-                        .expect("HTTPS read bound");
+                        .unwrap_or_else(|error| panic!("HTTPS read bound: {error:?}"));
                     tcp.set_write_timeout(Some(Duration::from_secs(3)))
-                        .expect("HTTPS write bound");
-                    let connection =
-                        rustls::ServerConnection::new(tls.clone()).expect("TLS server connection");
+                        .unwrap_or_else(|error| panic!("HTTPS write bound: {error:?}"));
+                    let connection = rustls::ServerConnection::new(tls.clone())
+                        .unwrap_or_else(|error| panic!("TLS server connection: {error:?}"));
                     let mut stream = rustls::StreamOwned::new(connection, tcp);
                     if let Ok(request) = http::read_request(&mut stream, 65_536) {
                         if let Some(response) = handler(request) {
@@ -3595,17 +3683,20 @@ mod inference_availability_tests {
             self.stopping.store(true, Ordering::Release);
             if let Some(worker) = self.worker.take() {
                 if !thread::panicking() {
-                    worker.join().expect("HTTPS peer stopped");
+                    worker
+                        .join()
+                        .unwrap_or_else(|error| panic!("HTTPS peer stopped: {error:?}"));
                 }
             }
         }
     }
-    fn response(value: Value) -> http::OutgoingResponse {
+    fn response(value: &Value) -> http::OutgoingResponse {
         http::OutgoingResponse {
             status: 200,
             content_type: "application/json".into(),
             headers: Vec::new(),
-            body: serde_json::to_vec(&value).expect("wire response"),
+            body: serde_json::to_vec(value)
+                .unwrap_or_else(|error| panic!("wire response: {error:?}")),
             retry_after: None,
         }
     }
@@ -3624,13 +3715,18 @@ mod inference_availability_tests {
     ) -> Config {
         Config {
             inference: Some(layerx_agentd::config::InferenceConfig {
-                signal_listen: "127.0.0.1:0".parse().expect("signal address"),
-                serve_listen: "127.0.0.1:0".parse().expect("completion address"),
+                signal_listen: "127.0.0.1:0"
+                    .parse()
+                    .unwrap_or_else(|error| panic!("signal address: {error:?}")),
+                serve_listen: "127.0.0.1:0"
+                    .parse()
+                    .unwrap_or_else(|error| panic!("completion address: {error:?}")),
                 model_digest: [1; 32],
                 runtime_digest: [2; 32],
                 room_profile: profile,
             }),
-            inference_availability: availability(values).expect("gateway configuration"),
+            inference_availability: availability(values)
+                .unwrap_or_else(|error| panic!("gateway configuration: {error:?}")),
             listen: "127.0.0.1:0".into(),
             bearer: "program-only-credential-0123456789012345".into(),
             node_endpoint: node.url(),
@@ -3643,7 +3739,8 @@ mod inference_availability_tests {
             chain_trust_root: PathBuf::new(),
             staleness_ms: 60_000,
             deployment_journal: String::new(),
-            probe_program: ProgramId::new([11; 32]).expect("program"),
+            probe_program: ProgramId::new([11; 32])
+                .unwrap_or_else(|error| panic!("program: {error:?}")),
             policy_sources: BTreeMap::new(),
             native_policy_sources: BTreeMap::new(),
             native_effect_policy_sources: BTreeMap::new(),
@@ -3655,86 +3752,152 @@ mod inference_availability_tests {
             &supervision.market.signal_listener,
             &supervision.market.completion_listener,
         ] {
-            let mut stream = TcpStream::connect(listener.local_addr().expect("health address"))
-                .expect("health connection");
+            let mut stream = TcpStream::connect(
+                listener
+                    .local_addr()
+                    .unwrap_or_else(|error| panic!("health address: {error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("health connection: {error:?}"));
             stream
                 .set_read_timeout(Some(Duration::from_secs(3)))
-                .expect("health deadline");
+                .unwrap_or_else(|error| panic!("health deadline: {error:?}"));
             stream
                 .write_all(b"GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
-                .expect("health request");
+                .unwrap_or_else(|error| panic!("health request: {error:?}"));
             let mut wire = String::new();
-            stream.read_to_string(&mut wire).expect("health response");
+            stream
+                .read_to_string(&mut wire)
+                .unwrap_or_else(|error| panic!("health response: {error:?}"));
             assert!(wire.starts_with(if healthy {
                 "HTTP/1.1 200 "
             } else {
                 "HTTP/1.1 503 "
             }));
-            let body: Value =
-                serde_json::from_str(wire.split_once("\r\n\r\n").expect("health body").1)
-                    .expect("health JSON");
+            let body: Value = serde_json::from_str(
+                wire.split_once("\r\n\r\n")
+                    .unwrap_or_else(|| panic!("health body"))
+                    .1,
+            )
+            .unwrap_or_else(|error| panic!("health JSON: {error:?}"));
             assert_eq!(body["ready"], healthy);
         }
     }
 
-    #[test]
-    fn inference_availability_uses_gateway_credentials() {
-        use layerx_agentd::boot::inference_market::{observe_availability, read_availability};
-        let directory = tempfile::tempdir().expect("fixture directory");
-        let node_certificate = CertificateFixture::new();
-        let gateway_certificate = CertificateFixture::new();
-        let gateway_ca = gateway_certificate.write(directory.path(), "gateway");
-        let (_redis, keys) = durable_keys(directory.path(), &gateway_certificate);
-        let (record, credential) = issue(&keys, "inference-first");
-        let database = directory.path().join("ai.sqlite");
-        let (market, committed) = ai_producer::ingest(&database, 1000, 4, true);
-        let unavailable_database = directory.path().join("ai-unavailable.sqlite");
-        ai_producer::ingest(&unavailable_database, 1000, 4, false);
-        let room_enabled = Arc::new(AtomicBool::new(true));
-        let node_room_enabled = room_enabled.clone();
-        let (_, unavailable_status, _) = ai_producer::consensus(1000, false);
-        let unavailable_block_hash = layerx_programs::hex::decode_digest(
-            unavailable_status["sync_info"]["latest_block_hash"]
-                .as_str()
-                .expect("unavailable producer block hash"),
-        )
-        .expect("unavailable block hash");
-        let (_, status, _) = ai_producer::consensus(1000, true);
-        let block_hash = layerx_programs::hex::decode_digest(
-            status["sync_info"]["latest_block_hash"]
-                .as_str()
-                .expect("producer block hash"),
-        )
-        .expect("block hash");
-        let paths = Arc::new(Mutex::new(Vec::new()));
-        let recorded = paths.clone();
-        let node = HttpsPeer::start(node_certificate.tls.clone(), move |request| {
-            assert!(
-                !request.path.contains("/snapshot"),
-                "snapshots belong to the gateway"
-            );
-            assert!(!request
-                .headers
-                .values()
-                .any(|v| v.contains("lxp_live_") || v.starts_with("LayerX-Key ")));
-            recorded
-                .lock()
-                .expect("node requests")
-                .push(request.path.clone());
-            let call: Value = serde_json::from_slice(&request.body).expect("node RPC request");
-            Some(response(
-                json!({"jsonrpc":"2.0","id":call["id"],"result":ai_producer::node_result(call["method"].as_str().expect("RPC method"),
+    struct AvailabilityFixture {
+        node: HttpsPeer,
+        _redis: RedisProcess,
+        keys: Arc<RedisStore>,
+        record: KeyRecord,
+        credential: String,
+        node_certificate: CertificateFixture,
+        gateway_certificate: CertificateFixture,
+        gateway_ca: PathBuf,
+        database: PathBuf,
+        unavailable_database: PathBuf,
+        market: String,
+        committed: Value,
+        room_enabled: Arc<AtomicBool>,
+        block_hash: [u8; 32],
+        unavailable_block_hash: [u8; 32],
+        paths: Arc<Mutex<Vec<String>>>,
+        fault: Arc<Mutex<Option<String>>>,
+        gateway_requests: Arc<Mutex<usize>>,
+        directory: tempfile::TempDir,
+    }
+
+    impl AvailabilityFixture {
+        fn new() -> Self {
+            let directory =
+                tempfile::tempdir().unwrap_or_else(|error| panic!("fixture directory: {error:?}"));
+            let node_certificate = CertificateFixture::new();
+            let gateway_certificate = CertificateFixture::new();
+            let gateway_ca = gateway_certificate.write(directory.path(), "gateway");
+            let (redis, keys) = durable_keys(directory.path(), &gateway_certificate);
+            let (record, credential) = issue(&keys, "inference-first");
+            let database = directory.path().join("ai.sqlite");
+            let (market, committed) = ai_producer::ingest(&database, 1000, 4, true);
+            let unavailable_database = directory.path().join("ai-unavailable.sqlite");
+            ai_producer::ingest(&unavailable_database, 1000, 4, false);
+            let room_enabled = Arc::new(AtomicBool::new(true));
+            let node_room_enabled = room_enabled.clone();
+            let (_, unavailable_status, _) = ai_producer::consensus(1000, false);
+            let unavailable_block_hash = layerx_programs::hex::decode_digest(
+                unavailable_status["sync_info"]["latest_block_hash"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("unavailable producer block hash")),
+            )
+            .unwrap_or_else(|error| panic!("unavailable block hash: {error:?}"));
+            let (_, status, _) = ai_producer::consensus(1000, true);
+            let block_hash = layerx_programs::hex::decode_digest(
+                status["sync_info"]["latest_block_hash"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("producer block hash")),
+            )
+            .unwrap_or_else(|error| panic!("block hash: {error:?}"));
+            let paths = Arc::new(Mutex::new(Vec::new()));
+            let recorded = paths.clone();
+            let node = HttpsPeer::start(node_certificate.tls.clone(), move |request| {
+                assert!(
+                    !request.path.contains("/snapshot"),
+                    "snapshots belong to the gateway"
+                );
+                assert!(!request
+                    .headers
+                    .values()
+                    .any(|v| v.contains("lxp_live_") || v.starts_with("LayerX-Key ")));
+                recorded
+                    .lock()
+                    .unwrap_or_else(|error| panic!("node requests: {error:?}"))
+                    .push(request.path.clone());
+                let call: Value = serde_json::from_slice(&request.body)
+                    .unwrap_or_else(|error| panic!("node RPC request: {error:?}"));
+                Some(response(
+                    &json!({"jsonrpc":"2.0","id":call["id"],"result":ai_producer::node_result(call["method"].as_str().unwrap_or_else(|| panic!("RPC method")),
                 if node_room_enabled.load(Ordering::Acquire) { block_hash } else { unavailable_block_hash },
                 node_room_enabled.load(Ordering::Acquire))}),
-            ))
-        });
-        let fault = Arc::new(Mutex::new(None::<String>));
-        let gateway_requests = Arc::new(Mutex::new(0_usize));
-        let start_gateway = || {
-            let views = ai_views::AiViews::open(&database, 1, [0x5a; 32])
-                .expect("real durable projection reader");
-            let unavailable_views = ai_views::AiViews::open(&unavailable_database, 1, [0x5a; 32])
-                .expect("real unavailable projection reader");
+                ))
+            });
+            let fault = Arc::new(Mutex::new(None::<String>));
+            let gateway_requests = Arc::new(Mutex::new(0_usize));
+            Self {
+                node,
+                _redis: redis,
+                keys,
+                record,
+                credential,
+                node_certificate,
+                gateway_certificate,
+                gateway_ca,
+                database,
+                unavailable_database,
+                market,
+                committed,
+                room_enabled,
+                block_hash,
+                unavailable_block_hash,
+                paths,
+                fault,
+                gateway_requests,
+                directory,
+            }
+        }
+
+        fn start_gateway(&self) -> HttpsPeer {
+            let Self {
+                database,
+                unavailable_database,
+                room_enabled,
+                market,
+                keys,
+                fault,
+                gateway_requests,
+                gateway_certificate,
+                ..
+            } = self;
+            let views = ai_views::AiViews::open(database, 1, [0x5a; 32])
+                .unwrap_or_else(|error| panic!("real durable projection reader: {error:?}"));
+            let unavailable_views = ai_views::AiViews::open(unavailable_database, 1, [0x5a; 32])
+                .unwrap_or_else(|error| panic!("real unavailable projection reader: {error:?}"));
             let room_enabled = room_enabled.clone();
             let snapshot_path = format!("/v1/ai/markets/{market}/snapshot");
             let keys = keys.clone();
@@ -3749,8 +3912,13 @@ mod inference_availability_tests {
                         .any(|v| v.contains(NODE_KEY) || v.contains(AUTHORITY_KEY)),
                     "node credentials must stay off the gateway"
                 );
-                *count.lock().expect("gateway request count") += 1;
-                let fault = fault.lock().expect("gateway fault").clone();
+                *count
+                    .lock()
+                    .unwrap_or_else(|error| panic!("gateway request count: {error:?}")) += 1;
+                let fault = fault
+                    .lock()
+                    .unwrap_or_else(|error| panic!("gateway fault: {error:?}"))
+                    .clone();
                 if fault.as_deref() == Some("disconnect") {
                     return None;
                 }
@@ -3767,31 +3935,294 @@ mod inference_availability_tests {
                     Some(1000),
                     5_000_000,
                 )
-                .expect("real gateway AI route");
+                .unwrap_or_else(|| panic!("real gateway AI route"));
                 // Negative cases corrupt one field of the real authenticated producer
                 // response. Successful responses are always the untouched gateway bytes.
                 if answer.status == 200 {
                     if let Some(field) = fault {
-                        let mut value: Value =
-                            serde_json::from_slice(&answer.body).expect("producer response");
+                        let mut value: Value = serde_json::from_slice(&answer.body)
+                            .unwrap_or_else(|error| panic!("producer response: {error:?}"));
                         value["result"]["binding"][&field] = json!("invalid-binding");
-                        answer.body = serde_json::to_vec(&value).expect("corrupted response");
+                        answer.body = serde_json::to_vec(&value)
+                            .unwrap_or_else(|error| panic!("corrupted response: {error:?}"));
                     }
                 }
                 Some(answer)
             })
-        };
-        let mut gateway = start_gateway();
-        let mut values = BTreeMap::from([
-            (ENDPOINT.into(), gateway.url()),
-            (KEY.into(), credential.clone()),
-            (CA.into(), gateway_ca.to_string_lossy().into_owned()),
-        ]);
+        }
+
+        fn config(&self, values: &BTreeMap<String, String>) -> Config {
+            let Self {
+                directory,
+                node,
+                node_certificate,
+                ..
+            } = self;
+            let profile = directory.path().join("room-profile");
+            fs::write(&profile, b"room profile")
+                .unwrap_or_else(|error| panic!("room profile: {error:?}"));
+            fixture_config(
+                values,
+                node,
+                node_certificate.certificate.cert.der().to_vec(),
+                profile,
+            )
+        }
+
+        fn refuse(&self, settings: &BTreeMap<String, String>) -> String {
+            use layerx_agentd::boot::inference_market::read_availability;
+            let Self {
+                room_enabled,
+                block_hash,
+                unavailable_block_hash,
+                ..
+            } = self;
+            let availability = availability(settings)
+                .unwrap_or_else(|error| panic!("valid configuration: {error:?}"))
+                .unwrap_or_else(|| panic!("inference configuration"));
+            let client = availability
+                .client()
+                .unwrap_or_else(|error| panic!("gateway client: {error:?}"));
+            let reference = layerx_agentd::degraded::Reference {
+                head_sequence: 1000,
+                checkpoint: if room_enabled.load(Ordering::Acquire) {
+                    *block_hash
+                } else {
+                    *unavailable_block_hash
+                },
+            };
+            read_availability(
+                &client,
+                &availability.endpoint,
+                "",
+                125,
+                &[11; 32],
+                reference,
+            )
+            .err()
+            .unwrap_or_else(|| panic!("availability must be refused"))
+        }
+
+        fn assert_refusals(&self, config: &mut Config, values: &mut BTreeMap<String, String>) {
+            let Self {
+                keys,
+                record,
+                node_certificate,
+                directory,
+                fault,
+                room_enabled,
+                ..
+            } = self;
+            let mut wrong_key = values.clone();
+            wrong_key.insert(KEY.into(), "unknown:lxp_live_invalid".into());
+            assert_eq!(
+                self.refuse(&wrong_key),
+                "inference availability read refused"
+            );
+            keys.revoke_key(
+                &record.key_id,
+                &record.principal_digest,
+                "revoke-inference-first",
+            )
+            .unwrap_or_else(|error| panic!("durable revocation: {error:?}"));
+            assert_eq!(self.refuse(values), "inference availability read refused");
+            let (_, replacement) = issue(keys, "inference-replacement");
+            values.insert(KEY.into(), replacement);
+            let node_ca_file = node_certificate.write(directory.path(), "node");
+            let mut wrong_roots = values.clone();
+            wrong_roots.insert(CA.into(), node_ca_file.to_string_lossy().into_owned());
+            assert_eq!(
+                self.refuse(&wrong_roots),
+                "inference availability read failed"
+            );
+            for field in [
+                "chain",
+                "program",
+                "market",
+                "block_height",
+                "block_hash",
+                "rank",
+            ] {
+                *fault
+                    .lock()
+                    .unwrap_or_else(|error| panic!("fault: {error:?}")) = Some(field.into());
+                assert_eq!(
+                    self.refuse(values),
+                    "inference availability is not bound to the current committed program"
+                );
+            }
+            *fault
+                .lock()
+                .unwrap_or_else(|error| panic!("fault: {error:?}")) = None;
+            room_enabled.store(false, Ordering::Release);
+            assert!(
+                self.refuse(values).contains("F11Unavailable"),
+                "an unavailable F11 must close availability"
+            );
+            *fault
+                .lock()
+                .unwrap_or_else(|error| panic!("fault: {error:?}")) = Some("disconnect".into());
+            assert_eq!(self.refuse(values), "inference availability read failed");
+            *fault
+                .lock()
+                .unwrap_or_else(|error| panic!("fault: {error:?}")) = None;
+            config.inference_availability = availability(values)
+                .unwrap_or_else(|error| panic!("replacement gateway configuration: {error:?}"));
+            self.assert_unavailable(config);
+        }
+
+        fn assert_unavailable(&self, config: &Config) {
+            use layerx_agentd::boot::inference_market::observe_availability;
+            let Self {
+                paths,
+                gateway_requests,
+                ..
+            } = self;
+            let node_reader = program_reader(config, ai_producer::verifier(), Registry::new())
+                .unwrap_or_else(|error| panic!("production node reader: {error:?}"));
+            let gate = Arc::new(Mutex::new(layerx_agentd::boot::InferenceBootGate::default()));
+            let agent = config
+                .inference_availability
+                .as_ref()
+                .unwrap_or_else(|| panic!("configuration"))
+                .client()
+                .unwrap_or_else(|error| panic!("client: {error:?}"));
+            let observation = inference_observation(config, &node_reader, &agent);
+            assert!(
+                observation
+                    .as_ref()
+                    .is_err_and(|error| error.contains("F11Unavailable")),
+                "the production observation must reach the F11 refusal: {observation:?}"
+            );
+            assert!(inference_boot(
+                config,
+                config
+                    .inference
+                    .clone()
+                    .unwrap_or_else(|| panic!("inference mode")),
+                program_reader(config, ai_producer::verifier(), Registry::new())
+                    .unwrap_or_else(|error| panic!("reader: {error:?}")),
+            )
+            .err()
+            .unwrap_or_else(|| panic!("unavailable F11 must refuse boot"))
+            .contains("F11Unavailable"));
+            assert!(observe_availability(&gate, observation).is_err());
+            assert_ne!(
+                gate.lock()
+                    .unwrap_or_else(|error| panic!("gate: {error:?}"))
+                    .status()
+                    .mode,
+                layerx_agentd::degraded::Mode::Healthy
+            );
+            assert!(!paths
+                .lock()
+                .unwrap_or_else(|error| panic!("node requests: {error:?}"))
+                .is_empty());
+            assert!(
+                *gateway_requests
+                    .lock()
+                    .unwrap_or_else(|error| panic!("gateway requests: {error:?}"))
+                    > 0
+            );
+        }
+
+        fn assert_recovery(
+            &self,
+            config: &mut Config,
+            values: &mut BTreeMap<String, String>,
+            gateway: &HttpsPeer,
+        ) {
+            use layerx_agentd::boot::inference_market::observe_availability;
+            let Self {
+                market,
+                committed,
+                fault,
+                ..
+            } = self;
+            values.insert(ENDPOINT.into(), gateway.url());
+            config.inference_availability = availability(values)
+                .unwrap_or_else(|error| panic!("reopened gateway configuration: {error:?}"));
+            let availability = config
+                .inference_availability
+                .as_ref()
+                .unwrap_or_else(|| panic!("gateway configuration"));
+            let client = availability
+                .client()
+                .unwrap_or_else(|error| panic!("gateway client: {error:?}"));
+            let mut response = client
+                .get(&format!(
+                    "{}/v1/ai/markets/0x{market}/snapshot",
+                    gateway.url()
+                ))
+                .call()
+                .unwrap_or_else(|error| panic!("authenticated real gateway: {error:?}"));
+            assert_eq!(response.status().as_u16(), 200);
+            let produced: Value = response
+                .body_mut()
+                .read_json()
+                .unwrap_or_else(|error| panic!("indexer-produced snapshot: {error:?}"));
+            assert_eq!(produced["result"]["committed"], true);
+            assert_eq!(
+                produced["result"]["snapshot_id"],
+                format!(
+                    "0x{}",
+                    committed["id"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("snapshot id"))
+                )
+            );
+            // This case's own capture funds TaskPolicyV1::minimum_epoch_funding through
+            // rewards::apply(FUND), producing F06, then dispatches OpenRoom with a
+            // RoomProfile::minimum_bond above zero, producing the decodable placement
+            // book that feature_availability projects as available F11.
+            assert_eq!(
+                produced["result"]["components"]["F11"], "available",
+                "the real producer must expose available F11 before inference startup can succeed"
+            );
+            let supervision = inference_boot(
+                config,
+                config
+                    .inference
+                    .clone()
+                    .unwrap_or_else(|| panic!("inference mode")),
+                program_reader(config, ai_producer::verifier(), Registry::new())
+                    .unwrap_or_else(|error| panic!("reader: {error:?}")),
+            )
+            .unwrap_or_else(|error| {
+                panic!("healthy inference boot with the real gateway: {error:?}")
+            });
+            assert_health(&supervision, true);
+            *fault
+                .lock()
+                .unwrap_or_else(|error| panic!("fault: {error:?}")) = Some("disconnect".into());
+            assert!(observe_availability(
+                &supervision.market.gate,
+                inference_observation(config, &supervision.reader, &supervision.agent)
+            )
+            .is_err());
+            assert_health(&supervision, false);
+            *fault
+                .lock()
+                .unwrap_or_else(|error| panic!("fault: {error:?}")) = None;
+            observe_availability(
+                &supervision.market.gate,
+                inference_observation(config, &supervision.reader, &supervision.agent),
+            )
+            .unwrap_or_else(|error| panic!("supervision recovery through real gateway: {error:?}"));
+            assert_health(&supervision, true);
+        }
+    }
+
+    fn assert_availability_settings(
+        values: &BTreeMap<String, String>,
+        credential: &str,
+        directory: &Path,
+    ) {
         assert!(
             InferenceAvailabilityConfig::load(false, NODE_KEY, AUTHORITY_KEY, |_| panic!(
                 "gateway settings must only load in inference mode"
             ))
-            .expect("other modes")
+            .unwrap_or_else(|error| panic!("other modes: {error:?}"))
             .is_none()
         );
         for name in [ENDPOINT, KEY, CA] {
@@ -3799,9 +4230,9 @@ mod inference_availability_tests {
             missing.remove(name);
             let error = availability(&missing)
                 .err()
-                .expect("missing setting must refuse");
+                .unwrap_or_else(|| panic!("missing setting must refuse"));
             assert!(error.contains(name));
-            assert!(!error.contains(&credential));
+            assert!(!error.contains(credential));
         }
         for endpoint in [
             "http://localhost",
@@ -3814,7 +4245,7 @@ mod inference_availability_tests {
             invalid.insert(ENDPOINT.into(), endpoint.into());
             let error = availability(&invalid)
                 .err()
-                .expect("invalid HTTPS origin must refuse");
+                .unwrap_or_else(|| panic!("invalid HTTPS origin must refuse"));
             assert!(!error.contains("secret"));
         }
         for key in [" ", NODE_KEY, AUTHORITY_KEY, "secret\r\nInjected: header"] {
@@ -3822,7 +4253,7 @@ mod inference_availability_tests {
             invalid.insert(KEY.into(), key.into());
             let error = availability(&invalid)
                 .err()
-                .expect("invalid key must refuse");
+                .unwrap_or_else(|| panic!("invalid key must refuse"));
             assert!(error.starts_with(KEY));
             assert!(
                 !error.contains(NODE_KEY)
@@ -3830,186 +4261,39 @@ mod inference_availability_tests {
                     && !error.contains("Injected")
             );
         }
-        for root in [
-            directory.path().join("missing.der"),
-            directory.path().to_owned(),
-        ] {
+        for root in [directory.join("missing.der"), directory.to_owned()] {
             let mut invalid = values.clone();
             invalid.insert(CA.into(), root.to_string_lossy().into_owned());
             assert!(availability(&invalid).is_err());
         }
-        let invalid_ca = directory.path().join("invalid.der");
-        fs::write(&invalid_ca, b"invalid root").expect("invalid certificate fixture");
+        let invalid_ca = directory.join("invalid.der");
+        fs::write(&invalid_ca, b"invalid root")
+            .unwrap_or_else(|error| panic!("invalid certificate fixture: {error:?}"));
         let mut invalid = values.clone();
         invalid.insert(CA.into(), invalid_ca.to_string_lossy().into_owned());
         assert!(availability(&invalid).is_err());
-        let profile = directory.path().join("room-profile");
-        fs::write(&profile, b"room profile").expect("room profile");
-        let mut config = fixture_config(
-            &values,
-            &node,
-            node_certificate.certificate.cert.der().to_vec(),
-            profile,
-        );
-        let reader = || {
-            program_reader(&config, ai_producer::verifier(), Registry::new())
-                .expect("production node reader")
-        };
-        let node_reader = reader();
-        let gate = Arc::new(Mutex::new(layerx_agentd::boot::InferenceBootGate::default()));
-        let refuse = |settings: &BTreeMap<String, String>| {
-            let availability = availability(settings)
-                .expect("valid configuration")
-                .expect("inference configuration");
-            let client = availability.client().expect("gateway client");
-            let reference = layerx_agentd::degraded::Reference {
-                head_sequence: 1000,
-                checkpoint: if room_enabled.load(Ordering::Acquire) {
-                    block_hash
-                } else {
-                    unavailable_block_hash
-                },
-            };
-            read_availability(
-                &client,
-                &availability.endpoint,
-                "",
-                125,
-                &[11; 32],
-                reference,
-            )
-            .expect_err("availability must be refused")
-        };
-        let mut wrong_key = values.clone();
-        wrong_key.insert(KEY.into(), "unknown:lxp_live_invalid".into());
-        assert_eq!(refuse(&wrong_key), "inference availability read refused");
-        keys.revoke_key(
-            &record.key_id,
-            &record.principal_digest,
-            "revoke-inference-first",
-        )
-        .expect("durable revocation");
-        assert_eq!(refuse(&values), "inference availability read refused");
-        let (_, replacement) = issue(&keys, "inference-replacement");
-        values.insert(KEY.into(), replacement);
-        let node_ca_file = node_certificate.write(directory.path(), "node");
-        let mut wrong_roots = values.clone();
-        wrong_roots.insert(CA.into(), node_ca_file.to_string_lossy().into_owned());
-        assert_eq!(refuse(&wrong_roots), "inference availability read failed");
-        for field in [
-            "chain",
-            "program",
-            "market",
-            "block_height",
-            "block_hash",
-            "rank",
-        ] {
-            *fault.lock().expect("fault") = Some(field.into());
-            assert_eq!(
-                refuse(&values),
-                "inference availability is not bound to the current committed program"
-            );
-        }
-        *fault.lock().expect("fault") = None;
-        room_enabled.store(false, Ordering::Release);
-        assert!(
-            refuse(&values).contains("F11Unavailable"),
-            "an unavailable F11 must close availability"
-        );
-        *fault.lock().expect("fault") = Some("disconnect".into());
-        assert_eq!(refuse(&values), "inference availability read failed");
-        *fault.lock().expect("fault") = None;
-        config.inference_availability =
-            availability(&values).expect("replacement gateway configuration");
-        let agent = config
-            .inference_availability
-            .as_ref()
-            .expect("configuration")
-            .client()
-            .expect("client");
-        let observation = inference_observation(&config, &node_reader, &agent);
-        assert!(
-            observation
-                .as_ref()
-                .is_err_and(|error| error.contains("F11Unavailable")),
-            "the production observation must reach the F11 refusal: {observation:?}"
-        );
-        assert!(inference_boot(
-            &config,
-            config.inference.clone().expect("inference mode"),
-            program_reader(&config, ai_producer::verifier(), Registry::new()).expect("reader"),
-        )
-        .err()
-        .expect("unavailable F11 must refuse boot")
-        .contains("F11Unavailable"));
-        assert!(observe_availability(&gate, observation).is_err());
-        assert_ne!(
-            gate.lock().expect("gate").status().mode,
-            layerx_agentd::degraded::Mode::Healthy
-        );
-        assert!(!paths.lock().expect("node requests").is_empty());
-        assert!(*gateway_requests.lock().expect("gateway requests") > 0);
+    }
+
+    #[test]
+    fn inference_availability_uses_gateway_credentials() {
+        let fixture = AvailabilityFixture::new();
+        let gateway = fixture.start_gateway();
+        let mut values = BTreeMap::from([
+            (ENDPOINT.into(), gateway.url()),
+            (KEY.into(), fixture.credential.clone()),
+            (CA.into(), fixture.gateway_ca.to_string_lossy().into_owned()),
+        ]);
+        assert_availability_settings(&values, &fixture.credential, fixture.directory.path());
+        let mut config = fixture.config(&values);
+        fixture.assert_refusals(&mut config, &mut values);
         // Reopen the real gateway reader and replay the producer capture, preserving
         // its durable snapshot identity across recovery.
         drop(gateway);
-        room_enabled.store(true, Ordering::Release);
-        let (_, recovered) = ai_producer::ingest(&database, 1000, 4, true);
-        assert_eq!(committed, recovered);
-        gateway = start_gateway();
-        values.insert(ENDPOINT.into(), gateway.url());
-        config.inference_availability =
-            availability(&values).expect("reopened gateway configuration");
-        let availability = config
-            .inference_availability
-            .as_ref()
-            .expect("gateway configuration");
-        let client = availability.client().expect("gateway client");
-        let mut response = client
-            .get(&format!(
-                "{}/v1/ai/markets/0x{market}/snapshot",
-                gateway.url()
-            ))
-            .call()
-            .expect("authenticated real gateway");
-        assert_eq!(response.status().as_u16(), 200);
-        let produced: Value = response
-            .body_mut()
-            .read_json()
-            .expect("indexer-produced snapshot");
-        assert_eq!(produced["result"]["committed"], true);
-        assert_eq!(
-            produced["result"]["snapshot_id"],
-            format!("0x{}", committed["id"].as_str().expect("snapshot id"))
-        );
-        // This case's own capture funds TaskPolicyV1::minimum_epoch_funding through
-        // rewards::apply(FUND), producing F06, then dispatches OpenRoom with a
-        // RoomProfile::minimum_bond above zero, producing the decodable placement
-        // book that feature_availability projects as available F11.
-        assert_eq!(
-            produced["result"]["components"]["F11"], "available",
-            "the real producer must expose available F11 before inference startup can succeed"
-        );
-        let supervision = inference_boot(
-            &config,
-            config.inference.clone().expect("inference mode"),
-            program_reader(&config, ai_producer::verifier(), Registry::new()).expect("reader"),
-        )
-        .expect("healthy inference boot with the real gateway");
-        assert_health(&supervision, true);
-        *fault.lock().expect("fault") = Some("disconnect".into());
-        assert!(observe_availability(
-            &supervision.market.gate,
-            inference_observation(&config, &supervision.reader, &supervision.agent)
-        )
-        .is_err());
-        assert_health(&supervision, false);
-        *fault.lock().expect("fault") = None;
-        observe_availability(
-            &supervision.market.gate,
-            inference_observation(&config, &supervision.reader, &supervision.agent),
-        )
-        .expect("supervision recovery through real gateway");
-        assert_health(&supervision, true);
+        fixture.room_enabled.store(true, Ordering::Release);
+        let (_, recovered) = ai_producer::ingest(&fixture.database, 1000, 4, true);
+        assert_eq!(fixture.committed, recovered);
+        let gateway = fixture.start_gateway();
+        fixture.assert_recovery(&mut config, &mut values, &gateway);
     }
 
     mod ai_producer {
@@ -4032,7 +4316,7 @@ mod inference_availability_tests {
             dispatch,
             errors::ApplicationError,
             policy::{PolicyCommitments, RoomProfile, TaskPolicyV1, TASK_POLICY_BYTES},
-            queries::{read_state_chunk, CaptureFacts, QueryError, ReadProof, StateCapture},
+            queries::{read_state_chunk, QueryError, ReadProof, StateCapture},
             registry::{derive_rewards_account, F01_SECTION_CAP},
             registry_ops::{self, Outcome},
             rewards::{self, FundRequest, FUNDING_POLICY_VERSION, FUND_PAYLOAD_BYTES},
@@ -4067,22 +4351,23 @@ mod inference_availability_tests {
             *CLOCK.get_or_init(|| {
                 time::OffsetDateTime::now_utc()
                     .replace_nanosecond(0)
-                    .expect("whole-second fixture clock")
+                    .unwrap_or_else(|error| panic!("whole-second fixture clock: {error:?}"))
             })
         }
         fn stamp(nanos: u32) -> String {
             clock()
                 .replace_nanosecond(nanos)
-                .expect("fixture nanoseconds")
+                .unwrap_or_else(|error| panic!("fixture nanoseconds: {error:?}"))
                 .format(&time::format_description::well_known::Rfc3339)
-                .expect("fixture timestamp")
+                .unwrap_or_else(|error| panic!("fixture timestamp: {error:?}"))
         }
-        const PUBLISHED_AT_MS: u64 = 2_000;
-        const NOW_MS: u64 = 5_000_000;
-        const SECRET: [u8; 32] = [0x5A; 32];
-
-        #[derive(Debug)]
         struct Failure(String);
+
+        impl std::fmt::Debug for Failure {
+            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.debug_tuple("Failure").field(&self.0).finish()
+            }
+        }
         type Checked<T = ()> = Result<T, Failure>;
         macro_rules! convert { ($($error:ty),+ $(,)?) => {$ (
     impl From<$error> for Failure { fn from(error:$error)->Self {Self(format!("{error:?}"))} }
@@ -4418,7 +4703,8 @@ mod inference_availability_tests {
 
         fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
             let mut commit = Commit {
-                height: header.height as u64,
+                height: u64::try_from(header.height)
+                    .unwrap_or_else(|error| panic!("nonnegative fixture height: {error}")),
                 round: 0,
                 block_id: BlockId {
                     hash: header.hash().to_vec(),
@@ -4460,7 +4746,12 @@ mod inference_availability_tests {
                 encode_length_delimited(2, &parts, &mut block);
                 encode_length_delimited(4, &block, &mut vote);
                 let mut time = Vec::new();
-                encode_varint_field(1, timestamp.seconds as u64, &mut time);
+                encode_varint_field(
+                    1,
+                    u64::try_from(timestamp.seconds)
+                        .unwrap_or_else(|error| panic!("nonnegative fixture timestamp: {error}")),
+                    &mut time,
+                );
                 encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
                 encode_length_delimited(5, &time, &mut vote);
                 encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
@@ -4485,7 +4776,8 @@ mod inference_availability_tests {
         fn header(height: u64, root: Digest32) -> Header {
             Header {
                 chain_id: CHAIN_ID.to_owned(),
-                height: height as i64,
+                height: i64::try_from(height)
+                    .unwrap_or_else(|error| panic!("fixture height fits i64: {error}")),
                 app_hash: root.bytes().to_vec(),
                 version: ConsensusVersion { block: 11, app: 1 },
                 time: Timestamp {
@@ -4495,7 +4787,7 @@ mod inference_availability_tests {
                 last_block_id: BlockId::default(),
                 last_commit_hash: vec![1; 32],
                 data_hash: layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[
-                    &Sha256::digest(&batch(height)),
+                    &Sha256::digest(batch(height)),
                 ])
                 .to_vec(),
                 validators_hash: validators_hash(&validators()),
@@ -4521,10 +4813,18 @@ mod inference_availability_tests {
         ) -> (super::chain::ChainFixture, Vec<u8>, Vec<u8>) {
             let mut manifest = vec![0, 1];
             manifest.extend(1_u32.to_be_bytes());
-            manifest.extend((cell.len() as u16).to_be_bytes());
+            manifest.extend(
+                (u16::try_from(cell.len())
+                    .unwrap_or_else(|error| panic!("fixture cell length fits u16: {error}")))
+                .to_be_bytes(),
+            );
             manifest.extend(cell);
             manifest.extend(Sha256::digest(state));
-            manifest.extend((state.len() as u32).to_be_bytes());
+            manifest.extend(
+                (u32::try_from(state.len())
+                    .unwrap_or_else(|error| panic!("fixture state length fits u32: {error}")))
+                .to_be_bytes(),
+            );
             let mut head = vec![0, 1];
             head.extend(1_u32.to_be_bytes());
             head.extend(Sha256::digest(&manifest));
@@ -4536,13 +4836,15 @@ mod inference_availability_tests {
                 &[[1; 32], [2; 32], [3; 32], [4; 32]],
                 vec![(key.clone(), head), (vec![2], 2_u64.to_be_bytes().to_vec())],
             )
-            .expect("real IAVL namespace and host marker");
+            .unwrap_or_else(|error| panic!("real IAVL namespace and host marker: {error:?}"));
             (fixture, key, manifest)
         }
 
         fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, [u8; 32]) {
             let (fixture, key, manifest) = namespace(state, program, cell);
-            let ops = fixture.prove(&key).expect("namespace proof");
+            let ops = fixture
+                .prove(&key)
+                .unwrap_or_else(|error| panic!("namespace proof: {error:?}"));
             let encoded = &ops[0].data;
             assert_eq!(encoded[0], 10);
             let mut offset = 1;
@@ -4551,7 +4853,7 @@ mod inference_availability_tests {
             }
             offset += 1;
             let proof = &encoded[offset..];
-            (serde_json::to_vec(&json!({"membership":{"proof":proof,"multistore":ops[1].data},"manifest":manifest})).expect("native namespace proof"), fixture.header.app_hash.as_slice().try_into().expect("root"))
+            (serde_json::to_vec(&json!({"membership":{"proof":proof,"multistore":ops[1].data},"manifest":manifest})).unwrap_or_else(|error| panic!("native namespace proof: {error:?}")), fixture.header.app_hash.as_slice().try_into().unwrap_or_else(|error| panic!("root: {error:?}")))
         }
 
         pub(super) fn batch(height: u64) -> Vec<u8> {
@@ -4564,7 +4866,8 @@ mod inference_availability_tests {
         }
 
         pub(super) fn node_result(method: &str, block_hash: [u8; 32], room_enabled: bool) -> Value {
-            let state = market_with_workers(4, 0, room_enabled).expect("market producer");
+            let state = market_with_workers(4, 0, room_enabled)
+                .unwrap_or_else(|error| panic!("market producer: {error:?}"));
             let (fixture, _, _) =
                 namespace(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY);
             let (_, _, committed) = consensus(1000, room_enabled);
@@ -4585,7 +4888,7 @@ mod inference_availability_tests {
                     json!({"block":{"header":{"height":"1000"},"data":{"txs":[layerx_platform_internal::base64::encode(&batch(1000))]}}})
                 }
                 "abci_query" => {
-                    json!({"response":{"code":0,"height":"999","key":"Ag==","value":layerx_platform_internal::base64::encode(&2_u64.to_be_bytes()),"proof_ops":{"ops":fixture.prove(&[2]).expect("host marker proof").iter().map(|op|json!({"type":op.op_type,"key":layerx_platform_internal::base64::encode(&op.key),"data":layerx_platform_internal::base64::encode(&op.data)})).collect::<Vec<_>>()}}})
+                    json!({"response":{"code":0,"height":"999","key":"Ag==","value":layerx_platform_internal::base64::encode(&2_u64.to_be_bytes()),"proof_ops":{"ops":fixture.prove(&[2]).unwrap_or_else(|error| panic!("host marker proof: {error:?}")).iter().map(|op|json!({"type":op.op_type,"key":layerx_platform_internal::base64::encode(&op.key),"data":layerx_platform_internal::base64::encode(&op.data)})).collect::<Vec<_>>()}}})
                 }
                 _ => panic!("unexpected node method {method}"),
             }
@@ -4597,8 +4900,9 @@ mod inference_availability_tests {
                 validators()
                     .iter()
                     .map(|v| {
-                        let voting_power = u64::try_from(v.voting_power)
-                            .expect("validator voting power must not be negative");
+                        let voting_power = u64::try_from(v.voting_power).unwrap_or_else(|error| {
+                            panic!("validator voting power must not be negative: {error:?}")
+                        });
                         layerx_programs::chain_proof::validators::TrustedValidator::new(
                             v.pub_key,
                             voting_power,
@@ -4607,7 +4911,7 @@ mod inference_availability_tests {
                     .collect(),
                 60_000,
             )
-            .expect("fixture chain trust")
+            .unwrap_or_else(|error| panic!("fixture chain trust: {error:?}"))
         }
 
         fn certify_at(state: &[u8], height: u64) -> Checked<Material> {
@@ -4640,10 +4944,12 @@ mod inference_availability_tests {
                         .app_hash
                         .as_slice()
                         .try_into()
-                        .expect("root"),
+                        .unwrap_or_else(|error| panic!("root: {error:?}")),
                 )?,
-                observed_sequence: material.header.height as u64,
-                execution_height: material.header.height as u64,
+                observed_sequence: u64::try_from(material.header.height)
+                    .map_err(|error| Failure(error.to_string()))?,
+                execution_height: u64::try_from(material.header.height)
+                    .map_err(|error| Failure(error.to_string()))?,
                 block_hash: Digest32::new(material.header.hash())?,
             };
             let chunks = read_all(state)?;
@@ -4658,8 +4964,10 @@ mod inference_availability_tests {
         }
 
         pub(super) fn consensus(height: u64, room_enabled: bool) -> (Value, Value, Value) {
-            let state = market_with_workers(4, 0, room_enabled).expect("real market state");
-            let material = certify_at(&state, height).expect("signed consensus material");
+            let state = market_with_workers(4, 0, room_enabled)
+                .unwrap_or_else(|error| panic!("real market state: {error:?}"));
+            let material = certify_at(&state, height)
+                .unwrap_or_else(|error| panic!("signed consensus material: {error:?}"));
             let h = &material.header;
             let c = &material.commit;
             let block = |b: &BlockId| json!({"hash":hex(&b.hash),"parts":{"total":b.part_set_header.total,"hash":hex(&b.part_set_header.hash)}});
@@ -4687,20 +4995,26 @@ mod inference_availability_tests {
             count: u8,
             room_enabled: bool,
         ) -> (String, Value) {
-            let state = market_with_workers(count, 0, room_enabled).expect("real market producer");
-            let material = certify_at(&state, height).expect("native membership and signed commit");
-            let (_, chunks, _) =
-                capture_state(&state, &material).expect("real whole-root chunk codec");
+            let state = market_with_workers(count, 0, room_enabled)
+                .unwrap_or_else(|error| panic!("real market producer: {error:?}"));
+            let material = certify_at(&state, height)
+                .unwrap_or_else(|error| panic!("native membership and signed commit: {error:?}"));
+            let (_, chunks, _) = capture_state(&state, &material)
+                .unwrap_or_else(|error| panic!("real whole-root chunk codec: {error:?}"));
             let config = serde_json::json!({"chain":chain_bytes(),"program":PROGRAM,"consensus_chain_id":CHAIN_ID,
             "validators": validators().iter().map(|v|serde_json::json!({"pub_key":v.pub_key,"voting_power":v.voting_power})).collect::<Vec<_>>(),
             "source":"http://127.0.0.1:1","ca_der":null,"allow_remote_plaintext":false});
             let path = database.with_extension("config.json");
-            fs::write(&path, serde_json::to_vec(&config).expect("runtime config"))
-                .expect("runtime config file");
+            fs::write(
+                &path,
+                serde_json::to_vec(&config)
+                    .unwrap_or_else(|error| panic!("runtime config: {error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("runtime config file: {error:?}"));
             let (mut runtime, _) = layerx_indexer::ai_runtime::RuntimeConfig::read(&path)
-                .expect("runtime config")
+                .unwrap_or_else(|error| panic!("runtime config: {error:?}"))
                 .open(database)
-                .expect("real projection runtime");
+                .unwrap_or_else(|error| panic!("real projection runtime: {error:?}"));
             let h = &material.header;
             let c = &material.commit;
             // The transport carries the real read_state_chunk output and signed
@@ -4711,18 +5025,19 @@ mod inference_availability_tests {
                 store_proof: &material.proof,
             };
             let payload = layerx_indexer::ai_runtime::encode_committed_read(
-                chain().expect("chain"),
-                program().expect("program"),
+                chain().unwrap_or_else(|error| panic!("chain: {error:?}")),
+                program().unwrap_or_else(|error| panic!("program: {error:?}")),
                 height,
                 &proof,
                 &chunks,
             )
-            .expect("production committed transport encoder");
+            .unwrap_or_else(|error| panic!("production committed transport encoder: {error:?}"));
             let record = runtime
                 .ingest(&payload, 1_000_000)
-                .expect("committed market ingestion");
+                .unwrap_or_else(|error| panic!("committed market ingestion: {error:?}"));
             assert!(record.projection.finalized());
-            let market = market_hex().expect("market identifier");
+            let market =
+                market_hex().unwrap_or_else(|error| panic!("market identifier: {error:?}"));
             (
                 market,
                 serde_json::json!({"height":height,"id":hex(record.snapshot_id.as_bytes())}),
