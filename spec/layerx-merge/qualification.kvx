@@ -39754,3 +39754,11 @@ symbol = "proposal.go"
 observed = "Attempt 4 at 7e50b554f871 on base b219257bb473: the verification exits 1 at a86de1287b2e, TestRepair476_AttestationDocumentation at modules/evm/config/repair_476_test.go:227 fails because modules/xweb/ATTESTATION.md contains 713714; log /out/logs/verify-1.log."
 assumption = "The document was changed by task 22.39.322 and is outside the paths of the task."
 severity = "high"
+
+[finding.22.39.332.1]
+task = "22.39.332"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+symbol = "transaction_signature_controller_test.exs"
+observed = "Attempt 1 at 7cf8745ee354 on base 495cd70105ac: the verification exits 1 at 15b518d646b7 (mix test exits 2) with 21 tests and 2 failures, status 404 where 200 is expected at transaction_status_committed_test.exs:54 and transaction_signature_committed_test.exs:138; log /out/logs/verify-2.log."
+assumption = "The cases predate the producer change of task 22.31.411 and the routes answer as that task defines."
+severity = "high"
