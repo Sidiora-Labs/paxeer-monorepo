@@ -40346,3 +40346,11 @@ symbol = "canary.test.mjs"
 observed = "Attempt 1 at dc3ef44a142e on base 9a170ec2b4e5: the build exits 0 and the verification exits 1 with seven cases passed and the case host_canary_socket_vectors_cover_both_directions failed for an empty vector list; log /out/logs/verify-1.log."
 assumption = "The host task landed the canary as internal requests only and the step of the task assumed socket frames."
 severity = "high"
+
+[finding.17.4.6.10]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 15 at 8f4a368b8559 on base 8dfebd017729: the build exits 0; the verification exits 1 with 48 of 50 row commands at exit 0 and the two wallet rows at exit 1 with no test run, the test stops at spec/layerx-merge/programme/tests/test_parity_run.py:57; log /out/logs/verify-1.log."
+assumption = "The base of the attempt predates the repair of the node stop, which task 22.39.367 brought to main."
+severity = "high"
