@@ -39682,3 +39682,11 @@ symbol = "test"
 observed = "Attempt 5 at 64529f6115eb on base 5df422806409: build exit 0 (log /out/logs/build-2.log); verification exit 1 with 1 failed and 435 passed: test/attestor.test.ts:1236 expects 200 from the send route and receives 500 send_failed, signature accounting request conflicts with another transaction; log /out/logs/verify-2.log."
 assumption = "The send route holds a second reservation for an operation the sign route already reserved."
 severity = "high"
+
+[finding.22.39.318.1]
+task = "22.39.318"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_39_318.rs"
+symbol = "repair_22_39_318.rs"
+observed = "Attempt 1 at 34cfa7c2917f on base ddcf9ecff380: build exit 0 at 34cfa7c2917f (log /out/logs/build-3.log); the only verification, at e1fcc0bd8531, exits 1 with 22 passed and 1 failed: current_receipt_without_time_uses_only_a_verified_header_at_its_height panics at tests/support/mod.rs:819; log /out/logs/verify-1.log."
+assumption = "The fixture expiry was corrected after the only verification and the allowed runs were used."
+severity = "high"

@@ -12226,6 +12226,12 @@ value = "The case at test/attestor.test.ts:1236 states the contract: after a sig
 basis = "Gotcha 4107, decisions 3046 and 3183."
 affects = ["22.39.290"]
 
+[decision.3186]
+title = "A tree whose last repair was built but could not be verified within the allowed runs is requalified unchanged"
+value = "When the only red case of the last verification is a fixture value the attempt then corrected, and the build of the final revision passed, the next attempt changes nothing: it rebases on main, builds once and verifies once. For 22.39.318 that is the expiry of the budget record in the header time case of tests/repair_22_39_318.rs; when the case is still red at the final revision the attempt repairs the fixture within its one cycle and does not change the selection by block time."
+basis = "Gotcha 4108, decision 3171."
+affects = ["22.39.318"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -193251,6 +193257,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 4108, decision 3186): the attempt-1 tree 34cfa7c2917f stands (the selection of the receipts of a period by block time in human_runtime.rs, budget/reconcile.rs and budget/divergence.rs, the header time source, the 23 cases of tests/repair_22_39_318.rs, the suites brought to millisecond bounds, the record). 22 cases passed at e1fcc0bd8531 and the fixture expiry of the remaining case was corrected afterwards; the final revision was built but not verified. Rebase on main, change nothing of the tree, and run the build once and the verification once at the final revision."
 
 [task.22.39.312]
 title = "Repair the retained settlement cases of the agent daemon refused at the witness binding"
