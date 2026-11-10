@@ -223956,7 +223956,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.327]
 title = "Move the height query cases of the base application suite to the store that serves versioned state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -223986,7 +223986,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.325]
 title = "Repair the optical callback, collection, fee right and treasury surface cases of the launchpad precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.315"]
