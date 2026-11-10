@@ -225581,7 +225581,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1695.1]
 title = "Issue #1695: Wire indexer status to canonical progress and authorized durable operations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.162"]
