@@ -40178,3 +40178,51 @@ symbol = "Makefile.inc"
 observed = "Attempt 2 at 7c86fa9f9cd7 on base 9947d89636be: the build exits 0; verification 1 exits 1 at 7c86fa9f9cd7, the verification command passes and the completion check reports symbol platform-verify-sdks not defined in the graph; log /out/logs/verify-1.log."
 assumption = "The symbols list of the task named a recipe target that the code graph does not index."
 severity = "high"
+
+[finding.22.39.227.5]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 5 at 8292a93a5eef on base 85a5a12b6acf: the build exits 0; verification 1 exits 1 at 8292a93a5eef in the targets program_balances_eth_call, program_chain_head, inference_deals and inference_laps, every diagnostic in a file included by path; log /out/logs/verify-1.log."
+assumption = "The remaining diagnostics sit in files outside the paths of the task that its targets include by path."
+severity = "high"
+
+[finding.17.4.6.8]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 13 at ad0093b16a14 on base 35e355459080: the build exits 0; verification 1 exits 1 at ad0093b16a14 with all 50 row commands at exit 0 and the assertion of test_parity_run.py:104 failed, TestAuthResultByIdempotency selected and not executed; log /out/logs/verify-1.log."
+assumption = "Four selectors of the inventory name cases that were retired, renamed or divided on main."
+severity = "high"
+
+[finding.22.39.95.12]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 13 at bef566e6c816 on base d1a7d785eead: both builds exit 0; verification 2 exits 1 at bef566e6c816 with 1281 cases passed and five failed in two files of the web suite, the mobile suite not reached; log /out/logs/verify-2.log."
+assumption = "The web consumer accepted only the price source of the chart service, and the joined cases reach the development candle path of the API."
+severity = "high"
+
+[finding.22.38.36.1]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 1 at 44a85acfb957 on base 182bef7b8e50: the build exits 1 at 44a85acfb957 with agent operation envelope refused: declared daemon build artifact missing at tools/qualification/paxeer-x/inference_market_room.py:392; no verification ran; log /out/logs/build-1.log."
+assumption = "The build command of the task built the library package, which has no executable target."
+severity = "high"
+
+[finding.22.38.19.1]
+task = "22.38.19"
+file = "services/agent/crates/layerx-agentd/tests/inference_canary.rs"
+symbol = "inference_canary.rs"
+observed = "Attempt 1 at e98b4b42ccdb on base 182bef7b8e50: the build, the dependents check and the verification exit 0 at e98b4b42ccdb; the merge onto main stops with a content conflict in services/agent/crates/layerx-agentd/src/main.rs; log /out/logs/verify-1.log."
+assumption = "The base of the attempt was cut before task 22.38.21 reached main, and both tasks change the closure of the completion listener."
+severity = "high"
+
+[finding.17.5.7.17]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 17 at 2f4ba76f0aa9 on base 87d663ebae97: the build exits 0 and the verification exits 1; make platform-sdk-check exits 1 at services/platform/Makefile.inc:233 with unclassified file in generated go root: sdk/platform/go/repair_22_39_341.kvx; log /out/logs/verify-1.log."
+assumption = "Records of done tasks sit under output roots of the pipeline lock without a declaration, and the lock is outside the paths of the gate task."
+severity = "high"

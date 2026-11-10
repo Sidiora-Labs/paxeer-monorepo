@@ -5,9 +5,11 @@ import {
   MAX_SIGNAL_FRAME_BYTES,
   signalBytes,
   signalHex,
+  validateSignalFrame,
 } from "./signal.mjs";
 import { signHello } from "./identity.mjs";
 import { dealDigest } from "./deal.mjs";
+import { lapCountersignDigest } from "./laps.mjs";
 
 function emit(target, type, detail) {
   target.dispatchEvent(new CustomEvent(type, { detail }));
@@ -27,6 +29,7 @@ export class SignalClient extends EventTarget {
   #state = "idle";
   #deal;
   #digest;
+  #lap;
 
   constructor(
     url,
@@ -156,6 +159,7 @@ export class SignalClient extends EventTarget {
       if (signalHex(frame.deal.room_id) !== this.roomId)
         throw new Error("Wrong signalling room");
       this.#deal = structuredClone(frame.deal);
+      this.#lap = undefined;
       this.#digest = Array.from(await dealDigest(this.#deal));
       if (this.#state === "closed") return;
       this.#state = "dealt";
@@ -166,7 +170,20 @@ export class SignalClient extends EventTarget {
       )
         throw new Error("No acknowledged deal matches deal_live");
       this.#state = "ready";
-    } else if (frame.type === "offer") throw new Error("Duplicate room offer");
+    } else if (frame.type === "lap_receipt") {
+      if (
+        this.#state !== "ready" ||
+        signalHex(frame.lap.deal_digest) !== signalHex(this.#digest) ||
+        signalHex(frame.lap.receipt.deal_id) !== signalHex(this.#deal.deal_id)
+      )
+        throw new Error("No live deal matches lap_receipt");
+      this.#lap = {
+        index: BigInt(frame.lap.receipt.lap_index),
+        digest: signalHex(await lapCountersignDigest(frame.lap)),
+      };
+      if (this.#state === "closed") return;
+    } else if (frame.type === "offer")
+      throw new Error("Duplicate room offer");
     else if (
       !["description", "candidate"].includes(frame.type) ||
       !["offered", "dealt", "acknowledged", "ready"].includes(this.#state)
@@ -184,6 +201,19 @@ export class SignalClient extends EventTarget {
       throw new Error("Acknowledgement digest differs from deal");
     this.#write(ack);
     this.#state = "acknowledged";
+  }
+  countersignLap(ack) {
+    validateSignalFrame(ack, "client");
+    if (
+      ack.type !== "lap_countersign" ||
+      this.#state !== "ready" ||
+      !this.#lap ||
+      signalHex(ack.deal_id) !== signalHex(this.#deal.deal_id) ||
+      BigInt(ack.lap_index) !== this.#lap.index ||
+      signalHex(ack.digest) !== this.#lap.digest
+    )
+      throw new Error("No matching lap to countersign");
+    this.#write(ack);
   }
   relay(to, relay) {
     if (!["offered", "dealt", "acknowledged", "ready"].includes(this.#state))
@@ -237,7 +267,10 @@ function validateRelay(relay) {
     requireText(relay.description.sdp, "SDP");
   } else if (relay.candidate && !relay.description) {
     requireText(relay.candidate.candidate, "ICE candidate");
-    if (relay.candidate.sdpMid !== null && relay.candidate.sdpMid !== undefined)
+    if (
+      relay.candidate.sdpMid !== null &&
+      relay.candidate.sdpMid !== undefined
+    )
       requireText(relay.candidate.sdpMid, "ICE mid");
   } else throw new TypeError("Relay must carry one description or candidate");
 }
@@ -353,7 +386,9 @@ export class PeerMesh extends EventTarget {
         if (this.mode === "native") peer.pc.setLocalDescription("offer");
         else {
           await peer.pc.setLocalDescription(await peer.pc.createOffer());
-          this.#relay(peer, { description: peer.pc.localDescription.toJSON() });
+          this.#relay(peer, {
+            description: peer.pc.localDescription.toJSON(),
+          });
         }
       }
     } catch (error) {
@@ -400,7 +435,8 @@ export class PeerMesh extends EventTarget {
         this.#relay(peer, { description: { sdp, type } }),
       );
       pc.onLocalCandidate((candidate, sdpMid) => {
-        if (candidate) this.#relay(peer, { candidate: { candidate, sdpMid } });
+        if (candidate)
+          this.#relay(peer, { candidate: { candidate, sdpMid } });
       });
       pc.onDataChannel(attach);
       pc.onStateChange(stateChanged);
@@ -441,7 +477,9 @@ export class PeerMesh extends EventTarget {
         if (this.mode === "native") peer.pc.setLocalDescription("answer");
         else {
           await peer.pc.setLocalDescription(await peer.pc.createAnswer());
-          this.#relay(peer, { description: peer.pc.localDescription.toJSON() });
+          this.#relay(peer, {
+            description: peer.pc.localDescription.toJSON(),
+          });
         }
       }
     } else if (!peer.remote) {
@@ -546,7 +584,9 @@ export class PeerMesh extends EventTarget {
       sequence: peer.sequence,
       payload,
     });
-    const buffered = native ? channel.bufferedAmount() : channel.bufferedAmount;
+    const buffered = native
+      ? channel.bufferedAmount()
+      : channel.bufferedAmount;
     if (buffered + frame.byteLength > MAX_FRAME_BYTES * 4)
       throw new Error("Mesh backpressure limit reached");
     if (native) {

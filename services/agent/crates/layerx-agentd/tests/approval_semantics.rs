@@ -327,14 +327,17 @@ fn changed_disclosure_cannot_reuse_a_durable_approval_decision() {
     let registry = ApprovalRegistry::default();
     let limiter = limiter();
     let held = prepared(23, 500);
-    hold(&registry, context(23), held.clone(), 10, 40).unwrap();
-    let expiry = ApprovalExpiry::open(directory.path()).unwrap();
+    assert_ok(
+        hold(&registry, context(23), held.clone(), 10, 40),
+        "unexpected error",
+    );
+    let expiry = assert_ok(ApprovalExpiry::open(directory.path()), "unexpected error");
     let service = ApprovalService::new(&registry, &limiter, &expiry);
     let mut changed = held;
     changed.disclosure.expiry = TimestampSeconds(501);
     let queue = ApprovalSubmissionQueue::default();
-    let decision = service
-        .approve(
+    let decision = assert_ok(
+        service.approve(
             DecisionRequest {
                 tenant: &tenant(),
                 approval_id: [23; 32],
@@ -345,14 +348,24 @@ fn changed_disclosure_cannot_reuse_a_durable_approval_decision() {
             },
             &changed,
             &queue,
-        )
-        .unwrap();
+        ),
+        "unexpected error",
+    );
     assert_eq!(decision.outcome, ApprovalOutcome::Defective);
     assert!(queue.is_empty());
     drop(expiry);
-    let reopened = ApprovalExpiry::open(directory.path()).unwrap();
-    let recovered = reopened
-        .recover(&tenant(), [23; 32], 40, 12, &limiter)
-        .unwrap();
+    let reopened = assert_ok(ApprovalExpiry::open(directory.path()), "unexpected error");
+    let recovered = assert_ok(
+        reopened.recover(&tenant(), [23; 32], 40, 12, &limiter),
+        "unexpected error",
+    );
     assert_eq!(recovered.outcome, ApprovalOutcome::Defective);
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
 }
