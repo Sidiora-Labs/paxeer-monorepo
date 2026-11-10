@@ -756,6 +756,20 @@
       "citation": "Decision 3125 retains the frozen launchpad chain catalogue Treasury fee accounting signature and selector, which are independent of the retired exchange intent store."
     },
     {
+      "path": "sdk/wallet/src/endpoint.ts",
+      "lines": [
+        "'EndpointClient: hostedUrl required for hosted px_ reads'"
+      ],
+      "citation": "Decision 3173 retains the hosted px_ diagnostic pinned by tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract; the hosted client is used only for registration and funding."
+    },
+    {
+      "path": "services/wallet/demo/README.md",
+      "lines": [
+        "**Read availability and plan intent** is a planning action, separate from sending a transaction. It checks kernel availability before calling `HumanClient.planIntent()` (`POST /v1/intents/plan`) and displays the plan, an unavailable state or an error. It does not submit or execute a plan. In the current tree, the panel constructs `EndpointClient` with only `url`, while `getNetwork()` requires `hostedUrl` for `px_getNetwork`. Consequently this button reports `EndpointClient: hostedUrl required for hosted px_ reads` before reaching the planner. The demo exposes no environment variable to supply that missing option. Hosted `px_` methods belong to the [hosted gateway contract](../../../services/platform/hosted/gateway/openrpc.json), rather than the public node API."
+      ],
+      "citation": "Decision 3173 retains the historical px_getNetwork and hosted px_ planning paragraph pinned by tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract, followed by the current node-routing guidance."
+    },
+    {
       "path": "contracts/launchpad/contracts/core/SidioraFactory.sol",
       "symbols": [
         "recordDeposit"
