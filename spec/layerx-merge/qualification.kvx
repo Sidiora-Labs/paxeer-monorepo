@@ -39546,3 +39546,67 @@ symbol = "inference_enrol.rs"
 observed = "Attempt 3 at e5691f8e3e04: build exit 0; verification exit 101: six cases pass and bond_lock_precedes_bid_at_the_configured_quote panics at tests/inference_enrol.rs:39 with ProgramRefused for LockBond, code 14, WRONG_ROSTER; log /out/logs/verify-2.log."
 assumption = "The case signs the room and bond operations with the roster digest of another family."
 severity = "high"
+
+[finding.17.5.7.11]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 11 at 0305e69f47bc on base 867c134a0d2c: build exit 0; verification exit 1 inside make platform-install-local-artifacts: mvn install of sdk/platform/jvm/pom.xml ends with Tests run 122, Failures 9, Errors 3; log /out/logs/verify-1.log."
+assumption = "The red JVM cases are red on main and belong to a repair task of their own."
+severity = "high"
+
+[finding.18.1724.1.12]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 12 at 18a20b1011ef on base 867c134a0d2c: build exit 0; verification exit 101: TestCurrentReceiptRestartFixture passes; tests/outbox_recover.rs 2 passed, 2 failed: legacy_receipt_evidence_is_refused_after_restart panics at :134 and startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence at :265 with receipt_consumed 0; log /out/logs/verify-1.log."
+assumption = "The startup case is right and the daemon selection is wrong; the legacy case asserts a former producer answer."
+severity = "high"
+
+[finding.22.39.168.8]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 8 at a1b1b7fd609a on base 7c02f42054af: build exit 0; verification exit 1: TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers fails at public_http_test.go:367 with relation indexer.indexer_accounting_fills_v1 does not exist, SQLSTATE 42P01; ten modules did not run; log /out/logs/verify-1.log."
+assumption = "The case needs data that no producer emits, so it is a configured case with its own variable."
+severity = "high"
+
+[finding.22.39.290.4]
+task = "22.39.290"
+file = "services/wallet/gateway/test"
+symbol = "test"
+observed = "Attempt 4 at 96730306a637 on base 7c02f42054af: builds 1 and 2 exit 1, build 3 exit 0; verification exit 1: Test Files 7 failed, 53 passed, 9 skipped; Tests 11 failed, 400 passed, 24 skipped; log /out/logs/verify-1.log."
+assumption = "The remaining cases share five causes in the test doubles and one route count."
+severity = "high"
+
+[finding.22.39.273.3]
+task = "22.39.273"
+file = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+symbol = "px_node_root_contracts.json"
+observed = "Attempt 3 at a30989fbfa38 on base 2ce65ef1b65c: build exit 0; verification exit 1 after 2917 seconds: 130 failed, 4092 passed, 13 skipped in 102 files of tools/qualification; log /out/logs/verify-1.log."
+assumption = "Most red cases pin text that other repairs rewrote; one cause is a missing chain_id in a test builder."
+severity = "high"
+
+[finding.22.39.249.3]
+task = "22.39.249"
+file = "modules/layerxgov/types/proposal.go"
+symbol = "proposal.go"
+observed = "Attempt 3 at de8890871068 on base 7de3a9051436: build exit 0; verification exit 1: red cases in modules/launchpad/keeper, modules/launchpad/types, modules/evm, modules/evm/keeper, modules/xweb, modules/xweb/keeper, modules/xweb/types, precompiles/layerxauth, precompiles/addr, precompiles/launchpad, layerxproof/codec and layerxproof/verify; log /out/logs/verify-1.log."
+assumption = "The tree changes comments only, so the red cases are red at the base."
+severity = "high"
+
+[finding.22.33.223.24]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 25 at 5908031f6129, verified at daccdd2f0690 on base cde7fc002f23: builds exit 0; verification exit 101: 33 of 34 cases pass; roster_state_fuel_scaling panics at tests/fuel_budget.rs:3510 with 16/4 chunk must cost at least its read-only baseline; log /out/logs/verify-2.log."
+assumption = "The baseline subtraction cannot hold because a read costs more than a chunk."
+severity = "high"
+
+[finding.22.39.311.2]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 2 at 64baba1d8d8f, gates at a4075b8c0adc on base f738d3da0346: build exit 0; verification exit 1 with cargo exit 101: the subject coordinate case passes and the TLS case panics at services/platform/hosted/internal/src/producer_test_support.rs:248 because redis-server is absent; log /out/logs/verify-1.log."
+assumption = "The tree is right; the binary the case starts was missing from the environment."
+severity = "high"
