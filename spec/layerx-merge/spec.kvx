@@ -416446,7 +416446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.308]
 title = "Restore the explorer receipt verification cases against the governed key guard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
