@@ -9,8 +9,9 @@ use serde_json::json;
 fn sdk_bootstrap_operations_carry_owner_credential_to_daemon_decode() {
     let token_id = [0xab; 32];
     let credential = EnvelopeCredential::new("tenant-a", [0xcd; 32], token_id, 7)
-        .expect("valid owner session credential");
-    let key = Key::new([0x12; 32]).expect("valid idempotency key");
+        .unwrap_or_else(|error| panic!("valid owner session credential: {error:?}"));
+    let key =
+        Key::new([0x12; 32]).unwrap_or_else(|error| panic!("valid idempotency key: {error:?}"));
     let request = json!({});
 
     for operation in [Operation::AgentRegister, Operation::SessionOpen] {
@@ -21,15 +22,19 @@ fn sdk_bootstrap_operations_carry_owner_credential_to_daemon_decode() {
             Some(&credential),
             Some(key),
         )
-        .expect("bootstrap operation carries the owner session credential");
-        let encoded = serde_json::to_vec(&body).expect("serialize SDK envelope");
-        let decoded = decode(&encoded).expect("daemon accepts the SDK envelope");
+        .unwrap_or_else(|error| {
+            panic!("bootstrap operation carries the owner session credential: {error:?}")
+        });
+        let encoded = serde_json::to_vec(&body)
+            .unwrap_or_else(|error| panic!("serialize SDK envelope: {error:?}"));
+        let decoded = decode(&encoded)
+            .unwrap_or_else(|error| panic!("daemon accepts the SDK envelope: {error:?}"));
         assert_eq!(decoded.operation, operation);
         assert_eq!(decoded.request_id, RequestId(42));
         assert_eq!(decoded.idempotency_key, Some(key.bytes()));
         let owner = decoded
             .credential
-            .expect("owner session credential is present");
+            .unwrap_or_else(|| panic!("owner session credential is present"));
         assert_eq!(owner.tenant().as_str(), credential.tenant());
         assert_eq!(owner.session_id().0, credential.session_id());
         assert_eq!(owner.token_id(), token_id);

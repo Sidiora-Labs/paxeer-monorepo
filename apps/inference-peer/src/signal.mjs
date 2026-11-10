@@ -7,6 +7,7 @@ const CLIENT_TYPES = new Set([
   "candidate",
   "deal_ack",
   "lap_countersign",
+  "canary_answer",
 ]);
 const SERVER_TYPES = new Set([
   "challenge",
@@ -16,6 +17,7 @@ const SERVER_TYPES = new Set([
   "deal",
   "deal_live",
   "lap_receipt",
+  "canary_request",
   "error",
 ]);
 const ERROR_CODES = new Set([
@@ -51,9 +53,13 @@ function bytes(value, length) {
   if (
     !Array.isArray(value) ||
     (length !== undefined && value.length !== length) ||
-    !Array.from(value).every((n) => Number.isInteger(n) && n >= 0 && n <= 255)
+    !Array.from(value).every(
+      (n) => Number.isInteger(n) && n >= 0 && n <= 255,
+    )
   )
-    throw new TypeError(`Expected ${length ?? "variable-length"} byte array`);
+    throw new TypeError(
+      `Expected ${length ?? "variable-length"} byte array`,
+    );
 }
 function uint(value, bits) {
   if (
@@ -76,7 +82,8 @@ function price(value) {
     throw new TypeError("Invalid canonical u128 price");
 }
 function list(value, validate) {
-  if (!Array.isArray(value)) throw new TypeError("Expected signalling list");
+  if (!Array.isArray(value))
+    throw new TypeError("Expected signalling list");
   value.forEach(validate);
 }
 function description(value) {
@@ -111,7 +118,12 @@ function offer(value) {
   price(value.price);
 }
 function plan(value) {
-  object(value, ["embedding_host", "head_host", "layer_count", "layers"]);
+  object(value, [
+    "embedding_host",
+    "head_host",
+    "layer_count",
+    "layers",
+  ]);
   bytes(value.embedding_host, 32);
   bytes(value.head_host, 32);
   uint(value.layer_count, 16);
@@ -124,7 +136,12 @@ function plan(value) {
       "first_layer",
       "end_layer",
     ]);
-    for (const key of ["peer_key", "owner", "bid_id", "manifest_digest"])
+    for (const key of [
+      "peer_key",
+      "owner",
+      "bid_id",
+      "manifest_digest",
+    ])
       bytes(split[key], 32);
     uint(split.first_layer, 16);
     uint(split.end_layer, 16);
@@ -142,7 +159,14 @@ function deal(value) {
     "ask_id",
     "roster_digest",
   ];
-  object(value, [...digests, "epoch", "config", "round", "price", "plan"]);
+  object(value, [
+    ...digests,
+    "epoch",
+    "config",
+    "round",
+    "price",
+    "plan",
+  ]);
   for (const key of digests) bytes(value[key], 32);
   for (const key of ["epoch", "config", "round"]) uint(value[key], 64);
   price(value.price);
@@ -150,7 +174,12 @@ function deal(value) {
 }
 
 function lap(value) {
-  object(value, ["deal_digest", "host_meter_key", "deadline_ms", "receipt"]);
+  object(value, [
+    "deal_digest",
+    "host_meter_key",
+    "deadline_ms",
+    "receipt",
+  ]);
   bytes(value.deal_digest, 32);
   bytes(value.host_meter_key, 32);
   uint(value.deadline_ms, 64);
@@ -181,6 +210,60 @@ export function validateLapReceipt(receipt) {
   return receipt;
 }
 
+// The host carries this payload in the plan member of canary_request.
+export function validateCanaryPlan(plan) {
+  const fields = [
+    "deal_id",
+    "lap_index",
+    "generated_tokens",
+    "position",
+    "prompt_tokens",
+    "peer_key",
+    "answer_context",
+  ];
+  if (
+    !plan ||
+    typeof plan !== "object" ||
+    Array.isArray(plan) ||
+    Object.keys(plan).length !== fields.length ||
+    fields.some((field) => !Object.hasOwn(plan, field))
+  )
+    throw new TypeError("Invalid host CanaryPlan members");
+  bytes(plan.deal_id, 32);
+  uint(plan.lap_index, 64);
+  uint(plan.generated_tokens, 64);
+  const count = BigInt(plan.generated_tokens);
+  if (
+    count === 0n ||
+    !Array.isArray(plan.prompt_tokens) ||
+    plan.prompt_tokens.length > 4096 ||
+    !Array.from(plan.prompt_tokens).every(
+      (token) =>
+        Number.isInteger(token) && token >= 0 && token <= 0xffffffff,
+    )
+  )
+    throw new TypeError("Invalid canary prompt or token count");
+  if (plan.position === null) {
+    if (
+      plan.peer_key !== null ||
+      plan.prompt_tokens.length !== 0 ||
+      !Array.isArray(plan.answer_context) ||
+      plan.answer_context.length !== 0
+    )
+      throw new TypeError("Invalid unselected canary plan");
+  } else {
+    uint(plan.position, 64);
+    if (
+      BigInt(plan.position) >= count ||
+      plan.prompt_tokens.length === 0
+    )
+      throw new RangeError("Invalid canary position");
+    bytes(plan.peer_key, 32);
+    bytes(plan.answer_context, 248);
+  }
+  return plan;
+}
+
 export function validateSignalFrame(frame, direction = "server") {
   const types =
     direction === "client"
@@ -189,7 +272,8 @@ export function validateSignalFrame(frame, direction = "server") {
         ? SERVER_TYPES
         : null;
   if (!types) throw new TypeError("Unknown signalling direction");
-  if (!types.has(frame?.type)) throw new TypeError("Unknown signalling type");
+  if (!types.has(frame?.type))
+    throw new TypeError("Unknown signalling type");
   switch (frame.type) {
     case "hello":
       object(frame, [
@@ -241,11 +325,46 @@ export function validateSignalFrame(frame, direction = "server") {
       lap(frame.lap);
       break;
     case "lap_countersign":
-      object(frame, ["type", "deal_id", "lap_index", "digest", "signature"]);
+      object(frame, [
+        "type",
+        "deal_id",
+        "lap_index",
+        "digest",
+        "signature",
+      ]);
       bytes(frame.deal_id, 32);
       uint(frame.lap_index, 64);
       bytes(frame.digest, 32);
       bytes(frame.signature, 64);
+      break;
+    case "canary_request":
+      object(frame, ["type", "plan"]);
+      validateCanaryPlan(frame.plan);
+      break;
+    case "canary_answer":
+      object(frame, ["type", "answer"]);
+      object(frame.answer, [
+        "deal_id",
+        "lap_index",
+        "logits",
+        "signature",
+      ]);
+      bytes(frame.answer.deal_id, 32);
+      uint(frame.answer.lap_index, 64);
+      if (
+        !Array.isArray(frame.answer.logits) ||
+        frame.answer.logits.length !== 8
+      )
+        throw new TypeError("Expected eight canary i32 logits");
+      list(Array.from(frame.answer.logits), (value) => {
+        if (
+          !Number.isInteger(value) ||
+          value < -2147483648 ||
+          value > 2147483647
+        )
+          throw new RangeError("Expected canary i32 logit");
+      });
+      bytes(frame.answer.signature, 64);
       break;
     case "error":
       object(frame, ["type", "code"]);
@@ -299,7 +418,8 @@ export function signalBytes(value, length = 32) {
     new RegExp(`^[0-9a-f]{${length * 2}}$`).test(value)
   )
     return Array.from(value.match(/../g), (byte) => parseInt(byte, 16));
-  const result = value instanceof Uint8Array ? Array.from(value) : value;
+  const result =
+    value instanceof Uint8Array ? Array.from(value) : value;
   bytes(result, length);
   return result.slice();
 }

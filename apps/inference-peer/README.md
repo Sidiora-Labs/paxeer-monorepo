@@ -73,9 +73,38 @@ price. It serves no model download URL or host peer key. Configure the model
 manifest locally with `--model-manifest-url` (or `modelSource.manifest_url` in
 `DealClient`), and supply the existing chain-checked `--deal` and `--host-key`
 inputs for CLI execution. Missing model-source configuration fails explicitly;
-it is never added to the signalling offer. The CLI's existing HTTP enrolment
-and attestation routes are separate services, not routes of the signalling
-listener. The repair record documents these external requirements.
+it is never added to the signalling offer.
+
+The signalling listener also serves `POST /enrol_peer`. To enrol before joining,
+run `inference-peer join <host> <room> --manifest <v2-file> --enrolment <signed-json-file>`.
+Without `--enrolment`, join sends no enrolment request; the hello still undergoes
+chain admission. `--attestation` checks the PXVE binding locally before either
+request. There is no `bind_peer` request or host attestation-binding operation.
+
+The enrolment file is one JSON object containing hex `manifest_v1` and
+`manifest_v2`, signed EIP-1559 transactions `enroll`, `accept`, `publish`,
+`lock_bond` and `post_bid`, and numeric block-height `expiry`. Each transaction
+must bind the configured chain, program and market; both manifests must match
+the configured model and runtime. The host relays the five records in that order
+through its enrolment journal and receipt verifier, signing nothing for the peer.
+The request requires Content-Length and application/json and is limited to
+262144 bytes, checked before reading the body.
+
+`await identity.enrolPeer(enrolUrl, { document, headers })` sends the document
+unchanged when supplied as text or UTF-8 bytes, or JSON-encodes an object. It
+returns `{ enrolled: true, manifest_digest, acceptance, bond_lock, bid }` with
+hex digests and authenticated transaction IDs. Refusals preserve HTTP status and
+JSON reason: framing/JSON errors use 400, a missing length 411, an oversized body
+413, a non-JSON content type 415, invalid documents 422, program refusals 409,
+relay failures 502, and missing host enrolment settings or unavailable chain
+state 503. `test/fixtures/host-enrol-route.json` is shared by host and peer tests.
+
+The host enables relaying with its existing enrolment settings, including
+`LAYERX_AGENT_INFERENCE_ENROLMENT` and `LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL`;
+without them the route refuses with `enrolment_not_configured`. Preparing the
+signed document for a peer owner remains open: the CLI does not construct,
+authorise or sign these market transactions. An owner must obtain the correct
+proposal, peer consent/publication and quote records for current chain state.
 
 `test/fixtures/host-signal-frames.json` contains all eleven directional signalling
 vectors, a public deterministic test seed/key, and the exact hello and deal

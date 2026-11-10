@@ -1,3 +1,8 @@
+pub mod canary {
+    include!("canary.rs");
+}
+use canary::{CanaryAnswer, CanaryPlan, CanarySessions};
+
 use super::*;
 use layerx_client::ai_market::inference_market::{HostMeterKey, MarketOperation};
 use market::{
@@ -827,6 +832,7 @@ pub type LapSessions = Arc<Mutex<BTreeMap<[u8; 32], LapEngine>>>;
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LapAcknowledgement {
     LapCountersign(LapCountersignature),
+    CanaryAnswer { answer: CanaryAnswer },
 }
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -838,11 +844,13 @@ enum LapClientFrame {
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LapServerFrame {
     LapReceipt { lap: LapFrame },
+    CanaryRequest { plan: CanaryPlan },
 }
 
 pub struct LapSignalListener {
     listener: DealSignalListener,
     pub laps: LapSessions,
+    canaries: CanarySessions,
 }
 impl LapSignalListener {
     pub fn start(
@@ -852,6 +860,7 @@ impl LapSignalListener {
         engine: Arc<Mutex<DealEngine>>,
         clock: fn() -> Result<u64, String>,
         laps: LapSessions,
+        canaries: CanarySessions,
     ) -> Result<Self, String> {
         offer
             .digest()
@@ -867,6 +876,7 @@ impl LapSignalListener {
         let worker_shared = Arc::clone(&shared);
         let worker_engine = Arc::clone(&engine);
         let worker_laps = Arc::clone(&laps);
+        let worker_canaries = Arc::clone(&canaries);
         let worker = thread::Builder::new().name("inference-deals-signal".to_owned()).spawn(move || {
             let next = AtomicU64::new(1);
             let mut workers: Vec<JoinHandle<()>> = Vec::new();
@@ -895,8 +905,9 @@ impl LapSignalListener {
                             let authority = authority.clone();
                             let engine = Arc::clone(&worker_engine);
                             let laps = Arc::clone(&worker_laps);
+                            let canaries = Arc::clone(&worker_canaries);
                             workers.push(thread::Builder::new().name("inference-deals-peer".to_owned()).spawn(move || {
-                                let _ = serve_lap_connection(&mut stream, &offer, &authority, &connection, &engine, clock, &laps);
+                                let _ = serve_lap_connection(&mut stream, &offer, &authority, &connection, &engine, clock, (&laps, &canaries));
                             }).map_err(|error| error.to_string())?);
                         }
                         Err(error) if error.kind() == io::ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(5)),
@@ -911,6 +922,7 @@ impl LapSignalListener {
         }).map_err(|error| error.to_string())?;
         Ok(Self {
             laps,
+            canaries,
             listener: DealSignalListener {
                 signal: SignalListener {
                     #[cfg(test)]
@@ -924,6 +936,12 @@ impl LapSignalListener {
                 live_announced: BTreeSet::new(),
             },
         })
+    }
+    pub fn canary_channel(&self) -> CanaryChannel {
+        CanaryChannel {
+            connections: Arc::clone(&self.listener.signal.shared),
+            canaries: Arc::clone(&self.canaries),
+        }
     }
     pub fn check(&self) -> Result<(), String> {
         self.listener.check()
@@ -1069,6 +1087,145 @@ impl LapSignalListener {
     }
 }
 
+pub struct CanaryChannel {
+    connections: Arc<Mutex<Connections>>,
+    canaries: CanarySessions,
+}
+impl CanaryChannel {
+    pub fn request_answer(
+        &self,
+        deal: [u8; 32],
+        lap: u64,
+        bound: Duration,
+    ) -> Result<(), LapError> {
+        let engine = {
+            let canaries = self
+                .canaries
+                .lock()
+                .map_err(|_| LapError::Invalid("canary engine unavailable"))?;
+            canaries.as_ref().map(|runtime| Arc::clone(&runtime.engine))
+        };
+        let Some(engine) = engine else {
+            return Ok(());
+        };
+        let plan = engine
+            .pending_request(deal, lap)
+            .map_err(|_| LapError::Invalid("canary plan unavailable"))?;
+        let Some(plan) = plan else {
+            return Ok(());
+        };
+        let writer = {
+            let connections = self
+                .connections
+                .lock()
+                .map_err(|_| LapError::Invalid("connections unavailable"))?;
+            plan.peer_key
+                .and_then(|peer| connections.peers.get(&peer))
+                .map(|peer| Arc::clone(&peer.writer))
+        };
+        let Some(writer) = writer else {
+            return Ok(());
+        };
+        let bytes = serde_json::to_vec(&LapServerFrame::CanaryRequest { plan })
+            .map_err(|_| LapError::Invalid("canary signal encoding"))?;
+        if bytes.len() > MAX_FRAME_BYTES {
+            return Err(LapError::Invalid("canary frame too large"));
+        }
+        {
+            let mut writer = writer
+                .lock()
+                .map_err(|_| LapError::Invalid("peer unavailable"))?;
+            write_frame(&mut writer, 1, &bytes)?;
+        }
+        let started = std::time::Instant::now();
+        loop {
+            if engine
+                .pending_request(deal, lap)
+                .map_err(|_| LapError::Invalid("canary plan unavailable"))?
+                .is_none()
+            {
+                return Ok(());
+            }
+            let remaining = bound.saturating_sub(started.elapsed());
+            if remaining.is_zero() {
+                return Ok(());
+            }
+            thread::sleep(remaining.min(Duration::from_millis(5)));
+        }
+    }
+}
+fn accept_canary_answer(
+    canaries: &CanarySessions,
+    peer: [u8; 32],
+    answer: CanaryAnswer,
+) -> Result<(), SignalError> {
+    canaries
+        .lock()
+        .map_err(|_| SignalError::Backpressure)?
+        .as_ref()
+        .ok_or(SignalError::InvalidFrame)?
+        .engine
+        .accept_peer_answer(peer, answer)
+        .map_err(|_| SignalError::InvalidFrame)
+}
+
+pub fn issue_lap_output(
+    listener: &Arc<Mutex<LapSignalListener>>,
+    input: LapInput,
+    now_ms: u64,
+    host: &HostMeterKey,
+    bound: Duration,
+) -> Result<LapFrame, LapError> {
+    let channel = listener
+        .lock()
+        .map_err(|_| LapError::Invalid("lap listener unavailable"))?
+        .canary_channel();
+    channel.request_answer(input.deal_id, input.lap_index, bound)?;
+    channel.issue_output(input, |input| {
+        listener
+            .lock()
+            .map_err(|_| LapError::Invalid("lap listener unavailable"))?
+            .issue_lap(input, now_ms, host)
+    })
+}
+impl CanaryChannel {
+    pub fn issue_output(
+        &self,
+        input: LapInput,
+        issue: impl FnOnce(LapInput) -> Result<LapFrame, LapError>,
+    ) -> Result<LapFrame, LapError> {
+        let canaries = self
+            .canaries
+            .lock()
+            .map_err(|_| LapError::Invalid("canary engine unavailable"))?;
+        if let Some(runtime) = canaries.as_ref() {
+            runtime
+                .engine
+                .require_committed(
+                    &runtime.state,
+                    input.deal_id,
+                    input.lap_index,
+                    input.generated_tokens,
+                )
+                .map_err(|_| {
+                    LapError::Invalid("canary commitment must finalize before lap receipt")
+                })?;
+        }
+        let frame = issue(input)?;
+        if let Some(runtime) = canaries.as_ref() {
+            runtime
+                .engine
+                .audit_answer(
+                    &runtime.state,
+                    frame.receipt.deal_id,
+                    frame.receipt.lap_index,
+                )
+                .map_err(|_| LapError::Invalid("canary audit refused"))?;
+        }
+        Ok(frame)
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LapInput {
@@ -1086,7 +1243,7 @@ fn serve_lap_connection(
     connection: &Connection,
     engine: &Arc<Mutex<DealEngine>>,
     clock: fn() -> Result<u64, String>,
-    laps: &LapSessions,
+    sessions: (&LapSessions, &CanarySessions),
 ) -> Result<(), SignalError> {
     if !upgrade(stream, authority)? {
         return Ok(());
@@ -1143,8 +1300,9 @@ fn serve_lap_connection(
                 connection,
                 engine,
                 clock,
-                laps,
+                sessions.0,
                 &hello.peer_key,
+                sessions.1,
             )?;
         }
     })();
@@ -1172,8 +1330,12 @@ fn handle_lap_frame(
     clock: fn() -> Result<u64, String>,
     laps: &LapSessions,
     peer: &[u8; 32],
+    canaries: &CanarySessions,
 ) -> Result<(), SignalError> {
     match frame {
+        LapClientFrame::Countersign(LapAcknowledgement::CanaryAnswer { answer }) => {
+            accept_canary_answer(canaries, *peer, answer)?;
+        }
         LapClientFrame::Countersign(LapAcknowledgement::LapCountersign(ack)) => {
             let now = clock().map_err(|_| SignalError::ChainUnavailable)?;
             laps.lock()

@@ -79,56 +79,68 @@ fn legacy_hold() -> (Vec<u8>, Vec<u8>) {
     use layerx_types::ids::Did;
 
     let root = directory("migration-hold-producer");
-    let store = Arc::new(Mutex::new(Store::open(&root).expect("producer store")));
+    let store = Arc::new(Mutex::new(lint_success(
+        Store::open(&root),
+        "producer store",
+    )));
     let registry = ApprovalRegistry::with_store(Arc::clone(&store));
-    let limiter = BudgetLimiter::new(vec![LimitConfig {
-        id: LimitId([1; 16]),
-        name: "migration".to_owned(),
-        scope: LimitScope::Tenant([2; 32]),
-        ceiling: 1000,
-        consumed: 0,
-    }])
-    .expect("limiter");
-    reserve_and_hold_at(
-        &registry,
-        &limiter,
-        ApprovalContext {
-            tenant: tenant(),
-            agent: Did::new(hex::encode([4; 20]).as_bytes()).expect("actor"),
-            actor_address: [4; 20],
-            session: SessionId([2; 32]),
-            capability: CapabilityId([3; 32]),
-            policy_version: "migration".to_owned(),
-            request_id: [7; 32],
-        },
-        preparation::prepared(7, 1060),
-        &ReservationRequest {
-            id: [7; 32],
-            amount: 50,
-            expiry_sequence: 30,
-            current_sequence: 10,
-            applicable_limits: vec![LimitId([1; 16])],
-        },
-        ApprovalSequence(30),
-        TimestampSeconds(1000),
-    )
-    .expect("produced hold");
+    let limiter = lint_success(
+        BudgetLimiter::new(vec![LimitConfig {
+            id: LimitId([1; 16]),
+            name: "migration".to_owned(),
+            scope: LimitScope::Tenant([2; 32]),
+            ceiling: 1000,
+            consumed: 0,
+        }]),
+        "limiter",
+    );
+    lint_success(
+        reserve_and_hold_at(
+            &registry,
+            &limiter,
+            ApprovalContext {
+                tenant: tenant(),
+                agent: lint_success(Did::new(hex::encode([4; 20]).as_bytes()), "actor"),
+                actor_address: [4; 20],
+                session: SessionId([2; 32]),
+                capability: CapabilityId([3; 32]),
+                policy_version: "migration".to_owned(),
+                request_id: [7; 32],
+            },
+            preparation::prepared(7, 1060),
+            &ReservationRequest {
+                id: [7; 32],
+                amount: 50,
+                expiry_sequence: 30,
+                current_sequence: 10,
+                applicable_limits: vec![LimitId([1; 16])],
+            },
+            ApprovalSequence(30),
+            TimestampSeconds(1000),
+        ),
+        "produced hold",
+    );
     let mut id = b"approval-hold-v1:".to_vec();
     id.extend_from_slice(&[7; 32]);
-    let bytes = store
-        .lock()
-        .expect("store lock")
-        .get(&key(ObjectKind::PreparedActivity, &id))
-        .expect("timed hold")
-        .bytes()
-        .to_vec();
+    let bytes = lint_present(
+        lint_success(store.lock(), "store lock").get(&key(ObjectKind::PreparedActivity, &id)),
+        "timed hold",
+    )
+    .bytes()
+    .to_vec();
     assert_eq!(&bytes[..8], b"LXAPHLD5");
-    let length = u32::from_be_bytes(bytes[8..12].try_into().expect("length")) as usize;
+    let length = lint_success(
+        usize::try_from(u32::from_be_bytes(lint_success(
+            bytes[8..12].try_into(),
+            "length",
+        ))),
+        "integer fits usize",
+    );
     let legacy = bytes[12..12 + length].to_vec();
     assert_eq!(&legacy[..8], b"LXAPHLD4");
     drop(registry);
     drop(store);
-    fs::remove_dir_all(root).expect("cleanup producer");
+    lint_success(fs::remove_dir_all(root), "cleanup producer");
     (id, legacy)
 }
 
@@ -196,23 +208,22 @@ fn every_supported_prior_schema_migrates_forward_without_changing_core_bytes() {
         assert_eq!(receipt.class(), StorageClass::CoreProducedCache);
         assert_eq!(receipt.bytes(), core_receipt);
         assert_eq!(
-            store
-                .get(&key(ObjectKind::Identity, b"identity"))
-                .expect("identity")
-                .bytes(),
+            lint_present(
+                store.get(&key(ObjectKind::Identity, b"identity")),
+                "identity"
+            )
+            .bytes(),
             b"exact-core-identity"
         );
         assert_eq!(
-            store
-                .get(&key(ObjectKind::Budget, b"budget"))
-                .expect("budget")
-                .bytes(),
+            lint_present(store.get(&key(ObjectKind::Budget, b"budget")), "budget").bytes(),
             b"exact-core-budget"
         );
-        let migrated = store
-            .get(&key(ObjectKind::PreparedActivity, &hold_id))
-            .expect("migrated hold")
-            .bytes();
+        let migrated = lint_present(
+            store.get(&key(ObjectKind::PreparedActivity, &hold_id)),
+            "migrated hold",
+        )
+        .bytes();
         let mut expected = b"LXAPHLD5".to_vec();
         push_bytes(&mut expected, &legacy);
         expected.extend_from_slice(&0_u64.to_be_bytes());
@@ -402,4 +413,20 @@ fn published_compatibility_matrix_accepts_only_the_supported_complete_tuple() {
         verify(DAEMON_VERSION, &node_client, CONTRACT_VERSION, "9.0.0"),
         Err(CompatibilityError::UnsupportedSdk)
     );
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
 }
