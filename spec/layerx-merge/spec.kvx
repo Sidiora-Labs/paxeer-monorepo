@@ -12688,6 +12688,12 @@ value = "The case TestDecodeIdentitySigningKeyForms asserts that the padded URL 
 basis = "Gotcha 4191, decisions 3052, 3130 and 3183."
 affects = ["22.39.117"]
 
+[decision.3263]
+title = "The Next sample of the platform documentation builds in every install layout the repository uses"
+value = "The package @sidiora/layerx-doc-paid-route-next builds with the root install alone and with the root install followed by the own install of the agent TypeScript SDK that human-js-install performs, as decision 3227 states for the example of the integration SDK. The repair sits in the configuration of the sample; the install order of the gate, the agent SDK and the lock of the root are not changed for it. Task 22.39.366 owns the repair and task 17.5.7 follows it (decisions 3130 and 3211)."
+basis = "Gotchas 4154 and 4192, decisions 3130, 3183, 3211 and 3227."
+affects = ["22.39.366", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42348,6 +42354,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.366]
+title = "Build the Next sample of the platform documentation beside an own install of the agent SDK"
+reqs = ["22998.1"]
+touches = ["services/platform/examples/samples/paid-route-next"]
+tests = []
+verification_contract = "test -s tests/ci/repair_22_39_366.kvx && npm run build --workspace @sidiora/layerx-doc-paid-route-next && rm -rf services/agent/sdk/typescript/node_modules && npm run build --workspace @sidiora/layerx-doc-paid-route-next"
+do_1 = "do_1 Decision 3263, gotcha 4192. After make platform-js-install human-js-install the build of the package @sidiora/layerx-doc-paid-route-next (services/platform/examples/samples/paid-route-next, next build with Turbopack) fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts. Reproduce it with the build of this task. The same failure of the example of the integration SDK was repaired in sdk/integrations/next/example/next.config.mjs, and sdk/integrations/next/example/repair-22-39-352.kvx records the import path and the cause; read both."
+symbols = []
 
 [capability.22.39.365]
 title = "Accept a further deal of the room host for a matched ask"
@@ -162126,6 +162141,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.366]
+title = "Build the Next sample of the platform documentation beside an own install of the agent SDK"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.366"]
+interfaces = []
+do_1 = "do_1 Decision 3263, gotcha 4192. After make platform-js-install human-js-install the build of the package @sidiora/layerx-doc-paid-route-next (services/platform/examples/samples/paid-route-next, next build with Turbopack) fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts. Reproduce it with the build of this task. The same failure of the example of the integration SDK was repaired in sdk/integrations/next/example/next.config.mjs, and sdk/integrations/next/example/repair-22-39-352.kvx records the import path and the cause; read both."
+do_2 = "do_2 Repair the cause in services/platform/examples/samples/paid-route-next: its next.config.mjs and its package.json may change. The sample must build in both layouts: with the root install followed by the own install of the agent SDK, and with the root install alone. Do not change the Makefile, the install targets, services/agent/sdk/typescript, sdk/integrations/next or the lock of the root. Do not turn the bundler off and do not remove a page or a route of the sample. Search docs/platform, tests/ci and tools/qualification for a text or a case that quotes the configuration of the sample and record a pin with file and line; a quoted copy of the configuration inside the paths of no task is recorded and not changed. When the cause can only be repaired outside the paths, record file, line and the reason, and stop."
+do_3 = "do_3 Record in tests/ci/repair_22_39_366.kvx the cause with its files, the change and the result of the build in both layouts. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/examples/samples/paid-route-next"]
+tests = []
+planned_paths = ["tests/ci/repair_22_39_366.kvx"]
+build_cmd = "make platform-js-install human-js-install"
+verify_cmd = "test -s tests/ci/repair_22_39_366.kvx && npm run build --workspace @sidiora/layerx-doc-paid-route-next && rm -rf services/agent/sdk/typescript/node_modules && npm run build --workspace @sidiora/layerx-doc-paid-route-next"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -334498,7 +334543,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -334542,6 +334587,7 @@ do_19 = "Attempt 17 (continue after 22.39.353 and 22.39.354 land, gotchas 4159 a
 do_20 = "do_20 Decision 3238, gotcha 4166: the task now requires task 22.39.358, which leaves the probe cases of the agent operation envelope out of the ordinary run of the .NET test project and of the Go module in platform-verify-sdks. Change nothing for those two recipe lines in this task."
 do_21 = "do_21 Decisions 3246 and 3247, gotchas 4174 and 4175: the task now requires tasks 22.39.360 and 22.39.361. With the probe cases left out, the .NET test project still held four red cases over the published receipt vectors and the Go module one red case over the terminal corpus; those two tasks repair them. Change nothing for those cases in this task."
 do_22 = "Attempt 18 (continue after 22.39.363 lands, gotcha 4183, decision 3255): the attempt-17 tree 2f4ba76f0aa9 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes the Rust builds of make workspace-build and stops in make platform-sdk-check at an undeclared record under the generated Go root, which task 22.39.363 declares together with five more; the task now requires it. Rebase on main once that task is on it and change nothing under sdk/platform. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
+do_23 = "Attempt 19 (continue after 22.39.366 lands, gotcha 4192, decision 3263): the attempt-18 tree 742c81986034 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now builds the Next example of the integration SDK and stops in the same command, npm run build of platform-build-all, at the last package of the root list: the sample @sidiora/layerx-doc-paid-route-next under services/platform/examples/samples, with the same message as the example had. Its directory is outside the paths of this task and task 22.39.366 repairs it; the task now requires it. Rebase on main once that task is on it and change nothing for the sample or for the install targets. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"

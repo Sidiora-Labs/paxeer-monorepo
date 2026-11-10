@@ -40282,3 +40282,11 @@ symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
 observed = "Attempt 18 at 1f397b9aea73 on base 9ef8418ad199: the build exits 0 and the verification exits 1 at 4b8e875f2e9f, the module sdk/launchpad/shared fails in the case TestDecodeIdentitySigningKeyForms at sdk/launchpad/shared/auth/mtls_identity_client_test.go:32 with a padded value accepted, and the later modules did not run; log /out/logs/verify-1.log."
 assumption = "The case fails for a share of its random draws and is unchanged from main."
 severity = "high"
+
+[finding.17.5.7.18]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 18 at 742c81986034 on base b14b32fece51: the build exits 0 and the verification exits 1 at 742c81986034; make workspace-build exits 2 at npm run build, the package @sidiora/layerx-doc-paid-route-next fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts; log /out/logs/verify-1.log."
+assumption = "The sample directory is outside the paths of the gate task and does not build beside an own install of the agent SDK."
+severity = "high"
