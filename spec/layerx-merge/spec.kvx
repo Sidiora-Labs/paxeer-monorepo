@@ -224242,7 +224242,7 @@ do_4 = "Attempt 2 (requalify, gotcha 4101, decision 3179): the attempt-1 tree b7
 
 [task.22.39.307]
 title = "Restore the launchpad query validation text on the client paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.315"]
