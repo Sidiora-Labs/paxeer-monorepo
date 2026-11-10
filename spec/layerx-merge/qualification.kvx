@@ -39994,3 +39994,11 @@ symbol = "inference_deals.rs"
 observed = "Attempt 2 at 02a1d2a11c73 on base 167ce2a7f0cf: build 3 exits 0 at 02a1d2a11c73 (log /out/logs/build-3.log); the only verification ran at fcdbd6049e5d and exits 1 with 0 passed and 6 failed, each case stopped at tests/inference_deals.rs:1327 with application error 2061; log /out/logs/verify-1.log."
 assumption = "The final tree was built after the last allowed verification and has not been verified."
 severity = "high"
+
+[finding.22.38.13.7]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 7 at 8395325d0d07 on base 167ce2a7f0cf: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; the target fuel_budget reports 15 passed and 5 failed, f11_fuel_table at tests/fuel_budget.rs:4137 and four cases of tests/repair_22_33_260.rs, each with application error 14 at the Heartbeat of the fixture; log /out/logs/verify-1.log."
+assumption = "The fixture sends a Heartbeat where the program of the new base has captured no roster, and the cause is not yet located."
+severity = "high"

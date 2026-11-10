@@ -12460,6 +12460,12 @@ value = "When an attempt ends with a final revision that built and that no verif
 basis = "Gotchas 4151 and 4149, decisions 3183 and 3212."
 affects = ["22.38.17"]
 
+[decision.3225]
+title = "The fuel task owns the fixture file its target includes, and a defect of the guest source goes to an owner task"
+value = "The file programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs joins the paths of task 22.38.13, whose target compiles and runs it, and the verification of the task runs the own target of that file as well (decisions 3211 and 3183). A fixture that no longer meets a rule of the program is repaired in the fixture, by the operations the program admits. A cause in the source of the guest is not repaired by the task: it reports the site and the commit that introduced it and stops, and an owner task repairs it within the deployment bound (decisions 3192 and 3206). A tree that no verification has seen continues with a model session and is not requalified unchanged (decision 3224)."
+basis = "Gotcha 4152, decisions 3183, 3192, 3206, 3211 and 3224."
+affects = ["22.38.13"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -185645,11 +185651,11 @@ interfaces = []
 do_1 = "do_1 Extend tests/fuel_budget.rs with every F11 operation at its maximum payload and a full room (16 rooms, 64 asks, 128 bids, 64-lap batch) and assert each stays under 1000000 CPU fuel and within 4096 replay boundaries and 1048576 bytes."
 do_2 = "do_2 Extend tests/programs/test_ai_host_boundary.c with one native CALL per F11 operation through the built guest and assert status 0 and a present replay record; bring any operation over the cap under it through the joint-section readers."
 symbols = ["f11_fuel_table", "test_f11_host_boundary"]
-touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml"]
+touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"]
 planned_paths = []
 build_cmd = "go test -count=1 -timeout 45m ./rpc/ -run '^(TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution)$' && make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
-verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test fuel_budget --test host_boundary"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test repair_22_33_260 --test fuel_budget --test host_boundary"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-programs"
@@ -185657,7 +185663,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 150
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -185668,6 +185674,7 @@ do_6 = "Attempt 4 (continue, gotcha 4087, decision 3167): the attempt-3 tree 80d
 do_7 = "Attempt 5 (continue after 22.39.333 lands, gotchas 4114 and 4121, decisions 3192 and 3198): the attempt-4 tree 647b706c058f stands (tests/fuel_budget.rs of the AI market crate, tests/programs/test_ai_host_boundary.c, programs/Cargo.toml). Its build stopped at the ten minute default of go test inside TestFundConsumptionAttribution before the target and the cargo build ran; the build command now passes -timeout 45m. The task now requires 22.39.333, which gives the guest one packaging recipe and brings the host boundary target back under 524184 bytes. Merge main once that task is on it, change nothing for the size, the recipe or the Go case, run the build once and the verification once at the final revision; when a case of fuel_budget or host_boundary fails, record the first failing assertion and stop."
 do_8 = "Attempt 6 (continue, gotcha 4128, decision 3206): the attempt-5 tree acd6292aedbf stands for tests/fuel_budget.rs of the AI market crate and for tests/programs/test_ai_host_boundary.c. In programs/Cargo.toml set the package profile of layerx-programs-ai-market back to opt-level z with the comment that main carries, and keep any other line of the manifest that the cases need. Change nothing else for the size, the recipe or the Go cases. Run the build once and the verification once at the final revision. When an F11 operation on the full state exceeds the fuel cap or the replay profile at that level, report the operation, its state bytes and the measured fuel as the first failing assertion, change no source of the guest and stop: the repair in the source is an owner task."
 do_9 = "Attempt 7 (requalify after 22.39.348 lands, gotcha 4136, decision 3214): the attempt-6 tree 104080e251b3 stands (opt-level z in programs/Cargo.toml, tests/fuel_budget.rs of the AI market crate, tests/programs/test_ai_host_boundary.c) and its build exits 0. The check of the dependent packages stopped at the cases of the library of the agent daemon, which are red on main and which task 22.39.348 repairs; the task now requires it. Rebase on main once that task is on it, change nothing, and run the build once and the verification once at the final revision. The instruction of attempt 6 stands for an F11 operation that exceeds the fuel cap or the replay profile: report the operation, its state bytes and the measured fuel, change no source of the guest and stop."
+do_10 = "Attempt 8 (continue, gotcha 4152, decisions 3225, 3206 and 3192): the attempt-7 tree 8395325d0d07 stands (opt-level z in programs/Cargo.toml, the module f11_budget of tests/fuel_budget.rs, tests/programs/test_ai_host_boundary.c). Its build passes, 15 cases of the target fuel_budget pass and 5 stop with WRONG_ROSTER at the Heartbeat the fixture sends after the FUND operation and the OPEN_EPOCH operation: f11_fuel_table at tests/fuel_budget.rs:4137 and the four admission fixture cases of tests/repair_22_33_260.rs, which the target includes by path. The touches now name that file and the verification runs its own target first. Find the cause before any change: run the target repair_22_33_260 alone; then read why epoch::captured_roster of src/epoch.rs returns no roster after the OPEN_EPOCH operation of the helper grow, and which commit between 2ce65ef1b65c and 167ce2a7f0cf changed that. When the program now asks for a state or an operation before it captures a roster and the fixture does not provide it, repair the fixture in tests/repair_22_33_260.rs and in the module f11_budget by the operations the program admits, never by writing state past an operation, and name in the final report whether tests/fixtures/f11_producers.rs, which holds the same helpers and is outside the paths, needs the same change. When the cause is a defect in the source of the guest, change no source of the guest: report the file, the line, the commit and the smallest failing sequence of operations as the first failing assertion, and stop. Do not remove, skip or weaken a case, and keep the inclusion of the producers module. The instruction of attempt 6 stands for an F11 operation that exceeds the fuel cap or the replay profile: report the operation, its state bytes and the measured fuel, change no source of the guest and stop. Name the cause and the repair in a comment at the head of the module f11_budget. Run the build once and the verification once at the final revision."
 
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"
