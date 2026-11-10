@@ -40178,3 +40178,11 @@ symbol = "Makefile.inc"
 observed = "Attempt 2 at 7c86fa9f9cd7 on base 9947d89636be: the build exits 0; verification 1 exits 1 at 7c86fa9f9cd7, the verification command passes and the completion check reports symbol platform-verify-sdks not defined in the graph; log /out/logs/verify-1.log."
 assumption = "The symbols list of the task named a recipe target that the code graph does not index."
 severity = "high"
+
+[finding.22.39.227.5]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 5 at 8292a93a5eef on base 85a5a12b6acf: the build exits 0; verification 1 exits 1 at 8292a93a5eef in the targets program_balances_eth_call, program_chain_head, inference_deals and inference_laps, every diagnostic in a file included by path; log /out/logs/verify-1.log."
+assumption = "The remaining diagnostics sit in files outside the paths of the task that its targets include by path."
+severity = "high"

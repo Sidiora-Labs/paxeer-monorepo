@@ -12610,6 +12610,12 @@ value = "The symbols list of a task holds functions and types of source files, t
 basis = "Gotcha 4177, decisions 3130 and 3211."
 affects = ["22.39.358"]
 
+[decision.3250]
+title = "The inference market files that the host binary includes are linted by one task that holds them"
+value = "The files under services/agent/crates/layerx-agentd/src/inference_market that src/main.rs includes are compiled by the host binary and by the test targets that include them again, and by no library target. Task 22.39.362 holds them. It repairs every lint they report in the host binary, and every lint other than an item never used that they report in the test targets inference_deals, inference_laps and inference_signal. A repair keeps the name and the signature of every item that main.rs or a test target uses. Where a lint can only be repaired by changing such a signature, or the shape of a variant that a file outside the paths constructs, the item carries one allowance with a reason that names the lint and the file outside the paths. A function over the line bound is divided into functions of the same file with the behaviour unchanged, and no frame on the wire changes. An item that the host binary uses and a test target does not is allowed on the including module item of that test target, by the task that holds the test file (decision 3218). Task 22.39.227 follows task 22.39.362, and task 22.39.223 follows through it."
+basis = "Gotcha 4178, decisions 3053, 3211, 3218 and 3230."
+affects = ["22.39.362", "22.39.227", "22.39.223"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42270,6 +42276,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.362]
+title = "Bring the inference market files of the host binary under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/inference_market"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-362.kvx && cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_deals --test inference_laps --test inference_signal && (cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short -- -D warnings > ${TMPDIR:-/tmp}/lint-22-39-362-bin.log 2>&1 || true) && ! grep -F inference_market/ ${TMPDIR:-/tmp}/lint-22-39-362-bin.log && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_deals --test inference_laps --test inference_signal --message-format short -- -D warnings > ${TMPDIR:-/tmp}/lint-22-39-362-tests.log 2>&1 || true) && ! grep -F inference_market/ ${TMPDIR:-/tmp}/lint-22-39-362-tests.log | grep -v -E 'never (used|read|constructed)' | grep -q ."
+do_1 = "do_1 Decision 3250, gotcha 4178. The host binary includes signal.rs, deals.rs, laps.rs and serve.rs of services/agent/crates/layerx-agentd/src/inference_market at the head of src/main.rs, and the test targets inference_deals, inference_laps and inference_signal include the first three again. Run the two lint commands of the verification of this task once and record every line they print for a file under src/inference_market, by file, line and lint, in services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-362.kvx. Known from the test targets: in deals.rs cast_possible_truncation at :149, :260 and :1343, large_enum_variant at :321, too_many_lines at :676, useless_conversion at :856, used_underscore_binding at :1040, semicolon_if_nothing_returned at :1252 and match_same_arms at :1351; in laps.rs too_many_lines at :206, :593 and :1040, assigning_clones at :336, used_underscore_binding at :861, needless_pass_by_value at :895, map_entry at :917, cast_possible_truncation at :1208 and match_same_arms at :1216."
+symbols = []
 
 [capability.22.39.361]
 title = "Follow the published receipt vectors in the .NET SDK cases"
@@ -194211,6 +194226,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.362]
+title = "Bring the inference market files of the host binary under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.362"]
+interfaces = []
+do_1 = "do_1 Decision 3250, gotcha 4178. The host binary includes signal.rs, deals.rs, laps.rs and serve.rs of services/agent/crates/layerx-agentd/src/inference_market at the head of src/main.rs, and the test targets inference_deals, inference_laps and inference_signal include the first three again. Run the two lint commands of the verification of this task once and record every line they print for a file under src/inference_market, by file, line and lint, in services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-362.kvx. Known from the test targets: in deals.rs cast_possible_truncation at :149, :260 and :1343, large_enum_variant at :321, too_many_lines at :676, useless_conversion at :856, used_underscore_binding at :1040, semicolon_if_nothing_returned at :1252 and match_same_arms at :1351; in laps.rs too_many_lines at :206, :593 and :1040, assigning_clones at :336, used_underscore_binding at :861, needless_pass_by_value at :895, map_entry at :917, cast_possible_truncation at :1208 and match_same_arms at :1216."
+do_2 = "do_2 Repair each recorded lint at its source. A narrowing cast becomes a fallible conversion whose failure the function refuses with the error it already returns, or, where a preceding check proves the bound, the cast keeps one allowance on the expression with a reason that names the check. A function over the line bound is divided into functions of the same file with every step in the same order. Keep the name and the signature of every item that main.rs or a file of the tests directory uses, and change no behaviour and no frame on the wire. Where a lint can only be repaired by changing such a signature, or the shape of a variant that a file outside the paths constructs, the item carries one allowance with a reason that names the lint and the file outside the paths. An item that the host binary itself never uses is removed when no test target uses it, and is otherwise left for the allowance of decision 3218. No lint level change and no allowance at crate or module level. Change no file outside src/inference_market."
+do_3 = "do_3 Lint to clean outside the counted gates first: repeat the two lint commands until neither prints a line for src/inference_market, apart from items never used in the test targets. Keep cargo check of the package layerx-agentd-host with all targets green. Record each lint with its repair, each allowance with its reason, and the result. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/inference_market"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-362.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test inference_deals --test inference_laps --test inference_signal && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/inference_market/repair-22-39-362.kvx && cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_deals --test inference_laps --test inference_signal && (cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-deps --bin layerx-agentd --message-format short -- -D warnings > ${TMPDIR:-/tmp}/lint-22-39-362-bin.log 2>&1 || true) && ! grep -F inference_market/ ${TMPDIR:-/tmp}/lint-22-39-362-bin.log && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test inference_deals --test inference_laps --test inference_signal --message-format short -- -D warnings > ${TMPDIR:-/tmp}/lint-22-39-362-tests.log 2>&1 || true) && ! grep -F inference_market/ ${TMPDIR:-/tmp}/lint-22-39-362-tests.log | grep -v -E 'never (used|read|constructed)' | grep -q ."
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.356]
 title = "Read the signalling vectors of the inference peer with the host frame types"
 status = "pending"
@@ -196288,7 +196333,7 @@ title = "Bring the agent daemon test targets named i-q under the workspace lints
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.222", "22.39.353"]
+requires = ["22.39.222", "22.39.353", "22.39.362"]
 reqs = ["22998.1"]
 capabilities = ["22.39.227"]
 interfaces = []
@@ -196316,6 +196361,7 @@ do_4 = "Attempt 2 (continue, gotchas 4149 and 4147, decisions 3222 and 3218): th
 do_5 = "Attempt 3 (continue, gotcha 4157, decisions 3230, 3222 and 3053): the attempt-2 tree 313617fcd332 stands; it builds, and the check of the dependent packages passes. Before the build repair the three known sites. In services/agent/crates/layerx-agentd/tests/protocol2_restart.rs pass the path itself to Store::open at :183 and at :258. In tests/metrics_rungs.rs divide the case degraded_state_labels_name_node_conditions at :58 into functions of the same file so that no function exceeds 100 lines: keep the name of the case, every assertion and their order, and add no allowance. Then run the build once and the verification once. The lint command stopped at these two targets, so other targets of the list may still report lints: repair each at source within the allowed cycles (no lint level change, no allowance at crate or module level). Keep cargo check of the package layerx-agentd-host with all targets green after a change of a file that the host package includes by path, and change no file of another workspace (decision 3218). Rebase on main first; where main now holds a newer form of a file of the tests directory, keep the form of main and apply the lint repair to it. Keep the record at product facts and add the three repairs."
 do_6 = "Attempt 4 (continue after 22.39.353 lands, gotchas 4165 and 4159, decision 3232): the attempt-3 tree a4de4e99f562 stands (the lint repairs of the test targets named i to q, the three known lint sites, the reduced record). The build passes and the check of the dependent packages stops on the three errors of src/inference_market/deals.rs in the host package, which task 22.39.353 repairs; the task now requires it. Rebase on main once that task is on it and change nothing in deals.rs or signal.rs. Run the build once and the verification once on the tree as it is. When the verification still reports a lint, repair it at source within the one allowed cycle (decision 3053: no lint level change, no allowance at crate or module level), keep cargo check of the package layerx-agentd-host with all targets green, and change no file of another workspace that a test target includes by path (decision 3218)."
 do_7 = "Attempt 5 (continue, gotcha 4170, decisions 3242 and 3053): the attempt-4 tree 28a087e45c65 stands; it built at that revision and no verification saw it. The verification command now passes the keep going option, so one run reports every target of the list. Before the counted gates, run the lint command of the verification yourself and repair what it reports at source, as often as needed, until it reports nothing for the whole list; the six targets of the last verification were ingest, proof_serve_errors, native_send_preview_evm, ingest_eth_subscribe, proof_agentd_startup and operator_route. Before an item reported as never used is removed, search every target that includes its file by path or by module: an item that another target uses stays, in the file of the target that uses it or in a module both include, as the function that issue_1752 needs showed in build 2. A function over the line bound is divided into functions of the same file with every assertion kept in order (decision 3230). No lint level change, no allowance at crate or module level, no assertion change. Keep cargo check of the package layerx-agentd-host with all targets green. Then run the build once and the verification once at the final revision, and keep the record to the lints by kind with their counts, the files changed and the result."
+do_8 = "Attempt 6 (continue after 22.39.362 lands, gotcha 4178, decisions 3250 and 3218): the attempt-5 tree 8292a93a5eef stands (the lint repairs of the test files named i to q, the record). The test files report nothing; the verification stops in four targets on files they include by path. The task now requires task 22.39.362, which repairs the lints of deals.rs and laps.rs under src/inference_market. Rebase on main once that task is on it. Change no file under src/inference_market and no file of the crate layerx-programs-registry. Then place the allowances of decision 3218 and nothing more. On the module items that include the support files of the registry crate, at tests/program_balances_eth_call.rs:24 and tests/program_chain_head.rs:37 and :41 on main, replace the allowance that stands there with one allowance with a reason that names exactly the lints the file reports in that target; on the last run these were too_many_lines and manual_let_else for chain.rs and unused_imports, too_many_lines and expect_used for mod.rs, beside dead_code. On the outer module item that includes signal.rs in tests/inference_deals.rs and in tests/inference_laps.rs, place one allowance for dead_code with a reason that says the host binary uses the items. Write each allowance in the form the workspace lints accept. No other module item gains an allowance (decision 3053). Before the counted gates run the lint command of the verification yourself until it reports nothing for the whole list (decision 3242). A lint of an included file under src/inference_market that is not an item never used and that remains after the rebase is recorded with file, line and lint, and is not repaired here. Keep cargo check of the package layerx-agentd-host with all targets green. Add the allowances with their reasons to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.226]
 title = "Bring the agent daemon test targets named a-h under the workspace lints"
@@ -198046,7 +198092,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.21]
 title = "Serve OpenAI-compatible and Anthropic-compatible completion routes gated on a funded ask stream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.9", "22.38.17", "22.31.620"]
@@ -198074,6 +198120,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decision 3239, gotcha 4167: the tree of attempt 1, dc746500755b, stands (serve.rs, main.rs, node_rpc.rs and tests/inference_serve.rs of the agent daemon). Its build passed and the check of the dependent packages stopped on three errors of src/inference_market/deals.rs in the host package that task 22.39.353 has repaired on main. Rebase on main and change nothing in deals.rs or signal.rs. The build now checks the host package with all targets; keep it green after every change of main.rs. Run the build once and the verification once. When the verification fails, the first failing assertion decides: a cause inside the paths is repaired within the allowed cycle, and a cause outside the paths is recorded with the case, the message, the file and the line."
+do_5 = "do_5 Attempt 3 (continue, decisions 3211 and 3212): the attempt-2 tree 4ac7dbbd9824 stood and met the lap receipt wiring of task 22.38.18 in src/main.rs. Both stand on main: every line of the lap receipt wiring as task 22.38.18 left it, and the serving wiring of this task beside it, with cargo check of the package layerx-agentd-host over all targets run after the merge."
 
 [task.22.38.20]
 title = "Recover a room from peer loss by re-planning the layer split"
@@ -284229,7 +284276,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.358]
 title = "Leave the envelope probes out of the ordinary verification of the platform SDKs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.354"]
