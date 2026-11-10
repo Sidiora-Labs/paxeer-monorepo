@@ -1269,6 +1269,14 @@
         "paxeer-reserve"
       ],
       "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "services/human/schema/human-api",
+      "symbols": [
+        "settlement_domain",
+        "SettlementDomain"
+      ],
+      "citation": "Decision 3125 retains the settlement_domain and SettlementDomain declarations and golden vectors as the schema record of retirement, including the retired markers asserted by verification_level_retires_settlement_values_and_maps_rungs in services/human/tools/schema-check/tests/journey_vocabulary.rs."
     }
   ]
 }
