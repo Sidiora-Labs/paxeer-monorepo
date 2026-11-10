@@ -39778,3 +39778,19 @@ symbol = "fuel_budget.rs"
 observed = "Attempt 4 at 647b706c058f on base b155d9196308: the build exits 1, go test over ./rpc/ panics with test timed out after 10m0s in TestFundConsumptionAttribution at rpc/repair_478_test.go:211 and fails after 603 seconds; no verification ran; log /out/logs/build-1.log."
 assumption = "The case needs about ten minutes on a cold build and the command named no limit."
 severity = "high"
+
+[finding.17.5.7.12]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 12 at a8267ca704f9 on base 8c1f9300585c: the verification exits 1, the wave 6 gate exits 2 at mvn -f sdk/integrations/spring/pom.xml install with Tests run 30, Failures 1, Errors 7 (durable store ancestor is group/world writable: /tmp, and unsupported-payment in ReceiptKeysConfigTest); log /out/logs/verify-1.log."
+assumption = "Six cases fail because of the place of the checkout and two because of a declaration that is red on main."
+severity = "high"
+
+[finding.18.1749.1.7]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 7 at aa64b3a9fa82 on base 8c1f9300585c: the verification exits 101, reward_reopen_preserves_recipient_balances fails after call.c:2215 reports transfer account absent (source present, destination absent) and the Claim returns -736; log /out/logs/verify-1.log."
+assumption = "The guest names the recipient by identity and the kernel looks a destination up by account id only."
+severity = "high"
