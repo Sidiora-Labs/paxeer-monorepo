@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	tmdb "github.com/tendermint/tm-db"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -173,9 +174,15 @@ func TestCmdQueryFeeRightNetwork(t *testing.T) {
 				require.NoError(t, err)
 				require.NotZero(t, response.Response.Code)
 				if invalid == "0x0000000000000000000000000000000000000000" {
+					require.Equal(t, types.ErrZeroAddress.ABCICode(), response.Response.Code)
+					require.Equal(t, types.ModuleName, response.Response.Codespace)
+					require.Equal(t, codes.Unknown, status.Code(commandErr))
 					require.Contains(t, response.Response.Log, "must not be the zero address")
 				} else {
-					require.Contains(t, response.Response.Log, "must be a 0x-prefixed 40-hex-digit address")
+					require.Equal(t, uint32(18), response.Response.Code)
+					require.Equal(t, "sdk", response.Response.Codespace)
+					require.Equal(t, codes.InvalidArgument, status.Code(commandErr))
+					require.Equal(t, "invalid request", response.Response.Log)
 				}
 				require.Equal(t, response.Response.Log, status.Convert(commandErr).Message())
 			})
