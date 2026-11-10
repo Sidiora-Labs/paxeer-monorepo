@@ -230,13 +230,15 @@ impl ParticipantJournal {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let mut w = Writer::new(out);
-        w.put(b"PC17")?;
-        w.u64(self.epoch)?;
-        w.u64(self.height)?;
-        w.u32((u32::from(self.cursor) << 16) | u32::from(self.count))?;
-        w.put(&[self.observed, self.covered])?;
-        w.u64(self.config)?;
-        w.put(self.roster.as_bytes())?;
+        crate::codec::write_fields!(w;
+            put: b"PC17";
+            u64: self.epoch;
+            u64: self.height;
+            u32: (u32::from(self.cursor) << 16) | u32::from(self.count);
+            put: &[self.observed, self.covered];
+            u64: self.config;
+            id32: self.roster.as_bytes();
+        )?;
         let n = w.len();
         match &self.state {
             Some(state) => Ok(n + crate::reputation_codec::encode_produced_section(

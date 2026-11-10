@@ -57,6 +57,7 @@ func (sc *SwapConsumer) Start(ctx context.Context) error {
 			BlockTimestamp int64                  `json:"blockTimestamp"`
 			TxHash         string                 `json:"txHash"`
 			LogIndex       int                    `json:"logIndex"`
+			Position       *engine.ChainOrder     `json:"position"`
 			Args           map[string]interface{} `json:"args"`
 		}
 		decoder := json.NewDecoder(bytes.NewReader(payload))
@@ -77,6 +78,10 @@ func (sc *SwapConsumer) Start(ctx context.Context) error {
 			Price:       asString(data.Args["price"]),
 			TxHash:      data.TxHash,
 			LogIndex:    data.LogIndex,
+			Position:    data.Position,
+		}
+		if data.BlockNumber <= 0 || data.Position == nil || data.Position.Height != uint64(data.BlockNumber) || data.LogIndex < 0 || data.Position.LogIndex != uint64(data.LogIndex) {
+			return fmt.Errorf("consumer: source chain position unavailable or inconsistent")
 		}
 
 		// Resolve the block timestamp. The indexer envelope (identical on the Redis

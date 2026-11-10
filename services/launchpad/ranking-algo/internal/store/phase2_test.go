@@ -27,6 +27,12 @@ import (
 )
 
 func TestCompletedRunActualPostgresAndRedis(t *testing.T) {
+	for _, name := range []string{"L19_FROZEN_INPUT_FILE", "L19_FROZEN_INPUT_SHA256"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	dsn, artifact, artifactSHA := os.Getenv("L19_POSTGRES_DSN"), os.Getenv("L19_FROZEN_INPUT_FILE"), os.Getenv("L19_FROZEN_INPUT_SHA256")
 	if dsn == "" || artifact == "" || artifactSHA == "" || os.Getenv("L19_REDIS_URL") == "" {
 		t.Fatal("actual PostgreSQL, Redis and checksum-bound owner frozen input required")
@@ -294,6 +300,12 @@ func TestPhase3CommitWorker(t *testing.T) {
 }
 
 func TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication(t *testing.T) {
+	for _, name := range []string{"L19_FROZEN_INPUT_FILE", "L19_FROZEN_INPUT_SHA256", "L19_NATS_STREAM"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	f := newPhase3Fixture(t)
 	brokerURL, streamName := os.Getenv("L19_NATS_URL"), os.Getenv("L19_NATS_STREAM")
 	u, err := url.Parse(brokerURL)
@@ -419,6 +431,12 @@ func TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication(t *testing.T) {
 }
 
 func TestPhase3RollbackEmptyAndCompetingCompletions(t *testing.T) {
+	for _, name := range []string{"L19_FROZEN_INPUT_FILE", "L19_FROZEN_INPUT_SHA256"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	f := newPhase3Fixture(t)
 	if err := f.publication.Complete(f.ctx, f.snapshots); err != nil {
 		t.Fatal(err)

@@ -208,7 +208,6 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return creator, e
 		}
 	}
-	handlers := social.New(socialDeps)
 
 	hubDeps := fanout.Deps{
 		Queries:          queries,
@@ -273,6 +272,20 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		hubDeps.Authenticate = devsocial.Authenticate
 		hub = fanout.New(hubDeps)
 	}
+
+	// Legacy chat adapters use the same durable store and verified request
+	// identity as the v2 runtime.
+	if connected != nil {
+		socialDeps.Durable = connected.chat
+		socialDeps.AuthenticateChat = connected.request
+	} else if dev != nil {
+		socialDeps.Durable = dev.Chat
+		socialDeps.AuthenticateChat = devsocial.Authenticate
+		if identity != nil {
+			socialDeps.AuthenticateChat = contextPrincipal
+		}
+	}
+	handlers := social.New(socialDeps)
 
 	mux := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins: cfg.CORSAllowedOrigins,

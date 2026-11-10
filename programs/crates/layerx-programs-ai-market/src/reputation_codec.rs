@@ -54,6 +54,25 @@ fn write_current_fields(value: &ReputationCurrent, w: &mut Writer<'_>) -> CodecR
         Presence::Present(d) => d.as_bytes(),
         Presence::Absent => &[0; 32],
     };
+    #[cfg(target_arch = "wasm32")]
+    {
+        crate::codec::write_fields!(w;
+            id32: value.worker.as_bytes();
+            id32: value.segment.as_bytes();
+            id32: value.owner.as_bytes();
+            u64: value.reset_generation.get();
+            u32: value.quality.get();
+            u32: value.qualifying_count;
+            u32: coverage;
+            u64: applied;
+            u64: observed;
+            u64: observed_height;
+            u64: value.last_transition_height;
+            id32: previous;
+            u32: ((value.status as u32) << 24) | (u32::from(flags) << 16);
+        )
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     {
         w.put(value.worker.as_bytes())?;
         w.put(value.segment.as_bytes())?;

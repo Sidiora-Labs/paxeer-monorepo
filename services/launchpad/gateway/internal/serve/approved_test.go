@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	redis "github.com/redis/go-redis/v9"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -35,17 +36,24 @@ func TestApprovedMissingAuthorityAndPrivatePathsFailClosed(t *testing.T) {
 func TestApprovedActualObjectAndWarmCacheRestriction(t *testing.T) {
 	ctx := context.Background()
 	bucket := "kd-fec98588ef6fe4334797a5de-" + time.Now().Format("150405000000000")
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("kindle_fixture", "kindle_fixture_password", "")))
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(requiredServeFixture(t, "GATEWAY_TEST_MINIO_ACCESS_KEY_ID"), requiredServeFixture(t, "GATEWAY_TEST_MINIO_SECRET_ACCESS_KEY"), "")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	api := s3.NewFromConfig(cfg, func(o *s3.Options) { o.BaseEndpoint = aws.String("http://127.0.0.1:29000"); o.UsePathStyle = true })
+	api := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(requiredServeFixture(t, "GATEWAY_TEST_MINIO_ENDPOINT"))
+		o.UsePathStyle = true
+	})
 	if _, err = api.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: &bucket}); err != nil {
 		t.Fatal(err)
 	}
 	defer api.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: &bucket})
 	store := storage.NewFromS3(api, bucket)
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	redisOptions, err := redis.ParseURL(requiredServeFixture(t, "GATEWAY_TEST_REDIS_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := redis.NewClient(redisOptions)
 	defer db.Close()
 	ledger, e := mediastore.NewLedger(db, bucket)
 	if e != nil {
@@ -97,4 +105,13 @@ func TestApprovedActualObjectAndWarmCacheRestriction(t *testing.T) {
 	if get() != 404 {
 		t.Fatal("deleted served")
 	}
+}
+
+func requiredServeFixture(t *testing.T, name string) string {
+	t.Helper()
+	value := os.Getenv(name)
+	if value == "" {
+		t.Fatalf("%s must name the public job fixture", name)
+	}
+	return value
 }

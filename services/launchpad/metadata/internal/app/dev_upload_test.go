@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -62,7 +63,7 @@ func TestDevelopmentCreatorUpload(t *testing.T) {
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	instance, err := app.New(context.Background(), cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	instance, err := app.New(context.Background(), cfg, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	if err != nil {
 		t.Fatalf("app.New development: %v", err)
 	}
@@ -169,7 +170,11 @@ func TestDevelopmentCreatorUpload(t *testing.T) {
 		if !withImage {
 			return
 		}
-		info, err := objects.Store.Head(context.Background(), "logos/logo-"+devToken+".png")
+		published, err := sqlcdb.New(pool).GetImageByType(context.Background(), sqlcdb.GetImageByTypeParams{TokenAddress: devToken, ImageType: "logo"})
+		if err != nil || !strings.HasPrefix(published.StorageKey, "legacy/") {
+			t.Fatalf("immutable published logo pointer: %+v %v", published, err)
+		}
+		info, err := objects.Store.Head(context.Background(), published.StorageKey)
 		if err != nil || info.ContentType != "image/png" || info.Size != int64(len(logo)) {
 			t.Fatalf("bucket object %+v %v", info, err)
 		}

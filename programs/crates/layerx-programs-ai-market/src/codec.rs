@@ -2320,12 +2320,14 @@ pub fn encode_result(v: &ApplicationResult<'_>, out: &mut [u8]) -> CodecResult<u
     v.validate()?;
     output_size(out, 82 + v.payload.len(), MAX_RESULT_BYTES)?;
     let mut w = Writer::new(out);
-    w.u16(SCHEMA_VERSION)?;
-    w.u16(v.status as u16)?;
-    w.u16(v.error.map_or(0, ApplicationError::code))?;
-    w.put(&request_bytes(v.request))?;
-    w.u64(v.revision)?;
-    w.put(v.digest.as_bytes())?;
+    write_fields!(w;
+        u16: SCHEMA_VERSION;
+        u16: v.status as u16;
+        u16: v.error.map_or(0, ApplicationError::code);
+        put: &request_bytes(v.request);
+        u64: v.revision;
+        id32: v.digest.as_bytes();
+    )?;
     w.bytes(v.payload, MAX_RESULT_PAYLOAD_BYTES)?;
     Ok(w.len())
 }
