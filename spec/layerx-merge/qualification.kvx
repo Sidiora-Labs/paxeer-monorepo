@@ -40226,3 +40226,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 17 at 2f4ba76f0aa9 on base 87d663ebae97: the build exits 0 and the verification exits 1; make platform-sdk-check exits 1 at services/platform/Makefile.inc:233 with unclassified file in generated go root: sdk/platform/go/repair_22_39_341.kvx; log /out/logs/verify-1.log."
 assumption = "Records of done tasks sit under output roots of the pipeline lock without a declaration, and the lock is outside the paths of the gate task."
 severity = "high"
+
+[finding.22.39.228.1]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 1 at 85055bc6a89c on base 9ef8418ad199: the build exits 0 and the verification exits 1; the lint command stops with could not compile layerx-agentd (lib) due to 2 previous errors, missing_errors_doc at crates/layerx-agentd/src/node_rpc.rs:225 and :409; log /out/logs/verify-1.log."
+assumption = "The library of the package did not pass its lints after task 22.38.21, and the library is outside the paths of the task."
+severity = "high"

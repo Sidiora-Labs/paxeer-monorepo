@@ -12646,6 +12646,12 @@ value = "A task that repairs a file under an output root of sdk/platform/pipelin
 basis = "Gotcha 4183, decisions 3130, 3183 and 3211."
 affects = ["22.39.363", "17.5.7"]
 
+[decision.3256]
+title = "A task that changes a library of the agent workspace lints that library in its own verification"
+value = "The agent workspace denies the clippy groups all and pedantic. A task whose paths hold a source file of a library of that workspace lints the library target with warnings denied in its own verification, so a public item without its documentation sections cannot reach main. The two functions task 22.38.21 added to src/node_rpc.rs are repaired by task 22.39.364, and the lint tasks of the test targets and of the host package follow it (decisions 3130 and 3211). A task that only adds lines to a library file outside its lint verification lints the library outside the counted gates and repairs the lints of its own lines."
+basis = "Gotcha 4184, decisions 3052, 3053, 3130, 3211 and 3242."
+affects = ["22.39.364", "22.39.228", "22.39.229", "22.39.356", "22.39.223", "22.38.19"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42306,6 +42312,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.364]
+title = "Document the errors of the ask stream reads of the agent daemon library"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/node_rpc.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/repair-22-39-364.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib -- -D warnings"
+do_1 = "do_1 Decision 3256, gotcha 4184. The library of the package layerx-agentd does not pass its lints: missing_errors_doc at services/agent/crates/layerx-agentd/src/node_rpc.rs:225 (AskStreamState::decode) and :409 (NodeRpc::ask_stream), two public functions that return a Result and that task 22.38.21 added. Give each a documentation section named Errors that states when the function returns an error, as the neighbouring public functions of the file do. Change no signature, no behaviour and no other file. Add no allowance."
+symbols = []
 
 [capability.22.39.363]
 title = "Declare the records under the output roots of the platform SDKs in the pipeline lock"
@@ -194267,6 +194282,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.364]
+title = "Document the errors of the ask stream reads of the agent daemon library"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.364"]
+interfaces = []
+do_1 = "do_1 Decision 3256, gotcha 4184. The library of the package layerx-agentd does not pass its lints: missing_errors_doc at services/agent/crates/layerx-agentd/src/node_rpc.rs:225 (AskStreamState::decode) and :409 (NodeRpc::ask_stream), two public functions that return a Result and that task 22.38.21 added. Give each a documentation section named Errors that states when the function returns an error, as the neighbouring public functions of the file do. Change no signature, no behaviour and no other file. Add no allowance."
+do_2 = "do_2 Lint the library target once more outside the counted gates; a further lint in node_rpc.rs is repaired at its source, and a lint in another file of the library is recorded with file, line and lint name. Record the two functions and the result in services/agent/crates/layerx-agentd/repair-22-39-364.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/node_rpc.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/repair-22-39-364.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/repair-22-39-364.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.362]
 title = "Bring the inference market files of the host binary under the workspace lints"
 status = "done"
@@ -194302,7 +194346,7 @@ title = "Read the signalling vectors of the inference peer with the host frame t
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.39.355"]
+requires = ["22.39.355", "22.39.364"]
 reqs = ["22998.1"]
 capabilities = ["22.39.356"]
 interfaces = []
@@ -196312,7 +196356,7 @@ title = "Bring the agent daemon test targets named s-z under the workspace lints
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.222", "22.39.353"]
+requires = ["22.39.222", "22.39.353", "22.39.364"]
 reqs = ["22998.1"]
 capabilities = ["22.39.229"]
 interfaces = []
@@ -196343,7 +196387,7 @@ title = "Bring the agent daemon test targets named r under the workspace lints"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.222", "22.39.353"]
+requires = ["22.39.222", "22.39.353", "22.39.364"]
 reqs = ["22998.1"]
 capabilities = ["22.39.228"]
 interfaces = []
@@ -196368,6 +196412,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decisions 3242 and 3245, gotcha 4170: the verification now passes the keep going option, so one run reports every target of the list. Before the counted gates, run the lint command of the verification yourself and repair what it reports at source, as often as needed, until it reports nothing. Before an item reported as never used is removed, search every target that includes its file by path or by module: an item that another target uses stays, in the file of the target that uses it or in a module both include. A function over the line bound is divided into functions of the same file with every assertion kept in order (decision 3230). Keep cargo check of the package layerx-agentd-host with all targets green. Then run the build once and the verification once."
+do_5 = "Attempt 2 (continue after 22.39.364 lands, gotcha 4184, decision 3256): the attempt-1 tree 85055bc6a89c stands (the record). The lint command stops in the library before it reaches a test target: missing_errors_doc at src/node_rpc.rs:225 and :409, which task 22.39.364 repairs; the task now requires it. Rebase on main once that task is on it, then take the inventory of the test targets named r and repair their lints as the do items of the task state. Replace the two library findings of the record with one sentence that names decision 3256. Run the build once and the verification once at the final revision."
 
 [task.22.39.227]
 title = "Bring the agent daemon test targets named i-q under the workspace lints"
@@ -196515,7 +196560,7 @@ title = "Bring the layerx-agentd-host crate and its test targets under the works
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.209", "22.39.222", "22.39.227", "22.39.347"]
+requires = ["22.39.209", "22.39.222", "22.39.227", "22.39.347", "22.39.364"]
 reqs = ["22998.1"]
 capabilities = ["22.39.223"]
 interfaces = []
@@ -198198,7 +198243,7 @@ title = "Inject canary prompts and audit peer answers"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.38.5", "22.38.17", "22.31.620", "22.39.353", "22.38.21"]
+requires = ["22.38.5", "22.38.17", "22.31.620", "22.39.353", "22.38.21", "22.39.364"]
 reqs = ["22380.3"]
 capabilities = ["22.38.19"]
 interfaces = []
@@ -198223,6 +198268,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4182, decision 3254): the attempt-1 tree e98b4b42ccdb stands (src/inference_market/canary.rs, the canary runtime of the entry file, tests/inference_canary.rs, the operations of layerx-client). Its build and its verification passed on a base without task 22.38.21, and the merge onto main conflicts in one hunk of services/agent/crates/layerx-agentd/src/main.rs, in the closure of the completion listener. Rebase on main and resolve the hunk by keeping the side of main whole (the read of the CompletionConnection and the completion branch through completion_routes) and passing the added argument completion_canaries in its call of inference_serve_lap_output; drop nothing of either task. The verification now lints the new file in the host binary and in the test target inference_canary. Lint both to clean outside the counted gates first (decision 3242), repair every lint in canary.rs and in tests/inference_canary.rs at its source, and where the test target does not use an item the host binary uses put one allowance with a reason on the including module item of the test file (decision 3218). Change no wire frame and no case expectation. Run the build once and the verification once at the final revision."
+do_5 = "do_5 Decision 3256, gotcha 4184: the task now requires task 22.39.364, because the lint of the test target inference_canary in the verification only runs once the library passes its lints. Lint the library of the package layerx-client outside the counted gates and repair every lint in the lines this task added to services/agent/crates/layerx-client/src/ai_market.rs; a lint elsewhere in that library is recorded with file, line and lint name and is not repaired here."
 
 [task.22.38.18]
 title = "Issue, countersign, seal and settle lap receipts"
