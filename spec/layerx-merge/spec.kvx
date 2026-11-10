@@ -193016,7 +193016,7 @@ do_3 = "Attempt 2 (continue, gotcha 4085): the attempt-1 tree d4225f005d5d stand
 
 [task.22.39.310]
 title = "Let the native V5 corpus case of the agent SDK read a committed recording"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -223708,7 +223708,7 @@ do_4 = "Attempt 2 (continue, gotchas 4081 and 4082, decision 3163): the attempt-
 
 [task.22.39.306]
 title = "Serve the canonical origin in the node route catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.278"]
