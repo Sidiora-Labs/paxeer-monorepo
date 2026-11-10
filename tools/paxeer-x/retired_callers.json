@@ -700,28 +700,49 @@
       "citation": "Decision 3125 and task 22.39.277 retain the live golden replay source and fixture plus the regression targets that assert retired credit symbols are absent and state feeds are unbound."
     },
     {
-      "path": "contracts/launchpad/contracts/core",
+      "path": "apps/launchpad/web/src/widgets/profile/activity-transport.ts",
+      "symbols": [
+        "statusOf"
+      ],
+      "citation": "Decision 3125 retains the live local HTTP error status extractor used by explorer transfer pagination, which does not call the retired mirror checkpoint status method."
+    },
+    {
+      "path": "sdk/launchpad/protocol/catalog/reviewed.json",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 retains the frozen reviewed launchpad Treasury ABI for authorized accounting of prior fee transfers, which is independent of the retired exchange intent store."
+    },
+    {
+      "path": "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 retains the frozen launchpad chain catalogue Treasury fee accounting signature and selector, which are independent of the retired exchange intent store."
+    },
+    {
+      "path": "contracts/launchpad/contracts/core/SidioraFactory.sol",
       "symbols": [
         "recordDeposit"
       ],
       "citation": "Decision 3125 permits the live factory call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
     },
     {
-      "path": "contracts/launchpad/contracts/interfaces",
+      "path": "contracts/launchpad/contracts/interfaces/ITreasury.sol",
       "symbols": [
         "recordDeposit"
       ],
       "citation": "Decision 3125 permits the live ITreasury.recordDeposit interface for launchpad fee accounting, which is distinct from the retired exchange-intents method."
     },
     {
-      "path": "contracts/launchpad/contracts/periphery",
+      "path": "contracts/launchpad/contracts/periphery/Router.sol",
       "symbols": [
         "recordDeposit"
       ],
       "citation": "Decision 3125 permits the live router call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
     },
     {
-      "path": "contracts/launchpad/contracts/protocol",
+      "path": "contracts/launchpad/contracts/protocol/Treasury.sol",
       "symbols": [
         "recordDeposit"
       ],
