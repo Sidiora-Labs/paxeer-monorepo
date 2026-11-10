@@ -161766,7 +161766,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.351]
 title = "Read the receipt key heights without rounding in the px client of the agent TypeScript SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.350"]
@@ -184596,7 +184596,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.349]
 title = "Link the test targets of the programs runtime crate with the host interface feature"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.348"]
