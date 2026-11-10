@@ -2397,11 +2397,22 @@ pub fn recover_tenant_budget_with_evidence<E: Clone + Into<BudgetReceiptEvidence
         .receipts_with_evidence
         .iter()
         .filter(|receipt| window.contains(&receipt.global_sequence))
-        .map(|receipt| PersistedReceipt {
-            expected_activity_id: receipt.activity_id,
-            evidence: receipt.evidence.clone().into(),
+        .map(|receipt| {
+            Ok(PersistedReceipt {
+                expected_activity_id: receipt.activity_id,
+                requested_amount: crate::budget::requested_amount(
+                    store,
+                    tenant,
+                    receipt.activity_id,
+                )
+                .map_err(|error| RecoveryRefusal::Recovery {
+                    budget_id,
+                    reason: format!("{error:?}"),
+                })?,
+                evidence: receipt.evidence.clone().into(),
+            })
         })
-        .collect();
+        .collect::<Result<_, RecoveryRefusal>>()?;
     let evidence_missing = request
         .receipts_without_evidence
         .iter()
@@ -14585,19 +14596,27 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         {
             return Ok(None);
         }
+        let store = self
+            .store
+            .lock()
+            .map_err(|_| HumanOperationError::Unavailable)?;
         let receipts: Vec<PersistedReceipt<BudgetReceiptEvidence>> = with_evidence
             .iter()
             .filter(|receipt| window.contains(&receipt.global_sequence))
-            .map(|receipt| PersistedReceipt {
-                expected_activity_id: receipt.activity_id,
-                evidence: receipt.evidence.clone(),
+            .map(|receipt| {
+                Ok(PersistedReceipt {
+                    expected_activity_id: receipt.activity_id,
+                    requested_amount: crate::budget::requested_amount(
+                        &store,
+                        tenant,
+                        receipt.activity_id,
+                    )
+                    .map_err(|_| HumanOperationError::Refused)?,
+                    evidence: receipt.evidence.clone(),
+                })
             })
-            .collect();
+            .collect::<Result<_, HumanOperationError>>()?;
         let accounting = {
-            let store = self
-                .store
-                .lock()
-                .map_err(|_| HumanOperationError::Unavailable)?;
             let mut unknown_budget_ids = Vec::new();
             for object_id in store.list_object_ids(tenant, ObjectKind::Budget) {
                 let Some(id) = object_id.strip_prefix(b"unknown-budget:".as_slice()) else {
