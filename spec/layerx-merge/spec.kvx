@@ -161811,7 +161811,7 @@ do_5 = "Attempt 3 (continue, gotcha 4054, decisions 3130 and 3046): the attempt-
 
 [task.22.39.268]
 title = "Repair the retired references of the wallet SDK, gateway, demo, deployment and scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245", "22.39.290"]
