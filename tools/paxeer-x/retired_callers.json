@@ -671,6 +671,36 @@
   ],
   "allowed_references": [
     {
+      "path": "services/platform/hosted/human/README.md",
+      "lines": [
+        "- Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at",
+        "`/run/layerx/node/layerxd.lni.sock` for the retained-material migration"
+      ],
+      "citation": "Decision 3125 permits documenting the retained socket projection required by test_hosted_human_first_batch_migration_barriers, which cannot establish merged node readiness."
+    },
+    {
+      "path": "services/platform/hosted/human/history_material.py",
+      "lines": [
+        "for name in ('LAYERX_AGENT_SEQUENCER_TRUST_HISTORY', 'LAYERX_AGENT_GENESIS_TRUST', 'LAYERX_AGENT_HANDOVER_FINALITY'):"
+      ],
+      "citation": "Decision 3125 permits the live migration refusal to name obsolete trust inputs that it rejects before publishing authenticated merged-chain receipts."
+    },
+    {
+      "path": "services/platform/hosted/human/material.py",
+      "lines": [
+        "'HUMAN_NODE_LNI': '/run/layerx/node/layerxd.lni.sock',"
+      ],
+      "citation": "Decision 3125 permits the historical socket projection required by test_hosted_human_first_batch_migration_barriers while the current agent uses NODE_RPC_URL and NODE_CHAIN_ID and the projection cannot establish merged node readiness."
+    },
+    {
+      "path": "services/platform/hosted/node/generation_client.py",
+      "lines": [
+        "\"LAYERX_CORE_LNI_SOCKET\",",
+        "if any(key in RETIRED_FIELDS or key.startswith((\"LAYERX_AUTHORITY_\", \"LAYERX_GUARANTOR_\"))"
+      ],
+      "citation": "Decision 3125 permits the live inherited-environment refusal to name obsolete socket settings and authority or guarantor prefixes that it rejects before adopting current generation files."
+    },
+    {
       "path": "modules/layerxanchor/keeper/custody_reader.go",
       "lines": [
         "custodytypes \"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types\"",

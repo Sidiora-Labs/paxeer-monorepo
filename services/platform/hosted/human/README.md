@@ -49,6 +49,12 @@ material and [RegistryDeploymentJournal.md](../../../../docs/wiki/RegistryDeploy
 for journal `pairs/`. The producer contracts below describe the merged owner
 path; remaining cluster integration limits are called out explicitly.
 
+Generated owner-agent settings publish `LAYERX_AGENT_NODE_RPC_URL` from the
+components' HTTPS `PAXEER_RPC_URL` and `LAYERX_AGENT_NODE_CHAIN_ID` from the
+configured EVM chain ID. The current agent reads these settings, checks the
+remote chain ID and consumes committed receipts through root JSON-RPC. Its
+node dependency no longer uses the retained local daemon socket setting.
+
 ## Committed account observations and bank receipts
 
 Use the merged node's root JSON-RPC endpoint for chain observations. Owner
@@ -375,9 +381,11 @@ bindings and the retained configuration described here.
   journeys. Remove the adapter instructions and projections together when
   their runtime consumers migrate to current bank and receipt interfaces.
 - Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at
-  `/run/layerx/node/layerxd.lni.sock`, in the retained owner runtime. Those settings cannot establish merged node
-  readiness. Their owners must wire authenticated node RPC and committed
-  evidence before full cluster provisioning can be qualified.
+  `/run/layerx/node/layerxd.lni.sock` for the retained-material migration
+  contract. The current agent uses the RPC settings described above; this
+  historical projection cannot establish merged node readiness. Removing it
+  requires migrating the assertion in `test_repair_22_33_40.py` that still
+  requires its exact name and contents.
 - `registry_kernel_material` validates an explicitly retained/imported signed
   registry generation and its network and signer pins. It never executes a
   separate daemon or edits genesis. Fresh registry generation remains an owning
