@@ -164291,7 +164291,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.26]
 title = "Run the assigned layer range as a deal client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.24", "22.38.17"]
@@ -184747,7 +184747,7 @@ do_7 = "Attempt 4 (continue, gotcha 4153, decision 3226): the attempt-3 tree 6e9
 
 [task.22.39.340]
 title = "Bind the payment account of an identity destination in the programs runtime and write the version 2 account-bound evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.348"]
