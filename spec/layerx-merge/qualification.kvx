@@ -39498,3 +39498,35 @@ symbol = "px.test.ts"
 observed = "Attempt 6 at f2f7d256ee21: build exit 0; verification exit 1: 52 TypeScript test files executed, 0 failed; python3 -m pytest -q services/agent/sdk/python/tests reports 1 failed, 148 passed: test_retained_receipt_and_commit_verification_are_public at tests/test_retired_kernel_receipts.py:313 expects inclusion identity and reads invalid committed transaction field; log /out/logs/verify-1.log."
 assumption = "The Python suite was reached for the first time; its one failure is red on main since the commit of issue 1833."
 severity = "high"
+
+[finding.22.39.310.1]
+task = "22.39.310"
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+symbol = "program_http.rs"
+observed = "Attempt 1 at 661b2312e8c7: build exit 0; verification exit 101: the case v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes ends with Error: Decode on the committed recording, 0 passed and 1 failed; log /out/logs/verify-1.log."
+assumption = "The recording is genuine; the case binds a request from a native activity that the constructor refuses since 22.39.233."
+severity = "high"
+
+[finding.22.39.311.1]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 1 at d4225f005d5d (gates at candidate 7fb2c2e47d0b): build exit 0; verification exit 101: the subject coordinate case passes and the TLS case panics at services/platform/hosted/internal/src/producer_test_support.rs:234 with LAYERX_TEST_WEBHOOKS_BIN required; log /out/logs/verify-1.log."
+assumption = "The clock and socket repairs hold; the case lacked the event sink binary the Makefile targets provide."
+severity = "high"
+
+[finding.22.39.306.1]
+task = "22.39.306"
+file = "rpc/px_node_root_account_test.go"
+symbol = "px_node_root_account_test.go"
+observed = "Attempt 1 at 4c65f3f81586: build exit 0; verification exit 1: TestPxNodeRoot_Account_CommittedReadsAndParity fails at rpc/px_node_root_account_test.go:306 through pxRootAssertSchema with result lacks node_rpc; log /out/logs/verify-1.log."
+assumption = "The origin repair holds; the answer lacks two further schema members and the parity case predates the node-served routes."
+severity = "high"
+
+[finding.22.38.13.3]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 3 at 80d13275407c: build exit 0; verification exit 101: twelve cases of the fuel_budget target pass and f11_fuel_table panics at tests/fuel_budget.rs:2351 with Operation(2825) refused by ApplicationError(22) after 126 seconds; log /out/logs/verify-1.log."
+assumption = "The fixture is valid; the settlement section cap is below the sum of the regions it carries at the declared capacities."
+severity = "high"
