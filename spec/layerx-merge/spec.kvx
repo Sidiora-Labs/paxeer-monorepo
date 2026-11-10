@@ -161557,7 +161557,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.290]
 title = "Make the wallet gateway suite self-contained in the qualification environment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -184209,7 +184209,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.316]
 title = "Size the settlement section of the market program for the reward state and the full room book together"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224178,7 +224178,7 @@ do_4 = "Attempt 2 (continue, gotcha 4105, decision 3183): the attempt-1 tree 04e
 
 [task.22.39.320]
 title = "Repair the genesis and proof error cases of the launchpad types package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.315"]
