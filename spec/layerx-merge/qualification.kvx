@@ -39810,3 +39810,11 @@ symbol = "repair_22_39_314_test.go"
 observed = "Attempt 2 at 37d1740cb712 on base 1b4b14bd3e44: the verification exits 1, TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic fails at repair_22_39_314_test.go:164 with 403 FORBIDDEN on /v2/snapshots after the chart lists pass; log /out/logs/verify-1.log."
 assumption = "The wait helper of the case omits the origin that the snapshot route requires."
 severity = "high"
+
+[finding.22.39.162.7]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 7 at e2f14a479b62 on base 1b4b14bd3e44: the verification exits 1, internal/source fails in TestRepairM_997_ArchiveCapacityBounds, TestRepairM_997_AuthorizedIncidentSelection and TestRepairM_997_MixedRPCSourceSelection, every other package passes; log /out/logs/verify-2.log."
+assumption = "The historical cases of the package leave state behind that the capacity cases then meet."
+severity = "high"
