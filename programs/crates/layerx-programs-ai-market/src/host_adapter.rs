@@ -110,6 +110,15 @@ mod wasm {
             &self,
             output: &'a mut [u8],
         ) -> AdapterResult<Option<state::SharedState<'a>>> {
+            match self.read_encoded_state(output)? {
+                None => Ok(None),
+                Some(bytes) => Ok(Some(state::decode_shared_state(bytes)?)),
+            }
+        }
+        pub fn read_encoded_state<'a>(
+            &self,
+            output: &'a mut [u8],
+        ) -> AdapterResult<Option<&'a [u8]>> {
             let bounded_len = output.len().min(MAX_STATE_BYTES);
             let length = shared::read(
                 SharedStorageKey::new(SHARED_STATE_KEY)?,
@@ -117,9 +126,7 @@ mod wasm {
             )?;
             match length {
                 None => Ok(None),
-                Some(length) => Ok(Some(state::decode_shared_state(
-                    output.guest_index(..length),
-                )?)),
+                Some(length) => Ok(Some(&output[..length])),
             }
         }
         pub fn hash_domain(
@@ -171,12 +178,49 @@ mod wasm {
             crypto::ed25519_verify(crypto::Ed25519Message::new(&message)?, &key.0, &signature.0)?;
             Ok(())
         }
+        #[cfg_attr(target_arch = "wasm32", inline(never))]
         pub fn stage_state_and_events(
             self,
             encoded_state: &[u8],
             events: &[ApplicationEvent<'_>],
         ) -> AdapterResult<()> {
-            let state = state::decode_shared_state(encoded_state)?;
+            let revision = state::decode_shared_state(encoded_state)?.revision;
+            self.stage_framed_state_and_events(encoded_state, events, revision)
+        }
+
+        // These object-local producers preserve the replay/control section.
+        // Prove that preservation directly instead of decoding every actor slot
+        // again while staging a frame whose only changed sections are elsewhere.
+        #[cfg_attr(target_arch = "wasm32", inline(never))]
+        pub(crate) fn stage_preserved_state_and_events(
+            self,
+            current: &[u8],
+            encoded_state: &[u8],
+            events: &[ApplicationEvent<'_>],
+        ) -> AdapterResult<()> {
+            let before = state::SectionReader::new(current)?;
+            let after = state::SectionReader::new(encoded_state)?;
+            if after.revision() != before.revision().checked_add(1).ok_or(ARITHMETIC)? {
+                return Err(NON_CANONICAL.into());
+            }
+            if !codec::equal_bytes(
+                before.section(state::Section::Control),
+                after.section(state::Section::Control),
+            ) {
+                // Opening may retire a departing worker's replay slot. That
+                // producer writes control and therefore uses strict validation.
+                return self.stage_state_and_events(encoded_state, events);
+            }
+            self.stage_framed_state_and_events(encoded_state, events, after.revision())
+        }
+
+        #[cfg_attr(target_arch = "wasm32", inline(never))]
+        fn stage_framed_state_and_events(
+            self,
+            encoded_state: &[u8],
+            events: &[ApplicationEvent<'_>],
+            revision: u64,
+        ) -> AdapterResult<()> {
             if events.len() > MAX_EVENTS {
                 return Err(CAPACITY.into());
             }
@@ -190,7 +234,7 @@ mod wasm {
                     (*topics.guest_index(i)).guest_index(..*lengths.guest_index(i)),
                     event.body,
                 )?;
-                if common.revision != state.revision {
+                if common.revision != revision {
                     return Err(NON_CANONICAL.into());
                 }
                 if previous.is_some_and(|p| p != common) {

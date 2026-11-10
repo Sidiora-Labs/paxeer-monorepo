@@ -176,6 +176,7 @@ impl LayerxdProgramBalanceReader {
         verifier: ProtocolDeploymentVerifier,
         registry: Registry,
     ) -> Result<Self, ProgramReadError> {
+        // Retain the independent authority's configured identity validation.
         let ProgramAuthority {
             endpoint: authority_endpoint,
             authorization: authority_authorization,

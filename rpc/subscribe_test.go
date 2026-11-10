@@ -340,6 +340,7 @@ func newAutobahnCommittedTestNode(t *testing.T) *autobahnCommittedTestNode {
 	// Use the persisted headers for these subscriptions without changing the
 	// running Autobahn node's own RPC environment or consensus router.
 	storedEnv := newAutobahnSubscriptionEnvironment(tmClient.Environment)
+	storedEnv.Router = nil
 	storedEnv.BlockStore = env.BlockStore
 	storedEnv.StateStore = env.StateStore
 	tmClient.Environment = storedEnv

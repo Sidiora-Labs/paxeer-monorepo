@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import * as http from "node:http";
 import * as https from "node:https";
-import { bindSignedProgramLifecycle } from "./program-wire.js";
 import { encodeNativeEffectPrepareRequest, type NativeEffectPrepareRequestV1 } from "./native-effect.js";
 
 import {
@@ -35,13 +34,9 @@ interface AgentRoute {
 }
 
 const PROGRAM_ROUTES: Readonly<Partial<Record<AgentOperation, AgentRoute>>> = Object.freeze({
-  "program.deploy": Object.freeze({ method: "POST", path: "/v1/programs/deploy" }),
-  "program.upgrade": Object.freeze({ method: "POST", path: "/v1/programs/upgrade" }),
-  "program.wind-down": Object.freeze({ method: "POST", path: "/v1/programs/wind-down" }),
   "program.discover": Object.freeze({ method: "GET", path: "/v1/programs/registry/{program_id}", pathField: "program_id" }),
   "program.interface": Object.freeze({ method: "GET", path: "/v1/programs/registry/{program_id}/interface", pathField: "program_id" }),
   "program.simulate": Object.freeze({ method: "POST", path: "/v1/programs/simulate" }),
-  "program.call": Object.freeze({ method: "POST", path: "/v1/programs/call" }),
   "program.receipt": Object.freeze({ method: "GET", path: "/v1/programs/receipts/by-idempotency/{idempotency_key}", pathField: "idempotency_key" }),
   "program.activity": Object.freeze({ method: "GET", path: "/v1/programs/activities/{activity_id}", pathField: "activity_id" }),
 });
@@ -145,11 +140,6 @@ export class AgentHttpTransport implements ProductionTransport {
     }
     catch { throw invalidArgument(); }
     if (body.length > MAX_REQUEST_BYTES) throw invalidArgument();
-    if (isLifecycle(call.operation)) {
-      const ordinal = call.operation === "program.deploy" ? 1 : call.operation === "program.upgrade" ? 2 : 7;
-      try { await bindSignedProgramLifecycle(body, undefined, ordinal, call.idempotencyKey); }
-      catch { throw invalidArgument(); }
-    }
     const endpoint = routeEndpoint(this.#endpoint, path);
     const headers: http.OutgoingHttpHeaders = {
       Accept: "application/json",

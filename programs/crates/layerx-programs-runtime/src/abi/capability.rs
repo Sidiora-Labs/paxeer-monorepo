@@ -160,6 +160,9 @@ pub struct CapabilitySet(BTreeMap<CapabilityKey, Capability>);
 
 impl CapabilitySet {
     /// Plans the exact capability bytes bound inside an authenticated CALL payload.
+    /// # Errors
+    ///
+    /// Returns an ABI refusal for malformed, duplicate, excessive, or unauthorized capability grants and invalid schedule accesses.
     pub fn admitted_schedule_accesses(
         encoded: &[u8],
         program: ProgramId,
@@ -581,6 +584,9 @@ impl CapabilitySet {
         })
     }
 
+    /// # Errors
+    ///
+    /// Returns an ABI refusal for malformed, duplicate, excessive, or unauthorized capability grants and invalid schedule accesses.
     pub fn decode_canonical(bytes: &[u8]) -> Result<Vec<Capability>, AbiError> {
         Self::decode_versioned_canonical(bytes, false)
     }

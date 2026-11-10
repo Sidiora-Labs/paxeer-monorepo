@@ -70,6 +70,8 @@ fn echo_responder() -> Vec<u8> {
 }
 
 fn repeated_forwarder(callee: ProgramId, first: &[u8], second: &[u8]) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let types = type_section(&[
         (&[TYPE_I32, TYPE_I32, TYPE_I32], &[TYPE_I32]),
         (
@@ -96,20 +98,39 @@ fn repeated_forwarder(callee: ProgramId, first: &[u8], second: &[u8]) -> Vec<u8>
         export_payload.extend_from_slice(&[kind, index]);
     }
     let mut body = Vec::new();
-    let input_offsets = [64i32, 64 + first.len() as i32];
-    let output_offsets = [2048i32, 2048 + first.len() as i32];
+    let input_offsets = [
+        64i32,
+        64 + i32::try_from(first.len()).assert_success("fixture fits i32"),
+    ];
+    let output_offsets = [
+        2048i32,
+        2048 + i32::try_from(first.len()).assert_success("fixture fits i32"),
+    ];
     for ((input, output), length) in input_offsets
         .into_iter()
         .zip(output_offsets)
         .zip([first.len(), second.len()])
     {
-        for value in [0i32, 32, input, length as i32, 32, 2, output, length as i32] {
+        for value in [
+            0i32,
+            32,
+            input,
+            i32::try_from(length).assert_success("fixture fits i32"),
+            32,
+            2,
+            output,
+            i32::try_from(length).assert_success("fixture fits i32"),
+        ] {
             body.push(0x41);
             body.extend(signed_leb(value));
         }
         body.extend_from_slice(&[0x10, 1, 0x1a]);
     }
-    for value in [7i32, 2048, (first.len() + second.len()) as i32] {
+    for value in [
+        7i32,
+        2048,
+        i32::try_from(first.len() + second.len()).assert_success("fixture fits i32"),
+    ] {
         body.push(0x41);
         body.extend(signed_leb(value));
     }
@@ -137,6 +158,8 @@ fn response_forwarder(
     capacity: i32,
     encoded_capabilities: &[u8],
 ) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let types = type_section(&[
         (
             &[TYPE_I32; 8],
@@ -165,7 +188,7 @@ fn response_forwarder(
         32,
         0,
         32,
-        encoded_capabilities.len() as i32,
+        i32::try_from(encoded_capabilities.len()).assert_success("fixture fits i32"),
         pointer,
         capacity,
     ] {
@@ -189,6 +212,8 @@ fn v1_forwarder(callee: ProgramId) -> Vec<u8> {
 }
 
 fn legacy_forwarder(callee: ProgramId, encoded_capabilities: &[u8]) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let types = type_section(&[
         (&[TYPE_I32; 6], &[TYPE_I32]),
         (&[TYPE_I32], &[TYPE_I32]),
@@ -208,7 +233,14 @@ fn legacy_forwarder(callee: ProgramId, encoded_capabilities: &[u8]) -> Vec<u8> {
         export_payload.extend_from_slice(&[kind, index]);
     }
     let mut body = Vec::new();
-    for value in [0i32, 32, 32, 0, 32, encoded_capabilities.len() as i32] {
+    for value in [
+        0i32,
+        32,
+        32,
+        0,
+        32,
+        i32::try_from(encoded_capabilities.len()).assert_success("fixture fits i32"),
+    ] {
         body.push(0x41);
         body.extend(signed_leb(value));
     }
@@ -302,7 +334,7 @@ fn section(id: u8, payload: &[u8]) -> Vec<u8> {
 fn signed_leb(mut value: i32) -> Vec<u8> {
     let mut encoded = Vec::new();
     loop {
-        let byte = (value as u8) & 0x7f;
+        let byte = value.to_le_bytes()[0] & 0x7f;
         value >>= 7;
         let done = (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0);
         encoded.push(if done { byte } else { byte | 0x80 });
@@ -327,6 +359,8 @@ fn responder_body(
     publications: u8,
     trap: bool,
 ) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let types = type_section(&[
         (&[TYPE_I32, TYPE_I32, TYPE_I32], &[TYPE_I32]),
         (&[TYPE_I32], &[TYPE_I32]),
@@ -353,7 +387,9 @@ fn responder_body(
         call.push(0x41);
         call.extend(signed_leb(1024));
         call.push(0x41);
-        call.extend(signed_leb(bytes.len() as i32));
+        call.extend(signed_leb(
+            i32::try_from(bytes.len()).assert_success("fixture fits i32"),
+        ));
         call.extend_from_slice(&[0x10, 0, 0x1a]);
     }
     if trap {
@@ -460,7 +496,12 @@ fn execute_with_prices(
 }
 
 fn writing_overflow_responder() -> Vec<u8> {
-    writing_malformed_responder(1024, (MAX_CALL_RESPONSE_BYTES + 1) as i32)
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    writing_malformed_responder(
+        1024,
+        i32::try_from(MAX_CALL_RESPONSE_BYTES + 1).assert_success("fixture fits i32"),
+    )
 }
 
 fn writing_malformed_responder(pointer: i32, length: i32) -> Vec<u8> {
@@ -566,6 +607,8 @@ fn writing_effect_response_responder() -> Vec<u8> {
 
 #[test]
 fn v1_refuses_candidate_import_and_candidate_returns_binary_response() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let bytes = [0, 0xff, 7, 0x80, 3];
     let wasm = responder(&bytes, 9, 9, 1);
     let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error}"));
@@ -629,7 +672,9 @@ fn v1_refuses_candidate_import_and_candidate_returns_binary_response() {
         + 8
         + (layerx_programs_runtime::DEFAULT_MAX_CALL_GRAPH_EDGES as usize * 68);
     let mut oversized_graph = encoded[..graph_length_offset].to_vec();
-    oversized_graph.extend_from_slice(&((maximum_graph + 1) as u32).to_be_bytes());
+    oversized_graph.extend_from_slice(
+        &(u32::try_from(maximum_graph + 1).assert_success("fixture fits u32")).to_be_bytes(),
+    );
     oversized_graph.extend(vec![0; maximum_graph + 1]);
     oversized_graph.extend_from_slice(&encoded[graph_tail_offset..]);
     assert_eq!(
@@ -638,7 +683,10 @@ fn v1_refuses_candidate_import_and_candidate_returns_binary_response() {
     );
     let mut oversized_response = encoded[..=outcome_offset].to_vec();
     oversized_response.extend_from_slice(&0i32.to_be_bytes());
-    oversized_response.extend_from_slice(&((MAX_CALL_RESPONSE_BYTES + 1) as u32).to_be_bytes());
+    oversized_response.extend_from_slice(
+        &(u32::try_from(MAX_CALL_RESPONSE_BYTES + 1).assert_success("fixture fits u32"))
+            .to_be_bytes(),
+    );
     oversized_response.extend(vec![0; MAX_CALL_RESPONSE_BYTES + 1]);
     assert_eq!(
         layerx_programs_runtime::CandidateActivityReceipt::canonical_decode(&oversized_response),

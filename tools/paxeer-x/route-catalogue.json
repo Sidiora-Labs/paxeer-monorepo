@@ -1,7 +1,7 @@
 {
   "schema": "paxeer-x.routes.v1",
-  "chain_id": 125,
   "canonical_origin": "https://api-mainnet-beta.paxeer.network",
+  "chain_id": 125,
   "rpc_records": [
     "api1",
     "api2",

@@ -87,13 +87,12 @@ func TestAuthEVMTransactionReceipt(t *testing.T) {
 		require.Equal(t, uint32(txIndex), receipt.TransactionIndex)
 		require.Positive(t, receipt.GasUsed)
 		require.Equal(t, response.GasUsed, receipt.GasUsed)
-		expectedVMError, expectedReceiptError := "", ""
+		expectedVMError := ""
 		if expectedCode == sdkerrors.ErrEVMVMError.ABCICode() {
-			expectedVMError = vm.ErrExecutionReverted.Error()
-			expectedReceiptError = expectedVMError + "|LXP_AUTH_SCOPE"
+			expectedVMError = vm.ErrExecutionReverted.Error() + "|LXP_AUTH_SCOPE"
 		}
 		require.Equal(t, expectedVMError, response.VmError)
-		require.Equal(t, expectedReceiptError, receipt.VmError)
+		require.Equal(t, expectedVMError, receipt.VmError)
 		txIndex++
 		return receipt, &response
 	}

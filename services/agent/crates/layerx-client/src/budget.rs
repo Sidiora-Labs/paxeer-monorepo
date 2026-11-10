@@ -147,6 +147,12 @@ impl ProtocolBudgetRecord {
         self.per_period_limit.saturating_sub(self.spent_this_period)
     }
 
+    /// Returns the exclusive end of the current period in block-time milliseconds.
+    #[must_use]
+    pub const fn period_end_ms(&self) -> u64 {
+        self.period_start.saturating_add(self.period_length)
+    }
+
     /// Returns the exclusive end sequence of the current period window.
     #[must_use]
     pub const fn window_end_sequence(&self) -> u64 {
