@@ -224883,7 +224883,7 @@ do_4 = "Attempt 2 (requalify, gotcha 4098, decision 3176): the attempt-1 tree ff
 
 [task.22.39.314]
 title = "Complete the development candle path of the launchpad chart service and API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
