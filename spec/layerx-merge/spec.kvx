@@ -12238,6 +12238,12 @@ value = "The readiness of the receipt verifier stays in the admission of the del
 basis = "Gotcha 4109, decisions 3181 and 3183."
 affects = ["22.39.311"]
 
+[decision.3188]
+title = "A portable export writes an absent signature the way the node wrote it"
+value = "A verifier may hold the signature of a validator that did not sign as empty bytes, and the export of the same receipt writes JSON null for it, so that the exported bytes equal the published vector byte for byte. The published vectors and fixtures stay as they are and the byte comparison of the cases stays. This holds for every SDK that exports the portable receipt; the Rust and TypeScript exports are the reference for the JVM one."
+basis = "Gotcha 4110, decision 3170, gotcha 3046."
+affects = ["22.39.317"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -224236,7 +224242,7 @@ do_4 = "Attempt 2 (requalify, gotcha 4101, decision 3179): the attempt-1 tree b7
 
 [task.22.39.307]
 title = "Restore the launchpad query validation text on the client paths"
-status = "done"
+status = "pending"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.315"]
@@ -282893,6 +282899,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Attempt 2 (continue, gotcha 4110, decision 3188): the attempt-1 tree 91a2708e8ba4 stands (generate_jvm.py and the regenerated GeneratedSchema.java, the six repaired test classes, pipeline.kvx, the record). 120 of 122 cases pass with no skip. The two remaining failures are one cause: PortableReceiptTest.portableExportMatchesPublishedVectorV5 at :240, also called by Repair22331391Test at :44, compares the export with the published vector and gets 13857 bytes where the vector has 13859, because the export writes an empty text for the signature of a validator that did not sign and the vector holds null. Keep reading null as empty signature bytes in the normalization helper, and make the export path of the portable receipt under sdk/platform/jvm/src write null for an absent signature, following the Rust and TypeScript exports; when the export only passes through what the helper normalised, keep the absence in the model instead of an empty text. Do not edit the vector, the fixtures or the byte comparison, and do not skip a case. Add the cause and the repair to the two portable entries of the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.309]
 title = "Route the JVM program activity and receipt reads by the retained transaction"

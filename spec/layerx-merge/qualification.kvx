@@ -39698,3 +39698,11 @@ symbol = "event_producer_tls.rs"
 observed = "Attempt 4 at f09df5255d79 on base d5614dd88e54: build exit 0 at ce55c220236f (log /out/logs/build-1.log); the verification at ce55c220236f exits 1 (the test run exits 101) with 1 passed and 1 failed: human_journey_and_approval_cross_tls_and_recover_after_sink_loss panics at crates/layerx-human-service/src/event_producer_tls.rs:91 with observe ack: webhook-trigger refused; log /out/logs/verify-1.log."
 assumption = "The node and consensus endpoints of the fixture point at the event source, which serves neither readiness call."
 severity = "high"
+
+[finding.22.39.317.1]
+task = "22.39.317"
+file = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java"
+symbol = "SequencerReceiptTest.java"
+observed = "Attempt 1 at 91a2708e8ba4 on base 5df422806409: build exit 0 at 91a2708e8ba4 (log /out/logs/build-2.log); the second verification at 91a2708e8ba4 exits 1 with 122 cases run and 2 failures: PortableReceiptTest.portableExportMatchesPublishedVectorV5:240 and Repair22331391Test.portableNormalizationRemainsAnExplicitIndependentVectorTest:44 report array lengths differ, expected 13859 but was 13857; log /out/logs/verify-2.log."
+assumption = "The export writes an empty text for an absent signature and both repair cycles were used before it could be corrected."
+severity = "high"
