@@ -40186,3 +40186,11 @@ symbol = "tests"
 observed = "Attempt 5 at 8292a93a5eef on base 85a5a12b6acf: the build exits 0; verification 1 exits 1 at 8292a93a5eef in the targets program_balances_eth_call, program_chain_head, inference_deals and inference_laps, every diagnostic in a file included by path; log /out/logs/verify-1.log."
 assumption = "The remaining diagnostics sit in files outside the paths of the task that its targets include by path."
 severity = "high"
+
+[finding.17.4.6.8]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 13 at ad0093b16a14 on base 35e355459080: the build exits 0; verification 1 exits 1 at ad0093b16a14 with all 50 row commands at exit 0 and the assertion of test_parity_run.py:104 failed, TestAuthResultByIdempotency selected and not executed; log /out/logs/verify-1.log."
+assumption = "Four selectors of the inventory name cases that were retired, renamed or divided on main."
+severity = "high"
