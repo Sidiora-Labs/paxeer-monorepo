@@ -198094,7 +198094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.18]
 title = "Issue, countersign, seal and settle lap receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.4", "22.38.17", "22.31.620", "22.39.353"]
