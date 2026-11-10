@@ -193803,7 +193803,7 @@ do_4 = "Attempt 2 (continue, gotcha 4005, decision 3125): the attempt-1 tree cf8
 
 [task.22.39.253]
 title = "Repair the retired references of the agent daemon crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
