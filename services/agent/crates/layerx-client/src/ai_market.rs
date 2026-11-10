@@ -102,6 +102,199 @@ pub mod inference_market {
         pub required_rank: u8,
     }
 
+    pub struct HostMeterKey(ed25519_dalek::SigningKey);
+
+    impl HostMeterKey {
+        pub fn from_seed(seed: &[u8; 32]) -> Self {
+            Self(ed25519_dalek::SigningKey::from_bytes(seed))
+        }
+        pub fn public_key(&self) -> [u8; 32] {
+            self.0.verifying_key().to_bytes()
+        }
+        pub fn sign(&self, digest: &[u8; 32]) -> [u8; 64] {
+            use ed25519_dalek::Signer as _;
+            self.0.sign(digest).to_bytes()
+        }
+    }
+
+    pub fn meter_digest(stream: [u8; 32], reading: u64, key: [u8; 32]) -> [u8; 32] {
+        let mut hash = sha2::Sha256::new();
+        hash.update(b"LXP/v1/signature-preimage\0");
+        hash.update(b"LXP:STREAM:METER:v1");
+        hash.update(stream);
+        hash.update(reading.to_be_bytes());
+        hash.update(key);
+        hash.finalize().into()
+    }
+
+    pub fn stream_meter_calldata(
+        stream: [u8; 32],
+        reading: u64,
+        authority: [u8; 32],
+        signature: [u8; 64],
+    ) -> Result<Vec<u8>, AiClientError> {
+        if stream == [0; 32] || authority == [0; 32] {
+            return Err(program::errors::NON_CANONICAL.into());
+        }
+        layerx_crypto::ed25519::verify_digest(
+            &authority,
+            &signature,
+            &meter_digest(stream, reading, authority),
+        )?;
+        let selector = layerx_crypto::evm_transaction::transaction_hash(
+            b"streamMeter(bytes32,uint64,bytes32,bytes)",
+        );
+        let mut out = vec![0; 4 + 7 * 32];
+        out[..4].copy_from_slice(&selector[..4]);
+        out[4..36].copy_from_slice(&stream);
+        out[60..68].copy_from_slice(&reading.to_be_bytes());
+        out[68..100].copy_from_slice(&authority);
+        out[131] = 128;
+        out[163] = 64;
+        out[164..228].copy_from_slice(&signature);
+        Ok(out)
+    }
+
+    pub async fn sign_stream_meter(
+        calldata: &[u8],
+        terms: &NativeTerms<'_>,
+        signer: &dyn layerx_crypto::signer::Signer,
+    ) -> Result<super::OperationRecord, AiClientError> {
+        use layerx_crypto::evm_transaction::Eip1559Call;
+        if terms.network_id != 125
+            || terms.owner_public_key != signer.public_key()
+            || terms.gas_limit == 0
+            || terms.not_after == 0
+            || terms.not_before != 0
+            || calldata.len() != 228
+            || terms.max_priority_fee_per_gas > terms.max_fee_per_gas
+            || u128::from(terms.gas_limit)
+                .checked_mul(terms.max_fee_per_gas)
+                .is_none()
+        {
+            return Err(program::errors::NON_CANONICAL.into());
+        }
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1b]);
+        let call = Eip1559Call {
+            chain_id: 125,
+            nonce: terms.account_sequence,
+            max_priority_fee_per_gas: terms.max_priority_fee_per_gas,
+            max_fee_per_gas: terms.max_fee_per_gas,
+            gas_limit: terms.gas_limit,
+            to: target,
+            data: calldata.to_vec(),
+        };
+        let stream = calldata[4..36]
+            .try_into()
+            .map_err(|_| AiClientError::CorruptRecord)?;
+        let reading = u64::from_be_bytes(
+            calldata[60..68]
+                .try_into()
+                .map_err(|_| AiClientError::CorruptRecord)?,
+        );
+        let authority = calldata[68..100]
+            .try_into()
+            .map_err(|_| AiClientError::CorruptRecord)?;
+        let attestation = calldata[164..228]
+            .try_into()
+            .map_err(|_| AiClientError::CorruptRecord)?;
+        if stream_meter_calldata(stream, reading, authority, attestation)? != calldata {
+            return Err(program::errors::NON_CANONICAL.into());
+        }
+        let from = signer.evm_address().ok_or(AiClientError::UnauthorizedKey)?;
+        let signature = signer.sign_transaction(&call).await?;
+        if layerx_crypto::evm_transaction::recover_sender(&call, &signature)? != from {
+            return Err(AiClientError::UnauthorizedKey);
+        }
+        Ok(super::OperationRecord::from_signed_transaction(
+            layerx_crypto::evm_transaction::assemble(&call, &signature),
+            sha2::Sha256::digest(calldata).into(),
+            terms.not_after,
+        )?)
+    }
+
+    pub fn seal_evidence(payload: &[u8]) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::SealEvidence, payload.to_vec())
+    }
+
+    pub fn lap_envelope(
+        snapshot: &FinalizedSnapshot,
+        operation: &MarketOperation,
+        actor: PrincipalId,
+        roster: program::types::RosterDigest,
+        request: RequestId,
+        expiry: u64,
+    ) -> Result<Vec<u8>, AiClientError> {
+        use program::{
+            codec::Envelope,
+            state::ActorSlot,
+            types::{Authentication, Presence},
+        };
+        snapshot.require_current(snapshot.binding().execution_height)?;
+        let state = program::state::decode_shared_state(snapshot.state_bytes())?;
+        let frozen =
+            program::epoch::captured_roster(&state)?.ok_or(program::errors::WRONG_ROSTER)?;
+        if roster != frozen.binding.roster || expiry <= snapshot.binding().execution_height {
+            return Err(program::errors::WRONG_ROSTER.into());
+        }
+        let operation_roster = match operation.operation() {
+            dispatch::SealEvidence => roster,
+            dispatch::SettleLaps => {
+                let batch = program::laps::ReceiptBatch::decode(
+                    operation
+                        .payload()
+                        .get(..program::laps::BATCH_BYTES)
+                        .ok_or(program::errors::NON_CANONICAL)?,
+                )?;
+                let book = program::rooms::RoomBook::decode(state.room_market()?.1)?;
+                let deal = book
+                    .deal(batch.deal_id)?
+                    .ok_or(program::errors::NOT_FOUND)?;
+                let admission = program::admission::AdmissionTable::decode(
+                    program::reputation_transition::joint_table(
+                        state.section(program::state::Section::ReputationAdmission)?,
+                    )?,
+                )?;
+                if program::roster::roster_digest(&admission, frozen.binding.epoch)?.bytes()
+                    != deal.roster_digest.bytes()
+                {
+                    return Err(program::errors::WRONG_ROSTER.into());
+                }
+                deal.roster_digest
+            }
+            _ => return Err(program::errors::UNKNOWN_OPERATION.into()),
+        };
+        let authority = (0..43)
+            .filter_map(|i| state.control.replay.actor(ActorSlot::from_index(i).ok()?))
+            .find(|entry| entry.principal == actor)
+            .ok_or(program::errors::UNAUTHORIZED)?;
+        let sequence = authority.last.map_or(Ok(1), |last| {
+            last.sequence
+                .checked_add(1)
+                .ok_or(program::errors::ARITHMETIC)
+        })?;
+        let envelope = Envelope {
+            operation: operation.operation(),
+            chain: snapshot.binding().chain,
+            program: snapshot.binding().program,
+            market: snapshot.binding().market,
+            actor,
+            epoch: frozen.binding.epoch,
+            config: frozen.binding.config.get(),
+            roster: Presence::Present(operation_roster),
+            sequence,
+            expiry,
+            request,
+            payload: operation.payload(),
+            authentication: Authentication::Native,
+        };
+        let mut out = vec![0; program::MAX_ENVELOPE_BYTES];
+        let length = program::codec::encode_envelope(&envelope, &mut out)?;
+        out.truncate(length);
+        Ok(out)
+    }
+
     impl MarketOperation {
         fn new(operation: Operation, payload: Vec<u8>) -> Result<Self, AiClientError> {
             operation.validate_payload_length(payload.len())?;
