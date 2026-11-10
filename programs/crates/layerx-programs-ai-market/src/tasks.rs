@@ -41,15 +41,15 @@ use crate::{
     evaluators::{
         authority::split_identity_section, codec::verify_digest, model::VerificationError,
     },
-    registry::{check_f01_capacity, market_clock, MarketHeader},
+    registry::{market_clock, MarketHeader},
     registry_ops::{
         CallContext, PolicySection, ACTIVE, CLOSED, EMPTY_TASK_REGION, RECEIPT_MAX_BYTES,
         WINDING_DOWN,
     },
     rewards::RewardState,
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ActorSlot, ReplayDecision,
-        ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, settlement_rewards, ActorSlot, ReplayDecision, ReplayRequest,
+        RetainedResult, Section, SharedState,
     },
     types::{
         Authentication, Digest32, EpochPhase, EpochWindows, MarketId, MetadataDigest, PolicyDigest,
@@ -167,6 +167,31 @@ impl TaskBinding {
     /// digest, an unknown status or a status/digest mismatch.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        if let Some(frozen) = crate::state::current_slice(input) {
+            static DECODED: crate::guest_cell::GuestCell<
+                crate::guest_cell::Cached<[Option<(&'static [u8], TaskBinding)>; MAX_TASKS]>,
+            > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+            let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+            if !decoded.is_some() {
+                *decoded = crate::guest_cell::Cached::Value([None; MAX_TASKS]);
+            }
+            let crate::guest_cell::Cached::Value(rows) = &mut *decoded else {
+                return Err(NON_CANONICAL);
+            };
+            let slot = (input.as_ptr() as usize / TASK_BINDING_BYTES) % MAX_TASKS;
+            if let Some((bytes, row)) = rows[slot] {
+                if core::ptr::eq(bytes, input) {
+                    return Ok(row);
+                }
+            }
+            let row = Self::decode_uncached(input)?;
+            rows[slot] = Some((frozen, row));
+            return Ok(row);
+        }
+        Self::decode_uncached(input)
+    }
+    fn decode_uncached(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
             task: r.task_id()?,
@@ -204,6 +229,25 @@ impl<'a> TaskSet<'a> {
     /// short or trailing bytes, an invalid record or records not strictly ascending by `TaskId`.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(region: &'a [u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        if let Some(frozen) = crate::state::current_slice(region) {
+            static DECODED: crate::guest_cell::GuestCell<
+                crate::guest_cell::Cached<(&'static [u8], TaskSet<'static>)>,
+            > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+            let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+            if let Some((bytes, set)) = decoded.as_ref() {
+                if core::ptr::eq(*bytes, region) {
+                    return Ok(*set);
+                }
+            }
+            let set = TaskSet::decode_uncached(frozen)?;
+            *decoded = crate::guest_cell::Cached::Value((frozen, set));
+            return Ok(set);
+        }
+        Self::decode_uncached(region)
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn decode_uncached(region: &'a [u8]) -> CodecResult<Self> {
         let mut r = Reader::new(region);
         let count = usize::from(r.u16()?);
         let seal = match r.u8()? {
@@ -256,15 +300,19 @@ impl<'a> TaskSet<'a> {
     /// Propagates record decode refusals.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn position(&self, task: TaskId) -> CodecResult<(usize, Option<TaskBinding>)> {
-        for (index, binding) in self.bindings().enumerate() {
-            let binding = binding?;
+        let mut left = 0;
+        let mut right = self.len();
+        while left < right {
+            let mid = left + (right - left) / 2;
+            let start = mid * TASK_BINDING_BYTES;
+            let binding = TaskBinding::decode(&self.records[start..start + TASK_BINDING_BYTES])?;
             match binding.task.cmp(&task) {
-                Ordering::Less => {}
-                Ordering::Equal => return Ok((index, Some(binding))),
-                Ordering::Greater => return Ok((index, None)),
+                Ordering::Less => left = mid + 1,
+                Ordering::Equal => return Ok((mid, Some(binding))),
+                Ordering::Greater => right = mid,
             }
         }
-        Ok((self.len(), None))
+        Ok((left, None))
     }
 }
 
@@ -285,6 +333,25 @@ pub struct SetBinding {
 /// Returns `ARITHMETIC` when the count does not fit `u16`; `NON_CANONICAL` for a zero digest.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn task_set_digest(binding: &SetBinding, set: &TaskSet<'_>) -> CodecResult<Digest32> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(frozen) = crate::state::current_slice(set.records) {
+        static DECODED: crate::guest_cell::GuestCell<
+            crate::guest_cell::Cached<(&'static [u8], SetBinding, Digest32)>,
+        > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if let Some((bytes, bound, digest)) = decoded.as_ref() {
+            if core::ptr::eq(*bytes, set.records) && bound == binding {
+                return Ok(*digest);
+            }
+        }
+        let digest = task_set_digest_uncached(binding, set)?;
+        *decoded = crate::guest_cell::Cached::Value((frozen, *binding, digest));
+        return Ok(digest);
+    }
+    task_set_digest_uncached(binding, set)
+}
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn task_set_digest_uncached(binding: &SetBinding, set: &TaskSet<'_>) -> CodecResult<Digest32> {
     let count = u16::try_from(set.len()).map_err(|_| ARITHMETIC)?;
     Digest32::new(codec::sha256([
         TASK_SET_DOMAIN,
@@ -377,19 +444,15 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 fn set_binding<'a>(
     state: &SharedState<'a>,
     section: &PolicySection<'_>,
-    known: Option<RewardState<'a>>,
-) -> CodecResult<(SetBinding, RewardState<'a>)> {
-    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
-        *state
-            .feature_sections
-            .guest_index(Section::ReputationAdmission.index()),
+    _known: Option<RewardState<'a>>,
+) -> CodecResult<SetBinding> {
+    let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+        state.section(Section::ReputationAdmission)?,
     )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = settlement_rewards(state, known)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?
+        .row;
     let binding = SetBinding {
         market: section.header.market_id,
         epoch,
@@ -397,15 +460,37 @@ fn set_binding<'a>(
         policy: section.current.digest()?,
         roster: row.roster,
     };
-    Ok((binding, rewards))
+    Ok(binding)
 }
 
 /// Clock epoch of the records of `set`, which must all agree.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn records_epoch(set: &TaskSet<'_>, origin: u64) -> CodecResult<Option<u64>> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(frozen) = crate::state::current_slice(set.records) {
+        static DECODED: crate::guest_cell::GuestCell<
+            crate::guest_cell::Cached<(&'static [u8], u64, Option<u64>)>,
+        > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if let Some((bytes, height, epoch)) = decoded.as_ref() {
+            if core::ptr::eq(*bytes, set.records) && *height == origin {
+                return Ok(*epoch);
+            }
+        }
+        let epoch = records_epoch_uncached(set, origin)?;
+        *decoded = crate::guest_cell::Cached::Value((frozen, origin, epoch));
+        return Ok(epoch);
+    }
+    records_epoch_uncached(set, origin)
+}
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn records_epoch_uncached(set: &TaskSet<'_>, origin: u64) -> CodecResult<Option<u64>> {
     let mut epoch = None;
-    for binding in set.bindings() {
-        let last = binding?.deadline.checked_sub(1).ok_or(NON_CANONICAL)?;
+    for bytes in set.records.chunks_exact(TASK_BINDING_BYTES) {
+        // TaskSet::decode already checked every record; read only the deadline here.
+        let mut reader = Reader::new(bytes);
+        reader.take(4 * 32)?;
+        let last = reader.u64()?.checked_sub(1).ok_or(NON_CANONICAL)?;
         let clock = market_clock(origin, last)?.epoch;
         if epoch.is_some_and(|e| e != clock) {
             return Err(NON_CANONICAL);
@@ -461,7 +546,7 @@ fn epoch_view<'a>(
     known: Option<RewardState<'a>>,
 ) -> CodecResult<(SetBinding, Option<TaskSet<'a>>)> {
     let section = committed(state)?;
-    let (binding, _) = set_binding(state, &section, known)?;
+    let binding = set_binding(state, &section, known)?;
     if binding.epoch != epoch {
         return Err(WRONG_EPOCH);
     }
@@ -523,7 +608,8 @@ pub fn terminal_task_set(state: &SharedState<'_>, epoch: u64) -> CodecResult<Dig
 struct Opened<'a> {
     state: SharedState<'a>,
     section: PolicySection<'a>,
-    rewards: RewardState<'a>,
+    admission: AdmissionTable,
+    row: crate::rewards::CommittedRow<'a>,
     binding: SetBinding,
     set: TaskSet<'a>,
 }
@@ -537,12 +623,26 @@ impl Opened<'_> {
 fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     let state = decode_shared_state(current)?;
     let section = committed(&state)?;
-    let (binding, rewards) = set_binding(&state, &section, None)?;
+    let table = crate::reputation_transition::framed_admission_table(
+        state.section(Section::ReputationAdmission)?,
+    )?;
+    let admission = AdmissionTable::decode(table)?;
+    let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
+    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
+    let binding = SetBinding {
+        market: section.header.market_id,
+        epoch,
+        config: Version::new(section.header.active_config_version)?,
+        policy: section.current.digest()?,
+        roster: row.row.roster,
+    };
     let set = current_view(section.task_region, section.header.origin_height, &binding)?;
     Ok(Opened {
         state,
         section,
-        rewards,
+        admission,
+        row,
         binding,
         set,
     })
@@ -672,28 +772,18 @@ fn finish(
     let revision = opened.state.revision.checked_add(1).ok_or(ARITHMETIC)?;
     let mut section = opened.section;
     section.task_region = region.get(..region_len).ok_or(CAPACITY)?;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
-    let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
-    let mut candidate = opened
-        .state
-        .replace_section(Section::PolicyLifecycle, policy)?;
     let receipt = Receipt::new(&opened.binding, revision, e.request, e.operation)?;
-    match replay {
-        Some(request) => {
-            if candidate.record_success(request, call.ctx.height, receipt.digest)?
-                != ReplayDecision::Apply
-            {
-                return Err(NON_CANONICAL);
-            }
-        }
-        None => candidate.revision = revision,
-    }
-    if candidate.revision != revision {
-        return Err(NON_CANONICAL);
-    }
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
+    let (_, state_len) = crate::rewards::finish_feature_transition(
+        opened.state.clone(),
+        section,
+        replay,
+        call.ctx.height,
+        receipt.digest,
+        NON_CANONICAL,
+        policy,
+        control,
+        next,
+    )?;
     let event_len = codec::encode_event_frame(
         e.operation,
         &EventCommon {
@@ -752,14 +842,18 @@ fn parse_admit(payload: &[u8]) -> CodecResult<AdmitBody> {
 /// R041 frozen-worker binding: the worker is frozen in the opened epoch, its operating
 /// authority is current and unrevoked, and the claimed metadata reproduces the frozen roster.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn check_frozen_worker(
-    state: &SharedState<'_>,
-    rewards: &RewardState<'_>,
-    binding: &SetBinding,
-    body: &AdmitBody,
-    height: u64,
-) -> CodecResult<()> {
-    let captured = crate::epoch::captured_roster(state)?.ok_or(WRONG_ROSTER)?;
+fn check_frozen_worker(opened: &Opened<'_>, body: &AdmitBody, height: u64) -> CodecResult<()> {
+    let state = &opened.state;
+    let binding = &opened.binding;
+    let region =
+        crate::evaluators::authority::evaluator_region(state.section(Section::IdentityRoster)?)?;
+    let captured = crate::epoch::captured_roster_row(
+        &opened.admission,
+        &opened.section,
+        &region,
+        opened.row.row,
+        opened.row.dictionary,
+    )?;
     if captured.binding.epoch != binding.epoch
         || captured.binding.roster != binding.roster
         || captured.binding.config != binding.config
@@ -767,8 +861,6 @@ fn check_frozen_worker(
     {
         return Err(WRONG_ROSTER);
     }
-    // The reserve and captured roster were cross-checked together by captured_roster.
-    rewards.row(binding.epoch)?;
     let target = captured
         .workers()
         .iter()
@@ -783,13 +875,8 @@ fn check_frozen_worker(
     let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
     let record = live.get(body.worker).ok_or(NON_CANONICAL)?;
     crate::workers::check_opened_admission(&record, target, binding.epoch, height)?;
-    let table = crate::reputation_transition::joint_table(
-        *state
-            .feature_sections
-            .guest_index(Section::ReputationAdmission.index()),
-    )?;
-    let admission = AdmissionTable::decode(table)?;
-    if admission
+    if opened
+        .admission
         .get(Participant::Worker(body.worker))
         .is_none_or(|m| m.revoked())
     {
@@ -837,14 +924,8 @@ fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     }
     let windows = call.check_work()?;
     let height = call.ctx.height;
-    check_frozen_worker(&opened.state, &opened.rewards, binding, &body, height)?;
-    let table = crate::reputation_transition::joint_table(
-        *opened
-            .state
-            .feature_sections
-            .guest_index(Section::ReputationAdmission.index()),
-    )?;
-    crate::roster::require_quorum(&AdmissionTable::decode(table)?)?;
+    check_frozen_worker(opened, &body, height)?;
+    crate::roster::require_quorum(&opened.admission)?;
     let policy = &opened.section.current;
     if opened.set.len() >= usize::from(policy.max_tasks_per_epoch) {
         return Err(F01_NO_TASK_CAPACITY);

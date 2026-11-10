@@ -39,6 +39,8 @@ import {
 import { actionLegIntent, approvalCalldata, type ActionPlan } from './plan.js';
 import {
   actionLegExecution,
+  actionLeaseEpoch,
+  ActionLeaseLostError,
   getAction as getActionOperation,
   releaseActionBudget as releaseActionBudgetOperation,
   releaseActionNonce as releaseActionNonceOperation,
@@ -47,6 +49,7 @@ import {
   retainActionTransactionDraft as retainActionTransactionDraftOperation,
   retainActionSignedTransaction as retainActionSignedTransactionOperation,
   updateAction as updateActionOperation,
+  type ActionPatch,
   type ActionLeg,
   type ActionSignedTransaction,
   type ActionRow,
@@ -79,7 +82,11 @@ const retainActionSignedTransaction = actionOperation(
   retainActionSignedTransactionOperation,
   false
 );
-const updateAction = actionOperation(updateActionOperation, false);
+const updateAction = actionOperation(
+  (row: ActionRow, patch: ActionPatch) =>
+    updateActionOperation(row.id, patch, actionLeaseEpoch(row)),
+  false
+);
 
 /**
  * The durable-action orchestrator: it advances ONE action by exactly one
@@ -134,6 +141,7 @@ export async function advanceAction(row: ActionRow): Promise<void> {
     }
   } catch (err) {
     assertActionActive();
+    if (err instanceof ActionLeaseLostError) throw err;
     if (
       err instanceof AttestorError &&
       (err.code === 'inventory_mismatch' || err.code === 'key_invalid_share')
@@ -219,7 +227,7 @@ export async function advanceAction(row: ActionRow): Promise<void> {
 // -----------------------------------------------------------------------------
 
 async function validate(row: ActionRow): Promise<void> {
-  await updateAction(row.id, { status: 'validating', phase: 'validation' });
+  await updateAction(row, { status: 'validating', phase: 'validation' });
 
   const plan = row.plan as unknown as ActionPlan | null;
   if (!plan) {
@@ -268,7 +276,7 @@ async function validate(row: ActionRow): Promise<void> {
       policy,
       rules,
       intent,
-      reserveBudget: (args) => reserveActionBudget(row.id, args),
+      reserveBudget: (args) => reserveActionBudget(row.id, args, actionLeaseEpoch(row)),
     });
     if (!decision.allow) {
       const code: ActionErrorCode =
@@ -308,7 +316,7 @@ async function validate(row: ActionRow): Promise<void> {
   // Live allowance decides whether the approve leg is needed at all.
   const allowance = await getErc20Allowance(plan.token, wallet.address, plan.spender);
   const next: ActionStatus = allowance >= amountWei ? 'simulating_call' : 'awaiting_approval';
-  await updateAction(row.id, {
+  await updateAction(row, {
     status: next,
     phase: next === 'awaiting_approval' ? 'approval_broadcast' : 'call_simulation',
     error_code: null,
@@ -328,13 +336,13 @@ async function broadcastApproval(row: ActionRow): Promise<void> {
 
   // Re-entrancy: if we already broadcast an approval, don't send another.
   if (row.approval_tx_hash) {
-    await updateAction(row.id, { status: 'approval_pending', phase: 'approval_confirmation' });
+    await updateAction(row, { status: 'approval_pending', phase: 'approval_confirmation' });
     return;
   }
 
   const data = approvalCalldata(plan);
   const sent = await broadcastLeg(row, wallet, 'approval', { to: plan.token, data, value: 0n });
-  await updateAction(row.id, {
+  await updateAction(row, {
     status: 'approval_pending',
     phase: 'approval_confirmation',
     approval_tx_hash: sent.hash,
@@ -355,11 +363,11 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
 
   // Re-entrancy: a resumed action that already broadcast the call just waits.
   if (row.call_tx_hash) {
-    await updateAction(row.id, { status: 'call_pending', phase: 'call_confirmation' });
+    await updateAction(row, { status: 'call_pending', phase: 'call_confirmation' });
     return;
   }
 
-  await updateAction(row.id, { status: 'simulating_call', phase: 'call_simulation' });
+  await updateAction(row, { status: 'simulating_call', phase: 'call_simulation' });
 
   // Confirmation-before-dependent-call: re-check the live allowance now covers
   // the spend (the approval must have actually taken effect on-chain).
@@ -368,7 +376,7 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
   if (allowance < amountWei) {
     // Approval isn't effective yet — go back and (re)establish it rather than
     // broadcasting a call that will revert.
-    await updateAction(row.id, { status: 'awaiting_approval', phase: 'approval_broadcast' });
+    await updateAction(row, { status: 'awaiting_approval', phase: 'approval_broadcast' });
     return;
   }
 
@@ -396,7 +404,7 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
     data: plan.callData,
     value: BigInt(plan.callValueWei),
   });
-  await updateAction(row.id, {
+  await updateAction(row, {
     status: 'call_pending',
     phase: 'call_confirmation',
     call_tx_hash: sent.hash,
@@ -418,7 +426,7 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
 
   if (!hash) {
     // Nothing broadcast for this leg — kick it back to the broadcast step.
-    await updateAction(row.id, {
+    await updateAction(row, {
       status: leg === 'approval' ? 'awaiting_approval' : 'simulating_call',
     });
     return;
@@ -429,7 +437,7 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
 
   if (outcome.state === 'confirmed') {
     if (leg === 'approval') {
-      await updateAction(row.id, {
+      await updateAction(row, {
         status: 'approval_confirmed',
         phase: 'call_simulation',
         error_code: null,
@@ -477,7 +485,7 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
     message: `the ${leg} was broadcast but is not confirmed yet`,
     cause: { tx_hash: hash, nonce, still_in_mempool: known },
   });
-  await updateAction(row.id, {
+  await updateAction(row, {
     status: known ? row.status : 'reconciling',
     phase,
     error_code: code,
@@ -487,7 +495,7 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
 
 /** On-chain call success completes the action. */
 async function finalizeCall(row: ActionRow): Promise<void> {
-  await updateAction(row.id, {
+  await updateAction(row, {
     status: 'confirmed',
     phase: 'call_confirmation',
     credit_verified: true,
@@ -505,15 +513,15 @@ async function reconcile(row: ActionRow): Promise<void> {
   // has since mined this resolves cleanly; if still missing, confirmLeg will
   // decide to replace at the stored nonce (never a blind new send).
   if (row.call_tx_hash) {
-    await updateAction(row.id, { status: 'call_pending' });
+    await updateAction(row, { status: 'call_pending' });
     return;
   }
   if (row.approval_tx_hash) {
-    await updateAction(row.id, { status: 'approval_pending' });
+    await updateAction(row, { status: 'approval_pending' });
     return;
   }
   // Nothing was ever broadcast — safe to restart from validation.
-  await updateAction(row.id, { status: 'validating' });
+  await updateAction(row, { status: 'validating' });
 }
 
 // -----------------------------------------------------------------------------
@@ -572,25 +580,29 @@ export async function submitRetained(
     });
     if (sent.error !== null && !(await isTxKnown(signed.hash))) return sent.error;
   }
-  await releaseActionNonce(row.id, signed.draft.nonce);
+  await releaseActionNonce(row.id, signed.draft.nonce, actionLeaseEpoch(row));
   return null;
 }
 
 async function recoverRetainedBroadcast(row: ActionRow, leg: ActionLeg): Promise<void> {
-  if (!row.wallet_address) throw new Error('action wallet missing');
-  const failure = await withDistributedWalletLock(
-    row.wallet_address,
-    async (unfencedLease) => {
-      assertActionActive();
-      const lease = activeNonceLease(unfencedLease);
-      const current = await getAction(row.id);
-      if (!current || current.terminal_at) return null;
-      const signed = actionLegExecution(current, leg).current;
-      return signed ? submitRetained(current, signed, lease) : null;
-    },
-    undefined,
-    row.id
-  );
+  const address = row.wallet_address;
+  if (!address) throw new Error('action wallet missing');
+  const failure = await actionOperation(() =>
+    withDistributedWalletLock(
+      address,
+      async (unfencedLease) => {
+        assertActionActive();
+        const lease = activeNonceLease(unfencedLease);
+        const current = await getAction(row.id);
+        if (!current || current.terminal_at) return null;
+        if (current.attempts !== row.attempts) throw new ActionLeaseLostError();
+        const signed = actionLegExecution(current, leg).current;
+        return signed ? submitRetained(current, signed, lease) : null;
+      },
+      undefined,
+      row.id
+    )
+  )();
   if (failure !== null) throw failure;
 }
 
@@ -601,133 +613,146 @@ async function broadcastLeg(
   tx: LegTx,
   opts?: { nonce?: number; feeBumpPercent?: number }
 ): Promise<{ hash: Hex; nonce: number }> {
-  const sent = await withDistributedWalletLock(
-    wallet.address,
-    async (unfencedLease) => {
-      assertActionActive();
-      const lease = activeNonceLease(unfencedLease);
-      const current = await getAction(row.id);
-      if (!current || current.terminal_at) throw new Error('action is no longer advanceable');
-      const state = actionLegExecution(current, leg);
-      const expectedHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
-      if (state.current && (!opts || state.current.hash !== expectedHash)) {
-        const error = await submitRetained(current, state.current, lease);
-        return { hash: state.current.hash, nonce: state.current.draft.nonce, error };
-      }
-      const principal = await findPrincipal(current.did);
-      if (!principal || principal.is_frozen) throw new Error('agent principal is unavailable');
-      const [policy, rules] = await Promise.all([getPolicy(current.did), listRules(current.did)]);
-      const plan = current.plan as unknown as ActionPlan;
-      const decision = await evaluateAgent({
-        principal,
-        policy,
-        rules,
-        intent: actionLegIntent(plan, leg, tx),
-        reserveBudget: (args) => reserveActionBudget(current.id, args),
-      });
-      if (!decision.allow) {
-        await fail(
-          current,
-          leg === 'approval' ? 'approval_broadcast' : 'call_broadcast',
-          'POLICY_DENIED',
-          decision.message,
-          { policy_code: decision.code },
-          true
-        );
-        throw new AttestorError('policy', 'policy_denied', decision.message);
-      }
-      let draft = state.draft;
-      if (!draft) {
-        const nonce = await legNonce(lease, opts);
-        const gas = await resolveGas({
-          from: wallet.address,
-          to: tx.to,
-          data: tx.data,
-          value: tx.value,
-        });
-        let { maxFeePerGas, maxPriorityFeePerGas } = gas;
-        if (opts?.feeBumpPercent) {
-          const mult = BigInt(100 + opts.feeBumpPercent);
-          const previous = state.current?.draft;
-          maxFeePerGas =
-            ((previous && BigInt(previous.maxFeePerGas) > maxFeePerGas
-              ? BigInt(previous.maxFeePerGas)
-              : maxFeePerGas) *
-              mult +
-              99n) /
-            100n;
-          maxPriorityFeePerGas =
-            ((previous && BigInt(previous.maxPriorityFeePerGas) > maxPriorityFeePerGas
-              ? BigInt(previous.maxPriorityFeePerGas)
-              : maxPriorityFeePerGas) *
-              mult +
-              99n) /
-            100n;
+  const sent = await actionOperation(() =>
+    withDistributedWalletLock(
+      wallet.address,
+      async (unfencedLease) => {
+        assertActionActive();
+        const lease = activeNonceLease(unfencedLease);
+        const current = await getAction(row.id);
+        if (!current || current.terminal_at) throw new Error('action is no longer advanceable');
+        if (current.attempts !== row.attempts) throw new ActionLeaseLostError();
+        const state = actionLegExecution(current, leg);
+        const expectedHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
+        if (state.current && (!opts || state.current.hash !== expectedHash)) {
+          const error = await submitRetained(current, state.current, lease);
+          return { hash: state.current.hash, nonce: state.current.draft.nonce, error };
         }
-        draft = await retainActionTransactionDraft(current.id, leg, {
-          chainId: env.HYPERPAXEER_CHAIN_ID,
-          to: tx.to,
-          data: tx.data,
-          value: tx.value.toString(),
-          nonce,
-          gas: gas.gas.toString(),
-          maxFeePerGas: maxFeePerGas.toString(),
-          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
-          replaces: expectedHash as Hex | null,
+        const principal = await findPrincipal(current.did);
+        if (!principal || principal.is_frozen) throw new Error('agent principal is unavailable');
+        const [policy, rules] = await Promise.all([getPolicy(current.did), listRules(current.did)]);
+        const plan = current.plan as unknown as ActionPlan;
+        const decision = await evaluateAgent({
+          principal,
+          policy,
+          rules,
+          intent: actionLegIntent(plan, leg, tx),
+          reserveBudget: (args) => reserveActionBudget(current.id, args, actionLeaseEpoch(row)),
         });
-      }
-      if (
-        draft.to.toLowerCase() !== tx.to.toLowerCase() ||
-        draft.data !== tx.data ||
-        draft.value !== tx.value.toString() ||
-        draft.chainId !== env.HYPERPAXEER_CHAIN_ID ||
-        (opts?.nonce !== undefined && draft.nonce !== opts.nonce)
-      ) {
-        throw new Error('retained transaction differs from the action plan');
-      }
-      const custody = current.request._custody as
-        | { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization }
-        | undefined;
-      if (custody && custody.origin.did !== current.did)
-        throw new Error('durable request authority differs');
-      const account = await getMigrationAwareSigningAccountForRow(
-        wallet,
-        custody
-          ? {
-              scheme: 'agent_request',
-              publicKey: principal.public_key,
-              ...custody,
-            }
-          : undefined,
-        undefined,
-        undefined,
-        { subject: current.did, route: '/v1/agent/actions', requestHash: `action:${current.id}` }
-      );
-      const raw = await actionOperation(() =>
-        account.signTransaction({
-          type: 'eip1559',
-          chainId: draft.chainId,
-          to: draft.to,
-          data: draft.data,
-          value: BigInt(draft.value),
-          nonce: draft.nonce,
-          gas: BigInt(draft.gas),
-          maxFeePerGas: BigInt(draft.maxFeePerGas),
-          maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas),
-        })
-      )();
-      await assertSignedActionTransaction(raw, wallet.address, draft);
-      const retained = await retainActionSignedTransaction(current.id, leg, {
-        draft,
-        raw,
-        hash: keccak256(raw),
-      });
-      const error = await submitRetained(current, retained, lease);
-      return { hash: retained.hash, nonce: retained.draft.nonce, error };
-    },
-    undefined,
-    row.id
-  );
+        if (!decision.allow) {
+          await fail(
+            current,
+            leg === 'approval' ? 'approval_broadcast' : 'call_broadcast',
+            'POLICY_DENIED',
+            decision.message,
+            { policy_code: decision.code },
+            true
+          );
+          throw new AttestorError('policy', 'policy_denied', decision.message);
+        }
+        let draft = state.draft;
+        if (!draft) {
+          const nonce = await legNonce(lease, opts);
+          const gas = await resolveGas({
+            from: wallet.address,
+            to: tx.to,
+            data: tx.data,
+            value: tx.value,
+          });
+          let { maxFeePerGas, maxPriorityFeePerGas } = gas;
+          if (opts?.feeBumpPercent) {
+            const mult = BigInt(100 + opts.feeBumpPercent);
+            const previous = state.current?.draft;
+            maxFeePerGas =
+              ((previous && BigInt(previous.maxFeePerGas) > maxFeePerGas
+                ? BigInt(previous.maxFeePerGas)
+                : maxFeePerGas) *
+                mult +
+                99n) /
+              100n;
+            maxPriorityFeePerGas =
+              ((previous && BigInt(previous.maxPriorityFeePerGas) > maxPriorityFeePerGas
+                ? BigInt(previous.maxPriorityFeePerGas)
+                : maxPriorityFeePerGas) *
+                mult +
+                99n) /
+              100n;
+          }
+          draft = await retainActionTransactionDraft(
+            current.id,
+            leg,
+            {
+              chainId: env.HYPERPAXEER_CHAIN_ID,
+              to: tx.to,
+              data: tx.data,
+              value: tx.value.toString(),
+              nonce,
+              gas: gas.gas.toString(),
+              maxFeePerGas: maxFeePerGas.toString(),
+              maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+              replaces: expectedHash as Hex | null,
+            },
+            actionLeaseEpoch(row)
+          );
+        }
+        if (
+          draft.to.toLowerCase() !== tx.to.toLowerCase() ||
+          draft.data !== tx.data ||
+          draft.value !== tx.value.toString() ||
+          draft.chainId !== env.HYPERPAXEER_CHAIN_ID ||
+          (opts?.nonce !== undefined && draft.nonce !== opts.nonce)
+        ) {
+          throw new Error('retained transaction differs from the action plan');
+        }
+        const custody = current.request._custody as
+          | { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization }
+          | undefined;
+        if (custody && custody.origin.did !== current.did)
+          throw new Error('durable request authority differs');
+        const account = await getMigrationAwareSigningAccountForRow(
+          wallet,
+          custody
+            ? {
+                scheme: 'agent_request',
+                publicKey: principal.public_key,
+                ...custody,
+              }
+            : undefined,
+          undefined,
+          undefined,
+          { subject: current.did, route: '/v1/agent/actions', requestHash: `action:${current.id}` }
+        );
+        const raw = await actionOperation(() =>
+          account.signTransaction({
+            type: 'eip1559',
+            chainId: draft.chainId,
+            to: draft.to,
+            data: draft.data,
+            value: BigInt(draft.value),
+            nonce: draft.nonce,
+            gas: BigInt(draft.gas),
+            maxFeePerGas: BigInt(draft.maxFeePerGas),
+            maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas),
+          })
+        )();
+        await assertSignedActionTransaction(raw, wallet.address, draft);
+        const retained = await retainActionSignedTransaction(
+          current.id,
+          leg,
+          {
+            draft,
+            raw,
+            hash: keccak256(raw),
+          },
+          actionLeaseEpoch(row)
+        );
+        const error = await submitRetained(current, retained, lease);
+        return { hash: retained.hash, nonce: retained.draft.nonce, error };
+      },
+      undefined,
+      row.id
+    )
+  )();
   if (sent.error !== null) throw sent.error;
   return { hash: sent.hash, nonce: sent.nonce };
 }
@@ -751,7 +776,7 @@ async function replaceLeg(
   });
   // Point the action at the replacement hash and keep waiting on the same leg.
   await updateAction(
-    row.id,
+    row,
     leg === 'approval'
       ? { status: 'approval_pending', approval_tx_hash: sent.hash, error_code: null, error: null }
       : { status: 'call_pending', call_tx_hash: sent.hash, error_code: null, error: null }
@@ -790,11 +815,11 @@ async function fail(
 
   const nothingBroadcast = !row.approval_tx_hash && !row.call_tx_hash;
   if (mayReleaseBudget && nothingBroadcast) {
-    await releaseActionBudget(row.id);
+    await releaseActionBudget(row.id, actionLeaseEpoch(row));
   }
 
-  if (terminal) await releaseUnsignedActionNonce(row.id);
-  await updateAction(row.id, {
+  if (terminal) await releaseUnsignedActionNonce(row.id, actionLeaseEpoch(row));
+  await updateAction(row, {
     status: terminal ?? row.status,
     phase,
     error_code: code,

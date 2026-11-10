@@ -1,0 +1,407 @@
+[meta]
+task = "22.39.252"
+decisions = ["3101", "3104", "3125"]
+status = "implemented-awaiting-qualification"
+baseline_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-ai-market --path programs"
+baseline_exit = 1
+baseline_log = "/out/logs/retired-callers-before.log"
+finding_count = 38
+repaired_findings = 3
+allowed_findings = 5
+excluded_findings = 30
+blocked_findings = 0
+scope = "Only programs/README.md, this record, programs/crates/layerx-programs-ai-market/src/queries.rs and tools/paxeer-x/retired_callers.json may change."
+
+[continuation]
+attempt = 2
+start_revision = "fbe6b13a182368696aaddddce2942910074fada3"
+previous_candidate = "153cd5aa99"
+ruling = "Gotcha 4003 and decision 3125 preserve the attempt-1 implementation, authorize a path-and-symbol allowance for the live rank, and limit verification to the ai-market crate and programs overview."
+verify_command = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_252.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path programs/crates/layerx-programs-ai-market --path programs/README.md"
+finding_lines = "Finding line numbers below retain the original baseline; the five live rank references now occur at queries.rs lines 33, 736, 803, 872 and 906."
+runtime_owner = "22.39.251"
+runtime_disposition = "Findings 9 through 38 are preserved as historical inventory and excluded from this task's narrowed verification; no runtime repair is claimed."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+revision_source = "/out/run/gates.jsonl: final matching build and verify revisions, if both pass"
+build_evidence = "/out/run/gates.jsonl: final build row records revision, command, exit and private log"
+verify_evidence = "/out/run/gates.jsonl: final verify row records revision, command, exit and private log"
+policy = "No verified revision is claimed before both declared gates pass; gate output remains private and is referenced without editing the built candidate."
+
+[blocker.rank_migration]
+file = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+symbol = "FINALIZED_RANK"
+observed = "The public constant remains imported by integration tests and by the hosted indexer and agent client; existing tests explicitly require rank-based encoding and refusal behavior."
+assumption = "Retiring the public rank contract requires coordinated changes to those consumers and tests, which are outside the three allowed files."
+severity = "blocker"
+action = "Preserve the existing public constant and all assertions; document that the discriminator is not proof verification, rather than hide findings through an equivalent rename or an inline literal."
+resolved = "Decision 3125 authorizes the live FINALIZED_RANK allowance in tools/paxeer-x/retired_callers.json for queries.rs; no coordinated migration is needed for this repair."
+
+[blocker.runtime_scope]
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+symbol = "receipt_authority"
+observed = "The required baseline scan reports 30 findings across runtime files that this task cannot edit."
+assumption = "The broad --path programs verification cannot be clean until the runtime owner repairs those findings."
+severity = "blocker"
+resolved = "Attempt 2 narrows verification to the ai-market crate and programs/README.md; runtime findings belong to task 22.39.251 and remain outside this task's scope."
+
+[compatibility_consumers]
+paths = ["programs/crates/layerx-programs-ai-market/tests/view_binding.rs", "programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs", "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs", "services/platform/hosted/indexer/src/ai_market.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+assertions = "Existing tests require ranks below four to round-trip while refusing publication, ranks above four to be noncanonical, and the exact rank byte to remain in the wire encoding."
+live_producer = "services/agent/crates/layerx-client/src/ai_market.rs: ObservedSnapshot::finalize assigns FINALIZED_RANK after checking the verified program-state witness against the capture and block commit."
+allowance = "tools/paxeer-x/retired_callers.json: allowed_references entry with exact path programs/crates/layerx-programs-ai-market/src/queries.rs and symbol FINALIZED_RANK."
+
+[gotcha.1]
+area = "scope"
+symptom = "The declared scan includes runtime files outside the exclusive file scope, and the ai-market public rank is required by tests outside that scope."
+cause = "The scan and migration surface are wider than the three declared paths."
+action = "Record every finding here; preserve checks and report the bounded gate result without editing catalogue, runtime, tests or spec files."
+resolved = "Attempt 2 authorizes the catalogue allowance and removes runtime paths from this task's gate while preserving the original findings."
+
+[gotcha.2]
+area = "tooling"
+symptom = "The initial record-writing script asserted an incorrect manually counted finding total and stopped before creating the record."
+cause = "The count was transcribed manually rather than derived from the baseline diagnostics."
+action = "Derive the finding and blocked totals from the captured scan; the corrected baseline contains 38 findings, including 30 runtime findings."
+
+[finding.1]
+path = "programs/README.md"
+line = 118
+component = "protocol-adapter"
+symbol = "protocol-adapter"
+status = "repaired"
+repair = "Replace obsolete adapter retirement notices with the live registry chain-proof APIs and Programs precompile balance-read guidance."
+
+[finding.2]
+path = "programs/README.md"
+line = 120
+component = "protocol-adapter"
+symbol = "layerx-programs-protocol-adapter"
+status = "repaired"
+repair = "Replace obsolete adapter retirement notices with the live registry chain-proof APIs and Programs precompile balance-read guidance."
+
+[finding.3]
+path = "programs/README.md"
+line = 120
+component = "protocol-adapter"
+symbol = "protocol-adapter"
+status = "repaired"
+repair = "Replace obsolete adapter retirement notices with the live registry chain-proof APIs and Programs precompile balance-read guidance."
+
+[finding.4]
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 30
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Allow FINALIZED_RANK for this exact source path under decision 3125 because it declares the live snapshot wire discriminator used by the market program and its consumers."
+allowance = "tools/paxeer-x/retired_callers.json: programs/crates/layerx-programs-ai-market/src/queries.rs, symbols = [FINALIZED_RANK]"
+
+[finding.5]
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 733
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Allow FINALIZED_RANK for this exact source path under decision 3125 because bind_snapshot must preserve the live upper rank bound and reject noncanonical evidence."
+allowance = "tools/paxeer-x/retired_callers.json: programs/crates/layerx-programs-ai-market/src/queries.rs, symbols = [FINALIZED_RANK]"
+
+[finding.6]
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 800
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Allow FINALIZED_RANK for this exact source path under decision 3125 because SnapshotBinding::decode must enforce the existing wire rank bound."
+allowance = "tools/paxeer-x/retired_callers.json: programs/crates/layerx-programs-ai-market/src/queries.rs, symbols = [FINALIZED_RANK]"
+
+[finding.7]
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 869
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Allow FINALIZED_RANK for this exact source path under decision 3125 because SnapshotBinding::encode must retain the same canonical rank bound as decoding."
+allowance = "tools/paxeer-x/retired_callers.json: programs/crates/layerx-programs-ai-market/src/queries.rs, symbols = [FINALIZED_RANK]"
+
+[finding.8]
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 901
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Allow FINALIZED_RANK for this exact source path under decision 3125 because require_finalized must refuse publication for every other rank while callers verify the block commit and state proof separately."
+allowance = "tools/paxeer-x/retired_callers.json: programs/crates/layerx-programs-ai-market/src/queries.rs, symbols = [FINALIZED_RANK]"
+
+[finding.9]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 2441
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.10]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 3916
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.11]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4284
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.12]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4300
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.13]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4304
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.14]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4311
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.15]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4321
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.16]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4324
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.17]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4329
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.18]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4350
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.19]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4357
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.20]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4363
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.21]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4369
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.22]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4375
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.23]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4444
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.24]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4451
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.25]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4458
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.26]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4517
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.27]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4539
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.28]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4550
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.29]
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4580
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.30]
+path = "programs/crates/layerx-programs-runtime/src/lib.rs"
+line = 53
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.31]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 8
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.32]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 391
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.33]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 392
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.34]
+path = "programs/crates/layerx-programs-runtime/src/terminal.rs"
+line = 415
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.35]
+path = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 6
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.36]
+path = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 321
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.37]
+path = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 331
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"
+
+[finding.38]
+path = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+line = 332
+component = "settlement-domain"
+symbol = "SETTLEMENT_DOMAIN"
+status = "blocked-scope"
+repair = "Recorded without changing runtime files outside the task scope."
+blocker = "runtime_scope"

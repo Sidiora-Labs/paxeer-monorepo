@@ -137,25 +137,19 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 	recvCh, done := sendWSRequestAndListen(t, TestNotifierWSPort, "subscribe", "newHeads")
 	defer func() { done <- struct{}{} }()
 
-	hash := common.HexToHash("0x4242424242424242424242424242424242424242424242424242424242424242").Bytes()
-	parentHash := common.HexToHash("0x5252525252525252525252525252525252525252525252525252525252525252").Bytes()
-	dataHash := common.HexToHash("0x6363636363636363636363636363636363636363636363636363636363636363").Bytes()
-	resultsHash := common.HexToHash("0x7474747474747474747474747474747474747474747474747474747474747474").Bytes()
-	proposer := common.HexToAddress("0x9999999999999999999999999999999999999999").Bytes()
-	ts := time.Unix(1_700_000_500, 0).UTC()
 	// The served receiptsRoot is the results root of block H, the value
 	// header H+1 commits as LastResultsHash, not header H's own field.
 	blockHeight := int64(MockHeight8)
 	block, err := (&MockClient{}).Block(context.Background(), &blockHeight)
 	require.NoError(t, err)
-	appHash := block.Block.AppHash
-	require.Len(t, appHash, common.HashLength)
+	require.Len(t, block.BlockID.Hash, common.HashLength)
+	require.Len(t, block.Block.AppHash, common.HashLength)
 	blockResults, err := (&MockClient{}).BlockResults(context.Background(), &blockHeight)
 	require.NoError(t, err)
 	resultLeaves, err := abci.MarshalTxResults(blockResults.TxsResults)
 	require.NoError(t, err)
 	sameBlockRoot := common.BytesToHash(merkle.HashFromByteSlices(resultLeaves))
-	require.NotEqual(t, common.BytesToHash(resultsHash), sameBlockRoot)
+	require.NotEqual(t, common.BytesToHash(block.Block.LastResultsHash), sameBlockRoot)
 
 	expectedKeys := []string{
 		"parentHash", "sha3Uncles", "miner", "stateRoot", "transactionsRoot",
@@ -178,20 +172,9 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			if subscriptionId == "" {
 				subscriptionId = resObj["result"].(string)
 				timer.Reset(5 * time.Second)
-				NotifierForTest.OnBlockCommitted(hash, &tmproto.Header{
-					Height:          MockHeight8,
-					Time:            ts,
-					LastBlockId:     tmproto.BlockID{Hash: parentHash},
-					DataHash:        dataHash,
-					LastResultsHash: resultsHash,
-					AppHash:         appHash,
-					ProposerAddress: proposer,
-				}, &abci.ResponseFinalizeBlock{
-					AppHash: appHash,
-					TxResults: []*abci.ExecTxResult{
-						{GasUsed: 21000},
-						{GasUsed: 50000},
-					},
+				NotifierForTest.OnBlockCommitted(block.BlockID.Hash, block.Block.Header.ToProto(), &abci.ResponseFinalizeBlock{
+					AppHash:   block.Block.AppHash,
+					TxResults: blockResults.TxsResults,
 					// gasLimit is sourced from the SDK ConsensusParams in
 					// the consumer goroutine, not from the response, so
 					// ConsensusParamUpdates is intentionally omitted here.
@@ -207,17 +190,17 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 				_, ok := resultMap[k]
 				require.Truef(t, ok, "missing key %q in header", k)
 			}
-			require.Equal(t, common.BytesToHash(hash).Hex(), resultMap["hash"])
-			require.Equal(t, fmt.Sprintf("0x%x", MockHeight8), resultMap["number"])
-			require.Equal(t, common.BytesToAddress(proposer).Hex(), resultMap["miner"])
-			require.Equal(t, common.BytesToHash(appHash).Hex(), resultMap["stateRoot"])
-			require.Equal(t, fmt.Sprintf("0x%x", ts.Unix()), resultMap["timestamp"])
+			require.Equal(t, common.BytesToHash(block.BlockID.Hash).Hex(), resultMap["hash"])
+			require.Equal(t, fmt.Sprintf("0x%x", block.Block.Height), resultMap["number"])
+			require.Equal(t, hexutil.Encode(common.BytesToAddress(block.Block.ProposerAddress).Bytes()), resultMap["miner"])
+			require.Equal(t, common.BytesToHash(block.Block.AppHash).Hex(), resultMap["stateRoot"])
+			require.Equal(t, fmt.Sprintf("0x%x", block.Block.Time.Unix()), resultMap["timestamp"])
 			// gasLimit comes from the SDK ConsensusParams that the test
 			// runtime sets; just assert it's a non-zero hex string.
 			gasLimitStr, _ := resultMap["gasLimit"].(string)
 			require.NotEmpty(t, gasLimitStr)
 			require.NotEqual(t, "0x0", gasLimitStr)
-			require.Equal(t, common.BytesToHash(parentHash).Hex(), resultMap["parentHash"])
+			require.Equal(t, common.BytesToHash(block.Block.LastBlockID.Hash).Hex(), resultMap["parentHash"])
 			require.Equal(t, sameBlockRoot.Hex(), resultMap["receiptsRoot"])
 			t.Run("committed block roots", testSubscribeNewHeadsAutobahnCommit)
 			return
@@ -227,9 +210,22 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 	}
 }
 
-func testSubscribeNewHeadsAutobahnCommit(t *testing.T) {
+type autobahnCommittedTestNode struct {
+	ctx       context.Context
+	app       *app.App
+	tmClient  *rpclocal.Local
+	commitsMu sync.Mutex
+	commits   map[int64]common.Hash
+}
+
+func newAutobahnSubscriptionEnvironment[T any](_ *T) *T {
+	return new(T)
+}
+
+func newAutobahnCommittedTestNode(t *testing.T) *autobahnCommittedTestNode {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 	cfg, err := tmconfig.ResetTestRoot(t.TempDir(), "subscribe-committed-roots")
 	require.NoError(t, err)
 	p2pAddress := fmt.Sprintf("127.0.0.1:%d", seqReceiptFreePort9005(t))
@@ -284,25 +280,88 @@ func testSubscribeNewHeadsAutobahnCommit(t *testing.T) {
 	genesis[banktypes.ModuleName] = a.AppCodec().MustMarshalJSON(bankGenesis)
 	gen.AppState, err = json.Marshal(genesis)
 	require.NoError(t, err)
-	var commitsMu sync.Mutex
-	commits := make(map[int64]common.Hash)
-	a.SetCommitListener(func(height int64, hash []byte) error {
-		commitsMu.Lock()
-		commits[height] = common.BytesToHash(hash)
-		commitsMu.Unlock()
-		return nil
-	})
+	chain := &autobahnCommittedTestNode{ctx: ctx, app: a, commits: make(map[int64]common.Hash)}
 	n, err := tmnode.New(ctx, cfg, func() {}, a, gen, nil, tmnode.NoOpMetricsProvider(), tmtypes.DefaultConsensusPolicy())
 	require.NoError(t, err)
-	require.NoError(t, n.Start(ctx))
-	t.Cleanup(func() { n.Stop(); n.Wait() })
+	env := n.RPCEnvironment()
+	state, err := env.StateStore.Load()
+	require.NoError(t, err)
+	require.NotNil(t, state.Validators)
+	lastCommit := &tmtypes.Commit{}
+	a.SetCommitListener(func(height int64, hash []byte) error {
+		response, err := env.StateStore.LoadFinalizeBlockResponses(height)
+		if err != nil {
+			return err
+		}
+		if common.BytesToHash(response.AppHash) != common.BytesToHash(hash) {
+			return fmt.Errorf("finalize and commit state roots differ at height %d", height)
+		}
+		if len(response.TxResults) != 0 {
+			return fmt.Errorf("expected an empty committed fixture block at height %d", height)
+		}
+		// The Autobahn adapter exposes only a partial header. Persist the
+		// actual committed state in the real consensus block store before
+		// announcing it, so the RPC lookup and event describe the same block.
+		header := a.GetCheckCtx().BlockHeader()
+		block := state.MakeBlockAt(height, nil, lastCommit, nil, header.ProposerAddress, header.Time)
+		block.AppHash = append([]byte(nil), response.AppHash...)
+		parts, err := block.MakePartSet(tmtypes.BlockPartSizeBytes)
+		if err != nil {
+			return err
+		}
+		id := tmtypes.BlockID{Hash: block.Hash(), PartSetHeader: parts.Header()}
+		vote := &tmproto.Vote{Type: tmproto.PrecommitType, Height: height, BlockID: id.ToProto(),
+			Timestamp: header.Time, ValidatorAddress: pv.Key.Address, ValidatorIndex: 0}
+		if err := pv.SignVote(ctx, state.ChainID, vote); err != nil {
+			return err
+		}
+		signed, err := tmtypes.VoteFromProto(vote)
+		if err != nil {
+			return err
+		}
+		commit := &tmtypes.Commit{Height: height, BlockID: id, Signatures: []tmtypes.CommitSig{signed.CommitSig()}}
+		if err := state.Validators.VerifyCommit(state.ChainID, id, height, commit); err != nil {
+			return err
+		}
+		env.BlockStore.SaveBlock(block, parts, commit)
+		lastCommit = commit
+		state.LastBlockID = id
+		state.LastBlockHeight = height
+		state.AppHash = append([]byte(nil), response.AppHash...)
+		state.LastResultsHash = merkle.HashFromByteSlices(nil)
+		chain.commitsMu.Lock()
+		chain.commits[height] = common.BytesToHash(hash)
+		chain.commitsMu.Unlock()
+		a.BlockHeaderNotifier().OnBlockCommitted(id.Hash, block.Header.ToProto(), response)
+		return nil
+	})
 	tmClient, err := rpclocal.New(n)
 	require.NoError(t, err)
+	// Use the persisted headers for these subscriptions without changing the
+	// running Autobahn node's own RPC environment or consensus router.
+	storedEnv := newAutobahnSubscriptionEnvironment(tmClient.Environment)
+	storedEnv.Router = nil
+	storedEnv.BlockStore = env.BlockStore
+	storedEnv.StateStore = env.StateStore
+	tmClient.Environment = storedEnv
+	require.NotSame(t, env, tmClient.Environment)
+	require.Same(t, env, n.RPCEnvironment())
+	require.NotNil(t, n.RPCEnvironment().Router)
+	require.Nil(t, tmClient.Environment.Router)
+	require.NoError(t, n.Start(ctx))
+	t.Cleanup(func() { n.Stop(); n.Wait() })
 	require.Eventually(t, func() bool {
-		commitsMu.Lock()
-		defer commitsMu.Unlock()
-		return len(commits) > 0
+		chain.commitsMu.Lock()
+		defer chain.commitsMu.Unlock()
+		return len(chain.commits) > 0
 	}, 5*time.Second, 10*time.Millisecond)
+	chain.tmClient = tmClient
+	return chain
+}
+
+func testSubscribeNewHeadsAutobahnCommit(t *testing.T) {
+	chain := newAutobahnCommittedTestNode(t)
+	ctx, a, tmClient := chain.ctx, chain.app, chain.tmClient
 	wsConfig := evmrpcconfig.DefaultConfig
 	wsConfig.WSPort, wsConfig.IPRateLimitRPS = 0, 0
 	server, err := evmrpc.NewEVMWebSocketServer(wsConfig, tmClient, &a.EvmKeeper, a.BeginBlockKeepers,
@@ -324,10 +383,10 @@ func testSubscribeNewHeadsAutobahnCommit(t *testing.T) {
 	require.NoError(t, err)
 	var stateRoot common.Hash
 	require.Eventually(t, func() bool {
-		commitsMu.Lock()
-		defer commitsMu.Unlock()
+		chain.commitsMu.Lock()
+		defer chain.commitsMu.Unlock()
 		var ok bool
-		stateRoot, ok = commits[height]
+		stateRoot, ok = chain.commits[height]
 		return ok
 	}, time.Second, time.Millisecond)
 	roots := map[string]common.Hash{
@@ -341,6 +400,73 @@ func testSubscribeNewHeadsAutobahnCommit(t *testing.T) {
 		require.Equal(t, root.Hex(), head[key], key)
 	}
 	require.Equal(t, common.BytesToHash(block.BlockID.Hash).Hex(), head["hash"])
+}
+
+// TestSubscribeNewHeadsAutobahnRejectsMismatchedHash uses a private notifier
+// so only the events under test can reach this subscription, while block and
+// execution lookups still come from the real committing Autobahn node.
+func TestSubscribeNewHeadsAutobahnRejectsMismatchedHash(t *testing.T) {
+	chain := newAutobahnCommittedTestNode(t)
+	ctx, a, tmClient := chain.ctx, chain.app, chain.tmClient
+	block, err := tmClient.Block(ctx, nil)
+	require.NoError(t, err)
+	require.NotNil(t, block.Block)
+	height := block.Block.Height
+	results, err := tmClient.BlockResults(ctx, &height)
+	require.NoError(t, err)
+	var stateRoot common.Hash
+	require.Eventually(t, func() bool {
+		chain.commitsMu.Lock()
+		defer chain.commitsMu.Unlock()
+		var ok bool
+		stateRoot, ok = chain.commits[height]
+		return ok
+	}, time.Second, time.Millisecond)
+	require.Equal(t, stateRoot, common.BytesToHash(block.Block.AppHash))
+	leaves, err := abci.MarshalTxResults(results.TxsResults)
+	require.NoError(t, err)
+	require.Empty(t, block.Block.Txs)
+	require.Len(t, block.BlockID.Hash, common.HashLength)
+
+	notifier := evmrpc.NewBlockHeaderNotifier(4)
+	wsConfig := evmrpcconfig.DefaultConfig
+	wsConfig.WSPort, wsConfig.IPRateLimitRPS = 0, 0
+	server, err := evmrpc.NewEVMWebSocketServer(wsConfig, tmClient, &a.EvmKeeper, a.BeginBlockKeepers,
+		a.BaseApp, a.TracerAnteHandler, a.RPCContextProvider, func(int64) client.TxConfig { return a.GetTxConfig() },
+		"", a.GetStateStore(), notifier)
+	require.NoError(t, err)
+	t.Cleanup(server.Stop)
+	ws, peek := dialWSPipe(t, server.(http.Handler))
+	id := wsSubscribe(t, ws, "newHeads")
+
+	wrongHash := append([]byte(nil), block.BlockID.Hash...)
+	wrongHash[0] ^= 0xff
+	require.Len(t, wrongHash, common.HashLength)
+	require.NotEqual(t, common.BytesToHash(block.BlockID.Hash), common.BytesToHash(wrongHash))
+	header := block.Block.Header.ToProto()
+	response := &abci.ResponseFinalizeBlock{AppHash: stateRoot.Bytes(), TxResults: results.TxsResults}
+	notifier.OnBlockCommitted(wrongHash, header, response)
+	// Observe the underlying connection without timing out the WebSocket
+	// reader, so the same subscription can receive the subsequent valid event.
+	require.False(t, peek.writing(t, 250*time.Millisecond), "mismatched committed hash must not notify")
+
+	notifier.OnBlockCommitted(block.BlockID.Hash, header, response)
+	head := wsNotification(t, ws, id)
+	expected := map[string]string{
+		"hash":             common.BytesToHash(block.BlockID.Hash).Hex(),
+		"parentHash":       common.BytesToHash(block.Block.LastBlockID.Hash).Hex(),
+		"number":           fmt.Sprintf("0x%x", height),
+		"timestamp":        fmt.Sprintf("0x%x", block.Block.Time.Unix()),
+		"miner":            hexutil.Encode(common.BytesToAddress(block.Block.ProposerAddress).Bytes()),
+		"stateRoot":        common.BytesToHash(block.Block.AppHash).Hex(),
+		"receiptsRoot":     common.BytesToHash(merkle.HashFromByteSlices(leaves)).Hex(),
+		"transactionsRoot": ethtypes.EmptyTxsHash.Hex(),
+		"gasUsed":          "0x0",
+		"logsBloom":        hexutil.Encode(ethtypes.Bloom{}.Bytes()),
+	}
+	for key, value := range expected {
+		require.Equal(t, value, head[key], key)
+	}
 }
 
 func assertNewHeadStateRootMatchesBlock(t *testing.T, head map[string]interface{}) {

@@ -20,6 +20,7 @@ PX_104_30_2_CMD_TEST = $(PX_104_30_2_CARGO) test --locked --manifest-path progra
 PX_104_30_2_CMD_MAKE = make -f Makefile -f tools/paxeer-x/build/104.30.2.mk paxeer-x-build-104.30.2
 PX_104_30_2_RUST_INPUTS := rust-toolchain.toml programs/Cargo.toml programs/Cargo.lock services/agent/Cargo.toml services/agent/Cargo.lock \
 	$(filter %.rs %/Cargo.toml,$(shell git ls-files -- programs/crates programs/sdk/rust services/agent/crates))
+# The retained offline settlement export remains a qualification input.
 PX_104_30_2_NATIVE_INPUTS := $(filter %.c %.h %.inc,$(shell git ls-files -- include src)) \
 	tests/programs/test_call_activity.c tests/programs/test_monetary_law.c \
 	contracts/config/checkpoint-settlement.json

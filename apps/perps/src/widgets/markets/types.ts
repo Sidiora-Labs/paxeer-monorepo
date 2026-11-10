@@ -8,10 +8,10 @@ import type { TradeableMarket } from "@/core/perps/config";
  * first render before the WS feed lands.
  */
 export interface MarketRow extends TradeableMarket {
-  /** Oracle / mid price — `0` until the feed responds. */
-  price: number;
+  /** Oracle / mid price; null when unavailable or before the feed responds. */
+  price: number | null;
   /** 24h change as a percentage (e.g. -1.87 for -1.87%). */
-  change24h: number;
+  change24h: number | null;
   /** Notional 24h volume, in quote USD. */
   volume24h: number;
   /** Open interest notional, in quote USD (matches the feed convention). */

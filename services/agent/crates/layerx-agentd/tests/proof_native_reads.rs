@@ -227,16 +227,7 @@ pub(crate) fn native_read_response(
             (400, "{\"error\":\"invalid_read\"}")
         }
         Err(NativeReadError::ResultTooLarge) => (413, "{\"error\":\"read_too_large\"}"),
-        Err(error) => {
-            return (
-                503,
-                serde_json::json!({
-                    "error": "verified_read_unavailable",
-                    "detail": format!("{error:?}"),
-                })
-                .to_string(),
-            );
-        }
+        Err(_) => (503, "{\"error\":\"verified_read_unavailable\"}"),
     };
     (status, body.to_owned())
 }
@@ -279,17 +270,45 @@ fn balance_json(read: &ProgramBalanceRead<CommittedProgramBalanceFreshness>) -> 
 mod tests {
     use super::*;
     use layerx_agentd::read::ProgramValueBalance;
+    use layerx_client::sequencer::{RpcRefusal, SequencerError};
 
     #[test]
-    fn native_read_unavailable_preserves_error_detail() {
-        for error in [NativeReadError::Unavailable, NativeReadError::Verification] {
+    fn native_read_unavailable_has_fixed_body() {
+        for error in [
+            NativeReadError::Unavailable,
+            NativeReadError::Verification,
+            NativeReadError::Connection(SequencerError::Rpc(RpcRefusal {
+                code: -32043,
+                message: "private-native-read-rpc-message".into(),
+                data: Some(serde_json::json!({"diagnostic": "private-native-read-rpc-data"})),
+            })),
+        ] {
             let detail = format!("{error:?}");
             let (status, body) = native_read_response(Err(error));
             assert_eq!(status, 503);
             assert_eq!(
-                serde_json::from_str::<serde_json::Value>(&body).expect("native refusal JSON"),
-                serde_json::json!({"error": "verified_read_unavailable", "detail": detail})
+                body.as_bytes(),
+                b"{\"error\":\"verified_read_unavailable\"}"
             );
+            assert!(!body.contains(&detail));
+            for diagnostic in [
+                "Unavailable",
+                "Verification",
+                "Connection",
+                "Rpc",
+                "RpcRefusal",
+                "detail",
+                "message",
+                "data",
+                "-32043",
+                "private-native-read-rpc-message",
+                "private-native-read-rpc-data",
+            ] {
+                assert!(
+                    !body.contains(diagnostic),
+                    "leaked diagnostic: {diagnostic}"
+                );
+            }
         }
     }
 
@@ -620,10 +639,28 @@ pub(crate) mod disposable_node {
                 .stderr(Stdio::from(log))
                 .status()
                 .expect("start tools/qualification/localnode/v6120-node.sh producer");
+            let evidence_path = if status.success() {
+                log_path
+            } else {
+                let record = Path::new("/out/logs").join(
+                    directory
+                        .file_name()
+                        .expect("unique native reads startup directory"),
+                );
+                must(
+                    std::fs::DirBuilder::new()
+                        .recursive(true)
+                        .mode(0o700)
+                        .create(&record),
+                );
+                let evidence = record.join("startup.log");
+                must(std::fs::copy(&log_path, &evidence));
+                evidence
+            };
             assert!(
                 status.success(),
                 "tools/qualification/localnode/v6120-node.sh failed ({status}); evidence: {}",
-                log_path.display()
+                evidence_path.display()
             );
             let text = Zeroizing::new(must(std::fs::read_to_string(&environment)));
             let field = |name: &str| {

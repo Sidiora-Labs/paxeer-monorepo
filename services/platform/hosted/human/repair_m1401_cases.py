@@ -310,7 +310,9 @@ class RepairM1401(unittest.TestCase):
             self.assertEqual(int.from_bytes(state[109:111], 'big'), e.recovery['threshold'])
             self.assertEqual(int.from_bytes(state[183:191], 'big'), e.recovery['delay_seconds'])
             source = (HERE / 'provision.sh').read_text()
-            for retired in ('-c layerxd', "==\'layerxd\'", 'layerxctl', 'layerx-guarantor-checkpoint-authority',
+            catalogue = json.loads((ROOT / 'tools/paxeer-x/retired_callers.json').read_text())
+            for retired in ('-c layerxd', "==\'layerxd\'", 'layerxctl',
+                            *catalogue['components']['guarantor-runtime']['symbols'],
                             'guarantor-id', '--movement-source'):
                 self.assertNotIn(retired, source)
             record = (HERE / 'repair_22_33_1401.kvx').read_text()

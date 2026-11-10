@@ -314,9 +314,10 @@ def test_039_recorded_daemon_track_transcript_and_strict_decoder_agree():
     marker = 'const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"'
     original = json.loads(daemon.split(marker, 1)[1].split('"#;', 1)[0])
     recorded = json.loads(source(AGENTS + "test/fixtures/daemon-submission-transcript.json"))
-    # Repair the obsolete reference using the current owner rule. Every other
-    # field, including the signed receipt and its signature, stays recorded.
-    assert original["committed"]["submission"]["receipt_ref"] == "ac73faf315ec0dd1f7a3ff5ffddf39fdedd5550696c74489038fe5153e9b6a69"
+    # The legacy consumer recording uses a tagged signed-byte reference;
+    # 18.1684.1 moved the owner to the unsigned canonical receipt reference.
+    # Every other field, including the signed receipt, stays recorded.
+    assert original["committed"]["submission"]["receipt_ref"] == "b34a82b73a2ab4bdef6823c3877be59cb624043b59fcd08bcfed38da26584220"
     original["committed"]["submission"]["receipt_ref"] = hashlib.sha256(
         b"LXP/v1/receipt\0" + bytes.fromhex(original["submit"]["signed_receipt"])
     ).hexdigest()
@@ -334,7 +335,11 @@ def test_039_recorded_daemon_track_transcript_and_strict_decoder_agree():
     assert recorded["committed"]["submission"]["rung"] == "committed"
     assert hashlib.sha256(b"LXP/v1/receipt\0" + bytes.fromhex(recorded["submit"]["signed_receipt"])).hexdigest() == recorded["committed"]["submission"]["receipt_ref"]
     owner = block_after(source("services/agent/crates/layerx-agentd/src/human_runtime.rs"), "pub fn write_submission(")
-    require_facts(owner, ("layerx_wire::hash::receipt_digest(receipt.canonical_bytes())",))
+    require_facts(owner, ("crate::protocol_evidence::canonical_receipt_reference(receipt.canonical_bytes())",))
+    canonical = block_after(source("services/agent/crates/layerx-agentd/src/protocol_evidence.rs"), "pub(crate) fn canonical_receipt_reference(")
+    require_facts(canonical, ("decode(canonical_receipt)?", "receipt_digest(&encode_unsigned(&receipt)?)"))
+    # Task 18.1684.1 removed direct hashing of signed bytes from the owner.
+    assert "layerx_wire::hash::receipt_digest(receipt.canonical_bytes())" not in owner
     hashing = source("services/agent/crates/layerx-wire/src/hash.rs")
     require_facts(hashing, ('Self::Receipt => b"LXP/v1/receipt\\0"',))
     require_facts(block_after(hashing, "pub fn receipt_digest("), ("Domain::Receipt",))

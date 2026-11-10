@@ -4,11 +4,10 @@ use std::time::Duration;
 
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_programs::chain_evidence::commitment_trust_step;
+#[cfg(test)]
+use layerx_programs::chain_proof::decode::decode_commitment_proof;
 use layerx_programs::chain_proof::{
-    decode::{decode_commitment_proof, CommitmentProof},
-    header::ChainHeader,
-    merkle::SimpleProof,
-    validators::ValidatorSet,
+    decode::CommitmentProof, header::ChainHeader, merkle::SimpleProof, validators::ValidatorSet,
     ChainProofVerifier, Commit, VerifiedChainHead as VerifiedHeader,
 };
 use layerx_programs::state_record::{
@@ -19,7 +18,8 @@ use layerx_programs::{
     ProgramLifecycle, ProtocolDeploymentVerifier, ProtocolEvidenceError, Registry,
     VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedProgramBundle,
 };
-use serde_json::{json, Value};
+#[cfg(test)]
+use serde_json::Value;
 
 use super::program_balances_impl::{
     CommittedProgramBalanceFreshness, ProgramBalanceRead, ProgramValueBalance,
@@ -176,6 +176,7 @@ impl LayerxdProgramBalanceReader {
         verifier: ProtocolDeploymentVerifier,
         registry: Registry,
     ) -> Result<Self, ProgramReadError> {
+        // Retain the independent authority's configured identity validation.
         let ProgramAuthority {
             endpoint: authority_endpoint,
             authorization: authority_authorization,
@@ -216,6 +217,9 @@ impl LayerxdProgramBalanceReader {
     }
 
     /// Connects directly to the merged node under protected chain trust.
+    /// # Errors
+    /// Returns an error if the program view is noncanonical or its state or balance proof cannot
+    /// be acquired or verified.
     pub fn connect_native(
         endpoint: &str,
         authorization: String,
@@ -257,12 +261,16 @@ impl LayerxdProgramBalanceReader {
         })
     }
 
+    #[must_use]
     pub fn with_consensus_source(mut self, source: super::NativeResultSource) -> Self {
         self.consensus = Some(source);
         self
     }
 
     /// Configures the Programs deployment's authenticated state-record key.
+    /// # Errors
+    /// Returns an error if the program view is noncanonical or its state or balance proof cannot
+    /// be acquired or verified.
     pub fn with_program_state_key(
         mut self,
         program: ProgramId,
@@ -291,6 +299,9 @@ impl LayerxdProgramBalanceReader {
         self.read_protocol_state_selected(program, now, false)
     }
 
+    /// # Errors
+    /// Returns an error if the program view is noncanonical or its state or balance proof cannot
+    /// be acquired or verified.
     pub fn read_protocol_state_profile2(
         &mut self,
         program: ProgramId,
@@ -384,6 +395,9 @@ impl LayerxdProgramBalanceReader {
         }
     }
 
+    /// # Errors
+    /// Returns an error if the program view is noncanonical or its state or balance proof cannot
+    /// be acquired or verified.
     pub fn read_verified_balances(
         &mut self,
         program: ProgramId,
@@ -477,6 +491,9 @@ impl LayerxdProgramBalanceReader {
     }
 
     /// Verifies retained coordinates at an explicit native block height.
+    /// # Errors
+    /// Returns an error if the chain head or deployment evidence does not match its verified view
+    /// or trust anchor.
     pub fn read_chain_head_at(
         &self,
         height: u64,
@@ -527,6 +544,9 @@ impl LayerxdProgramBalanceReader {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the chain head or deployment evidence does not match its verified view
+    /// or trust anchor.
     pub fn verify_journal_admission(
         &self,
         proof: &DeploymentProof,
@@ -782,7 +802,7 @@ fn historical_trust_chain(
 
 fn program_artifact_hex(text: &str) -> Result<Vec<u8>, ProgramArtifactsError> {
     if text.len() > 2_097_152
-        || text.len() % 2 != 0
+        || !text.len().is_multiple_of(2)
         || !text
             .bytes()
             .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
@@ -823,6 +843,7 @@ impl ProgramBalanceReadRoute {
     }
 }
 
+#[cfg(test)]
 fn chain_head_evidence(value: &Value) -> Result<ChainHeadEvidence, ProgramReadError> {
     let value = &value["chain_evidence"];
     let commitment = decode_commitment_proof(&chain_hex(field(value, "commitment_hex")?)?)
@@ -864,6 +885,7 @@ fn chain_head_evidence(value: &Value) -> Result<ChainHeadEvidence, ProgramReadEr
     })
 }
 
+#[cfg(test)]
 fn chain_hex(text: &str) -> Result<Vec<u8>, ProgramReadError> {
     if !text.len().is_multiple_of(2)
         || !text
@@ -875,12 +897,14 @@ fn chain_hex(text: &str) -> Result<Vec<u8>, ProgramReadError> {
     hex::decode(text).map_err(|_| ProgramReadError::NonCanonicalView)
 }
 
+#[cfg(test)]
 fn field<'a>(value: &'a Value, name: &str) -> Result<&'a str, ProgramReadError> {
     value[name]
         .as_str()
         .ok_or(ProgramReadError::NonCanonicalView)
 }
 
+#[cfg(test)]
 fn digest(bytes: &[u8]) -> [u8; 32] {
     use sha2::{Digest as _, Sha256};
     Sha256::digest(bytes).into()
@@ -1332,108 +1356,45 @@ pub fn read_committed_program_balances(
     accounts: &[[u8; 32]],
     height: u64,
 ) -> Result<ProgramBalanceRead<CommittedProgramBalanceFreshness>, SequencerError> {
-    let malformed = SequencerError::Malformed;
-    if height == 0
-        || program.bytes() == [0; 32]
-        || accounts.len() > layerx_programs::MAX_PROGRAM_VALUE_ACCOUNTS
-        || accounts.iter().any(|account| *account == [0; 32])
-        || accounts
-            .iter()
-            .collect::<std::collections::BTreeSet<_>>()
-            .len()
-            != accounts.len()
-    {
-        return Err(malformed);
-    }
+    crate::reject_if(
+        height == 0
+            || program.bytes() == [0; 32]
+            || accounts.len() > layerx_programs::MAX_PROGRAM_VALUE_ACCOUNTS
+            || accounts.contains(&[0; 32])
+            || accounts
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != accounts.len(),
+        || SequencerError::Malformed,
+    )?;
     let block = endpoint
         .block_by_number(height)?
         .ok_or(SequencerError::Malformed)?;
-    if block.hash == [0; 32] {
-        return Err(malformed);
-    }
+    crate::reject_if(block.hash == [0; 32], || SequencerError::Malformed)?;
     let wind_down = programs_call(endpoint, height, "getWindDown(bytes32)", &[program.bytes()])?;
-    if wind_down.len() != 192 {
-        return Err(malformed);
-    }
+    crate::reject_if(wind_down.len() != 192, || SequencerError::Malformed)?;
     let lifecycle = match abi_integer(&wind_down[..32], 1)? {
         1 => ProgramLifecycle::Active,
         2 => ProgramLifecycle::Deprecated,
         3 => ProgramLifecycle::Tombstoned,
-        _ => return Err(malformed),
+        _ => return Err(SequencerError::Malformed),
     };
     abi_integer(&wind_down[64..96], 8)?;
     abi_integer(&wind_down[96..128], 8)?;
     let count = abi_integer(&wind_down[128..160], 2)?;
     let live_count = abi_integer(&wind_down[160..192], 2)?;
-    if live_count > count {
-        return Err(malformed);
-    }
+    crate::reject_if(live_count > count, || SequencerError::Malformed)?;
     let mut values = Vec::with_capacity(accounts.len());
     for account in accounts {
-        let identity = programs_call(
-            endpoint,
-            height,
-            "getProgramAccountById(bytes32)",
-            &[*account],
-        )?;
-        // (bytes32 programId, bytes32 assetId, bytes seed), with one canonical tail.
-        if identity.len() < 128
-            || identity.len() % 32 != 0
-            || identity[..32] != program.bytes()
-            || abi_integer(&identity[64..96], 8)? != 96
-        {
-            return Err(malformed);
-        }
-        let seed_len = usize::try_from(abi_integer(&identity[96..128], 8)?)
-            .map_err(|_| SequencerError::Malformed)?;
-        if seed_len > layerx_programs_runtime::MAX_PROGRAM_ACCOUNT_SEED_BYTES
-            || identity.len() != 128 + seed_len.div_ceil(32) * 32
-            || identity[128 + seed_len..].iter().any(|byte| *byte != 0)
-        {
-            return Err(malformed);
-        }
-        let derived = layerx_programs_runtime::derive_program_account(
-            program,
-            &identity[128..128 + seed_len],
-        )
-        .map_err(|_| SequencerError::Malformed)?;
-        if !derived.matches(account) {
-            return Err(malformed);
-        }
-        let asset = identity[32..64]
-            .try_into()
-            .map_err(|_| SequencerError::Malformed)?;
-        let result = programs_call(
-            endpoint,
-            height,
-            "getValueAccount(bytes32,bytes32)",
-            &[program.bytes(), *account],
-        )?;
-        if result.len() != 64 {
-            return Err(malformed);
-        }
-        let amount = abi_integer(&result[..32], 16)?;
-        let exists = match abi_integer(&result[32..], 1)? {
-            0 => false,
-            1 => true,
-            _ => return Err(malformed),
-        };
-        if !exists && amount != 0 {
-            return Err(malformed);
-        }
-        values.push(ProgramValueBalance {
-            account: *account,
-            asset,
-            amount,
-            frozen: None,
-        });
+        values.push(read_committed_program_balance(
+            endpoint, program, account, height,
+        )?);
     }
     let confirmed = endpoint
         .block_by_number(height)?
         .ok_or(SequencerError::Malformed)?;
-    if confirmed != block {
-        return Err(malformed);
-    }
+    crate::reject_if(confirmed != block, || SequencerError::Malformed)?;
     Ok(ProgramBalanceRead {
         program: program.bytes(),
         lifecycle,
@@ -1443,6 +1404,62 @@ pub fn read_committed_program_balances(
             block_hash: block.hash,
             timestamp: block.timestamp,
         },
+    })
+}
+fn read_committed_program_balance(
+    endpoint: &SequencerEndpoint,
+    program: ProgramId,
+    account: &[u8; 32],
+    height: u64,
+) -> Result<ProgramValueBalance, SequencerError> {
+    let identity = programs_call(
+        endpoint,
+        height,
+        "getProgramAccountById(bytes32)",
+        &[*account],
+    )?;
+    // (bytes32 programId, bytes32 assetId, bytes seed), with one canonical tail.
+    crate::reject_if(
+        identity.len() < 128
+            || identity.len() % 32 != 0
+            || identity[..32] != program.bytes()
+            || abi_integer(&identity[64..96], 8)? != 96,
+        || SequencerError::Malformed,
+    )?;
+    let seed_len = usize::try_from(abi_integer(&identity[96..128], 8)?)
+        .map_err(|_| SequencerError::Malformed)?;
+    crate::reject_if(
+        seed_len > layerx_programs_runtime::MAX_PROGRAM_ACCOUNT_SEED_BYTES
+            || identity.len() != 128 + seed_len.div_ceil(32) * 32
+            || identity[128 + seed_len..].iter().any(|byte| *byte != 0),
+        || SequencerError::Malformed,
+    )?;
+    let derived =
+        layerx_programs_runtime::derive_program_account(program, &identity[128..128 + seed_len])
+            .map_err(|_| SequencerError::Malformed)?;
+    crate::reject_if(!derived.matches(account), || SequencerError::Malformed)?;
+    let asset = identity[32..64]
+        .try_into()
+        .map_err(|_| SequencerError::Malformed)?;
+    let result = programs_call(
+        endpoint,
+        height,
+        "getValueAccount(bytes32,bytes32)",
+        &[program.bytes(), *account],
+    )?;
+    crate::reject_if(result.len() != 64, || SequencerError::Malformed)?;
+    let amount = abi_integer(&result[..32], 16)?;
+    let exists = match abi_integer(&result[32..], 1)? {
+        0 => false,
+        1 => true,
+        _ => return Err(SequencerError::Malformed),
+    };
+    crate::reject_if(!exists && amount != 0, || SequencerError::Malformed)?;
+    Ok(ProgramValueBalance {
+        account: *account,
+        asset,
+        amount,
+        frozen: None,
     })
 }
 

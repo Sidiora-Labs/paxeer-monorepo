@@ -22,7 +22,7 @@ function deriveDeployment(contractRoot) {
     assert.equal(identity.kind, expectedKind, `${role}:role kind mismatch`);
     assert.match(identity.runtimeHash, /^0x[0-9a-fA-F]{64}$/, `${role}:missing runtime hash`);
     if (identity.kind === 'surface') {
-      assert.equal(identity.runtimeHash, '0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993', `${role}:surface runtime hash mismatch`);
+      assert.equal(identity.runtimeHash, '0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f', `${role}:surface runtime hash mismatch`);
     } else {
       assert.equal(identity.runtimeHash, record.runtimeHash, `${role}:runtime hash mismatch`);
     }
@@ -40,7 +40,6 @@ function deriveDeployment(contractRoot) {
     data[key] = m[role];
   }
   for (const [key, role] of Object.entries(ROLE_KEYS)) addRole(key, role);
-  assert.equal(data.manifestSha256, current.sourceManifestSha256, 'Reviewed manifest digest mismatch');
   data.roleIdentity = roleIdentity;
   assert.match(m._meta.usdl, /^0x[0-9a-fA-F]{40}$/);
   data.usdl = m._meta.usdl;
@@ -49,6 +48,7 @@ function deriveDeployment(contractRoot) {
   data.usdlDecimals = 6;
   data.creationFeeRaw = '1000000';
   addRole('treasury', 'Treasury_proxy');
+  assert.equal(data.manifestSha256, current.sourceManifestSha256, 'Reviewed manifest digest mismatch');
   const usdl = current.roles.USDL;
   assert.equal(usdl.kind, 'direct', 'USDL:role kind mismatch');
   assert.equal(usdl.address.toLowerCase(), data.usdl.toLowerCase(), 'USDL:current deployment role address mismatch');

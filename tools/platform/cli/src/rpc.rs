@@ -237,7 +237,7 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         "eth_estimateGas" => estimate_gas_params(args)?,
         "eth_chainId" | "eth_gasPrice" | "eth_maxPriorityFeePerGas" if args.is_empty() => {}
         "eth_chainId" | "eth_maxPriorityFeePerGas" => {
-            return Err(format!("{method} takes no parameters"))
+            return Err(format!("{method} takes no parameters"));
         }
         "eth_call" => call_params(args)?,
         "eth_gasPrice" => return Err("eth_gasPrice takes no parameters".into()),
@@ -255,7 +255,7 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         _ => {
             return Err(format!(
                 "rpc_method_unavailable: {method} is absent from the published OpenRPC contract"
-            ))
+            ));
         }
     }
     Ok(json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
@@ -649,10 +649,12 @@ mod tests {
                 Some("px_getInferenceReceipts"),
             ]
         );
-        assert!(methods.iter().all(|entry| !entry["name"]
-            .as_str()
-            .unwrap_or_default()
-            .starts_with("lx_")));
+        assert!(methods.iter().all(|entry| {
+            !entry["name"]
+                .as_str()
+                .unwrap_or_default()
+                .starts_with("lx_")
+        }));
         Ok(())
     }
 
@@ -786,11 +788,15 @@ mod tests {
             json!([{"topic": topic, "from_sequence": 0, "limit": 1}, 1]),
             json!([topic, 0, 1]),
         ] {
-            assert!(request("lx_getProgramEvents", &params).is_err(), "{params}");
             let refused = client
                 .call("lx_getProgramEvents", &params)
                 .err()
                 .ok_or("malformed query reached transport")?;
+            assert_eq!(
+                request("lx_getProgramEvents", &params).err(),
+                Some(refused.clone()),
+                "{params}"
+            );
             assert!(
                 refused == "rpc_method_unavailable: lx_getProgramEvents is switched off",
                 "{refused}"

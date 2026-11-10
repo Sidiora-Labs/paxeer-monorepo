@@ -85,6 +85,8 @@ Inputs (all required, none printed but the ids and prices):
                           default; it must be separate from every node root
   XWEB_EVM_ENDPOINT       node root JSON-RPC for eth_* methods, default
                           http://127.0.0.1:8545 (root only, never append /rpc)
+  XWEB_PAYER_ADDRESS      EVM payer address bound through addr 0x1004, used
+                          by inventory to request each search payment challenge
   XWEB_PAX_USD_PRICE      when set, must be the approved 13.44
 
 Exits 1 when a destination does not answer, 2 on a usage error or a missing
@@ -218,13 +220,13 @@ if not priced:
     for sym in ("SID", "PAX", "USDC", "USDL"):
         need("XWEB_ASSET_ID_" + sym, r"(0x)?[0-9a-fA-F]{64}")
         need("XWEB_DECIMALS_" + sym, r"[0-9]{1,2}")
-payer_did = need("XWEB_PAYER_DID", r"did:[a-z0-9._:-]+")
+payer_address = need("XWEB_PAYER_ADDRESS", r"0x[0-9a-fA-F]{40}")
 if not names:
     line(False, "receiver serving=0")
 for name in names:
-    if not payer_did:
+    if not payer_address:
         break
-    request = urllib.request.Request("https://" + name + "/search?q=paxeer", headers={"LAYERX-PAYER-DID": payer_did})
+    request = urllib.request.Request("https://" + name + "/search?q=paxeer", headers={"LAYERX-PAYER-ADDRESS": payer_address})
     status, header = None, None
     try:
         with urllib.request.urlopen(request, timeout=int(env("XWEB_TIMEOUT", "30"))) as reply:

@@ -93,7 +93,7 @@ export interface WebSearchClientOptions {
   readonly ledgerRpc?: JsonRpcClient;
   readonly rawTransaction?: (txHash: string) => Promise<Uint8Array>;
   /** @deprecated Always refused. Configure receiptKeys instead. */
-  readonly authority?: (receipt: Uint8Array, offer: WebSearchOffer) => Promise<import("./verifier.js").AuthorizedReceiptBatch>;
+  readonly authority?: (receipt: Uint8Array, offer: WebSearchOffer) => Promise<never>;
   /** @deprecated Always refused. Receipt versions are authenticated by the verifier. */
   readonly protocolVersion?: SelectableProtocolVersion;
   readonly now?: () => bigint;
@@ -342,6 +342,7 @@ export interface WebSearchPaymentVerification extends ReceiptVerification {
     readonly to: Uint8Array;
     readonly asset: Uint8Array;
     readonly amount: bigint;
+    readonly reference: Uint8Array;
   };
 }
 
@@ -382,7 +383,8 @@ export async function verifyWebSearchPayment(receipt: Uint8Array, rawTransaction
     if (Buffer.from(effect.body).equals(committedLog)) matches++;
   }
   if (matches !== 1) throw new WebSearchError("receipt-offer-mismatch");
-  return Object.freeze({ ...verified, payment: Object.freeze({ from: new Uint8Array(from), to: new Uint8Array(to), asset: new Uint8Array(asset), amount: BigInt(offer.amount) }) });
+  return Object.freeze({ ...verified, payment: Object.freeze({ from: new Uint8Array(from), to: new Uint8Array(to), asset: new Uint8Array(asset),
+    amount: BigInt(offer.amount), reference: new Uint8Array(metered ? word(6) : word(5)) }) });
 }
 
 export function bindLedgerPayment(raw: Uint8Array, offer: WebSearchOffer, from: string, idempotencyKey?: string, grant?: PayerGrant): void {
@@ -402,22 +404,31 @@ export function bindLedgerPayment(raw: Uint8Array, offer: WebSearchOffer, from: 
     || amount(4) >= 1n << 64n || word(5) !== offer.purposeHash) throw new WebSearchError("receipt-offer-mismatch");
 }
 
-function verifyExactPaymentLogs(logs: unknown, offer: WebSearchOffer): string {
-  if (!Array.isArray(logs) || logs.length !== 1) throw new WebSearchError("receipt-offer-mismatch");
-  const value: unknown = logs[0];
-  const fields = record(value, "receipt-offer-mismatch");
-  if (typeof fields["address"] !== "string" || typeof fields["data"] !== "string" || !Array.isArray(fields["topics"])
-    || fields["topics"].some((topic: unknown) => typeof topic !== "string")) throw new WebSearchError("receipt-offer-mismatch");
-  const log = value as WebSearchExactLogPayment["logs"][number];
-  if (log.address.toLowerCase() !== "0x000000000000000000000000000000000000101a"
-    || log.topics.length !== 4 || log.topics.some((topic) => !/^0x[0-9a-fA-F]{64}$/u.test(topic))
-    || log.topics[0]!.toLowerCase() !== `0x${hex(keccak_256(new TextEncoder().encode("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")))}`
-    || log.topics[3]!.toLowerCase() !== `0x${offer.payTo}`
-    || !/^0x[0-9a-fA-F]{128}$/u.test(log.data)) throw new WebSearchError("receipt-offer-mismatch");
-  const data = log.data.slice(2).toLowerCase();
-  if (data.slice(0, 64) !== offer.asset || data.slice(64, 96) !== "00".repeat(16)
-    || BigInt(`0x${data.slice(96)}`) !== BigInt(offer.amount)) throw new WebSearchError("receipt-offer-mismatch");
-  return log.topics[2]!.slice(2).toLowerCase();
+function verifyExactPaymentLogs(logs: unknown, offer: WebSearchOffer, payment: WebSearchPaymentVerification["payment"]): void {
+  if (!Array.isArray(logs)) throw new WebSearchError("receipt-offer-mismatch");
+  const paymentTopic = `0x${hex(keccak_256(new TextEncoder().encode("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")))}`;
+  let matches = 0;
+  for (const value of logs) {
+    const fields = record(value, "receipt-offer-mismatch");
+    if (typeof fields["address"] !== "string" || !/^0x[0-9a-fA-F]{40}$/u.test(fields["address"])
+      || typeof fields["data"] !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/u.test(fields["data"])
+      || !Array.isArray(fields["topics"]) || fields["topics"].length > 4
+      || Array.from(fields["topics"]).some((topic: unknown) => typeof topic !== "string" || !/^0x[0-9a-fA-F]{64}$/u.test(topic))) {
+      throw new WebSearchError("receipt-offer-mismatch");
+    }
+    const log = value as WebSearchExactLogPayment["logs"][number];
+    if (log.address.toLowerCase() !== "0x000000000000000000000000000000000000101a"
+      || log.topics[0]?.toLowerCase() !== paymentTopic) continue;
+    if (log.topics.length !== 4 || log.topics[1]!.toLowerCase() !== `0x${hex(payment.reference)}`
+      || log.topics[2]!.toLowerCase() !== `0x${hex(payment.from)}`
+      || log.topics[3]!.toLowerCase() !== `0x${offer.payTo}`
+      || !/^0x[0-9a-fA-F]{128}$/u.test(log.data)) throw new WebSearchError("receipt-offer-mismatch");
+    const data = log.data.slice(2).toLowerCase();
+    if (data.slice(0, 64) !== offer.asset || data.slice(64, 96) !== "00".repeat(16)
+      || BigInt(`0x${data.slice(96)}`) !== payment.amount) throw new WebSearchError("receipt-offer-mismatch");
+    matches += 1;
+  }
+  if (matches !== 1) throw new WebSearchError("receipt-offer-mismatch");
 }
 
 export class WebSearchClient {
@@ -505,7 +516,7 @@ export class WebSearchClient {
     if (challenge.status === 200) return { reply: challenge, settlement: null };
     if (challenge.status !== 402) throw new WebSearchError(`sidecar-refused:${errorOf(challenge) ?? challenge.status}`, challenge.status);
     const [offer, raw] = await this.#select(decodeHeader(challenge.headers["payment-required"], "invalid-payment-required"));
-    const payment = await this.#prepare(offer, raw, target);
+    const payment = await this.preparePayment(offer, raw, target);
     for (let attempt = 1; ; attempt += 1) {
       const reply = await this.#get(target, { ...base, "PAYMENT-SIGNATURE": payment.header });
       if (reply.status === 503 && errorOf(reply) === "payment_pending") {
@@ -574,7 +585,7 @@ export class WebSearchClient {
     return Object.freeze({ ...offer, payer, purposeHash });
   }
 
-  async #prepare(offer: WebSearchOffer, raw: Record<string, unknown>, target: string): Promise<PreparedPayment> {
+  protected async preparePayment(offer: WebSearchOffer, raw: Record<string, unknown>, target: string): Promise<PreparedPayment> {
     const payer = this.#options.payer;
     if (offer.scheme === "metered") {
       if (payer.metered === undefined) throw new WebSearchError("metered-payer-unavailable");
@@ -596,8 +607,7 @@ export class WebSearchClient {
     bindLedgerPayment(rawTransaction, offer, hex(verified.payment.from), payment.idempotencyKey);
     if ("txHash" in payment && (typeof payment.txHash !== "string" || payment.txHash !== `0x${hex(keccak_256(rawTransaction))}`)) throw new WebSearchError("receipt-unverified");
     if ("logs" in payment) {
-      const from = verifyExactPaymentLogs(payment.logs, offer);
-      if (from !== hex(verified.payment.from)) throw new WebSearchError("receipt-offer-mismatch");
+      verifyExactPaymentLogs(payment.logs, offer, verified.payment);
     }
     if (payment.idempotencyKey !== undefined && (!hex32(payment.idempotencyKey) || payment.idempotencyKey === ZERO32)) throw new WebSearchError("invalid-idempotency-key");
     const payload = { txHash: `0x${hex(keccak_256(rawTransaction))}`, receiptDigest: receiptDigest(receipt), verificationLevel: "receipted",

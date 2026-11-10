@@ -128,6 +128,7 @@ pub struct NodeProgramStateSource {
     authorization: String,
     authority_endpoint: String,
     authority_authorization: String,
+    // Producer identity remains distinct from the chain trust used to verify its proofs.
     authority_replica_id: [u8; 32],
     deployment_verifier: ProtocolDeploymentVerifier,
     request_deadline: Cell<Option<Instant>>,

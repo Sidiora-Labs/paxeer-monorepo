@@ -1,0 +1,127 @@
+[task]
+id = "22.39.321"
+mode = "BUILD"
+acceptance = "22998.1"
+starting_revision = "0a2ac622d15e41f6f08a0ef574eab4402d07eb3b"
+continued_tree = "04ec4064819f25b1df8ef6c0781d4380e5ca95d0"
+continuation = "Decision 3183 / gotcha 4105 explicitly assigns the five remaining red cases to this task; preserve the attempt-1 repairs and qualify the completed continuation."
+baseline = "No starting-revision verification was run: the explicit gate order prohibits a manual verify_cmd and requires implementation, hf-build, then hf-done. The attempt-1 gate result below is supplied by the continuation ruling and gotcha 4105; the original failures are supplied by gotcha 4095, not newly measured failures."
+verified_revision_record = "/out/run/gates.jsonl: final passing verify row must match the passing build revision; the immutable candidate hash includes this record, so the hash is retained in the external evidence ledger."
+verification_command = "test -s modules/evm/repair_22_39_321.kvx && go test -count=1 -timeout 40m ./modules/evm/ ./modules/evm/keeper/..."
+evidence = "hf-build and hf-done retain exact candidate revision, command, exit code and private log location in /out/run/gates.jsonl; no qualification is claimed before both pass at the same revision."
+
+[case.genesis_export]
+test = "TestModuleExportGenesis"
+first_error = "Historical assertion mismatch at module_test.go:58 on 7de3a9051436."
+cause = "The full JSON snapshot retains launchpad role-surface runtime from before the producer added its native-value rejection guard and moved the successful return jump."
+producer_commit = "76d6a76d08d4e02f5830b7a9b880e90ceec89f4f"
+repair = "Align all nine base64 code entries with the guarded runtime produced by modules/launchpad/keeper/market.go; retain the complete byte-exact JSON assertion including params, associations, all codes, states, nonces and serialized entries."
+
+[case.abci]
+test = "TestABCI"
+first_error = "Historical nil-pointer panic from EndBlock at module_test.go:97 on 7de3a9051436."
+cause = "The successful deferred entries were paired with empty MsgEVMTransaction values; domain operator fee accounting introduced by the producer calls AsTransaction and reads the signed chain ID. An empty envelope produces a nil transaction."
+producer_commit = "3c7a854b93"
+repair = "Use the existing real signed transaction producer for all three successful entries and use each produced hash in its deferred record; assert the mint and funding operations succeed, preserving every balance, surplus, failed-receipt and vesting assertion."
+
+[case.activation]
+test = "TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied"
+first_error = "Historical NotContains failure for the verify address at keeper_activation_test.go:106 on 7de3a9051436."
+cause = "The activation producer now binds both retained verify and anchor retirement interfaces to the live upgrade module rather than the removed anchor module."
+producer_commit = "1ee93282cbe5d59b98b34bebd8a33f7ffdecf5b6"
+repair = "Assert verify is present with the upgrade module at genesis and after fork-module removal, both retirement interfaces are absent before the applied plan height, and both return at that height; keep exact cardinalities, every fork-address assertion, instance identity, tracing and gas assertions."
+
+[case.keeper_runtime]
+test = "TestPurgePrefixNotHang"
+first_error = "Historical keeper package timeout after ten minutes while executing keeper_test.go:39 on 7de3a9051436."
+goroutine_evidence = "The historical goroutine dump is not present in this sandbox; gotcha 4095 identifies the active call. Source inspection traces PurgePrefix -> prefix.DeleteAll -> gaskv.collectRangeKeys -> nested cacheMergeIterator.Valid/Key/Value, which repeatedly recurse through parent iterators at each of fifty cache levels."
+cause = "Metered SDK bulk deletion enumerates through merge iterators, whose repeated parent validity and key lookups grow exponentially with nested caches; range-key enumeration in CacheKV already merges live writes and tombstones directly."
+repair = "For ordinary execution enumerate the visible range through the raw store's range-key API, materialize that range in memory and use the existing SDK gas iterator to charge and trace the same scan before deleting from the original context. Tracing retains Context's historical/next-height store routing."
+regressions = ["TestPurgePrefixNotHang", "TestPurgePrefixPreservesScanGasAndOutOfGas", "TestPurgePrefixTracingUsesTheSelectedHeightStore"]
+proof = "Retain all fifty cache levels and NotPanics; additionally assert inherited and per-layer writes are purged, tombstones remain absent, the parent and another account stay intact, and a repeated purge succeeds. Compare exact gas with SDK DeleteAll for empty, single and multiple entries in ordinary and tracing contexts; zero gas must panic before deleting anything. Prove tracing deletes the selected next-height store only."
+keeper_suite_runtime_record = "The attempt-1 hf-done log /out/logs/verify-1.log records a completed keeper package duration of 80.671 seconds on its FAIL line, bound to candidate 6817a46cdf413dcd265a7c071c924877c3fd04d2 by /out/run/gates.jsonl; the package failed assertions rather than timing out."
+
+[qualification.attempt_1]
+revision = "6817a46cdf413dcd265a7c071c924877c3fd04d2"
+command = "cg spec done 22.39.321 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+keeper_suite_seconds = 80.671
+observed = "hf-build passed at this same candidate; verification reported no failures in TestModuleExportGenesis, TestABCI, either activation-plan case, TestPurgePrefixNotHang or either new purge regression. The keeper binary completed; five additional test failures were reported across the two packages, repaired below under decision 3183; the module binary panicked in an unchanged restart test after 28.766 seconds."
+status = "Historical failed attempt, retained as evidence; this continuation record was not part of that candidate."
+disposition = "Decision 3183 supersedes the former outside-task classification: all five failures belong to this task and are repaired below. The current attempt starts with two repair cycles available."
+
+[case.restart_identity]
+task = "22.39.321"
+file = "modules/evm/repair_181_test.go"
+symbol = "TestRepair_181_OrdinaryRestartRecovery"
+observed = "At 6817a46cdf413dcd265a7c071c924877c3fd04d2, cg spec done 22.39.321 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log:436 reports panic: committed block identity missing at height 1, reached from repair181RestartRecovery:153 through repair181Open:116 and node.New:1448."
+cause = "The restart fixture commits the multistore directly, bypassing the production pre-commit hook which records the block identity required by node startup."
+producer_commit = "1ee93282cbe5d59b98b34bebd8a33f7ffdecf5b6"
+repair = "Generate a real consensus block hash and call App.HandlePreCommit before committing, matching the existing recovery fixture of repair_m1244_test.go. Retain every ordinary and streamed recovery assertion and additionally assert the reopened LastBlockID matches the committed block hash."
+
+[case.chain_mapping]
+task = "22.39.321"
+file = "modules/evm/keeper/keeper_test.go"
+symbol = "TestGetChainID"
+observed = "At 6817a46cdf413dcd265a7c071c924877c3fd04d2, cg spec done 22.39.321 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log:1251 reports keeper_test.go:62 expected 1329, actual 125 for pacific-1."
+cause = "The test retains removed chain mappings; config.GetEVMChainID maps the live name and all unmapped names to DefaultChainID 125."
+producer_commit = "846408dc54"
+repair = "Assert DefaultChainID is 125 and check the default context, pacific-1, atlantic-2, arctic-1, hyperpax_125-1 and an arbitrary unmapped name against it."
+
+[case.bind_chain]
+task = "22.39.321"
+file = "modules/evm/keeper/layerx_binding_test.go"
+symbol = "TestLayerXBindWrongChainIDRefused"
+observed = "At 6817a46cdf413dcd265a7c071c924877c3fd04d2, cg spec done 22.39.321 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log:1414 reports layerx_binding_test.go:119 expected layerx binding: signature refused in the error chain, got nil."
+cause = "The fixture assumes its default test-chain signing domain differs from mainnet, although both now resolve to 125."
+producer_commit = "846408dc54"
+repair = "Keep the chain-ID-plus-one signature refusal. Assert both contexts report 125, reject a signature for 1329 in each without consuming nonce 0, then accept the signature for 125 in isolated caches for both contexts and assert the stored key and incremented nonce."
+
+[case.rust_vectors]
+task = "22.39.321"
+file = "modules/evm/keeper/layerx_binding_test.go"
+symbol = "TestLayerXBindRustSignerVectors"
+observed = "At 6817a46cdf413dcd265a7c071c924877c3fd04d2, cg spec done 22.39.321 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log:1419 reports layerx_binding_test.go:272 expected 0xae3f2, actual 0x7d for default-chain-nonce-0."
+cause = "The corpus includes explicit historical signing domains, and the test equates those domains with the current root EVM default."
+producer_commit = "846408dc54"
+repair = "Keep layerxproof/testdata/paxeer_bind_vectors.json byte for byte; compare message bytes using each recorded signing domain, reach its recorded nonce using real binds and unbinds, assert every Rust valid/invalid verdict using the real strict verifier over its recorded message. Accept valid vectors signed for 125 and require ErrLayerXSignature with unchanged nonce and absent mappings for signatures for foreign domains or nonces. The negative signed-for-another-chain case signs for 125 at nonce 0, so separately assert its recorded-message rejection and its valid root-message signature and root binding. Retain accepted >= 1 counting only vectors with a true recorded verdict."
+corpus = "The existing paxeer-mainnet-nonce-2 vector is valid for 125. Three vectors claim 713714, but signed-for-another-chain deliberately signs for 125 at nonce 0; its invalid flag refers to the claimed 713714 message. No vector bytes change and no missing-125 finding is needed."
+signer_producer_commit = "3422bafe2f2d7916612e639735482d260628ebd6"
+signer_source = "services/agent/crates/layerx-client/examples/paxeer_bind_vectors.rs: Case distinguishes chain_id from signed_chain_id; signed-for-another-chain uses chain_id 713714, signed_chain_id 125, nonce 0 and signed_nonce 0."
+
+[case.rate_error]
+task = "22.39.321"
+file = "modules/evm/keeper/resolution_fee_test.go"
+symbol = "TestResolutionFeeTokenRateAge"
+observed = "At 6817a46cdf413dcd265a7c071c924877c3fd04d2, cg spec done 22.39.321 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log:2275 reports resolution_fee_test.go:118 expected the stale-rate sentinel before the contextual error text, whereas the actual message puts that sentinel after the contextual text."
+cause = "The exact message assertion predates sdkerrors.Wrapf, which puts the contextual detail before the registered stale-rate message."
+producer_commit = "854460656d"
+repair = "Require the complete current message, including height, maximum age and denom followed by fee-token rate is stale; retain ErrorIs and every boundary, invalid-rate and conversion assertion."
+
+[gotcha.gate_order]
+observed = "The baseline step requests a starting verification but the later explicit order prohibits manual verification and permits only hf-done after hf-build."
+resolution = "Use the supplied historical failures as historical evidence and report no new baseline run."
+
+[gotcha.scope]
+observed = "Repository workflow asks for root GOTCHA/spec changes and commit/push, while the task explicitly limits writes to modules/evm and prohibits those actions."
+resolution = "Keep task findings in this in-scope record and leave publication to the runner."
+
+[qualification.continuation]
+status = "Implementation complete; final qualification is determined only by the matching hf-build and hf-done rows in /out/run/gates.jsonl."
+revision_record = "/out/run/gates.jsonl: revision of the passing verify row must equal the passing build row; embedding that content hash here would change the candidate."
+keeper_suite_runtime_record = "/out/logs/verify-2.log: the final keeper package result records elapsed seconds for the revision bound by /out/run/gates.jsonl; the measured first continuation run below completed in 99.882 seconds."
+
+[qualification.continuation_first_run]
+revision = "5c194b79d503eeebd13f47aca203f7266a6988d5"
+command = "cg spec done 22.39.321 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+module_suite_seconds = 43.660
+keeper_suite_seconds = 99.882
+observed = "The module suite passed, including both restart modes. The keeper suite completed with only TestLayerXBindRustSignerVectors failing at layerx_binding_test.go:311: signed-for-another-chain expected ErrLayerXSignature but got nil."
+repair = "Preserve every Rust recorded-message validity assertion, distinguish the producer's claimed signing domain from its actual signed domain for the negative vector, and test binding against the actual root-domain signature. Every other repaired case passed; no time limit changed."
+
+[gotcha.vector_domains]
+observed = "A corpus row's chain_id names the message under test, while an invalid vector can deliberately carry a signature for another domain; the negative signed-for-another-chain row claims 713714 but signs 125."
+resolution = "Check the recorded validity against the recorded message and separately check the current network behavior; never change the recorded bytes or treat valid=false as a claim about every other signing domain."

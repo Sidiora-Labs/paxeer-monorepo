@@ -1,5 +1,5 @@
 // Pure source vectors; these do not qualify unavailable F05/F06 or native wiring.
-pub use layerx_programs_ai_market::{codec, errors, types};
+pub use layerx_programs_ai_market::{codec, errors, types, MAX_STATE_BYTES};
 #[path = "../src/reputation.rs"]
 pub mod reputation;
 #[path = "../src/reputation_codec.rs"]
@@ -443,14 +443,14 @@ fn a11_capacity_budgets_and_synchronised_retention_primitive() -> Checked {
     let mut bytes = vec![0; size];
     assert_eq!(encode_section(&state, &mut bytes)?, size);
     assert_eq!(decode_section(&bytes)?, state);
-    check_storage_budget(size, 15_488, 172_032)?;
+    check_storage_budget(size, 15_488, COMMON_CAP - JOINT_CAP)?;
     assert_eq!(check_storage_budget(9089, 0, 0), Err(F07_RESOURCE_LIMIT));
     assert_eq!(
         check_storage_budget(9088, 15_489, 0),
         Err(F07_RESOURCE_LIMIT)
     );
     assert_eq!(
-        check_storage_budget(9088, 15_488, 172_033),
+        check_storage_budget(9088, 15_488, COMMON_CAP - JOINT_CAP + 1),
         Err(F07_RESOURCE_LIMIT)
     );
     assert_eq!(check_storage_budget(1, usize::MAX, 0), Err(ARITHMETIC));

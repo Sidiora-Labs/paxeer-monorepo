@@ -199,12 +199,72 @@ impl<'a> PolicySection<'a> {
         w.put(self.task_region)?;
         Ok(h + w.len())
     }
+    /// Aggregation changes only the revision of this decoded policy section.
+    /// Preserve every other committed field byte for byte, including the task set.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn encode_revision(
+        &self,
+        committed: &[u8],
+        revision: u64,
+        out: &mut [u8],
+    ) -> CodecResult<usize> {
+        if revision
+            != self
+                .header
+                .state_revision
+                .checked_add(1)
+                .ok_or(ARITHMETIC)?
+            || committed.len() != self.encoded_len()?
+        {
+            return Err(NON_CANONICAL);
+        }
+        let offset = 2
+            + 7 * 32
+            + 1
+            + if matches!(self.header.treasury_principal, Presence::Present(_)) {
+                32
+            } else {
+                0
+            }
+            + 8
+            + 1;
+        let target = out.get_mut(..committed.len()).ok_or(CAPACITY)?;
+        target.guest_copy_from_slice(committed);
+        target
+            .get_mut(offset..offset + 8)
+            .ok_or(CAPACITY)?
+            .guest_copy_from_slice(&revision.to_be_bytes());
+        Ok(target.len())
+    }
+
     /// Reads a section from its exact canonical bytes, borrowing the task region.
     ///
     /// # Errors
     /// Returns `F01_CAPACITY_UNAVAILABLE` when the input exceeds the section payload cap; `NON_CANONICAL` when the input is short, has trailing bytes, or holds a bad recent-header count; `ARITHMETIC` when the task length does not fit `usize`; propagates record `decode`, `validate`, and `encoded_len` refusals.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &'a [u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            static DECODED: crate::guest_cell::GuestCell<
+                crate::guest_cell::Cached<(&'static [u8], PolicySection<'static>)>,
+            > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+            let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+            if let Some((bytes, value)) = decoded.as_ref() {
+                if core::ptr::eq(*bytes, input) || crate::codec::equal_bytes(bytes, input) {
+                    return Ok(*value);
+                }
+            }
+            if let Some(frozen) = crate::state::current_slice(input) {
+                let value = PolicySection::decode_uncached(frozen)?;
+                *decoded = crate::guest_cell::Cached::Value((frozen, value));
+                return Ok(value);
+            }
+        }
+        Self::decode_uncached(input)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn decode_uncached(input: &'a [u8]) -> CodecResult<Self> {
         if input.len() > SECTION_PAYLOAD_CAP {
             return Err(F01_CAPACITY_UNAVAILABLE);
         }

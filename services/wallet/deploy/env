@@ -26,14 +26,12 @@ LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12 - path to the PKCS12 client identity the e
 LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE - path to the password of the PKCS12 client identity
 LAYERX_GATEWAY_COMPONENT_URL - agent boundary base URL, the kernel app's private network host on 9446 in services/wallet/deploy/endpoint.toml
 LAYERX_GATEWAY_COMPONENT_TOKEN_FILE - path to the agent boundary bearer token
-LAYERX_GATEWAY_AUTHORITY_URL - receipt authority base URL, the kernel app's private network host on 9445 in services/wallet/deploy/endpoint.toml
-LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE - path to the receipt authority bearer token
 LAYERX_GATEWAY_IDENTITY_URL - identity service base URL, the identity app's private network host on 9443 in services/wallet/deploy/endpoint.toml
 LAYERX_GATEWAY_IDENTITY_TOKEN_FILE - path to the identity service bearer token
 LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE - path to the identity provisioning token used by registration
 LAYERX_GATEWAY_PROGRAM_REGISTRY_URL - program registry base URL, the registry app's private network host on 9420 in services/wallet/deploy/endpoint.toml; configured_kernel requires it in kernel mode
 LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE - path to the program registry bearer token
-LAYERX_GATEWAY_PUBLIC_CORE_URL - public core read base URL, the kernel app's private network host on 9443 in services/wallet/deploy/endpoint.toml; px_getNetwork reports kernel.available only when it is set
+LAYERX_GATEWAY_PUBLIC_CORE_URL - public core read base URL, the kernel app's private network host on 9443 in services/wallet/deploy/endpoint.toml; wallet availability uses the node's px_getNetwork consensus head
 LAYERX_GATEWAY_PAXEER_RPC_URLS - JSON array of two to eight chain RPC https urls tried in order for eth_ relay, set in services/wallet/deploy/endpoint.toml to the serving RPC names api1 and api12 of the network domain
 LAYERX_GATEWAY_INDEXER_URL - indexer base URL for unified history, optional, set as a platform secret
 LAYERX_GATEWAY_FAUCET_URL - faucet service base URL, optional, set as a platform secret
@@ -294,8 +292,6 @@ LAYERX_HUMAN_MOVEMENT_PROVIDER_STATE_ROOT - directory of the movement provider's
 LAYERX_HUMAN_MOVEMENT_PROVIDER_ALLOWED_UID - uid allowed on the movement provider socket
 LAYERX_HUMAN_MOVEMENT_PROVIDER_PAXEER_RPC_URLS - JSON array of independently operated production Paxeer HTTPS RPC origins supplied by the operator; use distinct hosts and configure the minimum agreement below
 LAYERX_HUMAN_MOVEMENT_PROVIDER_PAXEER_MINIMUM_AGREEMENT - Paxeer boundaries that must agree on a movement observation, two
-LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT - https url of the receipt authority the human owner daemon reaches, https://localhost:9445 inside the kernel machine
-LAYERX_AGENT_AUTHORITY_ENDPOINT - https url of the receipt authority the owner daemon reads receipts from, https://localhost:9445 inside the kernel machine
 LAYERX_HUMAN_KMS - prefix of the remote KMS transport limits below
 LAYERX_HUMAN_KMS_PROVIDER_REFERENCE - reference of the KMS provider the custody keystore records
 LAYERX_HUMAN_KMS_ENDPOINT - socket address of the remote KMS

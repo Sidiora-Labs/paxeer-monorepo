@@ -562,6 +562,7 @@ fn mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusa
     must(recovery.recovered.require_write_ready());
     let duplicate = PersistedReceipt {
         expected_activity_id: authenticated.activity_id(),
+        requested_amount: amount,
         evidence: BudgetReceiptEvidence::Current(
             inventory.with_current_evidence[0].evidence.clone(),
         ),
@@ -589,6 +590,31 @@ fn mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusa
     let archive = evidence_key(&tenant, [0x45; 32], b"receipt-legacy-evidence:");
     let public = evidence_key(&tenant, [0x45; 32], b"receipt-evidence:");
     let bytes = store.get(&public).expect("legacy record").bytes().to_vec();
+    assert_eq!(&bytes[..5], b"LXRE\x01");
+    let mut unsupported = bytes.clone();
+    unsupported[4] = u8::MAX;
+    must(store.put_local(public.clone(), unsupported));
+    assert!(matches!(
+        receipt::evidence_inventory(&store, &tenant),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
+    must(store.put_local(public.clone(), bytes.clone()));
+    let mut malformed = bytes.clone();
+    malformed[0] ^= 1;
+    must(store.put_local(public.clone(), malformed));
+    assert!(matches!(
+        receipt::evidence_inventory(&store, &tenant),
+        Err(ReceiptStoreError::Corrupt)
+    ));
+    must(store.put_local(public.clone(), bytes.clone()));
+    for length in [0, 3, 4, 5, bytes.len() - 1] {
+        must(store.put_local(public.clone(), bytes[..length].to_vec()));
+        assert!(matches!(
+            receipt::evidence_inventory(&store, &tenant),
+            Err(ReceiptStoreError::Corrupt)
+        ));
+        must(store.put_local(public.clone(), bytes.clone()));
+    }
     must(store.put_local(archive, bytes));
     assert!(matches!(
         receipt::evidence_inventory(&store, &tenant),

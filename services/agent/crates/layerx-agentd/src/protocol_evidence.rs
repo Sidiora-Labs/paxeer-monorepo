@@ -13,13 +13,15 @@ use layerx_proof::receipt::{
     VerifiedReceipt as ProofVerifiedReceipt,
 };
 use layerx_types::ids::Did;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+#[cfg(test)]
+use layerx_types::payload::ActivityType;
+use layerx_types::payload::{ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::hash::receipt_execution_batch_id;
+use layerx_wire::hash::{receipt_digest, receipt_execution_batch_id};
 use layerx_wire::historical::activity::{decode_signed, peek_signed_activity_type};
 use layerx_wire::historical::hash::activity_id;
 use layerx_wire::limits::PROTOCOL_VERSION;
-use layerx_wire::receipt::{decode, decode_batch_header, BatchHeader};
+use layerx_wire::receipt::{decode, decode_batch_header, encode_unsigned, BatchHeader};
 use sha2::{Digest, Sha256};
 
 use crate::config::{read_protected_source, ProtectedSourceError, ReceiptKeySource, StartupConfig};
@@ -30,6 +32,20 @@ const MAX_AUTHORITY_SOURCE_BYTES: usize = 65_536;
 const AUTHORITY_SOURCE_VERSION: &str = "layerx-sequencer-authority-v1";
 const MAX_CUMULATIVE_EVIDENCE_ITEMS: usize = 4_096;
 const KERNEL_MODULE_COUNT: u16 = 11;
+
+pub(crate) fn canonical_receipt_reference(
+    canonical_receipt: &[u8],
+) -> Result<[u8; 32], ReceiptEvidenceError> {
+    let reference = || {
+        let receipt = decode(canonical_receipt)?;
+        receipt_digest(&encode_unsigned(&receipt)?)
+    };
+    reference().map_err(|_| {
+        ReceiptEvidenceError::Receipt(VerificationFailure {
+            check: ReceiptCheck::Decode,
+        })
+    })
+}
 
 #[derive(Debug)]
 enum ActivityActorBinding {
@@ -483,7 +499,7 @@ impl ProtocolEvidenceVerifier {
             .ok_or(ReceiptEvidenceError::Receipt(VerificationFailure {
                 check: ReceiptCheck::ReceiptShape,
             }))?;
-        let receipt_ref = Sha256::digest(verified.canonical_bytes()).into();
+        let receipt_ref = canonical_receipt_reference(verified.canonical_bytes())?;
         Ok((
             VerifiedReceiptEvidence {
                 receipt_ref,
@@ -697,6 +713,8 @@ impl EvidenceAuthority {
     }
 
     /// Installs governed node receipt keys obtained from the trusted node RPC.
+    /// # Errors
+    /// Returns an error if the supplied receipt-key authorization is invalid.
     pub fn with_receipt_keys(
         mut self,
         keys: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
@@ -717,6 +735,9 @@ impl EvidenceAuthority {
     }
 
     /// Re-verifies a persisted current receipt without inventing batch evidence.
+    /// # Errors
+    /// Returns an error if the receipt protocol version, signature or authenticated contents are
+    /// invalid.
     pub fn verify_current_receipt(
         &self,
         raw: &crate::receipt::TransactionReceiptEvidence,
@@ -752,7 +773,7 @@ impl EvidenceAuthority {
             }));
         }
         Ok(VerifiedSpendReceipt {
-            receipt_ref: Sha256::digest(&raw.canonical_receipt).into(),
+            receipt_ref: canonical_receipt_reference(&raw.canonical_receipt)?,
             activity_id: protocol.activity_id(),
             global_sequence: protocol.global_sequence(),
             result_code: protocol.result_code(),
@@ -828,7 +849,8 @@ impl EvidenceAuthority {
                     .verify_signed_receipt_inclusion(raw, &self.receipt_keys)
                     .map_err(CumulativeUseError::Receipt)?,
             };
-            let receipt_ref: [u8; 32] = Sha256::digest(entry.receipt().canonical_receipt()).into();
+            let receipt_ref = canonical_receipt_reference(entry.receipt().canonical_receipt())
+                .map_err(CumulativeUseError::Receipt)?;
             if !receipt_refs.insert(receipt_ref) || !activity_ids.insert(receipt.activity_id()) {
                 return Err(CumulativeUseError::Duplicate);
             }
@@ -1110,6 +1132,9 @@ pub enum TimeWindowUseError {
 }
 
 impl EvidenceAuthority {
+    /// # Errors
+    /// Returns an error if committed time or usage evidence fails observation, binding or window
+    /// validation.
     pub fn pin_committed_validators(
         mut self,
         chain_id: String,
@@ -1131,6 +1156,9 @@ impl EvidenceAuthority {
         Ok(self)
     }
 
+    /// # Errors
+    /// Returns an error if committed time or usage evidence fails observation, binding or window
+    /// validation.
     pub fn authenticate_committed_time(
         &self,
         checkpoint: &crate::read::ServedCheckpoint,
@@ -1165,6 +1193,9 @@ impl EvidenceAuthority {
         })
     }
 
+    /// # Errors
+    /// Returns an error if committed time or usage evidence fails observation, binding or window
+    /// validation.
     pub fn authenticate_cumulative_time_use(
         &self,
         actor: &Did,
@@ -1208,201 +1239,34 @@ impl EvidenceAuthority {
             .checked_mul(1_000)
             .filter(|value| *value > 0)
             .ok_or(TimeWindowUseError::Window)?;
-        if batches.is_empty() || batches.len() > MAX_CUMULATIVE_EVIDENCE_ITEMS {
-            return Err(TimeWindowUseError::Bounds);
-        }
+        crate::reject_if(
+            batches.is_empty() || batches.len() > MAX_CUMULATIVE_EVIDENCE_ITEMS,
+            || TimeWindowUseError::Bounds,
+        )?;
         let pinned = self.authenticate_committed_time(&observed.checkpoint)?;
-        if pinned != *observed {
-            return Err(TimeWindowUseError::Observation);
-        }
+        crate::reject_if(pinned != *observed, || TimeWindowUseError::Observation)?;
         let lower = observed.observed_core_ms().checked_sub(window_ms);
-        let mut previous: Option<BatchHeader> = None;
-        let mut first_covered_sequence = 0;
-        let mut covered = 0_usize;
-        let mut bytes = 0_usize;
-        let mut seen = BTreeSet::new();
-        let mut count = 0_u64;
-        let mut successful_count = 0_u64;
-        let mut activity_ids = Vec::new();
-        let mut amounts = std::collections::BTreeMap::<([u8; 32], [u8; 32]), u128>::new();
+        let input = TimeWindowObservation {
+            actor,
+            account,
+            observed,
+            lower,
+        };
+        let mut state = TimeWindowAccumulator::default();
         for (position, batch) in batches.iter().enumerate() {
-            let raw = &batch.maintenance;
-            covered = covered
-                .checked_add(batch.activities.len())
-                .and_then(|n| n.checked_add(1))
-                .filter(|n| *n <= MAX_CUMULATIVE_EVIDENCE_ITEMS)
-                .ok_or(TimeWindowUseError::Bounds)?;
-            for receipt in std::iter::once(raw).chain(
-                batch
-                    .activities
-                    .iter()
-                    .map(RawActivityReceiptEvidence::receipt),
-            ) {
-                bytes = bytes
-                    .checked_add(receipt.canonical_receipt.len())
-                    .and_then(|n| n.checked_add(receipt.canonical_header.len()))
-                    .filter(|n| *n <= 16 * 1_024 * 1_024)
-                    .ok_or(TimeWindowUseError::Bounds)?;
-            }
-            for activity in &batch.activities {
-                bytes = bytes
-                    .checked_add(activity.canonical_activity.len())
-                    .filter(|n| *n <= 16 * 1_024 * 1_024)
-                    .ok_or(TimeWindowUseError::Bounds)?;
-            }
-            let (header, authorization) = self
-                .verifier
-                .authorization_for(raw.canonical_header())
-                .map_err(TimeWindowUseError::Policy)?;
-            let count_a = header
-                .last_sequence()
-                .checked_sub(header.first_sequence())
-                .and_then(|n| u32::try_from(n).ok())
-                .ok_or(TimeWindowUseError::Coverage)?;
-            let count_all = count_a.checked_add(1).ok_or(TimeWindowUseError::Bounds)?;
-            if header.first_sequence() == 0
-                || header.timestamp_ms() == 0
-                || batch.activities.len()
-                    != usize::try_from(count_a).map_err(|_| TimeWindowUseError::Bounds)?
-                || raw.proof.leaf_index() != count_a
-                || raw.proof.leaf_count() != count_all
-            {
-                return Err(TimeWindowUseError::Coverage);
-            }
-            verify_receipt_inclusion(
-                raw.canonical_receipt(),
-                raw.proof(),
-                raw.canonical_header(),
-                &raw.header_signature(),
-                &authorization,
-            )
-            .map_err(TimeWindowUseError::Inclusion)?;
-            let maintenance =
-                layerx_wire::batch_maintenance::decode_maintenance(raw.canonical_receipt())
-                    .map_err(|_| TimeWindowUseError::Maintenance)?;
-            maintenance
-                .verify_header(&header)
-                .map_err(|_| TimeWindowUseError::Maintenance)?;
-            if position == 0 {
-                first_covered_sequence = header.first_sequence();
-                let genesis = header.batch_number() == 1 && header.first_sequence() == 1;
-                if !genesis && !lower.is_some_and(|bound| header.timestamp_ms() <= bound) {
-                    return Err(TimeWindowUseError::Coverage);
-                }
-            }
-            if previous.as_ref().is_some_and(|prior| {
-                prior.batch_number().checked_add(1) != Some(header.batch_number())
-                    || prior.last_sequence().checked_add(1) != Some(header.first_sequence())
-                    || prior.resulting_state_root() != header.previous_state_root()
-                    || prior.timestamp_ms() >= header.timestamp_ms()
-            }) {
-                return Err(TimeWindowUseError::Chain);
-            }
-            if header.timestamp_ms() > observed.observed_core_ms() {
-                return Err(TimeWindowUseError::Observation);
-            }
-            for (index, entry) in batch.activities.iter().enumerate() {
-                let receipt_raw = entry.receipt();
-                if receipt_raw.canonical_header() != raw.canonical_header()
-                    || receipt_raw.header_signature() != raw.header_signature()
-                    || receipt_raw.proof.leaf_index()
-                        != u32::try_from(index).map_err(|_| TimeWindowUseError::Bounds)?
-                    || receipt_raw.proof.leaf_count() != count_all
-                {
-                    return Err(TimeWindowUseError::Coverage);
-                }
-                let receipt = self
-                    .verifier
-                    .verify_signed_receipt_inclusion(receipt_raw, &self.receipt_keys)
-                    .map_err(TimeWindowUseError::Receipt)?;
-                let decoded = decode(receipt_raw.canonical_receipt())
-                    .map_err(|_| TimeWindowUseError::Identity)?;
-                let protocol = decoded.protocol().ok_or(TimeWindowUseError::Identity)?;
-                let batch_id = layerx_wire::hash::receipt_execution_batch_id_maintenance(
-                    protocol,
-                    &header,
-                    maintenance.occupancy(),
-                    count_a,
-                )
-                .map_err(|_| TimeWindowUseError::Identity)?;
-                let batch_id = if receipt.module_id() > KERNEL_MODULE_COUNT {
-                    let mut height = [0; 32];
-                    height[24..].copy_from_slice(&header.batch_number().to_be_bytes());
-                    height
-                } else {
-                    batch_id
-                };
-                if protocol.batch_id() != batch_id
-                    || protocol.timestamp() != header.timestamp_ms()
-                    || header
-                        .first_sequence()
-                        .checked_add(u64::try_from(index).map_err(|_| TimeWindowUseError::Bounds)?)
-                        != Some(receipt.global_sequence())
-                {
-                    return Err(TimeWindowUseError::Identity);
-                }
-                if !seen.insert(receipt.activity_id()) {
-                    return Err(TimeWindowUseError::Duplicate);
-                }
-                let receipt_module = if receipt.module_id() > KERNEL_MODULE_COUNT {
-                    None
-                } else {
-                    Some(
-                        ModuleId::from_u16(receipt.module_id())
-                            .map_err(|_| TimeWindowUseError::Activity)?,
-                    )
-                };
-                let activity = decode_use_activity(entry.canonical_activity(), receipt_module)
-                    .map_err(|error| match error {
-                        UseActivityError::Activity => TimeWindowUseError::Activity,
-                        UseActivityError::Identity => TimeWindowUseError::Identity,
-                    })?;
-                if activity.id != receipt.activity_id()
-                    || activity.envelope_context.is_some_and(|context| {
-                        context != (header.protocol_version(), header.network_id())
-                    })
-                {
-                    return Err(TimeWindowUseError::Identity);
-                }
-                let matches_actor = match activity.actor {
-                    ActivityActorBinding::Did(did) => did == actor.as_bytes(),
-                    ActivityActorBinding::Account(sender) => {
-                        sender == account.ok_or(TimeWindowUseError::AccountBinding)?
-                    }
-                };
-                if matches_actor && lower.is_none_or(|bound| header.timestamp_ms() > bound) {
-                    activity_ids.push(receipt.activity_id());
-                    count = count.checked_add(1).ok_or(TimeWindowUseError::Overflow)?;
-                    if receipt.result_code() == 0 {
-                        successful_count = successful_count
-                            .checked_add(1)
-                            .ok_or(TimeWindowUseError::Overflow)?;
-                        let amount = amounts
-                            .entry((protocol.asset(), protocol.from()))
-                            .or_default();
-                        *amount = amount
-                            .checked_add(protocol.amount())
-                            .ok_or(TimeWindowUseError::Overflow)?;
-                    }
-                }
-            }
-            if position + 1 == batches.len()
-                && (header.last_sequence() != observed.through_sequence()
-                    || header.resulting_state_root() != observed.checkpoint.app_hash)
-            {
-                return Err(TimeWindowUseError::Observation);
-            }
-            previous = Some(header);
+            self.accumulate_window_batch(&input, &mut state, position, batch, batches.len())?;
         }
+
         Ok(AuthenticatedTimeWindowUse {
             actor: actor.clone(),
             observed: observed.clone(),
             window_seconds,
-            first_covered_sequence,
-            count,
-            successful_count,
-            activity_ids,
-            receipt_amounts: amounts
+            first_covered_sequence: state.first_covered_sequence,
+            count: state.count,
+            successful_count: state.successful_count,
+            activity_ids: state.activity_ids,
+            receipt_amounts: state
+                .amounts
                 .into_iter()
                 .map(
                     |((asset, source_account), amount)| AuthenticatedReceiptAmount {
@@ -1414,6 +1278,258 @@ impl EvidenceAuthority {
                 .collect(),
         })
     }
+    fn accumulate_window_batch(
+        &self,
+        input: &TimeWindowObservation<'_>,
+        state: &mut TimeWindowAccumulator,
+        position: usize,
+        batch: &RawTimeWindowBatch,
+        total_batches: usize,
+    ) -> Result<(), TimeWindowUseError> {
+        let raw = &batch.maintenance;
+        admit_window_batch_bytes(state, batch)?;
+        let (header, authorization) = self
+            .verifier
+            .authorization_for(raw.canonical_header())
+            .map_err(TimeWindowUseError::Policy)?;
+        let count_a = header
+            .last_sequence()
+            .checked_sub(header.first_sequence())
+            .and_then(|n| u32::try_from(n).ok())
+            .ok_or(TimeWindowUseError::Coverage)?;
+        let count_all = count_a.checked_add(1).ok_or(TimeWindowUseError::Bounds)?;
+        crate::reject_if(
+            header.first_sequence() == 0
+                || header.timestamp_ms() == 0
+                || batch.activities.len()
+                    != usize::try_from(count_a).map_err(|_| TimeWindowUseError::Bounds)?
+                || raw.proof.leaf_index() != count_a
+                || raw.proof.leaf_count() != count_all,
+            || TimeWindowUseError::Coverage,
+        )?;
+        verify_receipt_inclusion(
+            raw.canonical_receipt(),
+            raw.proof(),
+            raw.canonical_header(),
+            &raw.header_signature(),
+            &authorization,
+        )
+        .map_err(TimeWindowUseError::Inclusion)?;
+        let maintenance =
+            layerx_wire::batch_maintenance::decode_maintenance(raw.canonical_receipt())
+                .map_err(|_| TimeWindowUseError::Maintenance)?;
+        maintenance
+            .verify_header(&header)
+            .map_err(|_| TimeWindowUseError::Maintenance)?;
+        if position == 0 {
+            state.first_covered_sequence = header.first_sequence();
+            let genesis = header.batch_number() == 1 && header.first_sequence() == 1;
+            crate::reject_if(
+                !genesis
+                    && input
+                        .lower
+                        .is_none_or(|bound| header.timestamp_ms() > bound),
+                || TimeWindowUseError::Coverage,
+            )?;
+        }
+        crate::reject_if(
+            state.previous.as_ref().is_some_and(|prior| {
+                prior.batch_number().checked_add(1) != Some(header.batch_number())
+                    || prior.last_sequence().checked_add(1) != Some(header.first_sequence())
+                    || prior.resulting_state_root() != header.previous_state_root()
+                    || prior.timestamp_ms() >= header.timestamp_ms()
+            }),
+            || TimeWindowUseError::Chain,
+        )?;
+        crate::reject_if(
+            header.timestamp_ms() > input.observed.observed_core_ms(),
+            || TimeWindowUseError::Observation,
+        )?;
+        for (index, entry) in batch.activities.iter().enumerate() {
+            self.accumulate_window_activity(
+                input,
+                state,
+                TimeWindowBatchFrame {
+                    raw,
+                    header: &header,
+                    maintenance: &maintenance,
+                    count_a,
+                    count_all,
+                },
+                index,
+                entry,
+            )?;
+        }
+
+        crate::reject_if(
+            position + 1 == total_batches
+                && (header.last_sequence() != input.observed.through_sequence()
+                    || header.resulting_state_root() != input.observed.checkpoint.app_hash),
+            || TimeWindowUseError::Observation,
+        )?;
+        state.previous = Some(header);
+        Ok(())
+    }
+
+    fn accumulate_window_activity(
+        &self,
+        input: &TimeWindowObservation<'_>,
+        state: &mut TimeWindowAccumulator,
+        frame: TimeWindowBatchFrame<'_>,
+        index: usize,
+        entry: &RawActivityReceiptEvidence,
+    ) -> Result<(), TimeWindowUseError> {
+        let TimeWindowBatchFrame {
+            raw,
+            header,
+            maintenance,
+            count_a,
+            count_all,
+        } = frame;
+
+        let receipt_raw = entry.receipt();
+        crate::reject_if(
+            receipt_raw.canonical_header() != raw.canonical_header()
+                || receipt_raw.header_signature() != raw.header_signature()
+                || receipt_raw.proof.leaf_index()
+                    != u32::try_from(index).map_err(|_| TimeWindowUseError::Bounds)?
+                || receipt_raw.proof.leaf_count() != count_all,
+            || TimeWindowUseError::Coverage,
+        )?;
+        let receipt = self
+            .verifier
+            .verify_signed_receipt_inclusion(receipt_raw, &self.receipt_keys)
+            .map_err(TimeWindowUseError::Receipt)?;
+        let decoded =
+            decode(receipt_raw.canonical_receipt()).map_err(|_| TimeWindowUseError::Identity)?;
+        let protocol = decoded.protocol().ok_or(TimeWindowUseError::Identity)?;
+        let batch_id =
+            window_execution_batch_id(protocol, header, maintenance, count_a, receipt.module_id())?;
+        crate::reject_if(
+            protocol.batch_id() != batch_id
+                || protocol.timestamp() != header.timestamp_ms()
+                || header
+                    .first_sequence()
+                    .checked_add(u64::try_from(index).map_err(|_| TimeWindowUseError::Bounds)?)
+                    != Some(receipt.global_sequence()),
+            || TimeWindowUseError::Identity,
+        )?;
+        crate::reject_if(!state.seen.insert(receipt.activity_id()), || {
+            TimeWindowUseError::Duplicate
+        })?;
+        let receipt_module = if receipt.module_id() > KERNEL_MODULE_COUNT {
+            None
+        } else {
+            Some(
+                ModuleId::from_u16(receipt.module_id())
+                    .map_err(|_| TimeWindowUseError::Activity)?,
+            )
+        };
+        let activity =
+            decode_use_activity(entry.canonical_activity(), receipt_module).map_err(|error| {
+                match error {
+                    UseActivityError::Activity => TimeWindowUseError::Activity,
+                    UseActivityError::Identity => TimeWindowUseError::Identity,
+                }
+            })?;
+        crate::reject_if(
+            activity.id != receipt.activity_id()
+                || activity.envelope_context.is_some_and(|context| {
+                    context != (header.protocol_version(), header.network_id())
+                }),
+            || TimeWindowUseError::Identity,
+        )?;
+        let matches_actor = match activity.actor {
+            ActivityActorBinding::Did(did) => did == input.actor.as_bytes(),
+            ActivityActorBinding::Account(sender) => {
+                sender == input.account.ok_or(TimeWindowUseError::AccountBinding)?
+            }
+        };
+        if matches_actor
+            && input
+                .lower
+                .is_none_or(|bound| header.timestamp_ms() > bound)
+        {
+            state.activity_ids.push(receipt.activity_id());
+            state.count = state
+                .count
+                .checked_add(1)
+                .ok_or(TimeWindowUseError::Overflow)?;
+            if receipt.result_code() == 0 {
+                state.successful_count = state
+                    .successful_count
+                    .checked_add(1)
+                    .ok_or(TimeWindowUseError::Overflow)?;
+                let amount = state
+                    .amounts
+                    .entry((protocol.asset(), protocol.from()))
+                    .or_default();
+                *amount = amount
+                    .checked_add(protocol.amount())
+                    .ok_or(TimeWindowUseError::Overflow)?;
+            }
+        }
+        Ok(())
+    }
+}
+fn window_execution_batch_id(
+    protocol: &layerx_wire::receipt::ProtocolReceipt,
+    header: &BatchHeader,
+    maintenance: &layerx_wire::batch_maintenance::MaintenanceReceipt<'_>,
+    count_a: u32,
+    module_id: u16,
+) -> Result<[u8; 32], TimeWindowUseError> {
+    let batch_id = layerx_wire::hash::receipt_execution_batch_id_maintenance(
+        protocol,
+        header,
+        maintenance.occupancy(),
+        count_a,
+    )
+    .map_err(|_| TimeWindowUseError::Identity)?;
+    let batch_id = if module_id > KERNEL_MODULE_COUNT {
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&header.batch_number().to_be_bytes());
+        height
+    } else {
+        batch_id
+    };
+
+    Ok(batch_id)
+}
+
+fn admit_window_batch_bytes(
+    state: &mut TimeWindowAccumulator,
+    batch: &RawTimeWindowBatch,
+) -> Result<(), TimeWindowUseError> {
+    let raw = &batch.maintenance;
+    state.covered = state
+        .covered
+        .checked_add(batch.activities.len())
+        .and_then(|n| n.checked_add(1))
+        .filter(|n| *n <= MAX_CUMULATIVE_EVIDENCE_ITEMS)
+        .ok_or(TimeWindowUseError::Bounds)?;
+    for receipt in std::iter::once(raw).chain(
+        batch
+            .activities
+            .iter()
+            .map(RawActivityReceiptEvidence::receipt),
+    ) {
+        state.bytes = state
+            .bytes
+            .checked_add(receipt.canonical_receipt.len())
+            .and_then(|n| n.checked_add(receipt.canonical_header.len()))
+            .filter(|n| *n <= 16 * 1_024 * 1_024)
+            .ok_or(TimeWindowUseError::Bounds)?;
+    }
+    for activity in &batch.activities {
+        state.bytes = state
+            .bytes
+            .checked_add(activity.canonical_activity.len())
+            .filter(|n| *n <= 16 * 1_024 * 1_024)
+            .ok_or(TimeWindowUseError::Bounds)?;
+    }
+
+    Ok(())
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -1526,24 +1642,31 @@ pub struct VerifiedSpendReceipt {
 }
 
 impl VerifiedSpendReceipt {
+    #[must_use]
     pub const fn receipt_ref(&self) -> [u8; 32] {
         self.receipt_ref
     }
+    #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
         self.activity_id
     }
+    #[must_use]
     pub const fn global_sequence(&self) -> u64 {
         self.global_sequence
     }
+    #[must_use]
     pub const fn result_code(&self) -> i32 {
         self.result_code
     }
+    #[must_use]
     pub const fn amount(&self) -> u128 {
         self.amount
     }
+    #[must_use]
     pub const fn module_id(&self) -> u16 {
         self.module_id
     }
+    #[must_use]
     pub const fn operation(&self) -> u8 {
         self.operation
     }
@@ -1622,6 +1745,7 @@ struct VerifiedCumulativeReceipt {
     result_code: i32,
     amount: u128,
     module_id: u16,
+    #[cfg(test)]
     operation: u8,
     header: BatchHeader,
     leaf_index: u32,
@@ -1637,6 +1761,7 @@ impl VerifiedCumulativeReceipt {
             result_code: receipt.result_code(),
             amount: receipt.amount(),
             module_id: receipt.module_id(),
+            #[cfg(test)]
             operation: receipt.operation(),
             header,
             leaf_index: proof.leaf_index(),
@@ -1655,6 +1780,7 @@ impl VerifiedCumulativeReceipt {
             result_code: protocol.result_code(),
             amount: protocol.amount(),
             module_id: protocol.module_id(),
+            #[cfg(test)]
             operation: protocol.operation(),
             header,
             leaf_index: proof.leaf_index(),
@@ -1682,6 +1808,7 @@ impl VerifiedCumulativeReceipt {
         self.module_id
     }
 
+    #[cfg(test)]
     const fn operation(&self) -> u8 {
         self.operation
     }
@@ -1717,10 +1844,12 @@ impl AuthenticatedCumulativeUse {
         self.window
     }
 
+    #[must_use]
     pub const fn amount(&self) -> u128 {
         self.amount
     }
 
+    #[must_use]
     pub const fn count(&self) -> u64 {
         self.count
     }
@@ -1757,6 +1886,16 @@ pub struct VerifiedReceiptEvidence {
 }
 
 impl VerifiedReceiptEvidence {
+    pub(crate) fn block_time_ms(&self) -> Option<u64> {
+        let timestamp_ms = self.verified.receipt().protocol()?.timestamp();
+        let timestamp_ms = if timestamp_ms == 0 {
+            self.inclusion.header().header().timestamp_ms()
+        } else {
+            timestamp_ms
+        };
+        (timestamp_ms > 0).then_some(timestamp_ms)
+    }
+
     pub(crate) const fn execution_receipt(&self) -> &ProofVerifiedReceipt {
         &self.verified
     }
@@ -1816,7 +1955,7 @@ impl VerifiedReceiptEvidence {
             .protocol()
             .ok_or(ReceiptEvidenceError::BatchIdentity)?;
         Ok(Self {
-            receipt_ref: Sha256::digest(verified.canonical_bytes()).into(),
+            receipt_ref: canonical_receipt_reference(verified.canonical_bytes())?,
             activity_id: protocol.activity_id(),
             global_sequence: protocol.global_sequence(),
             result_code: protocol.result_code(),
@@ -1948,7 +2087,7 @@ impl ExportReceiptEvidence {
             .verified
             .receipt()
             .protocol()
-            .map(|protocol| protocol.resulting_state_root())
+            .map(layerx_wire::receipt::ProtocolReceipt::resulting_state_root)
     }
 }
 
@@ -1971,12 +2110,33 @@ enum StateEvidenceShape {
         header_signature: [u8; 64],
     },
     ModuleWitness {
-        committed: crate::read::committed::CommittedCall,
+        committed: Box<crate::read::committed::CommittedCall>,
         budget_id: Option<[u8; 32]>,
     },
 }
 
 impl RawStateEvidence {
+    pub(crate) fn verified_block_time_ms(
+        &self,
+        height: u64,
+        verifier: &EvidenceAuthority,
+    ) -> Option<u64> {
+        verifier.verify_state(self).ok()?;
+        let StateEvidenceShape::ModuleWitness { committed, .. } = &self.shape else {
+            return None;
+        };
+        let checkpoint = committed.checkpoint();
+        if checkpoint.height != height {
+            return None;
+        }
+        let time = checkpoint.header.time;
+        u64::try_from(time.seconds)
+            .ok()?
+            .checked_mul(1_000)?
+            .checked_add(u64::from(time.nanos / 1_000_000))
+            .filter(|ms| *ms > 0)
+    }
+
     #[must_use]
     pub fn new(
         canonical_state: Vec<u8>,
@@ -1997,6 +2157,9 @@ impl RawStateEvidence {
     }
 
     /// Decodes the getBudget result, retaining the call that establishes each record field.
+    /// # Errors
+    /// Returns an error if the committed budget witness does not match its requested state or
+    /// cannot be decoded.
     pub fn budget_witness(
         committed: crate::read::committed::CommittedCall,
         budget_id: [u8; 32],
@@ -2005,7 +2168,7 @@ impl RawStateEvidence {
         Ok(Self {
             canonical_state,
             shape: StateEvidenceShape::ModuleWitness {
-                committed,
+                committed: Box::new(committed),
                 budget_id: Some(budget_id),
             },
         })
@@ -2063,8 +2226,7 @@ impl RawStateEvidence {
     #[must_use]
     pub fn proof_material(&self) -> Option<&[u8]> {
         match &self.shape {
-            StateEvidenceShape::ModuleWitness { .. } => None,
-            StateEvidenceShape::Leaf { .. } => None,
+            StateEvidenceShape::ModuleWitness { .. } | StateEvidenceShape::Leaf { .. } => None,
         }
     }
 }
@@ -2156,12 +2318,12 @@ pub(crate) fn verified_program_record(
     calldata: &[u8],
 ) -> Result<VerifiedStateEvidence, HumanOperationError> {
     let reads = crate::read::CommittedReads::at_checkpoint(node, checkpoint)
-        .map_err(committed_read_error)?;
+        .map_err(|value| committed_read_error(&value))?;
     let mut precompile = [0; 20];
     precompile[18..].copy_from_slice(&[0x10, 0x1d]);
     let value = reads
         .budget_state(precompile, calldata)
-        .map_err(committed_read_error)?;
+        .map_err(|value| committed_read_error(&value))?;
     Ok(VerifiedStateEvidence {
         canonical_state: value.canonical_bytes().to_vec(),
         level: value.level(),
@@ -2169,7 +2331,7 @@ pub(crate) fn verified_program_record(
     })
 }
 
-pub(crate) fn committed_read_error(error: crate::read::CommittedReadError) -> HumanOperationError {
+pub(crate) fn committed_read_error(error: &crate::read::CommittedReadError) -> HumanOperationError {
     match error {
         crate::read::CommittedReadError::Rpc(_)
         | crate::read::CommittedReadError::Checkpoint(crate::read::CheckpointReadError::Rpc(_)) => {
@@ -2380,6 +2542,7 @@ mod tests {
 
     #[test]
     fn committed_time_requires_the_handshake_network_and_receipt_authority() {
+        // This checks the current handshake receipt key, with pinned committed validators.
         let (authority, actor, batch, observed) = captured_batch();
         let header = checked(decode_batch_header(batch.maintenance.canonical_header()));
         let wrong_network = checked(
@@ -2746,6 +2909,9 @@ pub struct PolicyHistorySource {
 }
 
 impl PolicyHistorySource {
+    /// # Errors
+    /// Returns an error if the history range, cursor or page is invalid or oversized, the node
+    /// read fails, or an item lacks verified evidence.
     pub fn new(
         config: &crate::node_rpc::NodeRpcConfig,
         result_url: &str,
@@ -2759,7 +2925,10 @@ impl PolicyHistorySource {
         } else {
             Vec::new()
         };
-        let anchors: Vec<_> = certificates.iter().map(|c| c.as_ref()).collect();
+        let anchors: Vec<_> = certificates
+            .iter()
+            .map(std::convert::AsRef::as_ref)
+            .collect();
         let endpoint = SequencerEndpoint::new(&config.url, &anchors)
             .map_err(crate::read::HistoryReadError::Sequencer)?;
         if endpoint
@@ -2851,6 +3020,9 @@ impl PolicyHistorySource {
         crate::read::HistoryPage::read_newest(&self.endpoint, account, cursor, limits)
     }
 
+    /// # Errors
+    /// Returns an error if the history range, cursor or page is invalid or oversized, the node
+    /// read fails, or an item lacks verified evidence.
     pub fn prove(
         &self,
         canonical: &[u8],
@@ -2886,7 +3058,7 @@ impl PolicyHistorySource {
             .landing
             .rpc(
                 "eth_getTransactionReceipt",
-                serde_json::json!([format!("0x{}", layerx_programs::hex::encode(&hash))]),
+                &serde_json::json!([format!("0x{}", layerx_programs::hex::encode(&hash))]),
             )
             .map_err(|_| bad())?;
         let landing_hash = raw_landing["blockHash"]
@@ -2937,4 +3109,31 @@ pub(crate) fn admit_bytes(
         .filter(|n| *n <= 16 * 1024 * 1024)
         .ok_or(crate::read::HistoryReadError::Oversized)?;
     Ok(())
+}
+
+struct TimeWindowObservation<'a> {
+    actor: &'a Did,
+    account: Option<[u8; 20]>,
+    observed: &'a AuthenticatedCoreTime,
+    lower: Option<u64>,
+}
+#[derive(Default)]
+struct TimeWindowAccumulator {
+    previous: Option<BatchHeader>,
+    first_covered_sequence: u64,
+    covered: usize,
+    bytes: usize,
+    seen: BTreeSet<[u8; 32]>,
+    count: u64,
+    successful_count: u64,
+    activity_ids: Vec<[u8; 32]>,
+    amounts: std::collections::BTreeMap<([u8; 32], [u8; 32]), u128>,
+}
+#[derive(Clone, Copy)]
+struct TimeWindowBatchFrame<'a> {
+    raw: &'a RawReceiptEvidence,
+    header: &'a BatchHeader,
+    maintenance: &'a layerx_wire::batch_maintenance::MaintenanceReceipt<'a>,
+    count_a: u32,
+    count_all: u32,
 }

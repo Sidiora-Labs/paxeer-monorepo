@@ -1,0 +1,30 @@
+[repair.22.39.233]
+decision = "3058"
+gotchas = "3754, 3046, 3768"
+acceptance = "22998.1"
+base_revision = "29005b8971ad57b238a2fbaf04fe8624ee5e0fe5"
+continued_revision = "1f4422082db626dba2b071afd2e714e1624885cc"
+producer = "layerx_crypto::evm_transaction::Eip1559Call::sign emits the canonical type-2 transaction accepted by NativeProgramCallRequest::from_signed_transaction and NativeProgramCallRequest::new. layerx_wire::historical is explicitly reserved for retired evidence; its Activity envelopes are distinguishable by the leading 0x00 byte."
+cause = "program_http::signed_program_transaction gained a historical native-activity decoding branch. Both request constructors delegated to that shared evidence decoder, admitting the unchanged native-program-call-v3 signed_activity_hex envelope. The fixture did not become an EIP-1559 transaction; the caller registry is unused."
+implementation = "NativeProgramCallRequest::from_signed_transaction enforces nonempty bounded type-2 transaction bytes before using the shared decoder. NativeProgramCallRequest::new delegates to that constructor. The shared historical evidence decoder remains intact."
+submission_producer = "HttpProgramTransport::submit_bound calls send_node_transaction, whose check_node_network in src/program_node.rs requires ReceiptPolicy before contacting the endpoint. At this base connect_node configures lifecycle keys only; connect_node_with_policy also performs an immediate network check. with_node_receipt_policy supplies validated authority without contacting the node, and connect_node_with_policy reuses it while retaining its immediate check. Every live operation retains check_node_network."
+submission_fixture = "program_http_decodes_signed_program_calls_as_eip1559 calls connect_node with its existing receipt public key, a nonzero key identity, and the historical fixture's inclusive heights 1 through 100, then pins receipt protocol 2 and the signed EIP-1559 transaction's network 125 through with_node_receipt_policy. The unavailable endpoint still yields Unknown and retains the exact transaction; all original assertions remain unchanged. Additional assertions require missing authority and invalid protocol/network configuration to be refused."
+tests = "tests/native_programs.rs::native_request_binds_real_signed_fixture retains every assertion for legacy refusal, exact signed bytes, transaction hash, idempotency key, budget and payload mismatch. program_http_decodes_signed_program_calls_as_eip1559 also checks historical-envelope refusal through from_signed_transaction and retained bytes through the real HTTP transport."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+build = "The build row for this candidate records the verified revision, exact command, exit code and private log; expected command: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests."
+verify = "The verify row for the same candidate records the verified revision, exact command, exit code and private log; hf-done invokes cg spec done 22.39.233 -f layerx-merge --root /work/paxeer-monorepo, which executes the declared native_programs verify_cmd. Only a zero-exit verify row qualifies the repair."
+reference_policy = "Evidence is referenced before gates run so recording their results does not change the built candidate. No gate result is claimed in advance."
+
+[gotcha.scope]
+observed = "The explicit task scope and runner publication rules override repository instructions to edit GOTCHA/spec files or commit and push; runner setup changes are preserved."
+
+[gotcha.context]
+observed = "cg brief reports stale graph-wide uncommitted paths; git status and the private gate ledger identify the actual candidate state."
+
+[gotcha.authority_api]
+observed = "The continuation ruling names connect_node as the network authority producer, but its current signature accepts lifecycle keys only; native submission needs ReceiptPolicy, and connect_node_with_policy contacts the node immediately. The policy configuration method preserves all network checks while allowing the unavailable-endpoint test to exercise the actual transport failure."
+
+[gotcha.ledger]
+observed = "No /out/run/gates.jsonl existed when this continuation began; /out/run/gate.json records zero current gate runs and the seed attempt's failed qualification."

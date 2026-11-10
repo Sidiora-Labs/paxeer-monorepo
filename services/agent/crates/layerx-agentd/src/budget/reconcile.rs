@@ -28,8 +28,33 @@ pub struct SpendReceiptEvidence<E = RawReceiptEvidence> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LocalAccounting {
     pub consumed: u128,
+    /// Compatibility field for external struct literals; its value is milliseconds.
     pub window_start_sequence: u64,
     pub last_receipt: Option<[u8; 32]>,
+}
+
+impl LocalAccounting {
+    #[must_use]
+    pub const fn at_period_start(
+        consumed: u128,
+        window_start_ms: u64,
+        last_receipt: Option<[u8; 32]>,
+    ) -> Self {
+        Self {
+            consumed,
+            window_start_sequence: window_start_ms,
+            last_receipt,
+        }
+    }
+
+    #[must_use]
+    pub const fn window_start_ms(&self) -> u64 {
+        self.window_start_sequence
+    }
+
+    fn set_window_start_ms(&mut self, window_start_ms: u64) {
+        self.window_start_sequence = window_start_ms;
+    }
 }
 
 /// Opaque reconciliation result issued only after protocol evidence succeeds.
@@ -43,8 +68,8 @@ pub struct ReconciliationState {
     local_before: u128,
     local_after: u128,
     divergence: Option<i128>,
-    window_start_sequence: u64,
-    window_end_sequence: u64,
+    window_start_ms: u64,
+    window_end_ms: u64,
     remaining: u128,
     observed_head_sequence: u64,
 }
@@ -84,12 +109,12 @@ impl ReconciliationState {
         self.divergence
     }
 
-    pub(crate) const fn window_start_sequence(&self) -> u64 {
-        self.window_start_sequence
+    pub(crate) const fn window_start_ms(&self) -> u64 {
+        self.window_start_ms
     }
 
-    pub(crate) const fn window_end_sequence(&self) -> u64 {
-        self.window_end_sequence
+    pub(crate) const fn window_end_ms(&self) -> u64 {
+        self.window_end_ms
     }
 }
 
@@ -144,13 +169,13 @@ pub(crate) fn reconcile_state<E: Clone + Into<super::BudgetReceiptEvidence>>(
         local_before,
         local_after: protocol_consumed,
         divergence,
-        window_start_sequence: record.period_start,
-        window_end_sequence: record.window_end_sequence(),
+        window_start_ms: record.period_start,
+        window_end_ms: record.period_end_ms(),
         remaining: record.remaining(),
         observed_head_sequence: verified_state.observed_head_sequence(),
     };
     local.consumed = protocol_consumed;
-    local.window_start_sequence = record.period_start;
+    local.set_window_start_ms(record.period_start);
     local.last_receipt = last_verified_receipt;
     Ok(state)
 }
@@ -180,6 +205,9 @@ pub struct CommittedSpendEvidence {
 impl SpendReceiptEvidence<CommittedSpendEvidence> {
     /// Binds a declared spend to its successful committed transaction receipt.
     /// The amount is the payExact or draw amount, excluding the transaction fee.
+    /// # Errors
+    /// Returns an error if budget state or receipt evidence is invalid, duplicated or
+    /// inconsistent with the recorded activity.
     pub fn from_committed(
         expected_tx_hash: [u8; 32],
         amount: u128,
@@ -231,6 +259,9 @@ impl SpendReceiptEvidence<CommittedSpendEvidence> {
 
 impl ProtocolBudgetState<CommittedBudgetEvidence> {
     /// Reads getBudget(bytes32) on 0x101B at an explicit committed height.
+    /// # Errors
+    /// Returns an error if endpoint configuration, node transport or RPC fails, or the node
+    /// response is malformed.
     pub fn read_at(
         endpoint: &layerx_client::sequencer::SequencerEndpoint,
         budget_id: [u8; 32],
@@ -248,6 +279,9 @@ impl ProtocolBudgetState<CommittedBudgetEvidence> {
 
     /// Decodes the exact ABI result of getBudget at the caller's committed height.
     /// Decoding itself does not authenticate an endpoint or prove state inclusion.
+    /// # Errors
+    /// Returns an error if budget state or receipt evidence is invalid, duplicated or
+    /// inconsistent with the recorded activity.
     pub fn decode_get_budget(
         budget_id: [u8; 32],
         height: u64,
@@ -342,6 +376,9 @@ impl ProtocolBudgetState<CommittedBudgetEvidence> {
         self.evidence.height
     }
 
+    /// # Errors
+    /// Returns an error if budget state or receipt evidence is invalid, duplicated or
+    /// inconsistent with the recorded activity.
     pub fn reconcile(
         &self,
         local: &mut LocalAccounting,
@@ -377,8 +414,8 @@ impl ProtocolBudgetState<CommittedBudgetEvidence> {
             local_before: before,
             local_after: spent,
             divergence,
-            window_start_sequence: record.period_start,
-            window_end_sequence: record.window_end_sequence(),
+            window_start_ms: record.period_start,
+            window_end_ms: record.period_end_ms(),
             remaining: if record.closed || record.revoked {
                 0
             } else {
@@ -387,7 +424,7 @@ impl ProtocolBudgetState<CommittedBudgetEvidence> {
             observed_head_sequence: self.evidence.height,
         };
         local.consumed = spent;
-        local.window_start_sequence = record.period_start;
+        local.set_window_start_ms(record.period_start);
         local.last_receipt = last;
         Ok(state)
     }

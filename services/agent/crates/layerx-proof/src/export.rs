@@ -86,7 +86,7 @@ pub enum ExportVerificationError {
 }
 
 /// Re-runs every proof using only the export object and `layerx-proof`.
-/// Receipt and inclusion verification requires no settlement-domain argument.
+/// Receipt and inclusion verification uses the authority carried by each fact.
 /// For per-fact [`Rung`] results and independent authority, use [`verify_complete`].
 ///
 /// # Errors
@@ -628,7 +628,7 @@ pub fn verify_complete(
     for (fact, (selector, outcome)) in artifact.facts.iter().zip(outcomes).enumerate() {
         let achieved = outcome
             .rung()
-            .expect("complete verification cannot produce settlement anchoring");
+            .ok_or(CompleteExportError::ReceiptBinding { fact })?;
         if achieved < requested {
             return Err(CompleteExportError::RungNotAchieved {
                 fact,

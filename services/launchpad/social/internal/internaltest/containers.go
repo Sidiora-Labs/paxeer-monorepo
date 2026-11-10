@@ -67,6 +67,22 @@ func NewPostgresAt(t *testing.T, admin string) *pgxpool.Pool {
 	return pool
 }
 
+// DevelopmentPostgresDSN retains the registered owner interfaces while letting
+// the embedded social migrations construct chat from an empty schema.
+func DevelopmentPostgresDSN(t *testing.T, admin string) string {
+	t.Helper()
+	database := coordinatortest.Bootstrap(t, admin, "chat_runtime")
+	conn, err := pgx.Connect(context.Background(), database.AdminDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+	if _, err = conn.Exec(context.Background(), "DROP SCHEMA chat CASCADE"); err != nil {
+		t.Fatal(err)
+	}
+	return database.AdminDSN
+}
+
 func CoordinatorMigrationSQL(t *testing.T, schema string, version int) string {
 	t.Helper()
 	path := filepath.Join(coordinatortest.RepositoryRoot(t), "launchpad/spec/production-system/integration/migrations", fmt.Sprintf("%d.sql", version))

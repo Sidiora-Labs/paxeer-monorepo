@@ -105,7 +105,7 @@ func repair56RPCSetup(t *testing.T) *repair56Fixture {
 	if !ok {
 		t.Fatal("approved historical manifest unavailable")
 	}
-	reviewed, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
+	reviewed, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "sdk", "launchpad", "protocol", "catalog", "history", "reviewed-a35ff7c6f532d2f9.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

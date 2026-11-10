@@ -32,6 +32,9 @@ pub struct InferenceConfig {
 }
 
 impl InferenceConfig {
+    /// # Errors
+    /// Returns an error if the environment or protected configuration is missing, malformed,
+    /// unsupported or unreadable.
     pub fn from_environment() -> Result<Self, String> {
         let mut values = BTreeMap::new();
         for name in [
@@ -54,6 +57,9 @@ impl InferenceConfig {
         Self::from_values(&values)
     }
 
+    /// # Errors
+    /// Returns an error if the environment or protected configuration is missing, malformed,
+    /// unsupported or unreadable.
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self, String> {
         let required = |name: &str| {
             values
@@ -93,6 +99,9 @@ impl InferenceConfig {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the environment or protected configuration is missing, malformed,
+    /// unsupported or unreadable.
     pub fn load_room_profile(&self) -> Result<Vec<u8>, String> {
         let file = File::open(&self.room_profile)
             .map_err(|_| "inference room profile is unreadable".to_owned())?;
@@ -168,7 +177,7 @@ pub enum ReceiptKeySource {
 pub struct StartupConfig {
     pub network_id: u32,
     /// Set `node_endpoint` / `LAYERX_NODE_ENDPOINT` to the node root. The documented
-    /// mainnet default is https://api1.mainnet-beta.paxeer.network/ (api2 through
+    /// mainnet default is `https://api1.mainnet-beta.paxeer.network`/ (api2 through
     /// api14 are alternatives). Explicit configuration remains required.
     pub node_endpoint: String,
     pub expected_chain_id: u64,
@@ -181,6 +190,9 @@ pub struct StartupConfig {
 
 impl StartupConfig {
     /// Connects the existing node setting and checks the configured EVM identity.
+    /// # Errors
+    /// Returns an error if endpoint configuration, node transport or RPC fails, or the node
+    /// response is malformed.
     pub fn connect_node(
         &self,
         trust_anchors: &[&[u8]],
@@ -194,6 +206,9 @@ impl StartupConfig {
         Ok(node)
     }
 
+    /// # Errors
+    /// Returns an error if endpoint configuration, node transport or RPC fails, or the node
+    /// response is malformed.
     pub fn connect_px(
         &self,
         trust_anchors: &[&[u8]],
@@ -370,6 +385,82 @@ pub fn read_protected_source(
         return Err(ProtectedSourceError::TooLarge);
     }
     Ok(bytes)
+}
+
+pub const MAX_STATE_EXPORT_SLOTS: usize = 1024;
+const MAX_EXPORT_SOURCE_BYTES: usize = 1_048_576;
+
+#[derive(Clone, Debug)]
+pub struct StateExportSource {
+    selections: BTreeMap<(TenantId, [u8; 32]), Vec<[u8; 32]>>,
+}
+
+impl StateExportSource {
+    /// Loads the operator's bounded tenant and account slot selections.
+    /// # Errors
+    /// Returns an error if the protected source cannot be read, its schema or digests
+    /// are invalid, or selections are empty, duplicate or exceed the configured bounds.
+    pub fn load(path: &Path) -> Result<Self, String> {
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Source {
+            version: u32,
+            selections: Vec<Selection>,
+        }
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Selection {
+            tenant: String,
+            account: String,
+            slots: Vec<String>,
+        }
+        let bytes = read_protected_source(path, MAX_EXPORT_SOURCE_BYTES)
+            .map_err(|error| format!("state export source unavailable: {error:?}"))?;
+        let source: Source =
+            serde_json::from_slice(&bytes).map_err(|_| "invalid state export source".to_owned())?;
+        if source.version != 1 || source.selections.is_empty() || source.selections.len() > 1024 {
+            return Err("invalid state export selections".to_owned());
+        }
+        let digest = |text: &str| {
+            if text.len() != 64
+                || !text
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err("invalid state export digest".to_owned());
+            }
+            layerx_programs::hex::decode_digest(text)
+                .map_err(|_| "invalid state export digest".to_owned())
+        };
+        let mut selections = BTreeMap::new();
+        for selection in source.selections {
+            let tenant = TenantId::new(selection.tenant)
+                .map_err(|_| "invalid state export tenant".to_owned())?;
+            let account = digest(&selection.account)?;
+            let slots = selection
+                .slots
+                .iter()
+                .map(|slot| digest(slot))
+                .collect::<Result<Vec<_>, _>>()?;
+            if account[..12] != [0; 12]
+                || account[12..] == [0; 20]
+                || slots.is_empty()
+                || slots.len() > MAX_STATE_EXPORT_SLOTS
+                || slots.iter().collect::<BTreeSet<_>>().len() != slots.len()
+                || selections.insert((tenant, account), slots).is_some()
+            {
+                return Err("invalid state export selection".to_owned());
+            }
+        }
+        Ok(Self { selections })
+    }
+
+    #[must_use]
+    pub fn slots(&self, tenant: &TenantId, account: [u8; 32]) -> Option<&[[u8; 32]]> {
+        self.selections
+            .get(&(tenant.clone(), account))
+            .map(Vec::as_slice)
+    }
 }
 
 fn validate_protected_metadata(
@@ -566,6 +657,9 @@ fn parse_tenants(value: &str) -> Result<BTreeSet<TenantId>, ConfigError> {
     }
 }
 
+/// # Errors
+/// Returns an error if protected configuration cannot be read or validated, or its tenant or
+/// policy bindings conflict.
 pub fn parse_policy_sources(
     value: &str,
     tenants: &BTreeSet<TenantId>,
@@ -669,24 +763,13 @@ fn error(setting: impl Into<String>, reason: RejectionReason) -> ConfigError {
     }
 }
 
+/// # Errors
+/// Returns an error if protected configuration cannot be read or validated, or its tenant or
+/// policy bindings conflict.
 pub fn load_program_budget_denominations(
     path: &Path,
     tenant: &TenantId,
 ) -> Result<crate::enrolment::VerifiedProgramBudgetDenominations, ConfigError> {
-    use sha2::{Digest as _, Sha256};
-    const SETTING: &str = "program_budget_denominations";
-    let bytes = read_protected_source(path, MAX_CONFIG_BYTES).map_err(|failure| {
-        error(
-            SETTING,
-            match failure {
-                ProtectedSourceError::Unavailable => RejectionReason::Unavailable,
-                ProtectedSourceError::TooLarge => RejectionReason::TooLarge,
-                ProtectedSourceError::Unprotected | ProtectedSourceError::Changed => {
-                    RejectionReason::Unprotected
-                }
-            },
-        )
-    })?;
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Source {
@@ -701,6 +784,21 @@ pub fn load_program_budget_denominations(
         asset: String,
         source: String,
     }
+
+    use sha2::{Digest as _, Sha256};
+    const SETTING: &str = "program_budget_denominations";
+    let bytes = read_protected_source(path, MAX_CONFIG_BYTES).map_err(|failure| {
+        error(
+            SETTING,
+            match failure {
+                ProtectedSourceError::Unavailable => RejectionReason::Unavailable,
+                ProtectedSourceError::TooLarge => RejectionReason::TooLarge,
+                ProtectedSourceError::Unprotected | ProtectedSourceError::Changed => {
+                    RejectionReason::Unprotected
+                }
+            },
+        )
+    })?;
     let value: Source = serde_json::from_slice(&bytes)
         .map_err(|_| error(SETTING, RejectionReason::InvalidEncoding))?;
     if value.version != 1 || value.tenant != tenant.as_str() {

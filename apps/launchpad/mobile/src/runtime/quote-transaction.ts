@@ -38,7 +38,7 @@ const quoterAbi = parseAbi([
 const surfaceRuntimeHash =
   '0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f' as const;
 const authority = {
-  revision: 'a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a',
+  revision: '6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b',
   router: getAddress('0x78FB06f525cD964388f2305A489035263E31C6e4'),
   quoter: getAddress('0x793006f4F321b8863F26DBD75b11bAa01DA181dc'),
   registry: getAddress('0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7'),

@@ -4,7 +4,7 @@
 //! Finding 4: cache_keys_storage_and_miss_only_tenants_obey_admission_bounds.
 //! Finding 5: repeated_regressions_block_writes_until_both_high_water_marks_recover.
 //! Finding 7: finality_consumer_uses_rungs_and_reopens_authenticated_evidence.
-//! Finding 31: native_evidence::native_type2_bytes_and_matching_node_receipt_survive_restart.
+//! Finding 31: protocol_evidence::native_terminal_tests::native_type2_bytes_and_matching_node_receipt_survive_restart.
 //! Finding 50: registry_source_contract_drives_mtls_and_refuses_unbound_responses.
 //! Finding 49: external_signing_consumer_compiles_and_submits_exact_type2_bytes.
 //!
@@ -50,12 +50,7 @@ use layerx_types::payload::ModuleRegistry;
 use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 
-// Compile and execute the repaired production test source through the declared
-// integration target as well as through the crate's unit-test target.
-use layerx_agentd::protocol_evidence::{RawReceiptEvidence, VerifiedReceiptEvidence};
-pub use layerx_agentd::{outbox, prepare, protocol_evidence, sign, store};
-#[path = "../src/protocol_evidence_native_tests.rs"]
-mod native_evidence;
+use layerx_agentd::{outbox, sign};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -95,9 +90,112 @@ fn tenant(value: &str) -> TenantId {
     TenantId::new(value).expect("bounded tenant")
 }
 
+fn checked<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
+    value.unwrap_or_else(|error| panic!("native terminal evidence: {error:?}"))
+}
+
+fn recorded_native_fixture() -> (
+    layerx_agentd::sign::SigningPreparation,
+    layerx_types::payload::ModuleRegistry,
+    Vec<u8>,
+    serde_json::Value,
+    Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+) {
+    use layerx_agentd::prepare::{
+        evm::{AbiArgument, PrecompileCall, PrecompileTarget},
+        prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest, EvmPrepared,
+    };
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+    let document: serde_json::Value = checked(serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))));
+    let case = document["cases"]
+        .as_array()
+        .expect("recorded cases")
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .expect("native call recording");
+    let raw = decode_hex(case["rawTransaction"].as_str().expect("raw transaction"));
+    let (call, signature) = checked(decode_signed(&raw));
+    let actor_address = checked(recover_sender(&call, &signature));
+    assert_eq!(
+        &call.data[..4],
+        &layerx_crypto::disclosure::call::ledger_selector(
+            "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)"
+        )
+    );
+    let transaction: EvmPrepared = checked(prepare_bound(
+        EvmPreparationState {
+            chain_id: 125,
+            pending_nonce: 2,
+            base_fee_per_gas: 1_000_000_000,
+            head_height: 1001,
+        },
+        EvmPreparationDefaults {
+            max_priority_fee_per_gas: 1_000_000_000,
+            max_fee_per_gas: 3_000_000_000,
+            maximum_payload_bytes: 2048,
+        },
+        EvmPrepareRequest {
+            from: actor_address,
+            call: PrecompileCall {
+                target: PrecompileTarget::Ledger,
+                selector: checked(call.data[..4].try_into()),
+                arguments: call.data[4..]
+                    .chunks_exact(32)
+                    .map(|word| AbiArgument::Word(checked(word.try_into())))
+                    .collect(),
+            },
+            expected_nonce: Some(2),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            declared_payload_limit: 2048,
+        },
+        call.gas_limit,
+    ));
+    assert_eq!(transaction.call, call);
+    let prepared = layerx_agentd::sign::SigningPreparation {
+        transaction,
+        actor_address,
+    };
+    let seed: [u8; 32] = checked(
+        decode_hex("8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63").try_into(),
+    );
+    let signed = checked(prepared.transaction.call.sign(&seed));
+    assert_eq!(
+        signed, raw,
+        "producer must reproduce the node recorder's exact bytes"
+    );
+    let kind = checked(ActivityType::new(ModuleId::Asset, 5));
+    let registry = checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
+        ModuleId::Asset,
+        &[kind],
+    ))]));
+    let pin = &case["pinnedKey"];
+    let keys = vec![layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: checked(decode_hex(pin["keyId"].as_str().expect("key id")).try_into()),
+        public_key: checked(decode_hex(pin["publicKey"].as_str().expect("public key")).try_into()),
+        first_height: pin["firstHeight"].as_u64().expect("first height"),
+        last_height: pin["lastHeight"].as_u64().expect("last height"),
+    }];
+    (
+        prepared,
+        registry,
+        signed,
+        case["receiptJson"].clone(),
+        keys,
+    )
+}
+
+fn decode_hex(value: &str) -> Vec<u8> {
+    checked(hex::decode(value.strip_prefix("0x").unwrap_or(value)))
+}
+
 fn verified_node_receipt() -> (Vec<u8>, layerx_proof::receipt::VerifiedReceipt) {
-    let (_, _, _, view, keys) = native_evidence::native_fixture();
-    let bytes = native_evidence::decode_hex(view["receipt"].as_str().expect("receipt bytes"));
+    let (_, _, _, view, keys) = recorded_native_fixture();
+    let bytes = decode_hex(view["receipt"].as_str().expect("receipt bytes"));
     let pins: Vec<_> = keys
         .iter()
         .map(|key| {
@@ -431,13 +529,12 @@ fn finality_consumer_uses_rungs_and_reopens_authenticated_evidence() {
         &str,
         &[layerx_agentd::finality::Validator],
     ) -> Result<VerifiedBlock, FinalityError> = VerifiedBlock::verify_with_header;
-    let (prepared, registry, raw, view, keys) = native_evidence::native_fixture();
+    let (prepared, registry, raw, view, keys) = recorded_native_fixture();
     let verified = verify_before_submit(&raw, &prepared, &prepared.actor_address, &registry)
         .expect("real signer consumer");
     let hash = transaction_hash(verified.exact_bytes());
     let idempotency = verified.idempotency_key();
-    let receipt =
-        native_evidence::decode_hex(view["receipt"].as_str().expect("recorded signed receipt"));
+    let receipt = decode_hex(view["receipt"].as_str().expect("recorded signed receipt"));
     let receipt = verify_receipt(hash, &receipt, &keys).expect("published key receipt API");
     let mut progress = SubmissionProgress::accepted(idempotency, hash);
     assert_eq!(
@@ -519,7 +616,7 @@ fn external_signing_consumer_compiles_and_submits_exact_type2_bytes() {
         &[u8; 20],
         &ModuleRegistry,
     ) -> Result<VerifiedSubmission, SigningError> = verify_before_submit;
-    let (prepared, registry, recorded, _, _) = native_evidence::native_fixture();
+    let (prepared, registry, recorded, _, _) = recorded_native_fixture();
     let external = package(&prepared).expect("external package consumer");
     assert_eq!(external.mode, SigningMode::External);
     assert_eq!(

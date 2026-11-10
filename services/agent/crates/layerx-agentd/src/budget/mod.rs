@@ -6,6 +6,8 @@ pub enum BudgetVerificationError {
     RetiredOrUnknown,
 }
 
+/// # Errors
+/// Returns an error if the supplied verification level is uncommitted, retired or unknown.
 pub fn budget_state_is_committed(label: u8) -> Result<(), BudgetVerificationError> {
     let level = layerx_types::verify::VerificationLevel::from_wire_rank(label)
         .map_err(|_| BudgetVerificationError::RetiredOrUnknown)?;
@@ -70,6 +72,7 @@ pub use mutate::{
     verify_committed_budget_mutation, BudgetMutation, BudgetMutationPipeline,
     ConfirmedBudgetMutation,
 };
+pub(crate) use recovery::requested_amount;
 pub use recovery::{
     BudgetReceiptEvidence, PersistedReceipt, RestartAccounting, RestartError, UnknownOutcome,
     UnknownReservation,
@@ -231,10 +234,7 @@ impl EnrolmentLimitRecord {
             id: self.limit_id,
             name: format!(
                 "enrolment limit {}",
-                self.stable_id
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect::<String>()
+                layerx_programs::hex::encode(&self.stable_id)
             ),
             scope: self.scope,
             ceiling: self.ceiling,
@@ -665,6 +665,9 @@ pub fn reconcile(
     reconcile_with_evidence(local, protocol, receipts, verifier)
 }
 
+/// # Errors
+/// Returns an error if budget state or receipt evidence is invalid, duplicated or
+/// inconsistent with the recorded activity.
 pub fn reconcile_with_evidence<E: Clone + Into<BudgetReceiptEvidence>>(
     local: &mut LocalAccounting,
     protocol: &ProtocolBudgetState,
@@ -805,6 +808,9 @@ pub fn rebuild(
     rebuild_with_evidence(store, tenant, unknown_ids, receipts, protocol, verifier)
 }
 
+/// # Errors
+/// Returns an error if persisted limits or receipt evidence cannot be reconciled during
+/// restart.
 pub fn rebuild_with_evidence<E: Clone + Into<BudgetReceiptEvidence>>(
     store: &crate::store::Store,
     tenant: &crate::store::TenantId,
@@ -880,6 +886,9 @@ fn stored_program_denomination(
     Ok(Some(denomination))
 }
 
+/// # Errors
+/// Returns an error if limit configuration, denomination, reservation or persisted accounting
+/// is invalid, conflicting or unavailable.
 pub fn install_program_enrolment_denominations(
     store: &mut crate::store::Store,
     limiter: &BudgetLimiter,
@@ -920,6 +929,9 @@ pub fn install_program_enrolment_denominations(
     })
 }
 
+/// # Errors
+/// Returns an error if limit configuration, denomination, reservation or persisted accounting
+/// is invalid, conflicting or unavailable.
 pub fn program_enrolment_charge_limits(
     store: &crate::store::Store,
     tenant: &crate::store::TenantId,
@@ -953,6 +965,9 @@ pub fn program_enrolment_charge_limits(
     Ok(selected)
 }
 
+/// # Errors
+/// Returns an error if limit configuration, denomination, reservation or persisted accounting
+/// is invalid, conflicting or unavailable.
 pub fn program_consumption_updates(
     store: &crate::store::Store,
     tenant: &crate::store::TenantId,
@@ -991,6 +1006,9 @@ pub fn program_consumption_updates(
     consumption_updates(store, tenant, &holds)
 }
 
+/// # Errors
+/// Returns an error if limit configuration, denomination, reservation or persisted accounting
+/// is invalid, conflicting or unavailable.
 pub fn program_allocation_charge_limits(
     store: &crate::store::Store,
     tenant: &crate::store::TenantId,
@@ -1106,6 +1124,9 @@ fn validate_program_settlement_limits(
 }
 
 impl BudgetLimiter {
+    /// # Errors
+    /// Returns an error if limit configuration, denomination, reservation or persisted accounting
+    /// is invalid, conflicting or unavailable.
     pub fn stage_program_settlement(
         &self,
         store: &crate::store::Store,
@@ -1121,7 +1142,7 @@ impl BudgetLimiter {
         let staged = self.stage_program_settlement_inner(
             record,
             witness,
-            previous.map(|value| value.bytes()),
+            previous.map(super::store::StoredValue::bytes),
         )?;
         finish_program_settlement_stage(store, tenant, key, staged)
     }

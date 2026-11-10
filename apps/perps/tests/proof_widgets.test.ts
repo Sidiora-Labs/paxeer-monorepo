@@ -20,7 +20,10 @@
 import "./fixtures/react-runtime";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
+import { createRequire } from "node:module";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { act, createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
@@ -272,11 +275,15 @@ async function marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults() {
     for (const field of ["price", "change_24h", "volume_24h", "open_interest", "volume_7d", "volume_30d",
       "trades_count", "last_updated", "price_updated_at", "price_24h", "high_24h", "low_24h", "amount_24h",
       "reported_volume_24h", "reported_open_interest"]) {
-      for (const malformed of ["bad", "", " ", "0x10", "1e309", null, false, [], {}, NaN, Infinity]) {
+      for (const malformed of ["bad", "", " ", "0x10", "1e309", false, [], {}, NaN, Infinity,
+        ...(["price", "change_24h", "last_updated"].includes(field) ? [] : [null])]) {
         const raw = { symbol: "DOGE", price: 2, [field]: malformed };
         assert.equal(normalizeMarket(raw), null, `${field} must refuse ${String(malformed)}`);
         const frame = normalizeMarketsFrame([raw]);
         assert.deepEqual(frame, []);
+        const sibling = normalizeMarketsFrame([raw, { symbol: "SIBLING", price: 4 }]);
+        assert.equal(sibling.length, 1);
+        assert.equal(sibling[0].symbol, "SIBLING");
         const rows = producer.buildMarketsRows(markets, frame);
         assert.equal(rows[0].hasLiveData, false);
         assert.equal(rows[0].snapshot, undefined);
@@ -284,6 +291,19 @@ async function marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults() {
         assert.ok(html.includes("DOGE"));
         assert.ok(!html.includes("$0.00"), "refused input is unavailable, never a live zero price");
       }
+    }
+    for (const field of ["price", "change_24h", "last_updated"]) {
+      const allowed = normalizeMarket({ symbol: "DOGE", price: 2, [field]: null, volume_24h: 1234 });
+      assert.ok(allowed);
+      assert.equal(allowed[field as keyof typeof allowed], null);
+      const live = producer.buildMarketsRows(markets, [allowed]);
+      assert.equal(live[0].hasLiveData, true);
+      assert.equal(live[0].volume24h, 1234);
+      assert.ok(render(table(live)).includes("DOGE"));
+    }
+    for (const field of ["price", "volume_24h", "open_interest", "volume_7d", "volume_30d", "trades_count", "last_updated", "price_updated_at", "price_24h", "high_24h", "low_24h", "amount_24h", "reported_volume_24h", "reported_open_interest"]) {
+      assert.equal(normalizeMarket({ symbol: "DOGE", price: 2, [field]: -1 }), null);
+      assert.ok(normalizeMarket({ symbol: "DOGE", price: 2, [field]: 0 }));
     }
     const zero = normalizeMarket({ symbol: "DOGE", price: 0 });
     assert.ok(zero, "a valid numeric zero is distinct from a refused row");
@@ -296,6 +316,198 @@ async function marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults() {
     assert.equal(recovered.length, 1);
     assert.ok(render(table(producer.buildMarketsRows(markets, recovered))).includes("$3.00"));
   } finally { client.clear(); }
+}
+
+async function marketsNullableSnapshotsReachMountedView() {
+  assert.equal(process.env.PROOF_NULLABLE_MARKETS, "1", "run through the real Go gateway proof");
+  const origin = process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL!;
+  const fixtureRequire = createRequire(new URL("../../../services/wallet/demo/package.json", import.meta.url));
+  const { JSDOM } = fixtureRequire("jsdom");
+  const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: origin, pretendToBeVisual: true });
+  const globals = new Map<string, PropertyDescriptor | undefined>();
+  for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true })) {
+    globals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
+    Object.defineProperty(globalThis, key, { value, configurable: true });
+  }
+  const { createRoot } = await import("react-dom/client");
+  const stream = await import("../src/hooks/perps/useMarketsStream");
+  assert.equal(stream.MARKETS_WS_URL, `${origin.replace(/^http/, "ws")}/ws/markets`);
+  const { useMarketsRows, filterAndSort } = await import("../src/widgets/markets/useMarketsRows");
+  const { MarketsTable, MarketsHighlights } = await import("../src/widgets/markets");
+  const { useRealtimePrices, tickerFromSnapshot } = await import("../src/hooks/perps/useRealtimePrices");
+  const { fmtPrice, fmtChangePct, fmtUsdCompact } = await import("../src/ui/utils/format");
+  const { fundingWadFigure, parseFundingRateHourly } = await import("../src/core/perps/fundingRate");
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } });
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  let latest: ReturnType<typeof useMarketsRows> | undefined;
+  let prices: ReturnType<typeof useRealtimePrices> | undefined;
+  let snapshots: ReturnType<typeof stream.useMarketsSnapshot> = [];
+  let options: Parameters<typeof filterAndSort>[1] = { sortKey: "symbol", sortDir: "asc" };
+  function MountedMarkets(): ReactElement {
+    latest = useMarketsRows();
+    prices = useRealtimePrices();
+    snapshots = stream.useMarketsSnapshot();
+    const visible = filterAndSort(latest.rows, options);
+    return createElement(Fragment, null,
+      createElement("output", { "data-proof": "ready" }, String(latest.hasAnyLive)),
+      createElement("div", { "data-proof": "table" }, createElement(MarketsTable, {
+        rows: visible, loading: !latest.hasAnyLive, favorites: new Set<string>(), onToggleFavorite: noSelection,
+        sortKey: options.sortKey ?? "symbol", sortDir: options.sortDir ?? "asc", onToggleSort: noSelection,
+      })),
+      createElement("div", { "data-proof": "highlights" }, createElement(MarketsHighlights, { rows: latest.rows, hasAnyLive: latest.hasAnyLive })),
+    );
+  }
+  function renderMounted() {
+    root.render(createElement(QueryClientProvider, { client },
+      createElement(RouterContext.Provider, { value: Router as NextRouter }, createElement(MountedMarkets))));
+  }
+  async function until(predicate: () => boolean) {
+    const deadline = Date.now() + 12_000;
+    while (!predicate()) {
+      assert.ok(Date.now() < deadline, "real markets socket and mounted view must settle within twelve seconds");
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    }
+  }
+  type RawSnapshot = {
+    market_id: string; symbol: string; price: number | null; change_24h: number | null; last_updated: number | null;
+    volume_24h: number; open_interest: number; funding_8h: string | null;
+    perp_funding_rate: string | null; last_funding_rate_hourly: string | null;
+  };
+  let raw: RawSnapshot[] = [];
+  const socket = new WebSocket(stream.MARKETS_WS_URL);
+  socket.addEventListener("open", () => socket.send(JSON.stringify({ event: "subscribe", topic: "markets@all" })));
+  socket.addEventListener("message", event => {
+    const frame = JSON.parse(String(event.data));
+    if (frame.topic === "markets@all" && Array.isArray(frame.data)) raw = frame.data;
+  });
+  try {
+    await act(async () => { renderMounted(); });
+    for (let phase = 0; phase <= 3; phase++) {
+      if (phase > 0) {
+        console.log(`PROOF_ADVANCE=${phase}`);
+        const acknowledgement = join(process.env.PROOF_PHASE_DIR!, String(phase));
+        await until(() => existsSync(acknowledgement));
+        assert.equal(readFileSync(acknowledgement, "utf8"), String(phase));
+      }
+      function matches(rows: readonly { symbol: string; price: number | null; change_24h: number | null; last_updated: number | null }[]) {
+        return rows.length === 18 && Array.from({ length: 8 }, (_, id) => {
+          const symbol = raw.find(row => Number(row.market_id) === id)?.symbol;
+          const row = rows.find(row => row.symbol === symbol);
+          const mask = phase === 1 ? id : phase === 2 ? 0 : 7;
+          return row && (row.price === null) === Boolean(mask & 1) &&
+            (row.change_24h === null) === Boolean(mask & 2) && (row.last_updated === null) === Boolean(mask & 4) &&
+            (row.price === null || row.price === 100 + id + phase);
+        }).every(Boolean);
+      }
+      await until(() => matches(raw) && matches(snapshots) && latest?.rows.length === 18 && latest.rows.every(row => row.hasLiveData));
+      assert.equal(latest!.hasAnyLive, true);
+      assert.equal(container.querySelector('[data-proof="ready"]')?.textContent, "true");
+      assert.equal(container.querySelectorAll('[data-proof="table"] [role="row"]').length, 19);
+      assert.deepEqual(prices, { prices: {}, tickers: {} }, "producer frames without fresh price timestamps never invent a ticker");
+      for (let id = 0; id < 8; id++) {
+        const wire = raw.find(row => Number(row.market_id) === id)!;
+        const row = latest!.bySymbol.get(wire.symbol)!;
+        const snap = row.snapshot!;
+        const mask = phase === 1 ? id : phase === 2 ? 0 : 7;
+        assert.equal(wire.price === null, Boolean(mask & 1));
+        assert.equal(wire.change_24h === null, Boolean(mask & 2));
+        assert.equal(wire.last_updated === null, Boolean(mask & 4));
+        assert.equal(row.price, wire.price);
+        assert.equal(row.change24h, wire.change_24h);
+        assert.equal(row.volume24h, 1200 + id);
+        assert.equal(row.openInterest, 150 + id);
+        const rate = id === 7 ? null : (id % 2 ? -1n : 1n) * 123456789012345678901n;
+        assert.equal(row.fundingHourly, rate);
+        assert.equal(row.funding8h, rate === null ? null : rate * 8n);
+        assert.equal(snap.perp_funding_rate, rate);
+        for (const [field, expected] of [["last_funding_rate_hourly", rate], ["perp_funding_rate", rate], ["funding_8h", rate === null ? null : rate * 8n]] as const) {
+          assert.equal(wire[field] === null ? null : parseFundingRateHourly(wire[field]), expected);
+        }
+        const element = container.querySelector(`[data-proof="table"] button[aria-label="Add ${row.symbol} to favorites"]`)?.closest('[role="row"]');
+        assert.ok(element);
+        const text = element.textContent!;
+        assert.ok(text.includes(fmtUsdCompact(row.volume24h)));
+        assert.ok(text.includes(fmtUsdCompact(row.openInterest)));
+        assert.ok(text.includes(fundingWadFigure(row.funding8h).text));
+        if (wire.price === null) {
+          assert.ok(!text.includes("$0.00"));
+          assert.throws(() => tickerFromSnapshot(snap), /Market price unavailable/);
+        } else {
+          assert.ok(text.includes(`$${fmtPrice(wire.price)}`));
+          const ticker = tickerFromSnapshot(snap);
+          assert.equal(ticker.mark_price, wire.price);
+          assert.equal(ticker.index_price, wire.price);
+          assert.equal(ticker.last_funding_rate_hourly, rate);
+        }
+        const changes = [...element.querySelectorAll('span')].filter(span => span.textContent === (row.change24h === null ? "—" : fmtChangePct(row.change24h)));
+        assert.ok(changes.length >= 2);
+        if (row.change24h === null) {
+          assert.ok(changes.every(span => !span.className.includes("text-emerald") && !span.className.includes("text-red")));
+          assert.ok(!text.includes("+0.00%"));
+        }
+        const newListing = [...container.querySelectorAll('[data-proof="highlights"] button')].find(button => button.textContent?.includes(row.name));
+        if (id < 5) {
+          assert.ok(newListing, "new listings retain nullable snapshots");
+          if (row.price !== null) assert.ok(newListing.textContent!.includes(`$${fmtPrice(row.price)}`));
+          if (row.change24h !== null) assert.ok(newListing.textContent!.includes(fmtChangePct(row.change24h)));
+        }
+        const highlightPanels = container.querySelector('[data-proof="highlights"]')!.firstElementChild!.children;
+        for (const panel of [highlightPanels[1], highlightPanels[2]]) {
+          if (row.change24h === null) assert.ok(![...panel.querySelectorAll('button')].some(button => button.textContent?.includes(row.name)));
+        }
+      }
+      for (const sortKey of ["price", "change24h"] as const) {
+        for (const sortDir of ["asc", "desc"] as const) {
+          const sorted = filterAndSort(latest!.rows, { sortKey, sortDir });
+          let unavailable = false;
+          let previous: number | undefined;
+          for (const row of sorted) {
+            const value = row[sortKey];
+            if (value === null) { unavailable = true; continue; }
+            assert.equal(unavailable, false, "unavailable metrics sort last in both directions");
+            if (previous !== undefined) assert.ok(sortDir === "asc" ? value >= previous : value <= previous);
+            previous = value;
+          }
+          options = { sortKey, sortDir };
+          await act(async () => { renderMounted(); });
+          const displayed = [...container.querySelectorAll('[data-proof="table"] [role="row"] button[aria-label^="Add "]')].map(button => button.getAttribute("aria-label"));
+          assert.deepEqual(displayed, sorted.map(row => `Add ${row.symbol} to favorites`));
+        }
+      }
+      const target = latest!.rows.find(row => row.marketId === 7)!;
+      options = { search: target.symbol.toLowerCase(), category: "favorites", favorites: new Set([target.symbol]) };
+      await act(async () => { renderMounted(); });
+      assert.equal(container.querySelectorAll('[data-proof="table"] button[aria-label^="Add "]').length, 1);
+      assert.ok(container.querySelector('[data-proof="table"]')!.textContent!.includes(target.symbol));
+      assert.equal(filterAndSort(latest!.rows, { category: "new" }).length, 8);
+      options = { search: "UNKNOWN" };
+      await act(async () => { renderMounted(); });
+      assert.ok(container.querySelector('[data-proof="table"]')!.textContent!.includes("No markets"));
+      options = { sortKey: "symbol", sortDir: "asc" };
+      await act(async () => { renderMounted(); });
+      const highlights = container.querySelector('[data-proof="highlights"]')!;
+      assert.equal(highlights.querySelectorAll(".animate-pulse").length, 0);
+      if (phase === 0 || phase === 3) {
+        assert.equal([...highlights.querySelectorAll('div')].filter(node => node.textContent === "No data yet").length, 2);
+        for (const button of highlights.querySelectorAll('button')) {
+          assert.ok(button.textContent!.includes("—"));
+          assert.ok(!button.textContent!.includes("+0.00%"));
+        }
+      }
+    }
+  } finally {
+    await act(async () => { root.unmount(); });
+    socket.close();
+    client.clear();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    dom.window.close();
+    for (const [key, descriptor] of globals) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
 }
 
 async function feeTierProducerReachesPanelAndRefusesMalformedView() {
@@ -323,3 +535,5 @@ test(pairHeaderConsumesWatchlistSelectionInSettlementUnits);
 test(perpsLoaderDeliversTheRealOrderFormAndRefusesMalformedMarket);
 test(marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults);
 test(feeTierProducerReachesPanelAndRefusesMalformedView);
+
+test(marketsNullableSnapshotsReachMountedView);

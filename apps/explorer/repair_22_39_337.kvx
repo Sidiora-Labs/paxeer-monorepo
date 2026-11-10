@@ -1,0 +1,182 @@
+[repair.22.39.337]
+task = "22.39.337"
+decision = "3204"
+gotcha = "4125"
+base_revision = "779bb0fbe4b5d292d68a4178e8559134a696d3ff"
+scope = "Remove the unreachable anchors page and its exclusive frontend dependencies; preserve receipt consumers and backend routes."
+
+[search.imports]
+command = "rg -n --hidden 'PaxeerXAnchors|paxeerX/anchors|repair-22-33-503' apps/explorer --glob '!**/node_modules/**' --glob '!**/.next/**' --glob '!*.kvx' --glob '!tsconfig.tsbuildinfo' --glob '!yarn.lock'"
+observed = "Before removal, references belong only to the anchors page, its own spec, and the anchors component directory. No route, navigation item or external module imports any removal target."
+
+[search.dependencies]
+command = "rg -n 'paxeer_x_anchors|PAXEER_X_ANCHORS_ITEM|PaxeerXArchiveAnchor|PaxeerXArchiveAnchorsResponse' apps/explorer --glob '!*.kvx' --glob '!yarn.lock'"
+observed = "After removing the anchors page and directory, production matches are confined to the resource definition, stub definition and anchor type declarations; the only remaining consumers are the two resource specs. Those exclusive definitions and their spec assertions are removed together."
+
+[removed.file_1]
+path = "apps/explorer/ui/pages/PaxeerXAnchors.tsx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_2]
+path = "apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_3]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.spec.tsx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_4]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.tsx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_5]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.spec.tsx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_6]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_7]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_8]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_9]
+path = "apps/explorer/ui/paxeerX/anchors/repair-22-33-503.kvx"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.file_10]
+path = "apps/explorer/ui/paxeerX/anchors/repair-22-33-503.spec.ts"
+search = "search.imports"
+reason = "Part of the unreachable anchors page and its private component/spec tree; no retained module imports it."
+
+[removed.paxeer_x_anchors]
+path = "apps/explorer/lib/api/services/general/paxeerXLists.ts"
+kind = "resource and payload-map branch"
+search = "search.dependencies"
+reason = "No production consumer remains after removing the page and components; spec-only consumers are retired with the definition."
+
+[removed.PAXEER_X_ANCHORS_ITEM]
+path = "apps/explorer/stubs/paxeerXLists.ts"
+kind = "stub"
+search = "search.dependencies"
+reason = "No production consumer remains after removing the page and components; spec-only consumers are retired with the definition."
+
+[removed.PaxeerXArchiveAnchor]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+kind = "type"
+search = "search.dependencies"
+reason = "No production consumer remains after removing the page and components; spec-only consumers are retired with the definition."
+
+[removed.PaxeerXArchiveAnchorsResponse]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+kind = "type"
+search = "search.dependencies"
+reason = "No production consumer remains after removing the page and components; spec-only consumers are retired with the definition."
+
+[kept.paxeer_x_receipts]
+path = "apps/explorer/lib/api/services/general/paxeerXLists.ts"
+consumer = "apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+search = "rg -n \"paxeer_x_receipts\" apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+
+[kept.paxeer_x_receipt]
+path = "apps/explorer/lib/api/services/general/paxeerXLists.ts"
+consumer = "apps/explorer/ui/pages/PaxeerXReceipt.tsx"
+search = "rg -n \"paxeer_x_receipt\" apps/explorer/ui/pages/PaxeerXReceipt.tsx"
+
+[kept.paxeer_x_tx_status]
+path = "apps/explorer/lib/api/services/general/paxeerXLists.ts"
+consumer = "apps/explorer/ui/shared/statusLadder/useTxStatusLadderQuery.ts"
+search = "rg -n \"paxeer_x_tx_status\" apps/explorer/ui/shared/statusLadder/useTxStatusLadderQuery.ts"
+
+[kept.paxeer_x_tx_signature]
+path = "apps/explorer/lib/api/services/general/paxeerXLists.ts"
+consumer = "apps/explorer/ui/tx/details/TxDetailsSequencerSignature.tsx"
+search = "rg -n \"paxeer_x_tx_signature\" apps/explorer/ui/tx/details/TxDetailsSequencerSignature.tsx"
+
+[kept.PAXEER_X_RECEIPTS_ITEM]
+path = "apps/explorer/stubs/paxeerXLists.ts"
+consumer = "apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+search = "rg -n \"PAXEER_X_RECEIPTS_ITEM\" apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+
+[kept.PAXEER_X_KERNEL_RECEIPTS_ITEM]
+path = "apps/explorer/stubs/paxeerXLists.ts"
+consumer = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx"
+search = "rg -n \"PAXEER_X_KERNEL_RECEIPTS_ITEM\" apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx"
+
+[kept.PAXEER_X_TX_STATUS]
+path = "apps/explorer/stubs/paxeerXLists.ts"
+consumer = "apps/explorer/ui/shared/statusLadder/useTxStatusLadderQuery.ts"
+search = "rg -n \"PAXEER_X_TX_STATUS\" apps/explorer/ui/shared/statusLadder/useTxStatusLadderQuery.ts"
+
+[kept.PaxeerXArchiveReceiptCommon]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+consumer = "apps/explorer/types/api/paxeerXArchive.ts"
+search = "rg -n \"PaxeerXArchiveReceiptCommon\" apps/explorer/types/api/paxeerXArchive.ts"
+
+[kept.PaxeerXArchiveEvmReceipt]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+consumer = "apps/explorer/stubs/paxeerXLists.ts"
+search = "rg -n \"PaxeerXArchiveEvmReceipt\" apps/explorer/stubs/paxeerXLists.ts"
+
+[kept.PaxeerXArchiveKernelReceipt]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+consumer = "apps/explorer/stubs/paxeerXLists.ts"
+search = "rg -n \"PaxeerXArchiveKernelReceipt\" apps/explorer/stubs/paxeerXLists.ts"
+
+[kept.PaxeerXArchiveReceiptsItem]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+consumer = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.tsx"
+search = "rg -n \"PaxeerXArchiveReceiptsItem\" apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.tsx"
+
+[kept.PaxeerXArchiveReceiptsResponse]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+consumer = "apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+search = "rg -n \"PaxeerXArchiveReceiptsResponse\" apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+
+[kept.PaxeerXArchiveReceipt]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+consumer = "apps/explorer/ui/pages/PaxeerXReceipt.tsx"
+search = "rg -n \"PaxeerXArchiveReceipt\" apps/explorer/ui/pages/PaxeerXReceipt.tsx"
+
+[kept.PaxeerXArchiveVerificationStatus]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+consumer = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx"
+search = "rg -n \"PaxeerXArchiveVerificationStatus\" apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx"
+
+[kept.PAXEER_X_ARCHIVE_VERIFICATION_STATUSES]
+path = "apps/explorer/types/api/paxeerXArchive.ts"
+consumer = "apps/explorer/ui/pages/PaxeerXReceipt.tsx"
+search = "rg -n \"PAXEER_X_ARCHIVE_VERIFICATION_STATUSES\" apps/explorer/ui/pages/PaxeerXReceipt.tsx"
+
+[kept.Pagination]
+path = "apps/explorer/ui/shared/pagination/Pagination.tsx"
+consumer = "apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+search = "rg -n \"Pagination\" apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+
+[kept.useQueryWithPages]
+path = "apps/explorer/ui/shared/pagination/useQueryWithPages.ts"
+consumer = "apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+search = "rg -n \"useQueryWithPages\" apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+
+[qualification]
+tests = ["apps/explorer/lib/api/services/general/paxeerX.spec.ts", "apps/explorer/lib/api/services/general/paxeerXLists.spec.ts"]
+assertions = "Preserve all receipt, transaction, signature, unified-account and capability assertions. The resource inventory asserts the exact retained resources in definition order; only anchors-specific assertions are removed as required by do_2."
+evidence = "The runner-owned hf-build/hf-done ledger records the final candidate revision, exact command, exit code and private log path. Qualification requires both gates to pass on that same revision; this record makes no advance claim of success."
+gate_ledger = "/out/run/gates.jsonl"
+scan = "The declared hf-done command runs retired_callers_test.py --path apps/explorer; its private log must report zero findings before qualification."
+gotcha = "The task graph requires a shared-pagination path to change even though the hook and component remain live. Its existing repair record now names the retained receipt consumer without changing runtime behavior."
+formatting_note = "ESLint flags extracted snake_case test callbacks and function-name titles; retain the existing inline registration and literal title for kernel_resources_use_archive_paths. The task symbols list is empty, so no declared graph symbol requires extraction."

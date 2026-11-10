@@ -24,6 +24,7 @@ pub(super) fn route(
     query: Option<&str>,
     plane: super::Plane,
 ) -> Option<Response> {
+    // Retain explicit refusal of obsolete mutation routes on the registry plane.
     if !path.starts_with("/internal/v1/deployment-proof/")
         && !matches!(
             path,

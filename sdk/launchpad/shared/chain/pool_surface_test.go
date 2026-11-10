@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -16,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/readpolicy"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
@@ -71,13 +71,17 @@ func keeperSurfaceRuntime(t *testing.T) []byte {
 }
 
 func TestPoolSurfaceIdentity(t *testing.T) {
-	surfaceRuntime := keeperSurfaceRuntime(t)
+	surfaceRuntime := common.FromHex("0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3")
+	stagedRuntime := keeperSurfaceRuntime(t)
 	if got := crypto.Keccak256Hash(surfaceRuntime); got != surfaceRuntimeHash {
-		t.Fatalf("surface runtime hash %s, constant %s", got.Hex(), surfaceRuntimeHash.Hex())
+		t.Fatalf("installed surface runtime hash %s, constant %s", got.Hex(), surfaceRuntimeHash.Hex())
+	}
+	if got := crypto.Keccak256Hash(stagedRuntime); got != stagedSurfaceRuntimeHash || got.Hex() != deployment.StagedSurfaceRuntimeHash || got == surfaceRuntimeHash {
+		t.Fatalf("staged surface runtime hash %s, constant %s", got.Hex(), stagedSurfaceRuntimeHash.Hex())
 	}
 	for name, role := range deployment.Current().Roles {
 		if role.Kind == "surface" && common.HexToHash(role.RuntimeHash) != crypto.Keccak256Hash(surfaceRuntime) {
-			t.Fatalf("canonical %s surface pin differs from keeper: %s", name, role.RuntimeHash)
+			t.Fatalf("canonical %s surface pin differs from installed runtime: %s", name, role.RuntimeHash)
 		}
 	}
 	artifactBytes, err := os.ReadFile("../config/deployment/testdata/evm-artifacts.json")
@@ -110,6 +114,8 @@ func TestPoolSurfaceIdentity(t *testing.T) {
 	}{
 		{name: "registered surface", registered: true, code: surfaceRuntime},
 		{name: "unregistered surface", code: surfaceRuntime, want: "pool not registered at selected block"},
+		{name: "registered staged surface", registered: true, code: stagedRuntime},
+		{name: "unregistered staged surface", code: stagedRuntime, want: "pool not registered at selected block"},
 		{name: "registered other code", registered: true, code: []byte{0x60, 0x00, 0x60, 0x00, 0xf3}, want: "pool proxy runtime identity mismatch"},
 		{name: "registered empty code", registered: true, want: "pool proxy runtime identity mismatch"},
 		{name: "registered beacon proxy", registered: true, code: proxyCode, storageReads: 1},

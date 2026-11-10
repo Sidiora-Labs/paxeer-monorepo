@@ -2209,11 +2209,15 @@ lxp_result layerx_programs_call_transfer_leg(
             leg->asset_id, value->ctx->protocol_version, &leg->from);
         if (status != LXP_OK) return status;
     }
-    if (leg->from == NULL || leg->to == NULL) {
+    status = LXP_OK;
+    if (leg->to == NULL)
+        status = lxp_kernel_program_payment_account(runtime->accounts, to,
+            leg->asset_id, value->ctx->protocol_version, &leg->to);
+    if (status != LXP_OK || leg->from == NULL || leg->to == NULL) {
         (void)fprintf(stderr,
             "call.c:%d: %s: transfer account absent: source=%u destination=%u\n",
             __LINE__, __func__, leg->from != NULL, leg->to != NULL);
-        return LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
+        return status != LXP_OK ? status : LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
     }
     leg->amount = (lxp_u128){amount_hi, amount_lo};
     leg->reason = LXP_REASON_PAYMENT;

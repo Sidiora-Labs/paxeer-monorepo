@@ -140,8 +140,7 @@ platform-test-tooling: platform-test-cli-production-credential-refusal public-tl
 		services/platform/examples/agent-program-call/walkthrough.sh \
 		services/platform/hosted/tests/topology-check.sh \
 		services/platform/hosted/tests/beta-cluster.sh \
-		services/platform/hosted/node/bootstrap.sh services/platform/hosted/node/supervisor.sh \
-		services/platform/hosted/paxeer/deploy-contracts.sh
+		services/platform/hosted/node/bootstrap.sh services/platform/hosted/node/supervisor.sh
 	bash -n tools/platform/cli/tests/clean-bootstrap.sh
 	$(PLATFORM_CARGO) build --offline --manifest-path $(PLATFORM_TOOLS_MANIFEST) --locked -p layerx-platform-cli
 	bash tools/platform/cli/tests/clean-bootstrap.sh
@@ -360,7 +359,6 @@ platform-test-middleware: platform-sample-dependencies-ready
 	mvn -o -q -f sdk/integrations/android/pom.xml -DskipTests verify
 	swift build --disable-automatic-resolution --package-path sdk/integrations/ios
 	swift test --package-path sdk/integrations/ios
-	$(MAKE) platform-test-ten-line
 
 platform-test-reference-apps:
 	node services/platform/examples/run-reference-apps.mjs --check

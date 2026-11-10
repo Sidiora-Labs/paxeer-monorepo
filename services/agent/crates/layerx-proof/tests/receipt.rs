@@ -183,7 +183,6 @@ fn verify_programs_vector(
 
 #[test]
 fn programs_module_versions_verify_signed_receipts() {
-    use layerx_proof::receipt::verify_historical_program_outcome_v1;
     use layerx_types::{guest_abi, programs_module_abi};
     use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
 
@@ -212,80 +211,7 @@ fn programs_module_versions_verify_signed_receipts() {
                     guest,
                     kind,
                 };
-                let bytes = sign_programs_vector(vector, &signing_key);
-                let verified = verify_programs_vector(kind, &bytes, &batch)
-                    .unwrap_or_else(|error| panic!("valid {vector:?}: {error:?}"));
-                assert_eq!(verified.canonical_bytes(), bytes);
-                let protocol = verified
-                    .receipt()
-                    .protocol()
-                    .expect("Programs protocol receipt");
-                assert_eq!(protocol.module_version(), module);
-                match kind {
-                    ProgramsReceiptKind::Call => assert_eq!(
-                        protocol
-                            .program_outcome()
-                            .expect("call outcome")
-                            .abi_version(),
-                        guest
-                    ),
-                    ProgramsReceiptKind::Lifecycle => assert_eq!(protocol.operation(), 0),
-                    ProgramsReceiptKind::PreexecutionRejection => {
-                        assert!(protocol.program_outcome().is_none());
-                        assert_eq!(
-                            protocol.result_code(),
-                            layerx_types::result::KnownResult::VersionUnsupported.raw()
-                        );
-                    }
-                }
-                if !matches!(kind, ProgramsReceiptKind::PreexecutionRejection) {
-                    assert_eq!(
-                        verify_outcome(&bytes, &batch)
-                            .expect("dispatch Programs receipt")
-                            .canonical_bytes(),
-                        bytes
-                    );
-                }
-                let mut tampered = bytes.clone();
-                let last = tampered.len() - 1;
-                tampered[last] ^= 1;
-                assert_eq!(
-                    verify_programs_vector(kind, &tampered, &batch),
-                    Err(VerificationFailure {
-                        check: ReceiptCheck::SequencerSignature
-                    }),
-                    "{vector:?}"
-                );
-                for (previous, resulting, check) in [
-                    ([99; 32], [3; 32], ReceiptCheck::PreviousStateRoot),
-                    ([2; 32], [99; 32], ReceiptCheck::ResultingStateRoot),
-                ] {
-                    let wrong = AuthorizedBatch::new(
-                        batch.batch_id(),
-                        batch.asset(),
-                        previous,
-                        resulting,
-                        batch.sequencer_public_key(),
-                    );
-                    assert_eq!(
-                        verify_programs_vector(kind, &bytes, &wrong),
-                        Err(VerificationFailure { check }),
-                        "{vector:?}"
-                    );
-                }
-                let wrong_batch = AuthorizedBatch::new(
-                    [99; 32],
-                    batch.asset(),
-                    batch.previous_state_root(),
-                    batch.resulting_state_root(),
-                    batch.sequencer_public_key(),
-                );
-                assert_eq!(
-                    verify_programs_vector(kind, &bytes, &wrong_batch),
-                    Err(VerificationFailure {
-                        check: ReceiptCheck::BatchId
-                    })
-                );
+                assert_current_programs_vector(vector, &signing_key, &batch);
             }
         }
         for guest in [guest_abi::MAX_VERSION + 1, u16::MAX] {
@@ -324,6 +250,102 @@ fn programs_module_versions_verify_signed_receipts() {
             );
         }
     }
+    assert_legacy_programs_versions(kinds, &signing_key, &batch);
+}
+
+fn assert_current_programs_vector(
+    vector: ProgramsVector,
+    signing_key: &SigningKey,
+    batch: &AuthorizedBatch,
+) {
+    let ProgramsVector {
+        module,
+        guest,
+        kind,
+        ..
+    } = vector;
+    let bytes = sign_programs_vector(vector, signing_key);
+    let verified = verify_programs_vector(kind, &bytes, batch)
+        .unwrap_or_else(|error| panic!("valid {vector:?}: {error:?}"));
+    assert_eq!(verified.canonical_bytes(), bytes);
+    let Some(protocol) = verified.receipt().protocol() else {
+        panic!("Programs protocol receipt");
+    };
+    assert_eq!(protocol.module_version(), module);
+    match kind {
+        ProgramsReceiptKind::Call => {
+            let Some(outcome) = protocol.program_outcome() else {
+                panic!("call outcome");
+            };
+            assert_eq!(outcome.abi_version(), guest);
+        }
+        ProgramsReceiptKind::Lifecycle => assert_eq!(protocol.operation(), 0),
+        ProgramsReceiptKind::PreexecutionRejection => {
+            assert!(protocol.program_outcome().is_none());
+            assert_eq!(
+                protocol.result_code(),
+                layerx_types::result::KnownResult::VersionUnsupported.raw()
+            );
+        }
+    }
+    if !matches!(kind, ProgramsReceiptKind::PreexecutionRejection) {
+        assert_eq!(
+            verify_outcome(&bytes, batch)
+                .unwrap_or_else(|error| panic!("dispatch Programs receipt: {error:?}"))
+                .canonical_bytes(),
+            bytes
+        );
+    }
+    let mut tampered = bytes.clone();
+    let last = tampered.len() - 1;
+    tampered[last] ^= 1;
+    assert_eq!(
+        verify_programs_vector(kind, &tampered, batch),
+        Err(VerificationFailure {
+            check: ReceiptCheck::SequencerSignature
+        }),
+        "{vector:?}"
+    );
+    for (previous, resulting, check) in [
+        ([99; 32], [3; 32], ReceiptCheck::PreviousStateRoot),
+        ([2; 32], [99; 32], ReceiptCheck::ResultingStateRoot),
+    ] {
+        let wrong = AuthorizedBatch::new(
+            batch.batch_id(),
+            batch.asset(),
+            previous,
+            resulting,
+            batch.sequencer_public_key(),
+        );
+        assert_eq!(
+            verify_programs_vector(kind, &bytes, &wrong),
+            Err(VerificationFailure { check }),
+            "{vector:?}"
+        );
+    }
+    let wrong_batch = AuthorizedBatch::new(
+        [99; 32],
+        batch.asset(),
+        batch.previous_state_root(),
+        batch.resulting_state_root(),
+        batch.sequencer_public_key(),
+    );
+    assert_eq!(
+        verify_programs_vector(kind, &bytes, &wrong_batch),
+        Err(VerificationFailure {
+            check: ReceiptCheck::BatchId
+        })
+    );
+}
+
+fn assert_legacy_programs_versions(
+    kinds: [ProgramsReceiptKind; 3],
+    signing_key: &SigningKey,
+    batch: &AuthorizedBatch,
+) {
+    use layerx_proof::receipt::verify_historical_program_outcome_v1;
+    use layerx_types::programs_module_abi;
+
     for module in [0, 1, 2, 3, 4, 5, 6, u32::MAX] {
         for kind in kinds {
             let vector = ProgramsVector {
@@ -332,7 +354,7 @@ fn programs_module_versions_verify_signed_receipts() {
                 guest: 2,
                 kind,
             };
-            let bytes = sign_programs_vector(vector, &signing_key);
+            let bytes = sign_programs_vector(vector, signing_key);
             let expected = match kind {
                 ProgramsReceiptKind::Call if matches!(module, 1..=3) => None,
                 ProgramsReceiptKind::Lifecycle if matches!(module, 2 | 3) => None,
@@ -340,7 +362,7 @@ fn programs_module_versions_verify_signed_receipts() {
                 _ => Some(ReceiptCheck::Module),
             };
             assert_eq!(
-                verify_programs_vector(kind, &bytes, &batch)
+                verify_programs_vector(kind, &bytes, batch)
                     .map(|_| ())
                     .map_err(|error| error.check),
                 expected.map_or(Ok(()), Err),
@@ -353,9 +375,9 @@ fn programs_module_versions_verify_signed_receipts() {
             guest: 2,
             kind: ProgramsReceiptKind::Call,
         };
-        let bytes = sign_programs_vector(vector, &signing_key);
+        let bytes = sign_programs_vector(vector, signing_key);
         assert_eq!(
-            verify_historical_program_outcome_v1(&bytes, &batch)
+            verify_historical_program_outcome_v1(&bytes, batch)
                 .map(|_| ())
                 .map_err(|error| error.check),
             if module == programs_module_abi::INITIAL {
@@ -366,7 +388,7 @@ fn programs_module_versions_verify_signed_receipts() {
             "historical {vector:?}"
         );
         assert_eq!(
-            verify_programs_vector(vector.kind, &bytes, &batch),
+            verify_programs_vector(vector.kind, &bytes, batch),
             Err(VerificationFailure {
                 check: ReceiptCheck::ProtocolVersion
             })
@@ -825,6 +847,19 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
             Ok(Rung::Receipted)
         );
     }
+    assert_invalid_receipt_pins(&fields, &signing_key, &wrong_key, &bytes, &keys, pin);
+    assert_pinned_receipt_binding_refusals(&fields, &wrong_key, &bytes, &keys, &batch);
+}
+
+fn assert_invalid_receipt_pins(
+    fields: &Fields,
+    signing_key: &SigningKey,
+    wrong_key: &SigningKey,
+    bytes: &[u8],
+    keys: &[SequencerAuthorization],
+    pin: SequencerAuthorization,
+) {
+    let public_key = signing_key.verifying_key().to_bytes();
     let invalid_pins = [
         vec![],
         vec![SequencerAuthorization::new([12; 32], public_key, 41, 43)],
@@ -841,7 +876,7 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
     for invalid in invalid_pins {
         assert_eq!(
             AuthorizedBatch::from_receipt_keys(
-                &bytes,
+                bytes,
                 invalid.as_slice(),
                 fields.asset,
                 fields.previous_state_root,
@@ -854,7 +889,7 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
     }
     assert_eq!(
         AuthorizedBatch::from_receipt_keys(
-            &bytes,
+            bytes,
             ReceiptKeys::HistoricalKernel(public_key),
             fields.asset,
             fields.previous_state_root,
@@ -868,8 +903,8 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
     malformed.batch_id[0] = 1;
     assert_eq!(
         AuthorizedBatch::from_receipt_keys(
-            &sign(&malformed, &signing_key),
-            &keys,
+            &sign(&malformed, signing_key),
+            keys,
             fields.asset,
             fields.previous_state_root,
             fields.resulting_state_root,
@@ -878,8 +913,17 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
             check: ReceiptCheck::BatchId
         })
     );
-    for invalid in [sign(&fields, &wrong_key), {
-        let mut tampered = bytes.clone();
+}
+
+fn assert_pinned_receipt_binding_refusals(
+    fields: &Fields,
+    wrong_key: &SigningKey,
+    bytes: &[u8],
+    keys: &[SequencerAuthorization],
+    batch: &AuthorizedBatch,
+) {
+    for invalid in [sign(fields, wrong_key), {
+        let mut tampered = bytes.to_vec();
         let last = tampered.len() - 1;
         tampered[last] ^= 1;
         tampered
@@ -887,7 +931,7 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
         assert_eq!(
             AuthorizedBatch::from_receipt_keys(
                 &invalid,
-                &keys,
+                keys,
                 fields.asset,
                 fields.previous_state_root,
                 fields.resulting_state_root,
@@ -897,7 +941,7 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
             })
         );
         assert_eq!(
-            verify_outcome(&invalid, &batch),
+            verify_outcome(&invalid, batch),
             Err(VerificationFailure {
                 check: ReceiptCheck::SequencerSignature
             })
@@ -905,8 +949,8 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
     }
     assert_eq!(
         AuthorizedBatch::from_receipt_keys(
-            &encode_fields(&fields, None),
-            &keys,
+            &encode_fields(fields, None),
+            keys,
             fields.asset,
             fields.previous_state_root,
             fields.resulting_state_root,
@@ -935,12 +979,12 @@ fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
             ReceiptCheck::ResultingStateRoot,
         ),
     ] {
-        let batch = AuthorizedBatch::from_receipt_keys(&bytes, &keys, asset, previous, resulting)
+        let batch = AuthorizedBatch::from_receipt_keys(bytes, keys, asset, previous, resulting)
             .unwrap_or_else(|error| {
                 panic!("signature should establish batch authority: {error:?}")
             });
         assert_eq!(
-            verify_outcome(&bytes, &batch),
+            verify_outcome(bytes, &batch),
             Err(VerificationFailure { check })
         );
     }

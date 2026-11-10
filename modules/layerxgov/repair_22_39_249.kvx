@@ -1,0 +1,662 @@
+[meta]
+task = "22.39.249"
+status = "implemented_pending_qualification"
+baseline_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxgov --path modules/layerxpay --path modules/launchpad --path modules/evm --path modules/xweb --path modules --path api --path precompiles --path precompiles/layerxauth --path precompiles/utils --path precompiles/common --path precompiles/addr --path precompiles/launchpad --path layerxproof/codec --path layerxproof/verify --path storage/common"
+baseline_exit = 1
+finding_count = 59
+verified_revision = "The immutable candidate revision is recorded with command, exit and log in /out/run/gates.jsonl by hf-build and hf-done; qualification requires matching passing rows."
+continuation = "Decision 3130 authorizes catalogue edits in attempt 2 and preserves the attempt-1 repairs at fc156cad1c; pay tests are assigned to task 22.39.291 and excluded from this task verification."
+generated_abi = "Treasury.json retains the live Solidity recordDeposit selector 1e578bae and is covered by the cited precompiles/launchpad allowance; no generated ABI edit is needed."
+qualification = "No passing gate is claimed; private gate evidence is recorded by the runner under /out/logs and /out/run/gates.jsonl."
+
+[finding.1]
+path = "api/README.md"
+line = 3
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "The protobuf source inventory documents compatibility API directories that still ship; it does not advertise a live deposit or finality authority."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Registered this reviewed compatibility inventory in documentation_paths with its repair sentence as the reason."
+
+[finding.2]
+path = "api/README.md"
+line = 3
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "The protobuf source inventory documents compatibility API directories that still ship; it does not advertise a live deposit or finality authority."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Registered this reviewed compatibility inventory in documentation_paths with its repair sentence as the reason."
+
+[finding.3]
+path = "layerxproof/codec/checkpoint.go"
+line = 26
+component = "da"
+symbol = "lxp_da_"
+status = "repaired"
+repair = "Removed obsolete C type citations; retained the historical checkpoint byte layout and signature domains."
+
+[finding.4]
+path = "layerxproof/codec/checkpoint.go"
+line = 36
+component = "guarantor-runtime"
+symbol = "lxp_guarantor"
+status = "repaired"
+repair = "Removed obsolete C type citations; retained the historical checkpoint byte layout and signature domains."
+
+[finding.5]
+path = "layerxproof/codec/checkpoint.go"
+line = 104
+component = "guarantor-runtime"
+symbol = "lxp_guarantor"
+status = "repaired"
+repair = "Removed obsolete C type citations; retained the historical checkpoint byte layout and signature domains."
+
+[finding.6]
+path = "layerxproof/codec/discovery.go"
+line = 61
+component = "layerxctl-port"
+symbol = "LNI"
+status = "repaired"
+repair = "Described the fixed attestation format independently of the retired transport."
+
+[finding.7]
+path = "layerxproof/codec/discovery.go"
+line = 61
+component = "lni"
+symbol = "LNI"
+status = "repaired"
+repair = "Described the fixed attestation format independently of the retired transport."
+
+[finding.8]
+path = "layerxproof/codec/state.go"
+line = 366
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+status = "allowed_reference"
+repair = "Historical proof decoding must retain kind 11 and its account names, as asserted by layerxproof/codec/account_kind_test.go."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at layerxproof/codec in path order."
+
+[finding.9]
+path = "layerxproof/codec/state.go"
+line = 367
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+status = "allowed_reference"
+repair = "Historical proof decoding must retain kind 11 and its account names, as asserted by layerxproof/codec/account_kind_test.go."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at layerxproof/codec in path order."
+
+[finding.10]
+path = "layerxproof/codec/state.go"
+line = 368
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+status = "allowed_reference"
+repair = "Historical proof decoding must retain kind 11 and its account names, as asserted by layerxproof/codec/account_kind_test.go."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at layerxproof/codec in path order."
+
+[finding.11]
+path = "layerxproof/verify/checkpoint.go"
+line = 29
+component = "anchor"
+symbol = "GuarantorBond"
+status = "repaired"
+repair = "Documented the actual signature checks and clarified that historical attestation verification does not establish block finality."
+
+[finding.12]
+path = "layerxproof/verify/checkpoint.go"
+line = 29
+component = "guarantor-runtime"
+symbol = "lxp_guarantor"
+status = "repaired"
+repair = "Documented the actual signature checks and clarified that historical attestation verification does not establish block finality."
+
+[finding.13]
+path = "modules/README.md"
+line = 60
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "The retired-settlement compatibility section explicitly documents retained historical types and the native bank and committed-block replacements."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Registered this reviewed compatibility inventory in documentation_paths with its repair sentence as the reason."
+
+[finding.14]
+path = "modules/README.md"
+line = 64
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "The retired-settlement compatibility section explicitly documents retained historical types and the native bank and committed-block replacements."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Registered this reviewed compatibility inventory in documentation_paths with its repair sentence as the reason."
+
+[finding.15]
+path = "modules/evm/keeper/precompile.go"
+line = 6
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "The anchor address remains in the payable set for pre-merge bond execution; retirement is enforced by the precompile upgrade gate."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/evm/keeper in path order."
+
+[finding.16]
+path = "modules/evm/keeper/precompile.go"
+line = 20
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "The anchor address remains in the payable set for pre-merge bond execution; retirement is enforced by the precompile upgrade gate."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/evm/keeper in path order."
+
+[finding.17]
+path = "modules/launchpad/keeper/treasury.go"
+line = 149
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+repair = "TreasuryRecordDeposit implements the live Treasury token-surplus credit method from contracts/launchpad/contracts/protocol/Treasury.sol, unrelated to exchange intents."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/launchpad/keeper in path order."
+
+[finding.18]
+path = "modules/layerxanchor/keeper/custody_reader.go"
+line = 6
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "The retained historical anchor reader needs the shipped custody AssetMapping type to decode pre-merge custody state."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "The continued catalogue already allows the retained compatibility reference; preserve that existing cited entry."
+
+[finding.19]
+path = "modules/layerxanchor/keeper/custody_reader.go"
+line = 36
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "The retained historical anchor reader needs the shipped custody AssetMapping type to decode pre-merge custody state."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "The continued catalogue already allows the retained compatibility reference; preserve that existing cited entry."
+
+[finding.20]
+path = "modules/layerxexchange/types/state.go"
+line = 186
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+status = "allowed_reference"
+repair = "Historical exchange AccountKind validation retains the reserve namespace required by compatibility state."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "The continued catalogue already allows the retained compatibility reference; preserve that existing cited entry."
+
+[finding.21]
+path = "modules/layerxgov/types/proposal.go"
+line = 7
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "Compatibility governance must unpack historical anchor and custody messages and reach the height-aware retirement refusal, as required by TestGovRouteRefusesRetiredAnchorParams."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/layerxgov/types in path order."
+
+[finding.22]
+path = "modules/layerxgov/types/proposal.go"
+line = 10
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "Compatibility governance must unpack historical anchor and custody messages and reach the height-aware retirement refusal, as required by TestGovRouteRefusesRetiredAnchorParams."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/layerxgov/types in path order."
+
+[finding.23]
+path = "modules/layerxgov/types/proposal.go"
+line = 63
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "Compatibility governance must unpack historical anchor and custody messages and reach the height-aware retirement refusal, as required by TestGovRouteRefusesRetiredAnchorParams."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/layerxgov/types in path order."
+
+[finding.24]
+path = "modules/layerxpay/keeper/keeper.go"
+line = 6
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "CustodyReader remains the typed asset mapping dependency passed by node wiring and consumed by agent streams; replacing it requires coordinated changes to the owning registry interface."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/layerxpay/keeper in path order."
+
+[finding.25]
+path = "modules/layerxpay/keeper/stream_agent.go"
+line = 13
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "The live agent stream adapter resolves native and pointer token asset IDs through the shipped typed asset registry; deleting it would disable stream admission."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/layerxpay/keeper in path order."
+
+[finding.26]
+path = "modules/lxphost/host.go"
+line = 129
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "The merged host authenticates governed sequencer receipts and resolves the retained program occupancy fee schedule; these are distinct from the retired daemon authority and fee relay activity."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/lxphost in path order."
+
+[finding.27]
+path = "modules/lxphost/host.go"
+line = 343
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "The merged host authenticates governed sequencer receipts and resolves the retained program occupancy fee schedule; these are distinct from the retired daemon authority and fee relay activity."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/lxphost in path order."
+
+[finding.28]
+path = "modules/lxphost/host.go"
+line = 978
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "The merged host authenticates governed sequencer receipts and resolves the retained program occupancy fee schedule; these are distinct from the retired daemon authority and fee relay activity."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/lxphost in path order."
+
+[finding.29]
+path = "modules/xweb/keeper/program.go"
+line = 18
+component = "kernel-web"
+symbol = "LX_WEB_"
+status = "repaired"
+repair = "Replaced the deleted kernel header and macro citation with the live origin-2 RequestFromProgram consumer."
+
+[finding.30]
+path = "modules/xweb/keeper/program.go"
+line = 18
+component = "kernel-web"
+symbol = "lx_web.h"
+status = "repaired"
+repair = "Replaced the deleted kernel header and macro citation with the live origin-2 RequestFromProgram consumer."
+
+[finding.31]
+path = "modules/xweb/keeper/program.go"
+line = 22
+component = "kernel-web"
+symbol = "PAXEERX_WEB_FEES"
+status = "allowed_reference"
+repair = "ProgramFeeDomain is the persisted origin-2 xweb bank escrow derivation domain asserted by program_test.go and program_fulfil_test.go; changing it would strand existing fee accounts."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/xweb/keeper in path order."
+
+[finding.32]
+path = "modules/xweb/keeper/program.go"
+line = 147
+component = "kernel-web"
+symbol = "PAXEERX_WEB_FEES"
+status = "allowed_reference"
+repair = "ProgramFeeDomain is the persisted origin-2 xweb bank escrow derivation domain asserted by program_test.go and program_fulfil_test.go; changing it would strand existing fee accounts."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at modules/xweb/keeper in path order."
+
+[finding.33]
+path = "precompiles/addr/addr.go"
+line = 53
+component = "verify"
+symbol = "layerxVerify"
+status = "repaired"
+repair = "Documented the binding signature gas charge without coupling it to a retired executor."
+
+[finding.34]
+path = "precompiles/common/lxp_errors.go"
+line = 9
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "The shared registry retains historical anchor error mappings and the live service-delivery refusal LXP_DA_MISSING without reviving the retired kernel -804 emitter."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/common in path order."
+
+[finding.35]
+path = "precompiles/common/lxp_errors.go"
+line = 166
+component = "da"
+symbol = "LXP_DA_"
+status = "allowed_reference"
+repair = "The shared registry retains historical anchor error mappings and the live service-delivery refusal LXP_DA_MISSING without reviving the retired kernel -804 emitter."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/common in path order."
+
+[finding.36]
+path = "precompiles/launchpad/abi/Treasury.json"
+line = 475
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+repair = "The generated Treasury ABI matches the live Solidity recordDeposit(address,uint256) function; TestTreasurySurfaceServesTheABI fixes its selector to 1e578bae, so no generated ABI edit is appropriate."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/launchpad in path order."
+
+[finding.37]
+path = "precompiles/launchpad/gas.go"
+line = 31
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+repair = "The live Treasury surplus-credit selector must keep its two-write gas charge; it is unrelated to the retired exchange-intent method with the same name."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/launchpad in path order."
+
+[finding.38]
+path = "precompiles/launchpad/treasury.go"
+line = 21
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+repair = "The live Treasury recordDeposit method must remain dispatched under its depositor role and reentrancy lock, as exercised by treasury_test.go."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/launchpad in path order."
+
+[finding.39]
+path = "precompiles/launchpad/treasury.go"
+line = 48
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+repair = "The live Treasury recordDeposit method must remain dispatched under its depositor role and reentrancy lock, as exercised by treasury_test.go."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/launchpad in path order."
+
+[finding.40]
+path = "precompiles/launchpad/treasury.go"
+line = 74
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+repair = "The live Treasury recordDeposit method must remain dispatched under its depositor role and reentrancy lock, as exercised by treasury_test.go."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/launchpad in path order."
+
+[finding.41]
+path = "precompiles/launchpad/treasury.go"
+line = 77
+component = "exchange-intents"
+symbol = "recordDeposit"
+status = "allowed_reference"
+repair = "The live Treasury recordDeposit method must remain dispatched under its depositor role and reentrancy lock, as exercised by treasury_test.go."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/launchpad in path order."
+
+[finding.42]
+path = "precompiles/layerxauth/internal/repair1503/native.go"
+line = 101
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "The auth integration fixture calls production program fee-schedule staging, activation and runtime resolution declared in include/layerx/programs.h, rather than the retired relay activity."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/layerxauth/internal/repair1503 in path order."
+
+[finding.43]
+path = "precompiles/layerxauth/internal/repair1503/native.go"
+line = 104
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "The auth integration fixture calls production program fee-schedule staging, activation and runtime resolution declared in include/layerx/programs.h, rather than the retired relay activity."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/layerxauth/internal/repair1503 in path order."
+
+[finding.44]
+path = "precompiles/layerxauth/internal/repair1503/native.go"
+line = 137
+component = "fee-relay"
+symbol = "fee_governance"
+status = "allowed_reference"
+repair = "The auth integration fixture calls production program fee-schedule staging, activation and runtime resolution declared in include/layerx/programs.h, rather than the retired relay activity."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/layerxauth/internal/repair1503 in path order."
+
+[finding.45]
+path = "precompiles/setup.go"
+line = 195
+component = "verify"
+symbol = "layerxVerify"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.46]
+path = "precompiles/setup.go"
+line = 195
+component = "verify"
+symbol = "layerxverify"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.47]
+path = "precompiles/setup.go"
+line = 196
+component = "custody-deposit"
+symbol = "layerxCustody"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.48]
+path = "precompiles/setup.go"
+line = 196
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.49]
+path = "precompiles/setup.go"
+line = 197
+component = "anchor"
+symbol = "layerxAnchor"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.50]
+path = "precompiles/setup.go"
+line = 197
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.51]
+path = "precompiles/setup.go"
+line = 390
+component = "verify"
+symbol = "layerxverify"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.52]
+path = "precompiles/setup.go"
+line = 395
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.53]
+path = "precompiles/setup.go"
+line = 400
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "The retired 0x1012-0x1014 precompiles must stay registered with their public names and ABIs so their upgrade gates preserve pre-merge execution and return explicit post-merge refusals."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/setup.go in path order."
+
+[finding.54]
+path = "precompiles/utils/expected_keepers.go"
+line = 15
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "The shipped compatibility precompiles require the existing typed anchor and custody keeper interfaces until the separately governed store deletion."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/utils in path order."
+
+[finding.55]
+path = "precompiles/utils/expected_keepers.go"
+line = 17
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "The shipped compatibility precompiles require the existing typed anchor and custody keeper interfaces until the separately governed store deletion."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/utils in path order."
+
+[finding.56]
+path = "precompiles/utils/expected_keepers.go"
+line = 272
+component = "anchor"
+symbol = "layerxAnchor"
+status = "allowed_reference"
+repair = "The shipped compatibility precompiles require the existing typed anchor and custody keeper interfaces until the separately governed store deletion."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at precompiles/utils in path order."
+
+[finding.57]
+path = "storage/common/keys/store_keys.go"
+line = 37
+component = "custody-deposit"
+symbol = "layerxcustody"
+status = "allowed_reference"
+repair = "These strings are immutable on-disk store names still mounted by node/app.go; changing them would break compatibility state and store migration."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at storage/common/keys in path order."
+
+[finding.58]
+path = "storage/common/keys/store_keys.go"
+line = 38
+component = "anchor"
+symbol = "layerxanchor"
+status = "allowed_reference"
+repair = "These strings are immutable on-disk store names still mounted by node/app.go; changing them would break compatibility state and store migration."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added the symbol to the cited allowed_references entry at storage/common/keys in path order."
+
+[continuation.attempt_3]
+decision = "3152"
+gotcha = "4062"
+owner_task = "22.39.307"
+client_cases = ["TestCmdQueryAirdropNetwork", "TestCmdQueryFeeRightNetwork", "TestRepair_35_QuoteUint256", "TestRESTRegistryRoutes"]
+note = "Task 22.39.307 completes the four pre-existing launchpad client failures by restoring the keeper validation messages through the client query path, or aligning the suites to a deliberate producer change and recording it; task 22.39.249 verifies the launchpad keeper, types, launchpadtest, legacy and simulation packages under decision 3152."
+merge_resolution = "Preserved the current catalogue entries landed by other tasks and integrated the attempt-2 compatibility allowances and documentation entries in path order."
+
+[continuation.attempt_4]
+decision = "3174"
+gotcha = "4095"
+baseline_revision = "7de3a9051436"
+previous_attempt_revision = "de8890871068ad6074cccc78cc13f3d529efa3e4"
+merged_main_revision = "b219257bb473a50fe0e82af47168a0dda500078a"
+note = "The twelve packages below had pre-existing failing cases at the attempt-3 base; their owning tasks qualify the behavioral repairs, while task 22.39.249 runs the passing packages, compiles these twelve packages' test binaries without running them, and ends with the retired-reference scan under decision 3174."
+merge_resolution = "Kept every current catalogue entry and integrated the preserved seed allowances and documentation entries beside them in path order, resolving all seven conflict hunks without dropping either side's references."
+
+[continuation.attempt_4.package_1]
+path = "modules/launchpad/keeper"
+owner_task = "22.39.315"
+
+[continuation.attempt_4.package_2]
+path = "modules/launchpad/types"
+owner_task = "22.39.320"
+
+[continuation.attempt_4.package_3]
+path = "modules/evm"
+owner_task = "22.39.321"
+
+[continuation.attempt_4.package_4]
+path = "modules/evm/keeper"
+owner_task = "22.39.321"
+
+[continuation.attempt_4.package_5]
+path = "modules/xweb"
+owner_task = "22.39.322"
+
+[continuation.attempt_4.package_6]
+path = "modules/xweb/keeper"
+owner_task = "22.39.322"
+
+[continuation.attempt_4.package_7]
+path = "modules/xweb/types"
+owner_task = "22.39.322"
+
+[continuation.attempt_4.package_8]
+path = "precompiles/layerxauth"
+owner_task = "22.39.323"
+
+[continuation.attempt_4.package_9]
+path = "precompiles/addr"
+owner_task = "22.39.324"
+
+[continuation.attempt_4.package_10]
+path = "precompiles/launchpad"
+owner_task = "22.39.325"
+
+[continuation.attempt_4.package_11]
+path = "layerxproof/codec"
+owner_task = "22.39.326"
+
+[continuation.attempt_4.package_12]
+path = "layerxproof/verify"
+owner_task = "22.39.326"
+
+[qualification.attempt_4]
+task = "22.39.249"
+file = "modules/evm/config/repair_476_test.go:227"
+symbol = "TestRepair476_AttestationDocumentation"
+observed = "Revision a86de1287b2e496ec799aecde59cd27d859ee868: command cg spec done 22.39.249 -f layerx-merge --root /work/paxeer-monorepo exited 1 (log /out/logs/verify-1.log) because TestRepair476_AttestationDocumentation forbids 713714 in unchanged modules/xweb/ATTESTATION.md, whose historical compatibility section contains it; the compile-only phase and final scan were not reached."
+assumption = "This pre-existing documentation contract conflict is outside the task scope, so its assertion and the document remain unchanged and no unchanged gate is rerun."
+severity = "blocker"
+
+[finding.59]
+path = "layerxproof/codec/internal/nativefixture/lxphost_native.h"
+line = 123
+component = "finality-authority"
+symbol = "receipt_authority"
+status = "allowed_reference"
+repair = "The generated byte-exact production host fixture retains lxphost_receipt_authority_add, which validates height-bound receipts and indexes payment facts for Programs execution; repairM1CurrentHost requires the snapshot to match the live modules/lxphost/host.go preamble, whose helper is already allowed under decision 3125."
+wiring_path = "tools/paxeer-x/retired_callers.json"
+wiring_action = "Added a path-ordered allowed_references entry for layerxproof/codec/internal/nativefixture with receipt_authority and its live-interface reason, preserving the generated header and all assertions."
+
+[qualification.attempt_5]
+task = "22.39.249"
+file = "layerxproof/codec/internal/nativefixture/lxphost_native.h:123"
+symbol = "lxphost_receipt_authority_add"
+observed = "Revision b064c902b4452d7a43fb1f94e453a4728491a65a: command cg spec done 22.39.249 -f layerx-merge --root /work/paxeer-monorepo exited 1 (log /out/logs/verify-1.log) after both Go phases passed because the final scan reported the live helper in the generated host fixture."
+assumption = "The same live height-bound receipt helper as the already allowed production host needs a cited fixture-directory allowance under decisions 3104 and 3125."
+severity = "note"

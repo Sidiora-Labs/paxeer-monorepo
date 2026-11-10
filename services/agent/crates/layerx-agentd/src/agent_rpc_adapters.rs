@@ -16,7 +16,7 @@ use crate::agent_rpc_wire::Canonical;
 use crate::human::HumanRefusal;
 use crate::human::{HumanOperationError, HumanOperations, HumanResponse};
 use crate::human_runtime::{HumanAuthorityBoundary, SharedAgentOwner};
-use crate::session_control::OperationPermit;
+
 use crate::tenant::Operation;
 use layerx_agent_api::budget::{AuthorityResponse, BudgetRecord};
 use layerx_agent_api::read::Freshness;
@@ -37,7 +37,7 @@ pub(crate) fn sign<A: HumanAuthorityBoundary>(
     mutation_key(ctx)?;
     let response = owner
         .lock()
-        .and_then(|mut guard| guard.rpc_sign(context, typed));
+        .and_then(|mut guard| guard.rpc_sign(context, &typed));
     dispatched(id, response, decode_observation)
 }
 
@@ -220,6 +220,9 @@ pub struct SubscriptionCursorSnapshot {
 }
 
 impl SubscriptionCursorSnapshot {
+    /// # Errors
+    /// Returns an error if the request is malformed, its owner context cannot be authorized, or
+    /// the requested operation is refused.
     pub fn read(
         store: &crate::store::Store,
         target: &layerx_agent_api::subscription::SubscriptionTarget,
@@ -243,33 +246,27 @@ impl SubscriptionCursorSnapshot {
         )
         .map_err(|_| corrupt())?;
         let record = store.get(&key).ok_or_else(refused)?;
-        if record.class() != StorageClass::LocalOnly {
-            return Err(corrupt());
-        }
+        crate::reject_if(record.class() != StorageClass::LocalOnly, corrupt)?;
         let mut reader = Reader {
             bytes: record.bytes(),
             offset: 0,
         };
         let magic = reader.take(4).ok_or_else(corrupt)?;
-        if magic == b"LXS2" || magic == b"LXSB" {
-            return Err(rejection(
+        crate::reject_if(magic == b"LXS2" || magic == b"LXSB", || {
+            rejection(
                 ErrorClass::PolicyRefusal,
                 id,
                 "subscription.cursor_reset_required",
-            ));
-        }
-        if magic != b"LXS3" {
-            return Err(corrupt());
-        }
+            )
+        })?;
+        crate::reject_if(magic != b"LXS3", corrupt)?;
         for expected in [
             target.subscription_id.as_str(),
             target.scope.tenant.as_str(),
             target.scope.agent.as_str(),
             target.scope.capability.as_str(),
         ] {
-            if reader.text().ok_or_else(corrupt)? != expected {
-                return Err(refused());
-            }
+            crate::reject_if(reader.text().ok_or_else(corrupt)? != expected, refused)?;
         }
         match reader.u8().ok_or_else(corrupt)? {
             0 if credential.is_none() => {}
@@ -278,29 +275,26 @@ impl SubscriptionCursorSnapshot {
                 let session = reader.fixed::<32>().ok_or_else(corrupt)?;
                 let token = reader.fixed::<32>().ok_or_else(corrupt)?;
                 let generation = reader.u64().ok_or_else(corrupt)?;
-                if !credential.is_some_and(|credential| {
-                    credential.tenant() == &tenant
-                        && credential.session_id().0 == session
-                        && credential.token_id() == token
-                        && credential.generation() == generation
-                }) {
-                    return Err(refused());
-                }
+                crate::reject_if(
+                    !credential.is_some_and(|credential| {
+                        credential.tenant() == &tenant
+                            && credential.session_id().0 == session
+                            && credential.token_id() == token
+                            && credential.generation() == generation
+                    }),
+                    refused,
+                )?;
             }
             _ => return Err(corrupt()),
         }
         reader.text().ok_or_else(corrupt)?;
         let start = subscription_binary_cursor(&mut reader).ok_or_else(corrupt)?;
         let mut last_delivered = subscription_binary_cursor(&mut reader).ok_or_else(corrupt)?;
-        if last_delivered < start {
-            return Err(corrupt());
-        }
+        crate::reject_if(last_delivered < start, corrupt)?;
         let count = reader.u32().ok_or_else(corrupt)?;
         for _ in 0..count {
             let delivered = subscription_binary_cursor(&mut reader).ok_or_else(corrupt)?;
-            if delivered <= last_delivered {
-                return Err(corrupt());
-            }
+            crate::reject_if(delivered <= last_delivered, corrupt)?;
             last_delivered = delivered;
         }
         subscription_flag(&mut reader).ok_or_else(corrupt)?;
@@ -314,9 +308,26 @@ impl SubscriptionCursorSnapshot {
             }
             _ => return Err(corrupt()),
         }
-        if reader.u8().ok_or_else(corrupt)? != 0 {
-            return Err(refused());
-        }
+        crate::reject_if(reader.u8().ok_or_else(corrupt)? != 0, refused)?;
+        let ingest_watermark = Self::read_ingest_watermark(store, tenant, id)?;
+        Ok(Self {
+            last_delivered,
+            ingest_watermark,
+        })
+    }
+    fn read_ingest_watermark(
+        store: &crate::store::Store,
+        tenant: crate::store::TenantId,
+        id: RequestId,
+    ) -> Result<Option<crate::events::subscription::Cursor>, Rejection> {
+        use crate::store::{ObjectKind, StorageClass, TenantKey};
+        let corrupt = || {
+            rejection(
+                ErrorClass::InternalFault,
+                id,
+                "subscription.cursor_state_malformed",
+            )
+        };
         let key = TenantKey::new(
             tenant,
             ObjectKind::Configuration,
@@ -326,38 +337,31 @@ impl SubscriptionCursorSnapshot {
         let ingest_watermark = match store.get(&key) {
             None => None,
             Some(value) => {
-                if value.class() != StorageClass::LocalOnly {
-                    return Err(corrupt());
-                }
+                crate::reject_if(value.class() != StorageClass::LocalOnly, corrupt)?;
                 let mut reader = Reader {
                     bytes: value.bytes(),
                     offset: 0,
                 };
-                if reader.take(4).ok_or_else(corrupt)? != b"LXEW" {
-                    return Err(corrupt());
-                }
+                crate::reject_if(reader.take(4).ok_or_else(corrupt)? != b"LXEW", corrupt)?;
                 let ingested = subscription_flag(&mut reader).ok_or_else(corrupt)?;
                 let last = reader.u64().ok_or_else(corrupt)?;
                 let next = reader.u64().ok_or_else(corrupt)?;
                 let positioned = subscription_flag(&mut reader).ok_or_else(corrupt)?;
                 let position = subscription_binary_cursor(&mut reader).ok_or_else(corrupt)?;
                 reader.finish().ok_or_else(corrupt)?;
-                if (ingested && last.checked_add(1) != Some(next))
-                    || (positioned && !ingested)
-                    || (!positioned
-                        && (position.block_height != 0
-                            || position.tx_index != 0
-                            || position.log_index != 0))
-                {
-                    return Err(corrupt());
-                }
+                crate::reject_if(
+                    (ingested && last.checked_add(1) != Some(next))
+                        || (positioned && !ingested)
+                        || (!positioned
+                            && (position.block_height != 0
+                                || position.tx_index != 0
+                                || position.log_index != 0)),
+                    corrupt,
+                )?;
                 positioned.then_some(position)
             }
         };
-        Ok(Self {
-            last_delivered,
-            ingest_watermark,
-        })
+        Ok(ingest_watermark)
     }
 
     pub fn health_fields(&self) -> Map<String, Value> {
@@ -374,6 +378,7 @@ impl SubscriptionCursorSnapshot {
         ])
     }
 
+    #[must_use]
     pub fn acknowledgement_error(
         &self,
         cursor: crate::events::subscription::Cursor,
@@ -399,7 +404,7 @@ fn subscription_binary_cursor(
 
 fn subscription_position_value(cursor: crate::events::subscription::Cursor) -> Value {
     serde_json::json!({
-        "block_height": dec(cursor.block_height), "tx_index": dec(cursor.tx_index), "log_index": dec(cursor.log_index),
+        "block_height": dec(&cursor.block_height), "tx_index": dec(&cursor.tx_index), "log_index": dec(&cursor.log_index),
     })
 }
 
@@ -432,7 +437,7 @@ fn subscription_flag(reader: &mut Reader<'_>) -> Option<bool> {
 fn subscription_optional_decimal(reader: &mut Reader<'_>, id: RequestId) -> Option<Value> {
     match reader.u8()? {
         0 => Some(Value::Null),
-        1 => Some(dec(subscription_decimal(reader, id)?)),
+        1 => Some(dec(&subscription_decimal(reader, id)?)),
         _ => None,
     }
 }
@@ -463,7 +468,7 @@ fn subscription_activity_types(reader: &mut Reader<'_>, id: RequestId) -> Option
     let count = reader.u16()?;
     let mut items = Vec::with_capacity(usize::from(count));
     for _ in 0..count {
-        items.push(dec(u16::try_from(subscription_decimal(reader, id)?).ok()?));
+        items.push(dec(&u16::try_from(subscription_decimal(reader, id)?).ok()?));
     }
     Some(Value::Array(items))
 }
@@ -489,9 +494,9 @@ fn subscription_cursor(reader: &mut Reader<'_>, id: RequestId) -> Option<Value> 
         return None;
     }
     Some(serde_json::json!({
-        "block_height": dec(block_height),
-        "tx_index": dec(tx_index),
-        "log_index": dec(log_index),
+        "block_height": dec(&block_height),
+        "tx_index": dec(&tx_index),
+        "log_index": dec(&log_index),
     }))
 }
 
@@ -557,9 +562,9 @@ fn subscription_health_value(id: RequestId, payload: &[u8]) -> Result<Value, Rej
                 let backfill_cursor = subscription_decimal(reader, id)?;
                 let backfill_attempted = subscription_flag(reader)?;
                 serde_json::json!({
-                    "missing_first": dec(missing_first),
-                    "missing_last": dec(missing_last),
-                    "backfill_cursor": dec(backfill_cursor),
+                    "missing_first": dec(&missing_first),
+                    "missing_last": dec(&missing_last),
+                    "backfill_cursor": dec(&backfill_cursor),
                     "backfill_attempted": backfill_attempted,
                 })
             }
@@ -726,6 +731,7 @@ fn hex32(text: &str, request_id: RequestId) -> Result<[u8; 32], Rejection> {
     Ok(out)
 }
 
+#[must_use]
 pub fn capability_operation_error(request_id: RequestId, error: HumanOperationError) -> Rejection {
     match error {
         HumanOperationError::CapabilityRefused(_) => rejection(
@@ -768,6 +774,7 @@ fn owner_error(request_id: RequestId, error: HumanOperationError) -> Rejection {
     }
 }
 
+#[cfg(test)]
 fn level(value: u8) -> Option<Rung> {
     Some(match value {
         0 | 1 => Rung::Submitted,
@@ -778,10 +785,10 @@ fn level(value: u8) -> Option<Rung> {
 }
 
 fn hexv(bytes: &[u8]) -> Value {
-    Value::String(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+    Value::String(layerx_programs::hex::encode(bytes))
 }
 
-fn dec(value: impl ToString) -> Value {
+fn dec(value: &impl ToString) -> Value {
     Value::String(value.to_string())
 }
 
@@ -871,7 +878,7 @@ fn approval_decision_native<A: HumanAuthorityBoundary>(
     };
     let response = owner
         .lock()
-        .and_then(|mut guard| guard.rpc_approval_decide_native(context, envelope, grant));
+        .and_then(|mut guard| guard.rpc_approval_decide_native(context, &envelope, grant));
     dispatched_native(id, response, NativeApprovalResultV1Wire::into_result)
 }
 
@@ -936,7 +943,7 @@ pub(crate) fn prepare<A: HumanAuthorityBoundary>(
         let typed = decode_wire::<NativeDisclosureV1Wire>(request, id)?.into_request(id)?;
         let value = owner
             .lock()
-            .and_then(|mut guard| guard.rpc_native_disclosure(context, typed))
+            .and_then(|mut guard| guard.rpc_native_disclosure(context, &typed))
             .map_err(|error| crate::agent_rpc_dispatch::owner_error(id, error))?;
         return Ok(Dispatched {
             value: value.canonical(),
@@ -959,7 +966,7 @@ pub(crate) fn prepare<A: HumanAuthorityBoundary>(
         };
         let response = owner
             .lock()
-            .and_then(|mut guard| guard.rpc_prepare_native_effect(context, envelope, false));
+            .and_then(|mut guard| guard.rpc_prepare_native_effect(context, &envelope, false));
         return dispatched_native(id, response, NativePrepareResultV1Wire::into_result);
     }
     if crate::agent_rpc_dispatch::native_registration_variant(request) {
@@ -978,7 +985,7 @@ pub(crate) fn prepare<A: HumanAuthorityBoundary>(
         };
         let response = owner
             .lock()
-            .and_then(|mut guard| guard.rpc_prepare_native_effect(context, envelope, true));
+            .and_then(|mut guard| guard.rpc_prepare_native_effect(context, &envelope, true));
         return dispatched_native(id, response, NativePrepareResultV1Wire::into_result);
     }
     if crate::agent_rpc_dispatch::native_variant(request, id)? {
@@ -993,7 +1000,7 @@ pub(crate) fn prepare<A: HumanAuthorityBoundary>(
         };
         let response = owner
             .lock()
-            .and_then(|mut guard| guard.rpc_prepare_native(context, envelope));
+            .and_then(|mut guard| guard.rpc_prepare_native(context, &envelope));
         return dispatched_native(id, response, NativePrepareResultV1Wire::into_result);
     }
     let typed = human_prepare(decode(request, id)?, id)?;
@@ -1008,10 +1015,11 @@ pub(crate) fn prepare<A: HumanAuthorityBoundary>(
     };
     let response = owner
         .lock()
-        .and_then(|mut guard| guard.rpc_prepare(context, envelope));
+        .and_then(|mut guard| guard.rpc_prepare(context, &envelope));
     dispatched(id, response, decode_preparation)
 }
 
+#[cfg(test)]
 pub(crate) fn submit<A: HumanAuthorityBoundary>(
     owner: &SharedAgentOwner<A>,
     context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
@@ -1029,7 +1037,7 @@ pub(crate) fn submit<A: HumanAuthorityBoundary>(
     };
     let response = owner
         .lock()
-        .and_then(|mut guard| guard.rpc_submit_external(context, envelope));
+        .and_then(|mut guard| guard.rpc_submit_external(context, &envelope));
     dispatched(id, response, decode_submitted)
 }
 
@@ -1047,7 +1055,7 @@ pub(crate) fn session_refresh<A: HumanAuthorityBoundary>(
         context: session_context(request.context, context, id)?,
     };
     let mut guard = owner.lock().map_err(|error| owner_error(id, error))?;
-    let response = guard.rpc_session_refresh(context, typed);
+    let response = guard.rpc_session_refresh(context, &typed);
     owner_payload(id, response, |reader| {
         let tenant = reader.text()?;
         let session_id: [u8; 32] = reader.fixed()?;
@@ -1059,7 +1067,7 @@ pub(crate) fn session_refresh<A: HumanAuthorityBoundary>(
         if !open
             || record_session_id != session_id
             || record.get("token_id")? != &hexv(&token_id)
-            || record.get("generation")? != &dec(generation)
+            || record.get("generation")? != &dec(&generation)
         {
             return None;
         }
@@ -1067,8 +1075,8 @@ pub(crate) fn session_refresh<A: HumanAuthorityBoundary>(
         credential.insert("tenant".into(), Value::String(tenant));
         credential.insert("session_id".into(), hexv(&session_id));
         credential.insert("token_id".into(), hexv(&token_id));
-        credential.insert("generation".into(), dec(generation));
-        credential.insert("expires_at".into(), dec(expires_at));
+        credential.insert("generation".into(), dec(&generation));
+        credential.insert("expires_at".into(), dec(&expires_at));
         let mut out = Map::new();
         out.insert("credential".into(), Value::Object(credential));
         out.insert("session".into(), session);
@@ -1090,7 +1098,7 @@ pub(crate) fn session_close<A: HumanAuthorityBoundary>(
         context: session_context(request.context, context, id)?,
     };
     let mut guard = owner.lock().map_err(|error| owner_error(id, error))?;
-    let response = guard.rpc_session_close(context, typed);
+    let response = guard.rpc_session_close(context, &typed);
     owner_payload(id, response, |reader| {
         let record = decode_session_record(reader)?;
         (!record.1).then_some((record.0, None))
@@ -1133,9 +1141,11 @@ pub(crate) fn wait<A: HumanAuthorityBoundary>(
     request: &Map<String, Value>,
     ctx: &DispatchContext,
 ) -> Result<Dispatched, Rejection> {
+    use crate::agent_rpc_dispatch::{submission_key, wait_write_answer};
+
     let id = ctx.request_id;
     let typed = wait_request(request, id)?;
-    use crate::agent_rpc_dispatch::{submission_key, wait_write_answer};
+
     let hash = submission_key(typed.submission_ref.as_str(), id)?;
     let started = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1414,8 +1424,8 @@ fn capability_payload(
         .ok_or_else(|| rejection(ErrorClass::InternalFault, id, "owner.response_malformed"))
 }
 
-/// Authority block: text tenant, text agent_did, text authority_ref, non-empty bytes
-/// protocol_authority. Returns the JSON authority and its tenant and agent_did.
+/// Authority block: text tenant, text `agent_did`, text `authority_ref`, non-empty bytes
+/// `protocol_authority`. Returns the JSON authority and its tenant and `agent_did`.
 fn capability_authority(reader: &mut Reader<'_>) -> Option<(Value, String, String)> {
     let tenant = reader.text()?;
     let agent_did = reader.text()?;
@@ -1459,12 +1469,12 @@ fn capability_strings(items: &[String]) -> Value {
     )
 }
 
-/// One record: text capability_id (64 lowercase hex), u8 parent tag + text parent_id,
+/// One record: text `capability_id` (64 lowercase hex), u8 parent tag + text `parent_id`,
 /// u16 count + u16 activity types, u16 count + text counterparties, u16 count + text assets,
-/// u16 count + (text asset, u128 amount), u16 count + (u64 window_seconds,
-/// u64 maximum_actions), u16 count + text purposes, u64 expiry_seconds, u64 created_at_ms,
-/// u64 created_at_sequence, u8 state (0 active, 1 revoked, 2 expired), u8 revoked tag +
-/// (u64 revoked_at_ms, u64 revoked_at_sequence). Duplicates, a zero window, a ceiling for
+/// u16 count + (text asset, u128 amount), u16 count + (u64 `window_seconds`,
+/// u64 `maximum_actions`), u16 count + text purposes, u64 `expiry_seconds`, u64 `created_at_ms`,
+/// u64 `created_at_sequence`, u8 state (0 active, 1 revoked, 2 expired), u8 revoked tag +
+/// (u64 `revoked_at_ms`, u64 `revoked_at_sequence`). Duplicates, a zero window, a ceiling for
 /// an asset outside `assets`, and a state that disagrees with the revoked tag are malformed.
 fn capability_record(
     reader: &mut Reader<'_>,
@@ -1498,7 +1508,7 @@ fn capability_record(
         amount_assets.push(asset.clone());
         let mut ceiling = Map::new();
         ceiling.insert("asset".into(), Value::String(asset));
-        ceiling.insert("amount".into(), dec(amount));
+        ceiling.insert("amount".into(), dec(&amount));
         amount_ceilings.push(Value::Object(ceiling));
     }
     capability_unique(&amount_assets)?;
@@ -1513,8 +1523,8 @@ fn capability_record(
         }
         windows.push(window_seconds);
         let mut ceiling = Map::new();
-        ceiling.insert("window_seconds".into(), dec(window_seconds));
-        ceiling.insert("maximum_actions".into(), dec(maximum_actions));
+        ceiling.insert("window_seconds".into(), dec(&window_seconds));
+        ceiling.insert("maximum_actions".into(), dec(&maximum_actions));
         rate_ceilings.push(Value::Object(ceiling));
     }
     capability_unique(&windows)?;
@@ -1530,7 +1540,7 @@ fn capability_record(
     };
     let (revoked_at_ms, revoked_at_sequence) = match reader.u8()? {
         0 => (Value::Null, Value::Null),
-        1 => (dec(reader.u64()?), dec(reader.u64()?)),
+        1 => (dec(&reader.u64()?), dec(&reader.u64()?)),
         _ => return None,
     };
     if (state == "revoked") == revoked_at_ms.is_null() {
@@ -1539,14 +1549,19 @@ fn capability_record(
     let mut dimensions = Map::new();
     dimensions.insert(
         "activity_types".into(),
-        Value::Array(activity_types.into_iter().map(dec).collect()),
+        Value::Array(
+            activity_types
+                .into_iter()
+                .map(|value| dec(&value))
+                .collect(),
+        ),
     );
     dimensions.insert("counterparties".into(), capability_strings(&counterparties));
     dimensions.insert("assets".into(), capability_strings(&assets));
     dimensions.insert("amount_ceilings".into(), Value::Array(amount_ceilings));
     dimensions.insert("rate_ceilings".into(), Value::Array(rate_ceilings));
     dimensions.insert("purpose_constraints".into(), capability_strings(&purposes));
-    dimensions.insert("expiry".into(), dec(expiry));
+    dimensions.insert("expiry".into(), dec(&expiry));
     let mut out = Map::new();
     out.insert("capability_id".into(), Value::String(capability_id));
     out.insert("parent_id".into(), parent_id);
@@ -1554,8 +1569,8 @@ fn capability_record(
     out.insert("agent_did".into(), Value::String(agent_did.to_owned()));
     out.insert("dimensions".into(), Value::Object(dimensions));
     out.insert("state".into(), Value::String(state.into()));
-    out.insert("created_at_ms".into(), dec(created_at_ms));
-    out.insert("created_at_sequence".into(), dec(created_at_sequence));
+    out.insert("created_at_ms".into(), dec(&created_at_ms));
+    out.insert("created_at_sequence".into(), dec(&created_at_sequence));
     out.insert("revoked_at_ms".into(), revoked_at_ms);
     out.insert("revoked_at_sequence".into(), revoked_at_sequence);
     Some((Value::Object(out), capability_bytes))
@@ -1744,16 +1759,16 @@ fn budget_record_wire(
                 "budget_account": hexv(&view.budget_account),
                 "asset_id": hexv(&view.asset_id),
                 "purpose_hash": hexv(&view.purpose_hash),
-                "per_period_limit": dec(view.per_period_limit.0),
-                "configured_period_limit": dec(view.configured_period_limit.0),
-                "carry_cap": dec(view.carry_cap.0),
-                "spent_this_period": dec(view.spent_this_period.0),
-                "carried": dec(view.carried.0),
-                "period_length_ms": dec(view.period_length_ms),
-                "period_start_ms": dec(view.period_start_ms),
-                "expiry_ms": dec(view.expiry_ms),
-                "revocation_counter": dec(view.revocation_counter),
-                "rollover_policy": dec(view.rollover_policy),
+                "per_period_limit": dec(&view.per_period_limit.0),
+                "configured_period_limit": dec(&view.configured_period_limit.0),
+                "carry_cap": dec(&view.carry_cap.0),
+                "spent_this_period": dec(&view.spent_this_period.0),
+                "carried": dec(&view.carried.0),
+                "period_length_ms": dec(&view.period_length_ms),
+                "period_start_ms": dec(&view.period_start_ms),
+                "expiry_ms": dec(&view.expiry_ms),
+                "revocation_counter": dec(&view.revocation_counter),
+                "rollover_policy": dec(&view.rollover_policy),
                 "closed": view.closed,
                 "revoked": view.revoked,
                 "delegates": view.delegates.iter().map(|delegate| hexv(delegate)).collect::<Vec<_>>(),
@@ -1769,9 +1784,9 @@ fn budget_record_wire(
                 "enforcement": "DaemonLimit",
                 "budget_id": hexv(&view.budget_id),
                 "asset": hexv(&view.asset),
-                "ceiling": dec(view.ceiling.0),
-                "consumed": dec(view.consumed.0),
-                "expiry_ms": dec(view.expiry_ms),
+                "ceiling": dec(&view.ceiling.0),
+                "consumed": dec(&view.consumed.0),
+                "expiry_ms": dec(&view.expiry_ms),
                 "revoked": view.revoked,
                 "notice": view.notice(),
             }),
@@ -1779,7 +1794,7 @@ fn budget_record_wire(
         ),
     };
     if let Value::Object(fields) = &mut value {
-        fields.insert("head".into(), dec(head));
+        fields.insert("head".into(), dec(&head));
         fields.insert(
             "activity_id".into(),
             activity_id.map_or(Value::Null, |id| hexv(id)),
@@ -1813,6 +1828,7 @@ pub(crate) fn budget_state<A: HumanAuthorityBoundary>(
     })
 }
 
+#[must_use]
 pub fn budget_state_operation(
     response: &AuthorityResponse<crate::human::BudgetState>,
 ) -> (Value, Option<VerificationStatus>) {
@@ -1824,8 +1840,8 @@ pub fn budget_state_operation(
             "authority": authority_wire(&response.authority),
             "value": {
                 "record": record,
-                "balance": dec(state.balance),
-                "proven_head": dec(state.proven_head),
+                "balance": dec(&state.balance),
+                "proven_head": dec(&state.proven_head),
                 "activity_id": state.activity_id.as_ref().map_or(Value::Null, |id| hexv(id)),
             },
         }),
@@ -1834,22 +1850,12 @@ pub fn budget_state_operation(
 }
 
 fn freshness_value(freshness: &Freshness) -> Value {
-    serde_json::from_str(&freshness.encode_json()).expect("contract freshness JSON")
+    serde_json::from_str(&freshness.encode_json())
+        .unwrap_or_else(|error| panic!("contract freshness JSON: {error:?}"))
 }
 
 fn legacy_level(rung: Rung) -> Rung {
     rung
-}
-
-fn unavailable_operation(id: RequestId, operation: &str, reason: &'static str) -> Rejection {
-    let error = layerx_agent_api::error::ApiError::unavailable_capability(id, operation)
-        .expect("static operation name");
-    Rejection {
-        class: error.class,
-        retriability: error.retriability,
-        request_id: id,
-        reason,
-    }
 }
 
 pub(crate) fn read_proof_bundle<A: HumanAuthorityBoundary>(
@@ -1863,7 +1869,7 @@ pub(crate) fn read_proof_bundle<A: HumanAuthorityBoundary>(
     let typed = decode_wire::<ProofBundleWire>(request, id)?.into_request(id)?;
     let response = owner
         .lock()
-        .and_then(|mut guard| guard.rpc_read_proof_bundle(context, typed.clone()))
+        .and_then(|mut guard| guard.rpc_read_proof_bundle(context, &typed))
         .map_err(|error| owner_error(id, error))?;
     typed.check_proof_response(&response).map_err(|_| {
         Rejection::new(
@@ -1896,6 +1902,9 @@ pub(crate) fn export_offline<A: HumanAuthorityBoundary>(
 }
 
 /// Shared RPC decoding and owner routing, also used by embedded daemon boundaries.
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn export_offline_with_owner(
     id: RequestId,
     request: &Map<String, Value>,
@@ -1913,42 +1922,48 @@ pub fn export_offline_with_owner(
 }
 
 /// Validates and encodes the offline owner's complete response at the RPC boundary.
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn offline_export_operation(
     id: RequestId,
     request: &layerx_agent_api::read::ReadRequest<Vec<layerx_agent_api::export::FactRef>>,
     response: &layerx_agent_api::read::VerifiedRead<layerx_agent_api::export::OfflineExport>,
 ) -> Result<Dispatched, Rejection> {
-    let invalid = || rejection(ErrorClass::VerificationFailure, id, "export.invalid_proof");
-    layerx_agent_api::export::check_export_response(request, response).map_err(|_| invalid())?;
+    let invalid = |stage: &str, error: &dyn std::fmt::Debug| {
+        eprintln!("layerx-agentd: offline export refused stage={stage} error={error:?}");
+        rejection(ErrorClass::VerificationFailure, id, "export.invalid_proof")
+    };
+    layerx_agent_api::export::check_export_response(request, response)
+        .map_err(|error| invalid("response_contract", &error))?;
     if response.value.bundles.len() != request.selector.len() {
-        return Err(invalid());
+        return Err(invalid(
+            "bundle_count",
+            &(response.value.bundles.len(), request.selector.len()),
+        ));
     }
-    let mut common_hash = None;
+    let mut common_checkpoint = None;
     for (fact, bundle) in request.selector.iter().zip(&response.value.bundles) {
-        let selector = fact.selector().map_err(|_| invalid())?;
-        let receipt = layerx_wire::receipt::decode(bundle.signed_receipt.as_bytes())
-            .map_err(|_| invalid())?;
-        let protocol = receipt.protocol().ok_or_else(invalid)?;
-        let header = crate::export::decode_header(
-            bundle.block_header.as_ref().ok_or_else(invalid)?.as_bytes(),
-        )
-        .map_err(|_| invalid())?;
-        if protocol.activity_id() != selector.activity_id()
-            || layerx_crypto::evm_transaction::transaction_hash(bundle.raw_transaction.as_bytes())
-                != selector.activity_id()
-            || header.height != response.value.height
-            || common_hash.is_some_and(|hash| hash != header.block_hash())
-        {
-            return Err(invalid());
+        let coordinate = offline_export_checkpoint(id, fact, bundle, response.value.height)?;
+        if common_checkpoint.is_some_and(|previous| previous != coordinate) {
+            return Err(invalid(
+                "common_checkpoint",
+                &"bundle block coordinates differ",
+            ));
         }
-        common_hash = Some(header.block_hash());
+        common_checkpoint = Some(coordinate);
     }
     match response.freshness.relative_to {
         layerx_agent_api::read::RelativeTo::Block { height, hash }
-            if height == response.value.height && Some(hash) == common_hash => {}
-        _ => return Err(invalid()),
+            if Some((height, hash)) == common_checkpoint => {}
+        layerx_agent_api::read::RelativeTo::Block { .. } => {
+            return Err(invalid("freshness_checkpoint", &response.freshness));
+        }
     }
-    let artifact = response.value.encode_json().map_err(|_| invalid())?;
+    let artifact = response
+        .value
+        .encode_json()
+        .map_err(|error| invalid("artifact_encoding", &error))?;
     let encoded = format!(
         r#"{{"value":{},"achieved_rung":"{}","freshness":{}}}"#,
         artifact,
@@ -1962,9 +1977,63 @@ pub fn offline_export_operation(
         ));
     }
     Ok(Dispatched {
-        value: serde_json::from_str(&encoded).map_err(|_| invalid())?,
+        value: serde_json::from_str(&encoded)
+            .map_err(|error| invalid("response_encoding", &error))?,
         verification: Some(VerificationStatus::Achieved(response.achieved_rung)),
     })
+}
+
+fn offline_export_checkpoint(
+    id: RequestId,
+    fact: &layerx_agent_api::export::FactRef,
+    bundle: &layerx_agent_api::proof::ProofBundle,
+    receipt_height: u64,
+) -> Result<(u64, [u8; 32]), Rejection> {
+    let invalid = |stage: &str, error: &dyn std::fmt::Debug| {
+        eprintln!("layerx-agentd: offline export refused stage={stage} error={error:?}");
+        rejection(ErrorClass::VerificationFailure, id, "export.invalid_proof")
+    };
+    let selector = fact
+        .selector()
+        .map_err(|error| invalid("fact_selector", &error))?;
+    let receipt = layerx_wire::receipt::decode(bundle.signed_receipt.as_bytes())
+        .map_err(|error| invalid("signed_receipt", &error))?;
+    let protocol = receipt
+        .protocol()
+        .ok_or_else(|| invalid("receipt_protocol", &"protocol fields absent"))?;
+    let header = crate::export::decode_header(
+        bundle
+            .block_header
+            .as_ref()
+            .ok_or_else(|| invalid("block_header", &"header absent"))?
+            .as_bytes(),
+    )
+    .map_err(|error| invalid("block_header", &error))?;
+    if protocol.activity_id() != selector.activity_id() {
+        return Err(invalid("receipt_activity", &"selector and receipt differ"));
+    }
+    if layerx_crypto::evm_transaction::transaction_hash(bundle.raw_transaction.as_bytes())
+        != selector.activity_id()
+    {
+        return Err(invalid(
+            "raw_transaction",
+            &"transaction and selector differ",
+        ));
+    }
+    let inclusion = bundle
+        .receipt_inclusion
+        .as_ref()
+        .ok_or_else(|| invalid("receipt_inclusion", &"inclusion absent"))?;
+    let commitment_height =
+        crate::export::committed_checkpoint_height(receipt_height, inclusion.as_bytes())
+            .map_err(|error| invalid("inclusion_encoding", &error))?;
+    if header.height != commitment_height {
+        return Err(invalid(
+            "checkpoint_height",
+            &(header.height, commitment_height),
+        ));
+    }
+    Ok((header.height, header.block_hash()))
 }
 
 /// `project` is the fee projection. The legacy policy payload (`context` +
@@ -1995,16 +2064,16 @@ pub(crate) fn project<A: HumanAuthorityBoundary>(
         value: serde_json::json!({
             "projected": {
                 "request": {
-                    "protocol_activity_type": dec(fee.request.protocol_activity_type),
-                    "canonical_bytes": dec(fee.request.canonical_bytes),
-                    "execution_units": dec(fee.request.execution_units),
-                    "storage_units": dec(fee.request.storage_units),
+                    "protocol_activity_type": dec(&fee.request.protocol_activity_type),
+                    "canonical_bytes": dec(&fee.request.canonical_bytes),
+                    "execution_units": dec(&fee.request.execution_units),
+                    "storage_units": dec(&fee.request.storage_units),
                 },
-                "parameter_version": dec(fee.parameter_version),
-                "fee": dec(fee.fee.0),
+                "parameter_version": dec(&fee.parameter_version),
+                "fee": dec(&fee.fee.0),
                 "canonical_schedule": hexv(fee.canonical_schedule.as_bytes()),
-                "snapshot_height": dec(fee.snapshot_height),
-                "gas_units": dec(fee.gas_units),
+                "snapshot_height": dec(&fee.snapshot_height),
+                "gas_units": dec(&fee.gas_units),
                 "denom": fee.denom,
                 "snapshot_state_root": hexv(&fee.snapshot_state_root),
             },
@@ -2251,13 +2320,6 @@ struct ModuleStateWire {
     requested_rung: String,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct HistoryRangeWire {
-    first: String,
-    last: String,
-}
-
 struct HistoryCursorWire {
     block_height: String,
     tx_index: String,
@@ -2312,12 +2374,13 @@ struct AvailabilityWire {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-
 struct BatchWire {
     #[serde(default)]
-    tenant: Option<String>,
+    #[serde(rename = "tenant")]
+    _tenant: Option<String>,
     #[serde(default)]
-    agent: Option<String>,
+    #[serde(rename = "agent")]
+    _agent: Option<String>,
     batch: String,
     #[serde(alias = "requested_verification_level")]
     requested_rung: String,
@@ -2383,7 +2446,7 @@ fn canonical_sequence(
 fn lower_hex_bytes(text: &str, id: RequestId) -> Result<Vec<u8>, Rejection> {
     let bytes = text.as_bytes();
     if bytes.is_empty()
-        || bytes.len() % 2 != 0
+        || !bytes.len().is_multiple_of(2)
         || !bytes
             .iter()
             .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
@@ -2401,13 +2464,9 @@ fn lower_hex_bytes(text: &str, id: RequestId) -> Result<Vec<u8>, Rejection> {
         .collect()
 }
 
-/// Wire names as the SDKs send them (`program_http.rs` REQUESTED_VERIFICATION, config.rs).
+/// Wire names as the SDKs send them (`program_http.rs` `REQUESTED_VERIFICATION`, config.rs).
 fn requested_level(text: &str, id: RequestId) -> Result<Rung, Rejection> {
     Rung::from_name(text).ok_or_else(|| malformed(id))
-}
-
-const fn level_wire(value: Rung) -> &'static str {
-    value.name()
 }
 
 /// AMEND 28b SESSION RECORD; returns the JSON record, its `open` flag and its session id.
@@ -2427,10 +2486,10 @@ fn decode_session_record(reader: &mut Reader<'_>) -> Option<(Value, bool, [u8; 3
     out.insert("session_id".into(), hexv(&session_id));
     out.insert("token_id".into(), hexv(&token_id));
     out.insert("agent_did".into(), Value::String(agent_did));
-    out.insert("generation".into(), dec(generation));
+    out.insert("generation".into(), dec(&generation));
     out.insert("open".into(), Value::Bool(open));
-    out.insert("expiry_sequence".into(), dec(expiry_sequence));
-    out.insert("sequence".into(), dec(sequence));
+    out.insert("expiry_sequence".into(), dec(&expiry_sequence));
+    out.insert("sequence".into(), dec(&sequence));
     Some((Value::Object(out), open, session_id))
 }
 
@@ -2467,10 +2526,6 @@ impl<'a> Reader<'a> {
     }
     fn text(&mut self) -> Option<String> {
         String::from_utf8(self.bytes()?.to_vec()).ok()
-    }
-    fn opt_bytes(&mut self) -> Option<&'a [u8]> {
-        let length = usize::try_from(self.u32()?).ok()?;
-        self.take(length)
     }
 }
 
@@ -2544,6 +2599,9 @@ fn program_lifecycle<A: HumanAuthorityBoundary>(
     })
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn program_call_answer(
     id: RequestId,
     raw: &[u8],
@@ -2653,6 +2711,7 @@ mod tests {
 
     #[test]
     fn wait_request_refuses_retired_level_names_and_field() {
+        // These wire spellings are negative inputs, never requested policy levels.
         for retired in [
             "batch-included",
             "Unverified",
