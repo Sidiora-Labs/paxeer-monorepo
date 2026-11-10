@@ -1,0 +1,381 @@
+[repair.22.39.329]
+decision = "3177; gotcha 4099"
+base_revision = "d5614dd88e548d183376cb26eefb979a56b77018"
+change = "Regenerate live source digests from their current authority bytes through the original 22.33.963 file producer; only core-manifest changes after a2bf776a9f sorted the deployment manifest keys."
+scope = "Only testdata/repair_22_33_963/capabilities.json and this repair record change; every test, assertion, frozen provenance entry and other frozen record retains its bytes."
+qualification = "The qualified revision, command, exit and private log are recorded by hf-build/hf-done in /out/run/gates.jsonl; only a passing hf-done qualifies this task."
+qualification_policy = "Run the declared hf-build then hf-done on the same candidate; unrelated baseline failures below remain with fm-launchpad and are neither weakened nor repaired here."
+
+[baseline]
+revision = "d5614dd88e548d183376cb26eefb979a56b77018"
+command = "python3 -m pytest -q tools/launchpad/production/interfaces"
+exit = 1
+log = "/out/logs/interfaces-baseline.log"
+log_sha256 = "348886f30c639cf115c55acdcf76efd9476f2822a9a8b7e464e54c5efda68f01"
+result = "26 failed, 41 passed, 13 errors; seven subtests passed; every failing or error case is listed below with its first error."
+manifest_cases = 2
+unrelated_cases = 37
+
+[producer]
+command = "python3 - <<'PY'\nimport hashlib,importlib.util,json\nfrom pathlib import Path\nhere=Path('tools/launchpad/production/interfaces').resolve()\nloader=importlib.util.spec_from_file_location('record_producer',here/'test_repair_22_33_963.py')\nproducer=importlib.util.module_from_spec(loader)\nloader.loader.exec_module(producer)\npath=here/'testdata/repair_22_33_963/capabilities.json'\nbefore=path.read_bytes()\ndocument=producer.capability.load(path)\nauthorities={'workspace':producer.ROOT,'contracts':producer.ROOT/'contracts/launchpad'}\nentries=[]\nfor source in document['sources']:\n    if source['proofKind'] != 'source':\n        raise ValueError('Unexpected proof kind: '+source['id'])\n    if source.get('mode') == 'frozen_provenance':\n        continue\n    authority=authorities[source['authority']].resolve()\n    target=(authority/source['path']).resolve()\n    if not target.is_relative_to(authority):\n        raise ValueError('Source escapes authority: '+source['id'])\n    previous=source['sha256']\n    source['sha256']=hashlib.sha256(target.read_bytes()).hexdigest()\n    entries.append({'id':source['id'],'authority':source['authority'],'path':source['path'],'before':previous,'after':source['sha256']})\nproducer.write_json(path,document)\nreport={'producer':'test_repair_22_33_963.write_json / capability_check.load / sha256 of authority source bytes','before':hashlib.sha256(before).hexdigest(),'after':hashlib.sha256(path.read_bytes()).hexdigest(),'sourceDigest':hashlib.sha256(json.dumps(document['sources'],sort_keys=True,separators=(',',':')).encode()).hexdigest(),'entries':entries,'frozen':[s for s in document['sources'] if s.get('mode')=='frozen_provenance']}\nPath('/out/logs/capabilities-regeneration.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\\n')\nprint(json.dumps(report,indent=2))\nPY"
+exit = 0
+log = "/out/logs/capabilities-regeneration.json"
+codec = "test_repair_22_33_963.write_json; capability_check.load; hashlib.sha256 on each resolved live source file; no manifest digest is assigned as a literal."
+consumer = "test_capability_authority_path reopens the emitted capabilities document, binds the real current contracts authority and recorded SDK catalogue, and invokes the unchanged capability_check.validate and CLI."
+materializer = "test_materializer_authority_path invokes the unchanged materialize.main with --spec testdata/repair_22_33_963/selected-catalog.kvx and --supplementary testdata/repair_22_33_963/supplementary.json, reopens generated schema/catalogue bytes, and retains drift and immutable-version assertions."
+producer_boundary = "The declared verification executes both producer/consumer cases; no standalone verification command is run before hf-done. Source consistency never claims runtime, browser, chain or release qualification."
+
+[digests.capabilities]
+path = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/capabilities.json"
+before = "f75c0a198e6cbc78cac326210417474f3f9e8ffe2e6692c3aa44ed486f920b09"
+after = "7241015a200c1f9fc3c3af3b8abad34b0236b94823e1e9037d874426cd4bdfe4"
+source_list_before = "efc46386e07e70231a40b72b60a1dced8ca86b4b713ae72e614c41f4edd92ecf"
+source_list_after = "a8af3d960db511f0365f622f3fc2d7b5f119b66eccf48f16fc7d250cead12712"
+source_list_encoding = "sha256(json.dumps(sources, sort_keys=True, separators=(comma,colon)).encode()); the same encoding capability_check.validate uses for sourceDigest."
+dependencies = "The current register has no runtime proof or qualificationEvidence digest to regenerate: all capabilities remain blocked and their qualificationEvidence stays null. Existing test producers compute catalogInputSha256 from generated catalogue bytes at use time."
+frozen_policy = "No historical production register, sdk-placement.json, compatibility.json, migration-register.json, selected-catalog.kvx or supplementary.json is regenerated; none derives from the changed capabilities fixture."
+
+[dependency_scan]
+revision = "d5614dd88e548d183376cb26eefb979a56b77018"
+file_digest_command = "rg -l --fixed-strings f75c0a198e6cbc78cac326210417474f3f9e8ffe2e6692c3aa44ed486f920b09 ."
+file_digest_exit = 1
+source_list_command = "rg -l --fixed-strings efc46386e07e70231a40b72b60a1dced8ca86b4b713ae72e614c41f4edd92ecf ."
+source_list_exit = 1
+result = "Both searches returned no references before this repair record was written; no downstream committed digest requires regeneration. The file hash and derived source-list digest above are recomputed from the emitted bytes."
+
+[source.core-manifest]
+after = "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b"
+authority = "contracts"
+before = "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a"
+path = "deployments/paxeer-x-network-addresses.json"
+
+[source.wpax-script]
+after = "ca1d1f83e2e58ba353b9136481d18ed075756db70ae47c8df71bf5f311bd9ad6"
+authority = "contracts"
+before = "ca1d1f83e2e58ba353b9136481d18ed075756db70ae47c8df71bf5f311bd9ad6"
+path = "scripts/meta-ag/deploy-pecor-meta-ag.js"
+
+[source.orders-source]
+after = "6c53d9c3507ec38d49a56359e96b920266a331d05b6f6d6a1d462b647ae3a183"
+authority = "contracts"
+before = "6c53d9c3507ec38d49a56359e96b920266a331d05b6f6d6a1d462b647ae3a183"
+path = "contracts/meta-ag/engine/PECOROrders.sol"
+
+[source.vault-source]
+after = "2a4fa3fd5a13528656ac19ebe349743c48e2bea27c9e99eb96501509bab9be1f"
+authority = "contracts"
+before = "2a4fa3fd5a13528656ac19ebe349743c48e2bea27c9e99eb96501509bab9be1f"
+path = "contracts/meta-ag/vault/PECORVault.sol"
+
+[source.fees-source]
+after = "347770bffaff4b3d7c0c493719157b5e0a28c94366c81e35142c392dc1ed293a"
+authority = "contracts"
+before = "347770bffaff4b3d7c0c493719157b5e0a28c94366c81e35142c392dc1ed293a"
+path = "contracts/periphery/FeesRouter.sol"
+
+[source.livepeer-config]
+after = "6b1f65882e56870f75466a65caa40679d3f67a3487b6a84f16c40c25866fd077"
+authority = "workspace"
+before = "6b1f65882e56870f75466a65caa40679d3f67a3487b6a84f16c40c25866fd077"
+path = "services/launchpad/livestream/internal/config/config.go"
+
+[frozen.readiness]
+mode = "frozen_provenance"
+record_sha256 = "eff20864dd2f69fced45b308241dc868d1f832f326359aabb27c8e2929a5b737"
+historical_source_sha256 = "0a5c69bb85124f22bb8a71aaffbca917e28184d8080b17767552078c4032d43f"
+disposition = "Preserve the complete source object byte for byte, including record, recordSha256, facts and any implementationPath; frozen historical source hashes are not refreshed."
+
+[frozen.external-wallet-client-integration-test-ts]
+mode = "frozen_provenance"
+record_sha256 = "2a269b67d29ecebe502b41175069f27242707eda247bc7bd0fbe151c1dc2d438"
+historical_source_sha256 = "b21c24e0f22ba0ba8e87cd9d29e390a69dce628d0714b19793b848c02a2e6507"
+disposition = "Preserve the complete source object byte for byte, including record, recordSha256, facts and any implementationPath; frozen historical source hashes are not refreshed."
+
+[frozen.external-wallet-client-ts]
+mode = "frozen_provenance"
+record_sha256 = "88cdc27a4928f8474e59ff254641afb64cd7afdb29d2345c0a6db65c1b21a062"
+historical_source_sha256 = "405b56ab90a16cc24e4640675b3afcb2dbcaf04d113c996b1ad439c30e789134"
+disposition = "Preserve the complete source object byte for byte, including record, recordSha256, facts and any implementationPath; frozen historical source hashes are not refreshed."
+
+[frozen.external-wallet-index-tsx]
+mode = "frozen_provenance"
+record_sha256 = "b87a5fc25c293781c598fec0e024343b428aedbc80d3b21ae92edf84ad2d524d"
+historical_source_sha256 = "cce0ed33cef1d65ac2f26f3e1079e4df561cbf6a219418f69e98a8d44ad96295"
+disposition = "Preserve the complete source object byte for byte, including record, recordSha256, facts and any implementationPath; frozen historical source hashes are not refreshed."
+
+[baseline_case.1]
+case = "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests::test_actual_inventory_and_generated_refs"
+status = "failed"
+first_error = "ValueError: explicit --manifest and --schemas required for frozen mapping suite"
+cause = "Direct pytest collection does not bind MANIFEST or SCHEMAS; setUp refuses absent explicit authority before the case assertion."
+disposition = "Unrelated baseline failure; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.2]
+case = "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests::test_new_unmapped_field_rejected"
+status = "failed"
+first_error = "ValueError: explicit --manifest and --schemas required for frozen mapping suite"
+cause = "Direct pytest collection does not bind MANIFEST or SCHEMAS; setUp refuses absent explicit authority before the case assertion."
+disposition = "Unrelated baseline failure; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.3]
+case = "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests::test_nonexistent_route_rejected"
+status = "failed"
+first_error = "ValueError: explicit --manifest and --schemas required for frozen mapping suite"
+cause = "Direct pytest collection does not bind MANIFEST or SCHEMAS; setUp refuses absent explicit authority before the case assertion."
+disposition = "Unrelated baseline failure; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.4]
+case = "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests::test_runtime_claim_rejected"
+status = "failed"
+first_error = "ValueError: explicit --manifest and --schemas required for frozen mapping suite"
+cause = "Direct pytest collection does not bind MANIFEST or SCHEMAS; setUp refuses absent explicit authority before the case assertion."
+disposition = "Unrelated baseline failure; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.5]
+case = "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests::test_source_drift_rejected"
+status = "failed"
+first_error = "ValueError: explicit --manifest and --schemas required for frozen mapping suite"
+cause = "Direct pytest collection does not bind MANIFEST or SCHEMAS; setUp refuses absent explicit authority before the case assertion."
+disposition = "Unrelated baseline failure; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.6]
+case = "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests::test_unknown_generated_field_rejected"
+status = "failed"
+first_error = "ValueError: explicit --manifest and --schemas required for frozen mapping suite"
+cause = "Direct pytest collection does not bind MANIFEST or SCHEMAS; setUp refuses absent explicit authority before the case assertion."
+disposition = "Unrelated baseline failure; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.7]
+case = "tools/launchpad/production/interfaces/compatibility_check_test.py::CompatibilityFreezeTests::test_unmapped_contract_rejected"
+status = "failed"
+first_error = "ValueError: explicit --manifest and --schemas required for frozen mapping suite"
+cause = "Direct pytest collection does not bind MANIFEST or SCHEMAS; setUp refuses absent explicit authority before the case assertion."
+disposition = "Unrelated baseline failure; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.8]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_absent_deployment_cannot_be_marked_ready"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.9]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_actual_materialized_bundle_maps_catalog_not_defs_count"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.10]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_embedded_provider_cannot_return_as_core_requirement"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.11]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_empty_json_runtime_proof_fails"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.12]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_empty_materialized_catalog_rejected"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.13]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_external_wallet_cannot_be_marked_ready"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.14]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_missing_required_artifact_fails"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.15]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_misstated_scope_and_501_are_not_proof"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.16]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_real_source_register_consistency"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.17]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_runtime_evidence_file_predates_bound_run"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.18]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_source_only_external_wallet_ready_is_rejected"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.19]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_source_traversal_fails"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.20]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_stale_source_and_unknown_catalog_fail"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.21]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_unconfigured_walletconnect_cannot_be_mandatory"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.22]
+case = "tools/launchpad/production/interfaces/test_capability_check.py::CapabilityTests::test_waiving_required_feature_fails"
+status = "failed"
+first_error = "ValueError: explicit bundle, catalog, chain bundle and fresh evidence bindings required"
+cause = "Direct pytest collection does not call bind_inputs; CATALOG, CHAIN_BUNDLE, EVIDENCE and NOT_BEFORE remain None and setUp refuses them."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave explicit suite wiring to fm-launchpad, preserving all assertions."
+
+[baseline_case.23]
+case = "tools/launchpad/production/interfaces/test_repair_22_33_963.py::test_capability_authority_path"
+status = "failed"
+first_error = "AssertionError: capability.validate returned ['core-manifest: stale source hash'] instead of []"
+cause = "The core-manifest source pin predates the key-order-only contracts deployment manifest change a2bf776a9f."
+disposition = "Regenerate the source evidence; the unchanged declared verification exercises this case."
+
+[baseline_case.24]
+case = "tools/launchpad/production/interfaces/test_repair_22_33_963.py::test_compatibility_authority_path"
+status = "failed"
+first_error = "AssertionError: assert True == 0; first checker diagnostic: candles-sdk: source hash drift sdk/launchpad/packages/candles-sdk/src/index.ts"
+cause = "The compatibility record has stale SDK source digests for candles, indexer, ranking-algo, metadata and users; the latter four also have unmapped source interface and wire fields."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave compatibility evidence/mapping repair to fm-launchpad."
+
+[baseline_case.25]
+case = "tools/launchpad/production/interfaces/test_repair_22_33_963.py::test_compatibility_test_authority"
+status = "failed"
+first_error = "AssertionError: result.wasSuccessful() is False; first nested failure: CompatibilityFreezeTests.test_actual_inventory_and_generated_refs: candles-sdk: source hash drift sdk/launchpad/packages/candles-sdk/src/index.ts"
+cause = "The bound frozen mapping suite reaches the same thirteen SDK digest/field-mapping diagnostics as test_compatibility_authority_path."
+disposition = "Unrelated baseline failure also present in the declared verification target; leave compatibility evidence/mapping repair to fm-launchpad."
+
+[baseline_case.26]
+case = "tools/launchpad/production/interfaces/test_repair_22_33_964.py::test_capability_test_authority"
+status = "failed"
+first_error = "AssertionError: assert_suite_passes failed because CapabilityTests.test_real_source_register_consistency returned ['core-manifest: stale source hash'] instead of []"
+cause = "The explicitly bound regression consumes the same stale core-manifest source pin."
+disposition = "The regenerated evidence is shared by this existing case; retain the case unchanged and do not run an extra undeclared gate."
+
+[baseline_case.27]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_additive_response_accepted_by_actual_schema"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.28]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_amount_number_rejected_by_actual_schema"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.29]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_check_read_only_and_rejects_mutated_bytes"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.30]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_exact_108_coverage_and_proofs"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.31]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_misplaced_request_parameter_fails"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.32]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_missing_and_unknown_ids_fail"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.33]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_missing_required_rejected_by_actual_schema"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.34]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_pagination_duplicate_schema_vs_semantic_distinction"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.35]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_sse_frames_and_empty204"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.36]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_stale_hash_and_missing_instance_fail"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.37]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_task_lifecycle_excluded_normative_change_included"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.38]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_unknown_mutation_and_nested_proof_fields_rejected"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[baseline_case.39]
+case = "tools/launchpad/production/interfaces/examples_check_test.py::ExamplesTests::test_unknown_schema_or_pattern_has_no_fallback"
+status = "error"
+first_error = "ValueError: explicit spec/catalog and contracts required for example suite"
+cause = "Direct pytest collection does not bind the example spec/catalog and contracts; setUpClass refuses absent authority before the case assertion."
+disposition = "Unrelated baseline setup error; leave the suite authority binding to fm-launchpad."
+
+[gotcha.gate-includes-unrelated-baseline-failures]
+observed = "The declared verification includes fifteen CapabilityTests cases without explicit authority binding plus two compatibility cases whose SDK source evidence has independently drifted; all seventeen fail on the starting revision before this regeneration."
+resolution = "Retain every check and record each first error above; do not add silent bindings, replace historical compatibility pins or claim that a passing source consistency case qualifies these unrelated failures."

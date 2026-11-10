@@ -94,7 +94,11 @@ func (f *grantFixture) body(kind byte, key [32]byte) []byte {
 	field(f.actor.Authority.Actor[:])
 	body = append(body, kind)
 	field(key[:])
-	u64(1 << 9)
+	moduleMask := uint64(1 << 9)
+	if kind == 3 {
+		moduleMask = 1 << 1
+	}
+	u64(moduleMask)
 	body = binary.BigEndian.AppendUint16(body, 4)
 	body = binary.BigEndian.AppendUint16(body, 5)
 	if kind == 2 {
@@ -341,6 +345,21 @@ func TestPrecompileGrantCapability(t *testing.T) {
 	f := newGrantFixture(t)
 	evm, db := f.evm()
 	body := f.body(3, f.key)
+	t.Run("unsupported SDK scope", func(t *testing.T) {
+		unsupported := bytes.Clone(body)
+		binary.BigEndian.PutUint64(unsupported[114:122], 1<<9)
+		before := hostSnapshot(t, db.Ctx(), f.hostKey)
+		input, err := f.precompile.GetABI().Pack("grantCapability", unsupported)
+		require.NoError(t, err)
+		snapshot := db.Snapshot()
+		data, err := f.precompile.Run(evm, f.caller, f.precompile.Address(), input, nil, false, false, nil)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLxpRevert(t, data, "LXP_AUTH_SCOPE")
+		require.ErrorIs(t, db.GetPrecompileError(), types.ErrAuthScope)
+		db.RevertToSnapshot(snapshot)
+		require.Equal(t, before, hostSnapshot(t, db.Ctx(), f.hostKey))
+		require.Empty(t, db.GetAllLogs())
+	})
 	id, err := codec.DomainHash(codec.DomainAuthorityHash, body)
 	require.NoError(t, err)
 	values := grantCall(t, f, evm, "grantCapability", body)
@@ -348,7 +367,7 @@ func TestPrecompileGrantCapability(t *testing.T) {
 	grantLogs(t, f, db, id, body, "CapabilityGranted", nil)
 	before := hostSnapshot(t, db.Ctx(), f.hostKey)
 	values = grantCall(t, f, evm, "capabilityScope", id)
-	want := []interface{}{uint64(1 << 9), uint16(4), uint16(5), f.asset, big.NewInt(10), big.NewInt(20), big.NewInt(0), uint64(1000), big.NewInt(15), big.NewInt(0), f.timestamp - 1000, f.purpose}
+	want := []interface{}{uint64(1 << 1), uint16(4), uint16(5), f.asset, big.NewInt(10), big.NewInt(20), big.NewInt(0), uint64(1000), big.NewInt(15), big.NewInt(0), f.timestamp - 1000, f.purpose}
 	require.Len(t, values, len(want))
 	for i, expected := range want {
 		if amount, ok := expected.(*big.Int); ok {
@@ -358,6 +377,8 @@ func TestPrecompileGrantCapability(t *testing.T) {
 			require.Equal(t, expected, values[i], "scope field %d", i)
 		}
 	}
+	require.Equal(t, []interface{}{""}, grantCall(t, f, evm, "checkActivity", id, uint32(0x00010005), f.asset, big.NewInt(5)))
+	require.Equal(t, []interface{}{"LXP_AUTH_SCOPE"}, grantCall(t, f, evm, "checkActivity", id, uint32(0x00090004), f.asset, big.NewInt(5)))
 	require.Equal(t, before, hostSnapshot(t, db.Ctx(), f.hostKey))
 	stored, err := f.keeper.GetGrant(db.Ctx(), id)
 	require.NoError(t, err)
