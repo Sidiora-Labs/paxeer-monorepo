@@ -14,7 +14,7 @@ pub const HEADER_BYTES: usize = 64;
 pub const LIMIT: usize = 32;
 pub const SECTION_CAP: usize = 9088;
 pub const JOINT_CAP: usize = 24576;
-pub const COMMON_CAP: usize = 196_608;
+pub const COMMON_CAP: usize = crate::MAX_STATE_BYTES;
 pub const UNIT: u32 = 1_000_000;
 
 #[derive(Clone, Copy, Eq, PartialEq)]

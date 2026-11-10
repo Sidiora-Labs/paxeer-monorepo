@@ -26,7 +26,7 @@ use crate::{
 #[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
 
-pub const FULL_CAPTURE_CHUNKS: usize = MAX_STATE_BYTES / MAX_CHUNK_BYTES;
+pub const FULL_CAPTURE_CHUNKS: usize = MAX_STATE_BYTES.div_ceil(MAX_CHUNK_BYTES);
 /// Compatibility discriminator retained by the snapshot wire format and its consumers.
 /// Finality comes from a verified block commit and the corresponding state proof;
 /// this byte alone authenticates neither.
