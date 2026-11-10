@@ -98,57 +98,7 @@ fn every_legal_terminal_path_is_recorded_and_illegal_transitions_fail() {
     let mut store =
         Store::open(&root).unwrap_or_else(|error| panic!("operation failed: {error:?}"));
     let mut outbox = Outbox::default();
-    let mut hashes = Vec::new();
-    for nonce in 1..=6 {
-        hashes.push(
-            outbox
-                .enqueue(&mut store, support::tenant(), raw(nonce, 1))
-                .unwrap_or_else(|error| panic!("operation failed: {error:?}")),
-        );
-    }
-    outbox
-        .transition(
-            &mut store,
-            hashes[0],
-            SubmissionState::Submitted,
-            "sent",
-            None,
-        )
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .transition(
-            &mut store,
-            hashes[0],
-            SubmissionState::Submitted,
-            "core admission acknowledged",
-            None,
-        )
-        .unwrap_or_else(|error| panic!("record admission acknowledgement: {error:?}"));
-    outbox
-        .transition(
-            &mut store,
-            hashes[0],
-            SubmissionState::Unknown,
-            "uncertain",
-            None,
-        )
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    let execution_receipt = receipt(hashes[0]);
-    assert_eq!(
-        execution_receipt.level(),
-        layerx_types::verify::VerificationLevel::BATCH_INCLUDED
-    );
-    outbox
-        .record_execution(&mut store, hashes[0], execution_receipt, 8, 0)
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    assert!(!outbox
-        .status(hashes[0])
-        .unwrap_or_else(|| panic!("expected value missing"))
-        .state
-        .terminal());
-    outbox
-        .reconcile_committed_block(&mut store, hashes[0], &block(8, vec![raw(1, 1)]))
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    let hashes = record_first_terminal_path(&mut store, &mut outbox);
     outbox
         .transition(
             &mut store,
@@ -167,64 +117,7 @@ fn every_legal_terminal_path_is_recorded_and_illegal_transitions_fail() {
             None,
         )
         .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .transition(
-            &mut store,
-            hashes[3],
-            SubmissionState::Submitted,
-            "sent",
-            None,
-        )
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .transition(
-            &mut store,
-            hashes[3],
-            SubmissionState::Unknown,
-            "uncertain",
-            None,
-        )
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    let failure = support::evidence_verifier()
-        .verify_receipt(&support::raw_receipt(hashes[3], 1, 1))
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    assert_eq!(
-        failure.level(),
-        layerx_types::verify::VerificationLevel::BATCH_INCLUDED
-    );
-    outbox
-        .record_failure(&mut store, hashes[3], failure, 8, 1)
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .transition(
-            &mut store,
-            hashes[4],
-            SubmissionState::Submitted,
-            "sent",
-            None,
-        )
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .record_execution(&mut store, hashes[4], receipt(hashes[4]), 9, 0)
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .reconcile_committed_block(&mut store, hashes[4], &block(9, vec![raw(5, 1)]))
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .transition(
-            &mut store,
-            hashes[5],
-            SubmissionState::Submitted,
-            "sent",
-            None,
-        )
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    let failure = support::evidence_verifier()
-        .verify_receipt(&support::raw_receipt(hashes[5], 1, 1))
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .record_failure(&mut store, hashes[5], failure, 9, 1)
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    record_remaining_terminal_paths(&mut store, &mut outbox, &hashes);
     for hash in hashes.iter().copied() {
         assert!(outbox
             .status(hash)
@@ -322,4 +215,96 @@ fn legacy_boolean_receipt_records_fail_closed() {
         Err(OutboxError::Corrupt)
     ));
     std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+}
+
+fn record_remaining_terminal_paths(store: &mut Store, outbox: &mut Outbox, hashes: &[[u8; 32]]) {
+    outbox
+        .transition(store, hashes[3], SubmissionState::Submitted, "sent", None)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    outbox
+        .transition(
+            store,
+            hashes[3],
+            SubmissionState::Unknown,
+            "uncertain",
+            None,
+        )
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    let failure = support::evidence_verifier()
+        .verify_receipt(&support::raw_receipt(hashes[3], 1, 1))
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    assert_eq!(
+        failure.level(),
+        layerx_types::verify::VerificationLevel::BATCH_INCLUDED
+    );
+    outbox
+        .record_failure(store, hashes[3], failure, 8, 1)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    outbox
+        .transition(store, hashes[4], SubmissionState::Submitted, "sent", None)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    outbox
+        .record_execution(store, hashes[4], receipt(hashes[4]), 9, 0)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    outbox
+        .reconcile_committed_block(store, hashes[4], &block(9, vec![raw(5, 1)]))
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    outbox
+        .transition(store, hashes[5], SubmissionState::Submitted, "sent", None)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    let failure = support::evidence_verifier()
+        .verify_receipt(&support::raw_receipt(hashes[5], 1, 1))
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    outbox
+        .record_failure(store, hashes[5], failure, 9, 1)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+}
+
+fn record_first_terminal_path(store: &mut Store, outbox: &mut Outbox) -> Vec<[u8; 32]> {
+    let mut hashes = Vec::new();
+    for nonce in 1..=6 {
+        hashes.push(
+            outbox
+                .enqueue(store, support::tenant(), raw(nonce, 1))
+                .unwrap_or_else(|error| panic!("operation failed: {error:?}")),
+        );
+    }
+    outbox
+        .transition(store, hashes[0], SubmissionState::Submitted, "sent", None)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    outbox
+        .transition(
+            store,
+            hashes[0],
+            SubmissionState::Submitted,
+            "core admission acknowledged",
+            None,
+        )
+        .unwrap_or_else(|error| panic!("record admission acknowledgement: {error:?}"));
+    outbox
+        .transition(
+            store,
+            hashes[0],
+            SubmissionState::Unknown,
+            "uncertain",
+            None,
+        )
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    let execution_receipt = receipt(hashes[0]);
+    assert_eq!(
+        execution_receipt.level(),
+        layerx_types::verify::VerificationLevel::BATCH_INCLUDED
+    );
+    outbox
+        .record_execution(store, hashes[0], execution_receipt, 8, 0)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    assert!(!outbox
+        .status(hashes[0])
+        .unwrap_or_else(|| panic!("expected value missing"))
+        .state
+        .terminal());
+    outbox
+        .reconcile_committed_block(store, hashes[0], &block(8, vec![raw(1, 1)]))
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    hashes
 }

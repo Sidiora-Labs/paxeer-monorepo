@@ -128,54 +128,8 @@ fn committed_is_reached_only_from_executed() {
     let hash = outbox
         .enqueue(&mut store, support::tenant(), bytes.clone())
         .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    outbox
-        .transition(&mut store, hash, Submitted, "sent", None)
-        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
-    let acknowledged = outbox
-        .transition(
-            &mut store,
-            hash,
-            Submitted,
-            "core admission acknowledged",
-            None,
-        )
-        .unwrap_or_else(|error| panic!("record admission acknowledgement: {error:?}"));
-    assert_eq!(acknowledged.state, Submitted);
-    assert_eq!(
-        acknowledged
-            .transitions
-            .last()
-            .map(|transition| transition.cause.as_str()),
-        Some("core admission acknowledged")
-    );
-    assert!(matches!(
-        outbox.transition(&mut store, hash, Committed, "too early", None),
-        Err(OutboxError::InvalidTransition { .. })
-    ));
-    let failed_receipt = layerx_agentd::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
-        layerx_wire::limits::PROTOCOL_VERSION,
-        42,
-        SigningKey::from_bytes(&[0x3a; 32])
-            .verifying_key()
-            .to_bytes(),
-    )
-    .unwrap_or_else(|error| panic!("pinned evidence authority: {error:?}"))
-    .verify_receipt(&support::raw_receipt(hash, 1, 1))
-    .unwrap_or_else(|error| panic!("verify failure receipt: {error:?}"));
-    assert!(matches!(
-        outbox.record_execution(&mut store, hash, failed_receipt.clone(), 8, 1),
-        Err(OutboxError::ReceiptFailed)
-    ));
-    assert!(matches!(
-        outbox.transition(
-            &mut store,
-            hash,
-            Executed,
-            "failed receipt",
-            Some(failed_receipt)
-        ),
-        Err(OutboxError::ReceiptFailed)
-    ));
+    assert_submitted_acknowledgement(&mut store, &mut outbox, hash);
+    assert_failed_receipt_cannot_execute(&mut store, &mut outbox, hash);
     let verified = layerx_agentd::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
         layerx_wire::limits::PROTOCOL_VERSION,
         42,
@@ -249,45 +203,7 @@ fn committed_is_reached_only_from_executed() {
         restored.bytes_for_transmission(hash),
         Err(OutboxError::NotQueued)
     ));
-    let mut budget_record = vec![0; 278];
-    budget_record[1] = 1;
-    budget_record[2..34].copy_from_slice(&[1; 32]);
-    budget_record[162..178].copy_from_slice(&500_u128.to_be_bytes());
-    budget_record[178..194].copy_from_slice(&500_u128.to_be_bytes());
-    budget_record[242..250].copy_from_slice(&1_000_u64.to_be_bytes());
-    let recovered = recover(
-        &mut store,
-        &support::tenant(),
-        &RecoveryInputs {
-            verifier: layerx_agentd::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
-                layerx_wire::limits::PROTOCOL_VERSION,
-                42,
-                SigningKey::from_bytes(&[0x3a; 32])
-                    .verifying_key()
-                    .to_bytes(),
-            )
-            .unwrap_or_else(|error| panic!("pinned evidence authority: {error:?}")),
-            unknown_budget_ids: &[],
-            budget_receipts: &[],
-            protocol_budget: ProtocolBudgetState {
-                evidence: support::raw_state_leaf(budget_record, 99),
-            },
-            ceiling_maximum: 500,
-            ceiling_receipts: &[],
-            unknown_ceiling_reservations: &[],
-            current_sequence: 99,
-        },
-    )
-    .unwrap_or_else(|error| panic!("recover: {error:?}"));
-    assert_eq!(recovered.outbox.status(hash), Some(&committed));
-    assert!(recovered.queued_for_transmission.is_empty());
-    assert!(recovered.queued_without_authority.is_empty());
-    assert!(recovered.awaiting_receipt_resolution.is_empty());
-    assert!(matches!(
-        recovered.outbox.bytes_for_transmission(hash),
-        Err(OutboxError::NotQueued)
-    ));
-    std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    assert_committed_recovery(&root, &mut store, hash, &committed);
 }
 
 #[test]
@@ -344,4 +260,105 @@ fn consumed_nonce_fails_with_nonce_consumed() {
         .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
     assert_eq!(restored.status(hash), Some(&failed));
     std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+}
+
+fn assert_committed_recovery(
+    root: &std::path::Path,
+    store: &mut Store,
+    hash: [u8; 32],
+    committed: &layerx_agentd::outbox::SubmissionStatus,
+) {
+    let mut budget_record = vec![0; 278];
+    budget_record[1] = 1;
+    budget_record[2..34].copy_from_slice(&[1; 32]);
+    budget_record[162..178].copy_from_slice(&500_u128.to_be_bytes());
+    budget_record[178..194].copy_from_slice(&500_u128.to_be_bytes());
+    budget_record[242..250].copy_from_slice(&1_000_u64.to_be_bytes());
+    let recovered = recover(
+        store,
+        &support::tenant(),
+        &RecoveryInputs {
+            verifier: layerx_agentd::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
+                layerx_wire::limits::PROTOCOL_VERSION,
+                42,
+                SigningKey::from_bytes(&[0x3a; 32])
+                    .verifying_key()
+                    .to_bytes(),
+            )
+            .unwrap_or_else(|error| panic!("pinned evidence authority: {error:?}")),
+            unknown_budget_ids: &[],
+            budget_receipts: &[],
+            protocol_budget: ProtocolBudgetState {
+                evidence: support::raw_state_leaf(budget_record, 99),
+            },
+            ceiling_maximum: 500,
+            ceiling_receipts: &[],
+            unknown_ceiling_reservations: &[],
+            current_sequence: 99,
+        },
+    )
+    .unwrap_or_else(|error| panic!("recover: {error:?}"));
+    assert_eq!(recovered.outbox.status(hash), Some(committed));
+    assert!(recovered.queued_for_transmission.is_empty());
+    assert!(recovered.queued_without_authority.is_empty());
+    assert!(recovered.awaiting_receipt_resolution.is_empty());
+    assert!(matches!(
+        recovered.outbox.bytes_for_transmission(hash),
+        Err(OutboxError::NotQueued)
+    ));
+    std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+}
+
+fn assert_failed_receipt_cannot_execute(store: &mut Store, outbox: &mut Outbox, hash: [u8; 32]) {
+    let failed_receipt = layerx_agentd::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
+        layerx_wire::limits::PROTOCOL_VERSION,
+        42,
+        SigningKey::from_bytes(&[0x3a; 32])
+            .verifying_key()
+            .to_bytes(),
+    )
+    .unwrap_or_else(|error| panic!("pinned evidence authority: {error:?}"))
+    .verify_receipt(&support::raw_receipt(hash, 1, 1))
+    .unwrap_or_else(|error| panic!("verify failure receipt: {error:?}"));
+    assert!(matches!(
+        outbox.record_execution(store, hash, failed_receipt.clone(), 8, 1),
+        Err(OutboxError::ReceiptFailed)
+    ));
+    assert!(matches!(
+        outbox.transition(
+            store,
+            hash,
+            SubmissionState::Executed,
+            "failed receipt",
+            Some(failed_receipt)
+        ),
+        Err(OutboxError::ReceiptFailed)
+    ));
+}
+
+fn assert_submitted_acknowledgement(store: &mut Store, outbox: &mut Outbox, hash: [u8; 32]) {
+    outbox
+        .transition(store, hash, SubmissionState::Submitted, "sent", None)
+        .unwrap_or_else(|error| panic!("operation failed: {error:?}"));
+    let acknowledged = outbox
+        .transition(
+            store,
+            hash,
+            SubmissionState::Submitted,
+            "core admission acknowledged",
+            None,
+        )
+        .unwrap_or_else(|error| panic!("record admission acknowledgement: {error:?}"));
+    assert_eq!(acknowledged.state, SubmissionState::Submitted);
+    assert_eq!(
+        acknowledged
+            .transitions
+            .last()
+            .map(|transition| transition.cause.as_str()),
+        Some("core admission acknowledged")
+    );
+    assert!(matches!(
+        outbox.transition(store, hash, SubmissionState::Committed, "too early", None),
+        Err(OutboxError::InvalidTransition { .. })
+    ));
 }

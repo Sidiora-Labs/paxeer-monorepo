@@ -2,6 +2,10 @@
 extern crate self as layerx_programs_ai_market;
 pub use layerx_client::ai_market::market_program::*;
 
+#[allow(
+    dead_code,
+    reason = "The host binary uses these signalling, deal and lap items; this test target exercises a subset."
+)]
 mod signal {
     include!("../src/inference_market/signal.rs");
     pub mod deals {
@@ -19,9 +23,9 @@ mod producers {
         admission::{
             AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent, Participant,
         },
-        aggregation::{self, Progress},
+        aggregation::{self},
         aggregation_codec::AggregationPhase,
-        codec::{self, decode_envelope, decode_result, encode_envelope, Envelope, ResultStatus},
+        codec::{self, decode_envelope, decode_result, encode_envelope, Envelope},
         dispatch::{self, Buffers, Operation, Routed},
         epoch::{self, Frozen},
         errors::{CodecResult, NON_CANONICAL, NOT_FOUND},
@@ -30,11 +34,9 @@ mod producers {
             codec::encode_grant,
             model::{EvaluatorGrant, GrantTerms},
         },
-        policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
-        registry::{derive_rewards_account, MarketHeader},
+        registry::MarketHeader,
         registry_ops::{CallContext, PolicySection},
         reputation_transition::split_joint,
-        rewards::{decode_reward_state, REWARD_STATE_BYTES},
         state::{decode_shared_state, ActorSlot, Section},
         tasks::{self, SetBinding, TaskSet},
         types::*,
@@ -48,9 +50,8 @@ mod producers {
         operation: &str,
         run: impl FnOnce() -> CodecResult<T>,
     ) -> CodecResult<T> {
-        run().map_err(|error| {
+        run().inspect_err(|error| {
             eprintln!("fixture step={step} operation={operation}: {error:?}");
-            error
         })
     }
 
@@ -87,9 +88,8 @@ mod producers {
                 })?;
                 let joint = state.feature_sections[Section::ReputationAdmission.index()];
                 let (_, table) = fixture_step("table", "split_joint", || split_joint(joint))?;
-                AdmissionTable::decode(table).map_err(|error| {
+                AdmissionTable::decode(table).inspect_err(|_| {
         eprintln!("fixture step=table operation=AdmissionTable::decode decoder=admission.rs:660 prefix={:?} length={}", table.get(..2), table.len());
-        error
     })
             },
         )
@@ -223,7 +223,7 @@ mod producers {
             compose(bytes, encoded, actor, at)
         })?;
         match reply.routed {
-            Routed::Applied { .. } => *bytes = reply.state.clone(),
+            Routed::Applied { .. } => bytes.clone_from(&reply.state),
             Routed::Refused { .. } => {
                 let error = decode_result(&reply.result)?.error.ok_or(NON_CANONICAL)?;
                 eprintln!(
@@ -508,6 +508,54 @@ mod producers {
         })
     }
 
+    fn refreshed_worker_manifest(
+        market: &MarketHeader,
+        record: &workers::WorkerCurrent,
+        at: u64,
+    ) -> Vec<u8> {
+        let mut manifest = 1u16.to_be_bytes().to_vec();
+        manifest.extend_from_slice(market.market_id.as_bytes());
+        manifest.extend_from_slice(record.worker.as_bytes());
+        manifest.extend_from_slice(record.owner.as_bytes());
+        for value in [
+            record.generation,
+            record.key_version,
+            record.metadata_revision + 1,
+            at,
+            at + workers::MAX_METADATA_LIFETIME,
+        ] {
+            manifest.extend_from_slice(&value.to_be_bytes());
+        }
+        manifest.extend_from_slice(&[60; 32]);
+        manifest.extend_from_slice(&1u16.to_be_bytes());
+        manifest.extend_from_slice(&[1, 1]);
+        for byte in 61..66 {
+            manifest.extend_from_slice(&[byte; 32]);
+        }
+        for _ in 0..4 {
+            manifest.extend_from_slice(&1024u32.to_be_bytes());
+        }
+        manifest.push(1);
+        manifest.extend_from_slice(&60_000u32.to_be_bytes());
+        manifest.extend_from_slice(&4u16.to_be_bytes());
+        manifest.push(1);
+        manifest.extend_from_slice(&1u16.to_be_bytes());
+        manifest.push(1);
+        let uri = b"https://worker.example/paxai/v1";
+        manifest.extend_from_slice(
+            &(u32::try_from(uri.len()).unwrap_or_else(|error| panic!("URI length: {error:?}")))
+                .to_be_bytes(),
+        );
+        manifest.extend_from_slice(uri);
+        manifest.extend_from_slice(&[70; 32]);
+        manifest.push(1);
+        manifest.extend_from_slice(&1u16.to_be_bytes());
+        manifest.extend_from_slice(&1u16.to_be_bytes());
+        manifest.extend_from_slice(&[71; 32]);
+        manifest.extend_from_slice(&[72; 32]);
+        manifest.extend_from_slice(&0u32.to_be_bytes());
+        manifest
+    }
     pub fn refresh_workers_with(
         bytes: &mut Vec<u8>,
         opening: u64,
@@ -538,44 +586,7 @@ mod producers {
                         .ok_or(NON_CANONICAL)?;
                     let key = delegate(record);
                     assert_eq!(PublicKey32(key.verifying_key().to_bytes()), record.delegate);
-                    let mut manifest = 1u16.to_be_bytes().to_vec();
-                    manifest.extend_from_slice(market.market_id.as_bytes());
-                    manifest.extend_from_slice(record.worker.as_bytes());
-                    manifest.extend_from_slice(record.owner.as_bytes());
-                    for value in [
-                        record.generation,
-                        record.key_version,
-                        record.metadata_revision + 1,
-                        at,
-                        at + workers::MAX_METADATA_LIFETIME,
-                    ] {
-                        manifest.extend_from_slice(&value.to_be_bytes());
-                    }
-                    manifest.extend_from_slice(&[60; 32]);
-                    manifest.extend_from_slice(&1u16.to_be_bytes());
-                    manifest.extend_from_slice(&[1, 1]);
-                    for byte in 61..66 {
-                        manifest.extend_from_slice(&[byte; 32]);
-                    }
-                    for _ in 0..4 {
-                        manifest.extend_from_slice(&1024u32.to_be_bytes());
-                    }
-                    manifest.push(1);
-                    manifest.extend_from_slice(&60_000u32.to_be_bytes());
-                    manifest.extend_from_slice(&4u16.to_be_bytes());
-                    manifest.push(1);
-                    manifest.extend_from_slice(&1u16.to_be_bytes());
-                    manifest.push(1);
-                    let uri = b"https://worker.example/paxai/v1";
-                    manifest.extend_from_slice(&(uri.len() as u32).to_be_bytes());
-                    manifest.extend_from_slice(uri);
-                    manifest.extend_from_slice(&[70; 32]);
-                    manifest.push(1);
-                    manifest.extend_from_slice(&1u16.to_be_bytes());
-                    manifest.extend_from_slice(&1u16.to_be_bytes());
-                    manifest.extend_from_slice(&[71; 32]);
-                    manifest.extend_from_slice(&[72; 32]);
-                    manifest.extend_from_slice(&0u32.to_be_bytes());
+                    let manifest = refreshed_worker_manifest(&market, record, at);
                     let summary = workers::decode_manifest(&manifest)?;
                     let mut payload = record.worker.bytes().to_vec();
                     for value in [record.metadata_revision, summary.revision] {
@@ -584,7 +595,11 @@ mod producers {
                     payload.extend_from_slice(summary.digest.as_bytes());
                     payload.extend_from_slice(&summary.valid_from.to_be_bytes());
                     payload.extend_from_slice(&summary.expiry.to_be_bytes());
-                    payload.extend_from_slice(&(manifest.len() as u32).to_be_bytes());
+                    payload.extend_from_slice(
+                        &(u32::try_from(manifest.len())
+                            .unwrap_or_else(|error| panic!("manifest length: {error:?}")))
+                        .to_be_bytes(),
+                    );
                     payload.extend_from_slice(&manifest);
                     let encoded = envelope(
                         bytes,
@@ -756,7 +771,7 @@ mod producers {
 
 mod proof {
     use super::*;
-    use ed25519_dalek::{Signer as _, SigningKey};
+    use ed25519_dalek::SigningKey;
     use layerx_client::ai_market::{inference_market as client, sign_market_envelope, NativeTerms};
     use layerx_crypto::account_derivation::derive_from_seed;
     use layerx_crypto::signer::{LocalSigner, Signer as _};
@@ -765,7 +780,6 @@ mod proof {
         codec::{self, Envelope},
         dispatch::{self, Routed},
         epoch,
-        errors::*,
         evidence::*,
         laps::*,
         policy::{PolicyCommitments, RoomProfile, TaskPolicyV1, TASK_POLICY_BYTES},
@@ -774,7 +788,6 @@ mod proof {
         rooms::*,
         roster,
         state::{decode_shared_state, Section},
-        types::*,
         MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
         MERGED_CHAIN_DOMAIN,
     };
@@ -786,7 +799,6 @@ mod proof {
     };
     use signal::deals::{DealFrame, LayerPlan, PlannedLayers};
     use std::fs;
-    use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -796,6 +808,9 @@ mod proof {
 
     fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
         value.unwrap_or_else(|e| panic!("{e:?}"))
+    }
+    fn present<T>(value: Option<T>) -> T {
+        value.unwrap_or_else(|| panic!("required test value is absent"))
     }
     fn native_signer(n: u8) -> LocalSigner {
         LocalSigner::from_derived_account(&must(derive_from_seed(&[n; 32], 0)))
@@ -863,15 +878,15 @@ mod proof {
     fn actor(n: u8) -> PrincipalId {
         let signer = native_signer(n);
         let mut bytes = [0; 32];
-        bytes[12..].copy_from_slice(&signer.evm_address().unwrap());
-        PrincipalId::new(bytes).unwrap()
+        bytes[12..].copy_from_slice(&present(signer.evm_address()));
+        must(PrincipalId::new(bytes))
     }
     fn digest(n: u8) -> Digest32 {
-        Digest32::new([n; 32]).unwrap()
+        must(Digest32::new([n; 32]))
     }
     fn encoded(size: usize, f: impl FnOnce(&mut [u8]) -> CodecResult<usize>) -> Vec<u8> {
         let mut out = vec![0; size];
-        let n = f(&mut out).unwrap();
+        let n = must(f(&mut out));
         out.truncate(n);
         out
     }
@@ -881,29 +896,28 @@ mod proof {
         roster: RosterDigest,
     }
     impl Market {
-        fn new() -> Self {
-            let chain = ChainDomain::new(MERGED_CHAIN_DOMAIN).unwrap();
-            let program = ProgramId::new([11; 32]).unwrap();
-            let asset = AssetId::new([13; 32]).unwrap();
-            let policy = TaskPolicyV1::bounded_default(
+        fn create_market() -> Vec<u8> {
+            let chain = must(ChainDomain::new(MERGED_CHAIN_DOMAIN));
+            let program = must(ProgramId::new([11; 32]));
+            let asset = must(AssetId::new([13; 32]));
+            let policy = must(TaskPolicyV1::bounded_default(
                 1,
                 1,
                 PolicyCommitments {
                     model_artifact: digest(1),
                     dataset_artifact: [2; 32],
                     benchmark_suite: digest(3),
-                    rubric: RubricDigest::new([4; 32]).unwrap(),
+                    rubric: must(RubricDigest::new([4; 32])),
                     task_schema: digest(5),
                     result_schema: digest(6),
                     service_terms: digest(7),
                 },
                 1000,
                 1,
-            )
-            .unwrap();
+            ));
             let mut payload = owner().bytes().to_vec();
             payload.extend_from_slice(asset.as_bytes());
-            payload.extend_from_slice(derive_rewards_account(program, asset).unwrap().as_bytes());
+            payload.extend_from_slice(must(derive_rewards_account(program, asset)).as_bytes());
             payload.extend_from_slice(&[14; 32]);
             payload.push(0);
             payload.extend_from_slice(&encoded(TASK_POLICY_BYTES, |out| policy.encode(out)));
@@ -932,7 +946,7 @@ mod proof {
             let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
             let mut event = vec![0; MAX_EVENT_BYTES];
             let mut result = vec![0; MAX_RESULT_BYTES];
-            let routed = dispatch::route(
+            let routed = must(dispatch::route(
                 &CallContext {
                     chain,
                     program,
@@ -947,90 +961,89 @@ mod proof {
                     event: &mut event,
                     result: &mut result,
                 },
-            )
-            .unwrap();
+            ));
             let Routed::Applied { state_len, .. } = routed else {
                 panic!("Create refused");
             };
             bytes.truncate(state_len);
+            bytes
+        }
+
+        fn activate_roster(bytes: &mut Vec<u8>) {
             let mut sequence = 2;
-            for n in [20] {
-                producers::enroll(
-                    &mut bytes,
+            {
+                let n = 20;
+                must(producers::enroll(
+                    bytes,
                     &mut sequence,
                     actor(n),
                     n,
                     &SigningKey::from_bytes(&[0x90 + n; 32]),
-                    MetadataDigest::new([n; 32]).unwrap(),
+                    must(MetadataDigest::new([n; 32])),
                     ORIGIN + 2,
-                )
-                .unwrap();
+                ));
             }
             for n in [2, 3, 4] {
-                producers::evaluator(
-                    &mut bytes,
+                must(producers::evaluator(
+                    bytes,
                     &mut sequence,
                     actor(n),
                     n,
                     &SigningKey::from_bytes(&[n; 32]),
                     ORIGIN + 2,
-                )
-                .unwrap();
+                ));
             }
             let mut fund = 1000u128.to_be_bytes().to_vec();
             fund.extend_from_slice(&[14; 32]);
             fund.extend_from_slice(&1u64.to_be_bytes());
             fund.push(1);
-            producers::call(&mut bytes, dispatch::FUND, owner(), &fund, ORIGIN + 7).unwrap();
-            producers::open(&mut bytes, ORIGIN + 128).unwrap();
-            producers::heartbeat(&mut bytes, ORIGIN + 129).unwrap();
-            producers::enroll(
-                &mut bytes,
+            must(producers::call(
+                bytes,
+                dispatch::FUND,
+                owner(),
+                &fund,
+                ORIGIN + 7,
+            ));
+            must(producers::open(bytes, ORIGIN + 128));
+            must(producers::heartbeat(bytes, ORIGIN + 129));
+            must(producers::enroll(
+                bytes,
                 &mut sequence,
                 actor(21),
                 21,
                 &SigningKey::from_bytes(&[0x90 + 21; 32]),
-                MetadataDigest::new([21; 32]).unwrap(),
+                must(MetadataDigest::new([21; 32])),
                 ORIGIN + 130,
-            )
-            .unwrap();
-            producers::settle(&mut bytes, ORIGIN + 224).unwrap();
-            let mut schedule = decode_shared_state(&bytes)
-                .unwrap()
+            ));
+            must(producers::settle(bytes, ORIGIN + 224));
+            let mut schedule = must(decode_shared_state(bytes))
                 .revision
                 .to_be_bytes()
                 .to_vec();
             schedule.extend_from_slice(&6u64.to_be_bytes());
-            producers::call(
-                &mut bytes,
+            must(producers::call(
+                bytes,
                 dispatch::SCHEDULE_ACTIVATION,
                 owner(),
                 &schedule,
                 START - 32,
-            )
-            .unwrap();
-            producers::open(&mut bytes, START).unwrap();
-            let mut advance = decode_shared_state(&bytes)
-                .unwrap()
+            ));
+            must(producers::open(bytes, START));
+            let mut advance = must(decode_shared_state(bytes))
                 .revision
                 .to_be_bytes()
                 .to_vec();
             advance.extend_from_slice(&6u64.to_be_bytes());
-            producers::call(
-                &mut bytes,
+            must(producers::call(
+                bytes,
                 dispatch::ADVANCE_ACTIVATION,
                 actor(127),
                 &advance,
                 START + 1,
-            )
-            .unwrap();
-            let roster = RosterDigest::new(
-                roster::roster_digest(&producers::table(&bytes).unwrap(), 6)
-                    .unwrap()
-                    .bytes(),
-            )
-            .unwrap();
-            let mut market = Self { bytes, roster };
+            ));
+        }
+
+        fn open_room_and_ask(&mut self) {
             let profile = RoomProfile {
                 minimum_bond: 100,
                 canary_ratio_bps: 250,
@@ -1039,14 +1052,14 @@ mod proof {
                 slash_fraction_bps: 1000,
                 host_share_bps: 1000,
                 protocol_share_bps: 100,
-                settlement_account: AccountId::new([80; 32]).unwrap(),
+                settlement_account: must(AccountId::new([80; 32])),
                 max_generated_tokens: 4096,
                 queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
                 liveness_timeout_ms: 30_000,
                 acknowledgement_window_ms: 5_000,
                 canary_relative_tolerance_bps: 100,
             };
-            market.call(
+            self.call(
                 dispatch::OpenRoom,
                 owner(),
                 &encoded(256, |out| {
@@ -1060,7 +1073,7 @@ mod proof {
                 }),
                 START + 2,
             );
-            market.call(
+            self.call(
                 dispatch::PostAsk,
                 actor(30),
                 &encoded(256, |out| {
@@ -1075,18 +1088,21 @@ mod proof {
                 }),
                 START + 2,
             );
-            let state = decode_shared_state(&market.bytes).unwrap();
-            let workers = layerx_programs_ai_market::workers::WorkerTable::decode(
-                layerx_programs_ai_market::evaluators::authority::split_identity_section(
-                    state.section(Section::IdentityRoster).unwrap(),
+        }
+
+        fn record_initial_deal(&mut self) {
+            let state = must(decode_shared_state(&self.bytes));
+            let workers = must(layerx_programs_ai_market::workers::WorkerTable::decode(
+                must(
+                    layerx_programs_ai_market::evaluators::authority::split_identity_section(must(
+                        state.section(Section::IdentityRoster),
+                    )),
                 )
-                .unwrap()
                 .0,
-            )
-            .unwrap();
+            ));
             for (n, bid) in [(20, 70), (21, 71)] {
-                let worker = workers.iter().find(|w| w.owner == actor(n)).unwrap();
-                market.call(
+                let worker = present(workers.iter().find(|w| w.owner == actor(n)));
+                self.call(
                     dispatch::PostBid,
                     actor(n),
                     &encoded(256, |out| {
@@ -1114,7 +1130,7 @@ mod proof {
                 first_layer: 8,
                 end_layer: 16,
             });
-            market.call(
+            self.call(
                 dispatch::RecordDeal,
                 owner(),
                 &encoded(1400, |out| {
@@ -1123,27 +1139,38 @@ mod proof {
                         deal_id: digest(62),
                         ask_id: digest(61),
                         agreed_price_per_thousand_tokens: 1001,
-                        roster_digest: roster,
+                        roster_digest: self.roster,
                         layers,
                     }
                     .encode(out)
                 }),
                 START + 2,
             );
-            producers::seal_tasks(&mut market.bytes, AT).unwrap();
+        }
+
+        fn new() -> Self {
+            let mut bytes = Self::create_market();
+            Self::activate_roster(&mut bytes);
+            let roster = must(RosterDigest::new(
+                must(roster::roster_digest(&must(producers::table(&bytes)), 6)).bytes(),
+            ));
+            let mut market = Self { bytes, roster };
+            market.open_room_and_ask();
+            market.record_initial_deal();
+            must(producers::seal_tasks(&mut market.bytes, AT));
             market
         }
         fn envelope(&self, op: dispatch::Operation, who: PrincipalId, payload: &[u8]) -> Vec<u8> {
             let sequence = if op.metadata().sequence == dispatch::SequencePolicy::ObjectLocal {
                 0
             } else {
-                producers::next_sequence(&self.bytes, who).unwrap()
+                must(producers::next_sequence(&self.bytes, who))
             };
-            let bytes = producers::envelope(&self.bytes, op, who, payload, sequence).unwrap();
+            let bytes = must(producers::envelope(&self.bytes, op, who, payload, sequence));
             if op.metadata().feature != 11 {
                 return bytes;
             }
-            let mut e = codec::decode_envelope(&bytes).unwrap().envelope;
+            let mut e = must(codec::decode_envelope(&bytes)).envelope;
             e.roster = Presence::Present(self.roster);
             encoded(MAX_ENVELOPE_BYTES, |out| codec::encode_envelope(&e, out))
         }
@@ -1156,26 +1183,29 @@ mod proof {
         ) -> Vec<u8> {
             if op == dispatch::PostBid {
                 let mut r = codec::Reader::new(payload);
-                let room = r.digest32().unwrap();
-                let bid = r.digest32().unwrap();
-                r.take(48).unwrap();
-                let amount = r.u128().unwrap();
-                if layerx_programs_ai_market::bonds::bond_from_state(&self.bytes, bid)
-                    .unwrap()
-                    .is_none()
+                let room = must(r.digest32());
+                let bid = must(r.digest32());
+                must(r.take(48));
+                let amount = must(r.u128());
+                if must(layerx_programs_ai_market::bonds::bond_from_state(
+                    &self.bytes,
+                    bid,
+                ))
+                .is_none()
                 {
                     self.call(
                         dispatch::LockBond,
                         who,
-                        &layerx_programs_ai_market::bonds::LockBondRequest { room, bid, amount }
-                            .encode()
-                            .unwrap(),
+                        &must(
+                            layerx_programs_ai_market::bonds::LockBondRequest { room, bid, amount }
+                                .encode(),
+                        ),
                         at,
                     );
                 }
             }
             let e = self.envelope(op, who, payload);
-            producers::apply(&mut self.bytes, &e, who, at).unwrap();
+            must(producers::apply(&mut self.bytes, &e, who, at));
             e
         }
     }
@@ -1195,10 +1225,7 @@ mod proof {
         let layers = [(20, 70, 0, 8), (21, 71, 8, 16)]
             .into_iter()
             .map(|(n, bid, first_layer, end_layer)| {
-                let worker = workers
-                    .iter()
-                    .find(|worker| worker.owner == actor(n))
-                    .unwrap();
+                let worker = present(workers.iter().find(|worker| worker.owner == actor(n)));
                 PlannedLayers {
                     peer_key: worker.delegate.0,
                     owner: actor(n).bytes(),
@@ -1209,7 +1236,7 @@ mod proof {
                 }
             })
             .collect();
-        let deal = must(book.deal(digest(62))).unwrap();
+        let deal = present(must(book.deal(digest(62))));
         DealFrame {
             chain: policy.header.deployment_chain_domain.bytes(),
             program: policy.header.program_id.bytes(),
@@ -1279,7 +1306,10 @@ mod proof {
             let mut unknown = wire;
             unknown["lap"]["receipt"]["unknown"] = serde_json::json!(true);
             assert!(serde_json::from_value::<LapServerFrame>(unknown).is_err());
-            let LapServerFrame::LapReceipt { lap } = must(serde_json::from_str(text.as_str()));
+            let LapServerFrame::LapReceipt { lap } = must(serde_json::from_str(text.as_str()))
+            else {
+                panic!("receipt must be a lap receipt frame");
+            };
             assert_eq!(lap.receipt, issued.receipt);
             assert_eq!(lap.host_meter_key, issued.host_meter_key);
             must(lap.receipt.verify(issued.host_meter_key));
@@ -1362,12 +1392,12 @@ mod proof {
                 .envelope
                 .request
                 .bytes();
-            let signed = ready(sign_market_envelope(
+            let transaction = ready(sign_market_envelope(
                 &envelope,
                 &terms(&signer, request, self.operations.len() as u64),
                 &signer,
             ))?;
-            self.pending.push(signed.signed_bytes().to_vec());
+            self.pending.push(transaction.signed_bytes().to_vec());
             self.operations.push(operation.operation());
             Ok(())
         }
@@ -1377,27 +1407,31 @@ mod proof {
             let calldata = report.calldata()?;
             let signer = native_signer(12);
             let request: [u8; 32] = Sha256::digest(&calldata).into();
-            let signed = ready(client::sign_stream_meter(
+            let transaction = ready(client::sign_stream_meter(
                 &calldata,
                 &terms(&signer, request, 2),
                 &signer,
             ))?;
-            let (call, signature) = must(evm_transaction::decode_signed(signed.signed_bytes()));
+            let (call, signature) =
+                must(evm_transaction::decode_signed(transaction.signed_bytes()));
             assert_eq!(
                 must(evm_transaction::recover_sender(&call, &signature)),
-                signer.evm_address().unwrap()
+                signer
+                    .evm_address()
+                    .unwrap_or_else(|| panic!("required test value is absent"))
             );
             let mut target = [0; 20];
             target[18..].copy_from_slice(&[0x10, 0x1b]);
             assert_eq!(call.to, target);
             assert_eq!(call.data, calldata);
-            self.meter_submissions.push(signed.signed_bytes().to_vec());
+            self.meter_submissions
+                .push(transaction.signed_bytes().to_vec());
             // A signed submission alone is pending; this harness does not invent a pay receipt.
             Ok(false)
         }
     }
     fn market_settlement(bytes: &[u8]) -> LapSettlement {
-        must(settlement_from_state(bytes, digest(62))).unwrap()
+        present(must(settlement_from_state(bytes, digest(62))))
     }
     fn open_engine(
         directory: &Directory,
@@ -1449,7 +1483,7 @@ mod proof {
         let host = client::HostMeterKey::from_seed(&[12; 32]);
         let mut engine = open_engine(&directory, &transport.market, &host, 3);
         let shared = must(decode_shared_state(&transport.market.bytes));
-        let frozen = must(epoch::captured_roster(&shared)).unwrap().binding;
+        let frozen = present(must(epoch::captured_roster(&shared))).binding;
         assert_ne!(frozen.roster, transport.market.roster);
         assert_eq!(frozen.epoch, 6);
         let mut peers = [WirePeer::new(20), WirePeer::new(21)];
@@ -1492,12 +1526,21 @@ mod proof {
                 .collect();
         }
         assert_eq!(batch.batch_digest.bytes(), nodes[0]);
-        assert!(engine.report_meter(&mut transport, &host).is_err());
-        assert!(!must(engine.seal_and_settle(&mut transport, &host)));
+        assert_batch_settlement(engine, &mut transport, &directory, &host, batch);
+    }
+    fn assert_batch_settlement(
+        mut engine: LapEngine,
+        transport: &mut RoutedMarket,
+        directory: &Directory,
+        host: &client::HostMeterKey,
+        batch: ReceiptBatch,
+    ) {
+        assert!(engine.report_meter(transport, host).is_err());
+        assert!(!must(engine.seal_and_settle(transport, host)));
         assert_eq!(transport.operations, vec![dispatch::SealEvidence]);
         assert!(transport.meter_submissions.is_empty());
         transport.commit();
-        assert!(!must(engine.seal_and_settle(&mut transport, &host)));
+        assert!(!must(engine.seal_and_settle(transport, host)));
         assert_eq!(
             transport.operations,
             vec![dispatch::SealEvidence, dispatch::SettleLaps]
@@ -1505,45 +1548,7 @@ mod proof {
         assert!(transport.meter_submissions.is_empty());
         transport.commit();
         assert_eq!(market_settlement(&transport.market.bytes).batch, batch);
-        let sealed_state = transport.market.bytes.clone();
-        let shared = must(decode_shared_state(&sealed_state));
-        let seal = must(SealRegion::decode(shared.control.feature_bytes))
-            .seals(6)
-            .next()
-            .map(must)
-            .unwrap();
-        assert!(!must(engine.seal_and_settle(&mut transport, &host)));
-        let archive: serde_json::Value = must(serde_json::from_slice(&must(fs::read(
-            directory.0.join("laps.batch-0.json"),
-        ))));
-        let manifest_bytes = archive["artifact_manifest"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_u64().unwrap() as u8)
-            .collect::<Vec<_>>();
-        assert_eq!(
-            must(manifest_root(&manifest_bytes)).bytes(),
-            seal.root.bytes()
-        );
-        let manifest = must(decode_manifest(&manifest_bytes));
-        assert_eq!(
-            manifest.content_root,
-            content_root(
-                manifest.byte_length,
-                manifest.chunk_count,
-                &batch.batch_digest.bytes()
-            )
-        );
-        assert_eq!(
-            must(require_sealed_artifact_chunk_root(
-                &shared,
-                6,
-                &manifest_bytes,
-                &batch
-            )),
-            market_settlement(&transport.market.bytes).task_set
-        );
+        assert_sealed_batch(&mut engine, transport, directory, host, batch);
         assert_eq!(transport.meter_submissions.len(), 1);
         assert_eq!(
             engine.receipts().len(),
@@ -1567,10 +1572,57 @@ mod proof {
             &client::meter_digest(manifest_stream(123), 106, host.public_key()),
         ));
         drop(engine);
-        let reopened = open_engine(&directory, &transport.market, &host, 3);
+        let reopened = open_engine(directory, &transport.market, host, 3);
         assert_eq!(must(reopened.batch()), batch);
         assert!(reopened.ready_to_settle());
         assert_eq!(transport.operations.len(), 2);
+    }
+
+    fn assert_sealed_batch(
+        engine: &mut LapEngine,
+        transport: &mut RoutedMarket,
+        directory: &Directory,
+        host: &client::HostMeterKey,
+        batch: ReceiptBatch,
+    ) {
+        let sealed_state = transport.market.bytes.clone();
+        let shared = must(decode_shared_state(&sealed_state));
+        let seal = present(
+            must(SealRegion::decode(shared.control.feature_bytes))
+                .seals(6)
+                .next()
+                .map(must),
+        );
+        assert!(!must(engine.seal_and_settle(transport, host)));
+        let archive: serde_json::Value = must(serde_json::from_slice(&must(fs::read(
+            directory.0.join("laps.batch-0.json"),
+        ))));
+        let manifest_bytes = present(archive["artifact_manifest"].as_array())
+            .iter()
+            .map(|v| must(u8::try_from(present(v.as_u64()))))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            must(manifest_root(&manifest_bytes)).bytes(),
+            seal.root.bytes()
+        );
+        let manifest = must(decode_manifest(&manifest_bytes));
+        assert_eq!(
+            manifest.content_root,
+            content_root(
+                manifest.byte_length,
+                manifest.chunk_count,
+                &batch.batch_digest.bytes()
+            )
+        );
+        assert_eq!(
+            must(require_sealed_artifact_chunk_root(
+                &shared,
+                6,
+                &manifest_bytes,
+                &batch
+            )),
+            market_settlement(&transport.market.bytes).task_set
+        );
     }
     fn manifest_stream(id: u128) -> [u8; 32] {
         let mut stream = [0; 32];

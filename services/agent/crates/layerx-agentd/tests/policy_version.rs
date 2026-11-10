@@ -38,7 +38,7 @@ fn session(
     id: u8,
 ) -> SessionRecord {
     let authority = ProtocolAuthority::SessionKey([1; 32]);
-    let did = Did::new(b"did:layerx:versioned").expect("policy agent");
+    let did = lint_success(Did::new(b"did:layerx:versioned"), "policy agent");
     let (mut node_authority, worker) = repair_support::authority_peer(vec![(
         200,
         repair_support::identity_document(120, false, std::slice::from_ref(&authority)),
@@ -48,37 +48,42 @@ fn session(
         authority: &mut node_authority,
         peer: &peer,
     };
-    let identity = register(store, tenant(), did.clone(), &mut resolver)
-        .expect("verified policy-session identity");
-    worker.join().expect("identity transcript");
-    let token = open(
-        store,
-        sessions,
-        &identity,
-        OpenRequest {
-            session_id: SessionId([id; 32]),
-            token_id: [id + 10; 32],
-            tenant: tenant(),
-            agent: did.clone(),
-            authority,
-            permitted_activity_types: BTreeSet::from([7]),
-            scopes: BTreeSet::from(["prepare".to_owned()]),
-            expiry_seconds: None,
-            expiry_sequence: 200,
-            opening_client: "version-test".to_owned(),
-            policy_version: version.to_owned(),
-        },
-        120,
-    )
-    .expect("production session open");
+    let identity = lint_success(
+        register(store, tenant(), did.clone(), &mut resolver),
+        "verified policy-session identity",
+    );
+    lint_success(worker.join(), "identity transcript");
+    let token = lint_success(
+        open(
+            store,
+            sessions,
+            &identity,
+            OpenRequest {
+                session_id: SessionId([id; 32]),
+                token_id: [id + 10; 32],
+                tenant: tenant(),
+                agent: did.clone(),
+                authority,
+                permitted_activity_types: BTreeSet::from([7]),
+                scopes: BTreeSet::from(["prepare".to_owned()]),
+                expiry_seconds: None,
+                expiry_sequence: 200,
+                opening_client: "version-test".to_owned(),
+                policy_version: version.to_owned(),
+            },
+            120,
+        ),
+        "production session open",
+    );
     assert_eq!(
         token.authorize(sessions, &tenant(), &did, "prepare", 120),
         Ok(token.session_id())
     );
-    sessions
-        .get(&tenant(), token.session_id())
-        .expect("opened session")
-        .clone()
+    lint_present(
+        sessions.get(&tenant(), token.session_id()),
+        "opened session",
+    )
+    .clone()
 }
 
 fn capability() -> Capability {
@@ -125,7 +130,7 @@ fn activation_only_changes_requests_received_after_it() {
     assert_eq!(later.version(), "v2");
 
     let root = support::directory("policy-version-activation");
-    let mut store = Store::open(&root).expect("policy session store");
+    let mut store = lint_success(Store::open(&root), "policy session store");
     let mut sessions = SessionRegistry::default();
     let request = request();
     let capability = capability();
@@ -140,16 +145,17 @@ fn activation_only_changes_requests_received_after_it() {
         Outcome::Deny
     );
     let (authority, entries) = repair_support::cumulative_window(&old_session.request.agent);
-    let cumulative = authority
-        .authenticate_cumulative_use(
+    let cumulative = lint_success(
+        authority.authenticate_cumulative_use(
             &old_session.request.agent,
             layerx_agentd::protocol_evidence::CumulativeUseWindow {
                 first: 20,
                 last: 119,
             },
             &entries,
-        )
-        .expect("complete producer window");
+        ),
+        "complete producer window",
+    );
     assert_eq!(cumulative.amount(), 25);
     assert_eq!(cumulative.count(), 1);
     let old_input = EvaluationInput::with_authenticated_cumulative_use(
@@ -158,28 +164,7 @@ fn activation_only_changes_requests_received_after_it() {
         &capability,
         &cumulative,
     );
-    // Historical usage alone exhausts these bounds: admission projects the
-    // current request's amount and one additional use before matching.
-    let mut exact_usage = in_flight.policy().clone();
-    exact_usage.rules[0].constraints.maximum_cumulative_amount = Some(25);
-    exact_usage.rules[0].constraints.maximum_cumulative_count = Some(1);
-    assert_eq!(evaluate(&exact_usage, &old_input).outcome, Outcome::Deny);
-    let mut too_little_amount = exact_usage.clone();
-    too_little_amount.rules[0]
-        .constraints
-        .maximum_cumulative_amount = Some(24);
-    assert_eq!(
-        evaluate(&too_little_amount, &old_input).outcome,
-        Outcome::Deny
-    );
-    let mut too_little_count = exact_usage;
-    too_little_count.rules[0]
-        .constraints
-        .maximum_cumulative_count = Some(0);
-    assert_eq!(
-        evaluate(&too_little_count, &old_input).outcome,
-        Outcome::Deny
-    );
+    assert_projected_usage_is_bounded(in_flight.policy(), &old_input);
     let old_decision = evaluate(in_flight.policy(), &old_input);
     assert_eq!(old_decision.outcome, Outcome::Allow, "{old_decision:?}");
     assert_eq!(
@@ -216,26 +201,12 @@ fn activation_only_changes_requests_received_after_it() {
     );
     assert_eq!(new_decision.reason, DecisionReason::ExplicitDeny);
     assert_eq!(new_decision.deciding_rule.as_deref(), Some("v2-rule"));
-    registry
-        .record_decision([8; 32], old_decision.clone())
-        .expect("record retained v1 decision");
-    assert_eq!(
-        registry.audit_entry([8; 32]).map(|entry| &entry.decision),
-        Some(&old_decision)
-    );
-
-    registry
-        .record_decision([9; 32], new_decision.clone())
-        .expect("record active v2 decision");
-    assert_eq!(
-        registry.audit_entry([9; 32]).map(|entry| &entry.decision),
-        Some(&new_decision)
-    );
+    assert_recorded_policy_decisions(&mut registry, &old_decision, &new_decision);
     assert!(registry.retained("v1").is_some());
     assert!(registry.retained("v2").is_some());
     drop(sessions);
     drop(store);
-    std::fs::remove_dir_all(root).expect("remove policy store");
+    lint_success(std::fs::remove_dir_all(root), "remove policy store");
 }
 
 #[test]
@@ -259,4 +230,69 @@ fn bounded_policy_source_loader_rejects_malformed_input() {
     assert_eq!(loaded.version, "v3");
     assert!(load_policy_source(b"version=v3\nsteps=nope\n").is_err());
     assert!(load_policy_source(&vec![b'x'; 1_048_577]).is_err());
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
+}
+
+fn assert_projected_usage_is_bounded(policy: &PolicySet, old_input: &EvaluationInput<'_>) {
+    // Historical usage alone exhausts these bounds: admission projects the
+    // current request's amount and one additional use before matching.
+    let mut exact_usage = policy.clone();
+    exact_usage.rules[0].constraints.maximum_cumulative_amount = Some(25);
+    exact_usage.rules[0].constraints.maximum_cumulative_count = Some(1);
+    assert_eq!(evaluate(&exact_usage, old_input).outcome, Outcome::Deny);
+    let mut too_little_amount = exact_usage.clone();
+    too_little_amount.rules[0]
+        .constraints
+        .maximum_cumulative_amount = Some(24);
+    assert_eq!(
+        evaluate(&too_little_amount, old_input).outcome,
+        Outcome::Deny
+    );
+    let mut too_little_count = exact_usage;
+    too_little_count.rules[0]
+        .constraints
+        .maximum_cumulative_count = Some(0);
+    assert_eq!(
+        evaluate(&too_little_count, old_input).outcome,
+        Outcome::Deny
+    );
+}
+
+fn assert_recorded_policy_decisions(
+    registry: &mut PolicyRegistry,
+    old_decision: &layerx_agentd::policy::Decision,
+    new_decision: &layerx_agentd::policy::Decision,
+) {
+    lint_success(
+        registry.record_decision([8; 32], old_decision.clone()),
+        "record retained v1 decision",
+    );
+    assert_eq!(
+        registry.audit_entry([8; 32]).map(|entry| &entry.decision),
+        Some(old_decision)
+    );
+
+    lint_success(
+        registry.record_decision([9; 32], new_decision.clone()),
+        "record active v2 decision",
+    );
+    assert_eq!(
+        registry.audit_entry([9; 32]).map(|entry| &entry.decision),
+        Some(new_decision)
+    );
 }
