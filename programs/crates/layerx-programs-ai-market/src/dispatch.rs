@@ -1252,6 +1252,7 @@ enum Step {
     Unchanged(Payload),
     Read {
         payload_len: usize,
+        revision: u64,
     },
 }
 
@@ -1290,7 +1291,30 @@ pub fn route(
         result,
     } = buffers;
     let mut record = [0; RECORD_PAYLOAD_BYTES];
-    let step = if operation == FUND {
+    let ready = if operation.metadata().boundary == CallBoundary::Mutation
+        && operation != OPEN_EPOCH
+        && operation != FinalizeAggregation
+    {
+        current.map_or(Ok(()), |bytes| {
+            let reader = state::SectionReader::new(bytes)?;
+            let policy = PolicySection::decode(reader.section(state::Section::PolicyLifecycle))?;
+            if epoch::opening_pending(&policy)
+                || !crate::aggregation::split_finalization_journal(
+                    reader.section(state::Section::SettlementClaims),
+                )?
+                .1
+                .is_empty()
+            {
+                return Err(crate::errors::WRONG_PHASE);
+            }
+            Ok(())
+        })
+    } else {
+        Ok(())
+    };
+    let step = if let Err(error) = ready {
+        Err(error)
+    } else if operation == FUND {
         present(current).and_then(|current| {
             reward_step(
                 rewards::apply_fund(ctx, &envelope, request, current, next, scratch, event)?,
@@ -1316,8 +1340,8 @@ pub fn route(
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn request_prologue(input: &[u8]) -> CodecResult<(ValidatedEnvelope<'_>, RequestDigest)> {
-    let envelope = codec::decode_envelope(input)?;
-    let request = envelope.request_digest()?;
+    let mut envelope = codec::decode_envelope(input)?;
+    let request = envelope.cache_request_digest()?;
     Ok((envelope, request))
 }
 
@@ -1384,12 +1408,13 @@ fn result_epilogue(
             )
             .map(|result_len| Routed::Unchanged { result_len })
         }
-        Ok(Step::Read { payload_len }) => scratch
+        Ok(Step::Read {
+            payload_len,
+            revision,
+        }) => scratch
             .get(..payload_len)
             .ok_or(NON_CANONICAL)
-            .and_then(|body| {
-                queries::frame_read_result(request, visible_revision(current), body, result)
-            })
+            .and_then(|body| queries::frame_read_result(request, revision, body, result))
             .map(|result_len| Routed::Unchanged { result_len }),
         Err(error) => Err(error),
     };
@@ -1645,7 +1670,7 @@ fn transition(
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
-            0x0105 | 0x0111 | 0x0401 | 0x0402 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
+            0x0101..=0x0111 | 0x0201..=0x020A | 0x0301..=0x0304 | 0x0401 | 0x0402 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0801..=0x0809 | 0x0901 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
         )
     {
         return transition_inner(
@@ -1806,7 +1831,8 @@ fn handle_open_epoch(
     event: &mut [u8],
     _record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
 ) -> CodecResult<Step> {
-    match epoch::open_epoch(ctx, envelope, present(current)?, next, scratch, event)? {
+    let sections = state::SectionReader::new(present(current)?)?;
+    match epoch::open_epoch_sections(ctx, envelope, &sections, next, scratch, event)? {
         epoch::Outcome::Opened {
             revision,
             state_len,
@@ -1818,7 +1844,15 @@ fn handle_open_epoch(
             event_len,
             payload: Payload::Suffix,
         }),
-        epoch::Outcome::AlreadyApplied { .. } => Ok(Step::Unchanged(Payload::Empty)),
+        epoch::Outcome::AlreadyApplied { .. } => {
+            let cursor = crate::evaluators::authority::CommittedSnapshot::read(
+                sections.section(state::Section::IdentityRoster),
+            )?
+            .worker_count() as u16;
+            _record_out[..2].copy_from_slice(&cursor.to_be_bytes());
+            _record_out[2..4].copy_from_slice(&cursor.to_be_bytes());
+            Ok(Step::Unchanged(Payload::Record(4)))
+        }
     }
 }
 
@@ -2231,15 +2265,16 @@ fn read(
         codec::derive_market(ctx.chain, ctx.program)?,
     )?;
     e.check_expiry(ctx.height)?;
-    let state = state::decode_shared_state(current)?;
-    bound_section(ctx, &state)?;
-    let header = queries::read_header(current, ctx.chain, ctx.program)?;
+    let header = queries::stored_header(current, ctx.chain, ctx.program)?;
     let payload_len = match e.operation {
         READ_HEADER => codec::encode_read_header(&header, out)?,
-        READ_STATE_CHUNK => queries::read_state_chunk(current, e.payload, out)?,
+        READ_STATE_CHUNK => queries::stored_chunk(current, e.payload, &header, out)?,
         _ => return Err(UNKNOWN_OPERATION),
     };
-    Ok(Step::Read { payload_len })
+    Ok(Step::Read {
+        payload_len,
+        revision: header.revision,
+    })
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -2440,12 +2475,8 @@ fn rebind(
     event_len: usize,
     scratch: &mut [u8],
 ) -> CodecResult<Step> {
-    let (section_out, rest) = scratch
-        .get_mut(..REBIND_SCRATCH_BYTES)
-        .ok_or(NON_CANONICAL)?
-        .guest_split_at_mut(F01_SECTION_CAP);
-    let (control, staged) = rest.guest_split_at_mut(CONTROL_CAP);
-    let (revision, staged_len) = {
+    let section_out = scratch.get_mut(..F01_SECTION_CAP).ok_or(NON_CANONICAL)?;
+    let (revision, section_len) = {
         let state = state::decode_shared_state(next.get(..state_len).ok_or(NON_CANONICAL)?)?;
         let mut section = PolicySection::decode(
             *state
@@ -2453,20 +2484,14 @@ fn rebind(
                 .guest_index(Section::PolicyLifecycle.index()),
         )?;
         section.header.state_revision = state.revision;
-        let section_len = section.encode(section_out)?;
-        let revision = state.revision;
-        let rebound = state.with_section(
-            Section::PolicyLifecycle,
-            section_out.guest_index(..section_len),
-        )?;
-        (
-            revision,
-            state::encode_shared_state(&rebound, staged, control)?,
-        )
+        (state.revision, section.encode(section_out)?)
     };
-    next.get_mut(..staged_len)
-        .ok_or(NON_CANONICAL)?
-        .guest_copy_from_slice(staged.guest_index(..staged_len));
+    let staged_len = state::replace_encoded_section(
+        next,
+        state_len,
+        Section::PolicyLifecycle,
+        section_out.guest_index(..section_len),
+    )?;
     Ok(Step::Applied {
         revision,
         state_len: staged_len,

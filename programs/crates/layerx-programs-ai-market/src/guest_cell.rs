@@ -8,6 +8,70 @@ use core::{
 #[cfg(target_feature = "atomics")]
 compile_error!("guest cells require the single-threaded Programs runtime");
 
+// An explicit zero discriminant keeps empty caches in Wasm's zero-initialized
+// memory instead of serializing a large payload's nested Option niches.
+#[repr(u8)]
+pub(crate) enum Cached<T> {
+    Empty,
+    Value(T),
+}
+
+pub(crate) struct GuestOnce<T> {
+    value: UnsafeCell<Cached<T>>,
+    initializing: Cell<bool>,
+}
+
+// SAFETY: the guest is single threaded; initialization rejects synchronous reentry,
+// and an initialized value is never mutated, including through a host callback.
+unsafe impl<T> Sync for GuestOnce<T> {}
+
+impl<T> GuestOnce<T> {
+    pub(crate) const fn new() -> Self {
+        Self {
+            value: UnsafeCell::new(Cached::Empty),
+            initializing: Cell::new(false),
+        }
+    }
+
+    pub(crate) fn get(&self) -> Option<&T> {
+        // SAFETY: initialized values are immutable for the activity lifetime.
+        unsafe { &*self.value.get() }.as_ref()
+    }
+
+    pub(crate) fn get_or_try_init<E>(
+        &self,
+        initialize: impl FnOnce() -> Result<T, E>,
+        reentry: E,
+    ) -> Result<&T, E> {
+        if let Some(value) = self.get() {
+            return Ok(value);
+        }
+        if self.initializing.replace(true) {
+            return Err(reentry);
+        }
+        let value = initialize();
+        self.initializing.set(false);
+        let value = value?;
+        // SAFETY: get returned None before the guarded initialization, so no
+        // reference to a value exists; reentry cannot initialize this cell.
+        unsafe { *self.value.get() = Cached::Value(value) };
+        self.get().ok_or(reentry)
+    }
+}
+
+impl<T> Cached<T> {
+    pub(crate) fn as_ref(&self) -> Option<&T> {
+        match self {
+            Self::Empty => None,
+            Self::Value(value) => Some(value),
+        }
+    }
+
+    pub(crate) fn is_some(&self) -> bool {
+        self.as_ref().is_some()
+    }
+}
+
 pub(crate) struct GuestCell<T> {
     value: UnsafeCell<T>,
     borrowed: Cell<bool>,

@@ -41,8 +41,8 @@ use crate::{
     registry_ops::{CallContext, PolicySection},
     rewards::RewardState,
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ActorSlot, HeightWindow,
-        ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, encode_shared_state, ActorSlot, HeightWindow, ReplayDecision,
+        ReplayRequest, RetainedResult, Section, SharedState,
     },
     tasks,
     types::{Authentication, EvaluatorId, FrozenBinding, Presence, ResultDigest},
@@ -1952,19 +1952,17 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 fn frozen_binding<'a>(
     state: &SharedState<'a>,
     section: &PolicySection<'_>,
-    known: Option<RewardState<'a>>,
-) -> CodecResult<(FrozenBinding, RewardState<'a>)> {
-    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
+    _known: Option<RewardState<'a>>,
+) -> CodecResult<FrozenBinding> {
+    let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = settlement_rewards(state, known)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?
+        .row;
     let header = &section.header;
     let frozen = FrozenBinding {
         chain: header.deployment_chain_domain,
@@ -1974,7 +1972,7 @@ fn frozen_binding<'a>(
         config: Version::new(header.active_config_version)?,
         roster: row.roster,
     };
-    Ok((frozen, rewards))
+    Ok(frozen)
 }
 
 /// The sealed evidence registration of `evaluator` in the opened `epoch`, read from committed
@@ -2000,7 +1998,7 @@ pub(crate) fn sealed_evidence_with<'a>(
     evaluator: EvaluatorId,
     known: Option<RewardState<'a>>,
 ) -> CodecResult<Presence<RegisteredEvidence>> {
-    let (frozen, _) = frozen_binding(state, &committed(state)?, known)?;
+    let frozen = frozen_binding(state, &committed(state)?, known)?;
     if frozen.epoch != epoch {
         return Err(WRONG_EPOCH);
     }
@@ -2074,7 +2072,6 @@ impl SealPayload {
 struct Opened<'a> {
     state: SharedState<'a>,
     section: PolicySection<'a>,
-    rewards: RewardState<'a>,
     frozen: FrozenBinding,
     region: SealRegion<'a>,
 }
@@ -2082,7 +2079,7 @@ struct Opened<'a> {
 fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     let state = decode_shared_state(current)?;
     let section = committed(&state)?;
-    let (frozen, rewards) = frozen_binding(&state, &section, None)?;
+    let frozen = frozen_binding(&state, &section, None)?;
     let region = SealRegion::decode(state.control.feature_bytes)?;
     if region.epoch > frozen.epoch && !region.records.is_empty() {
         return Err(NON_CANONICAL);
@@ -2090,7 +2087,6 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     Ok(Opened {
         state,
         section,
-        rewards,
         frozen,
         region,
     })
@@ -2182,11 +2178,8 @@ impl Call<'_> {
         {
             return Err(EVIDENCE_BINDING);
         }
-        let sealed = tasks::sealed_task_set_with(
-            &self.opened.state,
-            self.opened.frozen.epoch,
-            Some(self.opened.rewards),
-        )?;
+        let sealed =
+            tasks::sealed_task_set_with(&self.opened.state, self.opened.frozen.epoch, None)?;
         if payload.task_set != sealed {
             return Err(EVIDENCE_BINDING);
         }
@@ -2622,11 +2615,11 @@ pub fn require_sealed_artifact_chunk_root(
     let unsealed = crate::errors::F11_BATCH_UNSEALED;
     let manifest = decode_manifest(manifest_bytes).map_err(|_| unsealed)?;
     let section = committed(state)?;
-    let (frozen, rewards) = frozen_binding(state, &section, None)?;
+    let frozen = frozen_binding(state, &section, None)?;
     if frozen.epoch != epoch {
         return Err(WRONG_EPOCH);
     }
-    let task_set = tasks::sealed_task_set_with(state, epoch, Some(rewards))?;
+    let task_set = tasks::sealed_task_set_with(state, epoch, None)?;
     let chunk_root = wire::sha256([
         CONTENT_DOMAIN,
         &manifest.byte_length.to_be_bytes(),

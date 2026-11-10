@@ -242,26 +242,13 @@ pub struct FrozenEvaluator {
 impl FrozenEvaluator {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
-        crate::codec::write_fields!(w;
-            id32: self.entry.evaluator.as_bytes();
-            id32: self.entry.owner.as_bytes();
-            u64: self.entry.grant.get();
-            u64: self.entry.key_version.get();
-            put: &self.entry.public_key.0;
-            id32: self.entry.rubric.as_bytes();
-        )?;
+        codec::write_evaluator_roster(w, &self.entry)?;
         w.u64(self.expiry_epoch_exclusive)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
         let value = Self {
-            entry: crate::codec::read_record!(r, EvaluatorRosterEntry {  }; evaluator = r.evaluator_id()?;
-                owner: PrincipalId,
-                grant: Version,
-                key_version: Version,
-                public_key: PublicKey32,
-                rubric: RubricDigest
-            ),
+            entry: codec::read_evaluator_roster(r)?,
             expiry_epoch_exclusive: r.u64()?,
         };
         nonzero_key(value.entry.public_key)?;
@@ -274,18 +261,57 @@ impl FrozenEvaluator {
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Snapshot {
     pub epoch: u64,
-    entries: [Option<FrozenEvaluator>; MAX_EVALUATORS],
+    entries: Option<[FrozenEvaluator; MAX_EVALUATORS]>,
     count: usize,
-    workers: [Option<WorkerRosterEntry>; MAX_WORKERS],
+    workers: Option<[WorkerRosterEntry; MAX_WORKERS]>,
     worker_count: usize,
 }
 impl Snapshot {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read(r: &mut Reader<'_>, format: u8) -> CodecResult<Self> {
+        let mut snapshot = Self::new(r.u64()?);
+        let frozen = usize::from(r.u8()?);
+        if frozen > MAX_EVALUATORS {
+            return Err(CAPACITY);
+        }
+        for _ in 0..frozen {
+            snapshot.push(FrozenEvaluator::read(r)?)?;
+        }
+        if format == 2 {
+            let count = usize::from(r.u8()?);
+            if count == 0 || count > MAX_WORKERS {
+                return Err(NON_CANONICAL);
+            }
+            for _ in 0..count {
+                snapshot.push_worker(codec::read_worker_roster(r)?)?;
+            }
+        }
+        Ok(snapshot)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn committed(identity: &[u8]) -> CodecResult<Self> {
+        let (_, bytes) = split_identity_section(identity)?;
+        let mut r = Reader::new(bytes);
+        let count = usize::from(r.u8()?);
+        if count > MAX_EVALUATORS {
+            return Err(CAPACITY);
+        }
+        r.take(count * RECORD_BYTES)?;
+        if r.u8()? != 2 {
+            return Err(crate::errors::WRONG_ROSTER);
+        }
+        let snapshot = Self::read(&mut r, 2)?;
+        r.finish()?;
+        Ok(snapshot)
+    }
+
     const fn new(epoch: u64) -> Self {
         Self {
             epoch,
-            workers: [None; MAX_WORKERS],
+            workers: None,
             worker_count: 0,
-            entries: [None; MAX_EVALUATORS],
+            entries: None,
             count: 0,
         }
     }
@@ -298,7 +324,11 @@ impl Snapshot {
         self.count == 0
     }
     pub fn entries(&self) -> impl Iterator<Item = &FrozenEvaluator> {
-        self.entries.guest_index(..self.count).iter().flatten()
+        let entries: &[FrozenEvaluator] = match self.entries.as_ref() {
+            Some(entries) => entries.guest_index(..self.count),
+            None => &[],
+        };
+        entries.iter()
     }
     #[must_use]
     pub fn get(&self, evaluator: EvaluatorId) -> Option<FrozenEvaluator> {
@@ -308,24 +338,29 @@ impl Snapshot {
     }
     /// Immutable worker values committed by the opening, in worker ID order.
     pub fn workers(&self) -> impl Iterator<Item = &WorkerRosterEntry> {
-        self.workers
-            .guest_index(..self.worker_count)
-            .iter()
-            .flatten()
+        let workers: &[WorkerRosterEntry] = match self.workers.as_ref() {
+            Some(workers) => workers.guest_index(..self.worker_count),
+            None => &[],
+        };
+        workers.iter()
+    }
+    pub(crate) const fn worker_count(&self) -> usize {
+        self.worker_count
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn push_worker(&mut self, entry: WorkerRosterEntry) -> CodecResult<()> {
         if self.worker_count == MAX_WORKERS {
             return Err(CAPACITY);
         }
-        if self
-            .workers()
-            .last()
-            .is_some_and(|p| p.worker >= entry.worker)
-        {
-            return Err(NON_CANONICAL);
+        if self.worker_count == 0 {
+            self.workers = Some([entry; MAX_WORKERS]);
+        } else {
+            let workers = self.workers.as_mut().ok_or(NON_CANONICAL)?;
+            if workers.guest_index(self.worker_count - 1).worker >= entry.worker {
+                return Err(NON_CANONICAL);
+            }
+            *workers.guest_index_mut(self.worker_count) = entry;
         }
-        *self.workers.guest_index_mut(self.worker_count) = Some(entry);
         self.worker_count += 1;
         Ok(())
     }
@@ -334,14 +369,15 @@ impl Snapshot {
         if self.count >= MAX_EVALUATORS {
             return Err(F03_EVALUATOR_CAPACITY);
         }
-        if self
-            .entries()
-            .last()
-            .is_some_and(|p| p.entry.evaluator >= value.entry.evaluator)
-        {
-            return Err(NON_CANONICAL);
+        if self.count == 0 {
+            self.entries = Some([value; MAX_EVALUATORS]);
+        } else {
+            let entries = self.entries.as_mut().ok_or(NON_CANONICAL)?;
+            if entries.guest_index(self.count - 1).entry.evaluator >= value.entry.evaluator {
+                return Err(NON_CANONICAL);
+            }
+            *entries.guest_index_mut(self.count) = value;
         }
-        *self.entries.guest_index_mut(self.count) = Some(value);
         self.count += 1;
         Ok(())
     }
@@ -386,8 +422,30 @@ impl EvaluatorRegion {
         self.records.guest_index(..self.count).iter().flatten()
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn get(&self, evaluator: EvaluatorId) -> Option<&EvaluatorRecord> {
-        self.records().find(|r| r.grant.evaluator == evaluator)
+        let entries = self.records.guest_index(..self.count);
+        let at =
+            entries.partition_point(|r| r.as_ref().is_some_and(|r| r.grant.evaluator < evaluator));
+        entries
+            .get(at)
+            .and_then(Option::as_ref)
+            .filter(|r| r.grant.evaluator == evaluator)
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn eligible_member(
+        &self,
+        evaluator: EvaluatorId,
+        admission: &AdmissionTable,
+    ) -> Option<bool> {
+        let record = self.get(evaluator)?;
+        Some(
+            record.grant.status != GrantStatus::Revoked
+                && !record.revocation.is_some_and(|r| r.excludes_frozen_epoch)
+                && admission
+                    .get(Participant::Evaluator(evaluator))
+                    .is_some_and(|m| !m.revoked()),
+        )
     }
     #[must_use]
     pub const fn snapshot(&self) -> Option<&Snapshot> {
@@ -562,9 +620,7 @@ impl EvaluatorRegion {
                 if snapshot.worker_count > 0 {
                     w.u8(u8::try_from(snapshot.worker_count).map_err(|_| ARITHMETIC)?)?;
                     for entry in snapshot.workers() {
-                        let mut bytes = [0; codec::WORKER_ROSTER_BYTES];
-                        codec::encode_worker_roster(entry, &mut bytes)?;
-                        w.put(&bytes)?;
+                        codec::write_worker_roster(&mut w, entry)?;
                     }
                 }
             }
@@ -576,6 +632,34 @@ impl EvaluatorRegion {
     /// `CAPACITY` and `NON_CANONICAL` for any non-canonical or inconsistent region.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
+        Self::with_decoded(input, |value| Ok(*value))
+    }
+
+    pub(crate) fn with_decoded<T>(
+        input: &[u8],
+        read: impl FnOnce(&Self) -> CodecResult<T>,
+    ) -> CodecResult<T> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            static DECODED: crate::guest_cell::GuestOnce<(&'static [u8], EvaluatorRegion)> =
+                crate::guest_cell::GuestOnce::new();
+            if let Some((bytes, value)) = DECODED.get() {
+                if core::ptr::eq(*bytes, input) || crate::codec::equal_bytes(bytes, input) {
+                    return read(value);
+                }
+            } else if let Some(frozen) = crate::state::current_slice(input) {
+                let (_, value) = DECODED.get_or_try_init(
+                    || Ok((frozen, Self::decode_uncached(frozen)?)),
+                    NON_CANONICAL,
+                )?;
+                return read(value);
+            }
+        }
+        read(&Self::decode_uncached(input)?)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn decode_uncached(input: &[u8]) -> CodecResult<Self> {
         let mut region = Self::new();
         if input.is_empty() {
             return Ok(region);
@@ -590,37 +674,21 @@ impl EvaluatorRegion {
         }
         for _ in 0..count {
             let record = EvaluatorRecord::read(&mut r)?;
-            if region
-                .records()
-                .last()
-                .is_some_and(|p| p.grant.evaluator >= record.grant.evaluator)
+            if region.count > 0
+                && region
+                    .records
+                    .guest_index(region.count - 1)
+                    .as_ref()
+                    .is_some_and(|p| p.grant.evaluator >= record.grant.evaluator)
             {
                 return Err(NON_CANONICAL);
             }
-            region.insert(&record)?;
+            region.records[region.count] = Some(record);
+            region.count += 1;
         }
         let snapshot_format = r.u8()?;
         if snapshot_format == 1 || snapshot_format == 2 {
-            let mut snapshot = Snapshot::new(r.u64()?);
-            let frozen = usize::from(r.u8()?);
-            if frozen > MAX_EVALUATORS {
-                return Err(CAPACITY);
-            }
-            for _ in 0..frozen {
-                snapshot.push(FrozenEvaluator::read(&mut r)?)?;
-            }
-            if snapshot_format == 2 {
-                let count = usize::from(r.u8()?);
-                if count == 0 || count > MAX_WORKERS {
-                    return Err(NON_CANONICAL);
-                }
-                for _ in 0..count {
-                    snapshot.push_worker(codec::decode_worker_roster(
-                        r.take(codec::WORKER_ROSTER_BYTES)?,
-                    )?)?;
-                }
-            }
-            region.snapshot = Some(snapshot);
+            region.snapshot = Some(Snapshot::read(&mut r, snapshot_format)?);
         } else if snapshot_format != 0 || count == 0 {
             return Err(NON_CANONICAL);
         }
@@ -656,6 +724,85 @@ pub fn split_identity_section(section: &[u8]) -> CodecResult<(&[u8], &[u8])> {
 /// Split and region decode errors.
 pub fn evaluator_region(section: &[u8]) -> CodecResult<EvaluatorRegion> {
     EvaluatorRegion::decode(split_identity_section(section)?.1)
+}
+
+/// Borrowed projection of the immutable opening, produced by `open_epoch_prepared`.
+/// Live grants and worker identities are outside this reader's consumed sections.
+pub(crate) struct CommittedSnapshot<'a> {
+    pub epoch: u64,
+    pub evaluators: &'a [u8],
+    pub workers: &'a [u8],
+}
+impl<'a> CommittedSnapshot<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn read(identity: &'a [u8]) -> CodecResult<Self> {
+        let (_, bytes) = split_identity_section(identity)?;
+        let mut r = Reader::new(bytes);
+        let count = usize::from(r.u8()?);
+        if count > MAX_EVALUATORS {
+            return Err(CAPACITY);
+        }
+        r.take(count * RECORD_BYTES)?;
+        if r.u8()? != 2 {
+            return Err(crate::errors::WRONG_ROSTER);
+        }
+        let epoch = r.u64()?;
+        let count = usize::from(r.u8()?);
+        if count == 0 || count > MAX_EVALUATORS {
+            return Err(crate::errors::WRONG_ROSTER);
+        }
+        let evaluators = r.take(count * FROZEN_BYTES)?;
+        let count = usize::from(r.u8()?);
+        if count == 0 || count > MAX_WORKERS {
+            return Err(crate::errors::WRONG_ROSTER);
+        }
+        let workers = r.take(count * codec::WORKER_ROSTER_BYTES)?;
+        r.finish()?;
+        Ok(Self {
+            epoch,
+            evaluators,
+            workers,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn worker(&self, index: usize) -> CodecResult<WorkerRosterEntry> {
+        let start = index
+            .checked_mul(codec::WORKER_ROSTER_BYTES)
+            .ok_or(ARITHMETIC)?;
+        codec::decode_worker_roster(
+            self.workers
+                .get(start..start + codec::WORKER_ROSTER_BYTES)
+                .ok_or(NON_CANONICAL)?,
+        )
+    }
+    pub(crate) fn worker_count(&self) -> usize {
+        self.workers.len() / codec::WORKER_ROSTER_BYTES
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn digest(
+        &self,
+        market: crate::types::MarketId,
+        config: Version,
+    ) -> CodecResult<crate::types::RosterDigest> {
+        let mut bytes = [0; codec::ROSTER_MAX_BYTES];
+        let mut w = Writer::new(&mut bytes);
+        crate::codec::write_fields!(w;
+            u16: crate::SCHEMA_VERSION;
+            id32: market.as_bytes();
+            u64: self.epoch;
+            u64: config.get();
+            u16: u16::try_from(self.worker_count()).map_err(|_| CAPACITY)?;
+            put: self.workers;
+            u16: u16::try_from(self.evaluators.len() / FROZEN_BYTES).map_err(|_| CAPACITY)?;
+        )?;
+        for entry in self.evaluators.chunks_exact(FROZEN_BYTES) {
+            w.put(entry.guest_index(..144))?;
+        }
+        let len = w.len();
+        crate::types::RosterDigest::new(
+            codec::domain_hash("PAXAI/roster/v1", bytes.guest_index(..len))?.bytes(),
+        )
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -1146,66 +1293,76 @@ pub fn open_epoch(
     ctx: &SnapshotContext<'_>,
     next: &mut [u8],
 ) -> CodecResult<OpenedSnapshot> {
+    open_epoch_prepared(section, ctx, next).map(|(counts, _)| counts)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn open_epoch_prepared(
+    section: &[u8],
+    ctx: &SnapshotContext<'_>,
+    next: &mut [u8],
+) -> CodecResult<(OpenedSnapshot, EvaluatorRegion)> {
     let (workers, region_bytes) = split_identity_section(section)?;
-    let region = EvaluatorRegion::decode(region_bytes)?;
-    if region.snapshot().is_some_and(|s| ctx.epoch <= s.epoch)
-        || ctx.admission.current_epoch() != Some(ctx.epoch)
-    {
-        return Err(WRONG_EPOCH);
-    }
-    if ctx.workers.len() > MAX_WORKERS {
-        return Err(CAPACITY);
-    }
-    let mut opened = EvaluatorRegion::new();
-    let mut snapshot = Snapshot::new(ctx.epoch);
-    for entry in ctx.workers {
-        snapshot.push_worker(*entry)?;
-    }
-    let mut counts = OpenedSnapshot::default();
-    for current in region.records() {
-        if !live(current.grant.status) {
-            bump(&mut counts.pruned)?;
-            continue;
-        }
-        let mut record = *current;
-        advance(&mut record, ctx, &mut counts)?;
-        let grant = record.grant;
-        if grant.status == GrantStatus::Active
-            && grant.rubric == ctx.approved_rubric
-            && (grant.principal == ctx.market.owner_principal
-                || ctx.workers.iter().any(|w| w.owner == grant.principal))
+    EvaluatorRegion::with_decoded(region_bytes, |region| {
+        if region.snapshot().is_some_and(|s| ctx.epoch <= s.epoch)
+            || ctx.admission.current_epoch() != Some(ctx.epoch)
         {
-            return Err(ROLE_CONFLICT);
+            return Err(WRONG_EPOCH);
         }
-        if grant.status == GrantStatus::Active
-            && grant.rubric == ctx.approved_rubric
-            && membership(ctx.admission, &grant, ctx.epoch).is_some()
-        {
-            if snapshot.entries().any(|f| f.entry.owner == grant.principal) {
+        if ctx.workers.len() > MAX_WORKERS {
+            return Err(CAPACITY);
+        }
+        let mut opened = EvaluatorRegion::new();
+        let mut snapshot = Snapshot::new(ctx.epoch);
+        for entry in ctx.workers {
+            snapshot.push_worker(*entry)?;
+        }
+        let mut counts = OpenedSnapshot::default();
+        for current in region.records() {
+            if !live(current.grant.status) {
+                bump(&mut counts.pruned)?;
+                continue;
+            }
+            let mut record = *current;
+            advance(&mut record, ctx, &mut counts)?;
+            let grant = record.grant;
+            if grant.status == GrantStatus::Active
+                && grant.rubric == ctx.approved_rubric
+                && (grant.principal == ctx.market.owner_principal
+                    || ctx.workers.iter().any(|w| w.owner == grant.principal))
+            {
                 return Err(ROLE_CONFLICT);
             }
-            if snapshot
-                .entries()
-                .any(|f| f.entry.public_key == grant.signing_key)
+            if grant.status == GrantStatus::Active
+                && grant.rubric == ctx.approved_rubric
+                && membership(ctx.admission, &grant, ctx.epoch).is_some()
             {
-                return Err(F03_KEY_REUSED);
+                if snapshot.entries().any(|f| f.entry.owner == grant.principal) {
+                    return Err(ROLE_CONFLICT);
+                }
+                if snapshot
+                    .entries()
+                    .any(|f| f.entry.public_key == grant.signing_key)
+                {
+                    return Err(F03_KEY_REUSED);
+                }
+                snapshot.push(FrozenEvaluator {
+                    entry: EvaluatorRosterEntry {
+                        evaluator: grant.evaluator,
+                        owner: grant.principal,
+                        grant: grant.grant_version,
+                        key_version: grant.key_version,
+                        public_key: grant.signing_key,
+                        rubric: grant.rubric,
+                    },
+                    expiry_epoch_exclusive: grant.expiry_epoch_exclusive,
+                })?;
             }
-            snapshot.push(FrozenEvaluator {
-                entry: EvaluatorRosterEntry {
-                    evaluator: grant.evaluator,
-                    owner: grant.principal,
-                    grant: grant.grant_version,
-                    key_version: grant.key_version,
-                    public_key: grant.signing_key,
-                    rubric: grant.rubric,
-                },
-                expiry_epoch_exclusive: grant.expiry_epoch_exclusive,
-            })?;
+            opened.insert(&record)?;
         }
-        opened.insert(&record)?;
-    }
-    counts.members = u8::try_from(snapshot.len()).map_err(|_| ARITHMETIC)?;
-    opened.snapshot = Some(snapshot);
-    counts.section_len = compose(workers, &opened, next)?;
-    Ok(counts)
+        counts.members = u8::try_from(snapshot.len()).map_err(|_| ARITHMETIC)?;
+        opened.snapshot = Some(snapshot);
+        counts.section_len = compose(workers, &opened, next)?;
+        Ok((counts, opened))
+    })
 }

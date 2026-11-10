@@ -1246,8 +1246,8 @@ impl EvaluationInput<'_> {
                 "protocol_budget",
                 v.protocol_consumed().to_string(),
                 v.observed_head_sequence(),
-                v.window_start_sequence(),
-                v.window_end_sequence()
+                v.window_start_ms(),
+                v.window_end_ms()
             ]),
             VerifiedPolicyContext::Authenticated(v) => {
                 if v.actor().as_bytes() != actor {

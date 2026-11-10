@@ -28,8 +28,33 @@ pub struct SpendReceiptEvidence<E = RawReceiptEvidence> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LocalAccounting {
     pub consumed: u128,
+    /// Compatibility field for external struct literals; its value is milliseconds.
     pub window_start_sequence: u64,
     pub last_receipt: Option<[u8; 32]>,
+}
+
+impl LocalAccounting {
+    #[must_use]
+    pub const fn at_period_start(
+        consumed: u128,
+        window_start_ms: u64,
+        last_receipt: Option<[u8; 32]>,
+    ) -> Self {
+        Self {
+            consumed,
+            window_start_sequence: window_start_ms,
+            last_receipt,
+        }
+    }
+
+    #[must_use]
+    pub const fn window_start_ms(&self) -> u64 {
+        self.window_start_sequence
+    }
+
+    fn set_window_start_ms(&mut self, window_start_ms: u64) {
+        self.window_start_sequence = window_start_ms;
+    }
 }
 
 /// Opaque reconciliation result issued only after protocol evidence succeeds.
@@ -43,8 +68,8 @@ pub struct ReconciliationState {
     local_before: u128,
     local_after: u128,
     divergence: Option<i128>,
-    window_start_sequence: u64,
-    window_end_sequence: u64,
+    window_start_ms: u64,
+    window_end_ms: u64,
     remaining: u128,
     observed_head_sequence: u64,
 }
@@ -84,12 +109,12 @@ impl ReconciliationState {
         self.divergence
     }
 
-    pub(crate) const fn window_start_sequence(&self) -> u64 {
-        self.window_start_sequence
+    pub(crate) const fn window_start_ms(&self) -> u64 {
+        self.window_start_ms
     }
 
-    pub(crate) const fn window_end_sequence(&self) -> u64 {
-        self.window_end_sequence
+    pub(crate) const fn window_end_ms(&self) -> u64 {
+        self.window_end_ms
     }
 }
 
@@ -144,13 +169,13 @@ pub(crate) fn reconcile_state<E: Clone + Into<super::BudgetReceiptEvidence>>(
         local_before,
         local_after: protocol_consumed,
         divergence,
-        window_start_sequence: record.period_start,
-        window_end_sequence: record.window_end_sequence(),
+        window_start_ms: record.period_start,
+        window_end_ms: record.period_end_ms(),
         remaining: record.remaining(),
         observed_head_sequence: verified_state.observed_head_sequence(),
     };
     local.consumed = protocol_consumed;
-    local.window_start_sequence = record.period_start;
+    local.set_window_start_ms(record.period_start);
     local.last_receipt = last_verified_receipt;
     Ok(state)
 }
@@ -377,8 +402,8 @@ impl ProtocolBudgetState<CommittedBudgetEvidence> {
             local_before: before,
             local_after: spent,
             divergence,
-            window_start_sequence: record.period_start,
-            window_end_sequence: record.window_end_sequence(),
+            window_start_ms: record.period_start,
+            window_end_ms: record.period_end_ms(),
             remaining: if record.closed || record.revoked {
                 0
             } else {
@@ -387,7 +412,7 @@ impl ProtocolBudgetState<CommittedBudgetEvidence> {
             observed_head_sequence: self.evidence.height,
         };
         local.consumed = spent;
-        local.window_start_sequence = record.period_start;
+        local.set_window_start_ms(record.period_start);
         local.last_receipt = last;
         Ok(state)
     }
