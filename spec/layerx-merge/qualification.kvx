@@ -39530,3 +39530,19 @@ symbol = "fuel_budget.rs"
 observed = "Attempt 3 at 80d13275407c: build exit 0; verification exit 101: twelve cases of the fuel_budget target pass and f11_fuel_table panics at tests/fuel_budget.rs:2351 with Operation(2825) refused by ApplicationError(22) after 126 seconds; log /out/logs/verify-1.log."
 assumption = "The fixture is valid; the settlement section cap is below the sum of the regions it carries at the declared capacities."
 severity = "high"
+
+[finding.18.1667.1.15]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 15 at 1d1ee8c7b45c: build exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:402 after 300.24 seconds with record vector-v7-named-payee ending in context deadline exceeded; log /out/logs/verify-2.log."
+assumption = "The second chain for V7 is right; the case deadline covers one chain only at the 10 second commit interval."
+severity = "high"
+
+[finding.22.38.15.3]
+task = "22.38.15"
+file = "services/agent/crates/layerx-agentd/tests/inference_enrol.rs"
+symbol = "inference_enrol.rs"
+observed = "Attempt 3 at e5691f8e3e04: build exit 0; verification exit 101: six cases pass and bond_lock_precedes_bid_at_the_configured_quote panics at tests/inference_enrol.rs:39 with ProgramRefused for LockBond, code 14, WRONG_ROSTER; log /out/logs/verify-2.log."
+assumption = "The case signs the room and bond operations with the roster digest of another family."
+severity = "high"
