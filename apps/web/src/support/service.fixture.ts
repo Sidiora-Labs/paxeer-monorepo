@@ -15,7 +15,7 @@ import {
   type JsonValue,
   type SupportConversation,
   type SupportMessage,
-} from "../api/generated/index.ts";
+} from "../api/index.ts";
 
 function golden(name: string): { status: number; body: JsonValue } {
   return JSON.parse(readFileSync(new URL(`../../../../services/human/schema/human-api/golden/${name}.json`, import.meta.url), "utf8"));
