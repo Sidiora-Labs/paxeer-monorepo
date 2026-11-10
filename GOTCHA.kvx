@@ -19960,3 +19960,68 @@ fix = "The attempt names error 2825 from src/errors.rs, restores the bid path of
 title = "A retired-reference repair of the launchpad web application is verified by the whole web suite it did not touch"
 symptom = "Task 22.39.272 attempt 1 at 775c80605006 (base 04cbe6eed4): the attempt found every reference an allowed one and wrote only apps/launchpad/repair_22_39_272.kvx, and the verification ran the whole launchpad web suite, which is red on main for the causes of gotcha 4013 (chart-datafeed-recovery, coin-failure-frames, chart-udf-wire, runtime-authority-production, repair-22-33-900, connected-journeys, trade-journey, creation-journey, runtime.integration, repair-22-33-1011); the retired-callers scan itself was never reached"
 fix = "The verification of this task is the typecheck and the retired-callers scan; the web suite belongs to 22.39.95; decision 3130"
+
+[gotcha.4028]
+title = "The programs runtime lint attempt replaced three unwrap_err sites with two-arm matches the lint wants as let-else"
+symptom = "Task 22.39.235 attempt 7 at 56fc622cfe85: after the attempt-6 note the only remaining refusals of cargo clippy -D warnings are tests/repair_22_33_218.rs:443, :501 and :631, where the match on the refusal result (Err(refusal) => refusal, Ok(_) => panic!) is refused as manual_let_else; the twenty-one sites of the note are otherwise repaired"
+fix = "The three sites become let-else bindings with the panic in the else arm; decision 3139"
+
+[gotcha.4029]
+title = "The receipt equality case passes fixed-size key arrays to the hex encoder"
+symptom = "Task 18.1724.1 attempt 10 at f6736f63e485: go test ./node/sequencer/ fails to compile the test package at node/sequencer/receipt_equality_test.go:543:30 and :543:74, which pass pins[0].KeyId and pins[0].PublicKey (both [32]byte) to hexutil.Encode, whose parameter is []byte; the evidence also records build_on_verified unmet, the verification ran at a revision other than the built one"
+fix = "Attempt 11 slices the two arrays and runs the build and the verification at the final revision"
+
+[gotcha.4030]
+title = "The aggregator provenance pin of the committed receipt vector was not refreshed by the re-recording"
+symptom = "Task 22.39.297 attempt 1 at dcff5c1ce2: repair_22_33_24_preserves_recorded_producer_provenance fails at services/agent/sdk/typescript/test/repair-22-33-24.test.ts:139 because services/agent/sdk/typescript/test/fixtures/repair-22-33-24/committed.json pins sha256 fc3fe1494c91 for daemon/committed-fixture/vectors/vector-v4-committed.json while the vector on main hashes 5013cd232ee9 since 74ef78b42b (task 22.31.486 re-recorded it under chain id 125 and refreshed the consumers it knew); the pin has been stale on main since that landing and no verification ran the aggregator alone since task 22.33.24 landed"
+fix = "Task 22.39.299 refreshes the pin; decision 3140"
+
+[gotcha.4031]
+title = "The recorded exact receipts fail local verification only when the web search sequencer cases run inside the aggregator process"
+symptom = "Task 22.39.297 attempt 1 at dcff5c1ce2: inside node dist/test/repair-22-33-24.test.js the four unmodified recorded exact payment cases and the failed result and unknown signing key cases of web-search-sequencer.test.ts refuse the recorded receipt with hash_mismatch (src/verifier.ts:564, activityId differs from the transaction hash) before any mutation, and every case of webSearchClientTests follows; the same file passes all 26 cases when run on its own at the same fixture tree (task 22.39.288 attempt 1 at c7da4d6fd3, base 2860cad020, no file under services/agent changed between the bases); the self-contained runner never reached these cases because the aggregator aborts while importing revert.test.js at its snapshot assertion"
+fix = "Task 22.39.299 isolates the shared process state and verifies the aggregator alone; decision 3140"
+
+[gotcha.4032]
+title = "The Fund attribution measurement pins a revision that is not an object on main"
+symptom = "Task 22.38.13 attempt 2 at 6aff2c04c33c: TestFundConsumptionAttribution fails at rpc/repair_478_test.go:199 with git archive 42fc4308cf0d exiting 128, not a valid object name; the revision list at rpc/repair_478_test.go:192 has carried 42fc4308cf0d since 101f526f03 (task 22.99.77) and that commit is reachable from no branch of the repository, so the measurement cannot run on any checkout of main"
+fix = "Task 22.39.300 replaces the pin by the main-reachable commit of the same boundary; decision 3141"
+
+[gotcha.4033]
+title = "The import-free V1 programs module still reverts with the module-disabled code"
+symptom = "Task 18.1667.1 attempt 11 at 4696ae4768ec: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:320, the V1 Programs call of the recorder (submit protocol 3, activity 0x00090003, ABI 1) reverts with LXP_ERR_MODULE_DISABLED and the revert string carries only the code; the module no longer imports layerx_v1.transfer_402, so the refusal comes from one of the other producers of the code in src/modules/programs/call.c (:1248 the web view byte, :2134 and :2316 when lxp_ctx_module_runtime yields no runtime, :2176 and :2435 the transfer registrations)"
+fix = "Attempt 12 identifies the producing site through the replay record of the call and configures the fixture genesis so the module runtime is present"
+
+[gotcha.4034]
+title = "The clock regression peer serves no commit for a height the daemon reads"
+symptom = "Task 18.1747.1 attempt 12 at 65987f9fe979: native_approval_clock_units panics at services/human/crates/layerx-human-service/tests/repair_22_33_63.rs:1857 with no entry found for key after the daemon reads commit 63, 62, 63, 62 and 61 at HEAD 64; the commits map built at :1804 from the recorded px_getCommit answers holds no entry for 61, the peer thread dies, the native envelope is refused with owner.refused and the Journey advance panics at :2510"
+fix = "Attempt 13 serves a signed header for every height the regression reads"
+
+[gotcha.4035]
+title = "A record-only retired-reference repair leaves every finding in place"
+symptom = "Task 22.39.272 attempt 2 at 026eda712c3f: the scan of apps/launchpad, sdk/launchpad and contracts/launchpad still reports twelve findings, statusOf at apps/launchpad/web/src/widgets/profile/activity-transport.ts:75 and :88 and recordDeposit at contracts/launchpad/contracts/core/SidioraFactory.sol:82, interfaces/ITreasury.sol:18, periphery/Router.sol:166, protocol/Treasury.sol:79, sdk/launchpad/protocol/catalog/reviewed.json:9102, :9449, :9450 and the same three lines of sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json; the attempt changed only apps/launchpad/repair_22_39_272.kvx, and the scan honours an allowance only through allowed_references of tools/paxeer-x/retired_callers.json (an entry whose path covers the file and whose symbols name the symbol, or whose path equals the file and whose lines carry the exact line), a file the task does not admit in its touches"
+fix = "Attempt 3 admits the catalogue and repairs or allows each finding; decision 3125"
+
+[gotcha.4036]
+title = "The pay module suites read the kernel activity table before its streamOpenForAsk entry exists"
+symptom = "Task 22.39.298 attempt 1 at 4b50ddc26e55: with the genesis producer repairs in place, go test ./modules/layerxpay/types/ ./modules/layerxpay/keeper/ still fails four cases on one missing activity entry: TestMethodActivityMatchesKernelTypes at modules/layerxpay/types/activity_test.go:107 (nonpayable ABI method streamOpenForAsk has no frozen expectation) and :133 (41 ABI methods, want 40), and TestCheckWritePauseExitPaths, TestCheckWriteFamilyDisabled and TestCheckWriteViewsUngated at modules/layerxpay/keeper/gate_test.go:60, :128 and :185, whose activity maps lack streamOpenForAsk. The method entered the ABI at 41d32cc012 (task 22.38.9); its activity entry is the work of 22.39.291, which requires 22.39.298."
+fix = "Decision 3143: the verification of 22.39.298 skips the four cases that read the activity table; 22.39.291 runs the whole module once the entry exists."
+
+[gotcha.4037]
+title = "The parity run exhausts the disk of the qualification environment even with one row log at a time"
+symptom = "Task 17.4.6 attempt 8: after the build installed the wallet, explorer and Elixir dependencies the parity run completed the first twelve rows (ten go test rows, one make build row, one cg spec row) and then failed with OSError Errno 28 (No space left on device) at spec/layerx-merge/programme/parity.py:480 while flushing the report and at :354 while opening the next row source; the attempt wrote no evidence record (log logs-verify-1.log of the attempt). The report embeds the complete output of every row, and the Go build cache, the two node module trees, the browser download and the Elixir build all stay on the same volume."
+fix = "Top-level do_9 of 17.4.6: record the free space of the working volume in each row log, embed only the last two hundred lines of a row output in the report, and remove the build outputs of a recorded row that no later row reads."
+
+[gotcha.4038]
+title = "One inclusive-range lint remained in the program replay test"
+symptom = "Task 22.39.235 attempt 8 at a746cb12c7d8: cargo clippy -p layerx-programs-runtime --all-targets -- -D warnings fails on a single site, programs/crates/layerx-programs-runtime/tests/program_replay.rs:256 (changed.splice(offset..offset + 1, replacement), clippy::range_plus_one), exit 101, log /out/logs/verify-2.log."
+fix = "Attempt 9 writes the range as offset..=offset and changes nothing else."
+
+[gotcha.4039]
+title = "One recorded-read test function of the agent SDK still exceeds one hundred lines"
+symptom = "Task 22.39.225 attempt 9 at 8021eeccdb8b: cargo clippy -p layerx-sdk --all-targets -- -D warnings fails on a single site, services/agent/crates/layerx-sdk/tests/repair_22_31_487.rs:45, recorded_api_read_decodes_through_sdk_without_a_retired_alias has 107 lines (clippy::too_many_lines), exit 101, log /out/logs/verify-2.log."
+fix = "Attempt 10 splits the function into named helpers and changes nothing else."
+
+[gotcha.4040]
+title = "Concurrent additions to the retired-callers catalogue conflict textually on the same list tail"
+symptom = "Three qualified repairs (22.39.247 attempt 2 at 802b20fcf830, 22.39.297 attempt 2 at 21cc035c4105 and 18.1752.1 attempt 7 at 5484ea469ed9) could not be integrated onto their domain branches: each appended entries to allowed_references of tools/paxeer-x/retired_callers.json at the end of the list, as another repair already on the branch had, so the three-way text merge reports a conflict in the catalogue although the additions are independent. The same conflict kept the agent and kernel domain branches from merging into main for a day."
+fix = "Decision 3142: the catalogue merges by three-way union of its object lists; the integration resolved the three repairs and the two branches that way and the scanner validates the merged catalogue."
