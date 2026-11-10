@@ -40522,3 +40522,19 @@ symbol = "merged_runtime_fixture.py"
 observed = "Attempt 4 at e94789f96a5d on base cb8c8ad4b426: both builds exit 0, at ee613c9cfa27 and 1b7ab9db09a9, and both verifications exit 1; the first stops when the isolated node exits during readiness after a flag it does not register, the second with paxd exited 1: Error: sequencer config: invalid value: sequencer.nonce-queue-max-per-sender must be positive; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
 assumption = "The proof was never run outside the counted gates, so each counted verification found the next fault of the node start."
 severity = "high"
+
+[finding.17.5.7.24]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 24 at 350d001e3ec1 on base ba5000655d05: the build exits 0 and the verification exits 1; make workspace-build exits 2 in paxeer-build with module lookup disabled by GOPROXY=off from admin/types/admin.pb.go:9 on, and the runner answers 125 with source-identity-refusal on engine/executor/lib/libevmone.0.12.0_linux_amd64.so; the free space after the command is 3945545728 bytes; log /out/logs/verify-1.log."
+assumption = "Nothing fetches the modules of the root module before the gate, and the runner does not admit the native library that the build writes."
+severity = "high"
+
+[finding.22.39.228.6]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 6 at 71d096a4b3ed on base 079876b623d7: the build exits 0 and the verification exits 101; the lint reports one error, method with_enrolment is never used at src/inference_market/signal.rs:275, and could not compile layerx-agentd (test inference_signal); log /out/logs/verify-1.log."
+assumption = "The target takes in the signal source without the allowance of decision 3292, and the method arrived with the enrolment route."
+severity = "high"
