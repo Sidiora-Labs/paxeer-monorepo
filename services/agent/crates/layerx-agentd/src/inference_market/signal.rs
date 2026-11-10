@@ -429,6 +429,7 @@ pub struct SignalListener {
 }
 
 impl SignalListener {
+    #[cfg(test)]
     pub fn start(
         listener: TcpListener,
         offer: RoomOffer,
@@ -527,6 +528,7 @@ impl Drop for SignalListener {
     }
 }
 
+#[cfg(test)]
 fn serve_connection(
     stream: &mut TcpStream,
     offer: &RoomOffer,
