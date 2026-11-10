@@ -1001,6 +1001,7 @@ impl DealSignalListener {
         listener
             .set_nonblocking(true)
             .map_err(|error| error.to_string())?;
+        #[cfg(test)]
         let address = listener.local_addr().map_err(|error| error.to_string())?;
         let stop = Arc::new(AtomicBool::new(false));
         let shared = Arc::new(Mutex::new(Connections::default()));
@@ -1051,6 +1052,7 @@ impl DealSignalListener {
         }).map_err(|error| error.to_string())?;
         Ok(Self {
             signal: SignalListener {
+                #[cfg(test)]
                 address,
                 stop,
                 shared,
@@ -1061,6 +1063,7 @@ impl DealSignalListener {
             live_announced: BTreeSet::new(),
         })
     }
+    #[cfg(test)]
     pub fn local_addr(&self) -> SocketAddr {
         self.signal.local_addr()
     }

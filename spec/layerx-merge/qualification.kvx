@@ -40042,3 +40042,43 @@ symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_onc
 observed = "Attempt 4 at 7729d7911128 on base ad52c8e6d41f: both builds exit 0; verification 2 exits 1 at 7729d7911128 with eight unit cases passed and one failed at apps/wallet/src/components/TransferSuccess.test.tsx:30, ENOENT for the conformance fixture one directory above the repository; the send case did not run; log /out/logs/verify-2.log."
 assumption = "The fixture path of the new case holds one parent segment too many."
 severity = "high"
+
+[finding.22.39.226.2]
+task = "22.39.226"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 2 at 18dabb06132d on base 8f48fda09773: builds 1 and 2 exit 101, build 3 exits 0 at 14f6beea516d (log /out/logs/build-3.log), and the check of the dependent packages exits 101 with E0412, E0560 and E0599 in src/inference_market/deals.rs; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The host binary does not compile on main and the cause sits outside the paths of the task."
+severity = "high"
+
+[finding.22.38.18.1]
+task = "22.38.18"
+file = "services/agent/crates/layerx-agentd/tests/inference_laps.rs"
+symbol = "inference_laps.rs"
+observed = "Attempt 1 at 183ade27f302 on base 583a1586d7bb: build 1 exits 101, builds 2 and 3 exit 0 (log /out/logs/build-3.log), and the check of the dependent packages exits 101 at 183ade27f302 with E0412, E0560 and E0599 in src/inference_market/deals.rs; no verification ran; log /out/logs/dependents-2.log."
+assumption = "The host binary does not compile on main and deals.rs is outside the paths of the task."
+severity = "high"
+
+[finding.17.5.7.16]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 16 at 4b995a314b06 on base 8f48fda09773: the build exits 0 and the verification exits 1; make workspace-build exits 2 at agent-build with E0412, E0560 and E0599 in services/agent/crates/layerx-agentd/src/inference_market/deals.rs; log /out/logs/verify-1.log."
+assumption = "The host binary does not compile on main and its directory is outside the paths of the gate task."
+severity = "high"
+
+[finding.22.39.342.1]
+task = "22.39.342"
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs::NativeDestinationAuthorizationVectors"
+symbol = "ReceiptFixtureTests.cs::NativeDestinationAuthorizationVectors"
+observed = "Attempt 1 at 2f617a977898 on base 00af874880f4: build 1 exits 1 with NETSDK1045 (log /out/logs/build-1.log) and build 2 exits 1 at 9a855cf18b03 with SYSLIB0057 at sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs:82; no verification ran; log /out/logs/build-2.log."
+assumption = "The test project does not build on main under its target framework and the site is outside the paths of the task."
+severity = "high"
+
+[finding.22.38.13.8]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 8 at a798c0fba504 on base 5c9d1fbfdc8f: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; fuel_budget ends with 19 passed and 1 failed, f11_fuel_table panics at tests/fuel_budget.rs:3975 with selector 0x0b01 and status -601, state 117274 bytes and fuel 999974; log /out/logs/verify-1.log."
+assumption = "The room opening of the guest exceeds the CPU fuel allowance on a full state and only the tree of this task measures it."
+severity = "high"
