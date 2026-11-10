@@ -12064,6 +12064,12 @@ value = "A case that proves the refusal of a receipt for a foreign operation nev
 basis = "Gotcha 4077, decisions 3046 and 3150. The refreshed committed vector is a Ledger settlement, which is the operation the client accepts."
 affects = ["22.39.288"]
 
+[decision.3159]
+title = "The retained settlement cases of the agent daemon are repaired by their own task"
+value = "Task 22.39.312 runs the three human_runtime::retained_settlement_tests cases on main, finds which of the three witness coordinates (reservation, activity, terminal receipt) differs at the binding check of human_runtime.rs and repairs the producer of that coordinate or the fixture of the cases, never the check. The verification of 22.39.253 skips the three cases; its attempt 3 runs them at the base revision of the attempt and, when they pass there, restores whatever its own edit changed and proves the three cases green at its final revision in the record."
+basis = "Gotcha 4078, decision 3130. A retired-reference repair neither owns a settlement defect nor hides one it caused."
+affects = ["22.39.312", "22.39.253"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41724,6 +41730,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.312]
+title = "Repair the retained settlement cases of the agent daemon refused at the witness binding"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+verification_contract = "test -s services/agent/crates/layerx-agentd/repair_22_39_312.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests"
+do_1 = "do_1 Decision 3159, gotcha 4078. Run cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests on the starting revision and record the result. When the three cases retained_settlement_refuses_a_failed_receipt, retained_settlement_settles_after_the_head_advances and retained_settlement_settles_once_across_replay are refused at witness_binding (services/agent/crates/layerx-agentd/src/human_runtime.rs near :4022), print in the test build which of witness.reservation_id, witness.activity_id and witness.terminal_receipt differs from the prepared submission and the terminal, and trace the differing coordinate to its producer: read_retained_program_debit_settlement and read_retained_lifecycle_debit_settlement_at_execution in src/budget/program_settlement.rs, the storage witness retention of the state export path, or the fixture the cases build near :23700."
+symbols = []
 
 [capability.22.39.311]
 title = "Make the clock-bound Human service lib cases self-contained"
@@ -192782,6 +192797,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.312]
+title = "Repair the retained settlement cases of the agent daemon refused at the witness binding"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.312"]
+interfaces = []
+do_1 = "do_1 Decision 3159, gotcha 4078. Run cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests on the starting revision and record the result. When the three cases retained_settlement_refuses_a_failed_receipt, retained_settlement_settles_after_the_head_advances and retained_settlement_settles_once_across_replay are refused at witness_binding (services/agent/crates/layerx-agentd/src/human_runtime.rs near :4022), print in the test build which of witness.reservation_id, witness.activity_id and witness.terminal_receipt differs from the prepared submission and the terminal, and trace the differing coordinate to its producer: read_retained_program_debit_settlement and read_retained_lifecycle_debit_settlement_at_execution in src/budget/program_settlement.rs, the storage witness retention of the state export path, or the fixture the cases build near :23700."
+do_2 = "do_2 Repair the producer of the coordinate when the daemon derives it wrongly, or the fixture when the cases still model a coordinate the producer no longer emits (gotcha 3046); never weaken or reorder the binding check. When the three cases pass on the starting revision, change no source and record that fact with the revision. Record the differing coordinate, its producer and the repair in services/agent/crates/layerx-agentd/repair_22_39_312.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_312.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --tests"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/repair_22_39_312.kvx && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.311]
 title = "Make the clock-bound Human service lib cases self-contained"
 status = "pending"
@@ -193409,7 +193453,7 @@ touches = ["services/agent/crates/layerx-agentd/host-tests/retired_env.rs", "ser
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_253.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --bin layerx-paxeer-boundary && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --bins"
-verify_cmd = "test -s services/agent/crates/layerx-agentd/repair_22_39_253.kvx && LAYERX_PAXEER_BOUNDARY_BIN=${CARGO_TARGET_DIR:-$PWD/services/platform/target}/debug/layerx-paxeer-boundary cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/repair_22_39_253.kvx && LAYERX_PAXEER_BOUNDARY_BIN=${CARGO_TARGET_DIR:-$PWD/services/platform/target}/debug/layerx-paxeer-boundary cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --skip human_runtime::retained_settlement_tests::retained_settlement_refuses_a_failed_receipt --skip human_runtime::retained_settlement_tests::retained_settlement_settles_after_the_head_advances --skip human_runtime::retained_settlement_tests::retained_settlement_settles_once_across_replay && python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-agentd"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -193422,6 +193466,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 4004, decisions 3129 and 3130): the attempt-1 tree 3459f3d174 stands. The build command now builds layerx-paxeer-boundary and the verification names it through LAYERX_PAXEER_BOUNDARY_BIN, which clears the two TLS identity cases. For the three human_runtime::retained_settlement_tests cases (human_runtime.rs:23566, Refused at witness_binding), run them first at the base revision of the attempt: if they pass there, the retired-reference edit of human_runtime.rs broke the witness binding path and the attempt restores the live identifier as an allowance in tools/paxeer-x/retired_callers.json (now in the touches); if they fail there too, record the cases and the refusing site in the record and verify without them by naming them in the record only (a repair task follows), never by filtering the command. Run the build once and the verification once at the final revision."
+do_5 = "Attempt 3 (continue, gotcha 4078, decision 3159): the attempt-2 tree 34783598ec29 stands (the allowance entries, the explained retained references, the record). Before anything else, check out the base revision of the attempt in a second working tree and run cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib human_runtime::retained_settlement_tests there once; write the revision, the command and the result of the three cases into the record. When they pass at the base, the edit of src/human_runtime.rs in this tree broke the witness binding path: compare the two files, restore the live identifier or value the edit changed, keep it as an allowed reference with its reason in tools/paxeer-x/retired_callers.json, run the three cases at the final revision and record them green. When they are refused at the base too, change nothing: they are the work of task 22.39.312. The verification now skips the three cases. Run the build once and the verification once at the final revision."
 
 [task.22.39.252]
 title = "Repair the retired references of the ai-market program crate and the programs overview"

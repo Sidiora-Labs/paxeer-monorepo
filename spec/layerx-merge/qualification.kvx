@@ -39466,3 +39466,11 @@ symbol = "px.test.ts"
 observed = "Attempt 5 at 634b81d5b2ee: build exit 0; verification exit 1: 52 test files executed, 1 failed: test/web-search.test.ts fails 3 of 34 cases in webSearchExactPaymentLogReceipts (Missing expected rejection at dist/test/web-search.test.js:112, then two deepStrictEqual failures at :119 and :127 that hold one header too many); the python suite is not reached; log /out/logs/verify-1.log."
 assumption = "The three failures share one cause, the recorded receipt being accepted, and every other file of the suite passes."
 severity = "high"
+
+[finding.22.39.253.2]
+task = "22.39.253"
+file = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+symbol = "retired_env.rs"
+observed = "Attempt 2 at 34783598ec29: build exit 0; verification exit 101: cargo test -p layerx-agentd --lib reports 331 passed and 3 failed, the three human_runtime::retained_settlement_tests cases panicking at src/human_runtime.rs:23779 with Refused at witness_binding; the scan is not reached; log /out/logs/verify-1.log."
+assumption = "The two TLS identity cases are clear and the record carries no base-revision run of the three cases."
+severity = "high"
