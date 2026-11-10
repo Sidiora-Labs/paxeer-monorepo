@@ -211,6 +211,7 @@ struct Config {
     authority_endpoint: String,
     authority_bearer: String,
     authority_ca_der: Vec<u8>,
+    // Identity required by the shipped independent program-authority connection.
     authority_replica_id: [u8; 32],
     chain_trust_root: PathBuf,
     staleness_ms: u64,
