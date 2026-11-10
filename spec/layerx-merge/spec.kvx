@@ -12352,6 +12352,12 @@ value = "The package profile of layerx-programs-ai-market in programs/Cargo.toml
 basis = "Gotcha 4128, decisions 2675, 3192 and 3193."
 affects = ["22.38.13"]
 
+[decision.3207]
+title = "The gate runner names the build directories of Maven, SwiftPM and .NET as output beside their manifests"
+value = "permitted_output of scripts/gates/run_gate.py treats as build output, for untracked and ignored entries only: a directory target whose parent holds pom.xml, a directory .build whose parent holds Package.swift, and a directory obj or bin whose parent holds a file ending in .csproj. This follows the rule the runner already has for target beside Cargo.toml and for dist and .next beside package.json. A tracked file is always source, a directory of those names without its manifest stays refused, and no other part of the source identity policy of task 22.33.899 changes. This amends decision 3059 on the runner for that list only; the wave tasks still leave the runner alone."
+basis = "Gotcha 4129, decisions 3059, 3130 and 3201."
+affects = ["22.39.339", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42012,6 +42018,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.339]
+title = "Name the Maven, SwiftPM and .NET build directories as permitted output of the gate runner"
+reqs = ["22998.1"]
+touches = ["scripts/gates/run_gate.py", "scripts/gates/test_run_gate.py"]
+tests = ["scripts/gates/test_run_gate.py::RunGateTest::test_declared_untracked_build_outputs_are_permitted"]
+verification_contract = "test -s scripts/gates/repair_22_39_339.kvx && python3 -m pytest -q scripts/gates/test_run_gate.py scripts/gates/test_repair_22_33_899.py"
+do_1 = "do_1 Decision 3207, gotcha 4129. In permitted_output of scripts/gates/run_gate.py (the loop at :57 to :66) add three rules beside the Cargo rule: a part target whose parent directory holds pom.xml, a part .build whose parent holds Package.swift, and a part obj or bin whose parent holds at least one file ending in .csproj. Change nothing else of the runner: the exemption keeps applying to untracked and ignored entries only, and a tracked file stays source."
+symbols = ["permitted_output"]
 
 [capability.22.39.338]
 title = "Remove the two historical deployment scripts of the Paxeer compatibility root with their pins"
@@ -333092,7 +333107,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -333129,6 +333144,7 @@ do_12 = "Attempt 10 (continue after 22.39.301 lands, gotcha 4043, decision 3144)
 do_13 = "Attempt 11 (continue after 22.39.309 lands, gotcha 4065, decision 3154): the attempt-9 tree 0b7715be4a92 stands unchanged. The JVM dependency installation fails because GeneratedCatalogueProgramsTest asserts the retained transaction method of program.activity and program.receipt while the generated JVM transports read eth_getLogs; task 22.39.309 aligns the generator and the generated schema and the task now requires it. Rebase on main after 22.39.309 lands and run the build once and the verification once at the final revision."
 do_14 = "Attempt 12 (continue after 22.39.317 lands, gotcha 4090, decision 3170): the attempt-11 tree 0305e69f47bc stands unchanged. The gate stopped inside make platform-install-local-artifacts because twelve cases of the JVM platform SDK suite are red on main; they are outside the touches of this task and 22.39.317 repairs them. Rebase on main once 22.39.317 is there, change nothing of the tree, and run the build once and the verification once at the final revision. When the gate then stops at a further step, record the step, the command and the first error as a finding and repair it only when the cause lies inside the touches of this task."
 do_15 = "Attempt 13 (continue after 22.39.335 lands, gotcha 4123, decision 3201): the attempt-12 tree a8267ca704f9 stands (the gate changes, the Makefile, the web package file, the completion gate case). The gate now passes the install of sdk/platform/jvm and stops at the install of sdk/integrations/spring with 1 failure and 7 errors of 30. Six come from the place of the checkout: run_wave at spec/layerx-merge/programme/gates.py:38 creates it under the system temporary directory, the cases keep their stores under the target directory of the module, and DurableStores.inspectDirectory at DurableStores.java:406 refuses a store that has a group or world writable ancestor. Create the parent of the checkout with mode 0700 in a directory beside the repository root, verify before the checkout that no ancestor of it is group or world writable and stop with a message naming the first that is, keep the removal of the checkout and of its parent, and extend spec/layerx-merge/programme/tests/test_wave_6_gate.py with the assertion on the ancestors while its present assertions stay. Change no case and no source of the Spring integration. The two remaining errors (ReceiptKeysConfigTest) belong to task 22.39.335, which the task now requires: merge main once that task is on it. Run the build once and the verification once at the final revision."
+do_16 = "Attempt 14 (continue after 22.39.339 lands, gotcha 4129, decision 3207): the attempt-13 tree 0d064cbe7515 stands (the checkout beside the repository root with its ancestor check, the assertions of the wave gate test, the Makefile, the web package file, the completion gate case). The preparation now completes and the runner refuses the first command because it counts the build directories of Maven, SwiftPM and .NET as source; task 22.39.339 names them as output and the task now requires it. Merge main once that task is on it, change nothing of the tree and nothing of the runner, and run the build once and the verification once at the final revision. When the gate then stops at a further command, record the command, its exit code and the first error as a finding and repair it only when the cause lies inside the touches of this task."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -351869,6 +351885,36 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.339]
+title = "Name the Maven, SwiftPM and .NET build directories as permitted output of the gate runner"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.339"]
+interfaces = []
+do_1 = "do_1 Decision 3207, gotcha 4129. In permitted_output of scripts/gates/run_gate.py (the loop at :57 to :66) add three rules beside the Cargo rule: a part target whose parent directory holds pom.xml, a part .build whose parent holds Package.swift, and a part obj or bin whose parent holds at least one file ending in .csproj. Change nothing else of the runner: the exemption keeps applying to untracked and ignored entries only, and a tracked file stays source."
+do_2 = "do_2 In scripts/gates/test_run_gate.py extend test_declared_untracked_build_outputs_are_permitted, or add a case beside it, so the committed fixture holds a pom.xml, a Package.swift and a project file ending in .csproj in three directories and the run passes with untracked and ignored files under target, .build, obj and bin beside them. Add the refusals: the same four directory names without their manifest are refused with exit 125, and a tracked file under a Maven target directory that is modified is refused (the shape of test_tracked_files_in_build_directories_are_source). Every existing case stays unchanged."
+do_3 = "do_3 Record the three rules, the twelve directories of gotcha 4129 and the cases that prove them in scripts/gates/repair_22_39_339.kvx. Run the build once and the verification once at the final revision."
+symbols = ["permitted_output"]
+touches = ["scripts/gates/run_gate.py", "scripts/gates/test_run_gate.py"]
+tests = ["scripts/gates/test_run_gate.py::RunGateTest::test_declared_untracked_build_outputs_are_permitted"]
+planned_paths = ["scripts/gates/repair_22_39_339.kvx"]
+build_cmd = "python3 -m py_compile scripts/gates/run_gate.py scripts/gates/test_run_gate.py"
+verify_cmd = "test -s scripts/gates/repair_22_39_339.kvx && python3 -m pytest -q scripts/gates/test_run_gate.py scripts/gates/test_repair_22_33_899.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.331]
 title = "Bring the compatibility record of the launchpad production interfaces to the current SDK sources"
