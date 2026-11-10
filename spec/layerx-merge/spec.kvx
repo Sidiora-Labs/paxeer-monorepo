@@ -284332,7 +284332,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.363]
 title = "Declare the records under the output roots of the platform SDKs in the pipeline lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
