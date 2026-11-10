@@ -39850,3 +39850,19 @@ symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
 observed = "Attempt 8 at 934b544b6f52 on base 1da5e223456f: the verification exits 101, reward_reopen_preserves_recipient_balances stops at the Claim at height 290 with receipt result code -736 and no absent account line of the kernel; log /out/logs/verify-1.log."
 assumption = "The runtime compares the receipt root of the resolved account with a root over the identity bytes."
 severity = "high"
+
+[finding.17.4.6.7]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 12 at 7474dc4921a9 on base 1b4b14bd3e44: the verification exits 1, pytest reports 1 failed in 2456 seconds, 48 of 50 rows pass and both wallet rows stop at apps/wallet/e2e/send.spec.ts:972 with a strict mode violation on two buttons named Local sequencer signer; log /out/logs/verify-1.log."
+assumption = "The wallet application lists the announced provider twice and the wallet source is outside the paths of the task."
+severity = "high"
+
+[finding.22.39.117.15]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 15 at d090e17d89c7 on base ce4f88dbbf43: the build exits 0 and the verification exits 2 in make -C services/launchpad ci; the indexer module fails in internal/app, internal/config, internal/decode, internal/processor and internal/receipt; log /out/logs/verify-1.log."
+assumption = "The three comparison helpers sit outside the paths of the task and the catalogue loaders are red on main."
+severity = "high"

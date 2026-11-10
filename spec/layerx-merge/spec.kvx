@@ -12370,6 +12370,18 @@ value = "Decision 3200 stays: a program transfer leg whose destination names an 
 basis = "Gotcha 4131, decisions 3046, 3101, 3193 and 3200."
 affects = ["22.39.340", "22.39.341", "22.39.342", "22.39.343", "22.39.344", "22.39.345", "18.1749.1"]
 
+[decision.3210]
+title = "The wallet holds one entry for each announced browser wallet"
+value = "The wallet application holds one entry per provider uuid of EIP-6963. A provider that announces again, or that a new start of the discovery reports again, replaces its entry in place and never adds one, and the onboarding page shows one option per provider. The send case of apps/wallet/e2e/send.spec.ts keeps its strict locators and is not changed to accept two buttons."
+basis = "Gotcha 4132, decisions 3046 and 3130."
+affects = ["22.39.346", "17.4.6"]
+
+[decision.3211]
+title = "A ruling that assigns a repair in a file names that file in the paths of the task in the same batch"
+value = "A do item names only files inside the paths of its task. When a ruling assigns a task a repair in a file outside its paths, the same ruling adds the file to the touches, and a file that two tasks change one after the other is ordered by a requires entry. The three comparison helpers of the launchpad indexer and the baseline list of the launchpad Go cases join the paths of task 22.39.117, which follows task 22.39.162."
+basis = "Gotcha 4133, decisions 3119 and 3130."
+affects = ["22.39.117"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42030,6 +42042,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.346]
+title = "List each announced browser wallet once in the wallet application"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src/wallet", "apps/wallet/src/components/onboarding", "apps/wallet/e2e/send.spec.ts", "apps/wallet/next-env.d.ts"]
+tests = ["apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts", "apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"]
+verification_contract = "test -s apps/wallet/src/wallet/repair-22-39-346.kvx && pnpm --dir apps/wallet exec vitest run src/wallet/WalletProvider.test.tsx && bash tools/qualification/localnode/v6120-node.sh --sequencer --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && WALLET_TRANSFER_TRUTH_ANVIL_URL=$LOCAL_NODE_SEQUENCER_RPC WALLET_TRANSFER_TRUTH_SENDER=$LOCAL_NODE_ADDRESS WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL=$LOCAL_NODE_SEQUENCER_RPC WALLET_TRANSFER_TRUTH_SEQUENCER_KEY=$LOCAL_NODE_KEY pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts -g 'send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload$'"
+do_1 = "do_1 Decision 3210, gotcha 4132. In apps/wallet/src/wallet/WalletProvider.tsx the discovery effect at :384 appends every provider that discoverInjectedWallets reports to injectedRef at :389, and the reference outlives the effect, so a further start of the discovery (a development remount, a changed dependency of the effect) lists the same provider again. Make the list hold one entry per provider uuid: an entry with a known uuid replaces the earlier one in place, and the cleanup of the effect leaves nothing that the next start adds a second time. connectInjected at :365 keeps resolving a provider by its uuid, and the embedded provider stays excluded."
+symbols = ["discoverInjectedWallets"]
 
 [capability.22.39.345]
 title = "Describe the version 2 account-bound evidence and identity destinations in the programs documents"
@@ -184432,6 +184453,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.346]
+title = "List each announced browser wallet once in the wallet application"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.346"]
+interfaces = []
+do_1 = "do_1 Decision 3210, gotcha 4132. In apps/wallet/src/wallet/WalletProvider.tsx the discovery effect at :384 appends every provider that discoverInjectedWallets reports to injectedRef at :389, and the reference outlives the effect, so a further start of the discovery (a development remount, a changed dependency of the effect) lists the same provider again. Make the list hold one entry per provider uuid: an entry with a known uuid replaces the earlier one in place, and the cleanup of the effect leaves nothing that the next start adds a second time. connectInjected at :365 keeps resolving a provider by its uuid, and the embedded provider stays excluded."
+do_2 = "do_2 Add the case wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts to apps/wallet/src/wallet/WalletProvider.test.tsx: one provider announced on a target, the provider tree mounted, unmounted and mounted again on the same target, and mounted once under React.StrictMode; injected then holds exactly one entry with the announced uuid and connectInjected connects through it. The case must fail on the tree before do_1."
+do_3 = "do_3 The verification runs the send case of apps/wallet/e2e/send.spec.ts against the local node; it must pass the onboarding assertions at :972 and :989 with one button and run to its end. Keep the case as it is. A failure whose cause sits in the wallet source under the paths is repaired in this task; a cause outside the paths is recorded with the first failing assertion and its line, and the task stops there. The development server of the wallet rewrites apps/wallet/next-env.d.ts, which is in the paths: restore it with git checkout before the commit."
+do_4 = "do_4 Record in apps/wallet/src/wallet/repair-22-39-346.kvx the defect with its two sites, the change, the new case and the result of the send case. Run the build once and the verification once at the final revision."
+symbols = ["discoverInjectedWallets"]
+touches = ["apps/wallet/src/wallet", "apps/wallet/src/components/onboarding", "apps/wallet/e2e/send.spec.ts", "apps/wallet/next-env.d.ts"]
+tests = ["apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts", "apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"]
+planned_paths = ["apps/wallet/src/wallet/repair-22-39-346.kvx"]
+build_cmd = "make -f chain.mk install && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet exec playwright install chromium && pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts --list"
+verify_cmd = "test -s apps/wallet/src/wallet/repair-22-39-346.kvx && pnpm --dir apps/wallet exec vitest run src/wallet/WalletProvider.test.tsx && bash tools/qualification/localnode/v6120-node.sh --sequencer --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && WALLET_TRANSFER_TRUTH_ANVIL_URL=$LOCAL_NODE_SEQUENCER_RPC WALLET_TRANSFER_TRUTH_SENDER=$LOCAL_NODE_ADDRESS WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL=$LOCAL_NODE_SEQUENCER_RPC WALLET_TRANSFER_TRUTH_SEQUENCER_KEY=$LOCAL_NODE_KEY pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts -g 'send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.340]
 title = "Bind the payment account of an identity destination in the programs runtime and write the version 2 account-bound evidence"
 status = "pending"
@@ -226098,14 +226150,14 @@ title = "Give the five launchpad shared service packages in-process fixtures or 
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.39.75", "22.39.242"]
+requires = ["22.39.75", "22.39.242", "22.39.162"]
 reqs = ["22998.1"]
 capabilities = ["22.39.117"]
 interfaces = []
 do_1 = "do_1 Decision 2820, gotcha 3468. The 35 tests recorded in tests/ci/data/launchpad_go_test_baseline.json span sdk/launchpad/shared/chain, db/production, delivery, delivery/natsdriver and storage, whose tests open NATS, Postgres and object-storage services, and shared/auth, whose six tests read launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, a file the repository does not track. For the five service packages start the service in process where the module already carries a fixture (the testpki package is the pattern) or skip with t.Skip naming the environment variable that configures the service when it is unset, so the tests pass in the public check without a live service and run in full where one is configured."
 do_2 = "do_2 Delete the entries of the five service packages from the baseline file; the six auth entries stay with the untracked schema file named as the reason until the owner tracks the production specification pair, and the recipe keeps deriving its skip pattern from the file."
 symbols = []
-touches = ["sdk/launchpad/shared", "sdk/launchpad/protocol", "services/launchpad/Makefile", "services/launchpad/trading-charts/internal/engine/candle_stream_test.go", "apps/launchpad/web/src/core/network/deployment.ts", "services/launchpad/api/internal/app/stream_relay_production_test.go"]
+touches = ["sdk/launchpad/shared", "sdk/launchpad/protocol", "services/launchpad/Makefile", "services/launchpad/trading-charts/internal/engine/candle_stream_test.go", "apps/launchpad/web/src/core/network/deployment.ts", "services/launchpad/api/internal/app/stream_relay_production_test.go", "services/launchpad/indexer/internal/config/repair_m999_test.go", "services/launchpad/indexer/internal/decode/repair_m995_test.go", "services/launchpad/indexer/internal/receipt/repair_53_test.go", "tests/ci/data/launchpad_go_test_baseline.json"]
 tests = ["sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool", "sdk/launchpad/shared/db/production::TestPhase2ReaderCompatibility", "sdk/launchpad/shared/storage::TestArchiveActualCanonicalPostgresAndObjectStorage", "sdk/launchpad/shared/delivery/natsdriver"]
 planned_paths = ["tests/ci/data/launchpad_go_test_baseline.json"]
 build_cmd = "cd sdk/launchpad/shared && go vet ./..."
@@ -226137,6 +226189,7 @@ do_15 = "Attempt 13 (continue, gotcha 3941): the attempt-12 tree ef16d9ebde7a st
 do_16 = "Attempt 14 (continue, gotcha 3966, decision 3116): the attempt-13 tree equals the attempt-12 tree ef16d9ebde7a (the artifact-backed runtime fixture, the regenerated frontend identities, the staged pin of do_14, the record) and stands. The touches list now names services/launchpad/api/internal/app/stream_relay_production_test.go: make TestProductionStreamRelayPublishesCommittedFrames start a file-backed JetStream nats-server from NATS_SERVER_BINARY or the PATH on a loopback port, in a temporary store directory, when CORE_API_TEST_NATS_URL is empty, the way realBrokerProcess of sdk/launchpad/shared/delivery/natsdriver/driver_test.go:32 does, stopping it when the case ends; keep the URL override when it is set; keep the case content unchanged; add the site to the record. Run the build once and the verification once at the final revision."
 do_17 = "do_17 Decision 3119: after 22.39.242 lands, extend its three comparison helpers so the staged runtime hash do_14 adds is cleared the same way as the runtime hash, and the repair-record cases of internal/config, internal/decode and internal/receipt run green under make ci at the final revision."
 do_18 = "Attempt 15 (continue, gotchas 3966 and 3975, decision 3119): the attempt-14 tree dc36fbcb9ce5 stands (the loopback JetStream server of the stream relay case, the artifact-backed runtime fixture, the staged pin of do_14, the record). The task now follows 22.39.242: rebase on main, carry out do_17 (the staged runtime hash is cleared the same way as the runtime hash in the three comparison helpers), and run the build once and the verification once at the final revision."
+do_19 = "Attempt 16 (continue after 22.39.162 lands, gotcha 4133, decision 3211): the attempt-15 tree d090e17d89c7 stands (the in-process fixtures and configured skips of the five shared packages, the staged pin of do_14, the loopback JetStream server of the stream relay case, the record); the shared, protocol and API modules pass. Two causes made the indexer module red. First, the catalogue loaders of internal/app and internal/processor are red on main and task 22.39.162 repairs them; the task now requires it: rebase on main once that task is on it and change none of those loaders. Second, do_17: the touches now name services/launchpad/indexer/internal/config/repair_m999_test.go, services/launchpad/indexer/internal/decode/repair_m995_test.go and services/launchpad/indexer/internal/receipt/repair_53_test.go; in the manifest helper of each (at :126, :104 and :119 on main) clear StagedRuntimeHash and StagedUpgrade of every role of the recorded and of the current manifest beside RuntimeHash, and change nothing else in those files. The touches also name tests/ci/data/launchpad_go_test_baseline.json: after the rebase the file of main no longer holds the indexer entries; remove only the entries whose retiring task is 22.39.117. The test target stops at the first red module, so the nine modules after the indexer have not run with the staged fields: before the verification, search the modules that services/launchpad/Makefile lists for cases that compare a recorded manifest or role with deployment.Current field by field or by digest, and list each site in the record. When the verification turns red at such a site outside the paths, record file, line and message and stop. Run the build once and the verification once at the final revision."
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
@@ -333058,7 +333111,7 @@ title = "Run the parity inventory once on the merged revision"
 status = "pending"
 mode = "BUILD"
 wave = 49
-requires = ["17.4.5", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "22.39.230", "22.39.231", "22.39.232", "22.39.233", "22.39.240", "22.39.241", "22.39.280", "22.39.332"]
+requires = ["17.4.5", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "22.39.230", "22.39.231", "22.39.232", "22.39.233", "22.39.240", "22.39.241", "22.39.280", "22.39.332", "22.39.346"]
 reqs = ["17053.1"]
 capabilities = ["17.4.6"]
 interfaces = []
@@ -333090,6 +333143,7 @@ do_8 = "Attempt 8 (continue, gotcha 4001): attempt 7 wrote no evidence because t
 do_9 = "do_9 Attempt 9 (continue, gotcha 4037): attempt 8 wrote no evidence because the qualification environment ran out of disk again during the parity run (OSError Errno 28 at spec/layerx-merge/programme/parity.py:480 and :354 of its tree) after twelve rows. Continue from the attempt-4 tree, the latest the record holds, and apply the do_8 log placement again. Then, in spec/layerx-merge/programme/parity.py: record the free space of the working volume (df -k of the repository root) at the start of each row in that row log; embed only the last two hundred lines of a row output in report.jsonl and note the omitted line count; after a row is recorded, remove the build outputs that row produced which no later row reads (the cargo target directory of a Rust row, the Playwright report and trace directories of a wallet row, the explorer build output), and leave the Go build cache in place. Keep the report rows and their pass criteria unchanged. Run the build once and the verification once at the final revision."
 do_10 = "do_10 Attempt 10 (continue, gotcha 4076, decision 3157): attempts 8 and 9 left no result because the parity run filled the working volume of the go-cgo environment and the candidate commit failed on the full disk; the task now qualifies in the mixed environment, which starts with about 18 GiB free. Start from the latest tree the record holds, apply do_8 and do_9 again where the tree lacks them (the row log placement, the free-space line per row, the per-row removal of build outputs no later row reads), record the free space at the start and the end of the run in the task record, and run the build once and the verification once at the final revision."
 do_11 = "Attempt 12 (continue after 22.39.332 lands, gotcha 4111, decision 3189): the attempt-11 tree 1a315827bebd stands (parity.py with the row logs under the task log directory, the free space line per row, the last two hundred lines per row and the removal of build outputs, test_parity_run.py, data/parity.kvx). 47 of 50 rows pass and three repairs remain. First, the rows construct.existing-wallet-human-service-and-explorer-playwright and construct.new-signed-receipt-logs-new-case run the send case of apps/wallet/e2e/send.spec.ts, which throws at :877 without a local node. Give parity.py a declared environment for a selector, and for this selector start the node the owning task 12.35.2 declares (bash tools/qualification/localnode/v6120-node.sh --sequencer --env-out with a file under the row log directory), read that file, and pass WALLET_TRANSFER_TRUTH_ANVIL_URL and WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL from LOCAL_NODE_SEQUENCER_RPC, WALLET_TRANSFER_TRUTH_SENDER from LOCAL_NODE_ADDRESS and WALLET_TRANSFER_TRUTH_SEQUENCER_KEY from LOCAL_NODE_KEY to the row command. Start the node once for both rows, stop it and remove its home directory after the second, and never write the key into a row log or the report. The build command now installs the node binary first (make -f chain.mk install); the working volume had 4.3 GiB free at the wallet row, so remove what the node leaves behind. Second, the gate refused the result because the wallet development server rewrote apps/wallet/next-env.d.ts: after every row restore each tracked file outside the task paths that the row changed (git status --porcelain, then git checkout of those paths) and name the restored files in the row report. Third, the row construct.new-explorer-signature is red for a cause on main that 22.39.332 repairs; change nothing for it and do not drop or weaken the row. Keep the report rows and their pass criteria unchanged. Rebase on main and run the build once and the verification once at the final revision."
+do_12 = "Attempt 13 (continue after 22.39.346 lands, gotcha 4132, decision 3210): the attempt-12 tree 7474dc4921a9 stands (parity.py with the declared environment of a selector and the node started once for both wallet rows, the restoration of tracked files after each row, test_parity_run.py, data/parity.kvx). 48 of 50 rows pass. The two wallet rows stop at apps/wallet/e2e/send.spec.ts:972 for a defect of the wallet application that task 22.39.346 repairs; the task now requires it. Rebase on main once that task is on it, change nothing for the wallet, and do not drop or weaken a row. The working volume had 1.9 GiB free at the end of the run, so keep the removal of build outputs after each row. Run the build once and the verification once at the final revision."
 
 [task.17.5.1]
 title = "Run the wave 0 aggregate gate once on the merged wave revision"
