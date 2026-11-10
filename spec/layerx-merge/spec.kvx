@@ -196795,7 +196795,7 @@ do_4 = "Attempt 2 (continue, gotcha 3768, decisions 2908 and 3058): the attempt-
 
 [task.22.39.229]
 title = "Bring the agent daemon test targets named s-z under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222", "22.39.353", "22.39.364"]
