@@ -12298,6 +12298,12 @@ value = "When a tree passed its build and verification and its merge with main c
 basis = "Gotcha 4120, decisions 3186 and 3191."
 affects = ["22.39.222"]
 
+[decision.3198]
+title = "A gate command that runs the Fund attribution case states its time limit"
+value = "A build or verification command that runs TestFundConsumptionAttribution or another Go case that compiles the guest at several revisions passes -timeout 45m to go test. The default limit of ten minutes is no product bound and a run that passes by a fraction of a second proves nothing about the case. The limit of the task covers the command. Task 22.38.13 also requires task 22.39.333, because its build runs the host boundary target that task brings back under the deployment bound (decision 3192)."
+basis = "Gotchas 4114 and 4121, decision 3192."
+affects = ["22.38.13"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -185130,7 +185136,7 @@ title = "Prove every F11 operation under the fuel cap and the replay profile thr
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300", "22.39.316"]
+requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300", "22.39.316", "22.39.333"]
 reqs = ["22380.1"]
 capabilities = ["22.38.13"]
 interfaces = []
@@ -185140,7 +185146,7 @@ symbols = ["f11_fuel_table", "test_f11_host_boundary"]
 touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"]
 planned_paths = []
-build_cmd = "go test -count=1 ./rpc/ -run '^(TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution)$' && make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+build_cmd = "go test -count=1 -timeout 45m ./rpc/ -run '^(TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution)$' && make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
 verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test fuel_budget --test host_boundary"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -185157,6 +185163,7 @@ do_3 = "Decision 2900: before the first change, run cargo test --locked --manife
 do_4 = "Attempt 2 (continue, gotcha 3999, decision 3129): the attempt-1 tree ff3180d432 stands. The fuel cases read programs/target/repair-478 (owner, asset, create, fund, current), which rpc/repair_478_test.go writes; the build command now runs TestRepair478_FundWithinProductionAllowance and TestFundConsumptionAttribution of the node before the cargo build so the directory exists when fuel_budget runs. Rebase on main, keep the cases unchanged, and run the build once and the verification once at the final revision."
 do_5 = "Attempt 3 (continue, gotcha 4032, decision 3141): the attempt-2 tree 6aff2c04c33c stands. The task now requires 22.39.300, which pins the Fund attribution boundaries to commits reachable from main so TestFundConsumptionAttribution of the build command runs on a checkout of main. Rebase on main after 22.39.300 lands, keep the cases unchanged, and run the build once and the verification once at the final revision."
 do_6 = "Attempt 4 (continue, gotcha 4087, decision 3167): the attempt-3 tree 80d13275407c stands (the F11 fuel table and its fixture, the native CALL per operation, the guest optimisation level, the record). The task now requires 22.39.316, which sizes the settlement section for the reward state and the full room book together. Rebase on main after it lands, keep the fixture at the full capacities and every case unchanged, and when an operation on the full state then exceeds the fuel cap or the replay profile, bring it under through the joint-section readers as do_2 states. Run the build once and the verification once at the final revision."
+do_7 = "Attempt 5 (continue after 22.39.333 lands, gotchas 4114 and 4121, decisions 3192 and 3198): the attempt-4 tree 647b706c058f stands (tests/fuel_budget.rs of the AI market crate, tests/programs/test_ai_host_boundary.c, programs/Cargo.toml). Its build stopped at the ten minute default of go test inside TestFundConsumptionAttribution before the target and the cargo build ran; the build command now passes -timeout 45m. The task now requires 22.39.333, which gives the guest one packaging recipe and brings the host boundary target back under 524184 bytes. Merge main once that task is on it, change nothing for the size, the recipe or the Go case, run the build once and the verification once at the final revision; when a case of fuel_budget or host_boundary fails, record the first failing assertion and stop."
 
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"

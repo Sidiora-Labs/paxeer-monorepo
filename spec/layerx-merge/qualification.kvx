@@ -39770,3 +39770,11 @@ symbol = "src"
 observed = "Attempt 8 at 5adb26b25dfd on base 654bb784cafa: the build, the dependents run and the verification exit 0 (log /out/logs/verify-1.log); the merge with main conflicts in services/agent/crates/layerx-agentd/src/human_runtime.rs against commit 0190499213 of task 22.39.318."
 assumption = "The conflict comes from a change that landed between two attempts of the task and not from the tree."
 severity = "high"
+
+[finding.22.38.13.4]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 4 at 647b706c058f on base b155d9196308: the build exits 1, go test over ./rpc/ panics with test timed out after 10m0s in TestFundConsumptionAttribution at rpc/repair_478_test.go:211 and fails after 603 seconds; no verification ran; log /out/logs/build-1.log."
+assumption = "The case needs about ten minutes on a cold build and the command named no limit."
+severity = "high"
