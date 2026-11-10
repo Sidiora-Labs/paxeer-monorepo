@@ -39690,3 +39690,11 @@ symbol = "repair_22_39_318.rs"
 observed = "Attempt 1 at 34cfa7c2917f on base ddcf9ecff380: build exit 0 at 34cfa7c2917f (log /out/logs/build-3.log); the only verification, at e1fcc0bd8531, exits 1 with 22 passed and 1 failed: current_receipt_without_time_uses_only_a_verified_header_at_its_height panics at tests/support/mod.rs:819; log /out/logs/verify-1.log."
 assumption = "The fixture expiry was corrected after the only verification and the allowed runs were used."
 severity = "high"
+
+[finding.22.39.311.4]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 4 at f09df5255d79 on base d5614dd88e54: build exit 0 at ce55c220236f (log /out/logs/build-1.log); the verification at ce55c220236f exits 1 (the test run exits 101) with 1 passed and 1 failed: human_journey_and_approval_cross_tls_and_recover_after_sink_loss panics at crates/layerx-human-service/src/event_producer_tls.rs:91 with observe ack: webhook-trigger refused; log /out/logs/verify-1.log."
+assumption = "The node and consensus endpoints of the fixture point at the event source, which serves neither readiness call."
+severity = "high"
