@@ -122,6 +122,7 @@ func TestConsumerProcessesSwapFromChannel(t *testing.T) {
 	msg, _ := json.Marshal(map[string]interface{}{
 		"eventName":   "Swap",
 		"blockNumber": 100,
+		"position":    engine.ChainOrder{Height: 100},
 		"txHash":      "0xfeed",
 		"logIndex":    0,
 		"args": map[string]interface{}{
@@ -185,6 +186,7 @@ func TestConsumerRejectsBlockNumberAsTimestamp(t *testing.T) {
 	msg, _ := json.Marshal(map[string]interface{}{
 		"eventName":   "Swap",
 		"blockNumber": 1704067320,
+		"position":    engine.ChainOrder{Height: 1704067320},
 		"txHash":      "0xfeed2",
 		"logIndex":    0,
 		"args": map[string]interface{}{
@@ -205,6 +207,7 @@ func TestConsumerRejectsBlockNumberAsTimestamp(t *testing.T) {
 	valid, err := json.Marshal(map[string]interface{}{
 		"eventName":      "Swap",
 		"blockNumber":    1704067321,
+		"position":       engine.ChainOrder{Height: 1704067321},
 		"blockTimestamp": 1704067380,
 		"txHash":         "0xfeed2valid",
 		"logIndex":       0,
@@ -279,6 +282,7 @@ func TestConsumerUsesTopLevelBlockTimestamp(t *testing.T) {
 	msg, _ := json.Marshal(map[string]interface{}{
 		"eventName":      "Swap",
 		"blockNumber":    12345,
+		"position":       engine.ChainOrder{Height: 12345},
 		"blockTimestamp": 1704067380,
 		"txHash":         "0xfeed3",
 		"logIndex":       0,

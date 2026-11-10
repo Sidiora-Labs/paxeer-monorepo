@@ -34,6 +34,7 @@ type WebhookEvent struct {
 	BlockTimestamp int64                  `json:"blockTimestamp"`
 	TxHash         string                 `json:"txHash"`
 	LogIndex       int                    `json:"logIndex"`
+	Position       *engine.ChainOrder     `json:"position"`
 	Args           map[string]interface{} `json:"args"`
 }
 
@@ -89,6 +90,7 @@ func webhookHandler(deps WebhookDeps) http.HandlerFunc {
 				BlockTimestamp: event.BlockTimestamp,
 				TxHash:         event.TxHash,
 				LogIndex:       event.LogIndex,
+				Position:       event.Position,
 			}
 
 			if err := deps.Builder.ProcessSwap(r.Context(), swap); err != nil {
@@ -118,6 +120,9 @@ func webhookHandler(deps WebhookDeps) http.HandlerFunc {
 }
 
 func validWebhookSwap(event WebhookEvent) bool {
+	if event.BlockNumber <= 0 || event.Position == nil || event.Position.Height != uint64(event.BlockNumber) || event.LogIndex < 0 || event.Position.LogIndex != uint64(event.LogIndex) {
+		return false
+	}
 	if event.BlockTimestamp < 1704067200 || event.TxHash == "" || event.LogIndex < 0 || asString(event.Args["poolAddress"]) == "" || asString(event.Args["sender"]) == "" {
 		return false
 	}

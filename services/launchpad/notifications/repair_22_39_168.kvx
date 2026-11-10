@@ -1,0 +1,6 @@
+[meta]
+task = "22.39.168"
+module = "notifications"
+baseline_exclusions = 0
+qualification = "No baseline failures were recorded for this module; its ordinary tests remain in the declared verification."
+evidence = "services/launchpad/repair_22_39_168.kvx [evidence]; /out/run/gates.jsonl"
