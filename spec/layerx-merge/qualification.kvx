@@ -40570,3 +40570,19 @@ symbol = "workspace"
 observed = "Attempt 1 at f2764a63469d on base 4454df22eb4c: the build exits 0 at f2764a63469d, log /out/logs/build-1.log; no verification ran; outside the counted gates make workspace-install exits 2 at cargo fetch for tools/benchmark/loadtest/contracts/mars/Cargo.toml, no matching package named pax-cosmwasm found, and make platform-dependencies-install exits 2 at services/platform/Makefile.inc:27 for want of cargo-deny."
 assumption = "Three manifests outside the paths of the task ask the registry for a crate that only the repository holds, and the environment lacked the policy tool."
 severity = "high"
+
+[finding.22.39.117.21]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 21 at 6d0bb29124e2 on base 9162dfc88276: no build and no verification ran; the model endpoint ended the session during the cover pass outside the counted gates and the attempt ended with eight untracked coverage profile files under services/launchpad/.cover outside the paths; log /out/logs/run-task.log."
+assumption = "The verification of the task carried stages of the ci target that task 22.39.170 owns."
+severity = "high"
+
+[finding.22.39.211.2]
+task = "22.39.211"
+file = "services/agent/crates"
+symbol = "crates"
+observed = "Attempt 2 at b8de14815ac5 on base 14c3a7dc09d6: build 2 exits 0 at 16cf8e62c639; verification 1 exits 1 at 16cf8e62c639 with 828 lint messages in the test build of the library of layerx-agentd; log /out/logs/verify-1.log."
+assumption = "No task linted the unit cases of the library of the agent daemon before the lint of the whole workspace."
+severity = "high"
