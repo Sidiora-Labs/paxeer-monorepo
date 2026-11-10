@@ -185293,7 +185293,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.370]
 title = "Serve the enrolment of a peer on the host and send it from the peer command"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.28"]
