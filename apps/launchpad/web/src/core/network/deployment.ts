@@ -2,7 +2,7 @@
 // Code identity is attested separately; pending governance acceptance remains a release gate.
 export const CORE_DEPLOYMENT = Object.freeze({
   "chainId": 125,
-  "manifestSha256": "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a",
+  "manifestSha256": "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b",
   "recordedStatus": "finalized",
   "router": "0x78FB06f525cD964388f2305A489035263E31C6e4",
   "quoter": "0x793006f4F321b8863F26DBD75b11bAa01DA181dc",
