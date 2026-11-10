@@ -193729,7 +193729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1747.1]
 title = "Issue #1747: Exercise native approval and V2 preview in their clock-unit regressions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
