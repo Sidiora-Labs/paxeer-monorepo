@@ -40,15 +40,16 @@ func openDevelopmentIdentity(ctx context.Context, cfg config.Config, observe fun
 	return runtime, nil
 }
 
-// developmentTrustedProxies trusts every peer as a forwarding proxy outside
-// production. The container is reachable only through Railway's edge, which
-// sets X-Real-IP to the client address, or over the private network, whose
-// callers set no forwarding headers. With every hop trusted, realIP skips the
-// X-Forwarded-For chain and resolves the client from X-Real-IP, falling back to
-// the TCP peer; rate limits and identity IP throttles then key on the browser
-// instead of the shared edge address.
+// developmentTrustedProxies admits local fixtures and the private proxy
+// networks used by the development edge. Public client addresses remain
+// untrusted so the shared resolver can select the last untrusted forwarded hop.
 func developmentTrustedProxies() []netip.Prefix {
-	return []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0"), netip.MustParsePrefix("::/0")}
+	return []netip.Prefix{
+		netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128"),
+		netip.MustParsePrefix("10.0.0.0/8"), netip.MustParsePrefix("172.16.0.0/12"),
+		netip.MustParsePrefix("192.168.0.0/16"), netip.MustParsePrefix("100.64.0.0/10"),
+		netip.MustParsePrefix("fc00::/7"),
+	}
 }
 
 // edgeHeaders mark a request that crossed Railway's public edge or an HTTP

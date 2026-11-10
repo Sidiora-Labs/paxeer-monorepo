@@ -201,7 +201,7 @@ func (r *Repository) ReadPage(ctx context.Context, token, pool, cursor string, l
 			return out, ErrCursor
 		}
 	}
-	rows, err := tx.Query(ctx, "SELECT address,balance::text,category FROM "+r.schema+".snapshot_balances WHERE snapshot_id=$1 AND ($4 OR balance<$2::numeric OR (balance=$2::numeric AND address>$3)) ORDER BY balance DESC,address ASC LIMIT $5", id, balance, address, first, limit+1)
+	rows, err := tx.Query(ctx, "SELECT address,balance::text,category FROM "+r.schema+".snapshot_balances b WHERE snapshot_id=$1 AND ($4 OR balance<$2::numeric OR (balance=$2::numeric AND address>$3)) ORDER BY b.balance DESC,address ASC LIMIT $5", id, balance, address, first, limit+1)
 	if err != nil {
 		return out, err
 	}
