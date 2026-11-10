@@ -2482,7 +2482,7 @@ fn f07_a11_capacity_and_sizes() -> TestResult {
     let before = m.world.bytes.clone();
     assert_eq!(m.world.enroll(0x60, 1000), Err(CAPACITY));
     assert_eq!(m.world.bytes, before);
-    println!("AI.F07-A11 PASS 32 records scored, 33rd worker CAPACITY, 32 current + 32 history within 9088, joint within 24576, common within 196608");
+    println!("AI.F07-A11 PASS 32 records scored, 33rd worker CAPACITY, 32 current + 32 history within 9088, joint within 24576, common within {}", layerx_programs_ai_market::MAX_STATE_BYTES);
     Ok(())
 }
 

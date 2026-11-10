@@ -86,14 +86,10 @@ fn budget_state_is_decoded_from_get_budget() {
     assert!(!record.revoked);
     assert_eq!(record.delegates, vec![[0x66; 32], [0x77; 32]]);
     assert_eq!(record.source_account, Some([0x55; 32]));
-    let mut local = LocalAccounting {
-        consumed: 400,
-        window_start_sequence: 0,
-        last_receipt: None,
-    };
+    let mut local = LocalAccounting::at_period_start(400, 0, None);
     let reconciled = must(state.reconcile(&mut local, &[]));
     assert_eq!(local.consumed, 350);
-    assert_eq!(local.window_start_sequence, 1_000);
+    assert_eq!(local.window_start_ms(), 1_000);
     assert_eq!(reconciled.remaining(), 650);
     let alert = divergence_alert(&reconciled, 1_000)
         .unwrap_or_else(|| panic!("local overspend must flag divergence"));
