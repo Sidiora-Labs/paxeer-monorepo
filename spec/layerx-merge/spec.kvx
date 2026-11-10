@@ -161363,7 +161363,7 @@ do_5 = "Attempt 3 (continue, gotcha 4035, decision 3125): the attempt-2 tree 026
 
 [task.22.39.270]
 title = "Repair the retired references of the explorer application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -223805,7 +223805,7 @@ do_4 = "Attempt 2 (continue, gotcha 4024, decision 3126): the attempt-1 tree 2e6
 
 [task.22.39.278]
 title = "Repair the retired references of the node-root RPC package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -223964,7 +223964,7 @@ do_6 = "Attempt 4 (continue, gotcha 4075): the attempt-3 tree e5710f324231 stand
 
 [task.22.39.242]
 title = "Re-record the launchpad producer packet manifest against the current deployment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.295"]
@@ -416469,7 +416469,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.271]
 title = "Repair the retired references of the explorer backend and the signature provider sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
