@@ -164391,7 +164391,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.29]
 title = "Ship the browser peer page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.26", "22.39.355"]
@@ -185383,7 +185383,7 @@ do_8 = "Attempt 5 (continue, gotcha 4168, decision 3240): the attempt-4 tree 26f
 
 [task.18.1749.1]
 title = "Issue #1749: Prove Claim and RefundFree replay preserves recipient balances after reopen"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.33.223", "22.39.333", "22.39.336", "22.39.340", "22.39.353"]
