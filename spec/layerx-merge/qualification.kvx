@@ -40234,3 +40234,51 @@ symbol = "tests"
 observed = "Attempt 1 at 85055bc6a89c on base 9ef8418ad199: the build exits 0 and the verification exits 1; the lint command stops with could not compile layerx-agentd (lib) due to 2 previous errors, missing_errors_doc at crates/layerx-agentd/src/node_rpc.rs:225 and :409; log /out/logs/verify-1.log."
 assumption = "The library of the package did not pass its lints after task 22.38.21, and the library is outside the paths of the task."
 severity = "high"
+
+[finding.22.38.20.1]
+task = "22.38.20"
+file = "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"
+symbol = "inference_recovery.rs"
+observed = "Attempt 1 at 6b424283ec28 on base 8696c66cbbc6: the build exits 101 at 6b424283ec28, the test target repair_22_31_549 does not compile with 12 errors (E0609 no field credential on the type OwnerFixture at tests/repair_22_31_549.rs:9); no verification ran; log /out/logs/build-1.log."
+assumption = "The red test target is outside the paths of the task and the program refused the further deal the task records."
+severity = "high"
+
+[finding.22.38.36.2]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 2 at 343df2fde0b1 on base 05c98f550150: the build exits 0 and the verification exits 1 at 343df2fde0b1 with PAXEER_X_GATE tests=0 skipped=0 incomplete=1 and agent operation envelope refused: PAXEER_X_INFERENCE_ROOM_CONFIG is required; log /out/logs/verify-1.log."
+assumption = "The driver was written to replay prepared signed writes and the task text asks for a driver that makes them."
+severity = "high"
+
+[finding.22.39.227.6]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 6 at 63b9465a7d49 on base 05c98f550150: the build exits 0 and the verification exits 1 at 63b9465a7d49, the library of the package layerx-agentd stops at two errors missing_errors_doc at src/node_rpc.rs:225 and :409; log /out/logs/verify-1.log."
+assumption = "The attempt started before the task required the repair of the library lints."
+severity = "high"
+
+[finding.22.38.13.9]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 9 at c98a277c6018 on base 85a5a12b6acf: build 1 exits 0 and the verification exits 1 at fb504f884432 with 10 cases passed and 10 failed, nine at tests/support/guest.rs:163 compiled guest is stale and f11_fuel_table at tests/fuel_budget.rs:4019 with the CPU budget exceeded, 1000037 of 1000000; build 2 exits 101 at 1de0824a368c and build 3 exits 0 at c98a277c6018; log /out/logs/verify-1.log."
+assumption = "The committed guest is outside the paths of the task and the last changes of the source were never verified."
+severity = "high"
+
+[finding.22.38.22.1]
+task = "22.38.22"
+file = "services/agent/crates/layerx-agentd/tests/inference_queue.rs"
+symbol = "inference_queue.rs"
+observed = "Attempt 1 at 80d6b40f7673 on base 757b9269075e: the build exits 101 at 80d6b40f7673, the test target repair_22_31_549 does not compile with 12 errors (E0609 no field labels on the type OwnerFixture); no verification ran; log /out/logs/build-1.log."
+assumption = "The red test target is outside the paths of the task."
+severity = "high"
+
+[finding.22.39.117.18]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 18 at 1f397b9aea73 on base 9ef8418ad199: the build exits 0 and the verification exits 1 at 4b8e875f2e9f, the module sdk/launchpad/shared fails in the case TestDecodeIdentitySigningKeyForms at sdk/launchpad/shared/auth/mtls_identity_client_test.go:32 with a padded value accepted, and the later modules did not run; log /out/logs/verify-1.log."
+assumption = "The case fails for a share of its random draws and is unchanged from main."
+severity = "high"

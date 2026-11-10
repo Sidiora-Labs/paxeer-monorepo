@@ -10,6 +10,9 @@ mod inference_signal {
         pub mod serve {
             include!("inference_market/serve.rs");
         }
+        pub mod queue {
+            include!("inference_market/queue.rs");
+        }
     }
 }
 
@@ -2875,6 +2878,40 @@ fn inference_enrol_host(
     Ok(())
 }
 
+fn inference_completion_routes(
+    config: &Config,
+    market: &layerx_agentd::boot::inference_market::InferenceMarket,
+    offer: &inference_signal::RoomOffer,
+    deals: &InferenceDealRuntime,
+) -> Result<inference_signal::deals::queue::QueuedRoutes, String> {
+    let completion_routes = inference_signal::deals::serve::ServeRoutes::new(
+        offer.room_id,
+        offer.model_digest,
+        optional("LAYERX_AGENT_INFERENCE_COMPLETION_SOCKET").map(PathBuf::from),
+        optional("LAYERX_AGENT_INFERENCE_COMPLETION_RECEIPTS").map(PathBuf::from),
+        Arc::clone(&market.gate),
+    )
+    .map_err(|error| format!("inference completion configuration: {error}"))?;
+    let completion_node =
+        NodeRpc::connect_with_ca(&inference_node_config(config), &config.authority_ca_der)
+            .map_err(|error| format!("inference completion node: {error}"))?;
+    let draft_runtime_kind = optional("LAYERX_AGENT_INFERENCE_DRAFT_RUNTIME_KIND")
+        .map(|value| {
+            value
+                .parse::<u8>()
+                .map_err(|_| "invalid inference draft runtime kind")
+        })
+        .transpose()?;
+    inference_signal::deals::queue::QueuedRoutes::new(
+        completion_routes,
+        completion_node,
+        Arc::clone(&deals.engine),
+        draft_runtime_kind,
+        REQUEST_DEADLINE,
+    )
+    .map_err(|error| format!("inference queue configuration: {error}"))
+}
+
 fn inference_boot(
     config: &Config,
     inference: layerx_agentd::config::InferenceConfig,
@@ -2931,47 +2968,38 @@ fn inference_boot(
     let completion_host = Arc::clone(&deals.laps.host);
     let completion_bearer = config.bearer.clone();
     let completion_gate = Arc::clone(&market.gate);
-    let completion_routes = inference_signal::deals::serve::ServeRoutes::new(
-        offer.room_id,
-        offer.model_digest,
-        optional("LAYERX_AGENT_INFERENCE_COMPLETION_SOCKET").map(PathBuf::from),
-        optional("LAYERX_AGENT_INFERENCE_COMPLETION_RECEIPTS").map(PathBuf::from),
-        Arc::clone(&market.gate),
-    )
-    .map_err(|error| format!("inference completion configuration: {error}"))?;
-    let completion_node =
-        NodeRpc::connect_with_ca(&inference_node_config(config), &config.authority_ca_der)
-            .map_err(|error| format!("inference completion node: {error}"))?;
-    let completion_deals = Arc::clone(&deals.engine);
+    let completion_routes = inference_completion_routes(config, &market, &offer, &deals)?;
     let completion = HttpPool::start(
         market
             .completion_listener
             .try_clone()
             .map_err(|error| error.to_string())?,
         move |mut stream| {
-            let Ok(mut stream) =
+            let Ok(mut connection) =
                 inference_signal::deals::serve::CompletionConnection::read(&mut stream)
             else {
                 return;
             };
-            if !stream.is_completion() {
+            if connection.is_completion() {
+                let request = match completion_routes.read_request(&mut connection) {
+                    Ok(Some(request)) => request,
+                    Ok(None) => return,
+                    Err(error) => {
+                        let _ =
+                            inference_signal::deals::serve::write_error(&mut connection, &error);
+                        return;
+                    }
+                };
+                drop(connection);
+                let _ = completion_routes.enqueue_completion(stream, request);
+            } else {
                 let _ = inference_serve_lap_output(
-                    &mut stream,
+                    &mut connection,
                     &completion_gate,
                     &completion_signal,
                     &completion_host,
                     &completion_bearer,
                 );
-            } else {
-                let _ = completion_routes.serve(&mut stream, &completion_node, |ask| {
-                    completion_deals
-                        .lock()
-                        .map_err(|_| inference_signal::deals::serve::ServeError {
-                            status: 503,
-                            code: "completion_unavailable",
-                        })?
-                        .completion_binding(ask)
-                });
             }
         },
     )?;
