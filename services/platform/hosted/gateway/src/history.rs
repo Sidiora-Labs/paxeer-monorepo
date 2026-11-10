@@ -1,10 +1,11 @@
-//! Account history on the single network endpoint: `px_getHistory` and
+//! Native indexed account history: `px_getHistory` and
 //! `px_getUnifiedHistory`, answered from the `layerx-indexer` read API.
 //!
 //! Every answer is the indexer's own rows, oldest first in
 //! `(blockHeight, txIndex, logIndex)` position order, each joined with its
 //! asset's indexer record plus the symbol and decimals the `LayerX` asset
-//! registry declares for it. Cursors are the indexer's 32-lowercase-hex
+//! registry declares for it, without a retired custody or anchor join.
+//! Cursors are the indexer's 32-lowercase-hex
 //! position cursors, passed through unchanged; because every side pages
 //! strictly after the same position, a unified page is the exact merge of
 //! every side's page at the same cursor.

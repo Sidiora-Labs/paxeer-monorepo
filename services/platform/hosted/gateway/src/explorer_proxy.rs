@@ -408,6 +408,7 @@ mod tests {
     const ORIGIN: &str = "https://api-mainnet-beta.paxeer.network";
     #[test]
     fn explorer_refuses_the_retired_anchor_view() {
+        // These historical URLs are refusal inputs; archive views remain separate.
         assert!(selected("GET", "/api/v2/paxeer-x/anchors").is_none());
         let request = IncomingRequest {
             method: "GET".into(),

@@ -572,7 +572,6 @@ pub fn encode_native_send_prepare_v2(
     local_grant: Option<&NativeLocalGrantConsentV1>,
 ) -> Result<serde_json::Value, layerx_agent_api::identity::ContractError> {
     use layerx_agent_api::identity::ContractError;
-    use sha2::{Digest as _, Sha256};
     signed.clone().validate()?;
     request.timestamp_bound.validate()?;
     let purpose = &signed.purpose;
@@ -583,7 +582,6 @@ pub fn encode_native_send_prepare_v2(
         || request.authority.as_str().len() > layerx_types::limits::MAX_AUTHORITY_BYTES
         || request.payload.as_bytes().is_empty()
         || request.payload.as_bytes().len() > layerx_types::limits::MAX_PAYLOAD_BYTES
-        || Sha256::digest(request.payload.as_bytes())[..] != request.payload_hash
         || request.idempotency_key.as_str() != hex(purpose.idempotency_key)
     {
         return Err(ContractError::Mismatch("native_send_prepare.request"));

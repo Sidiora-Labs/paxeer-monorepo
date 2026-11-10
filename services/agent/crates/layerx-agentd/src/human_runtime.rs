@@ -2281,6 +2281,7 @@ pub struct ProductionHumanOperations<A> {
     budget_limiter: Option<Arc<BudgetLimiter>>,
 
     export_trust: Option<(crate::export::ExportTrustSource, Duration)>,
+    state_export_source: Option<crate::config::StateExportSource>,
 
     policies: Option<crate::policy::TenantPolicyRegistries>,
     native_policies: BTreeMap<TenantId, crate::config::VerifiedNativeProgramPolicy>,
@@ -5293,6 +5294,54 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     ),
                 };
                 Some(self.session_owner(tenant, session_id)?)
+            }
+            Operation::ExportOffline => {
+                let request = crate::agent_rpc_wire::decode_wire::<
+                    crate::agent_rpc_wire::ExportOfflineWire,
+                >(request, layerx_agent_api::error::RequestId(0))
+                .and_then(|wire| wire.into_request(layerx_agent_api::error::RequestId(0)))
+                .map_err(|error| state_export_refused("request", error))?;
+                let scope = peer.subject.as_ref().ok_or_else(|| {
+                    state_export_refused("owner_binding", "authenticated subject missing")
+                })?;
+                if scope.owner.as_bytes() != principal.agent.as_bytes() {
+                    return Err(state_export_refused(
+                        "owner_binding",
+                        "agent differs from subject owner",
+                    ));
+                }
+                let mut operations = self.lock_operations()?;
+                operations.authority.authorize_subject(peer)?;
+                let endpoint = committed_read_endpoint()?;
+                for fact in &request.selector {
+                    let selector = fact
+                        .selector()
+                        .map_err(|error| state_export_refused("fact_selector", error))?;
+                    if let layerx_agent_api::export::FactSelector::State { account_id, .. } =
+                        &selector
+                    {
+                        operations.export_bound_account(peer)?;
+                        let mut bound_account = [0; 32];
+                        bound_account[12..]
+                            .copy_from_slice(&operations.read_bound_address(peer, &endpoint)?);
+                        if *account_id != bound_account {
+                            return Err(state_export_refused(
+                                "account_binding",
+                                "requested account differs from authenticated account",
+                            ));
+                        }
+                    }
+                    operations
+                        .read_owned_transaction(peer, selector.activity_id(), &endpoint)
+                        .map_err(|error| {
+                            eprintln!("layerx-agentd: state export ownership refused: {error:?}");
+                            error
+                        })?;
+                }
+                Some(crate::tenant::ObjectOwner {
+                    tenant: tenant.clone(),
+                    agent: Some(principal.agent.clone()),
+                })
             }
             Operation::ReadProofBundle => {
                 let request = crate::agent_rpc_wire::decode_wire::<
@@ -14199,6 +14248,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             budget_limiter: None,
 
             export_trust: None,
+            state_export_source: None,
 
             policies: None,
             native_policies: BTreeMap::new(),
@@ -14596,6 +14646,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         availability_deadline: Duration,
     ) {
         self.export_trust = Some((source, availability_deadline));
+    }
+
+    pub fn install_state_export_source(&mut self, source: crate::config::StateExportSource) {
+        self.state_export_source = Some(source);
     }
 
     /// The account bound to the authenticated caller: the authority's fresh
@@ -16900,12 +16954,40 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 layerx_agent_api::export::FactSelector::State { .. }
             )
         }) {
-            Some(self.export_bound_account(peer)?)
+            self.authority.authorize_subject(peer)?;
+            self.export_bound_account(peer)?;
+            let endpoint = committed_read_endpoint()?;
+            let mut account = [0; 32];
+            account[12..].copy_from_slice(&self.read_bound_address(peer, &endpoint)?);
+            Some(account)
         } else {
             None
         };
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
+        let mut missing = Vec::new();
+        for (index, selector) in selectors.iter().enumerate() {
+            if let layerx_agent_api::export::FactSelector::State {
+                activity_id,
+                account_id,
+            } = selector
+            {
+                if Some(*account_id) != bound_account {
+                    return Err(state_export_refused(
+                        "account_binding",
+                        "requested account differs from authenticated account",
+                    ));
+                }
+                let endpoint = committed_read_endpoint()?;
+                let raw = self
+                    .read_owned_transaction(peer, *activity_id, &endpoint)
+                    .map_err(|error| {
+                        eprintln!("layerx-agentd: state export ownership refused: {error:?}");
+                        error
+                    })?;
+                missing.push((index, *activity_id, raw));
+            }
+        }
         let registry = self.authority.registry(peer).map_err(map_core)?;
         let (source, availability_deadline) = self
             .export_trust
@@ -16929,7 +17011,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
             network_id,
             receipt_key.public_key,
         )
-        .map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|error| state_export_refused("evidence_authority", error))?;
         let anchors = texts
             .iter()
             .map(|text| text.as_bytes())
@@ -16945,8 +17027,89 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
             first_correlation: boundary_correlation(peer, &anchors, b"export-offline"),
             availability_deadline: *availability_deadline,
         };
+        for (index, activity_id, raw) in missing {
+            match crate::export::produce_retained(
+                &self.store,
+                &tenant,
+                bound_account,
+                &trust,
+                std::slice::from_ref(&request.selector[index]),
+            ) {
+                Ok(_) => continue,
+                Err(crate::export::ExportProduceError::NotOwned { .. }) => {}
+                Err(error) => return Err(state_export_produce_error("retained_state", error)),
+            }
+            let slots = self
+                .state_export_source
+                .as_ref()
+                .and_then(|source| source.slots(&tenant, bound_account?))
+                .ok_or_else(|| {
+                    state_export_refused(
+                        "slot_selection",
+                        "no selection for authenticated tenant and account",
+                    )
+                })?;
+            let endpoint = committed_read_endpoint()?;
+            let layerx_client::rpc::receipt::Lookup::Verified(receipt) =
+                layerx_client::rpc::receipt::lookup_authenticated(
+                    &endpoint,
+                    activity_id,
+                    layerx_client::rpc::receipt::LookupContext {
+                        receipt_keys: trust.receipt_keys(),
+                    },
+                )
+                .map_err(|error| state_export_refused("authenticated_receipt", error))?
+            else {
+                return Err(HumanOperationError::Unavailable);
+            };
+            let result_url = std::env::var("LAYERX_AGENT_NODE_COMET_RPC_URL")
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let results = crate::read::NativeResultSource::connect(&result_url, None)
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let proof = crate::read::NativeProofRequest {
+                target: layerx_agent_api::proof::ProofBundleTarget::Receipt(activity_id),
+                requested_rung: layerx_types::rung::Rung::Committed,
+                raw_transaction: &raw,
+                served_receipt: receipt.canonical_bytes(),
+                chain_id: &network_id.to_string(),
+                validators: trust.validator_set(),
+                account_slots: &[],
+            }
+            .acquire(&endpoint, &results)
+            .map_err(|error| state_export_refused("committed_receipt_proof", error))?;
+            if proof.value.verification_level != layerx_types::rung::Rung::Committed {
+                return Err(state_export_refused(
+                    "committed_receipt_rung",
+                    proof.value.verification_level,
+                ));
+            }
+            if !trust.receipt_keys().contains(&proof.value.receipt_key) {
+                return Err(state_export_refused(
+                    "committed_receipt_key",
+                    proof.value.receipt_key,
+                ));
+            }
+            let receipt_fact =
+                layerx_agent_api::export::FactRef::new(format!("receipt:{}", hex(&activity_id)))
+                    .map_err(|_| HumanOperationError::Refused)?;
+            crate::export::retain_bundle(
+                &mut *self
+                    .store
+                    .lock()
+                    .map_err(|_| HumanOperationError::Unavailable)?,
+                tenant.clone(),
+                crate::export::OfflineExport {
+                    facts: vec![receipt_fact],
+                    height: receipt.height(),
+                    bundles: vec![proof.value],
+                },
+                &trust,
+            )
+            .map_err(|error| state_export_produce_error("retain_committed_receipt", error))?;
+            retain_state_export(&context, &endpoint, activity_id, slots)?;
+        }
         let produced = crate::export::produce(&context, &request.selector, requested)
-            .map_err(export_refusal)?;
+            .map_err(|error| state_export_produce_error("assembled_export", error))?;
         layerx_agent_api::export::check_export_response(&request, &produced.response)
             .map_err(|_| HumanOperationError::Refused)?;
         Ok(produced.response)
@@ -19101,6 +19264,19 @@ fn encode_program_discovery(
     Ok(())
 }
 
+fn state_export_refused(site: &'static str, error: impl std::fmt::Debug) -> HumanOperationError {
+    eprintln!("layerx-agentd: state export refused at {site}: {error:?}");
+    HumanOperationError::Refused
+}
+
+fn state_export_produce_error(
+    site: &'static str,
+    error: crate::export::ExportProduceError,
+) -> HumanOperationError {
+    eprintln!("layerx-agentd: state export refused at {site}: {error:?}");
+    export_refusal(error)
+}
+
 fn export_refusal(error: crate::export::ExportProduceError) -> HumanOperationError {
     use crate::export::ExportProduceError as Produce;
     use crate::human::HumanRefusal;
@@ -19121,6 +19297,7 @@ fn export_refusal(error: crate::export::ExportProduceError) -> HumanOperationErr
         | Produce::Correlation
         | Produce::ReceiptEvidence { .. }
         | Produce::Binding { .. }
+        | Produce::BindingAt { .. }
         | Produce::MaintenanceLink { .. }
         | Produce::Codec(_)
         | Produce::Artifact(_)
@@ -22104,7 +22281,7 @@ pub fn retain_state_export(
     if account_id[..12] != [0; 12]
         || account_id[12..] == [0; 20]
         || slots.is_empty()
-        || slots.len() > 1024
+        || slots.len() > crate::config::MAX_STATE_EXPORT_SLOTS
         || slots
             .iter()
             .collect::<std::collections::BTreeSet<_>>()
@@ -22125,7 +22302,7 @@ pub fn retain_state_export(
         context.trust,
         &[receipt_fact],
     )
-    .map_err(export_refusal)?
+    .map_err(|error| state_export_produce_error("retained_receipt", error))?
     .response
     .value;
     let bundle = &mut artifact.bundles[0];
@@ -22154,24 +22331,60 @@ pub fn retain_state_export(
         &validators,
     )
     .map_err(export_refusal)?;
+    let commitment_height = artifact
+        .height
+        .checked_add(1)
+        .ok_or_else(|| state_export_refused("receipt_checkpoint_height", artifact.height))?;
     let checkpoint = crate::read::checkpoint(
-        artifact.height,
+        commitment_height,
         &header.chain_id,
         &header,
         &commit,
         &validators,
     )
-    .map_err(|_| HumanOperationError::Refused)?;
-    let reads = crate::read::CommittedReads::at_checkpoint(endpoint, &checkpoint)
-        .map_err(|_| HumanOperationError::Refused)?;
+    .map_err(|error| state_export_refused("receipt_checkpoint", error))?;
     let address = account_id[12..]
         .try_into()
         .map_err(|_| HumanOperationError::Refused)?;
+    // Native receipt proofs commit height H's results and state in header H+1.
+    // Query the selected slots at H, keeping H+1 as their trusted app-hash source.
     let witnesses = slots
         .iter()
-        .map(|slot| reads.storage(address, *slot))
+        .map(|slot| {
+            let witnesses = endpoint
+                .storage_witness(&address, &[*slot], artifact.height)
+                .map_err(|error| state_export_refused("storage_witness", error))?;
+            let [witness] = witnesses.as_slice() else {
+                return Err(state_export_refused(
+                    "storage_witness_count",
+                    witnesses.len(),
+                ));
+            };
+            if witness.address != address || witness.slot != *slot {
+                return Err(state_export_refused("storage_witness_binding", witness));
+            }
+            crate::export::verify_storage_witness(witness, checkpoint.app_hash)
+                .map_err(|error| state_export_refused("storage_witness_root", error))?;
+            let block = endpoint
+                .block_by_number(commitment_height)
+                .map_err(|error| state_export_refused("storage_checkpoint", error))?
+                .ok_or(HumanOperationError::Unavailable)?;
+            let app_hash = endpoint
+                .state_root(commitment_height)
+                .map_err(|error| state_export_refused("storage_checkpoint", error))?;
+            if block.number != commitment_height
+                || block.hash != checkpoint.block_hash
+                || app_hash != checkpoint.app_hash
+            {
+                return Err(state_export_refused(
+                    "storage_checkpoint",
+                    "snapshot changed",
+                ));
+            }
+            Ok(witness.clone())
+        })
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|error| state_export_refused("storage_witness", error))?;
     bundle.account_proof = Some(encode_storage_witnesses(&witnesses).map_err(export_refusal)?);
     artifact.facts[0] = FactRef::new(format!(
         "state:{}:{}",
@@ -22188,7 +22401,7 @@ pub fn retain_state_export(
         artifact,
         context.trust,
     )
-    .map_err(export_refusal)
+    .map_err(|error| state_export_produce_error("retain_state", error))
 }
 
 pub fn receipt_proof_operation(

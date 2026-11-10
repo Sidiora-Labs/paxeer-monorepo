@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 import re
-import socket
 import ssl
 import stat
 import struct
@@ -17,7 +16,6 @@ from provision import Refused, fields, h32, protected_bytes, protected_json, req
 
 GUARDIAN_ROLES = ('guarantor-1', 'guarantor-2', 'sequencer')
 GUARDIAN_EPOCH_MAXIMUM = 64
-LNI_VERSION = (1, 5)
 
 
 def digest(domain, data):
@@ -56,43 +54,6 @@ def protected_write(path, data):
         output.write(data)
         output.flush()
         os.fsync(output.fileno())
-
-
-def receipt(socket_path, activity_id):
-    def read_exact(connection, size):
-        data = bytearray()
-        while len(data) < size:
-            part = connection.recv(size - len(data))
-            require(bool(part), socket_path, 'receipt connection closed')
-            data.extend(part)
-        return bytes(data)
-
-    def exchange(connection, tag, correlation, payload):
-        envelope = struct.pack('>HHHQ', *LNI_VERSION, tag, correlation) + span(payload) + span(b'')
-        connection.sendall(span(envelope))
-        length = int.from_bytes(read_exact(connection, 4), 'big')
-        require(22 <= length <= 1212416, socket_path, 'receipt frame bound')
-        reader = Reader(read_exact(connection, length), socket_path)
-        require(reader.take(4) == struct.pack('>HH', *LNI_VERSION), socket_path, 'LNI version')
-        returned_tag = reader.number(2)
-        require(reader.number(8) == correlation, socket_path, 'LNI correlation')
-        data = reader.span(1212416)
-        require(not reader.span(1212416), socket_path, 'unexpected LNI proof')
-        reader.finish()
-        require(returned_tag == tag + 1, socket_path, 'LNI refusal')
-        return data
-
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
-        connection.settimeout(10)
-        connection.connect(socket_path)
-        exchange(connection, 1, 0, b'')
-        for attempt in range(100):
-            data = exchange(connection, 5, attempt + 1, b'\1' + activity_id)
-            if data:
-                return data
-            time.sleep(0.1)
-    raise Refused(f'{socket_path}: committed receipt unavailable; do not resubmit with a new idempotency key')
-
 
 
 def authority_document(request, context, path):
