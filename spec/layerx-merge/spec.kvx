@@ -12082,6 +12082,18 @@ value = "Task 22.39.314 makes the development path produce canonical candles end
 basis = "Gotcha 4080, decisions 3046 and 3130. The web cases are the consumer; the producers are the chart service and the API."
 affects = ["22.39.314", "22.39.95"]
 
+[decision.3162]
+title = "A historical migration writes the runtime it wrote on the network, and new pools take the staged runtime"
+value = "The launchpad keeper holds two pool runtimes by name: the runtime the v6.12.0 migration wrote on the network (41 bytes, the installed identity of the deployment record) stays a constant of that migration, so a replay of the migration reproduces the state the network holds; pools the keeper creates from the next release on take the guarded runtime (51 bytes), which equals the staged identity of the deployment record. The creation case asserts the guarded runtime and its hash against the staged identity; the migration case asserts the installed runtime for the pools the v6.12.0 migration writes. A later migration that moves existing pools to the guarded runtime is its own governed change and is not introduced here."
+basis = "Gotcha 4081, decisions 3100 and 3134. A migration handler that shares a variable with the creation path changes history when the variable moves."
+affects = ["22.39.315"]
+
+[decision.3163]
+title = "The launchpad keeper suite is repaired by its own task before the tasks that verify with it"
+value = "Task 22.39.315 repairs the three red cases of the launchpad keeper suite on main; tasks 22.39.307 and 22.39.249, whose verification runs the keeper suite, follow it and keep their verification commands whole."
+basis = "Gotchas 4081 and 4082, decision 3130."
+affects = ["22.39.315", "22.39.307", "22.39.249"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41742,6 +41754,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.315]
+title = "Repair the pool runtime and AirdropEpoch ABCI cases of the launchpad keeper suite"
+reqs = ["22998.1"]
+touches = ["modules/launchpad/keeper", "sdk/baseapp/abci.go", "sdk/baseapp/query_grpc_error_test.go"]
+tests = ["modules/launchpad/keeper/market_test.go", "modules/launchpad/keeper/migrate_v6120_test.go", "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go"]
+verification_contract = "test -s modules/launchpad/keeper/repair_22_39_315.kvx && go test -count=1 -timeout 30m ./modules/launchpad/keeper/... && go test -count=1 ./sdk/baseapp/ -run 'GRPC|Query'"
+do_1 = "do_1 Decisions 3162 and 3163, gotcha 4081. Run go test -count=1 ./modules/launchpad/keeper/... restricted to the cases TestCreateMarket, TestEveryPoolMigrates and TestQueryAirdropEpochABCICodes on the starting revision and record the result. SurfaceRuntime at modules/launchpad/keeper/market.go:32 is the 51-byte guarded runtime; find every writer of pool code (market creation, the v6.12.0 migration, any later migration) and read the records of 22.31.36, 18.1625.1 and 22.39.295 for the rule each followed. Give the v6.12.0 migration its own constant holding the 41-byte runtime it wrote on the network (the installed identity of sdk/launchpad/shared/config/deployment/current.json) when it now writes SurfaceRuntime, and keep the creation path on the guarded runtime. In TestCreateMarket assert the guarded runtime at the pool address and that its keccak hash equals the staged identity of the deployment record; in TestEveryPoolMigrates assert the installed runtime for the pools the migration writes. If the sources show that the migration is defined to write the guarded runtime (a record or a decision names it), keep the migration, align the case and name the record."
+symbols = []
 
 [capability.22.39.314]
 title = "Complete the development candle path of the launchpad chart service and API"
@@ -223514,6 +223535,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.315]
+title = "Repair the pool runtime and AirdropEpoch ABCI cases of the launchpad keeper suite"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.315"]
+interfaces = []
+do_1 = "do_1 Decisions 3162 and 3163, gotcha 4081. Run go test -count=1 ./modules/launchpad/keeper/... restricted to the cases TestCreateMarket, TestEveryPoolMigrates and TestQueryAirdropEpochABCICodes on the starting revision and record the result. SurfaceRuntime at modules/launchpad/keeper/market.go:32 is the 51-byte guarded runtime; find every writer of pool code (market creation, the v6.12.0 migration, any later migration) and read the records of 22.31.36, 18.1625.1 and 22.39.295 for the rule each followed. Give the v6.12.0 migration its own constant holding the 41-byte runtime it wrote on the network (the installed identity of sdk/launchpad/shared/config/deployment/current.json) when it now writes SurfaceRuntime, and keep the creation path on the guarded runtime. In TestCreateMarket assert the guarded runtime at the pool address and that its keccak hash equals the staged identity of the deployment record; in TestEveryPoolMigrates assert the installed runtime for the pools the migration writes. If the sources show that the migration is defined to write the guarded runtime (a record or a decision names it), keep the migration, align the case and name the record."
+do_2 = "do_2 Gotcha 4082. For TestQueryAirdropEpochABCICodes find why the zero pool, zero epoch and epoch record cases read codespace sdk where the keeper returns registered launchpad errors: follow the error from modules/launchpad/keeper/grpc_query.go through the query router the case builds to gRPCErrorToSDKError at sdk/baseapp/abci.go:629 and the query result encoder, and compare with sdk/baseapp/query_grpc_error_test.go and the commit that preserved registered error codes across AirdropEpoch queries. Repair the site that hides the registered root (the keeper wrapper keeps the registered error reachable by errors.Is and by the ABCI information, with a safe public message), and find why the response height is 0 where the case commits height 1. Change the case only where the producer rule of issue 1678 (mapped client status with the safe public text invalid request for unregistered validation errors) differs from what it asserts, and name the rule in the record."
+do_3 = "do_3 Record the three cases, each site, the former and the current behaviour and the rule in modules/launchpad/keeper/repair_22_39_315.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/launchpad/keeper", "sdk/baseapp/abci.go", "sdk/baseapp/query_grpc_error_test.go"]
+tests = ["modules/launchpad/keeper/market_test.go", "modules/launchpad/keeper/migrate_v6120_test.go", "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go"]
+planned_paths = ["modules/launchpad/keeper/repair_22_39_315.kvx"]
+build_cmd = "go build ./modules/launchpad/... ./sdk/baseapp/... && go vet ./modules/launchpad/keeper/"
+verify_cmd = "test -s modules/launchpad/keeper/repair_22_39_315.kvx && go test -count=1 -timeout 30m ./modules/launchpad/keeper/... && go test -count=1 ./sdk/baseapp/ -run 'GRPC|Query'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.314]
 title = "Complete the development candle path of the launchpad chart service and API"
 status = "pending"
@@ -223549,7 +223600,7 @@ title = "Restore the launchpad query validation text on the client paths"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.315"]
 reqs = ["22998.1"]
 capabilities = ["22.39.307"]
 interfaces = []
@@ -223573,6 +223624,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotchas 4081 and 4082, decision 3163): the attempt-1 tree 98d21e7362dd stands (the four client suites aligned to the public text of the producer commit 665402f6ca09, the comment at grpc_query.go, the record). The attempt starts after 22.39.315 lands: rebase on main and take its version of modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go and of any keeper source it changed, keeping from this tree only what that version lacks; when 22.39.315 moved the keeper query wrapper, run the four client suites again and align them to the text the producer then returns. Change nothing else; then run the build once and the verification once at the final revision."
 
 [task.22.39.306]
 title = "Serve the canonical origin in the node route catalogue"
@@ -223850,7 +223902,7 @@ title = "Repair the retired references of the governance, pay, launchpad, evm an
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.39.245"]
+requires = ["22.39.245", "22.39.315"]
 reqs = ["22998.1"]
 capabilities = ["22.39.249"]
 interfaces = []

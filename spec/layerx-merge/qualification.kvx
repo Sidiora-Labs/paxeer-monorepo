@@ -39482,3 +39482,11 @@ symbol = "runtime.integration.test.tsx"
 observed = "Attempt 11 at 8155a13897b7: three builds (the second and third after environment repairs) exit 0; verification exit 1: pnpm --dir apps/launchpad/web run test reports 5 failed files and 11 failed cases with 1274 passed (four cases of src/core/network/repair-22-33-901.test.ts, four of src/widgets/trading/chart-datafeed-recovery.test.ts, coin-failure-frames.test.tsx, creation-journey.integration.test.tsx with Network activation attestation is stale, connected-journeys.test.tsx with Route execution reverted); the mobile suite is not reached; log /out/logs/verify-1.log."
 assumption = "Nine of the eleven failures come from two producer defects outside the touches; the two journey repairs were made after the only verification and are unverified."
 severity = "high"
+
+[finding.22.39.307.1]
+task = "22.39.307"
+file = "modules/launchpad/client/cli"
+symbol = "cli"
+observed = "Attempt 1 at 98d21e7362dd: build exit 0; verification exit 1: go test -count=1 ./modules/launchpad/client/... passes and go test -count=1 ./modules/launchpad/keeper/... fails TestQueryAirdropEpochABCICodes (six cases, :217 and :219), TestCreateMarket (market_test.go:325) and TestEveryPoolMigrates (migrate_v6120_test.go:450) after 189 seconds; log /out/logs/verify-1.log."
+assumption = "The client paths are repaired; the three keeper cases are red on main."
+severity = "high"
