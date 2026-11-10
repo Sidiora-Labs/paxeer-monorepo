@@ -6,13 +6,13 @@ use layerx_proof::program::{
     verify_authorized_program_execution_with_payers, AuthorizedProgramExecutionExpectation,
     OccupancyPayer,
 };
-use layerx_types::activity::Authority;
+
 use layerx_types::payload::{ModuleId, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
 use crate::ops::program::ProgramOperations;
-use crate::prepare::{verify_call_binding, EvmPrepared};
+use crate::prepare::EvmPrepared;
 use crate::protocol_evidence::VerifiedReceiptEvidence;
 use crate::sign::VerifiedSubmission;
 use crate::store::{Store, TenantId};
@@ -106,56 +106,79 @@ impl VerifiedProgramApprovalBudgetRow {
         }
     }
 
+    #[must_use]
     pub const fn approval_id(&self) -> [u8; 32] {
         self.approval_id
     }
+    #[must_use]
     pub const fn held_digest(&self) -> [u8; 32] {
         self.held_digest
     }
+    #[must_use]
     pub const fn budget_id(&self) -> [u8; 32] {
         self.budget_id
     }
+    #[must_use]
     pub const fn asset(&self) -> [u8; 32] {
         self.asset
     }
+    #[must_use]
     pub const fn source(&self) -> [u8; 32] {
         self.source
     }
+    #[must_use]
     pub const fn observed_sequence(&self) -> u64 {
         self.observed_sequence
     }
+    #[must_use]
     pub const fn remaining_after_reservations(&self) -> u128 {
         self.remaining_after_reservations
     }
+    #[must_use]
     pub const fn terminal(&self) -> bool {
         self.terminal
     }
+    #[must_use]
     pub const fn verification(&self) -> VerificationLevel {
         self.verification
     }
+    #[must_use]
     pub const fn evidence_digest(&self) -> [u8; 32] {
         self.evidence_digest
     }
+    #[must_use]
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.receipt_digest
     }
+    #[must_use]
     pub const fn checkpoint_digest(&self) -> [u8; 32] {
         self.checkpoint_digest
     }
+    #[must_use]
     pub const fn age_sequences(&self) -> u64 {
         self.age_sequences
     }
+    #[must_use]
     pub const fn maximum_age_sequences(&self) -> u64 {
         self.maximum_age_sequences
     }
+    #[must_use]
     pub const fn proof_digest(&self) -> [u8; 32] {
         self.proof_digest
     }
+    #[must_use]
     pub fn verified_proof_bytes(&self) -> &[u8] {
         &self.proof_bytes
     }
 }
 
+/// # Errors
+/// Returns an error if the owned approval budget or its committed source evidence cannot be
+/// validated or read.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn read_owned_program_budget(
     store: &Store,
     peer: &crate::human::HumanPeer,
@@ -246,6 +269,13 @@ pub fn read_owned_program_budget(
     })
 }
 
+/// # Errors
+/// Returns an error if the owned approval budget or its committed source evidence cannot be
+/// validated or read.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn read_owned_native_effect_budget(
     store: &Store,
     peer: &crate::human::HumanPeer,
@@ -393,21 +423,27 @@ impl VerifiedProgramDebitSettlement {
         })
     }
 
+    #[must_use]
     pub const fn reservation_id(&self) -> [u8; 32] {
         self.reservation_id
     }
+    #[must_use]
     pub const fn reservation_digest(&self) -> [u8; 32] {
         self.reservation_digest
     }
+    #[must_use]
     pub const fn terminal_receipt(&self) -> [u8; 32] {
         self.terminal_receipt
     }
+    #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
         self.activity_id
     }
+    #[must_use]
     pub const fn global_sequence(&self) -> u64 {
         self.global_sequence
     }
+    #[must_use]
     pub fn debits(&self) -> &[ProgramExecutedDebit] {
         &self.debits
     }
@@ -417,6 +453,9 @@ type DebitKey = ([u8; 32], [u8; 32], ProgramChargeKind, Option<[u8; 32]>);
 
 /// Reads the node's execution observation for an exact native preparation.
 /// An unknown transaction cannot supply receipt evidence or release a reservation.
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
 pub fn read_native_execution_observation(
     node: &layerx_client::sequencer::SequencerEndpoint,
     prepared: &crate::prepare::EvmPrepared,
@@ -429,6 +468,9 @@ pub fn read_native_execution_observation(
 
 /// Reads execution by the native transaction hash without requiring submission
 /// admission. This observation alone never authorizes debit settlement.
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
 pub fn read_signed_native_execution_observation(
     node: &layerx_client::sequencer::SequencerEndpoint,
     signed_transaction: &[u8],
@@ -462,6 +504,13 @@ pub fn read_signed_native_execution_observation(
     Ok(observation)
 }
 
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn read_program_debit_settlement(
     programs: &ProgramOperations,
     registry: &ModuleRegistry,
@@ -500,13 +549,19 @@ pub fn read_program_debit_settlement(
         registry,
         prepared,
         submission,
-        receipt,
-        authority,
+        &SettlementReceipt { receipt, authority },
         reservation,
         sources.owner_did(),
     )
 }
 
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn read_retained_program_debit_settlement(
     programs: &ProgramOperations,
     registry: &ModuleRegistry,
@@ -518,10 +573,19 @@ pub fn read_retained_program_debit_settlement(
     tenant: &TenantId,
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), ProgramSettlementError> {
     read_retained_program_debit_settlement_inner(
-        programs, registry, prepared, submission, receipt, authority, store, tenant,
+        programs,
+        registry,
+        prepared,
+        submission,
+        receipt,
+        authority,
+        &SettlementStore { store, tenant },
     )
 }
 
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
 pub fn read_retained_wind_down_debit_settlement_at_execution(
     registry: &ModuleRegistry,
     prepared: &EvmPrepared,
@@ -532,7 +596,7 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
     prestate: &execution_state::CommittedExecutionState,
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), ProgramSettlementError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
-    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
+    let id: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
     let key = DurablePreparation::store_key(tenant, id)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let stored = store
@@ -585,7 +649,7 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
         .map_err(|_| ProgramSettlementError::Preparation)?;
     if restored.call.encode_unsigned() != prepared.call.encode_unsigned()
         || restored.observed_head_height != prepared.observed_head_height
-        || &restored.disclosure.authority != &prepared.disclosure.authority
+        || restored.disclosure.authority != prepared.disclosure.authority
         || carrier
             .budget()
             .map_err(|_| ProgramSettlementError::Allocation)?
@@ -608,7 +672,7 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
         reservation_digest: reservation
             .settlement_binding()
             .map_err(|_| ProgramSettlementError::Allocation)?,
-        terminal_receipt: Sha256::digest(receipt.canonical_receipt()).into(),
+        terminal_receipt: receipt.receipt_ref(),
         activity_id: submission.activity_id(),
         global_sequence: receipt.global_sequence(),
         debits,
@@ -616,6 +680,9 @@ pub fn read_retained_wind_down_debit_settlement_at_execution(
     Ok((reservation, witness))
 }
 
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
 pub fn read_retained_lifecycle_debit_settlement_at_execution(
     registry: &ModuleRegistry,
     prepared: &EvmPrepared,
@@ -626,7 +693,7 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
     prestate: &execution_state::CommittedExecutionState,
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), ProgramSettlementError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
-    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
+    let id: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
     let key = DurablePreparation::store_key(tenant, id)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let stored = store
@@ -679,7 +746,7 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
         .map_err(|_| ProgramSettlementError::Preparation)?;
     if restored.call.encode_unsigned() != prepared.call.encode_unsigned()
         || restored.observed_head_height != prepared.observed_head_height
-        || &restored.disclosure.authority != &prepared.disclosure.authority
+        || restored.disclosure.authority != prepared.disclosure.authority
         || carrier
             .budget()
             .map_err(|_| ProgramSettlementError::Allocation)?
@@ -702,7 +769,7 @@ pub fn read_retained_lifecycle_debit_settlement_at_execution(
         reservation_digest: reservation
             .settlement_binding()
             .map_err(|_| ProgramSettlementError::Allocation)?,
-        terminal_receipt: Sha256::digest(receipt.canonical_receipt()).into(),
+        terminal_receipt: receipt.receipt_ref(),
         activity_id: submission.activity_id(),
         global_sequence: receipt.global_sequence(),
         debits,
@@ -717,11 +784,13 @@ fn read_retained_program_debit_settlement_inner(
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
-    store: &Store,
-    tenant: &TenantId,
+    input: &SettlementStore<'_>,
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), ProgramSettlementError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
-    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
+
+    let SettlementStore { store, tenant } = *input;
+
+    let id: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
     let key = DurablePreparation::store_key(tenant, id)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let stored = store
@@ -774,7 +843,7 @@ fn read_retained_program_debit_settlement_inner(
         .map_err(|_| ProgramSettlementError::Preparation)?;
     if restored.call.encode_unsigned() != prepared.call.encode_unsigned()
         || restored.observed_head_height != prepared.observed_head_height
-        || &restored.disclosure.authority != &prepared.disclosure.authority
+        || restored.disclosure.authority != prepared.disclosure.authority
         || carrier
             .budget()
             .map_err(|_| ProgramSettlementError::Allocation)?
@@ -787,8 +856,7 @@ fn read_retained_program_debit_settlement_inner(
         registry,
         prepared,
         submission,
-        receipt,
-        authority,
+        &SettlementReceipt { receipt, authority },
         &reservation,
         &layerx_types::ids::Did::new(carrier.retained_actor())
             .map_err(|_| ProgramSettlementError::Preparation)?,
@@ -796,6 +864,9 @@ fn read_retained_program_debit_settlement_inner(
     Ok((reservation, witness))
 }
 
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
 pub fn read_retained_native_effect_debit_settlement(
     registry: &ModuleRegistry,
     prepared: &EvmPrepared,
@@ -822,21 +893,22 @@ fn read_retained_native_effect_debit_settlement_inner(
     use crate::prepare::{DurablePreparation, LifecycleState};
     super::native_binding::verify_native_budget_submission(prepared, submission)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if prepared.disclosure.activity_type.module() != ModuleId::Asset {
-        return Err(ProgramSettlementError::UnsupportedOperation);
-    }
-    let id: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
+    crate::reject_if(
+        prepared.disclosure.activity_type.module() != ModuleId::Asset,
+        || ProgramSettlementError::UnsupportedOperation,
+    )?;
+    let id: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
     let carrier =
         crate::approval::native_effect::NativeEffectApprovalCarrier::read(store, tenant, id)
             .map_err(|_| ProgramSettlementError::Preparation)?;
     let restored = carrier
         .restore_prepared(registry)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if restored.call.encode_unsigned() != prepared.call.encode_unsigned()
-        || restored.disclosure_digest != prepared.disclosure_digest
-    {
-        return Err(ProgramSettlementError::Preparation);
-    }
+    crate::reject_if(
+        restored.call.encode_unsigned() != prepared.call.encode_unsigned()
+            || restored.disclosure_digest != prepared.disclosure_digest,
+        || ProgramSettlementError::Preparation,
+    )?;
     let key = DurablePreparation::store_key(tenant, id)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let raw = store
@@ -844,23 +916,23 @@ fn read_retained_native_effect_debit_settlement_inner(
         .ok_or(ProgramSettlementError::MissingAllocation)?;
     let durable = DurablePreparation::decode(tenant.clone(), raw.bytes())
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if raw.class() != crate::store::StorageClass::LocalOnly
-        || durable.activity_id != Some(submission.activity_id())
-        || !matches!(
-            durable.state,
-            LifecycleState::Signed
-                | LifecycleState::Submitted
-                | LifecycleState::Acknowledged
-                | LifecycleState::Unknown
-        )
-        || durable
-            .signed_bytes()
-            .map_err(|_| ProgramSettlementError::Preparation)?
-            .as_deref()
-            != Some(submission.exact_bytes())
-    {
-        return Err(ProgramSettlementError::Preparation);
-    }
+    crate::reject_if(
+        raw.class() != crate::store::StorageClass::LocalOnly
+            || durable.activity_id != Some(submission.activity_id())
+            || !matches!(
+                durable.state,
+                LifecycleState::Signed
+                    | LifecycleState::Submitted
+                    | LifecycleState::Acknowledged
+                    | LifecycleState::Unknown
+            )
+            || durable
+                .signed_bytes()
+                .map_err(|_| ProgramSettlementError::Preparation)?
+                .as_deref()
+                != Some(submission.exact_bytes()),
+        || ProgramSettlementError::Preparation,
+    )?;
     let reservation = carrier
         .budget()
         .map_err(|_| ProgramSettlementError::Allocation)?;
@@ -869,173 +941,35 @@ fn read_retained_native_effect_debit_settlement_inner(
         .receipt()
         .protocol()
         .ok_or(ProgramSettlementError::Receipt)?;
-    if receipt.level() < VerificationLevel::BATCH_INCLUDED
-        || receipt.activity_id() != submission.activity_id()
-        || protocol.activity_id() != submission.activity_id()
-        || protocol.protocol_version() != 3
-        || protocol.module_id() != 1
-        || protocol.global_sequence() != receipt.global_sequence()
-        || protocol.batch_id() != authority.batch_id()
-        || protocol.program_outcome().is_some()
-    {
-        return Err(ProgramSettlementError::Receipt);
-    }
-    if reservation.allocation_state_root() != Some(protocol.previous_state_root())
-        || prepared.observed_head_height.checked_add(1) != Some(protocol.global_sequence())
-    {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
+    crate::reject_if(
+        receipt.level() < VerificationLevel::BATCH_INCLUDED
+            || receipt.activity_id() != submission.activity_id()
+            || protocol.activity_id() != submission.activity_id()
+            || protocol.protocol_version() != 3
+            || protocol.module_id() != 1
+            || protocol.global_sequence() != receipt.global_sequence()
+            || protocol.batch_id() != authority.batch_id()
+            || protocol.program_outcome().is_some(),
+        || ProgramSettlementError::Receipt,
+    )?;
+    crate::reject_if(
+        reservation.allocation_state_root() != Some(protocol.previous_state_root())
+            || prepared.observed_head_height.checked_add(1) != Some(protocol.global_sequence()),
+        || ProgramSettlementError::SourceSnapshot,
+    )?;
     let profile = carrier
         .profile()
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let plan = crate::capability::derive_native_profile_effects(&prepared.disclosure, profile)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    let ordinal = prepared.disclosure.activity_type.ordinal();
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum Leg {
-        Send,
-        Mint,
-        Draw,
-    }
-    let effect = profile == crate::capability::NativeAdmissionProfile::Effect;
-    let transfer = match plan.effects() {
-        [crate::capability::Effect::Transfer {
-            from,
-            to,
-            asset,
-            amount,
-        }] if ordinal == 5 && effect => Some((Leg::Send, (*from, *to, *asset, *amount))),
-        [crate::capability::Effect::Issuance {
-            account,
-            asset,
-            amount,
-        }] if ordinal == 10 && effect => {
-            let from = layerx_wire::hash::asset_issuance_account_id(asset)
-                .map_err(|_| ProgramSettlementError::Preparation)?;
-            Some((Leg::Mint, (from, *account, *asset, *amount)))
-        }
-        [crate::capability::Effect::Transfer {
-            from,
-            to,
-            asset,
-            amount,
-        }, grants @ ..]
-            if ordinal == 6
-                && effect
-                && !grants.is_empty()
-                && grants.iter().all(|effect| {
-                    matches!(effect, crate::capability::Effect::Authorization { .. })
-                })
-                && crate::capability::native_grant_draw_covers(
-                    &prepared.disclosure,
-                    *to,
-                    (*from, *to, *asset, *amount),
-                ) =>
-        {
-            Some((Leg::Draw, (*from, *to, *asset, *amount)))
-        }
-        effects
-            if !effects.is_empty()
-                && effects.iter().all(|effect| {
-                    matches!(effect, crate::capability::Effect::Authorization { .. })
-                })
-                && match profile {
-                    crate::capability::NativeAdmissionProfile::Effect => ordinal == 7,
-                    crate::capability::NativeAdmissionProfile::Registration { .. } => ordinal == 1,
-                } =>
-        {
-            None
-        }
-        _ => return Err(ProgramSettlementError::UnsupportedOperation),
-    };
-    let rows = reservation
-        .allocations()
-        .ok_or(ProgramSettlementError::MissingAllocation)?;
-    if let Some((Leg::Send | Leg::Mint, (from, to, asset, amount))) = transfer {
-        let principal = rows
-            .iter()
-            .find(|row| {
-                row.kind == ProgramChargeKind::Principal
-                    && row.source == from
-                    && row.destination == Some(to)
-                    && row.asset == asset
-            })
-            .ok_or(ProgramSettlementError::Allocation)?;
-        if principal.maximum_amount != amount
-            || rows
-                .iter()
-                .filter(|row| row.kind != ProgramChargeKind::Fee)
-                .count()
-                != 1
-        {
-            return Err(ProgramSettlementError::Allocation);
-        }
-    } else if rows.iter().any(|row| row.kind != ProgramChargeKind::Fee) {
-        return Err(ProgramSettlementError::Allocation);
-    }
-    let mut debits = Vec::new();
-    if let (0, Some((shape, (from, to, asset, amount)))) = (protocol.result_code(), transfer) {
-        if protocol.from() != from
-            || protocol.to() != to
-            || protocol.asset() != asset
-            || protocol.amount() != amount
-        {
-            return Err(ProgramSettlementError::Terminal);
-        }
-        let mut leg = Vec::with_capacity(115);
-        leg.push(0);
-        leg.extend(from);
-        leg.extend(to);
-        leg.extend(asset);
-        leg.extend(amount.to_be_bytes());
-        leg.extend(1_u16.to_be_bytes());
-        layerx_programs_runtime::transfer::verify_applied_kernel_legs(
-            &leg,
-            protocol.transfer_set_root(),
-        )
-        .map_err(|_| ProgramSettlementError::Terminal)?;
-        if shape != Leg::Draw {
-            debits.push(ProgramExecutedDebit {
-                kind: ProgramChargeKind::Principal,
-                source: from,
-                asset,
-                destination: Some(to),
-                actual_amount: amount,
-            })
-        }
-    } else if protocol.transfer_set_root() != [0; 32]
-        || protocol.effects().iter().any(|effect| effect.monetary())
-    {
-        return Err(ProgramSettlementError::Terminal);
-    }
-    if protocol.fee_charged()
-        > prepared
-            .call
-            .max_fee_per_gas
-            .checked_mul(u128::from(prepared.call.gas_limit))
-            .ok_or(ProgramSettlementError::Preparation)?
-    {
-        return Err(ProgramSettlementError::FeeProvenance);
-    }
-    if protocol.fee_charged() != 0 {
-        let mut fees = rows.iter().filter(|row| row.kind == ProgramChargeKind::Fee);
-        let (Some(fee), None) = (fees.next(), fees.next()) else {
-            return Err(ProgramSettlementError::FeeProvenance);
-        };
-        if fee.asset != carrier.fee_asset()
-            || fee.destination.is_some()
-            || protocol.fee_charged() > fee.maximum_amount
-        {
-            return Err(ProgramSettlementError::FeeProvenance);
-        }
-        debits.push(ProgramExecutedDebit {
-            kind: ProgramChargeKind::Fee,
-            source: fee.source,
-            asset: fee.asset,
-            destination: None,
-            actual_amount: protocol.fee_charged(),
-        });
-    }
+    let transfer = native_effect_transfer(prepared, profile, &plan)?;
+    let debits = native_effect_debits(
+        prepared,
+        &reservation,
+        receipt,
+        transfer,
+        carrier.fee_asset(),
+    )?;
     let witness = VerifiedProgramDebitSettlement {
         reservation_id: id,
         reservation_digest: reservation
@@ -1078,11 +1012,12 @@ fn verify_program_debit_settlement(
     registry: &ModuleRegistry,
     prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
-    receipt: &VerifiedReceiptEvidence,
-    authority: &AuthorizedBatch,
+    input: &SettlementReceipt<'_>,
     reservation: &ProgramBudgetReservation,
     owner: &layerx_types::ids::Did,
 ) -> Result<VerifiedProgramDebitSettlement, ProgramSettlementError> {
+    let SettlementReceipt { receipt, authority } = *input;
+
     super::native_binding::verify_native_budget_submission(prepared, submission)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     let artifacts = programs
@@ -1109,6 +1044,13 @@ fn verify_program_debit_settlement(
 }
 
 /// Settles a native program call from its bound disclosure and authenticated artifacts.
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn verify_native_program_debit_settlement(
     registry: &ModuleRegistry,
     prepared: &EvmPrepared,
@@ -1121,14 +1063,15 @@ pub fn verify_native_program_debit_settlement(
 ) -> Result<VerifiedProgramDebitSettlement, ProgramSettlementError> {
     super::native_binding::verify_native_budget_submission(prepared, submission)
         .map_err(|_| ProgramSettlementError::Preparation)?;
-    if prepared.disclosure.authority.as_slice() != prepared.from {
-        return Err(ProgramSettlementError::Preparation);
-    }
-    if prepared.disclosure.activity_type.module() != ModuleId::Programs
-        || prepared.disclosure.activity_type.ordinal() != 3
-    {
-        return Err(ProgramSettlementError::UnsupportedOperation);
-    }
+    crate::reject_if(
+        prepared.disclosure.authority.as_slice() != prepared.from,
+        || ProgramSettlementError::Preparation,
+    )?;
+    crate::reject_if(
+        prepared.disclosure.activity_type.module() != ModuleId::Programs
+            || prepared.disclosure.activity_type.ordinal() != 3,
+        || ProgramSettlementError::UnsupportedOperation,
+    )?;
     let Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramCall(value)) =
         &prepared.disclosure.native_operation
     else {
@@ -1141,39 +1084,39 @@ pub fn verify_native_program_debit_settlement(
         .receipt()
         .protocol()
         .ok_or(ProgramSettlementError::Receipt)?;
-    if receipt.level() < VerificationLevel::BATCH_INCLUDED
-        || receipt.activity_id() != submission.activity_id()
-        || protocol.activity_id() != submission.activity_id()
-        || protocol.module_id() != 9
-        || receipt.global_sequence() != protocol.global_sequence()
-    {
-        return Err(ProgramSettlementError::Receipt);
-    }
+    crate::reject_if(
+        receipt.level() < VerificationLevel::BATCH_INCLUDED
+            || receipt.activity_id() != submission.activity_id()
+            || protocol.activity_id() != submission.activity_id()
+            || protocol.module_id() != 9
+            || receipt.global_sequence() != protocol.global_sequence(),
+        || ProgramSettlementError::Receipt,
+    )?;
     let actor = layerx_wire::hash::did_id_for_protocol(owner, 3)
         .map_err(|_| ProgramSettlementError::Preparation)?;
     reservation
         .validate()
         .map_err(|_| ProgramSettlementError::Allocation)?;
-    let preparation_digest: [u8; 32] = Sha256::digest(&prepared.call.encode_unsigned()).into();
-    if reservation.id != preparation_digest
-        || reservation.allocation_sequence() != Some(prepared.observed_head_height)
-        || reservation.allocation_actor() != Some(actor)
-        || reservation.allocation_preparation_digest() != Some(preparation_digest)
-    {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
+    let preparation_digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
+    crate::reject_if(
+        reservation.id != preparation_digest
+            || reservation.allocation_sequence() != Some(prepared.observed_head_height)
+            || reservation.allocation_actor() != Some(actor)
+            || reservation.allocation_preparation_digest() != Some(preparation_digest),
+        || ProgramSettlementError::SourceSnapshot,
+    )?;
     let expected = retained_allocations(reservation)?;
-    if reservation.allocation_state_root() != Some(protocol.previous_state_root())
-        || prepared.observed_head_height.checked_add(1) != Some(protocol.global_sequence())
-    {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
+    crate::reject_if(
+        reservation.allocation_state_root() != Some(protocol.previous_state_root())
+            || prepared.observed_head_height.checked_add(1) != Some(protocol.global_sequence()),
+        || ProgramSettlementError::SourceSnapshot,
+    )?;
     let outcome = protocol
         .program_outcome()
         .ok_or(ProgramSettlementError::Terminal)?;
-    if outcome.encoding_version() != 4 {
-        return Err(ProgramSettlementError::Terminal);
-    }
+    crate::reject_if(outcome.encoding_version() != 4, || {
+        ProgramSettlementError::Terminal
+    })?;
     let verified = verify_authorized_program_execution_with_payers(
         canonical_receipt,
         &artifacts.terminal_payload,
@@ -1201,117 +1144,7 @@ pub fn verify_native_program_debit_settlement(
         }],
     )
     .map_err(|_| ProgramSettlementError::Terminal)?;
-    let mut actual = BTreeMap::<DebitKey, u128>::new();
-    if protocol.result_code() == 0 {
-        let (_, legs) = layerx_wire::receipt::decode_applied_terminal(&artifacts.terminal_payload)
-            .map_err(|_| ProgramSettlementError::Terminal)?;
-        layerx_programs_runtime::transfer::verify_applied_kernel_legs(
-            legs,
-            outcome.transfer_root(),
-        )
-        .map_err(|_| ProgramSettlementError::Terminal)?;
-        for leg in legs.chunks_exact(115) {
-            let source = array(&leg[1..33])?;
-            let destination = array(&leg[33..65])?;
-            let asset = array(&leg[65..97])?;
-            let amount = u128::from_be_bytes(
-                leg[97..113]
-                    .try_into()
-                    .map_err(|_| ProgramSettlementError::Terminal)?,
-            );
-            let mut matching = expected.keys().filter(|(a, s, k, d)| {
-                *a == asset
-                    && *s == source
-                    && *k != ProgramChargeKind::Fee
-                    && *d == Some(destination)
-            });
-            let key = *matching
-                .next()
-                .ok_or(ProgramSettlementError::UnreservedDebit)?;
-            if matching.next().is_some() {
-                return Err(ProgramSettlementError::UnreservedDebit);
-            }
-            add(&mut actual, key, amount)?;
-        }
-    }
-    let fee = protocol.fee_charged();
-    if fee > prepared.disclosure.fee_limit {
-        return Err(ProgramSettlementError::FeeProvenance);
-    }
-    if fee != 0 {
-        let mut fee_rows = expected.keys().filter(|(_, _, kind, destination)| {
-            *kind == ProgramChargeKind::Fee && destination.is_none()
-        });
-        let key = *fee_rows
-            .next()
-            .ok_or(ProgramSettlementError::FeeProvenance)?;
-        if fee_rows.next().is_some()
-            || (protocol.result_code() == 0 && key.0 != outcome.occupancy_asset_id())
-        {
-            return Err(ProgramSettlementError::FeeProvenance);
-        }
-        add(&mut actual, key, fee)?;
-    }
-    let mut occupancy_seen = false;
-    for attachment in &verified.terminal().attachments {
-        if let TerminalAttachment::Occupancy(bytes) = attachment {
-            if occupancy_seen {
-                return Err(ProgramSettlementError::Occupancy);
-            }
-            occupancy_seen = true;
-            let settlement = OccupancySettlement::canonical_decode(bytes)
-                .map_err(|_| ProgramSettlementError::Occupancy)?;
-            for (payer, (_, paid, _, _)) in settlement
-                .payer_dispositions()
-                .map_err(|_| ProgramSettlementError::Occupancy)?
-            {
-                if paid == 0 {
-                    continue;
-                }
-                let mut accounts = verified
-                    .occupancy_payment_accounts()
-                    .iter()
-                    .filter(|account| {
-                        account.payer() == payer
-                            && account.asset_id() == outcome.occupancy_asset_id()
-                    });
-                let account = accounts.next().ok_or(ProgramSettlementError::Occupancy)?;
-                if accounts.next().is_some() {
-                    return Err(ProgramSettlementError::Occupancy);
-                }
-                let key = (
-                    account.asset_id(),
-                    account.account(),
-                    ProgramChargeKind::Fee,
-                    None,
-                );
-                if !expected.contains_key(&key) {
-                    return Err(ProgramSettlementError::UnreservedDebit);
-                }
-                add(&mut actual, key, paid)?;
-            }
-        }
-    }
-    if !occupancy_seen && outcome.occupancy_fee_units() != 0 {
-        return Err(ProgramSettlementError::Occupancy);
-    }
-    let mut debits = Vec::with_capacity(actual.len());
-    for ((asset, source, kind, destination), actual_amount) in actual {
-        if actual_amount
-            > *expected
-                .get(&(asset, source, kind, destination))
-                .ok_or(ProgramSettlementError::UnreservedDebit)?
-        {
-            return Err(ProgramSettlementError::UnreservedDebit);
-        }
-        debits.push(ProgramExecutedDebit {
-            kind,
-            source,
-            asset,
-            destination,
-            actual_amount,
-        });
-    }
+    let debits = settled_program_debits(prepared, receipt, artifacts, &verified, &expected)?;
     Ok(VerifiedProgramDebitSettlement {
         reservation_id: reservation.id,
         reservation_digest: reservation
@@ -1343,4 +1176,342 @@ fn array(bytes: &[u8]) -> Result<[u8; 32], ProgramSettlementError> {
     bytes
         .try_into()
         .map_err(|_| ProgramSettlementError::Terminal)
+}
+
+pub(crate) struct SettlementStore<'a> {
+    pub(crate) store: &'a Store,
+    pub(crate) tenant: &'a TenantId,
+}
+
+pub(crate) struct SettlementReceipt<'a> {
+    pub(crate) receipt: &'a VerifiedReceiptEvidence,
+    pub(crate) authority: &'a AuthorizedBatch,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NativeEffectLeg {
+    Send,
+    Mint,
+    Draw,
+}
+
+type NativeEffectTransfer = (NativeEffectLeg, ([u8; 32], [u8; 32], [u8; 32], u128));
+fn native_effect_transfer(
+    prepared: &EvmPrepared,
+    profile: crate::capability::NativeAdmissionProfile,
+    plan: &crate::capability::SemanticPlan,
+) -> Result<Option<NativeEffectTransfer>, ProgramSettlementError> {
+    let ordinal = prepared.disclosure.activity_type.ordinal();
+    let effect = profile == crate::capability::NativeAdmissionProfile::Effect;
+    let transfer = match plan.effects() {
+        [crate::capability::Effect::Transfer {
+            from,
+            to,
+            asset,
+            amount,
+        }] if ordinal == 5 && effect => {
+            Some((NativeEffectLeg::Send, (*from, *to, *asset, *amount)))
+        }
+        [crate::capability::Effect::Issuance {
+            account,
+            asset,
+            amount,
+        }] if ordinal == 10 && effect => {
+            let from = layerx_wire::hash::asset_issuance_account_id(asset)
+                .map_err(|_| ProgramSettlementError::Preparation)?;
+            Some((NativeEffectLeg::Mint, (from, *account, *asset, *amount)))
+        }
+        [crate::capability::Effect::Transfer {
+            from,
+            to,
+            asset,
+            amount,
+        }, grants @ ..]
+            if ordinal == 6
+                && effect
+                && !grants.is_empty()
+                && grants.iter().all(|effect| {
+                    matches!(effect, crate::capability::Effect::Authorization { .. })
+                })
+                && crate::capability::native_grant_draw_covers(
+                    &prepared.disclosure,
+                    *to,
+                    (*from, *to, *asset, *amount),
+                ) =>
+        {
+            Some((NativeEffectLeg::Draw, (*from, *to, *asset, *amount)))
+        }
+        effects
+            if !effects.is_empty()
+                && effects.iter().all(|effect| {
+                    matches!(effect, crate::capability::Effect::Authorization { .. })
+                })
+                && match profile {
+                    crate::capability::NativeAdmissionProfile::Effect => ordinal == 7,
+                    crate::capability::NativeAdmissionProfile::Registration { .. } => ordinal == 1,
+                } =>
+        {
+            None
+        }
+        _ => return Err(ProgramSettlementError::UnsupportedOperation),
+    };
+    Ok(transfer)
+}
+
+fn native_effect_debits(
+    prepared: &EvmPrepared,
+    reservation: &ProgramBudgetReservation,
+    receipt: &VerifiedReceiptEvidence,
+    transfer: Option<NativeEffectTransfer>,
+    fee_asset: [u8; 32],
+) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
+    let protocol = receipt
+        .execution_receipt()
+        .receipt()
+        .protocol()
+        .ok_or(ProgramSettlementError::Receipt)?;
+    let rows = reservation
+        .allocations()
+        .ok_or(ProgramSettlementError::MissingAllocation)?;
+    verify_native_effect_allocations(rows, transfer)?;
+    let mut debits = Vec::new();
+    if let (0, Some((shape, (from, to, asset, amount)))) = (protocol.result_code(), transfer) {
+        crate::reject_if(
+            protocol.from() != from
+                || protocol.to() != to
+                || protocol.asset() != asset
+                || protocol.amount() != amount,
+            || ProgramSettlementError::Terminal,
+        )?;
+        let mut leg = Vec::with_capacity(115);
+        leg.push(0);
+        leg.extend(from);
+        leg.extend(to);
+        leg.extend(asset);
+        leg.extend(amount.to_be_bytes());
+        leg.extend(1_u16.to_be_bytes());
+        layerx_programs_runtime::transfer::verify_applied_kernel_legs(
+            &leg,
+            protocol.transfer_set_root(),
+        )
+        .map_err(|_| ProgramSettlementError::Terminal)?;
+        if shape != NativeEffectLeg::Draw {
+            debits.push(ProgramExecutedDebit {
+                kind: ProgramChargeKind::Principal,
+                source: from,
+                asset,
+                destination: Some(to),
+                actual_amount: amount,
+            });
+        }
+    } else {
+        crate::reject_if(
+            protocol.transfer_set_root() != [0; 32]
+                || protocol
+                    .effects()
+                    .iter()
+                    .any(layerx_wire::receipt::Effect::monetary),
+            || ProgramSettlementError::Terminal,
+        )?;
+    }
+    crate::reject_if(
+        protocol.fee_charged()
+            > prepared
+                .call
+                .max_fee_per_gas
+                .checked_mul(u128::from(prepared.call.gas_limit))
+                .ok_or(ProgramSettlementError::Preparation)?,
+        || ProgramSettlementError::FeeProvenance,
+    )?;
+    if protocol.fee_charged() != 0 {
+        let mut fees = rows.iter().filter(|row| row.kind == ProgramChargeKind::Fee);
+        let (Some(fee), None) = (fees.next(), fees.next()) else {
+            return Err(ProgramSettlementError::FeeProvenance);
+        };
+        crate::reject_if(
+            fee.asset != fee_asset
+                || fee.destination.is_some()
+                || protocol.fee_charged() > fee.maximum_amount,
+            || ProgramSettlementError::FeeProvenance,
+        )?;
+        debits.push(ProgramExecutedDebit {
+            kind: ProgramChargeKind::Fee,
+            source: fee.source,
+            asset: fee.asset,
+            destination: None,
+            actual_amount: protocol.fee_charged(),
+        });
+    }
+    Ok(debits)
+}
+fn verify_native_effect_allocations(
+    rows: &[crate::budget::ProgramBudgetAllocation],
+    transfer: Option<NativeEffectTransfer>,
+) -> Result<(), ProgramSettlementError> {
+    if let Some((NativeEffectLeg::Send | NativeEffectLeg::Mint, (from, to, asset, amount))) =
+        transfer
+    {
+        let principal = rows
+            .iter()
+            .find(|row| {
+                row.kind == ProgramChargeKind::Principal
+                    && row.source == from
+                    && row.destination == Some(to)
+                    && row.asset == asset
+            })
+            .ok_or(ProgramSettlementError::Allocation)?;
+        crate::reject_if(
+            principal.maximum_amount != amount
+                || rows
+                    .iter()
+                    .filter(|row| row.kind != ProgramChargeKind::Fee)
+                    .count()
+                    != 1,
+            || ProgramSettlementError::Allocation,
+        )?;
+    } else {
+        crate::reject_if(
+            rows.iter().any(|row| row.kind != ProgramChargeKind::Fee),
+            || ProgramSettlementError::Allocation,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn settled_program_debits(
+    prepared: &EvmPrepared,
+    receipt: &VerifiedReceiptEvidence,
+    artifacts: &NativeProgramArtifacts,
+    verified: &layerx_proof::program::VerifiedProgramExecution,
+    expected: &BTreeMap<DebitKey, u128>,
+) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
+    let protocol = receipt
+        .execution_receipt()
+        .receipt()
+        .protocol()
+        .ok_or(ProgramSettlementError::Receipt)?;
+    let outcome = protocol
+        .program_outcome()
+        .ok_or(ProgramSettlementError::Terminal)?;
+    let mut actual = BTreeMap::<DebitKey, u128>::new();
+    if protocol.result_code() == 0 {
+        let (_, legs) = layerx_wire::receipt::decode_applied_terminal(&artifacts.terminal_payload)
+            .map_err(|_| ProgramSettlementError::Terminal)?;
+        layerx_programs_runtime::transfer::verify_applied_kernel_legs(
+            legs,
+            outcome.transfer_root(),
+        )
+        .map_err(|_| ProgramSettlementError::Terminal)?;
+        for leg in legs.chunks_exact(115) {
+            let source = array(&leg[1..33])?;
+            let destination = array(&leg[33..65])?;
+            let asset = array(&leg[65..97])?;
+            let amount = u128::from_be_bytes(
+                leg[97..113]
+                    .try_into()
+                    .map_err(|_| ProgramSettlementError::Terminal)?,
+            );
+            let mut matching = expected.keys().filter(|(a, s, k, d)| {
+                *a == asset
+                    && *s == source
+                    && *k != ProgramChargeKind::Fee
+                    && *d == Some(destination)
+            });
+            let key = *matching
+                .next()
+                .ok_or(ProgramSettlementError::UnreservedDebit)?;
+            crate::reject_if(matching.next().is_some(), || {
+                ProgramSettlementError::UnreservedDebit
+            })?;
+            add(&mut actual, key, amount)?;
+        }
+    }
+    let fee = protocol.fee_charged();
+    crate::reject_if(fee > prepared.disclosure.fee_limit, || {
+        ProgramSettlementError::FeeProvenance
+    })?;
+    if fee != 0 {
+        let mut fee_rows = expected.keys().filter(|(_, _, kind, destination)| {
+            *kind == ProgramChargeKind::Fee && destination.is_none()
+        });
+        let key = *fee_rows
+            .next()
+            .ok_or(ProgramSettlementError::FeeProvenance)?;
+        crate::reject_if(
+            fee_rows.next().is_some()
+                || (protocol.result_code() == 0 && key.0 != outcome.occupancy_asset_id()),
+            || ProgramSettlementError::FeeProvenance,
+        )?;
+        add(&mut actual, key, fee)?;
+    }
+    verify_program_occupancy(verified, outcome, expected, &mut actual)?;
+    let mut debits = Vec::with_capacity(actual.len());
+    for ((asset, source, kind, destination), actual_amount) in actual {
+        crate::reject_if(
+            actual_amount
+                > *expected
+                    .get(&(asset, source, kind, destination))
+                    .ok_or(ProgramSettlementError::UnreservedDebit)?,
+            || ProgramSettlementError::UnreservedDebit,
+        )?;
+        debits.push(ProgramExecutedDebit {
+            kind,
+            source,
+            asset,
+            destination,
+            actual_amount,
+        });
+    }
+    Ok(debits)
+}
+fn verify_program_occupancy(
+    verified: &layerx_proof::program::VerifiedProgramExecution,
+    outcome: &layerx_wire::receipt::ProgramOutcome,
+    expected: &BTreeMap<DebitKey, u128>,
+    actual: &mut BTreeMap<DebitKey, u128>,
+) -> Result<(), ProgramSettlementError> {
+    let mut occupancy_seen = false;
+    for attachment in &verified.terminal().attachments {
+        if let TerminalAttachment::Occupancy(bytes) = attachment {
+            crate::reject_if(occupancy_seen, || ProgramSettlementError::Occupancy)?;
+            occupancy_seen = true;
+            let settlement = OccupancySettlement::canonical_decode(bytes)
+                .map_err(|_| ProgramSettlementError::Occupancy)?;
+            for (payer, (_, paid, _, _)) in settlement
+                .payer_dispositions()
+                .map_err(|_| ProgramSettlementError::Occupancy)?
+            {
+                if paid == 0 {
+                    continue;
+                }
+                let mut accounts = verified
+                    .occupancy_payment_accounts()
+                    .iter()
+                    .filter(|account| {
+                        account.payer() == payer
+                            && account.asset_id() == outcome.occupancy_asset_id()
+                    });
+                let account = accounts.next().ok_or(ProgramSettlementError::Occupancy)?;
+                crate::reject_if(accounts.next().is_some(), || {
+                    ProgramSettlementError::Occupancy
+                })?;
+                let key = (
+                    account.asset_id(),
+                    account.account(),
+                    ProgramChargeKind::Fee,
+                    None,
+                );
+                crate::reject_if(!expected.contains_key(&key), || {
+                    ProgramSettlementError::UnreservedDebit
+                })?;
+                add(actual, key, paid)?;
+            }
+        }
+    }
+    crate::reject_if(
+        !occupancy_seen && outcome.occupancy_fee_units() != 0,
+        || ProgramSettlementError::Occupancy,
+    )?;
+    Ok(())
 }

@@ -209,7 +209,7 @@ pub const REPORT_MAX_BYTES: usize = 1380;
 pub const WORKER_ROSTER_BYTES: usize = 176;
 pub const EVALUATOR_ROSTER_BYTES: usize = 144;
 pub const EVENT_COMMON_BYTES: usize = 122;
-pub const STATE_SECTION_CAPS: [usize; 6] = [16384, 24576, 24576, 81920, 24576, 24576];
+pub const STATE_SECTION_CAPS: [usize; 6] = [16384, 24576, 24576, 131072, 24576, 24576];
 pub const STATE_GLOBAL_BYTES: usize = 16;
 pub const STATE_SECTION_HEADER_BYTES: usize = 8;
 pub const STATE_FRAMING_BYTES: usize = 64;
@@ -574,7 +574,9 @@ macro_rules! read_identity {
 
 impl<'a> Reader<'a> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
-    fn checked_identity(&mut self) -> CodecResult<crate::types::CheckedIdentityBytes<'a>> {
+    pub(crate) fn checked_identity(
+        &mut self,
+    ) -> CodecResult<crate::types::CheckedIdentityBytes<'a>> {
         crate::types::CheckedIdentityBytes::new(
             self.take(32)?.try_into().map_err(|_| NON_CANONICAL)?,
         )
@@ -681,7 +683,7 @@ impl<'a> Reader<'a> {
     ///
     /// # Errors
     /// Returns `ARITHMETIC` when the end offset overflows; `NON_CANONICAL` when fewer than `length` bytes remain.
-    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[inline(always)]
     pub fn take(&mut self, length: usize) -> CodecResult<&'a [u8]> {
         let end = self.offset.checked_add(length).ok_or(ARITHMETIC)?;
         let bytes = self.input.get(self.offset..end).ok_or(NON_CANONICAL)?;
@@ -774,8 +776,7 @@ impl<'a> Reader<'a> {
     /// Returns `NON_CANONICAL` when any reserved byte is nonzero; propagates `take`'s refusals.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn reserved(&mut self, length: usize) -> CodecResult<()> {
-        let (words, tail) = self.take(length)?.as_chunks::<8>();
-        if words.iter().any(|w| u64::from_ne_bytes(*w) != 0) || tail.iter().any(|b| *b != 0) {
+        if !zero_bytes(self.take(length)?) {
             Err(NON_CANONICAL)
         } else {
             Ok(())
@@ -825,6 +826,44 @@ impl<'a> Reader<'a> {
             Err(NON_CANONICAL)
         }
     }
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn equal_bytes(left: &[u8], right: &[u8]) -> bool {
+    if left.len() != right.len() {
+        return false;
+    }
+    let (left_blocks, left) = left.as_chunks::<32>();
+    let (right_blocks, right) = right.as_chunks::<32>();
+    for (left, right) in left_blocks.iter().zip(right_blocks) {
+        if !crate::types::identity_equal_inline(left, right) {
+            return false;
+        }
+    }
+    let (left_words, left_tail) = left.as_chunks::<8>();
+    let (right_words, right_tail) = right.as_chunks::<8>();
+    left_words
+        .iter()
+        .zip(right_words)
+        .all(|(a, b)| u64::from_ne_bytes(*a) == u64::from_ne_bytes(*b))
+        && left_tail == right_tail
+}
+
+pub(crate) fn zero_bytes(bytes: &[u8]) -> bool {
+    let (blocks, tail) = bytes.as_chunks::<32>();
+    for block in blocks {
+        let words = block.as_chunks::<8>().0;
+        if (u64::from_ne_bytes(words[0])
+            | u64::from_ne_bytes(words[1])
+            | u64::from_ne_bytes(words[2])
+            | u64::from_ne_bytes(words[3]))
+            != 0
+        {
+            return false;
+        }
+    }
+    let (words, tail) = tail.as_chunks::<8>();
+    words.iter().all(|word| u64::from_ne_bytes(*word) == 0) && tail.iter().all(|byte| *byte == 0)
 }
 
 pub struct Writer<'a> {
@@ -1183,19 +1222,29 @@ pub struct Envelope<'a> {
 pub struct ValidatedEnvelope<'a> {
     pub envelope: Envelope<'a>,
     unsigned: &'a [u8],
+    request: Option<RequestDigest>,
 }
 impl<'a> ValidatedEnvelope<'a> {
     #[must_use]
     pub const fn unsigned_bytes(&self) -> &'a [u8] {
         self.unsigned
     }
+    pub(crate) fn cache_request_digest(&mut self) -> CodecResult<RequestDigest> {
+        let request = self.request_digest()?;
+        self.request = Some(request);
+        Ok(request)
+    }
+
     /// Request digest over the unsigned envelope bytes.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the digest is all zero.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn request_digest(&self) -> CodecResult<RequestDigest> {
-        RequestDigest::new(domain_hash("PAXAI/request/v1", self.unsigned)?.bytes())
+        match self.request {
+            Some(request) => Ok(request),
+            None => RequestDigest::new(domain_hash("PAXAI/request/v1", self.unsigned)?.bytes()),
+        }
     }
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -1312,7 +1361,11 @@ fn registry_before_epoch(selector: u16) -> bool {
 pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
     let (envelope, unsigned) = decode_envelope_fields(input, false)?;
     envelope.validate()?;
-    Ok(ValidatedEnvelope { envelope, unsigned })
+    Ok(ValidatedEnvelope {
+        envelope,
+        unsigned,
+        request: None,
+    })
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -1525,6 +1578,31 @@ pub enum ScoreVector<'a> {
     Encoded(&'a [u8]),
 }
 impl ScoreVector<'_> {
+    /// A checked cell borrowed from a canonical vector. Internal chunk readers
+    /// need the identity for comparison, without constructing another WorkerId.
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
+    pub(crate) fn checked_cell(&self, index: usize) -> CodecResult<(&[u8; 32], Score)> {
+        match self {
+            Self::Typed(cells) => {
+                let cell = cells.get(index).ok_or(NON_CANONICAL)?;
+                Ok((cell.worker.as_bytes(), cell.score))
+            }
+            Self::Encoded(bytes) => {
+                let cell = bytes.as_chunks::<36>().0.get(index).ok_or(NON_CANONICAL)?;
+                let worker = crate::types::CheckedIdentityBytes::new(
+                    cell.guest_index(..32)
+                        .try_into()
+                        .map_err(|_| NON_CANONICAL)?,
+                )?;
+                let score = Score::new(u32::from_be_bytes(
+                    cell.guest_index(32..)
+                        .try_into()
+                        .map_err(|_| NON_CANONICAL)?,
+                ))?;
+                Ok((worker.bytes(), score))
+            }
+        }
+    }
     #[must_use]
     pub fn len(&self) -> usize {
         match self {
@@ -1554,12 +1632,14 @@ impl ScoreVector<'_> {
             return Err(CAPACITY);
         }
         let mut last = None;
-        for entry in self.entries() {
-            let e = entry?;
-            if last.is_some_and(|p| p >= e.worker) {
+        for index in 0..self.len() {
+            let (worker, _) = self.checked_cell(index)?;
+            if last.is_some_and(|previous| {
+                crate::types::identity_order(previous, worker) != core::cmp::Ordering::Less
+            }) {
                 return Err(NON_CANONICAL);
             }
-            last = Some(e.worker);
+            last = Some(worker);
         }
         Ok(())
     }
@@ -1613,6 +1693,15 @@ pub struct ReportBody<'a> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_report(report: &ReportBody<'_>, output: &mut [u8]) -> CodecResult<usize> {
     report.scores.validate()?;
+    encode_checked_report(report, output)
+}
+
+// Only callers that have checked the entire score vector may use this writer.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn encode_checked_report(
+    report: &ReportBody<'_>,
+    output: &mut [u8],
+) -> CodecResult<usize> {
     let size = REPORT_FIXED_BYTES + 36 * report.scores.len();
     output_size(output, size, REPORT_MAX_BYTES)?;
     let mut w = Writer::new(output);
@@ -1633,6 +1722,15 @@ pub fn encode_report(report: &ReportBody<'_>, output: &mut [u8]) -> CodecResult<
 /// Returns `CAPACITY` when the input exceeds `REPORT_MAX_BYTES` or the count exceeds `MAX_WORKERS`; `BAD_VERSION` for a wrong schema; `F03_NO_SCORES` for a zero count; `NON_CANONICAL` for a zero identity, digest or version, short or trailing input; propagates `ScoreVector::validate` refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_report(input: &[u8]) -> CodecResult<ReportBody<'_>> {
+    let report = decode_report_frame(input)?;
+    report.scores.validate()?;
+    Ok(report)
+}
+
+// The F03 ingress decoder supplies its narrower vector validation. Committed
+// aggregation uses admission's proof and decodes only the selected vote cells.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn decode_report_frame(input: &[u8]) -> CodecResult<ReportBody<'_>> {
     if input.len() > REPORT_MAX_BYTES {
         return Err(CAPACITY);
     }
@@ -1649,7 +1747,6 @@ pub fn decode_report(input: &[u8]) -> CodecResult<ReportBody<'_>> {
     }
     let scores = ScoreVector::Encoded(r.take(count.checked_mul(36).ok_or(ARITHMETIC)?)?);
     r.finish()?;
-    scores.validate()?;
     Ok(ReportBody {
         binding,
         evidence,
@@ -1793,7 +1890,7 @@ pub fn encode_worker_roster(v: &WorkerRosterEntry, out: &mut [u8]) -> CodecResul
     Ok(w.len())
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn write_worker_roster(w: &mut Writer<'_>, v: &WorkerRosterEntry) -> CodecResult<()> {
+pub(crate) fn write_worker_roster(w: &mut Writer<'_>, v: &WorkerRosterEntry) -> CodecResult<()> {
     crate::codec::write_fields!(w;
         id32: v.worker.as_bytes();
         id32: v.owner.as_bytes();
@@ -1805,7 +1902,7 @@ fn write_worker_roster(w: &mut Writer<'_>, v: &WorkerRosterEntry) -> CodecResult
     w.put(v.metadata.as_bytes())
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn read_worker_roster(r: &mut Reader<'_>) -> CodecResult<WorkerRosterEntry> {
+pub(crate) fn read_worker_roster(r: &mut Reader<'_>) -> CodecResult<WorkerRosterEntry> {
     Ok(
         crate::codec::read_record!(r, WorkerRosterEntry {  }; worker = r.worker_id()?;
             owner: PrincipalId,
@@ -1890,7 +1987,10 @@ pub fn encode_evaluator_roster(v: &EvaluatorRosterEntry, out: &mut [u8]) -> Code
     Ok(w.len())
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn write_evaluator_roster(w: &mut Writer<'_>, v: &EvaluatorRosterEntry) -> CodecResult<()> {
+pub(crate) fn write_evaluator_roster(
+    w: &mut Writer<'_>,
+    v: &EvaluatorRosterEntry,
+) -> CodecResult<()> {
     crate::codec::write_fields!(w;
         id32: v.evaluator.as_bytes();
         id32: v.owner.as_bytes();
@@ -1901,7 +2001,7 @@ fn write_evaluator_roster(w: &mut Writer<'_>, v: &EvaluatorRosterEntry) -> Codec
     w.put(v.rubric.as_bytes())
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn read_evaluator_roster(r: &mut Reader<'_>) -> CodecResult<EvaluatorRosterEntry> {
+pub(crate) fn read_evaluator_roster(r: &mut Reader<'_>) -> CodecResult<EvaluatorRosterEntry> {
     Ok(
         crate::codec::read_record!(r, EvaluatorRosterEntry {  }; evaluator = r.evaluator_id()?;
             owner: PrincipalId,
@@ -2220,12 +2320,14 @@ pub fn encode_result(v: &ApplicationResult<'_>, out: &mut [u8]) -> CodecResult<u
     v.validate()?;
     output_size(out, 82 + v.payload.len(), MAX_RESULT_BYTES)?;
     let mut w = Writer::new(out);
-    w.u16(SCHEMA_VERSION)?;
-    w.u16(v.status as u16)?;
-    w.u16(v.error.map_or(0, ApplicationError::code))?;
-    w.put(&request_bytes(v.request))?;
-    w.u64(v.revision)?;
-    w.put(v.digest.as_bytes())?;
+    write_fields!(w;
+        u16: SCHEMA_VERSION;
+        u16: v.status as u16;
+        u16: v.error.map_or(0, ApplicationError::code);
+        put: &request_bytes(v.request);
+        u64: v.revision;
+        id32: v.digest.as_bytes();
+    )?;
     w.bytes(v.payload, MAX_RESULT_PAYLOAD_BYTES)?;
     Ok(w.len())
 }
@@ -2939,4 +3041,24 @@ pub const fn request_signing_message(digest: RequestDigest) -> [u8; 32] {
 #[must_use]
 pub const fn report_signing_message(digest: AttestationDigest) -> [u8; 32] {
     digest.bytes()
+}
+
+// Shared lookup in a canonical frozen worker roster, without serializing it or
+// scanning all preceding members for every vote and dictionary slot.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn frozen_worker_index(
+    workers: &[WorkerRosterEntry],
+    worker: WorkerId,
+) -> Option<usize> {
+    let mut left = 0;
+    let mut right = workers.len();
+    while left < right {
+        let mid = left + (right - left) / 2;
+        match workers.guest_index(mid).worker.cmp(&worker) {
+            core::cmp::Ordering::Less => left = mid + 1,
+            core::cmp::Ordering::Greater => right = mid,
+            core::cmp::Ordering::Equal => return Some(mid),
+        }
+    }
+    None
 }

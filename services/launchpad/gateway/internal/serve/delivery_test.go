@@ -47,17 +47,24 @@ func TestApprovedColdConditionalAndBoundedRange(t *testing.T) {
 	}
 	bucket := "kd-fec98588ef6fe4334797a5de-" + hex.EncodeToString(id)
 	observed := &observedTransport{}
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"), config.WithHTTPClient(&http.Client{Transport: observed, Timeout: 3 * time.Second}), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("kindle_fixture", "kindle_fixture_password", "")))
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"), config.WithHTTPClient(&http.Client{Transport: observed, Timeout: 3 * time.Second}), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(requiredServeFixture(t, "GATEWAY_TEST_MINIO_ACCESS_KEY_ID"), requiredServeFixture(t, "GATEWAY_TEST_MINIO_SECRET_ACCESS_KEY"), "")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	api := s3.NewFromConfig(cfg, func(o *s3.Options) { o.BaseEndpoint = aws.String("http://127.0.0.1:29000"); o.UsePathStyle = true })
+	api := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(requiredServeFixture(t, "GATEWAY_TEST_MINIO_ENDPOINT"))
+		o.UsePathStyle = true
+	})
 	if _, err = api.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: &bucket}); err != nil {
 		t.Fatal(err)
 	}
 	defer api.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: &bucket})
 	store := storage.NewFromS3(api, bucket)
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	redisOptions, err := redis.ParseURL(requiredServeFixture(t, "GATEWAY_TEST_REDIS_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := redis.NewClient(redisOptions)
 	defer db.Close()
 	ledger, err := mediastore.NewLedger(db, bucket)
 	if err != nil {

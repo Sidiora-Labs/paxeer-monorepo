@@ -66,7 +66,7 @@ func TestIdentityMeasurementActualHTTPPostgresAndImmutableCapture(t *testing.T) 
 		t.Fatalf("real measured workload failed: %s", summary.String())
 	}
 	if !summary.Assertions["D11_029.2_latency"] || !summary.Assertions["source_unchanged"] || !summary.Assertions["acknowledged_rows_durable"] {
-		t.Fatalf("owned harness assertions failed: %v", summary.Failures)
+		t.Fatalf("owned harness assertions failed: %s", summary.String())
 	}
 	raw, err := os.ReadFile(filepath.Join(cfg.EvidenceDirectory, "requests.jsonl"))
 	if err != nil {
@@ -278,6 +278,12 @@ func TestIdentityMeasurementPreferenceRequiresActualServicesAndTwoWallets(t *tes
 }
 
 func TestSerialIdentityPhase4ConfiguredWorkload(t *testing.T) {
+	for _, name := range []string{"L33_PHASE4_MEASUREMENT_INPUT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	path := os.Getenv("L33_PHASE4_MEASUREMENT_INPUT")
 	if path == "" {
 		t.Fatal("explicit serial9.1 identity workload input required")

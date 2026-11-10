@@ -3,11 +3,7 @@ use layerx_agentd::human::{encode_response, HumanOperationError, HumanRefusal};
 use layerx_types::rung::Rung;
 
 fn field(bytes: &mut Vec<u8>, value: &[u8]) {
-    bytes.extend_from_slice(
-        &u32::try_from(value.len())
-            .expect("bounded field")
-            .to_be_bytes(),
-    );
+    bytes.extend_from_slice(&assert_ok(u32::try_from(value.len()), "bounded field").to_be_bytes());
     bytes.extend_from_slice(value);
 }
 
@@ -38,5 +34,13 @@ fn export_above_committed_is_rung_unattainable() {
         assert!(!source.contains("SettlementAnchoringUnavailable"));
         assert!(!source.contains("export.settlement_anchoring_unavailable"));
         assert!(!source.contains("export.level_unattainable"));
+    }
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
     }
 }

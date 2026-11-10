@@ -156,14 +156,21 @@ func TestConnectedRealR3PublisherKillRestartAndConsumerInbox(t *testing.T) {
 	if _, err = js.CreateStream(ctx, jetstream.StreamConfig{Name: stream, Subjects: []string{subject}, Storage: jetstream.FileStorage, Replicas: 3, Duplicates: time.Second, MaxAge: time.Hour, MaxBytes: 8 * 1024 * 1024, MaxMsgs: 1000}); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := js.DeleteStream(cleanup, stream); err != nil {
 			t.Error(err)
 		}
-	})
-	environment := append(os.Environ(), "SOCIAL_PUBLISHER_CHILD_DSN="+store.Pool.Config().ConnConfig.ConnString(), "SOCIAL_PUBLISHER_CHILD_STREAM="+stream, "SOCIAL_PUBLISHER_CHILD_SUBJECT="+subject)
+	}()
+	childDSN, err := url.Parse(store.Pool.Config().ConnConfig.ConnString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := childDSN.Query()
+	query.Set("search_path", store.Pool.Config().ConnConfig.RuntimeParams["search_path"])
+	childDSN.RawQuery = query.Encode()
+	environment := append(os.Environ(), "SOCIAL_PUBLISHER_CHILD_DSN="+childDSN.String(), "SOCIAL_PUBLISHER_CHILD_STREAM="+stream, "SOCIAL_PUBLISHER_CHILD_SUBJECT="+subject)
 	child := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestSocialPublisherProcessHelper$")
 	child.Env = append(environment, "SOCIAL_PUBLISHER_CHILD_MODE=crash-after-ack")
 	stdout, err := child.StdoutPipe()
@@ -176,9 +183,11 @@ func TestConnectedRealR3PublisherKillRestartAndConsumerInbox(t *testing.T) {
 		t.Fatal(err)
 	}
 	persisted := make(chan bool, 1)
+	var childOutput bytes.Buffer
 	go func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
+			fmt.Fprintln(&childOutput, scanner.Text())
 			if scanner.Text() == "BROKER_PERSISTED" {
 				persisted <- true
 				return
@@ -191,7 +200,7 @@ func TestConnectedRealR3PublisherKillRestartAndConsumerInbox(t *testing.T) {
 		if !ok {
 			_ = child.Process.Kill()
 			_ = child.Wait()
-			t.Fatal("publisher did not reach actual broker persistence acknowledgement", stderr.String())
+			t.Fatal("publisher did not reach actual broker persistence acknowledgement", stderr.String(), childOutput.String())
 		}
 	case <-ctx.Done():
 		_ = child.Process.Kill()
@@ -308,6 +317,7 @@ func realPolicyChat(t *testing.T) (*fanout.DurableStore, map[string]context.Cont
 		}
 		ddl := regexp.MustCompile(`(?m)^SET LOCAL search_path[^\n]*\n`).ReplaceAllString(string(raw), "")
 		ddl = strings.ReplaceAll(ddl, "chat.", pgx.Identifier{schema}.Sanitize()+".")
+		ddl = strings.ReplaceAll(ddl, `"chat".`, pgx.Identifier{schema}.Sanitize()+".")
 		if _, err = store.Pool.Exec(ctx, ddl); err != nil {
 			t.Fatalf("real policy schema %s: %v", path, err)
 		}

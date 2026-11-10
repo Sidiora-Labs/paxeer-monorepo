@@ -19,11 +19,7 @@ import { decodeFunctionData, recoverAddress, serializeSignature, type Hex } from
 import type { SponsoredBindRequest } from '../src/provision/bind.js';
 import type { WalletInventoryKey } from '../src/agent/authority.js';
 import { generatePrivateKey, privateKeyToAccount, publicKeyToAddress } from 'viem/accounts';
-import {
-  newAgentKey,
-  startIdentityProvider,
-  type IdentityProvider,
-} from './support/identity.js';
+import { newAgentKey, startIdentityProvider, type IdentityProvider } from './support/identity.js';
 import {
   ADDR,
   BIND_SELECTOR,
@@ -31,6 +27,7 @@ import {
   addrAbiJson,
   chainMainAccountId,
   repoRoot,
+  verifyChainSequencerReceipt,
 } from './support/chain.js';
 import { KERNEL_POLICY } from './e2e/attestors.js';
 import { reservePorts } from './support/ports.js';
@@ -167,9 +164,7 @@ function health(url: string): Promise<{ ready: boolean }> {
         res.on('data', (c: Buffer) => chunks.push(c));
         res.on('end', () => {
           try {
-            resolveHealth(
-              JSON.parse(Buffer.concat(chunks).toString('utf8')) as { ready: boolean }
-            );
+            resolveHealth(JSON.parse(Buffer.concat(chunks).toString('utf8')) as { ready: boolean });
           } catch {
             resolveHealth({ ready: false });
           }
@@ -197,86 +192,102 @@ beforeAll(async () => {
   sequencer = createHttpServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', async () => {
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
-        id: number;
-        method: string;
-        params: Hex[];
-      };
-      sequencerRequests.push(body);
-      if (
-        body.method === 'eth_getCode' ||
-        (body.method === 'eth_call' &&
-          typeof body.params[0] === 'object' &&
-          body.params[0] !== null &&
-          (body.params[0] as unknown as { data: string }).data === '0xaffed0e0')
-      ) {
-        const result =
-          body.method === 'eth_getCode'
-            ? body.params[0] === PAYMASTER
-              ? '0x60005460005260206000f3'
-              : '0x'
-            : `0x${'00'.repeat(32)}`;
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
-        return;
-      }
-      if (body.method === 'pax_sequencerReceipt') {
-        if (failReceipt) {
-          failReceipt = false;
+    req.on('end', () => {
+      let id: unknown = null;
+      void (async () => {
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+          id: number;
+          method: string;
+          params: Hex[];
+        };
+        id = body.id;
+        sequencerRequests.push(body);
+        if (
+          body.method === 'eth_getCode' ||
+          (body.method === 'eth_call' &&
+            typeof body.params[0] === 'object' &&
+            body.params[0] !== null &&
+            (body.params[0] as unknown as { data: string }).data === '0xaffed0e0')
+        ) {
+          const result =
+            body.method === 'eth_getCode'
+              ? body.params[0] === PAYMASTER
+                ? '0x60005460005260206000f3'
+                : '0x'
+              : `0x${'00'.repeat(32)}`;
           res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(
-            JSON.stringify({
-              jsonrpc: '2.0',
-              id: body.id,
-              error: { code: -32000, message: 'injected pax_sequencerReceipt failure' },
-            })
-          );
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
           return;
         }
-        const hash = body.params[0]!;
-        const receipt = chain.receipts.get(hash);
-        const tx = chain.sent.find((sent) => sent.hash === hash);
-        let result: SequencerReceiptResult | null = null;
-        if (receipt && tx) {
-          const raw = rawTransactions.get(hash);
-          if (!raw) throw new Error('provisioning transaction has no recorded envelope');
-          const evidence = nodeEvidenceForTransaction(raw);
-          result = evidence.receiptJson;
-          expect(result.status).toBe(receipt.status);
-          expect(result.txHash).toBe(hash);
-          await authenticateNodeReceipt(result, evidence);
-          if (raw.startsWith('0x04')) await authenticateSponsoredBindReceipt(result, evidence);
-          if (committedReceipts.has(hash)) {
-            result = {
-              ...result,
-              rung: 'committed',
-              blockNumber: receipt.blockNumber,
-              blockHash: `0x${'01'.repeat(32)}`,
-            };
+        if (body.method === 'pax_sequencerReceipt') {
+          if (failReceipt) {
+            failReceipt = false;
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: body.id,
+                error: { code: -32000, message: 'injected pax_sequencerReceipt failure' },
+              })
+            );
+            return;
           }
+          const hash = body.params[0]!;
+          const receipt = chain.receipts.get(hash);
+          const tx = chain.sent.find((sent) => sent.hash === hash);
+          let result: SequencerReceiptResult | null = null;
+          if (receipt && tx) {
+            const raw = rawTransactions.get(hash);
+            if (!raw) throw new Error('provisioning transaction has no recorded envelope');
+            const view = chain.sequencerReceipts.get(hash);
+            if (!view) throw new Error('applied loopback transaction has no canonical receipt');
+            result = await verifyChainSequencerReceipt(view, raw, chain.receiptKeyPins);
+            expect(result.status).toBe(receipt.status);
+            expect(result.txHash).toBe(hash);
+            if (raw.startsWith('0x04')) {
+              expect(result.sponsor).toBe(sponsorAddress);
+              expect(result.logs).toHaveLength(1);
+              expect(result.logs[0]!.address).toBe(ADDR);
+            }
+            if (committedReceipts.has(hash)) {
+              result = {
+                ...result,
+                rung: 'committed',
+                blockNumber: receipt.blockNumber,
+                blockHash: `0x${'01'.repeat(32)}`,
+              };
+            }
+          }
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
+          return;
         }
+        try {
+          const response = await fetch(chain.url, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          res.writeHead(response.status, { 'content-type': 'application/json' });
+          res.end(await response.text());
+        } catch (err) {
+          res.writeHead(500);
+          res.end(String(err));
+        }
+      })().catch((error: unknown) => {
+        stationErrors.push(error);
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
-        return;
-      }
-      try {
-        const response = await fetch(chain.url, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        res.writeHead(response.status, { 'content-type': 'application/json' });
-        res.end(await response.text());
-      } catch (err) {
-        res.writeHead(500);
-        res.end(String(err));
-      }
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32603, message: String(error) },
+          })
+        );
+      });
     });
   });
-  await new Promise<void>((resolveSequencer) =>
-    sequencer.listen(0, '127.0.0.1', resolveSequencer)
-  );
+  await new Promise<void>((resolveSequencer) => sequencer.listen(0, '127.0.0.1', resolveSequencer));
   const sequencerAddress = sequencer.address();
   if (!sequencerAddress || typeof sequencerAddress === 'string')
     throw new Error('sequencer did not bind');
@@ -372,10 +383,7 @@ beforeAll(async () => {
     const keyFile = join(workDir, `${node}.store`);
     writeFileSync(keyFile, randomBytes(32).toString('hex'));
     const log = openSync(join(workDir, `${node}.log`), 'w');
-    await Promise.all([
-      reservedPorts[i]!.release(),
-      reservedPorts[i + nodes.length]!.release(),
-    ]);
+    await Promise.all([reservedPorts[i]!.release(), reservedPorts[i + nodes.length]!.release()]);
     const child = spawn(bin, [], {
       env: {
         PATH: process.env.PATH ?? '',
@@ -497,9 +505,7 @@ beforeAll(async () => {
           return;
         }
         expect(req.url).toBe('/submit');
-        const request = JSON.parse(
-          Buffer.concat(chunks).toString('utf8')
-        ) as SponsoredBindRequest;
+        const request = JSON.parse(Buffer.concat(chunks).toString('utf8')) as SponsoredBindRequest;
         submitRequests.push(request);
         const account = request.batch.account.toLowerCase();
         expect(request.batch.quote).toEqual(issuedQuotes.get(account));
@@ -574,7 +580,6 @@ beforeAll(async () => {
               },
             ],
           });
-          nodeEvidenceForTransaction(raw);
           const hash = await deps().rpc.sendRawTransaction(raw);
           rawTransactions.set(hash, raw);
           submitted = { request, hash };
@@ -602,6 +607,7 @@ beforeAll(async () => {
 
   process.env.SUPABASE_URL = idp.url;
   process.env.LOG_LEVEL = 'error';
+  process.env.HYPERPAXEER_RPC_URL = `http://127.0.0.1:${sequencerAddress.port}`;
   process.env.RPC_URLS = `http://127.0.0.1:${sequencerAddress.port}`;
   process.env.SEQUENCER_RPC_URL = `http://127.0.0.1:${sequencerAddress.port}`;
   process.env.HYPERPAXEER_CHAIN_ID = String(CHAIN_ID);
@@ -737,9 +743,7 @@ async function approveStandardSigning(userId: string, kind = 'standard'): Promis
               }
             );
             request.on('error', reject);
-            request.on('timeout', () =>
-              request.destroy(new Error('key description timed out'))
-            );
+            request.on('timeout', () => request.destroy(new Error('key description timed out')));
             request.end(JSON.stringify({ session_id: randomUUID(), key_id: admitted.key_id }));
           })
       )
@@ -760,10 +764,7 @@ async function approveStandardSigning(userId: string, kind = 'standard'): Promis
 async function provisionRow(userId: string, kind = 'standard') {
   const { rows } = await poolModule
     .getPool()
-    .query(`select * from account_provisioning where user_id = $1 and kind = $2`, [
-      userId,
-      kind,
-    ]);
+    .query(`select * from account_provisioning where user_id = $1 and kind = $2`, [userId, kind]);
   return rows[0] as Record<string, unknown>;
 }
 
@@ -885,9 +886,7 @@ describe('provisioning derivations', () => {
         `0x${v.evm_address}`,
         BigInt(v.nonce)
       );
-      expect(bindModule.verifyEd25519(bindVectors.public_key, message, v.signature)).toBe(
-        v.valid
-      );
+      expect(bindModule.verifyEd25519(bindVectors.public_key, message, v.signature)).toBe(v.valid);
       if (v.valid) expect(message.toString('hex')).toBe(v.message);
     }
     const calldata = bindModule.bindLayerXCalldata(
@@ -1311,9 +1310,7 @@ describe('provisioning flow', () => {
         'wallet_id',
       ]);
     }
-    const legacyRow = await pool.query(`select did from wallets where id = $1`, [
-      legacy.row.id,
-    ]);
+    const legacyRow = await pool.query(`select did from wallets where id = $1`, [legacy.row.id]);
     expect(legacyRow.rows[0].did).toBeNull();
     const cursor = await pool.query(
       `select last_wallet_id::text from account_backfill_cursor where name = 'unified_account'`
@@ -1334,8 +1331,8 @@ describe('provisioning flow', () => {
       wallet: { id: migratedId, did: byId.get(migratedId)!.did, binding_state: 'bound' },
     });
     expect(
-      (await pool.query(`select layerx_key_id from wallets where id = $1`, [migratedId]))
-        .rows[0].layerx_key_id
+      (await pool.query(`select layerx_key_id from wallets where id = $1`, [migratedId])).rows[0]
+        .layerx_key_id
     ).toBe(layerxKey);
     expect(chain.bindings.get(key.address!.toLowerCase())).toBe(
       byId.get(migratedId)!.did!.slice('did:layerx:'.length)
@@ -1514,11 +1511,8 @@ describe('provisioning flow', () => {
     ).toHaveLength(0);
     expect(chain.bindings.has(agentAddress)).toBe(false);
     expect(
-      (
-        await pool.query('select binding_state from wallets where id = $1', [
-          agentWallet.row.id,
-        ])
-      ).rows[0].binding_state
+      (await pool.query('select binding_state from wallets where id = $1', [agentWallet.row.id]))
+        .rows[0].binding_state
     ).toBe('pending');
 
     const active = await stateModule.provisionAccount(d, {

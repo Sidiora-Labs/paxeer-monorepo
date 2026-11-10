@@ -58,8 +58,9 @@ func contractGenesis() types.GenesisState {
 			{ID: 2, Owner: holder, Strategy: types.FeeStrategyClaim, Pool: poolTwo},
 			{ID: 5, Owner: holder, Approved: operator, Strategy: types.FeeStrategyAirdrop, Pool: poolOne},
 		},
-		Operators: []types.FeeRightOperator{{Owner: holder, Operator: operator}},
-		IDMap:     []types.FeeRightIDMapping{{Generation1ID: 3, Generation2ID: 5}},
+		OwnerTokens: []types.FeeRightOwnerTokens{{Owner: holder, TokenIDs: []uint64{5, 2}}},
+		Operators:   []types.FeeRightOperator{{Owner: holder, Operator: operator}},
+		IDMap:       []types.FeeRightIDMapping{{Generation1ID: 3, Generation2ID: 5}},
 	}
 	gs.FeeAccounting = types.FeeAccounting{
 		PendingProtocolFees: sdk.NewInt(0), TotalLiabilities: sdk.NewInt(900), AccountingInitialized: true, AccountingMigrationCursor: 2,
@@ -178,6 +179,8 @@ func TestGenesisValidate(t *testing.T) {
 	require.Equal(t, uint64(5), decoded.FeeRights.IDMap[0].Generation2ID)
 	require.Equal(t, "-100", decoded.BookHeldDeltas[0].Delta.String())
 	require.Equal(t, valid.PoolMetadata, decoded.PoolMetadata)
+	require.Equal(t, valid.FeeRights.OwnerTokens, decoded.FeeRights.OwnerTokens)
+	require.Equal(t, []uint64{5, 2}, decoded.FeeRights.OwnerTokens[0].TokenIDs)
 
 	// SidioraNFT.initialize sets poolIndexReady with the cursor at 0 and mint
 	// advances nextTokenId without the cursor, so a ready collection keeps any
@@ -258,6 +261,30 @@ func TestGenesisValidate(t *testing.T) {
 		}},
 		{"fee right zero owner", "fee right 2", func(gs *types.GenesisState) {
 			gs.FeeRights.Tokens[0].Owner = common.Address{}.Hex()
+		}},
+		{"missing owner enumeration", "fee-right owner enumeration missing or wrong owner for 2", func(gs *types.GenesisState) {
+			gs.FeeRights.OwnerTokens = nil
+		}},
+		{"empty owner enumeration", "fee-right owner enumeration " + holder, func(gs *types.GenesisState) {
+			gs.FeeRights.OwnerTokens[0].TokenIDs = nil
+		}},
+		{"duplicate owner enumeration", "fee-right owner enumeration " + holder, func(gs *types.GenesisState) {
+			gs.FeeRights.OwnerTokens = append(gs.FeeRights.OwnerTokens, gs.FeeRights.OwnerTokens[0])
+		}},
+		{"zero enumeration owner", "fee-right owner enumeration", func(gs *types.GenesisState) {
+			gs.FeeRights.OwnerTokens[0].Owner = common.Address{}.Hex()
+		}},
+		{"unknown enumerated token", "fee-right owner enumeration token 4", func(gs *types.GenesisState) {
+			gs.FeeRights.OwnerTokens[0].TokenIDs[0] = 4
+		}},
+		{"duplicate enumerated token", "fee-right owner enumeration token 5", func(gs *types.GenesisState) {
+			gs.FeeRights.OwnerTokens[0].TokenIDs = append(gs.FeeRights.OwnerTokens[0].TokenIDs, 5)
+		}},
+		{"incomplete owner enumeration", "fee-right owner enumeration missing or wrong owner for 2", func(gs *types.GenesisState) {
+			gs.FeeRights.OwnerTokens[0].TokenIDs = gs.FeeRights.OwnerTokens[0].TokenIDs[:1]
+		}},
+		{"wrong enumeration owner", "fee-right owner enumeration missing or wrong owner for 2", func(gs *types.GenesisState) {
+			gs.FeeRights.OwnerTokens[0].Owner = operator
 		}},
 		{"operator equal to owner", "fee-right operator", func(gs *types.GenesisState) {
 			gs.FeeRights.Operators[0].Operator = holder

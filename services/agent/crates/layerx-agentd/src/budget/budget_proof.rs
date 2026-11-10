@@ -58,51 +58,67 @@ pub struct VerifiedBudgetProof {
 }
 
 impl VerifiedBudgetProof {
+    #[must_use]
     pub const fn committed_height(&self) -> u64 {
         self.committed_height
     }
+    #[must_use]
     pub fn get_budget_result(&self) -> &[u8] {
         &self.get_budget_result
     }
+    #[must_use]
     pub const fn budget_id(&self) -> [u8; 32] {
         self.budget_id
     }
+    #[must_use]
     pub const fn asset(&self) -> [u8; 32] {
         self.asset
     }
+    #[must_use]
     pub const fn source_account(&self) -> [u8; 32] {
         self.source_account
     }
+    #[must_use]
     pub fn owner(&self) -> &str {
         &self.owner
     }
+    #[must_use]
     pub const fn observed_head_sequence(&self) -> u64 {
         self.observed_head_sequence
     }
+    #[must_use]
     pub const fn remaining(&self) -> u128 {
         self.remaining
     }
+    #[must_use]
     pub const fn verification(&self) -> VerificationLevel {
         self.verification
     }
+    #[must_use]
     pub const fn evidence_digest(&self) -> [u8; 32] {
         self.evidence_digest
     }
+    #[must_use]
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.receipt_digest
     }
+    #[must_use]
     pub const fn checkpoint_digest(&self) -> [u8; 32] {
         self.checkpoint_digest
     }
+    #[must_use]
     pub const fn age_sequences(&self) -> u64 {
         self.age_sequences
     }
+    #[must_use]
     pub const fn maximum_age_sequences(&self) -> u64 {
         self.maximum_age_sequences
     }
+    #[must_use]
     pub const fn digest(&self) -> [u8; 32] {
         self.digest
     }
+    #[must_use]
     pub fn canonical_export_bytes(&self) -> &[u8] {
         &self.canonical_export_bytes
     }
@@ -186,7 +202,9 @@ fn require(value: bool) -> Result<(), BudgetProofError> {
     }
 }
 fn bytes(value: &str) -> Result<Vec<u8>, BudgetProofError> {
-    require(!value.is_empty() && value.len() <= MAX_BUDGET_PROOF_BYTES && value.len() % 2 == 0)?;
+    require(
+        !value.is_empty() && value.len() <= MAX_BUDGET_PROOF_BYTES && value.len().is_multiple_of(2),
+    )?;
     let decoded = hex::decode(value).map_err(|_| BudgetProofError::Refused)?;
     require(hex::encode(&decoded) == value)?;
     Ok(decoded)
@@ -264,6 +282,9 @@ fn authenticated_owner_address(
     Ok(address)
 }
 
+/// # Errors
+/// Returns an error if the budget export, owner scope, verification evidence or committed
+/// head cannot be verified.
 pub fn budget_proof_committed_head(export: &[u8]) -> Result<(u64, [u8; 32]), BudgetProofError> {
     require(!export.is_empty() && export.len() <= MAX_BUDGET_PROOF_BYTES)?;
     let value: Export = serde_json::from_slice(export).map_err(|_| BudgetProofError::Refused)?;
@@ -278,6 +299,103 @@ fn verify_native_budget_proof(
 ) -> Result<VerifiedBudgetProof, BudgetProofError> {
     require(!export.is_empty() && export.len() <= MAX_BUDGET_PROOF_BYTES && budget_id != [0; 32])?;
     let value: Export = serde_json::from_slice(export).map_err(|_| BudgetProofError::Refused)?;
+    let (age, timestamp_ms, verification) = verify_budget_checkpoint(&value, trust)?;
+    let checkpoint = trust.checkpoint;
+    let state = &value.budget_state;
+    let budget_call = replay_call(
+        &value.proofs.budget_call,
+        b"getBudget(bytes32)",
+        budget_id,
+        trust,
+    )?;
+    let remaining_call = replay_call(
+        &value.proofs.remaining_call,
+        b"budgetRemaining(bytes32)",
+        budget_id,
+        trust,
+    )?;
+    let committed =
+        super::ProtocolBudgetState::decode_get_budget(budget_id, checkpoint.height, &budget_call)
+            .map_err(|_| BudgetProofError::Refused)?;
+    let record = committed.record();
+    let source = record
+        .source_account
+        .filter(|source| *source != record.owner)
+        .unwrap_or(record.owner);
+    require(
+        id(&value.accounts.owner)? == record.owner
+            && record.owner != [0; 32]
+            && id(&value.accounts.budget)? == record.budget_account
+            && id(&value.accounts.source)? == source,
+    )?;
+    let (owner_did, join_bytes) = verify_budget_owner(&value, record, trust)?;
+
+    require(remaining_call.len() == 32 && remaining_call[..16] == [0; 16])?;
+    let remaining = u128::from_be_bytes(
+        remaining_call[16..]
+            .try_into()
+            .map_err(|_| BudgetProofError::Refused)?,
+    );
+    require(
+        remaining <= record.remaining()
+            && (!(record.closed
+                || record.revoked
+                || timestamp_ms < record.period_start
+                || timestamp_ms >= record.expiry)
+                || remaining == 0),
+    )?;
+    let mut evidence = Sha256::new();
+    evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
+    evidence.update(checkpoint.block_hash);
+    for material in [&budget_call, &remaining_call, &join_bytes] {
+        evidence.update(
+            u64::try_from(material.len())
+                .map_err(|_| BudgetProofError::Refused)?
+                .to_be_bytes(),
+        );
+        evidence.update(material);
+    }
+    let evidence_digest: [u8; 32] = evidence.finalize().into();
+    let receipt_digest: [u8; 32] = Sha256::digest(&budget_call).into();
+    require(
+        id(&state.budget_id)? == budget_id
+            && id(&state.asset)? == record.asset_id
+            && state.revocation_sequence == record.revocation_sequence
+            && state.revocation_sequence > 0
+            && state.observed_head_sequence == checkpoint.height
+            && id(&state.evidence_digest)? == evidence_digest
+            && id(&state.receipt_digest)? == receipt_digest
+            && id(&state.checkpoint_digest)? == checkpoint.block_hash
+            && state.age_sequences == 0
+            && state.remaining == remaining.to_string()
+            && state.closed == record.closed
+            && state.revoked == record.revoked
+            && bytes(&state.canonical_core_bytes)? == budget_call,
+    )?;
+    Ok(VerifiedBudgetProof {
+        budget_id,
+        asset: record.asset_id,
+        source_account: source,
+        owner: owner_did,
+        observed_head_sequence: checkpoint.height,
+        remaining,
+        verification,
+        evidence_digest,
+        receipt_digest,
+        checkpoint_digest: checkpoint.block_hash,
+        age_sequences: age,
+        maximum_age_sequences: state.maximum_age_sequences,
+        digest: Sha256::digest(export).into(),
+        canonical_export_bytes: export.to_vec(),
+        committed_height: checkpoint.height,
+        get_budget_result: budget_call,
+    })
+}
+
+fn verify_budget_checkpoint(
+    value: &Export,
+    trust: &BudgetProofTrust<'_>,
+) -> Result<(u64, u64, VerificationLevel), BudgetProofError> {
     let checkpoint = trust.checkpoint;
     require(
         value.schema == BUDGET_PROOF_SCHEMA
@@ -333,32 +451,15 @@ fn verify_native_budget_proof(
                 .checked_mul(1000)
                 .ok_or(BudgetProofError::Refused)?,
     )?;
-    let budget_call = replay_call(
-        &value.proofs.budget_call,
-        b"getBudget(bytes32)",
-        budget_id,
-        trust,
-    )?;
-    let remaining_call = replay_call(
-        &value.proofs.remaining_call,
-        b"budgetRemaining(bytes32)",
-        budget_id,
-        trust,
-    )?;
-    let committed =
-        super::ProtocolBudgetState::decode_get_budget(budget_id, checkpoint.height, &budget_call)
-            .map_err(|_| BudgetProofError::Refused)?;
-    let record = committed.record();
-    let source = record
-        .source_account
-        .filter(|source| *source != record.owner)
-        .unwrap_or(record.owner);
-    require(
-        id(&value.accounts.owner)? == record.owner
-            && record.owner != [0; 32]
-            && id(&value.accounts.budget)? == record.budget_account
-            && id(&value.accounts.source)? == source,
-    )?;
+
+    Ok((age, timestamp_ms, verification))
+}
+
+fn verify_budget_owner(
+    value: &Export,
+    record: &super::ProtocolBudgetRecord,
+    trust: &BudgetProofTrust<'_>,
+) -> Result<(String, Vec<u8>), BudgetProofError> {
     let owner_did =
         std::str::from_utf8(trust.owner.as_bytes()).map_err(|_| BudgetProofError::Refused)?;
     let mut identity = b"LXP/v1/did-id\0".to_vec();
@@ -393,77 +494,23 @@ fn verify_native_budget_proof(
         })
         .count();
     require(matches == 1)?;
-    require(remaining_call.len() == 32 && remaining_call[..16] == [0; 16])?;
-    let remaining = u128::from_be_bytes(
-        remaining_call[16..]
-            .try_into()
-            .map_err(|_| BudgetProofError::Refused)?,
-    );
-    require(
-        remaining <= record.remaining()
-            && (!(record.closed
-                || record.revoked
-                || timestamp_ms < record.period_start
-                || timestamp_ms >= record.expiry)
-                || remaining == 0),
-    )?;
     let join_bytes = serde_json::to_vec(join).map_err(|_| BudgetProofError::Refused)?;
-    let mut evidence = Sha256::new();
-    evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
-    evidence.update(checkpoint.block_hash);
-    for material in [&budget_call, &remaining_call, &join_bytes] {
-        evidence.update(
-            u64::try_from(material.len())
-                .map_err(|_| BudgetProofError::Refused)?
-                .to_be_bytes(),
-        );
-        evidence.update(material);
-    }
-    let evidence_digest: [u8; 32] = evidence.finalize().into();
-    let receipt_digest: [u8; 32] = Sha256::digest(&budget_call).into();
-    require(
-        id(&state.budget_id)? == budget_id
-            && id(&state.asset)? == record.asset_id
-            && state.revocation_sequence == record.revocation_sequence
-            && state.revocation_sequence > 0
-            && state.observed_head_sequence == checkpoint.height
-            && id(&state.evidence_digest)? == evidence_digest
-            && id(&state.receipt_digest)? == receipt_digest
-            && id(&state.checkpoint_digest)? == checkpoint.block_hash
-            && state.age_sequences == 0
-            && state.remaining == remaining.to_string()
-            && state.closed == record.closed
-            && state.revoked == record.revoked
-            && bytes(&state.canonical_core_bytes)? == budget_call,
-    )?;
-    Ok(VerifiedBudgetProof {
-        budget_id,
-        asset: record.asset_id,
-        source_account: source,
-        owner: owner_did.to_owned(),
-        observed_head_sequence: checkpoint.height,
-        remaining,
-        verification,
-        evidence_digest,
-        receipt_digest,
-        checkpoint_digest: checkpoint.block_hash,
-        age_sequences: age,
-        maximum_age_sequences: state.maximum_age_sequences,
-        digest: Sha256::digest(export).into(),
-        canonical_export_bytes: export.to_vec(),
-        committed_height: checkpoint.height,
-        get_budget_result: budget_call,
-    })
+    Ok((owner_did.to_owned(), join_bytes))
 }
-
 pub trait BudgetProofVerifier {
     type Verified;
+    /// # Errors
+    /// Returns an error if the budget export, owner scope, verification evidence or committed
+    /// head cannot be verified.
     fn verify(
         &self,
         export: &[u8],
         budget_id: [u8; 32],
     ) -> Result<Self::Verified, BudgetProofError>;
 }
+/// # Errors
+/// Returns an error if the budget export, owner scope, verification evidence or committed
+/// head cannot be verified.
 pub fn verify_budget_proof<T: BudgetProofVerifier>(
     export: &[u8],
     budget_id: [u8; 32],

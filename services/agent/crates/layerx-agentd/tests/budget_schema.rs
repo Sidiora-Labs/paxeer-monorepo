@@ -53,6 +53,7 @@ fn verified_core_budget_record_reconciles_local_accounting() {
         .unwrap_or_else(|error| panic!("record: {error:?}"));
     assert_eq!(record.budget_id, BUDGET_ID);
     assert_eq!(record.remaining(), 475);
+    assert_eq!(record.period_end_ms(), 1_080);
     assert_eq!(record.window_end_sequence(), 1_080);
     assert_eq!(
         ProtocolBudgetRecord::decode(b"budget-state-schema-unavailable"),
@@ -60,11 +61,7 @@ fn verified_core_budget_record_reconciles_local_accounting() {
     );
 
     let verifier = support::pinned_evidence_verifier();
-    let mut local = LocalAccounting {
-        consumed: 11,
-        window_start_sequence: 70,
-        last_receipt: None,
-    };
+    let mut local = LocalAccounting::at_period_start(11, 70, None);
     let receipts = [SpendReceiptEvidence {
         expected_activity_id: [0x44; 32],
         evidence: support::raw_receipt_at([0x44; 32], 0, 25, 90),
@@ -75,14 +72,10 @@ fn verified_core_budget_record_reconciles_local_accounting() {
     assert_eq!(state.local_after(), 25);
     assert_eq!(state.observed_head_sequence(), 99);
     assert_eq!(local.consumed, 25);
-    assert_eq!(local.window_start_sequence, 80);
+    assert_eq!(local.window_start_ms(), 80);
     assert_eq!(local.last_receipt, Some([0x44; 32]));
 
-    let mut untouched = LocalAccounting {
-        consumed: 11,
-        window_start_sequence: 70,
-        last_receipt: None,
-    };
+    let mut untouched = LocalAccounting::at_period_start(11, 70, None);
     let opaque = ProtocolBudgetState {
         evidence: support::raw_state_leaf(b"budget-state-schema-unavailable".to_vec(), 99),
     };
@@ -96,45 +89,13 @@ fn verified_core_budget_record_reconciles_local_accounting() {
 #[test]
 fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
     let root = directory("budget-schema-restart");
-    let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
+    persist_restart_inputs(&root);
+    let mut store = assert_ok(Store::open(&root), "reopen durable receipt and hold store");
     let verifier = support::pinned_evidence_verifier();
-    let receipts = [PersistedReceipt {
-        expected_activity_id: [0x61; 32],
-        requested_amount: 25,
-        evidence: support::raw_receipt([0x61; 32], 0, 25),
-    }];
-    let retained = verifier
-        .verify_receipt_for_export(&receipts[0].evidence)
-        .expect("verify durable receipt");
-    receipt::store(
-        &mut store,
-        tenant(),
-        [0x61; 32],
-        receipts[0].evidence.canonical_receipt(),
-        retained.authorized_batch(),
-    )
-    .expect("persist receipt");
-    receipt::persist_evidence(&mut store, tenant(), [0x61; 32], &receipts[0].evidence)
-        .expect("persist receipt proof");
-    hold_unknown(
-        &mut store,
-        &UnknownReservation {
-            tenant: tenant(),
-            id: [0x62; 32],
-            amount: 15,
-            expiry_sequence: 500,
-            resolved: None,
-        },
-    )
-    .unwrap_or_else(|error| panic!("hold: {error:?}"));
-    drop(receipts);
-    drop(retained);
-    drop(verifier);
-    drop(store);
-    let mut store = Store::open(&root).expect("reopen durable receipt and hold store");
-    let verifier = support::pinned_evidence_verifier();
-    let inventory =
-        receipt::evidence_inventory(&store, &tenant()).expect("reload durable receipt inputs");
+    let inventory = assert_ok(
+        receipt::evidence_inventory(&store, &tenant()),
+        "reload durable receipt inputs",
+    );
     assert!(inventory.without_evidence.is_empty());
     assert_eq!(inventory.with_evidence.len(), 1);
     let receipts: Vec<_> = inventory
@@ -151,45 +112,12 @@ fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
         .into_iter()
         .filter_map(|id| {
             id.strip_prefix(b"unknown-budget:")
-                .map(|id| id.try_into().expect("hold identity"))
+                .map(|id| assert_ok(id.try_into(), "hold identity"))
         })
         .collect();
     assert_eq!(unknown_ids, vec![[0x62; 32]]);
 
-    let executed_unknown = rebuild(
-        &store,
-        &tenant(),
-        &unknown_ids,
-        &receipts,
-        &protocol(500, 40),
-        &verifier,
-    )
-    .unwrap_or_else(|error| panic!("rebuild: {error:?}"));
-    assert_eq!(executed_unknown.protocol_consumed, Some(40));
-    assert_eq!(executed_unknown.receipt_consumed, 25);
-    assert_eq!(executed_unknown.held_unresolved, 15);
-    assert_eq!(executed_unknown.unresolved_count, 1);
-    assert!(executed_unknown.reconciled);
-    executed_unknown
-        .require_write_ready()
-        .unwrap_or_else(|error| panic!("write ready: {error:?}"));
-
-    let overspent = rebuild(
-        &store,
-        &tenant(),
-        &unknown_ids,
-        &receipts,
-        &protocol(500, 41),
-        &verifier,
-    )
-    .unwrap_or_else(|error| panic!("rebuild overspent: {error:?}"));
-    assert_eq!(overspent.protocol_consumed, Some(41));
-    assert!(!overspent.reconciled);
-    assert!(matches!(
-        overspent.require_write_ready(),
-        Err(RestartError::Unreconciled)
-    ));
-
+    assert_rebuilt_accounting(&store, &unknown_ids, &receipts, &verifier);
     let recovered = recover(
         &mut store,
         &tenant(),
@@ -210,31 +138,121 @@ fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
     assert_eq!(recovered.budget_accounting.receipt_consumed, 25);
     assert_eq!(recovered.budget_accounting.held_unresolved, 15);
     assert_eq!(recovered.budget_accounting.unresolved_count, 1);
-    recovered
-        .require_write_ready()
-        .expect("recovered write admission");
+    assert_ok(recovered.require_write_ready(), "recovered write admission");
     let first = recovered.budget_accounting;
     drop(recovered);
-    let second = recover(
-        &mut store,
-        &tenant(),
-        &RecoveryInputs {
-            verifier,
-            unknown_budget_ids: &unknown_ids,
-            budget_receipts: &receipts,
-            protocol_budget: protocol(500, 25),
-            ceiling_maximum: 1_000,
-            ceiling_receipts: &[],
-            unknown_ceiling_reservations: &[],
-            current_sequence: 1,
-        },
-    )
-    .expect("second recovery");
+    let second = assert_ok(
+        recover(
+            &mut store,
+            &tenant(),
+            &RecoveryInputs {
+                verifier,
+                unknown_budget_ids: &unknown_ids,
+                budget_receipts: &receipts,
+                protocol_budget: protocol(500, 25),
+                ceiling_maximum: 1_000,
+                ceiling_receipts: &[],
+                unknown_ceiling_reservations: &[],
+                current_sequence: 1,
+            },
+        ),
+        "second recovery",
+    );
     assert_eq!(second.budget_accounting, first);
-    second
-        .require_write_ready()
-        .expect("idempotent write admission");
+    assert_ok(second.require_write_ready(), "idempotent write admission");
     drop(second);
     drop(store);
-    fs::remove_dir_all(root).expect("remove store");
+    assert_ok(fs::remove_dir_all(root), "remove store");
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+fn assert_rebuilt_accounting(
+    store: &Store,
+    unknown_ids: &[[u8; 32]],
+    receipts: &[PersistedReceipt],
+    verifier: &layerx_agentd::protocol_evidence::EvidenceAuthority,
+) {
+    let executed_unknown = rebuild(
+        store,
+        &tenant(),
+        unknown_ids,
+        receipts,
+        &protocol(500, 40),
+        verifier,
+    )
+    .unwrap_or_else(|error| panic!("rebuild: {error:?}"));
+    assert_eq!(executed_unknown.protocol_consumed, Some(40));
+    assert_eq!(executed_unknown.receipt_consumed, 25);
+    assert_eq!(executed_unknown.held_unresolved, 15);
+    assert_eq!(executed_unknown.unresolved_count, 1);
+    assert!(executed_unknown.reconciled);
+    executed_unknown
+        .require_write_ready()
+        .unwrap_or_else(|error| panic!("write ready: {error:?}"));
+
+    let overspent = rebuild(
+        store,
+        &tenant(),
+        unknown_ids,
+        receipts,
+        &protocol(500, 41),
+        verifier,
+    )
+    .unwrap_or_else(|error| panic!("rebuild overspent: {error:?}"));
+    assert_eq!(overspent.protocol_consumed, Some(41));
+    assert!(!overspent.reconciled);
+    assert!(matches!(
+        overspent.require_write_ready(),
+        Err(RestartError::Unreconciled)
+    ));
+}
+
+fn persist_restart_inputs(root: &std::path::Path) {
+    let mut store = Store::open(root).unwrap_or_else(|error| panic!("store: {error}"));
+    let verifier = support::pinned_evidence_verifier();
+    let receipts = [PersistedReceipt {
+        expected_activity_id: [0x61; 32],
+        requested_amount: 25,
+        evidence: support::raw_receipt([0x61; 32], 0, 25),
+    }];
+    let retained = assert_ok(
+        verifier.verify_receipt_for_export(&receipts[0].evidence),
+        "verify durable receipt",
+    );
+    assert_ok(
+        receipt::store(
+            &mut store,
+            tenant(),
+            [0x61; 32],
+            receipts[0].evidence.canonical_receipt(),
+            retained.authorized_batch(),
+        ),
+        "persist receipt",
+    );
+    assert_ok(
+        receipt::persist_evidence(&mut store, tenant(), [0x61; 32], &receipts[0].evidence),
+        "persist receipt proof",
+    );
+    hold_unknown(
+        &mut store,
+        &UnknownReservation {
+            tenant: tenant(),
+            id: [0x62; 32],
+            amount: 15,
+            expiry_sequence: 500,
+            resolved: None,
+        },
+    )
+    .unwrap_or_else(|error| panic!("hold: {error:?}"));
+    drop(receipts);
+    drop(retained);
+    drop(verifier);
+    drop(store);
 }

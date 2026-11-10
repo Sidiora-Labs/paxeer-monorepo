@@ -217,7 +217,7 @@ impl NativeProgramIntent {
             activity,
             network_id: u32::try_from(prepared.call.chain_id)
                 .map_err(|_| NativePolicyError::Disclosure)?,
-            canonical_digest: Sha256::digest(&prepared.call.encode_unsigned()).into(),
+            canonical_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
             spend: semantic.program_spend_bounds().to_vec(),
             route,
             purpose_commitment: crate::capability::binding::purpose_commitment(
@@ -661,7 +661,7 @@ impl NativeEffectIntent {
                 &prepared.disclosure,
                 3,
                 u32::try_from(prepared.call.chain_id).map_err(|_| NativePolicyError::Disclosure)?,
-                Sha256::digest(&prepared.call.encode_unsigned()).into(),
+                Sha256::digest(prepared.call.encode_unsigned()).into(),
                 fee_asset,
             )
             .map_err(|_| NativePolicyError::Effects)?;
@@ -686,7 +686,7 @@ impl NativeEffectIntent {
             activity: prepared.disclosure.activity_type,
             network_id: u32::try_from(prepared.call.chain_id)
                 .map_err(|_| NativePolicyError::Disclosure)?,
-            canonical_digest: Sha256::digest(&prepared.call.encode_unsigned()).into(),
+            canonical_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
             effects: semantic.effects().to_vec(),
             fee,
             purpose_commitment,

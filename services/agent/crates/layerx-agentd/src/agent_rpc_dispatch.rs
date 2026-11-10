@@ -18,7 +18,16 @@ use serde_json::{Map, Value};
 use crate::agent_rpc::Rejection;
 use crate::agent_rpc_adapters as adapters;
 use crate::agent_rpc_peer::RpcOwnerContext;
-use crate::agent_rpc_wire::*;
+use crate::agent_rpc_wire::{
+    budget_create_purpose_suffix, decode_wire, program_call_canonical, BudgetCreateWire,
+    BudgetFundWire, BudgetTargetWire, Canonical, CapabilityAttenuateWire, CapabilityCreateWire,
+    CapabilityRevokeWire, CursorAcknowledgementWire, NativeApprovalDecisionV1Wire,
+    NativeApprovalGetV1Wire, NativeApprovalListV1Wire, NativeEffectPrepareV1Wire,
+    NativePrepareResultV1Wire, NativePrepareV1Wire, NativeSendPrepareV1Wire,
+    NativeSendSubmitV1Wire, ProgramDeployWire, ProgramUpgradeWire, ProgramWindDownWire,
+    SessionCloseWire, SessionRefreshWire, SignRequestWire, SubscriptionCreateWire,
+    SubscriptionTargetWire,
+};
 use crate::human::{
     HumanOperationError, HumanOperations, HumanPeer, HumanPrepare, HumanResponse, HumanSubmit,
 };
@@ -53,7 +62,9 @@ impl AgentRegistrationWire {
         self,
         id: RequestId,
     ) -> Result<layerx_agent_api::identity::AgentRegistration, Rejection> {
-        use layerx_agent_api::identity::*;
+        use layerx_agent_api::identity::{
+            AgentDid, AgentRegistration, AuthorityRef, ClientId, PolicyVersion, TenantId,
+        };
         let owner_address = hex_bytes(&self.owner_address, id)?
             .try_into()
             .map_err(|_| malformed(id))?;
@@ -91,7 +102,10 @@ impl BootstrapSessionContextWire {
         self,
         id: RequestId,
     ) -> Result<layerx_agent_api::identity::SessionContext, Rejection> {
-        use layerx_agent_api::identity::*;
+        use layerx_agent_api::identity::{
+            ActivityType, AgentDid, AuthorityRef, ClientId, ExplicitSet, PolicyVersion,
+            SessionContext, TenantId,
+        };
         let permitted = self
             .permitted_activity_types
             .iter()
@@ -196,6 +210,9 @@ fn prepare_bootstrap_transaction(
     })
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn agent_register(
     boundary: &crate::prepare::evm::ProductionEvmPreparationBoundary,
     endpoint: &layerx_client::sequencer::SequencerEndpoint,
@@ -239,6 +256,9 @@ pub fn agent_register(
     )
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn session_open(
     boundary: &crate::prepare::evm::ProductionEvmPreparationBoundary,
     endpoint: &layerx_client::sequencer::SequencerEndpoint,
@@ -299,16 +319,21 @@ pub fn session_open(
 fn bootstrap_authority<A: HumanAuthorityBoundary>(
     owner: &SharedAgentOwner<A>,
     context: &RpcOwnerContext<'_>,
-    tenant: &str,
-    agent: &str,
-    authority_ref: &str,
-    client: &str,
-    policy: &str,
+    input: &BootstrapIdentity<'_>,
     session_context: Option<&layerx_agent_api::identity::SessionContext>,
     id: RequestId,
 ) -> Result<layerx_agent_api::identity::AuthorityDescription, Rejection> {
     use crate::identity::ProtocolAuthority;
     use layerx_agent_api::identity::{AgentDid, AuthorityDescription, AuthorityRef, TenantId};
+
+    let BootstrapIdentity {
+        tenant,
+        agent,
+        authority_ref,
+        client,
+        policy,
+    } = *input;
+
     let principal = context.principal();
     if tenant != principal.tenant.as_str() || agent.as_bytes() != principal.agent.as_bytes() {
         return Err(owner_error(id, HumanOperationError::Refused));
@@ -463,7 +488,7 @@ pub(crate) fn hex32(text: &str, request_id: RequestId) -> Result<[u8; 32], Rejec
 
 pub(crate) fn hex_bytes(text: &str, request_id: RequestId) -> Result<Vec<u8>, Rejection> {
     let bytes = text.as_bytes();
-    if bytes.len() % 2 != 0
+    if !bytes.len().is_multiple_of(2)
         || !bytes
             .iter()
             .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
@@ -696,7 +721,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn dec(value: impl ToString) -> Value {
+fn dec(value: &impl ToString) -> Value {
     Value::String(value.to_string())
 }
 
@@ -750,6 +775,7 @@ mod receipt_rung_wire_tests {
         for code in [4, 5, 6] {
             assert_eq!(rung(code), Some(Rung::Committed));
         }
+        // The retained archive constant must never be accepted as current evidence.
         assert_eq!(
             crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),
             Err(HumanOperationError::Refused)
@@ -791,10 +817,6 @@ fn decode_read_json(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     Some((value, None))
 }
 
-fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
-    decode_read_json(reader)
-}
-
 fn decode_account_state(
     reader: &mut Reader<'_>,
     account_id: [u8; 32],
@@ -824,7 +846,7 @@ pub(crate) fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<R
             out.insert("receipt_ref".into(), hexv(&reader.fixed::<32>()?));
         }
         7 => {
-            out.insert("result_code".into(), dec(reader.i32()?));
+            out.insert("result_code".into(), dec(&reader.i32()?));
         }
         _ => {}
     }
@@ -857,7 +879,7 @@ pub(crate) fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<R
         item.insert("from".into(), Value::String(state_name(from)?.into()));
         item.insert("to".into(), Value::String(state_name(to)?.into()));
         item.insert("cause".into(), Value::String(reader.text()?));
-        item.insert("at".into(), dec(reader.u64()?));
+        item.insert("at".into(), dec(&reader.u64()?));
         transitions.push(Value::Object(item));
     }
     out.insert("transitions".into(), Value::Array(transitions));
@@ -903,10 +925,10 @@ fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
         layerx_wire::decode::Decoder::new(reader.bytes.get(reader.offset..)?, MAX_BYTES);
     let frame = ReceiptLookupFrame::decode_from(&mut decoder).ok()?;
     reader.offset += decoder.offset();
-    receipt_value(frame)
+    receipt_value(&frame)
 }
 
-fn receipt_value(frame: ReceiptLookupFrame) -> Option<(Value, Option<Rung>)> {
+fn receipt_value(frame: &ReceiptLookupFrame) -> Option<(Value, Option<Rung>)> {
     use sha2::{Digest, Sha256};
     let receipt = layerx_wire::receipt::decode(&frame.canonical_bytes).ok()?;
     let protocol = receipt.protocol()?;
@@ -951,16 +973,16 @@ fn receipt_value(frame: ReceiptLookupFrame) -> Option<(Value, Option<Rung>)> {
     out.insert("authorised_batch".into(), Value::Object(authorised));
     out.insert(
         "verification_level".into(),
-        dec(frame.verification_level.wire_rank()),
+        dec(&frame.verification_level.wire_rank()),
     );
     out.insert("receipt_hash".into(), hexv(&frame.receipt_hash));
-    out.insert("block_height".into(), dec(frame.block_height));
+    out.insert("block_height".into(), dec(&frame.block_height));
     out.insert("signed_receipt".into(), hexv(&frame.signed_receipt));
     out.insert("receipt_key_id".into(), hexv(&frame.receipt_key_id));
     out.insert("public_key".into(), hexv(&frame.public_key));
-    out.insert("first_height".into(), dec(frame.first_height));
-    out.insert("last_height".into(), dec(frame.last_height));
-    out.insert("inclusion_height".into(), dec(frame.inclusion_height));
+    out.insert("first_height".into(), dec(&frame.first_height));
+    out.insert("last_height".into(), dec(&frame.last_height));
+    out.insert("inclusion_height".into(), dec(&frame.inclusion_height));
     let achieved = frame.rung;
     out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     Some((Value::Object(out), Some(achieved)))
@@ -976,7 +998,7 @@ fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>
             Some((Value::Object(out), None))
         }
         ReceiptLookupAnswer::Found(frame) => {
-            let (receipt, achieved) = receipt_value(frame)?;
+            let (receipt, achieved) = receipt_value(&frame)?;
             let mut out = Map::new();
             out.insert("found".into(), Value::Bool(true));
             out.insert("receipt".into(), receipt);
@@ -985,7 +1007,7 @@ fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>
         ReceiptLookupAnswer::Submitted { tx_hash, nonce } => Some((
             serde_json::json!({
                 "found": false,
-                "submitted": {"tx_hash": format!("0x{}", lower_hex(&tx_hash)), "nonce": dec(nonce)},
+                "submitted": {"tx_hash": format!("0x{}", lower_hex(&tx_hash)), "nonce": dec(&nonce)},
             }),
             Some(Rung::Submitted),
         )),
@@ -1022,24 +1044,24 @@ pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Opti
     {
         return None;
     }
-    out.insert("chain_id".into(), dec(transaction.chain_id));
-    out.insert("nonce".into(), dec(transaction.nonce));
+    out.insert("chain_id".into(), dec(&transaction.chain_id));
+    out.insert("nonce".into(), dec(&transaction.nonce));
     out.insert(
         "max_priority_fee_per_gas".into(),
-        dec(transaction.max_priority_fee_per_gas),
+        dec(&transaction.max_priority_fee_per_gas),
     );
-    out.insert("max_fee_per_gas".into(), dec(transaction.max_fee_per_gas));
-    out.insert("gas_limit".into(), dec(transaction.gas_limit));
+    out.insert("max_fee_per_gas".into(), dec(&transaction.max_fee_per_gas));
+    out.insert("gas_limit".into(), dec(&transaction.gas_limit));
     out.insert("to".into(), hexv(&transaction.to));
     out.insert("data".into(), hexv(&transaction.data));
     out.insert("signing_hash".into(), hexv(&transaction.signing_hash()));
-    out.insert("activity_type".into(), dec(reader.u32()?));
+    out.insert("activity_type".into(), dec(&reader.u32()?));
     out.insert("actor".into(), Value::String(reader.text()?));
     out.insert("authority".into(), Value::String(reader.text()?));
-    out.insert("account_sequence".into(), dec(reader.u64()?));
-    out.insert("not_before".into(), dec(reader.u64()?));
-    out.insert("not_after".into(), dec(reader.u64()?));
-    out.insert("fee_limit".into(), dec(reader.u128()?));
+    out.insert("account_sequence".into(), dec(&reader.u64()?));
+    out.insert("not_before".into(), dec(&reader.u64()?));
+    out.insert("not_after".into(), dec(&reader.u64()?));
+    out.insert("fee_limit".into(), dec(&reader.u128()?));
     out.insert("payload".into(), hexv(reader.bytes()?));
     out.insert("payload_hash".into(), hexv(&reader.fixed::<32>()?));
     out.insert("idempotency_key".into(), hexv(&reader.fixed::<32>()?));
@@ -1151,7 +1173,7 @@ fn decode_approval(reader: &mut Reader<'_>) -> Option<Value> {
     let mut out = Map::new();
     out.insert("approval_id".into(), hexv(&reader.fixed::<32>()?));
     out.insert("canonical_digest".into(), hexv(&reader.fixed::<32>()?));
-    out.insert("activity_type".into(), dec(reader.u16()?));
+    out.insert("activity_type".into(), dec(&reader.u16()?));
     out.insert("actor".into(), Value::String(reader.text()?));
     out.insert("authority".into(), Value::String(reader.text()?));
     let counterpart_count = usize::from(reader.u16()?);
@@ -1171,13 +1193,13 @@ fn decode_approval(reader: &mut Reader<'_>) -> Option<Value> {
     for _ in 0..amount_count {
         let mut item = Map::new();
         item.insert("counterparty".into(), Value::String(reader.text()?));
-        item.insert("amount".into(), dec(reader.u128()?));
+        item.insert("amount".into(), dec(&reader.u128()?));
         amounts.push(Value::Object(item));
     }
     out.insert("amounts".into(), Value::Array(amounts));
     out.insert("asset".into(), Value::String(reader.text()?));
-    out.insert("fee_limit".into(), dec(reader.u128()?));
-    out.insert("expiry".into(), dec(reader.u64()?));
+    out.insert("fee_limit".into(), dec(&reader.u128()?));
+    out.insert("expiry".into(), dec(&reader.u64()?));
     out.insert("idempotency_key".into(), Value::String(reader.text()?));
     out.insert(
         "canonical_bytes_digest".into(),
@@ -1185,8 +1207,8 @@ fn decode_approval(reader: &mut Reader<'_>) -> Option<Value> {
     );
     out.insert("hold_reason_code".into(), Value::String(reader.text()?));
     out.insert("hold_reason".into(), Value::String(reader.text()?));
-    out.insert("created_at_sequence".into(), dec(reader.u64()?));
-    out.insert("expires_at_sequence".into(), dec(reader.u64()?));
+    out.insert("created_at_sequence".into(), dec(&reader.u64()?));
+    out.insert("expires_at_sequence".into(), dec(&reader.u64()?));
     let state = match reader.u8()? {
         0 => "AwaitingApproval",
         1 => {
@@ -1226,6 +1248,13 @@ fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)>
     Some((decode_approval(reader)?, None))
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn merge_tracked_approval(
     id: RequestId,
     mut approval: Value,
@@ -1267,8 +1296,8 @@ pub(crate) fn dispatched(
         bytes: response.bytes(),
         offset: 0,
     };
-    let decoded = decoder(&mut reader).filter(|_| reader.finish().is_some());
-    let (value, achieved) = decoded.ok_or_else(|| {
+    let answer = decoder(&mut reader).filter(|_| reader.finish().is_some());
+    let (value, achieved) = answer.ok_or_else(|| {
         rejection(
             ErrorClass::InternalFault,
             request_id,
@@ -1343,15 +1372,6 @@ struct ReadBalanceRequest {
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct CoordinatesOnly {
-    #[serde(default, skip_serializing)]
-    tenant: Option<String>,
-    #[serde(default, skip_serializing)]
-    agent: Option<String>,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 struct TrackRequest {
     #[serde(default, skip_serializing)]
     tenant: Option<String>,
@@ -1387,9 +1407,11 @@ struct ApprovalGetRequest {
 #[serde(deny_unknown_fields)]
 struct ActivityLookupRequest {
     #[serde(default, skip_serializing)]
-    tenant: Option<String>,
+    #[serde(rename = "tenant")]
+    _tenant: Option<String>,
     #[serde(default, skip_serializing)]
-    agent: Option<String>,
+    #[serde(rename = "agent")]
+    _agent: Option<String>,
     idempotency_key: String,
     expected_activity_id: String,
     requested_rung: String,
@@ -1570,7 +1592,14 @@ pub(crate) fn canonical_request_bytes(
     request: &Map<String, Value>,
     request_id: RequestId,
 ) -> Result<Option<Vec<u8>>, Rejection> {
-    let id = request_id;
+    canonical_read_bytes(operation, request, request_id)
+}
+
+fn canonical_read_bytes(
+    operation: Operation,
+    request: &Map<String, Value>,
+    id: RequestId,
+) -> Result<Option<Vec<u8>>, Rejection> {
     Ok(Some(match operation {
         Operation::ReadAccount => {
             named(operation, &decode::<ReadAccountRequest>(request, id)?, id)?
@@ -1584,6 +1613,21 @@ pub(crate) fn canonical_request_bytes(
             named(operation, &request, id)?
         }
         Operation::Track => named(operation, &decode::<TrackRequest>(request, id)?, id)?,
+        Operation::ProgramReceipt => {
+            let request: ActivityLookupRequest = decode(request, id)?;
+            request.requested_level(id)?;
+            named(operation, &request, id)?
+        }
+        _ => return canonical_approval_bytes(operation, request, id),
+    }))
+}
+
+fn canonical_approval_bytes(
+    operation: Operation,
+    request: &Map<String, Value>,
+    id: RequestId,
+) -> Result<Option<Vec<u8>>, Rejection> {
+    Ok(Some(match operation {
         Operation::ApprovalList => {
             if native_variant(request, id)? {
                 wire_bytes::<NativeApprovalListV1Wire, _>(
@@ -1608,11 +1652,6 @@ pub(crate) fn canonical_request_bytes(
                 named(operation, &decode::<ApprovalGetRequest>(request, id)?, id)?
             }
         }
-        Operation::ProgramReceipt => {
-            let request: ActivityLookupRequest = decode(request, id)?;
-            request.requested_level(id)?;
-            named(operation, &request, id)?
-        }
         Operation::ApprovalApprove | Operation::ApprovalReject => {
             if native_variant(request, id)? {
                 wire_bytes::<NativeApprovalDecisionV1Wire, _>(
@@ -1629,6 +1668,16 @@ pub(crate) fn canonical_request_bytes(
                 )?
             }
         }
+        _ => return canonical_journey_bytes(operation, request, id),
+    }))
+}
+
+fn canonical_journey_bytes(
+    operation: Operation,
+    request: &Map<String, Value>,
+    id: RequestId,
+) -> Result<Option<Vec<u8>>, Rejection> {
+    Ok(Some(match operation {
         Operation::Prepare => {
             if request.get("variant").and_then(Value::as_str) == Some("native_disclosure_v1") {
                 let typed =
@@ -1685,6 +1734,16 @@ pub(crate) fn canonical_request_bytes(
                 submit_digest(&human_submit(decode(request, id)?, id)?).to_vec()
             }
         }
+        _ => return canonical_budget_bytes(operation, request, id),
+    }))
+}
+
+fn canonical_budget_bytes(
+    operation: Operation,
+    request: &Map<String, Value>,
+    id: RequestId,
+) -> Result<Option<Vec<u8>>, Rejection> {
+    Ok(Some(match operation {
         Operation::BudgetCreate => {
             let wire = decode_wire::<BudgetCreateWire>(request, id)?;
             let suffix = budget_create_purpose_suffix(wire.purpose());
@@ -1719,6 +1778,16 @@ pub(crate) fn canonical_request_bytes(
             id,
             CapabilityRevokeWire::into_request,
         )?,
+        _ => return canonical_session_bytes(operation, request, id),
+    }))
+}
+
+fn canonical_session_bytes(
+    operation: Operation,
+    request: &Map<String, Value>,
+    id: RequestId,
+) -> Result<Option<Vec<u8>>, Rejection> {
+    Ok(Some(match operation {
         Operation::SessionRefresh => wire_bytes::<SessionRefreshWire, _>(
             operation,
             request,
@@ -1754,6 +1823,16 @@ pub(crate) fn canonical_request_bytes(
         Operation::Sign => {
             wire_bytes::<SignRequestWire, _>(operation, request, id, SignRequestWire::into_request)?
         }
+        _ => return canonical_program_bytes(operation, request, id),
+    }))
+}
+
+fn canonical_program_bytes(
+    operation: Operation,
+    request: &Map<String, Value>,
+    id: RequestId,
+) -> Result<Option<Vec<u8>>, Rejection> {
+    Ok(Some(match operation {
         Operation::ProgramCall => named(operation, &program_call_canonical(request, id)?, id)?,
         Operation::ProgramDeploy => wire_bytes::<ProgramDeployWire, _>(
             operation,
@@ -1785,28 +1864,7 @@ pub(crate) fn canonical_request_bytes(
             wire.into_request(id)?;
             canonical
         }
-        Operation::AvailabilityFetch
-        | Operation::BudgetList
-        | Operation::BudgetReconciliation
-        | Operation::CapabilityList
-        | Operation::ExportOffline
-        | Operation::ProgramActivity
-        | Operation::ProgramDiscover
-        | Operation::ProgramInterface
-        | Operation::ProgramSimulate
-        | Operation::Project
-        | Operation::PolicyDryRun
-        | Operation::BudgetState
-        | Operation::ReadBatch
-        | Operation::ReadHistory
-        | Operation::ReadModuleState
-        | Operation::ReadProofBundle
-        | Operation::SessionList
-        | Operation::TenantReadiness
-        | Operation::SubscriptionHealth
-        | Operation::SubscriptionList
-        | Operation::Wait
-        | Operation::McpInvoke => return Ok(None),
+        _ => return Ok(None),
     }))
 }
 
@@ -1828,181 +1886,26 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
     let _ = permit;
     let id = ctx.request_id;
     let context = peer;
-    let peer = &ctx.peer;
     let shared = owner;
-    let mut owner = owner.clone();
+    let dispatch = RpcDispatch {
+        owner: shared,
+        context,
+        request,
+        ctx,
+    };
     match operation {
-        Operation::TenantReadiness => {
-            if !request.is_empty() {
-                return Err(rejection(
-                    ErrorClass::ProtocolIncompatibility,
-                    id,
-                    "envelope.unknown_field",
-                ));
-            }
-            let guard = shared.lock().map_err(|error| owner_error(id, error))?;
-            let value = guard
-                .rpc_tenant_readiness(context)
-                .map_err(|error| owner_error(id, error))?;
-            Ok(Dispatched {
-                value: serde_json::json!({
-                    "transport_ready": value.transport_ready,
-                    "verified_reads_ready": value.verified_reads_ready,
-                    "writes_admitted": value.writes_admitted,
-                    "recovery_reason": value.recovery_reason.map(|reason| reason.as_str()),
-                }),
-                verification: None,
-            })
-        }
-        Operation::ReadAccount => {
-            let request: ReadAccountRequest = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            let account_id = hex32(&request.account_id, id)?;
-            if let Some(level) = &request.requested_verification_level {
-                Rung::from_name(level).ok_or_else(|| malformed(id))?;
-            }
-            dispatched(id, owner.account_state(peer, account_id), |reader| {
-                decode_account_state(reader, account_id)
-            })
-        }
-        Operation::ReadBalance => {
-            let request: ReadBalanceRequest = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            let account = hex32(&request.account, id)?;
-            let asset = hex32(&request.asset, id)?;
-            Rung::from_name(&request.requested_verification_level).ok_or_else(|| malformed(id))?;
-            dispatched(id, owner.balance(peer), |reader| {
-                let result = decode_balance(reader)?;
-                (result.0["value"]["account"] == hexv(&account)
-                    && result.0["value"]["asset"] == hexv(&asset))
-                .then_some(result)
-            })
-        }
-        Operation::ReadCheckpoint => {
-            let request: crate::read::CheckpointRequest = decode(request, id)?;
-            request.height().map_err(|_| malformed(id))?;
-            let value = shared
-                .lock()
-                .and_then(|mut guard| guard.rpc_read_checkpoint(context, request))
-                .map_err(|error| owner_error(id, error))?;
-            Ok(Dispatched {
-                value,
-                verification: Some(VerificationStatus::Achieved(Rung::Committed)),
-            })
-        }
-        Operation::Track => {
-            let request: TrackRequest = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            submission_key(&request.submission_ref, id)?;
-            dispatched(
-                id,
-                owner.track(peer, &request.submission_ref),
-                decode_tracked,
-            )
-        }
-        Operation::ApprovalList => {
-            if native_variant(request, id)? {
-                return adapters::approval_list_native(shared, context, request, ctx);
-            }
-            let request: ApprovalListRequest = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            let current_sequence = decimal_u64(&request.current_sequence, id)?;
-            let cursor = request.cursor.map(|text| hex32(&text, id)).transpose()?;
-            let limit =
-                u8::try_from(decimal_u64(&request.limit, id)?).map_err(|_| noncanonical(id))?;
-            dispatched(
-                id,
-                owner.approval_list(peer, current_sequence, cursor, limit),
-                decode_approval_list,
-            )
-        }
-        Operation::ApprovalGet => {
-            if native_variant(request, id)? {
-                return adapters::approval_get_native(shared, context, request, ctx);
-            }
-            let request: ApprovalGetRequest = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            let approval_id = hex32(&request.approval_id, id)?;
-            let current_sequence = decimal_u64(&request.current_sequence, id)?;
-            let mut approval = dispatched(
-                id,
-                owner.approval_get(peer, approval_id, current_sequence),
-                decode_approval_get,
-            )?;
-            if approval.value.get("state").and_then(Value::as_str) == Some("Approved") {
-                let reference = approval
-                    .value
-                    .get("submission_ref")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| {
-                        rejection(ErrorClass::InternalFault, id, "owner.response_malformed")
-                    })?;
-                submission_key(reference, id)?;
-                let tracked = dispatched(id, owner.track(peer, reference), decode_tracked)?;
-                approval.value = merge_tracked_approval(id, approval.value, tracked.value)?;
-            }
-            Ok(approval)
-        }
-        Operation::ProgramReceipt => dispatch_program_receipt(request, id, |key, activity| {
-            owner.receipt_by_idempotency_key(peer, key, activity)
-        }),
+        Operation::TenantReadiness => dispatch.tenant_readiness(),
+        Operation::ReadAccount => dispatch.read_account(),
+        Operation::ReadBalance => dispatch.read_balance(),
+        Operation::ReadCheckpoint => dispatch.read_checkpoint(),
+        Operation::Track => dispatch.track(),
+        Operation::ApprovalList => dispatch.approval_list(),
+        Operation::ApprovalGet => dispatch.approval_get(),
+        Operation::ProgramReceipt => dispatch.program_receipt(),
         Operation::ApprovalApprove => adapters::approval_approve(shared, context, request, ctx),
         Operation::ApprovalReject => adapters::approval_reject(shared, context, request, ctx),
-        Operation::Prepare => {
-            if native_send_variant(request) {
-                let typed =
-                    decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
-                let envelope = crate::human::MutationEnvelope {
-                    request_id: id.0,
-                    key: mutation_key(ctx)?,
-                    body_digest: native_send_prepare_digest(&typed).map_err(|_| malformed(id))?,
-                    operation: typed,
-                };
-                let response = shared
-                    .lock()
-                    .and_then(|mut guard| guard.rpc_prepare_native_send(context, envelope));
-                dispatched_native(id, response, NativePrepareResultV1Wire::into_result)
-            } else {
-                adapters::prepare(shared, context, request, ctx)
-            }
-        }
-        Operation::Submit => {
-            if request.contains_key("raw_transaction") {
-                let (value, rung) = dispatch_raw_submit(request, id, |raw| {
-                    shared.lock()?.rpc_submit_raw(context, raw)
-                })?;
-                Ok(Dispatched {
-                    value,
-                    verification: Some(VerificationStatus::Achieved(rung)),
-                })
-            } else if native_send_submit_variant(request) {
-                let typed = decode_wire::<NativeSendSubmitV1Wire>(request, id)?.into_request(id)?;
-                let preparation_id = hex32(&typed.preparation_ref, id)?;
-                let envelope = crate::human::MutationEnvelope {
-                    request_id: id.0,
-                    key: mutation_key(ctx)?,
-                    body_digest: submit_digest(&typed),
-                    operation: typed,
-                };
-                let response = shared.lock().and_then(|mut guard| {
-                    guard.require_native_send_preparation(context, preparation_id)?;
-                    guard.rpc_submit_external(context, envelope)
-                });
-                dispatched(id, response, decode_observation)
-            } else {
-                let typed = human_submit(decode(request, id)?, id)?;
-                let envelope = crate::human::MutationEnvelope {
-                    request_id: id.0,
-                    key: mutation_key(ctx)?,
-                    body_digest: submit_digest(&typed),
-                    operation: typed,
-                };
-                let response = shared
-                    .lock()
-                    .and_then(|mut guard| guard.rpc_submit_external(context, envelope));
-                dispatched(id, response, decode_submitted)
-            }
-        }
+        Operation::Prepare => dispatch.prepare(operation),
+        Operation::Submit => dispatch.submit(operation),
         Operation::BudgetCreate => adapters::budget_create(shared, context, request, ctx),
         Operation::BudgetFund => adapters::budget_fund(shared, context, request, ctx),
         Operation::BudgetList => adapters::budget_list(shared, context, request, ctx),
@@ -2055,97 +1958,7 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
         Operation::ProgramSimulate => adapters::program_simulate(shared, context, request, ctx),
         Operation::ProgramUpgrade => adapters::program_upgrade(shared, context, request, ctx),
         Operation::ProgramWindDown => adapters::program_wind_down(shared, context, request, ctx),
-        Operation::AgentRegister | Operation::SessionOpen => {
-            let registration = if operation == Operation::AgentRegister {
-                Some(decode::<AgentRegistrationWire>(request, id)?.into_request(id)?)
-            } else {
-                None
-            };
-            let session = if operation == Operation::SessionOpen {
-                Some(decode::<SessionOpenWire>(request, id)?.into_request(id)?)
-            } else {
-                None
-            };
-            let authority = if let Some(request) = &registration {
-                bootstrap_authority(
-                    shared,
-                    context,
-                    request.tenant.as_str(),
-                    request.agent_did.as_str(),
-                    request.authority_ref.as_str(),
-                    request.client.as_str(),
-                    request.policy_version.as_str(),
-                    None,
-                    id,
-                )?
-            } else {
-                let asserted = &session.as_ref().ok_or_else(|| malformed(id))?.context;
-                bootstrap_authority(
-                    shared,
-                    context,
-                    asserted.tenant.as_str(),
-                    asserted.agent_did.as_str(),
-                    asserted.authority_ref.as_str(),
-                    asserted.client.as_str(),
-                    asserted.policy_version.as_str(),
-                    Some(asserted),
-                    id,
-                )?
-            };
-            let public_key = hex32(
-                authority
-                    .agent_did
-                    .as_str()
-                    .strip_prefix("did:layerx:")
-                    .ok_or_else(|| malformed(id))?,
-                id,
-            )?;
-            let config = crate::node_rpc::NodeRpcConfig::from_environment()
-                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
-            let certificates = rustls_native_certs::load_native_certs();
-            if !certificates.errors.is_empty() {
-                return Err(owner_error(id, HumanOperationError::Unavailable));
-            }
-            let roots: Vec<&[u8]> = certificates
-                .certs
-                .iter()
-                .map(|cert| cert.as_ref())
-                .collect();
-            let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
-                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
-            if endpoint
-                .chain_id()
-                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?
-                != config.chain_id
-            {
-                return Err(owner_error(id, HumanOperationError::Refused));
-            }
-            let boundary =
-                crate::prepare::evm::ProductionEvmPreparationBoundary::new(&config.url, &roots)
-                    .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
-            let prepared = if let Some(request) = &registration {
-                agent_register(&boundary, &endpoint, request, public_key, id)?
-            } else {
-                let guard = shared.lock().map_err(|e| owner_error(id, e))?;
-                session_open(
-                    &boundary,
-                    &endpoint,
-                    &guard.session_keys,
-                    session.as_ref().ok_or_else(|| malformed(id))?,
-                    public_key,
-                    id,
-                )?
-            };
-            if prepared.call.chain_id != config.chain_id {
-                return Err(owner_error(id, HumanOperationError::Refused));
-            }
-            let guard = shared.lock().map_err(|e| owner_error(id, e))?;
-            context
-                .permit()
-                .boundary(&guard.session_control)
-                .map_err(|_| owner_error(id, HumanOperationError::Refused))?;
-            Ok(bootstrap_response(authority, prepared))
-        }
+        Operation::AgentRegister | Operation::SessionOpen => dispatch.bootstrap(operation),
         Operation::ReadProofBundle => adapters::read_proof_bundle(shared, context, request, ctx),
         Operation::ProgramInterface => adapters::program_interface(shared, context, request, ctx),
         Operation::McpInvoke => Err(rejection(
@@ -2156,6 +1969,355 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
     }
 }
 
+struct RpcDispatch<'a, 'permit, A> {
+    owner: &'a SharedAgentOwner<A>,
+    context: &'a RpcOwnerContext<'permit>,
+    request: &'a Map<String, Value>,
+    ctx: &'a DispatchContext,
+}
+
+impl<A: HumanAuthorityBoundary> RpcDispatch<'_, '_, A> {
+    fn tenant_readiness(&self) -> Result<Dispatched, Rejection> {
+        let shared = self.owner;
+        let context = self.context;
+        let request = self.request;
+        let id = self.ctx.request_id;
+
+        if !request.is_empty() {
+            return Err(rejection(
+                ErrorClass::ProtocolIncompatibility,
+                id,
+                "envelope.unknown_field",
+            ));
+        }
+        let guard = shared.lock().map_err(|error| owner_error(id, error))?;
+        let value = guard
+            .rpc_tenant_readiness(context)
+            .map_err(|error| owner_error(id, error))?;
+        Ok(Dispatched {
+            value: serde_json::json!({
+                "transport_ready": value.transport_ready,
+                "verified_reads_ready": value.verified_reads_ready,
+                "writes_admitted": value.writes_admitted,
+                "recovery_reason": value.recovery_reason.map(layerx_agent_api::identity::TenantRecoveryReason::as_str),
+            }),
+            verification: None,
+        })
+    }
+
+    fn read_account(&self) -> Result<Dispatched, Rejection> {
+        let mut owner = self.owner.clone();
+        let request = self.request;
+        let id = self.ctx.request_id;
+        let peer = &self.ctx.peer;
+
+        let request: ReadAccountRequest = decode(request, id)?;
+        let _ = (request.tenant, request.agent);
+        let account_id = hex32(&request.account_id, id)?;
+        if let Some(level) = &request.requested_verification_level {
+            Rung::from_name(level).ok_or_else(|| malformed(id))?;
+        }
+        dispatched(id, owner.account_state(peer, account_id), |reader| {
+            decode_account_state(reader, account_id)
+        })
+    }
+
+    fn read_balance(&self) -> Result<Dispatched, Rejection> {
+        let mut owner = self.owner.clone();
+        let request = self.request;
+        let id = self.ctx.request_id;
+        let peer = &self.ctx.peer;
+
+        let request: ReadBalanceRequest = decode(request, id)?;
+        let _ = (request.tenant, request.agent);
+        let account = hex32(&request.account, id)?;
+        let asset = hex32(&request.asset, id)?;
+        Rung::from_name(&request.requested_verification_level).ok_or_else(|| malformed(id))?;
+        dispatched(id, owner.balance(peer), |reader| {
+            let result = decode_balance(reader)?;
+            (result.0["value"]["account"] == hexv(&account)
+                && result.0["value"]["asset"] == hexv(&asset))
+            .then_some(result)
+        })
+    }
+
+    fn read_checkpoint(&self) -> Result<Dispatched, Rejection> {
+        let shared = self.owner;
+        let context = self.context;
+        let request = self.request;
+        let id = self.ctx.request_id;
+
+        let request: crate::read::CheckpointRequest = decode(request, id)?;
+        request.height().map_err(|_| malformed(id))?;
+        let value = shared
+            .lock()
+            .and_then(|mut guard| guard.rpc_read_checkpoint(context, request))
+            .map_err(|error| owner_error(id, error))?;
+        Ok(Dispatched {
+            value,
+            verification: Some(VerificationStatus::Achieved(Rung::Committed)),
+        })
+    }
+
+    fn track(&self) -> Result<Dispatched, Rejection> {
+        let mut owner = self.owner.clone();
+        let request = self.request;
+        let id = self.ctx.request_id;
+        let peer = &self.ctx.peer;
+
+        let request: TrackRequest = decode(request, id)?;
+        let _ = (request.tenant, request.agent);
+        submission_key(&request.submission_ref, id)?;
+        dispatched(
+            id,
+            owner.track(peer, &request.submission_ref),
+            decode_tracked,
+        )
+    }
+
+    fn approval_list(&self) -> Result<Dispatched, Rejection> {
+        let mut owner = self.owner.clone();
+        let shared = self.owner;
+        let context = self.context;
+        let request = self.request;
+        let ctx = self.ctx;
+        let id = self.ctx.request_id;
+        let peer = &self.ctx.peer;
+
+        if native_variant(request, id)? {
+            return adapters::approval_list_native(shared, context, request, ctx);
+        }
+        let request: ApprovalListRequest = decode(request, id)?;
+        let _ = (request.tenant, request.agent);
+        let current_sequence = decimal_u64(&request.current_sequence, id)?;
+        let cursor = request.cursor.map(|text| hex32(&text, id)).transpose()?;
+        let limit = u8::try_from(decimal_u64(&request.limit, id)?).map_err(|_| noncanonical(id))?;
+        dispatched(
+            id,
+            owner.approval_list(peer, current_sequence, cursor, limit),
+            decode_approval_list,
+        )
+    }
+
+    fn approval_get(&self) -> Result<Dispatched, Rejection> {
+        let mut owner = self.owner.clone();
+        let shared = self.owner;
+        let context = self.context;
+        let request = self.request;
+        let ctx = self.ctx;
+        let id = self.ctx.request_id;
+        let peer = &self.ctx.peer;
+
+        if native_variant(request, id)? {
+            return adapters::approval_get_native(shared, context, request, ctx);
+        }
+        let request: ApprovalGetRequest = decode(request, id)?;
+        let _ = (request.tenant, request.agent);
+        let approval_id = hex32(&request.approval_id, id)?;
+        let current_sequence = decimal_u64(&request.current_sequence, id)?;
+        let mut approval = dispatched(
+            id,
+            owner.approval_get(peer, approval_id, current_sequence),
+            decode_approval_get,
+        )?;
+        if approval.value.get("state").and_then(Value::as_str) == Some("Approved") {
+            let reference = approval
+                .value
+                .get("submission_ref")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    rejection(ErrorClass::InternalFault, id, "owner.response_malformed")
+                })?;
+            submission_key(reference, id)?;
+            let tracked = dispatched(id, owner.track(peer, reference), decode_tracked)?;
+            approval.value = merge_tracked_approval(id, approval.value, tracked.value)?;
+        }
+        Ok(approval)
+    }
+
+    fn program_receipt(&self) -> Result<Dispatched, Rejection> {
+        let mut owner = self.owner.clone();
+        let request = self.request;
+        let id = self.ctx.request_id;
+        let peer = &self.ctx.peer;
+        dispatch_program_receipt(request, id, |key, activity| {
+            owner.receipt_by_idempotency_key(peer, key, activity)
+        })
+    }
+
+    fn prepare(&self, _operation: Operation) -> Result<Dispatched, Rejection> {
+        let shared = self.owner;
+        let context = self.context;
+        let request = self.request;
+        let ctx = self.ctx;
+        let id = self.ctx.request_id;
+
+        if native_send_variant(request) {
+            let typed = decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
+            let envelope = crate::human::MutationEnvelope {
+                request_id: id.0,
+                key: mutation_key(ctx)?,
+                body_digest: native_send_prepare_digest(&typed).map_err(|_| malformed(id))?,
+                operation: typed,
+            };
+            let response = shared
+                .lock()
+                .and_then(|mut guard| guard.rpc_prepare_native_send(context, &envelope));
+            dispatched_native(id, response, NativePrepareResultV1Wire::into_result)
+        } else {
+            adapters::prepare(shared, context, request, ctx)
+        }
+    }
+
+    fn submit(&self, _operation: Operation) -> Result<Dispatched, Rejection> {
+        let shared = self.owner;
+        let context = self.context;
+        let request = self.request;
+        let ctx = self.ctx;
+        let id = self.ctx.request_id;
+
+        if request.contains_key("raw_transaction") {
+            let (value, rung) = dispatch_raw_submit(request, id, |raw| {
+                shared.lock()?.rpc_submit_raw(context, raw)
+            })?;
+            Ok(Dispatched {
+                value,
+                verification: Some(VerificationStatus::Achieved(rung)),
+            })
+        } else if native_send_submit_variant(request) {
+            let typed = decode_wire::<NativeSendSubmitV1Wire>(request, id)?.into_request(id)?;
+            let preparation_id = hex32(&typed.preparation_ref, id)?;
+            let envelope = crate::human::MutationEnvelope {
+                request_id: id.0,
+                key: mutation_key(ctx)?,
+                body_digest: submit_digest(&typed),
+                operation: typed,
+            };
+            let response = shared.lock().and_then(|mut guard| {
+                guard.require_native_send_preparation(context, preparation_id)?;
+                guard.rpc_submit_external(context, &envelope)
+            });
+            dispatched(id, response, decode_observation)
+        } else {
+            let typed = human_submit(decode(request, id)?, id)?;
+            let envelope = crate::human::MutationEnvelope {
+                request_id: id.0,
+                key: mutation_key(ctx)?,
+                body_digest: submit_digest(&typed),
+                operation: typed,
+            };
+            let response = shared
+                .lock()
+                .and_then(|mut guard| guard.rpc_submit_external(context, &envelope));
+            dispatched(id, response, decode_submitted)
+        }
+    }
+
+    fn bootstrap(&self, operation: Operation) -> Result<Dispatched, Rejection> {
+        let shared = self.owner;
+        let context = self.context;
+        let request = self.request;
+        let id = self.ctx.request_id;
+
+        let registration = if operation == Operation::AgentRegister {
+            Some(decode::<AgentRegistrationWire>(request, id)?.into_request(id)?)
+        } else {
+            None
+        };
+        let session = if operation == Operation::SessionOpen {
+            Some(decode::<SessionOpenWire>(request, id)?.into_request(id)?)
+        } else {
+            None
+        };
+        let authority = if let Some(request) = &registration {
+            bootstrap_authority(
+                shared,
+                context,
+                &BootstrapIdentity {
+                    tenant: request.tenant.as_str(),
+                    agent: request.agent_did.as_str(),
+                    authority_ref: request.authority_ref.as_str(),
+                    client: request.client.as_str(),
+                    policy: request.policy_version.as_str(),
+                },
+                None,
+                id,
+            )?
+        } else {
+            let asserted = &session.as_ref().ok_or_else(|| malformed(id))?.context;
+            bootstrap_authority(
+                shared,
+                context,
+                &BootstrapIdentity {
+                    tenant: asserted.tenant.as_str(),
+                    agent: asserted.agent_did.as_str(),
+                    authority_ref: asserted.authority_ref.as_str(),
+                    client: asserted.client.as_str(),
+                    policy: asserted.policy_version.as_str(),
+                },
+                Some(asserted),
+                id,
+            )?
+        };
+        let public_key = hex32(
+            authority
+                .agent_did
+                .as_str()
+                .strip_prefix("did:layerx:")
+                .ok_or_else(|| malformed(id))?,
+            id,
+        )?;
+        let config = crate::node_rpc::NodeRpcConfig::from_environment()
+            .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+        let certificates = rustls_native_certs::load_native_certs();
+        if !certificates.errors.is_empty() {
+            return Err(owner_error(id, HumanOperationError::Unavailable));
+        }
+        let roots: Vec<&[u8]> = certificates
+            .certs
+            .iter()
+            .map(std::convert::AsRef::as_ref)
+            .collect();
+        let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
+            .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+        if endpoint
+            .chain_id()
+            .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?
+            != config.chain_id
+        {
+            return Err(owner_error(id, HumanOperationError::Refused));
+        }
+        let boundary =
+            crate::prepare::evm::ProductionEvmPreparationBoundary::new(&config.url, &roots)
+                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+        let prepared = if let Some(request) = &registration {
+            agent_register(&boundary, &endpoint, request, public_key, id)?
+        } else {
+            let guard = shared.lock().map_err(|e| owner_error(id, e))?;
+            session_open(
+                &boundary,
+                &endpoint,
+                &guard.session_keys,
+                session.as_ref().ok_or_else(|| malformed(id))?,
+                public_key,
+                id,
+            )?
+        };
+        if prepared.call.chain_id != config.chain_id {
+            return Err(owner_error(id, HumanOperationError::Refused));
+        }
+        let guard = shared.lock().map_err(|e| owner_error(id, e))?;
+        context
+            .permit()
+            .boundary(&guard.session_control)
+            .map_err(|_| owner_error(id, HumanOperationError::Refused))?;
+        Ok(bootstrap_response(authority, prepared))
+    }
+}
+
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn dispatch_program_receipt(
     request: &Map<String, Value>,
     id: RequestId,
@@ -2406,6 +2568,9 @@ fn canonical_decimals_and_hex_are_exact() {
     assert_eq!(lower_hex(&[0x0f, 0xa0]), "0fa0");
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn submission_key(text: &str, id: RequestId) -> Result<[u8; 32], Rejection> {
     hex32(text, id)
         .map_err(|_| rejection(ErrorClass::ProtocolIncompatibility, id, "invalid_request"))
@@ -2416,6 +2581,9 @@ pub(crate) fn decode_submitted(reader: &mut Reader<'_>) -> Option<(Value, Option
     Some((observation.get("submission")?.clone(), rung))
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn dispatch_raw_submit(
     request: &Map<String, Value>,
     id: RequestId,
@@ -2426,6 +2594,9 @@ pub fn dispatch_raw_submit(
     decode_write_answer(id, response)
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn decode_write_answer(
     id: RequestId,
     response: HumanResponse,
@@ -2437,6 +2608,9 @@ pub fn decode_write_answer(
     Ok((answer.value, rung))
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
 pub fn track_write_answer(
     id: RequestId,
     outbox: &crate::outbox::Outbox,
@@ -2449,6 +2623,13 @@ pub fn track_write_answer(
     decode_write_answer(id, response)
 }
 
+/// # Errors
+/// Returns an error if the request is malformed, its owner context cannot be authorized, or
+/// the requested operation is refused.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn wait_write_answer(
     submission: Value,
     result: crate::finality::WaitResult,
@@ -2855,4 +3036,12 @@ print(json.dumps({"receipt_ref": facts["receipt_ref"], "sdk_reference": verified
             .is_none());
         }
     }
+}
+
+pub(crate) struct BootstrapIdentity<'a> {
+    pub(crate) tenant: &'a str,
+    pub(crate) agent: &'a str,
+    pub(crate) authority_ref: &'a str,
+    pub(crate) client: &'a str,
+    pub(crate) policy: &'a str,
 }

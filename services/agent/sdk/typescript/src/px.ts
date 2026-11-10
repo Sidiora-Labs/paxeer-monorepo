@@ -139,6 +139,7 @@ export interface PxNetworkHead {
   readonly networkId: string;
   readonly paxeer: PxPaxeerHead;
   readonly layerx: Readonly<Record<string, unknown>> | null;
+  /** Gateway block-commit observation; callers verify inclusion against pinned validators. */
   readonly latestCommittedHeight: bigint;
 }
 
@@ -312,9 +313,11 @@ export class PxClient {
       headers.authorization = authorization;
     });
     const bytes = await this.send(headers, body);
-    const answer: unknown = JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-    );
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const answer: unknown =
+      method === "px_getReceiptKeys"
+        ? parseReceiptKeyResponse(text)
+        : JSON.parse(text);
     if (
       answer !== null &&
       typeof answer === "object" &&
@@ -364,6 +367,22 @@ export class PxClient {
       request.end(body);
     });
   }
+}
+
+function parseReceiptKeyResponse(text: string): unknown {
+  const lossless = text.replace(
+    /"(?:\\.|[^"\\])*"|(-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)/g,
+    (token, number: string | undefined) => {
+      if (
+        number !== undefined &&
+        /^-?(?:0|[1-9][0-9]*)$/.test(number) &&
+        !Number.isSafeInteger(Number(number))
+      )
+        return JSON.stringify(number);
+      return token;
+    },
+  );
+  return JSON.parse(lossless) as unknown;
 }
 
 /** Normalises the three public account spellings the gateway addresses. */

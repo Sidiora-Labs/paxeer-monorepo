@@ -416,6 +416,7 @@ impl NativeProgramSimulationTransport for EmulatorProgramSimulationTransport {
 pub struct NodeProgramSimulationTransport<'a> {
     client: &'a mut layerx_client::sequencer::SequencerEndpoint,
     registry: ModuleRegistry,
+    #[cfg(test)]
     correlation_id: u64,
 }
 
@@ -424,12 +425,13 @@ impl<'a> NodeProgramSimulationTransport<'a> {
     pub fn new(
         client: &'a mut layerx_client::sequencer::SequencerEndpoint,
         registry: ModuleRegistry,
-        correlation_id: u64,
+        _correlation_id: u64,
     ) -> Self {
         Self {
             client,
             registry,
-            correlation_id,
+            #[cfg(test)]
+            correlation_id: _correlation_id,
         }
     }
 
@@ -538,7 +540,9 @@ fn decode_hex_json(
 
 fn decode_program_hex(text: &str, maximum: usize) -> Result<Vec<u8>, ProgramOperationError> {
     let bytes = text.as_bytes();
-    if bytes.len() % 2 != 0 || bytes.len() / 2 > maximum || !bytes.iter().all(u8::is_ascii_hexdigit)
+    if !bytes.len().is_multiple_of(2)
+        || bytes.len() / 2 > maximum
+        || !bytes.iter().all(u8::is_ascii_hexdigit)
     {
         return Err(ProgramOperationError::UnverifiedReceipt);
     }
@@ -784,13 +788,18 @@ pub struct ProgramOperations<R = LayerxdProgramBalanceReader> {
 }
 
 pub(crate) struct ProgramActivityExecution {
+    #[cfg(test)]
     pub(crate) program_id: [u8; 32],
+    #[cfg(test)]
     pub(crate) guest_abi_version: u16,
     pub(crate) execution: ProgramExecution,
     pub(crate) terminal_payload: Vec<u8>,
 }
 
 impl ProgramOperations {
+    /// # Errors
+    /// Returns an error if the program or account snapshot is stale or unverified, or its node
+    /// read fails.
     pub fn current_balances(
         config: &crate::node_rpc::NodeRpcConfig,
         program: ProgramId,
@@ -817,6 +826,9 @@ impl ProgramOperations {
         Ok((height, balances))
     }
 
+    /// # Errors
+    /// Returns an error if the program or account snapshot is stale or unverified, or its node
+    /// read fails.
     pub fn value_accounts_at(
         node: &crate::node_rpc::NodeRpc,
         height: u64,
@@ -941,7 +953,9 @@ impl ProgramOperations {
         )
         .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
         Ok(ProgramActivityExecution {
+            #[cfg(test)]
             program_id,
+            #[cfg(test)]
             guest_abi_version,
             execution: ProgramExecution {
                 committed: true,
@@ -971,6 +985,9 @@ impl ProgramOperations {
         Self { reader }
     }
 
+    /// # Errors
+    /// Returns an error if the program or account snapshot is stale or unverified, or its node
+    /// read fails.
     pub fn current_value_accounts(
         &mut self,
         program: ProgramId,
@@ -998,6 +1015,10 @@ impl ProgramOperations {
     /// `ProgramStateAbsent` when the program record or its interface is not
     /// present, `Stale` outside the freshness bound, `UnknownProgram` for a
     /// different program, and `UnverifiedReceipt` for every other refusal.
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn current_program(
         &mut self,
         client: &mut layerx_client::sequencer::SequencerEndpoint,
@@ -1721,8 +1742,10 @@ fn submit_program_transaction(
                 .sequencer_receipt(tx_hash)
                 .map_err(simulation_error)?
             {
-                Some(SequencerReceipt::Receipted(receipt))
-                | Some(SequencerReceipt::Committed { receipt, .. }) => {
+                Some(
+                    SequencerReceipt::Receipted(receipt)
+                    | SequencerReceipt::Committed { receipt, .. },
+                ) => {
                     if receipt.from != sender
                         || receipt.to != call.to
                         || receipt.nonce != call.nonce
@@ -1804,12 +1827,18 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         Self { reader: endpoint }
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn connect(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, ProgramRpcOperationError> {
         layerx_client::sequencer::SequencerEndpoint::new(url, trust_anchors)
             .map(Self::from_endpoint)
             .map_err(simulation_error)
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn call_precompile(
         call: NativeProgramCall<'_>,
         fee_limit: u128,
@@ -1842,6 +1871,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn simulate(
         &self,
         actor: [u8; 20],
@@ -1862,6 +1894,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         decode_program_call_result(&bytes, call.response_capacity)
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn simulate_native(
         &self,
         actor: [u8; 20],
@@ -1923,6 +1958,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         Ok(result)
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn discover(
         &self,
         program: ProgramId,
@@ -1931,6 +1969,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         self.discover_at(program, &pin)
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn discover_at(
         &self,
         program: ProgramId,
@@ -1972,6 +2013,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn interface(
         &self,
         program: ProgramId,
@@ -1980,6 +2024,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         self.interface_at(program, &record)
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn interface_at(
         &self,
         program: ProgramId,
@@ -2018,6 +2065,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn current_program(
         &self,
         program: ProgramId,
@@ -2051,6 +2101,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn submit(
         &self,
         call: NativeProgramCall<'_>,
@@ -2074,6 +2127,9 @@ impl ProgramOperations<layerx_client::sequencer::SequencerEndpoint> {
         submit_program_transaction(&self.reader, verified.exact_bytes())
     }
 
+    /// # Errors
+    /// Returns an error if the program request, registry or interface is invalid or unavailable,
+    /// or simulation or submission fails.
     pub fn submit_native(
         &self,
         call: NativeProgramCall<'_>,

@@ -433,6 +433,9 @@ func TestEveryPoolMigrates(t *testing.T) {
 	require.Equal(t, uint64(len(pools)), r.k.GetMarketCount(r.ctx))
 	runtime := common.FromHex(v6120SurfaceRuntime)
 	require.Len(t, runtime, 41)
+	installedHash, stagedHash := deploymentSurfaceHashes(t)
+	require.Equal(t, installedHash, crypto.Keccak256Hash(runtime).Hex())
+	require.NotEqual(t, stagedHash, crypto.Keccak256Hash(runtime).Hex())
 	for i, pool := range pools {
 		market, ok := r.k.GetMarketByIndex(r.ctx, uint64(i+1))
 		require.True(t, ok, "no market at index %d", i+1)
@@ -447,7 +450,9 @@ func TestEveryPoolMigrates(t *testing.T) {
 			want = types.Generation2
 		}
 		require.Equal(t, keeper.Surface{Role: types.RolePool, Generation: want, Market: market.Denom}, surface)
-		require.Equal(t, runtime, testkeeper.EVMTestApp.EvmKeeper.GetCode(r.ctx, pool))
+		code := testkeeper.EVMTestApp.EvmKeeper.GetCode(r.ctx, pool)
+		require.Equal(t, runtime, code)
+		require.Equal(t, installedHash, crypto.Keccak256Hash(code).Hex())
 	}
 }
 

@@ -2,7 +2,7 @@
 -- Paxeer Embedded Wallet — agent durable actions (high-level intent lane)
 --
 -- Turns a one-shot agent signing request into a DURABLE, server-driven,
--- idempotent operation. One POST (e.g. layerx/deposit) records an action row;
+-- idempotent operation. One allowance-and-call POST records an action row;
 -- a background worker owns the approve → confirm → call → confirm → verify
 -- sequence, survives a client disconnect or a process restart, and is polled
 -- via GET /v1/agent/actions/:id.
@@ -20,6 +20,8 @@
 --
 -- Idempotent + re-runnable: guarded with IF NOT EXISTS; the migration runner
 -- (src/db/migrate.ts) holds a session advisory lock during apply.
+-- The original schema below is retained for upgrades; migration 019 removes
+-- the historical deposit actions and ledger mirror before serving requests.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -62,7 +64,7 @@ create table if not exists agent_actions (
   -- Approval leg (only present when an approve was required).
   approval_tx_hash     text,
   approval_nonce       bigint,
-  -- Primary call leg (depositUSDL / the arbitrary method call).
+  -- Primary call leg (the EVM transaction).
   call_tx_hash         text,
   call_nonce           bigint,
 
@@ -106,11 +108,7 @@ create index if not exists agent_actions_approval_tx_idx
   on agent_actions (approval_tx_hash) where approval_tx_hash is not null;
 
 -- -----------------------------------------------------------------------------
--- 2) layerx_accounts — wallet-side mirror of the LayerX per-DID ledger head.
---    Populated read-only from the LayerX sequencer Postgres (jobs/layerxSync).
---    Gives the wallet an in-house DID → escrow/balance view joinable to
---    agent_principals (DID → agent wallet → owner) without a cross-service call
---    on the hot path.
+-- 2) Historical per-DID ledger mirror, dropped by migration 019.
 -- -----------------------------------------------------------------------------
 create table if not exists layerx_accounts (
   did             text primary key,

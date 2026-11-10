@@ -17,6 +17,7 @@ public sealed class SequencerReceiptTests
     {
         SequencerReceiptV1CasesVerifyReceipted();
         SequencerReceiptV2RevertDecodesReason();
+        SequencerReceiptPreexecutionRefusal();
         SequencerReceiptV3RefusalsNameTheirCheck();
     }
 
@@ -103,7 +104,8 @@ public sealed class SequencerReceiptTests
     public void SequencerReceiptV2RevertDecodesReason()
     {
         using var document = LoadFixture("vector-v2-receipted-revert.json");
-        var vector = Assert.Single(Cases(document, "V2"));
+        var vector = Assert.Single(Cases(document, "V2"),
+            value => value.GetProperty("id").GetString() == "V2-layerxledger-revert");
         Assert.Equal("accepts", vector.GetProperty("expected").GetProperty("verifier").GetString());
         var result = VerifySequencerReceipt(vector);
         Assert.Equal(vector.GetProperty("expected").GetProperty("rung").GetString(), result.Rung);
@@ -119,6 +121,38 @@ public sealed class SequencerReceiptTests
         Assert.Equal(Hex(vector.GetProperty("receiptJson"), "returnData"), revert.ReturnData);
         Assert.Equal(revert.ReturnData, result.ReturnData);
         Assert.Empty(result.Receipt.Effects.Skip(1));
+    }
+
+    [Fact]
+    public void SequencerReceiptPreexecutionRefusal()
+    {
+        using var document = LoadFixture("vector-v2-receipted-revert.json");
+        var cases = Cases(document, "V2");
+        Assert.Equal(new[] { "V2-layerxledger-revert", "V2-pax-transfer-insufficient-funds" },
+            cases.Select(vector => vector.GetProperty("id").GetString()).ToArray());
+        var vector = Assert.Single(cases,
+            value => value.GetProperty("id").GetString() == "V2-pax-transfer-insufficient-funds");
+        var view = vector.GetProperty("receiptJson");
+        Assert.Equal("accepts", vector.GetProperty("expected").GetProperty("verifier").GetString());
+        var result = VerifySequencerReceipt(vector);
+        Assert.Equal(vector.GetProperty("expected").GetProperty("rung").GetString(), result.Rung);
+        Assert.Equal("receipted", result.Rung);
+        Assert.Equal(VerificationLevel.Receipted, result.Level);
+        Assert.Equal(0U, result.Status);
+        Assert.Equal(1, result.Receipt.ResultCode);
+        Assert.Equal(Hex(vector, "signedReceipt"), result.CanonicalBytes);
+        Assert.Equal(Hex(vector, "receiptDigest"), result.ReceiptDigest);
+        Assert.Equal(Hex(view, "returnData"), result.ReturnData);
+        Assert.Empty(result.ReturnData);
+        Assert.Empty(view.GetProperty("logs").EnumerateArray());
+        Assert.Single(result.Receipt.Effects);
+        Assert.False(vector.TryGetProperty("lxpCode", out _));
+        var revert = Assert.IsType<SequencerRevert>(result.Revert);
+        Assert.Null(revert.Code);
+        Assert.Null(revert.Reason);
+        Assert.Equal("insufficient balance for transfer", view.GetProperty("vmError").GetString());
+        Assert.Equal(view.GetProperty("vmError").GetString(), revert.VmError);
+        Assert.Equal(result.ReturnData, revert.ReturnData);
     }
 
     [Fact]

@@ -37,6 +37,7 @@ import {
   type TypedDataDefinition,
 } from 'viem';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
+import { TestChain } from './support/chain.js';
 import type { EvmReviewResult } from '../src/attestor/client.js';
 import type { WalletInventory } from '../src/agent/authority.js';
 import { buildAttestor, makePki } from './e2e/attestors.js';
@@ -73,9 +74,11 @@ interface Received {
   body: WireRequest;
 }
 
-const walletFixture = fixture<{ key_id: string; address: `0x${string}`; chain_id: number }>(
-  'wallet.json'
-);
+const walletFixture = fixture<{
+  key_id: string;
+  address: `0x${string}`;
+  chain_id: number;
+}>('wallet.json');
 const routeInputs = fixture<{
   tx: {
     to: string;
@@ -92,7 +95,10 @@ const recorded: Array<{ request: RecordedRequest; response: RecordedResponse }> 
   'sign-evm-tx',
   'sign-personal-message',
   'sign-typed-data',
-].map((n) => ({ request: fixture(`${n}.request.json`), response: fixture(`${n}.response.json`) }));
+].map((n) => ({
+  request: fixture(`${n}.request.json`),
+  response: fixture(`${n}.response.json`),
+}));
 const healthTemplate = fixture<Record<string, unknown>>('health.json');
 const keyTemplate = fixture<Record<string, unknown>>('keys.generate.response.json');
 const goldenDir = join(here, '..', '..', 'schema', 'attestor-api', 'golden');
@@ -225,7 +231,9 @@ function startAttestor(index: number): Promise<AttestorNode> {
             .map((i) => [`attestor-${i}`, { reachable: true, rtt_ns: 1000 }])
         );
         if (req.method === 'POST' && req.url === '/v1/authority') {
-          const { token } = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { token: string };
+          const { token } = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+            token: string;
+          };
           const [header, payload, signature] = token.split('.');
           if (
             !header ||
@@ -321,6 +329,7 @@ function startAttestor(index: number): Promise<AttestorNode> {
               ...keyTemplate,
               node_id: node.nodeId,
               key_id: wire.key_id,
+              participants: attestorNodes.map((participant) => participant.nodeId),
               audit_sequence: index,
             });
             return;
@@ -363,7 +372,11 @@ function startAttestor(index: number): Promise<AttestorNode> {
           return;
         }
         send(404, {
-          error: { category: 'session', code: 'session_bad_request', message: 'unknown route' },
+          error: {
+            category: 'session',
+            code: 'session_bad_request',
+            message: 'unknown route',
+          },
         });
       });
     }
@@ -414,12 +427,13 @@ let rpcServer: HttpServer;
 let rpcUrl: string;
 const broadcasts: Hex[] = [];
 const nonceTags: string[] = [];
+const executionChain = new TestChain(125);
 
 function startRpc(): Promise<void> {
   rpcServer = createHttpServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
-    req.on('end', () => {
+    req.on('end', async () => {
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
         id: number;
         method: string;
@@ -430,6 +444,8 @@ function startRpc(): Promise<void> {
         res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, ...payload }));
       };
       switch (body.method) {
+        case 'eth_chainId':
+          return reply({ result: '0x7d' });
         case 'eth_blockNumber':
           return reply({ result: '0x3e8' });
         case 'eth_call':
@@ -439,12 +455,31 @@ function startRpc(): Promise<void> {
         case 'eth_getTransactionCount':
           nonceTags.push(String(body.params[1]));
           if (body.params[1] === 'pending')
-            return reply({ error: { code: -32000, message: 'pending block is not available' } });
+            return reply({
+              error: { code: -32000, message: 'pending block is not available' },
+            });
           return reply({ result: `0x${routeInputs.nonce.toString(16)}` });
         case 'eth_sendRawTransaction': {
           const raw = body.params[0] as Hex;
           broadcasts.push(raw);
-          return reply({ result: keccak256(raw) });
+          const applied = await fetch(executionChain.url, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          return reply((await applied.json()) as Record<string, unknown>);
+        }
+        case 'pax_sequencerReceipt':
+          return reply({
+            result: executionChain.sequencerReceipts.get(body.params[0] as string) ?? null,
+          });
+        case 'eth_getTransactionByHash': {
+          const receipt = executionChain.receipts.get(body.params[0] as string);
+          return reply({
+            result: receipt
+              ? { hash: receipt.transactionHash, blockNumber: receipt.blockNumber }
+              : null,
+          });
         }
         default:
           return reply({ error: { code: -32601, message: 'method not found' } });
@@ -499,6 +534,14 @@ async function configureReviewInventory(owner = reviewOwner): Promise<void> {
         .digest('hex'),
     })),
     keys: [
+      {
+        key_id: 'key-evm',
+        epoch: 0,
+        curve: 'secp256k1',
+        owner: 'user-0001',
+        operations: ['generate'],
+        public_key: '',
+      },
       {
         key_id: walletFixture.key_id,
         epoch: 1,
@@ -558,8 +601,14 @@ beforeAll(async () => {
   makeCertificates();
   for (let i = 1; i <= 5; i++) await startAttestor(i);
   await startJwks();
+  executionChain.balances.set(walletFixture.address.toLowerCase(), 10n ** 21n);
+  executionChain.nonces.set(walletFixture.address.toLowerCase(), routeInputs.nonce);
+  await executionChain.start();
   await startRpc();
   process.env.SUPABASE_URL = supabaseUrl;
+  process.env.HYPERPAXEER_RPC_URL = rpcUrl;
+  process.env.RPC_URLS = rpcUrl;
+  process.env.SEQUENCER_RPC_URL = rpcUrl;
   await configureReviewInventory();
   pgServer = await startPostgres();
   clientMod = await import('../src/attestor/client.js');
@@ -573,6 +622,7 @@ afterAll(async () => {
   const { closePool } = await import('../src/db/pool.js');
   await closePool();
   await pgServer?.stop();
+  await executionChain.stop();
   if (tlsDir) rmSync(tlsDir, { recursive: true, force: true });
 });
 
@@ -894,6 +944,15 @@ describe('AttestorClient over mutual TLS', () => {
   it('generates a key on every participant with the schema request body', async () => {
     const client = newClient();
     try {
+      const { requireInventoryKey } = await import('../src/agent/authority.js');
+      expect(requireInventoryKey('key-evm', 'generate', 'user-0001')).toEqual({
+        key_id: 'key-evm',
+        owner: 'user-0001',
+        curve: 'secp256k1',
+        epoch: 0,
+        public_key: '',
+        operations: ['generate'],
+      });
       await client.refreshHealth();
       const key = await client.generateKey({
         keyId: 'key-evm',
@@ -931,11 +990,19 @@ describe('AttestorClient over mutual TLS', () => {
       await expect(
         bare.sign({
           keyId: recorded[1]!.request.key_id,
-          payload: { kind: 'personal_message', message: `0x${recorded[1]!.request.message!}` },
+          payload: {
+            kind: 'personal_message',
+            message: `0x${recorded[1]!.request.message!}`,
+          },
           authorisation: { scheme: 'supabase_jwt', token: 'session-token' },
         })
       ).rejects.toBeInstanceOf(clientMod.AttestorQuorumError);
       expect(attestorNodes.every((n) => n.received.length === 0)).toBe(true);
+      const { query } = await import('../src/db/pool.js');
+      const snapshot = await query(
+        'select published_at, acknowledged_participants from wallet_custody_authority where singleton = true'
+      );
+      expect(snapshot.rows).toEqual([{ published_at: null, acknowledged_participants: 0 }]);
     } finally {
       bare.stop();
     }
@@ -1018,7 +1085,6 @@ describe('signing routes', () => {
       pendingCount: (a) => rpc.getTransactionCount(a, 'latest'),
       lookupTransaction: (h, m) => rpc.lookupTransaction(h, m),
     });
-    client = newClient();
   });
 
   afterAll(() => {
@@ -1026,6 +1092,8 @@ describe('signing routes', () => {
   });
 
   beforeEach(async () => {
+    client?.stop();
+    client = newClient();
     await getPool().query(
       `update wallets
           set migrated_at = null, attestor_key_id = null,
@@ -1036,7 +1104,20 @@ describe('signing routes', () => {
     await getPool().query('delete from nonce_allocations where address = $1', [
       walletFixture.address.toLowerCase(),
     ]);
-    await client.refreshHealth();
+    const health = await client.refreshHealth();
+    expect(
+      health.map((node) => ({
+        nodeId: node.nodeId,
+        healthy: node.healthy,
+        lastError: node.lastError,
+      }))
+    ).toEqual(
+      attestorNodes.map((node) => ({
+        nodeId: node.nodeId,
+        healthy: true,
+        lastError: null,
+      }))
+    );
     broadcasts.length = 0;
     nonceTags.length = 0;
   });
@@ -1052,13 +1133,16 @@ describe('signing routes', () => {
         method: 'POST',
         url: '/v1/wallet/sign-message',
         headers,
-        payload: { message: routeInputs.message },
+        payload: { message: `${routeInputs.message} before migration` },
       });
       expect(envelope.statusCode).toBe(200);
       const envSig = envelope.json<{ signature: Hex; address: string }>();
       expect(envSig.address).toBe(user.address);
       expect(
-        await recoverMessageAddress({ message: routeInputs.message, signature: envSig.signature })
+        await recoverMessageAddress({
+          message: `${routeInputs.message} before migration`,
+          signature: envSig.signature,
+        })
       ).toBe(user.address);
       expect(attestorNodes.every((n) => n.received.length === 0)).toBe(true);
       const envAudit = await auditFor(envelope.headers['x-request-id'] as string);
@@ -1078,11 +1162,14 @@ describe('signing routes', () => {
         headers,
         payload: { message: routeInputs.message },
       });
-      expect(threshold.statusCode).toBe(200);
+      expect(threshold.statusCode, threshold.body).toBe(200);
       const thSig = threshold.json<{ signature: Hex; address: string }>();
       expect(thSig.address).toBe(walletFixture.address);
       expect(
-        await recoverMessageAddress({ message: routeInputs.message, signature: thSig.signature })
+        await recoverMessageAddress({
+          message: routeInputs.message,
+          signature: thSig.signature,
+        })
       ).toBe(walletFixture.address);
       expect(attestorNodes.filter((n) => n.received.length === 1)).toHaveLength(3);
       const thAudit = await auditFor(threshold.headers['x-request-id'] as string);
@@ -1108,13 +1195,33 @@ describe('signing routes', () => {
       expectedToken = user.token;
       const headers = { authorization: `Bearer ${user.token}` };
 
+      const { requireInventoryKey } = await import('../src/agent/authority.js');
+      expect(requireInventoryKey(walletFixture.key_id, 'sign', user.userId)).toMatchObject({
+        key_id: walletFixture.key_id,
+        owner: user.userId,
+        curve: 'secp256k1',
+        epoch: 1,
+        operations: ['sign'],
+      });
+
+      const wallet = await walletsMod.findWalletByUserId(user.userId);
+      expect(wallet).not.toBeNull();
+      const countDailySignatures = async () => {
+        const result = await getPool().query<{ count: string }>(
+          `select count(*)::text as count from wallet_signatures
+           where wallet_id = $1 and created_at >= now() - interval '24 hours'`,
+          [wallet!.id]
+        );
+        return Number(result.rows[0]!.count);
+      };
+      const dailyBefore = await countDailySignatures();
       const signed = await app.inject({
         method: 'POST',
         url: '/v1/wallet/sign',
         headers,
         payload: { tx: { ...routeInputs.tx, nonce: routeInputs.nonce } },
       });
-      expect(signed.statusCode).toBe(200);
+      expect(signed.statusCode, signed.body).toBe(200);
       const signedTx = signed.json<{ signed_tx: Hex; chain_id: number }>().signed_tx;
       expect(await recoverTransactionAddress({ serializedTransaction: signedTx as never })).toBe(
         walletFixture.address
@@ -1123,15 +1230,58 @@ describe('signing routes', () => {
       expect(parsed.nonce).toBe(routeInputs.nonce);
       expect(parsed.chainId).toBe(125);
 
+      // A sign-only lease is reusable only after its broadcast deadline and
+      // an all-member lookup proving the transaction was never submitted.
+      expect(broadcasts).toEqual([]);
+      const expired = await getPool().query(
+        `update nonce_outstanding set created_at = now() - interval '1 hour'
+          where address = $1 and nonce = $2 and tx_hash = $3 returning nonce`,
+        [walletFixture.address.toLowerCase(), routeInputs.nonce, keccak256(signedTx)]
+      );
+      expect(expired.rowCount).toBe(1);
+      const reservationsBeforeSend = await getPool().query(
+        `select request_hash, operation_hash, signed_evidence
+         from wallet_signature_reservations where wallet_id = $1 and kind = 'transaction'`,
+        [wallet!.id]
+      );
+      console.info('sign-only reservations before send', reservationsBeforeSend.rows);
+      const unsigned = { ...parsed };
+      delete unsigned.r;
+      delete unsigned.s;
+      delete unsigned.v;
+      delete unsigned.yParity;
+      expect(reservationsBeforeSend.rows).toEqual([
+        {
+          request_hash: expect.any(String),
+          operation_hash: keccak256(serializeTransaction(unsigned)),
+          signed_evidence: signedTx,
+        },
+      ]);
+      expect(await countDailySignatures()).toBe(dailyBefore + 1);
       const sent = await app.inject({
         method: 'POST',
         url: '/v1/wallet/send',
         headers,
         payload: { tx: routeInputs.tx },
       });
-      expect(sent.statusCode).toBe(200);
+      expect(sent.statusCode, sent.body).toBe(200);
       expect(broadcasts).toEqual([signedTx]);
       expect(sent.json<{ tx_hash: Hex }>().tx_hash).toBe(keccak256(signedTx));
+      expect(await countDailySignatures()).toBe(dailyBefore + 1);
+      const signaturesAfterSend = await getPool().query(
+        'select tx_hash from wallet_signatures where wallet_id = $1 and kind = $2',
+        [wallet!.id, 'transaction']
+      );
+      expect(signaturesAfterSend.rows).toEqual([{ tx_hash: keccak256(signedTx) }]);
+      expect(
+        (
+          await getPool().query(
+            `select request_hash, operation_hash, signed_evidence
+           from wallet_signature_reservations where wallet_id = $1 and kind = 'transaction'`,
+            [wallet!.id]
+          )
+        ).rows
+      ).toEqual(reservationsBeforeSend.rows);
       const sendAudit = await auditFor(sent.headers['x-request-id'] as string);
       expect(sendAudit[0]).toMatchObject({
         path: 'attestor',
@@ -1144,7 +1294,7 @@ describe('signing routes', () => {
         [walletFixture.address.toLowerCase()]
       );
       expect(rows[0]?.next_nonce).toBe(String(routeInputs.nonce + 1));
-      expect(nonceTags).toEqual(['latest']);
+      expect(nonceTags).toEqual(['latest', 'latest']);
 
       const typed = await app.inject({
         method: 'POST',
@@ -1155,7 +1305,10 @@ describe('signing routes', () => {
       expect(typed.statusCode).toBe(200);
       const typedSig = typed.json<{ signature: Hex }>().signature;
       expect(
-        await recoverTypedDataAddress({ ...routeInputs.typed_data, signature: typedSig } as never)
+        await recoverTypedDataAddress({
+          ...routeInputs.typed_data,
+          signature: typedSig,
+        } as never)
       ).toBe(walletFixture.address);
     } finally {
       await app.close();
@@ -1499,7 +1652,10 @@ describe('signing routes', () => {
         url: '/v1/wallet/sign-digest',
         headers,
         payload: {
-          construction: { ...construction, address: '0x1111111111111111111111111111111111111111' },
+          construction: {
+            ...construction,
+            address: '0x1111111111111111111111111111111111111111',
+          },
         },
       });
       expect(refused.statusCode, refused.body).toBe(403);
@@ -1546,19 +1702,20 @@ describe('signing routes', () => {
         },
       ]) {
         publishInventory({ ...originalPayload, members, keys: [mismatch] });
-        const refused = await call<{ error: { category: string; code: string; message: string } }>(
-          gateway,
-          `${endpoints[0]}/v1/sign`,
-          {
-            key_id: keyId,
-            session_id: randomUUID(),
-            kind: 'eth_sign_digest',
-            signers: ids.slice(0, 3),
-            construction,
-          }
-        );
+        const refused = await call<{
+          error: { category: string; code: string; message: string };
+        }>(gateway, `${endpoints[0]}/v1/sign`, {
+          key_id: keyId,
+          session_id: randomUUID(),
+          kind: 'eth_sign_digest',
+          signers: ids.slice(0, 3),
+          construction,
+        });
         expect(refused.status, JSON.stringify(refused.body)).toBe(409);
-        expect(refused.body.error).toMatchObject({ category: 'key', code: 'key_invalid_share' });
+        expect(refused.body.error).toMatchObject({
+          category: 'key',
+          code: 'key_invalid_share',
+        });
         expect(refused.body.error.message).toContain(
           'owner-approved wallet inventory differs from held share'
         );
@@ -1610,7 +1767,7 @@ describe('signing routes', () => {
         headers,
         payload: { message: routeInputs.message },
       });
-      expect(policy.statusCode).toBe(403);
+      expect(policy.statusCode, policy.body).toBe(403);
       expect(policy.json()).toMatchObject({
         error: 'attestor_policy_refused',
         category: 'policy',

@@ -44,7 +44,7 @@ async function actionReceiptWaitUsesSequencerReceipt(): Promise<void> {
         keyId: `0x${'34'.repeat(32)}`,
         receipt: '0x010203040506070809',
       },
-    ]),
+    ])
   );
 
   const original = {
@@ -74,8 +74,10 @@ async function actionReceiptWaitUsesSequencerReceipt(): Promise<void> {
             jsonrpc: '2.0',
             id: body.id,
             result: receipts.get(body.params[0]!) ?? null,
-          }),
+          })
         );
+      } else if (req.url === '/read' && body.method === 'eth_chainId') {
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: '0x7d' }));
       } else if (req.url === '/read' && body.method === 'eth_blockNumber') {
         res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: '0x64' }));
       } else {
@@ -84,7 +86,7 @@ async function actionReceiptWaitUsesSequencerReceipt(): Promise<void> {
             jsonrpc: '2.0',
             id: body.id,
             error: { code: -32601, message: 'method not found' },
-          }),
+          })
         );
       }
     } catch (error) {
@@ -126,7 +128,7 @@ async function actionReceiptWaitUsesSequencerReceipt(): Promise<void> {
         receipt: {
           status: state === 'confirmed' ? 'success' : 'reverted',
           block_number: BigInt(
-            receipt.rung === 'committed' ? receipt.blockNumber : receipt.height,
+            receipt.rung === 'committed' ? receipt.blockNumber : receipt.height
           ).toString(),
           gas_used: BigInt(receipt.gasUsed).toString(),
           tx_hash: hash,
@@ -150,20 +152,20 @@ async function actionReceiptWaitUsesSequencerReceipt(): Promise<void> {
         path: '/sequencer',
         method: 'pax_sequencerReceipt',
         params: [missingHash],
-      })),
+      }))
     );
     expect(
       calls.some(
         (call) =>
-          call.method === 'eth_getTransactionReceipt' || call.method === 'eth_getTransactionByHash',
-      ),
+          call.method === 'eth_getTransactionReceipt' || call.method === 'eth_getTransactionByHash'
+      )
     ).toBe(false);
     expect(errors).toEqual([]);
   } finally {
     rpc.stop();
     Object.assign(env, original);
     await new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
+      server.close((error) => (error ? reject(error) : resolve()))
     );
   }
 }

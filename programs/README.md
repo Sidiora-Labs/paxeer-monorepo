@@ -115,8 +115,10 @@ Registry reads use [`protocol_evidence.rs`](crates/layerx-programs-registry/src/
 and [`chain_proof/`](crates/layerx-programs-registry/src/chain_proof) to verify deployment,
 lifecycle and state evidence against chain commitments. `VerifiedProgramCatalog` in
 [`resolver.rs`](crates/layerx-programs-registry/src/resolver.rs) admits executable
-programs from verified bundles. Integrations use these registry chain-proof APIs
-for authenticated program state and the Programs precompile for balance reads.
+programs from verified bundles. The former protocol-adapter crate is retired.
+Any retained adapter sources are historical, not a deployed read interface.
+The former `layerx-programs-protocol-adapter` crate is retired. Current integration
+uses the registry chain-proof APIs below; do not add the retired adapter as a dependency.
 
 Callers obtain program balances through node-root JSON-RPC `eth_call` to the Programs
 precompile at `0x101D` (`0x000000000000000000000000000000000000101D`). ABI-encode
@@ -335,8 +337,12 @@ Each has a `MIGRATION.md` written for a developer who already knows the source c
   the real C kernel/runtime harness and replays into a temporary directory, comparing
   the output bytes with the committed fixtures. Its explicit `--write-fixtures` mode
   regenerates those native records.
-- **`fixtures/pay5/account-authorization-vectors.json` and
+- **`fixtures/pay5/account-authorization-vectors.json`,
+  `destination-authorization-vectors.json` and
   `receipt-account-bound-v4.json`** - account-bound authority and receipt fixtures.
+  The destination vectors prove version 2 evidence and roots for native identity
+  and mixed identity/account destinations, and refusal of noncanonical encodings,
+  mismatched identity or asset names, and empty destination-name lists.
   Program-account derivation, owner-authorized native registration, transfer-source
   binding and receipt verification are separate checks; a guest codec or derived id
   alone proves none of the others.
@@ -393,10 +399,13 @@ refused by the guest's deployment-domain validation. The deployment payload limi
 deployment envelope. The guest must fit within the remaining 524184 bytes. When an
 interface is included, the decoder in [`deploy.c`](../src/modules/programs/deploy.c)
 uses 108 fixed bytes plus the interface bytes, reducing the space for WASM further.
-The production `make paxai-host-boundary-build` target uses this release profile,
-post-processes the guest with `wasm-opt -Oz --strip-debug --strip-producers`, and
-checks that the resulting WASM is at most 524184 bytes before passing that same file
-to the native host-boundary harness. That bound reserves the 104-byte envelope.
+The production `make paxai-host-boundary-build` target builds and packages through
+[`guest-recipe.sh`](crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh),
+the same recipe used by `build-guest.sh` and the historical and candidate RPC guests.
+It requires Binaryen 133, release `opt-level = "z"`, LTO and `cdylib`, with the
+compiler arguments and size pass list defined in that file. It checks that the
+resulting WASM is at most 524184 bytes before passing that same file to the native
+host-boundary harness. That bound reserves the 104-byte envelope.
 A successful Cargo build alone
 does not establish that the final payload fits or that the registering host selected
 the matching guest ABI.

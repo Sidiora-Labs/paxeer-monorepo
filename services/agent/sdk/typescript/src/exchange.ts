@@ -613,7 +613,7 @@ export function exchangeCancelOrderCall(orderId: string): PrecompileCall {
   return exchangeCall("cancelOrder", ["bytes32"], [orderId]);
 }
 
-/** `requestSettlement(bytes32)`. */
+/** Historical `requestSettlement(bytes32)`; refuses with ErrRetired after v6.12.0. */
 export function exchangeRequestSettlementCall(positionId: string): PrecompileCall {
   return exchangeCall("requestSettlement", ["bytes32"], [positionId]);
 }
