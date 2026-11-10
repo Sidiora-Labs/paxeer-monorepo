@@ -194675,7 +194675,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.373]
 title = "Bring the library and the executables of the indexer package to a clean lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.369"]
@@ -197079,7 +197079,7 @@ do_7 = "Attempt 5 (continue, gotcha 3871): the attempt-4 tree 62aa8143dd41 stand
 
 [task.22.39.223]
 title = "Bring the layerx-agentd-host crate and its test targets under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.209", "22.39.222", "22.39.227", "22.39.347", "22.39.364"]
