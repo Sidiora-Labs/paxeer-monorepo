@@ -437,6 +437,7 @@ fn config(builder_cgroup_root: &Path) -> Result<(Config, String), String> {
             listen: env::var("LAYERX_REGISTRY_LISTEN")
                 .unwrap_or_else(|_| DEFAULT_LISTEN.to_owned()),
             journal: parse_path("LAYERX_REGISTRY_JOURNAL", root.join("journal")),
+            // Never configure the obsolete deployment socket.
             deployment_lni_socket: None,
             mirror: parse_path("LAYERX_REGISTRY_SOURCE_MIRROR", root.join("sources")),
             verified: parse_path("LAYERX_REGISTRY_VERIFIED", root.join("verified")),

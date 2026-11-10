@@ -20025,3 +20025,88 @@ fix = "Attempt 10 splits the function into named helpers and changes nothing els
 title = "Concurrent additions to the retired-callers catalogue conflict textually on the same list tail"
 symptom = "Three qualified repairs (22.39.247 attempt 2 at 802b20fcf830, 22.39.297 attempt 2 at 21cc035c4105 and 18.1752.1 attempt 7 at 5484ea469ed9) could not be integrated onto their domain branches: each appended entries to allowed_references of tools/paxeer-x/retired_callers.json at the end of the list, as another repair already on the branch had, so the three-way text merge reports a conflict in the catalogue although the additions are independent. The same conflict kept the agent and kernel domain branches from merging into main for a day."
 fix = "Decision 3142: the catalogue merges by three-way union of its object lists; the integration resolved the three repairs and the two branches that way and the scanner validates the merged catalogue."
+
+[gotcha.4041]
+title = "The wallet gateway suite keeps thirty-nine residual cases after the base comparison"
+symptom = "Task 22.39.290 attempt 2 at c14d6aaf9117: the attempt ran the suite at the base revision 7c65ca246479 (75 failed, 325 passed) and classified the causes in services/wallet/gateway/repair_22_39_290.kvx, but pnpm --dir services/wallet/gateway run test still fails 39 cases in 17 files (evm-sign, e2e/gateway.e2e, backfill-command, attestor, repair-22-31-370, provisioning, agent-precompiles-scheduler, repair-22-31-371, proof_s27_embedded_wallet_gateway, sign-client-nonce, owner-broadcast-outcome, agent-precompiles-streams, precompiles, repair-22-33-210, sponsor-budget, schemas.injection, support/chain-sequencer-receipt), among them the scheduler and streams settle routes that never reach eth_estimateGas and the custody snapshot error that is not an AttestorQuorumError; exit 1, log /out/logs/verify-2.log. The environment causes do_3 named were classified but not repaired."
+fix = "Attempt 3 repairs every environment cause of the record in the seventeen files and leaves the product causes listed."
+
+[gotcha.4042]
+title = "The launchpad statistics module fails eight cases once the ranking module is green"
+symptom = "Task 22.39.168 attempt 7 at 4e70cd690089: the three ranking cases of do_12 pass, and the statistics module then fails eight cases in five packages: internal/app TestRepair_70_CrossWalletCatchupAndRestart (repair_70_test.go:274) and internal/consumer TestCanonicalLegacyBridgeReplaysRealPaxeerPool (canonical_legacy_test.go:190) with store: canonical fee evidence unavailable: projection required, produced at internal/store/platform.go:200 when the canonical accounting projection is absent; internal/httpapi TestPlatformRoute (cache_test.go:195, status 500) and TestPrecomputePublishesPlatformUpdate; internal/projectionstats TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery and TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers; internal/search TestRealBrokerInboxProjectionAndOutboxAtomicity, whose real broker connection fails the TLS handshake with a certificate signed by an unknown authority (capacity_test.go:814 builds its client from the system certificate pool); exit 1, log /out/logs/verify-2.log."
+fix = "Attempt 8 classifies and repairs the eight cases the way do_12 did for the ranking module."
+
+[gotcha.4043]
+title = "The JVM catalogue programs test expects the native preparation record of the schema before its regeneration"
+symptom = "Task 17.5.7 attempt 9 at 0b7715be4a92: the wave 6 gate fails inside make platform-jvm-dependencies-install, mvn -f sdk/platform/jvm/pom.xml install, at GeneratedCatalogueProgramsTest.nativePrepareCarriesThePreparationRecord (GeneratedCatalogueProgramsTest.java:214): the expected field set is version, preparation_id, canonical_bytes, signing_preimage and approval_id (:141) but the generated NativePrepareResultV1 (GeneratedSchema.java:553, regenerated at dd11131421 by task 22.39.237) carries activity and approval_required as well, the components contain activity (:172), and the fixture record without activity no longer decodes (Missing required creator property activity); exit 1, log /out/logs/verify-2.log. Task 22.39.287 aligned the test against a schema without the three fields."
+fix = "Decision 3144 and task 22.39.301 align the test with the generated record; 17.5.7 requires 22.39.301."
+
+[gotcha.4044]
+title = "The committed-fixture recorder binds an address the V1 Programs authority already bound"
+symptom = "Task 18.1667.1 attempt 12 at 32280073332c: with the module runtime present, TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:388 because the vector-v4-committed recorder step bind DID 0 reverts with LXP_ADDR_LAYERX_ADDRESS_BOUND (evm address is already bound to a did): the fixture now binds the V1 Programs deployment authority (vector_v1_programs.go, the bindLayerX call and the caller binding check) with the same EVM address the committed vector binds as DID 0; exit 1, log /out/logs/verify-2.log."
+fix = "Attempt 13 gives the V1 Programs authority its own key pair so the DID 0 bind of the committed vector is the first binding of its address."
+
+[gotcha.4045]
+title = "The packet manifest re-recording rebased before the manifest return landed"
+symptom = "Task 22.39.242 attempt 7 at 89d19a64ae5b: the attempt returned the three comparison sites to receipt.NewRPCQualification as do_9 states but rebased on 064621acc59d, before 22.39.295 landed at 609cd3c9df, so every qualification case fails with receipt qualification rejected (repair_m999_test.go:371, repair_m995_test.go:321, repair_53_test.go:517, :518 and :578); exit 1, log /out/logs/verify-1.log."
+fix = "Attempt 8 rebases the unchanged tree on main, where 22.39.295 is landed."
+
+[gotcha.4046]
+title = "A prerequisite that extends the retired-callers catalogue could not be merged into a follower"
+symptom = "Tasks 22.39.299 attempt 1 and 22.39.288 attempt 2 ended before any turn: the prerequisite 22.39.297 (a3bd3021da71) is published but not yet on main, and its merge onto the start revision a304e0de9b conflicts in tools/paxeer-x/retired_callers.json, the path decision 3142 merges by union; the qualification environment only knew the union for GOTCHA.kvx and the qualification ledger."
+fix = "The prerequisite merge of the qualification environment resolves the catalogue by the same union; both tasks were reopened."
+
+[gotcha.4047]
+title = "The RPC subscription test copies an environment that holds a lock"
+symptom = "Task 22.39.300 attempt 1 at a75a256bedd4: the build fails at go vet ./rpc/ with rpc/subscribe_test.go:338:15 assignment copies lock value to storedEnv (core.Environment contains a mutex); the site entered at 229a1ea819 (task 18.1643.1) and is outside the touches of 22.39.300, which changed only rpc/repair_478_test.go and its record; exit 1, log /out/logs/build-1.log. go test runs no copylocks check, so the verification of 22.39.300 is unaffected."
+fix = "Decision 3145: task 22.39.302 repairs the site; 22.39.300 compiles its test package without the vet."
+
+[gotcha.4048]
+title = "Ten retired-reference repairs waited on one live task because every one of them touches the catalogue"
+symptom = "Tasks 22.39.269 to 22.39.278 were admissible by their requirements but waited on the live task 22.39.248 because tools/paxeer-x/retired_callers.json is in the touches of each; with decision 3142 the catalogue merges by union and concurrent repairs of it are safe."
+fix = "Decision 3146: the catalogue is not an exclusive path; repairs that touch it are admitted together."
+
+[gotcha.4049]
+title = "A recursive merge of the retired-callers catalogue presents a base stage that carries conflict markers"
+symptom = "Task 22.39.299 attempt 2 and task 22.39.288 attempt 3: integrating the qualified commit of 22.39.297 (a3bd3021da71) onto main at 8742bd00eb conflicted on tools/paxeer-x/retired_callers.json and the three-way union of decision 3142 stopped with a JSON decode error at line 674 of the base stage. The two commits share two merge bases, so the base stage is a virtual merge of those bases and carried the marker line Temporary merge branch 1 where the two bases disagree on the allowed references list; both real sides parsed and held every entry."
+fix = "The union reads the catalogue at a real merge base of the two commits when the base stage carries markers and falls back to an empty base when no merge base is readable; the same guard applies to the union of GOTCHA.kvx and the qualification ledger. Both tasks resume from main."
+
+[gotcha.4050]
+title = "The restart accounting of the agent daemon sums receipt amounts that a pay spend never carries"
+symptom = "Task 18.1724.1 attempt 11 at b7dbe7cd8e73: with the node-produced capture committed (transaction value 0, receipt amount 0, committed budget spend 25, as decision 3128 defines them) the daemon recovery case startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence fails at services/agent/crates/layerx-agentd/tests/outbox_recover.rs:261 with receipt_consumed 0, want 25: src/budget/hold.rs:149-153 adds the amount of every successful receipt and :177-182 reconciles only when the record spend lies between that sum and the sum plus the unresolved holds, so a budgetSpend receipt whose amount is the zero transaction value leaves the committed spend of 25 unreconciled and src/human_runtime.rs:2439-2453 refuses writes. The spend of such an activity is the amount the daemon itself requested in the calldata of the transaction it signed."
+fix = "Decision 3147: the restart accounting counts the spend the daemon requested for each successful receipt (task 22.39.303); 18.1724.1 continues after it lands."
+
+[gotcha.4051]
+title = "The restored boundary manifest pin was left behind by the network-policy restoration"
+symptom = "Task 22.39.248 attempt 2 at 62c2fc2869a8 (a tree that changes only its record and the retired-callers catalogue): go test ./node/ fails TestRepairM_1319_RestoredBoundaryManifest at node/repair_m1319_test.go:25, SHA-256 ba84aff353486b744f3b9759fb158219b9de90558366485b483e4793c60dc9a2 of services/platform/hosted/paxeer/deployment.yaml, want 7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066. The manifest on main changed at 9e17ec8e4d (task 18.1790.1, the network-policy connectivity between the gateway and its hosted peers) after 22.31.483 pinned it at 7435b17141, and the pin did not follow; the case is red on main for every task that runs the node package."
+fix = "Decision 3149 and task 22.39.304 re-pin the test to the manifest on main and name its producer; 22.39.248 verifies with the case skipped (decision 3130)."
+
+[gotcha.4052]
+title = "The first aggregation chunk still scales with the roster because the native state decode scales with the state bytes"
+symptom = "Task 22.33.223 attempt 23 at e0e47a0e9645: roster_state_fuel_scaling fails at programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:3344, a chunk fuel must remain within ten percent across rosters: 16/4=102546, 32/8=117890 (attempt 22 measured 109008 and 130979). The chunk-restricted projection of attempt 22 removed the per-evaluator work from the chunk, and the remaining difference follows the state bytes the operation decodes (62330 at 16 participants and 4 evaluators, 87836 at 32 and 8, as the fixture prints for every native call), a cost no chunk restriction removes."
+fix = "Decision 3148: the cross-roster bound compares the chunk work net of the state decode baseline the same fixture measures; attempt 24 applies it."
+
+[gotcha.4053]
+title = "A qualified lint repair of the agent daemon conflicts with the production state export that landed meanwhile"
+symptom = "Task 22.39.222 attempt 6 at f1b5e7751ec1 passed its build and the clippy verification of the daemon library but could not be integrated: services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs conflicts with the production state export landing of 18.1752.1 at 5484ea469e, which changed the same adapter functions the lint repair rewrote (stages b0d75844a00c, 8a3cde29111e and db5385d0035b). The attempt ended so that the next one can rebase."
+fix = "Attempt 7 rebases the tree onto main, resolves the adapters so both changes stand, and requalifies."
+
+[gotcha.4054]
+title = "The web application unit suite is red on main in ten cases outside the retired-reference repair"
+symptom = "Task 22.39.269 attempt 2 at 31d19566a52b: pnpm --dir apps/web run test fails fourteen cases, ten of them in files the task does not touch and red on main independent of the tree: e2e/activity.spec.ts:447 (explorerPath returns undefined for the class layerx-receipt, want /explorer/receipts/rcpt_001), e2e/api-client.test.ts:103 (the golden vector binding.rebind.action.failure.json belongs to no generated operation) and :208 (src/support/conversation.ts fetches input, not a same-origin app route), e2e/explorer-account.test.ts:95 and :132 (unified_account.layerx_activity must be an object), e2e/launchpad-reads.test.ts:264 (the market rows carry currentFeeBps 5n where the expectation differs), :323 (launchpad_market_failure_degrades_only_its_row) and :443 (four price cases: the live launchpad page must contain its Markets table). The four cases of e2e/gas-station.test.ts (:73, :86, :102 asserting an undefined expression; :191 importing the wallet SDK sources through the file-linked package under node_modules, which the test runner cannot strip types from) belong to the task."
+fix = "Decision 3130: task 22.39.305 repairs the ten cases on main; 22.39.269 verifies its own two test files and repairs the four gas station cases."
+
+[gotcha.4055]
+title = "The refreshed committed vector carries an absent commit signature that the receipt verification case did not model"
+symptom = "Task 22.39.299 attempt 3 at f0d853dce44a: with services/agent/sdk/typescript/test/fixtures/repair-22-33-24/committed.json refreshed from daemon/committed-fixture/vectors/vector-v4-committed.json on main, verify_committed_receipt_recorded_inclusion at test/sequencer-receipt-verify.test.ts:140 failed first with a TypeError on a null Signature (the recorded commit holds one signature with BlockIDFlag 1, an empty validator address, the zero timestamp and a null signature, log /out/logs/verify-1.log), and after the loader of test/recorded-committed.ts modelled the absent flag it fails at the assertion that the signed power equals the total power (7000000000n, want 7000000001n, log /out/logs/verify-2.log): the previous recording had every validator sign and the case froze that fact."
+fix = "Decision 3150: the case asserts the signed power the recording carries (the sum of the powers of the validators whose flag is a commit) and the two-thirds threshold, not equality with the total power."
+
+[gotcha.4056]
+title = "The V1 Programs genesis authority of the committed fixture still uses the fixture account that the V4 recorder binds as DID 0"
+symptom = "Task 18.1667.1 attempt 13 at 60474c5e3cd1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:388 with record vector-v4-committed: bind DID 0 reverted LXP_ADDR_LAYERX_ADDRESS_BOUND (evm address is already bound to a did). The attempt derived the authority from the keyring entry named fixture in main.go (v1ProgramsGenesisAuthority exports its private key), so the authority DID is bound to the EVM address of the fixture account, which is the payer the V4 recorder binds first at vector_v4.go:158 to :175; the collision do_15 named stands."
+fix = "Attempt 14 gives the authority a generated DID key pair and its own EVM key funded from the fixture account, binds the two, and signs the Programs calls with that EVM key, so the fixture account stays unbound until the recorders bind it."
+
+[gotcha.4057]
+title = "The platform command line suite needs the boundary binary that the task build does not produce"
+symptom = "Task 22.39.266 attempt 2 at d25367086cfb: cargo test -p layerx-platform-cli -p layerx-platform-release passes every module except public_http_uses_system_trust_and_checks_server_identity, which panics at services/platform/tests/support/tls_boundary.rs:186 with the producer input of decision 2325: build layerx-paxeer-boundary from services/platform/Cargo.toml before the case. The build of the task compiles only the two platform crates and their tests (log /out/logs/verify-1.log)."
+fix = "The build of 22.39.266 also builds layerx-paxeer-boundary from services/platform/Cargo.toml; attempt 3 changes nothing in the tree."

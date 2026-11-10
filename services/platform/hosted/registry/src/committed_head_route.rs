@@ -49,6 +49,7 @@ pub fn route(
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
+    // Keep the producer identity pinned as well as the committed evidence coordinates.
     if replica_id == [0; 32]
         || document["authority_replica_id"].as_str() != Some(replica.as_str())
         || !document["observed_sequence"]

@@ -15,8 +15,12 @@ interface RecordedHeader {
 }
 interface RecordedCommit {
   readonly Height: number; readonly Round: number; readonly BlockID: RecordedBlockId;
-  readonly Signatures: readonly { readonly BlockIDFlag: 1 | 2 | 3; readonly ValidatorAddress: string;
-    readonly Timestamp: string; readonly Signature: string }[];
+  readonly Signatures: readonly (
+    { readonly BlockIDFlag: 1; readonly ValidatorAddress: "";
+      readonly Timestamp: "0001-01-01T00:00:00Z"; readonly Signature: null }
+    | { readonly BlockIDFlag: 2 | 3; readonly ValidatorAddress: string;
+      readonly Timestamp: string; readonly Signature: string }
+  )[];
 }
 interface RecordedValidator { readonly PublicKey: readonly number[]; readonly VotingPower: number }
 interface RecordedProof { readonly Total: number; readonly Index: number; readonly Aunts: readonly (readonly number[])[] }
@@ -44,9 +48,15 @@ function header(h: RecordedHeader): CometHeader {
     evidenceHash: base64(h.EvidenceHash), proposerAddress: base64(h.ProposerAddress) };
 }
 function commit(c: RecordedCommit): CommittedReceiptEvidence["commit"] {
-  return { height: BigInt(c.Height), round: c.Round, blockId: blockId(c.BlockID), signatures: c.Signatures.map(s => ({
-    blockIdFlag: s.BlockIDFlag, validatorAddress: base64(s.ValidatorAddress), timestamp: time(s.Timestamp), signature: base64(s.Signature),
-  })) };
+  return { height: BigInt(c.Height), round: c.Round, blockId: blockId(c.BlockID), signatures: c.Signatures.map(s => {
+    if (s.BlockIDFlag === 1) {
+      assert.equal(s.ValidatorAddress, "");
+      assert.equal(s.Timestamp, "0001-01-01T00:00:00Z");
+      assert.equal(s.Signature, null);
+      return { blockIdFlag: s.BlockIDFlag, validatorAddress: new Uint8Array(), timestamp: time(s.Timestamp), signature: new Uint8Array() };
+    }
+    return { blockIdFlag: s.BlockIDFlag, validatorAddress: base64(s.ValidatorAddress), timestamp: time(s.Timestamp), signature: base64(s.Signature) };
+  }) };
 }
 function validators(vs: readonly RecordedValidator[]): readonly CometValidator[] {
   return vs.map(v => { const publicKey = Uint8Array.from(v.PublicKey); return {

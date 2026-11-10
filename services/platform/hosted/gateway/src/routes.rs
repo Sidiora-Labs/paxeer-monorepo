@@ -45,6 +45,7 @@ struct Binding {
     version_value: Value,
 }
 
+/// Hosted upstream discovery configuration, independent of execution intent events.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RouteBinding {

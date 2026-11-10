@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"sort"
 	"testing"
@@ -80,33 +79,42 @@ func TestPayGenesisKeepsAgentStreamMetadata(t *testing.T) {
 }
 
 func TestPayGenesisRefusesMalformedAgentStreamMetadata(t *testing.T) {
-	key := append([]byte(types.AgentStreamMetadataPrefix), make([]byte, 32)...)
-	key[len(key)-1] = 1
-	value := bytes.Repeat([]byte{1}, 60)
-	valid := kv.Pair{Key: key, Value: value}
-	gs := types.DefaultGenesis()
-	require.NoError(t, gs.Validate())
-	gs.AgentStreamMetadata = []kv.Pair{valid}
-	require.NoError(t, gs.Validate())
+	h, _, token := newAgentStreamHarness(t, "native")
+	start := uint64(payHarnessTimeMs / 1000)
+	id, err := h.keeper.OpenAgentStream(h.ctx, h.actors[0].address, h.actors[1].address, token, big.NewInt(2), start, start+100, big.NewInt(50))
+	require.NoError(t, err)
+	gs := h.keeper.ExportGenesis(h.ctx)
+	require.NoError(t, ValidateOwnedGenesis(*gs))
+	require.Len(t, gs.AgentStreamMetadata, 1)
+	valid := gs.AgentStreamMetadata[0]
+	key, value := valid.Key, valid.Value
+	var streamID [32]byte
+	id.FillBytes(streamID[:])
+	streamKey := types.KernelKVKey(types.StreamModuleID, append([]byte("stream:"), streamID[:]...))
+	streamBody := bytes.Clone(h.ctx.KVStore(h.hostKey).Get(streamKey))
 	wrongPrefix := bytes.Clone(key)
 	wrongPrefix[0] ^= 0xff
-	h := newPayHarness(t)
 	for _, tc := range []struct {
 		name    string
 		records []kv.Pair
+		detail  string
 	}{
-		{"short_value", []kv.Pair{{Key: key, Value: value[:59]}}},
-		{"long_value", []kv.Pair{{Key: key, Value: append(bytes.Clone(value), 1)}}},
-		{"short_key", []kv.Pair{{Key: key[:len(key)-1], Value: value}}},
-		{"long_key", []kv.Pair{{Key: append(bytes.Clone(key), 1), Value: value}}},
-		{"wrong_prefix", []kv.Pair{{Key: wrongPrefix, Value: value}}},
-		{"zero_id", []kv.Pair{{Key: append([]byte(types.AgentStreamMetadataPrefix), make([]byte, 32)...), Value: value}}},
-		{"duplicate_key", []kv.Pair{valid, {Key: bytes.Clone(key), Value: make([]byte, 60)}}},
+		{"short_value", []kv.Pair{{Key: key, Value: value[:59]}}, "agent stream metadata 0 has an invalid value length"},
+		{"long_value", []kv.Pair{{Key: key, Value: append(bytes.Clone(value), 1)}}, "agent stream metadata 0 has an invalid value length"},
+		{"short_key", []kv.Pair{{Key: key[:len(key)-1], Value: value}}, "agent stream metadata 0 has an invalid key"},
+		{"long_key", []kv.Pair{{Key: append(bytes.Clone(key), 1), Value: value}}, "agent stream metadata 0 has an invalid key"},
+		{"wrong_prefix", []kv.Pair{{Key: wrongPrefix, Value: value}}, "agent stream metadata 0 has an invalid key"},
+		{"zero_id", []kv.Pair{{Key: append([]byte(types.AgentStreamMetadataPrefix), make([]byte, 32)...), Value: value}}, "agent stream metadata 0 has a zero stream id"},
+		{"duplicate_key", []kv.Pair{valid, {Key: bytes.Clone(key), Value: make([]byte, 60)}}, "duplicate agent stream metadata 1"},
+		{"zero_payer", []kv.Pair{{Key: key, Value: append(make([]byte, 20), value[20:]...)}}, "agent stream metadata 0 has invalid participants"},
+		{"zero_payee", []kv.Pair{{Key: key, Value: append(append(bytes.Clone(value[:20]), make([]byte, 20)...), value[40:]...)}}, "agent stream metadata 0 has invalid participants"},
+		{"same_participants", []kv.Pair{{Key: key, Value: append(append(bytes.Clone(value[:20]), value[:20]...), value[40:]...)}}, "agent stream metadata 0 has invalid participants"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			invalid := *types.DefaultGenesis()
+			invalid := *gs
 			invalid.AgentStreamMetadata = tc.records
 			require.ErrorIs(t, invalid.Validate(), types.ErrInvalidGenesis)
+			require.EqualError(t, invalid.Validate(), tc.detail+": invalid genesis")
 			moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
 			hostBefore := payStoreSnapshot(h.ctx, h.hostKey)
 			require.ErrorIs(t, h.keeper.InitGenesis(h.ctx, invalid), types.ErrInvalidGenesis)
@@ -114,16 +122,35 @@ func TestPayGenesisRefusesMalformedAgentStreamMetadata(t *testing.T) {
 			require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
 		})
 	}
+	t.Run("missing_stream", func(t *testing.T) {
+		invalid := *types.DefaultGenesis()
+		invalid.AgentStreamMetadata = []kv.Pair{valid}
+		require.ErrorIs(t, invalid.Validate(), types.ErrInvalidGenesis)
+		require.EqualError(t, invalid.Validate(), "agent stream metadata 0 has no matching agent stream: invalid genesis")
+		moduleBefore, hostBefore := payStoreSnapshot(h.ctx, h.storeKey), payStoreSnapshot(h.ctx, h.hostKey)
+		require.ErrorIs(t, h.keeper.InitGenesis(h.ctx, invalid), types.ErrInvalidGenesis)
+		require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
+		require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
+	})
 	t.Run("record_limit", func(t *testing.T) {
 		bounded := *types.DefaultGenesis()
 		for i := 1; i <= types.MaxKernelRecords+1; i++ {
-			nextKey := bytes.Clone(key)
-			binary.BigEndian.PutUint64(nextKey[len(nextKey)-8:], uint64(i))
-			bounded.AgentStreamMetadata = append(bounded.AgentStreamMetadata, kv.Pair{Key: nextKey, Value: bytes.Clone(value)})
+			var nextID [32]byte
+			binary.BigEndian.PutUint64(nextID[24:], uint64(i))
+			nextBody := bytes.Clone(streamBody)
+			copy(nextBody[:32], nextID[:])
+			bounded.KernelRecords = append(bounded.KernelRecords, kv.Pair{
+				Key: types.KernelKVKey(types.StreamModuleID, append([]byte("stream:"), nextID[:]...)), Value: nextBody,
+			})
+			bounded.AgentStreamMetadata = append(bounded.AgentStreamMetadata, kv.Pair{
+				Key: agentStreamMetadataKey(nextID), Value: bytes.Clone(value),
+			})
 		}
 		require.ErrorIs(t, bounded.Validate(), types.ErrInvalidGenesis)
+		require.EqualError(t, bounded.Validate(), "agent stream metadata count 513 exceeds 512: invalid genesis")
 		bounded.AgentStreamMetadata = bounded.AgentStreamMetadata[:types.MaxKernelRecords]
 		require.NoError(t, bounded.Validate())
+		require.NoError(t, ValidateOwnedGenesis(bounded))
 	})
 }
 
@@ -153,6 +180,15 @@ func TestPayGenesisRoundTrip(t *testing.T) {
 		}
 		for moduleID := uint16(1); moduleID <= 11; moduleID++ {
 			for _, key := range [][]byte{{0xff, 0x00}, {0x00, 0xff}} {
+				if moduleID == types.EscrowModuleID {
+					wire, record := escrowViewRecord()
+					record.EscrowID[31] = key[0]
+					copy(wire[:32], record.EscrowID[:])
+					gs.KernelRecords = append(gs.KernelRecords, kv.Pair{
+						Key: types.KernelKVKey(moduleID, append([]byte("hold:"), record.EscrowID[:]...)), Value: wire,
+					})
+					continue
+				}
 				if moduleID == types.ServiceModuleID {
 					// Service bytes are now owned and must pass their real record decoder.
 					fixture := serviceViewFixtures(t)[0]
@@ -241,15 +277,22 @@ func TestPayGenesisRefusesGateDrift(t *testing.T) {
 			{"absent", nil}, {"disabled", make([]byte, 32)}, {"malformed", []byte{1}},
 		} {
 			t.Run(family.name+"/"+gate.name, func(t *testing.T) {
+				wire, hold := escrowViewRecord()
 				gs := types.GenesisState{Params: family.params, KernelRecords: []kv.Pair{
-					{Key: types.KernelKVKey(types.EscrowModuleID, []byte("must-not-write")), Value: []byte{1}},
+					{Key: types.KernelKVKey(types.EscrowModuleID, append([]byte("hold:"), hold.EscrowID[:]...)), Value: wire},
 				}}
 				if gate.value != nil {
 					gs.KernelRecords = append(gs.KernelRecords, kv.Pair{Key: key, Value: gate.value})
 				}
 				moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
 				hostBefore := payStoreSnapshot(h.ctx, h.hostKey)
-				require.ErrorIs(t, h.keeper.InitGenesis(h.ctx, gs), types.ErrInvalidGenesis)
+				err := h.keeper.InitGenesis(h.ctx, gs)
+				require.ErrorIs(t, err, types.ErrInvalidGenesis)
+				if gate.name == "malformed" {
+					require.ErrorContains(t, err, "kernel record 1 has a non-canonical enable flag")
+				} else {
+					require.ErrorContains(t, err, family.name+" enabled while kernel genesis gate is clear")
+				}
 				require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
 				require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
 			})
@@ -258,18 +301,25 @@ func TestPayGenesisRefusesGateDrift(t *testing.T) {
 
 	t.Run("per_record_bounds", func(t *testing.T) {
 		gs := types.GenesisState{Params: types.Params{}, KernelRecords: make([]kv.Pair, types.MaxKernelRecords+1)}
+		fixture := serviceViewFixtures(t)[0]
 		for i := range gs.KernelRecords {
-			gs.KernelRecords[i] = kv.Pair{Key: types.KernelKVKey(types.EscrowModuleID, []byte(fmt.Sprintf("record-%03d", i))), Value: []byte{1}}
+			var id [32]byte
+			binary.BigEndian.PutUint64(id[24:], uint64(i+1))
+			wire := bytes.Clone(fixture.wire)
+			copy(wire[1:33], id[:])
+			gs.KernelRecords[i] = kv.Pair{Key: serviceKey(fixture.prefix, id), Value: wire}
 		}
 		moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
 		hostBefore := payStoreSnapshot(h.ctx, h.hostKey)
-		gs.KernelRecords[len(gs.KernelRecords)-1].Value = make([]byte, types.MaxKernelValueBytes+1)
+		last := &gs.KernelRecords[len(gs.KernelRecords)-1]
+		canonical := last.Value
+		last.Value = make([]byte, types.MaxKernelValueBytes+1)
 		err := h.keeper.InitGenesis(h.ctx, gs)
 		require.ErrorIs(t, err, types.ErrInvalidGenesis)
 		require.Contains(t, err.Error(), "kernel record 512 value exceeds 1024 bytes")
 		require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
 		require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
-		gs.KernelRecords[len(gs.KernelRecords)-1].Value = []byte{1}
+		last.Value = canonical
 		require.NoError(t, h.keeper.InitGenesis(h.ctx, gs))
 		require.Equal(t, gs.Params, h.keeper.GetParams(h.ctx))
 		for _, record := range gs.KernelRecords {

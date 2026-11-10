@@ -130,7 +130,8 @@ and validates native-store membership through [`src/committed.rs`](src/committed
 it checks chain ID 125, the node's Comet commit and EVM block projection, and
 ICS23 membership against the committed app root. A header at H authenticates
 state at H-1. The configured loopback node is the committed-header trust boundary;
-this is not an independently bootstrapped light client. LNI receipt sourcing is retired.
+this is not an independently bootstrapped light client. Receipt sourcing uses the
+node JSON-RPC endpoint.
 
 `/readyz` returns 200 only when both chain and replica probes are ready, otherwise
 503 with retry guidance. It does not assert that all optional human-state proofs
