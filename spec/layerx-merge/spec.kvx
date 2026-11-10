@@ -160899,7 +160899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.297]
 title = "Regenerate the SDK retryable tables and the registry snapshot from the current error code registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192896,7 +192896,7 @@ do_4 = "Attempt 2 (continue, gotcha 4010, decision 3125): the attempt-1 tree 61b
 
 [task.22.39.261]
 title = "Repair the retired references of the human API schema and its golden vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -193571,7 +193571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1752.1]
 title = "Issue #1752: Connect production state exports to authenticated storage-witness retention"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -350371,7 +350371,7 @@ do_4 = "Attempt 2 (continue, gotchas 3984 and 3989, decisions 3125 and 3126): th
 
 [task.22.39.247]
 title = "Repair the retired references of the kernel modules and the replay tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
