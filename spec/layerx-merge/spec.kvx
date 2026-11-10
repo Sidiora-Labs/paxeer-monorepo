@@ -194966,7 +194966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.384]
 title = "Bring the unit cases of the agent RPC, event ingest and capability binding files of the agent daemon under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222"]
@@ -194996,7 +194996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.383]
 title = "Bring the unit cases of the budget files of the agent daemon under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222"]
@@ -195056,7 +195056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.381]
 title = "Bring the unit cases of the committed read and program node files of the agent daemon under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222"]
