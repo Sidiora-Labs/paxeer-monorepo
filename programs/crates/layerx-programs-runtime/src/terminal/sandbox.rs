@@ -3,6 +3,7 @@
 use super::{Cursor, TerminalDecodeError};
 use crate::{FeeSchedule, FeeScheduleParameters, MeteredUsage};
 
+/// Live sandbox usage-receipt envelope retained by decision 3125.
 pub const SANDBOX_SETTLEMENT_DOMAIN: &[u8] = b"LXP/programs/sandbox-settlement/v1\0";
 const USAGE_DOMAIN: &[u8] = b"LayerX/programs/sandbox/usage-receipt/v4\0";
 pub const MAX_SANDBOX_USAGE_RECEIPT_BYTES: usize = 4096;
