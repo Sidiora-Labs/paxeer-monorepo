@@ -33,12 +33,53 @@ use layerx_programs_runtime::{
 };
 use sha2::{Digest, Sha256};
 
-// Compile the production native descriptor consumer into this gate, which does
-// not enable host-ffi or require a native host binary. Its byte source below is
-// an in-memory activity store, the native interface's committed-fixture peer.
+// Without host-ffi, compile the production descriptor consumer locally. With
+// host-ffi, call the library's exports against the same activity byte source.
+#[cfg(not(feature = "host-ffi"))]
 #[allow(dead_code)]
 #[path = "../src/ffi_interface.rs"]
 mod native_interface;
+
+#[cfg(feature = "host-ffi")]
+mod native_interface {
+    unsafe extern "C" {
+        pub safe fn layerx_programs_account_profile2_guest_admit(requested: u16) -> i32;
+        pub safe fn layerx_programs_abi_transition_admit(current: u16, requested: u16) -> i32;
+        pub safe fn layerx_programs_interface_validate(
+            token: u64,
+            wasm_length: u32,
+            interface_length: u32,
+            prior_length: u32,
+            abi: u16,
+            breaking: u8,
+            h0: u64,
+            h1: u64,
+            h2: u64,
+            h3: u64,
+        ) -> i32;
+    }
+}
+
+#[test]
+fn retain_host_ffi_exports() {
+    assert_eq!(
+        native_interface::layerx_programs_abi_transition_admit(0, 1),
+        0
+    );
+    assert_eq!(
+        native_interface::layerx_programs_abi_transition_admit(1, 0),
+        1
+    );
+    assert_eq!(
+        native_interface::layerx_programs_account_profile2_guest_admit(2),
+        0
+    );
+    assert_eq!(
+        native_interface::layerx_programs_account_profile2_guest_admit(1),
+        1
+    );
+    prove_pre_entry(Some(Effect::Event), None);
+}
 
 std::thread_local! {
     static ACTIVITY: RefCell<Option<(Vec<u8>, Vec<u8>)>> = const { RefCell::new(None) };
