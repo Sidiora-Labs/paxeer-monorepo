@@ -43,6 +43,9 @@ export async function webSearchExactPaymentLogReceipts(context: TestContext): Pr
   const recordedReceipt = bytes(committedVector.signedReceipt);
   const authenticated = await verifySequencerReceipt(recordedReceipt, rawTransaction, recordedCommittedKeys());
   assert.deepEqual(encodeSequencerReceipt(authenticated.receipt), recordedReceipt);
+  context.diagnostic(`recorded signed receipt: module ${authenticated.receipt.moduleId} operation ${authenticated.receipt.operation}`);
+  assert.equal(authenticated.receipt.moduleId, 12);
+  assert.equal(authenticated.receipt.operation, 2);
   // Attempt 3 authorizes issuing the settlement fixture with the producer codec.
   // Preserve the producer transaction and complete log effects, and use the
   // seller recorder's deterministic signing key and its existing receipt pin.
@@ -122,10 +125,22 @@ export async function webSearchExactPaymentLogReceipts(context: TestContext): Pr
   };
   try {
     await context.test("refuses an authenticated receipt with the wrong settlement operation before delivery", async () => {
+      const wrongOperation: SequencerReceipt = {
+        ...authenticated.receipt, moduleId: 12, operation: 6, batchId, contextHash: webReceiptKeys[0]!.keyId,
+      };
+      const wrongOperationDigest = new Uint8Array(createHash("sha256").update("LXP/v1/receipt\0", "ascii")
+        .update(encodeSequencerReceipt(wrongOperation, false)).digest());
+      const wrongOperationReceipt = encodeSequencerReceipt({
+        ...wrongOperation, sequencerSignature: ed25519.sign(wrongOperationDigest, seed),
+      });
+      const verifiedWrongOperation = await verifySequencerReceipt(wrongOperationReceipt, rawTransaction, webReceiptKeys);
+      assert.equal(verifiedWrongOperation.receipt.moduleId, 12);
+      assert.equal(verifiedWrongOperation.receipt.operation, 6);
       const before = received.length;
-      await assert.rejects(client({ ...payment, receipt: recordedReceipt }, recordedCommittedKeys()).deliver(),
+      await assert.rejects(client({ ...payment, receipt: wrongOperationReceipt }, webReceiptKeys).deliver(),
         (error: unknown) => error instanceof WebSearchError && error.code === "settlement-operation-mismatch");
       assert.equal(received.length, before);
+      assert.deepEqual(received, []);
     });
     await context.test("delivers the producer-encoded settlement with unmodified Transfer and PaymentExact logs", async () => {
       await client(payment).deliver();
