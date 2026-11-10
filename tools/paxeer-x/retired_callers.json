@@ -645,6 +645,10 @@
       "reason": "Repair record files across the repository describe audited findings and qualification evidence rather than production callers."
     },
     {
+      "pattern": "tools/bringup/repair-*.kvx",
+      "reason": "The bringup repair records document historical findings and transport removals rather than production callers."
+    },
+    {
       "pattern": "services/platform/hosted/authority/src/repair_22_31_207/**",
       "reason": "Repair 22.31.207 holds the recorded producer used to qualify the retired authority boundary."
     },
@@ -670,6 +674,16 @@
     }
   ],
   "allowed_references": [
+    {
+      "path": "tools/bringup",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify",
+        "relay-archive"
+      ],
+      "citation": "Decision 3125 and task 22.39.274 retain the shipping merge-disabled module, API and precompile names in the generated runtime dependency inventory and the explicit retired genesis-module and identity-owner rejection checks."
+    },
     {
       "path": "modules/layerxanchor/keeper/custody_reader.go",
       "lines": [
@@ -1201,6 +1215,74 @@
         "\t\t\t11: \"system:paxeer-reserve\","
       ],
       "citation": "The custody-disclosure removal (11020) retains this legacy genesis account name in the merge-disabled exchange-intents tree (11005), matching fresh_system_name and validate_legacy_accounts in src/protocol/lxp_genesis.c as required by decision 3104."
+    },
+    {
+      "path": "services/agent/crates/layerx-wire/src/hash.rs",
+      "symbols": [
+        "EvmPayoutBinding"
+      ],
+      "citation": "Decisions 3104 and 3122: the human binding journey is retired, but this wire domain remains live for compatibility with LXP_DOMAIN_EVM_PAYOUT_BINDING in include/layerx/lxp_protocol.h and lxp_identity_evm_binding_digest in src/state/lxp_identity.c."
+    },
+    {
+      "path": "include/layerx",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/ledger",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/protocol",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/state",
+      "symbols": [
+        "lxp_grant",
+        "receipt_authority",
+        "lxp_replay",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
+    },
+    {
+      "path": "src/ledger",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "src/protocol",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "src/state",
+      "symbols": [
+        "paxeer-reserve"
+      ],
+      "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
     }
   ]
 }

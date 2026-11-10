@@ -25,7 +25,12 @@ func ReadServiceRoster(r io.Reader) ([]ServiceIdentity, error) {
 				retired = true
 			}
 		}
-		if retired || fields[1] == "railway:router" || fields[1] == "railway:redis-router" {
+		for _, target := range strings.Split(strings.TrimPrefix(fields[1], "railway:"), ",") {
+			if target == "router" || target == "redis-router" {
+				retired = true
+			}
+		}
+		if retired {
 			return nil, errors.New("retired identity owner")
 		}
 		rows = append(rows, ServiceIdentity{fields[0], fields[1], fields[2], fields[3], fields[4], fields[5]})

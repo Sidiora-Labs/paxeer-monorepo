@@ -39018,3 +39018,187 @@ symbol = "config.go"
 observed = "Attempt 1 at a17034fa0a: build exit 1: go vet ./rpc/ reports rpc/subscribe_test.go:338 assignment copies lock value to storedEnv; no verification ran; log /out/logs/build-1.log."
 assumption = "With the copy removed vet passes and the task repairs proceed."
 severity = "high"
+
+[finding.22.39.95.9]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 10 at d2f11027a8: build exit 0; second verification exit 1: 12 failed of 1283 in 7 files (surface-authority.test.ts, repair-22-31-22.test.ts, repair-22-33-900.test.ts, runtime-authority-production.test.ts, meta-ag/connected-journeys.test.tsx, trading/chart-datafeed-recovery.test.ts, trading/coin-failure-frames.test.tsx); log /out/logs/verify-2.log."
+assumption = "With the manifest back on the installed hash the authority cases pass against the network and the remaining cases are the chart origin and the journeys."
+severity = "high"
+
+[finding.22.39.242.6]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 6 at a6f3a58cd021: build exit 0; verification exit 1: TestRepairM_999_ReceiptQualifiedBackfill, TestRepairM_995_NativeReceiptAttribution and the four TestRepair_53 cases fail with receipt qualification rejected (repair_m999_test.go:379, repair_m995_test.go:329, repair_53_test.go:528); log /out/logs/verify-1.log."
+assumption = "The private fixture entry point cannot take a recorded packet; the production path accepts it once the approved manifest matches the chain."
+severity = "high"
+
+[finding.18.1747.1.11]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 11 at af583cb1e6: build exit 0; verification exit 101: native_approval_clock_units panics at tests/repair_22_33_63.rs:2414, approval prepare encoder preflight Mismatch(native_send_prepare.request), compiled payload_hash 2893444b differs from raw SHA256(payload) f05c3bc5; log /out/logs/verify-1.log."
+assumption = "With the encoder on the producer contract the admission exchange proceeds and the regression can be observed."
+severity = "high"
+
+[finding.22.39.225.8]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 8 at 3fcc8bf1e7: build exit 0; second verification exit 101: cargo clippy -D warnings refuses the test targets repair_22_31_494, repair_22_31_567, repair_22_31_576, repair_22_31_592 and the library test target with the sites of gotcha 4017; log /out/logs/verify-2.log."
+assumption = "The sites are mechanical and the allow on the included module keeps the shared support file untouched."
+severity = "high"
+
+[finding.22.39.222.5]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 5 at fb2bc4d80ebc: build exit 0; verification exit 101: clippy refuses human_runtime.rs:10665 (106 lines) and :22630 (wildcard import); log /out/logs/verify-1.log."
+assumption = "The two sites came with the rebase and are mechanical."
+severity = "high"
+
+[finding.22.39.288.1]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/px.test.ts"
+symbol = "px.test.ts"
+observed = "Attempt 1 at c7da4d6fd3: build exit 0; verification exit 1: 4 of 52 files failed (px.test.js two cases, repair-22-31-148.test.js commit_inclusion_refuses_unrelated_valid_commit, repair-22-33-23 readiness_hosted, revert.test.js and repair-22-33-24.test.js at module load on the registry snapshot); log /out/logs/verify-1.log."
+assumption = "A build of the final tree removes the stale cases and the registry task removes the snapshot failure."
+severity = "high"
+
+[finding.22.39.290.1]
+task = "22.39.290"
+file = "services/wallet/gateway/test"
+symbol = "test"
+observed = "Attempt 1 at cc426f01afe6: build exit 0; verification exit 1: eighteen files red (attestor, agent-precompiles-scheduler, agent-precompiles-streams, precompiles, e2e/gateway.e2e, backfill-command, nonce, sign-client-nonce, rpc-pool, sponsor-budget, repair-22-33-210, support/chain-sequencer-receipt, schemas.injection, proof_s27_embedded_wallet_gateway, evm-sign, owner-broadcast-outcome and two more); log /out/logs/verify-1.log."
+assumption = "The classification against the base separates the environment work of this task from product drift."
+severity = "high"
+
+[finding.22.39.294.1]
+task = "22.39.294"
+file = "sdk/platform/pipeline.kvx"
+symbol = "pipeline.kvx"
+observed = "Attempt 1 at aba438d464fb: build exit 0; second verification exit 1: platform-sdkgen reports unclassified file in generated jvm root sdk/platform/jvm/repair_22_39_287.kvx, generate it or declare it under [handwritten.platform-jvm]; log /out/logs/verify-2.log."
+assumption = "The record of 22.39.287 is the last unclassified file the check names."
+severity = "high"
+
+[finding.18.1667.1.10]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 10 at ffe0d8abc1e6: build exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at main_test.go:320, record vector-v1-programs-positive: V1 Programs call reverted (submit protocol 3, activity 0x00090003, ABI 1): LXP_ERR_MODULE_DISABLED; log /out/logs/verify-1.log."
+assumption = "The import-free module needs no transfer runtime and the deploy now passes the authority check."
+severity = "high"
+
+[finding.22.39.291.1]
+task = "22.39.291"
+file = "modules/layerxpay/types/activity_test.go"
+symbol = "activity_test.go"
+observed = "Attempt 1 at 2e62f50966e6: build exit 0; second verification exit 1: modules/layerxpay/keeper fails TestCheckWriteViewsUngated (gate_test.go:187, eighteen views where seventeen), TestPayGenesisRefusesMalformedAgentStreamMetadata, TestPayGenesisRoundTrip, TestPayGenesisRefusesGateDrift, TestRepair_131_SnapshotGrowth, TestProofPayGenesis and TestRepairM_1304_GenesisProofGap, and modules/layerxpay/types fails TestParamsGenesisRecordBounds and TestParamsJSONRoundTrip; log /out/logs/verify-2.log."
+assumption = "One count follows the entry the task added; the rest is the producer landing of 18.1627.1."
+severity = "high"
+
+[finding.22.39.168.6]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 6 at 159e530032735183: build exit 0; verification exit 1: ranking-algo/internal/app fails TestNewServesAndRanks and TestRepairM_934_PublicationEveryCategoryAndRestartRecovery, ranking-algo/internal/store fails TestProductionUniverseCompletesAndPublishes, the other modules pass; log /out/logs/verify-1.log."
+assumption = "With the refresh cause logged the three cases can be repaired at their cause instead of their symptom."
+severity = "high"
+
+[finding.22.33.223.21]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 22 at e0cacaed338e: build exit 0; second verification exit 101: every_routed_operation_fits_the_protocol_cpu_fuel_cap panics at tests/fixtures/f11_views.rs:320 (PostBid at 898 refused: ApplicationError(2825)) and roster_state_fuel_scaling panics at tests/fuel_budget.rs:3216 (16/4=109008, 32/8=130979); 31 passed, 2 failed; log /out/logs/verify-2.log."
+assumption = "The projection change removed most of the slope; what remains and the refused bid share one state change."
+severity = "high"
+
+[finding.22.39.272.1]
+task = "22.39.272"
+file = "apps/launchpad/web/src/widgets/profile/activity-transport.ts"
+symbol = "activity-transport.ts"
+observed = "Attempt 1 at 775c80605006: build exit 0; verification exit 1: pnpm --dir apps/launchpad/web run test fails in ten files (chart-datafeed-recovery, connected-journeys, repair-22-33-1011, repair-22-33-900, trade-journey, creation-journey, coin-failure-frames, chart-udf-wire, runtime-authority-production, runtime.integration) before the retired-callers scan ran; log /out/logs/verify-1.log."
+assumption = "The record-only change has nothing in the web suite to verify; the scan is the gate of the task."
+severity = "high"
+
+[finding.22.39.235.7]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 7 at 56fc622cfe85: build exit 0; second verification exit 101: cargo clippy -D warnings refuses tests/repair_22_33_218.rs:443, :501 and :631 (this could be rewritten as let...else) and the test target does not compile; log /out/logs/verify-2.log."
+assumption = "The three sites are the last refusals of the crate."
+severity = "high"
+
+[finding.18.1724.1.10]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 10 at f6736f63e485: go build ./node/sequencer/... && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover exit 0; verification exit 1: the test package of node/sequencer fails to compile at receipt_equality_test.go:543:30 and :543:74, cannot use [32]byte as []byte in hexutil.Encode; build_on_verified unmet; log /out/logs/verify-1.log."
+assumption = "With the two arrays sliced the package compiles and the current receipt restart fixture case runs."
+severity = "high"
+
+[finding.22.39.297.1]
+task = "22.39.297"
+file = "services/agent/sdk/typescript/test/revert.test.ts"
+symbol = "revert.test.ts"
+observed = "Attempt 1 at dcff5c1ce2: build exit 0; verification exit 1: revert.test.js passes, node dist/test/repair-22-33-24.test.js fails 22 cases (repair_22_33_24_preserves_recorded_producer_provenance at repair-22-33-24.test.ts:139 and every case of webSearchClientTests after hash_mismatch refusals of the recorded receipts); same_candidate unmet, the verification ran at 3c8feb7f04; log /out/logs/verify-1.log."
+assumption = "With the aggregator out of this verification the registry repair qualifies on its own evidence."
+severity = "high"
+
+[finding.22.38.13.2]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 2 at 6aff2c04c33c: build exit 1: go test -count=1 ./rpc/ -run TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution fails in TestFundConsumptionAttribution/42fc4308cf0d at rpc/repair_478_test.go:199, git archive 42fc4308cf0d exit 128, not a valid object name; log /out/logs/build-1.log."
+assumption = "With every pinned revision resolvable the measurement runs and the cargo build of the fuel cases follows."
+severity = "high"
+
+[finding.18.1667.1.11]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 11 at 4696ae4768ec: build exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:320, record vector-v1-programs-positive: V1 Programs call reverted (submit protocol 3, activity 0x00090003, ABI 1): LXP_ERR_MODULE_DISABLED; log /out/logs/verify-1.log."
+assumption = "With the module runtime configured for the fixture chain the import-free module executes and the recorder finishes."
+severity = "high"
+
+[finding.18.1747.1.12]
+task = "18.1747.1"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs::native_approval_clock_units"
+symbol = "repair_22_33_63.rs::native_approval_clock_units"
+observed = "Attempt 12 at 65987f9fe979: build exit 0; verification exit 1 twice: native_approval_clock_units panics at repair_22_33_63.rs:1857:55 with no entry found for key after the daemon read commit at height 61, then the native envelope is refused with owner.refused and the Journey advance panics at :2510; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "With a commit for every read height the peer survives the regression and the advance reaches the admission."
+severity = "high"
+
+[finding.22.39.272.2]
+task = "22.39.272"
+file = "apps/launchpad/web/src/widgets/profile/activity-transport.ts"
+symbol = "activity-transport.ts"
+observed = "Attempt 2 at 026eda712c3f: build exit 0; verification exit 1: the typecheck passes and python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad reports twelve findings (statusOf twice, recordDeposit ten times); log /out/logs/verify-1.log."
+assumption = "With each finding repaired or allowed in the catalogue the scan reports nothing and the verification passes."
+severity = "high"
+
+[finding.22.39.298.1]
+task = "22.39.298"
+file = "modules/layerxpay/types/params_test.go"
+symbol = "params_test.go"
+observed = "Attempt 1 at 4b50ddc26e55: go build ./modules/layerxpay/... && go vet ./modules/layerxpay/types/ ./modules/layerxpay/keeper/ exit 0; verification exit 1: TestMethodActivityMatchesKernelTypes fails at modules/layerxpay/types/activity_test.go:107 and :133 (41 ABI methods, want 40) and TestCheckWritePauseExitPaths, TestCheckWriteFamilyDisabled and TestCheckWriteViewsUngated fail at modules/layerxpay/keeper/gate_test.go:60, :128 and :185 on the missing streamOpenForAsk activity entry; log /out/logs/verify-2.log."
+assumption = "With the four activity-table cases skipped every other case of both packages passes at the attempt-1 tree."
+severity = "high"
+
+[finding.22.39.235.8]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 8 at a746cb12c7d8: cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets exit 0; verification exit 101: cargo clippy reports one site, tests/program_replay.rs:256 clippy::range_plus_one; log /out/logs/verify-2.log."
+assumption = "The inclusive range is the only remaining lint of the crate and its test targets."
+severity = "high"
+
+[finding.22.39.225.9]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 9 at 8021eeccdb8b: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --all-targets exit 0; verification exit 101: cargo clippy reports one site, tests/repair_22_31_487.rs:45 clippy::too_many_lines (107/100); log /out/logs/verify-2.log."
+assumption = "The long function is the only remaining lint of the crate and its test targets."
+severity = "high"

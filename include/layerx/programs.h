@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
+/* Opaque declarations used by the link-time engine-retirement probes. */
 typedef struct lxp_replay_engine lxp_replay_engine;
 typedef struct lxp_replay_activity_output lxp_replay_activity_output;
 typedef struct lxp_kernel lxp_kernel;
@@ -259,6 +260,8 @@ enum {
     LX_PROGRAMS_FEE_PRICE_FIELDS = 7
 };
 
+/* Governed schedule validation, activation and occupancy pricing share these
+ * APIs with the chain host and the governance module. */
 lxp_result lxp_programs_fee_governance_proposal_validate(
     const uint8_t *payload, size_t payload_length);
 lxp_result lxp_programs_fee_governance_stage(
