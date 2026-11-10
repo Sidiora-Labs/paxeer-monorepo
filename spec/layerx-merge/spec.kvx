@@ -12808,6 +12808,12 @@ value = "Decision 3277 named the producer fixture for the native targets; the na
 basis = "Gotchas 4205, 4208 and 4210, decisions 3183, 3211, 3277 and 3280."
 affects = ["22.39.365", "22.38.13", "22.39.227"]
 
+[decision.3283]
+title = "A committed test corpus is changed together with every pin of it"
+value = "A task that changes a committed corpus that tests of other modules read searches the repository for the name of the file, for its old checksum and for its record count before its counted gates, and a reader outside its paths goes to a repair task in the same batch (decisions 3046 and 3211). The transcript paxeer125-market.jsonl.gz of the launchpad indexer stays as task 22.39.162 left it. Task 22.39.374 brings the replay cases of services/launchpad/pnl-tracker/internal/production/l16 in line with it: the pin follows the committed file, an expectation that the added record changes follows the transcript, and no assertion is removed. Task 22.39.117 follows task 22.39.374 and changes nothing under the profit tracker (decision 3130)."
+basis = "Gotcha 4211, decisions 3046, 3130, 3183 and 3211."
+affects = ["22.39.374", "22.39.117", "22.39.162"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42468,6 +42474,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.374]
+title = "Follow the committed producer transcript in the replay cases of the launchpad profit tracker"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = ["services/launchpad/pnl-tracker/internal/production/l16::TestRepair_63_RecordedReplayHeaders"]
+verification_contract = "test -s services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx && cd services/launchpad/pnl-tracker && go test -count=1 ./internal/production/l16/ -run 'TestRepair_63_RecordedReplayHeaders|TestRepair_63_TranscriptBlockParameter'"
+do_1 = "do_1 Decision 3283, gotcha 4211. Commit fbc5b81dcb of task 22.39.162 added one record to services/launchpad/indexer/internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz, 266 to 267 records, and its SHA-256 went from 4b5ebff5adc5d1fa33b2275ed4f27d9b68ff955a6443bda441eb191470214f60 to 8e30a49734f6381b6234e64d2ee01367a9c47939d1cd1c13b5755914e43b61a1. The helper repair63RecordedRPC of services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:252 pins the old value at :259, so the case TestRepair_63_RecordedReplayHeaders stops at :217. Compare the file at that commit with its parent, find the added record, and state in the record of this task what it is and why task 22.39.162 added it (services/launchpad/indexer/repair_22_39_162.kvx)."
+symbols = []
 
 [capability.22.39.373]
 title = "Bring the library and the executables of the indexer package to a clean lint"
@@ -225652,6 +225667,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.374]
+title = "Follow the committed producer transcript in the replay cases of the launchpad profit tracker"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.374"]
+interfaces = []
+do_1 = "do_1 Decision 3283, gotcha 4211. Commit fbc5b81dcb of task 22.39.162 added one record to services/launchpad/indexer/internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz, 266 to 267 records, and its SHA-256 went from 4b5ebff5adc5d1fa33b2275ed4f27d9b68ff955a6443bda441eb191470214f60 to 8e30a49734f6381b6234e64d2ee01367a9c47939d1cd1c13b5755914e43b61a1. The helper repair63RecordedRPC of services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:252 pins the old value at :259, so the case TestRepair_63_RecordedReplayHeaders stops at :217. Compare the file at that commit with its parent, find the added record, and state in the record of this task what it is and why task 22.39.162 added it (services/launchpad/indexer/repair_22_39_162.kvx)."
+do_2 = "do_2 Set the pin at :259 to the checksum of the committed file. Then run every case of the package that calls the helper; its callers sit at :217, :502, :661 and :666. When the added record changes what a case replays, repair the expectation of the case so that it follows the transcript, and keep every assertion. Do not change the transcript. Change the supplemental headers file testdata/repair_63_headers.jsonl and its pin only when the added record makes a header there wrong, and record the reason. A case of the baseline list tests/ci/data/launchpad_go_test_baseline.json that needs a database stays as it is; name in the record each caller that could not run here."
+do_3 = "do_3 Search services/launchpad and sdk/launchpad for another pin of the old checksum or of the record count 266 of that file; repair one inside the paths and record one outside with file and line. Record in services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx the added record, the changed lines and the result of every case that calls the helper. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = ["services/launchpad/pnl-tracker/internal/production/l16::TestRepair_63_RecordedReplayHeaders"]
+planned_paths = ["services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx"]
+build_cmd = "cd services/launchpad/pnl-tracker && go vet ./internal/production/l16/"
+verify_cmd = "test -s services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx && cd services/launchpad/pnl-tracker && go test -count=1 ./internal/production/l16/ -run 'TestRepair_63_RecordedReplayHeaders|TestRepair_63_TranscriptBlockParameter'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.372]
 title = "Serve the candle read after a replay, the trade read and the verified token in the development API of the launchpad"
 status = "pending"
@@ -227551,7 +227596,7 @@ title = "Give the five launchpad shared service packages in-process fixtures or 
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.39.75", "22.39.242", "22.39.162"]
+requires = ["22.39.75", "22.39.242", "22.39.162", "22.39.374"]
 reqs = ["22998.1"]
 capabilities = ["22.39.117"]
 interfaces = []
@@ -227594,6 +227639,7 @@ do_19 = "Attempt 16 (continue after 22.39.162 lands, gotcha 4133, decision 3211)
 do_20 = "Attempt 17 (continue, gotcha 4150, decision 3223): the attempt-16 tree 87aa7bc4b07b stands (the fixtures and configured skips of the shared packages, the staged pin of do_14, the stream relay case, the three helpers that clear the staged pair, the retired baseline entries, the record). The shared, protocol and API modules pass. The indexer module is red only because NewRPCQualificationWithAttestation of services/launchpad/indexer/internal/receipt/rpc.go compares each supplied role with the approved role by full equality at :541, and the approved roles now carry the staged pair. The touches now name rpc.go. Add to sdk/launchpad/shared/config/deployment/manifest.go the method MatchesApproved of Role: it reports true when every field apart from StagedRuntimeHash and StagedUpgrade equals the approved role and the staged pair of the receiver is either empty or equal to the pair of the approved role. Call it at rpc.go:541 in place of the equality and change no other line of rpc.go. Add the case TestRoleMatchesApprovedApartFromAnAbsentStagedPin to sdk/launchpad/shared/config/deployment/manifest_test.go (equal roles, an absent pair, a different pair, a different address, a different runtime hash) and the case TestRepair_53_staged_pin_qualification to services/launchpad/indexer/internal/receipt/repair_53_test.go: the qualification accepts the recorded manifest without the pair and refuses the same manifest when one role carries a staged pair that differs from the approved one. Change no recorded packet. The comparison of the private fixture roles at services/launchpad/indexer/internal/app/app.go:280 is outside the paths: name it in the record and leave it. The test target stops at the first red module, so the nine modules after the indexer have not run with the staged fields: when the verification turns red at a site outside the paths, record file, line and message and stop. Run the build once and the verification once at the final revision."
 do_21 = "Attempt 18 (continue, gotchas 4171 and 4172, decisions 3243, 3244 and 3183): the attempt-17 tree 8208dbd824f8 stands (MatchesApproved of the role with its case, the call in rpc.go, the staged pin case, everything of the earlier attempts, the record). The indexer module is red for three causes and each is repaired in this attempt. First, in services/launchpad/indexer/internal/config/repair_m999_test.go the helper renders with app.DefaultDeliveryParameters() at :253: take the parameters into a variable, set MaxDeliveryLagMS to 60000 as internal/app/render_test.go:61 does, and render with them; change nothing under internal/app. Second, the touches now name services/launchpad/indexer/internal/receipt/identity.go: in migratedRoleEpoch at :604 replace the inequality of the approved role and the identity of the epoch with a call of MatchesApproved on the identity of the epoch with the approved role as argument, and change no other line of the file. In nativeDeployment of sdk/launchpad/shared/config/capabilities/preflight.go replace the inequality at :779 in the same way, and add to the tests of that package a case in which a manifest whose roles lack the staged pair passes that loop and a role with a different staged pair is refused. Leave rpc.go:1339 and app.go:288 as they are and name both in the record. Third, the case TestRepair_53_staged_pin_qualification fills the native swap at repair_53_test.go:592 without rehydrating the markets: call Rehydrate on the authority with the markets of the input before the fill, as the restart helper of the file does at :479, and keep the assertions of the case. Before the counted gates run go test over ./internal/config/, ./internal/decode/ and ./internal/receipt/ of the indexer module yourself until the three packages pass. The test target stops at the first red module, so the nine modules after the indexer have still not run with the staged fields: when the verification turns red at a site outside the paths, record file, line and message and stop. Run the build once and the verification once at the final revision."
 do_22 = "Attempt 19 (continue, gotcha 4191, decisions 3262 and 3183): the attempt-18 tree 1f397b9aea73 stands (the three repairs of the indexer module, MatchesApproved of the role and its calls, the staged pin, the fixtures and configured skips of the shared packages, the retired baseline entries, the record). The verification stopped in the first module at the case TestDecodeIdentitySigningKeyForms of sdk/launchpad/shared/auth/mtls_identity_client_test.go, which draws a random key and asserts that its padded URL form is refused; that form equals the standard form for about one key in fifteen and the decoder is right to accept it then. Repair the case and not the decoder: draw keys through testpki.Ed25519 until the standard form of the key holds a plus sign or a slash, at most 64 draws, fail the case with a message when no draw meets it, and keep every assertion and every input of the two lists. Run that case 200 times with the count option of go test outside the counted gates and record the result. Then run the test target of services/launchpad/Makefile once outside the counted gates, because the modules after the first one have not run at this tree: a red case whose cause sits inside the paths is repaired in this attempt, and a red site outside the paths is recorded with file, line and message and the attempt stops. Extend the record. Run the build once and the verification once at the final revision."
+do_23 = "Attempt 20 (continue after 22.39.374 lands, gotcha 4211, decision 3283): the attempt-19 tree a26f513fc045 stands (the repaired signing key case, everything of the earlier attempts, the record). The run of the test target outside the counted gates passed the modules before the profit tracker and stopped there at TestRepair_63_RecordedReplayHeaders, internal/production/l16/repair_63_test.go:217: the case pins the checksum of the producer transcript that task 22.39.162 extended by one record. The directory is outside the paths and task 22.39.374 repairs it; the task now requires it. Rebase on main once that task is on it and change nothing under services/launchpad/pnl-tracker. The modules after the profit tracker in the list of the test target have still not run at this tree: run the test target once more outside the counted gates. A red case whose cause sits inside the paths is repaired in this attempt, and a red site outside the paths is recorded with file, line and message and the attempt stops. Run the build once and the verification once at the final revision."
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"

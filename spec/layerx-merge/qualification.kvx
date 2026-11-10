@@ -40402,3 +40402,11 @@ symbol = "f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_ro
 observed = "Attempt 3 at 1c4cb68f2dce on base 6e3abf0ebe49: the build exits 0 at 4393fe1ca9f1 and the check of the dependent packages exits 101 at 4393fe1ca9f1, services/agent/crates/layerx-agentd/tests/inference_laps.rs:1282 fails with E0005; no verification ran; log /out/logs/dependents-1.log."
 assumption = "The red test target of the agent daemon is outside the paths, and the helper module of the native F11 targets was outside the paths as well."
 severity = "high"
+
+[finding.22.39.117.19]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 19 at a26f513fc045 on base 75ee49ee6bdc: no counted gate ran; the test target of services/launchpad/Makefile, run outside the counted gates, exits 2 at services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:217 with producer RPC transcript differs from its committed checksum; log /out/logs/launchpad-test-prequalification.log."
+assumption = "The replay case of the profit tracker is outside the paths and pins a transcript that another task extended."
+severity = "high"
