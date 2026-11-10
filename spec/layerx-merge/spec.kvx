@@ -197849,7 +197849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.17]
 title = "Negotiate deals from the placement book and record them on chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.3", "22.38.11", "22.38.16", "22.31.620", "22.39.348"]
