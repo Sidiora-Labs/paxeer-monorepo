@@ -1928,7 +1928,6 @@ impl AgentRuntime {
         writer.text(authority.as_str())?;
         let mut reader = self.exchange(&writer.finish())?;
         let pending_nonce = reader.u64()?;
-        decode_rung(reader.u8()?)?;
         reader.finish()?;
         Ok(pending_nonce)
     }
@@ -5413,12 +5412,7 @@ impl AgentRuntime {
         writer.bytes(&grant.session_scope)?;
         writer.u64(grant.expires_at_ms);
         writer.fixed(&grant.owner_public_key);
-        let signature: &[u8; 65] = grant
-            .signature
-            .as_slice()
-            .try_into()
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        writer.fixed(signature);
+        writer.fixed(&grant.signature);
         let mut reader = self.exchange_secret(&writer.finish_secret())?;
         if reader.u16()? != 1 {
             return Err(AgentBoundaryError::CorruptResponse);
