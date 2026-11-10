@@ -1,11 +1,9 @@
-//! The Paxeer half of the single network endpoint: byte-faithful EVM JSON-RPC
-//! relay and the unified `px_*` reads that join a Paxeer account, asset or
-//! head with its `LayerX` counterpart.
+//! Native Paxeer JSON-RPC relay and hosted `px_*` chain reads.
 //!
-//! The relay target is the Paxeer boundary's JSON-RPC service, which fronts
-//! the chain's `paxd` RPC. Reads here are the same public tier that answers
-//! `lx_*` reads: no key, one public read budget, and every answer is either
-//! the node's own or an explicit refusal.
+//! Account selectors resolve through the native address-binding precompile;
+//! balances and assets come from the bank and ledger on that same chain.
+//! Public reads share one budget and return node evidence or an explicit
+//! refusal. Retired `lx_*` methods have no backend dispatch path.
 
 use super::{public_reads, Config};
 use layerx_platform_gateway::evm;

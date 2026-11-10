@@ -562,6 +562,7 @@ fn mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusa
     must(recovery.recovered.require_write_ready());
     let duplicate = PersistedReceipt {
         expected_activity_id: authenticated.activity_id(),
+        requested_amount: amount,
         evidence: BudgetReceiptEvidence::Current(
             inventory.with_current_evidence[0].evidence.clone(),
         ),

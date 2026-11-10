@@ -1,0 +1,199 @@
+[meta]
+task = "22.39.254"
+decisions = ["3101", "3104", "3125"]
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/crates/layerx-types"
+inventory_exit = 1
+inventory_findings = 24
+continuation_base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+seed_revision = "cf8af36f96b1c75644eb5fb89c52ff6149225d43"
+inventory_source = "Initial scan of the unmodified scoped files on the provided merged base; no earlier gate ledger existed."
+qualification = "Implementation complete; qualification is established only by matching successful hf-build and hf-done evidence in the private gate ledger."
+verified_revision_reference = "The final verify row in private /out/run/gates.jsonl is authoritative and must match the final successful build row."
+build_evidence_reference = "Private hf-build ledger row: revision, command, exit and log."
+verify_evidence_reference = "Private hf-done ledger row: revision, command, exit and log."
+
+[finding.1]
+path = "services/agent/crates/layerx-types/src/account.rs"
+line = 24
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+repair = "Removed the retired SystemPaxeerReserve variant from the current account vocabulary; the current account-proof decoder in layerx-proof/src/state.rs likewise refuses this name, while decision 3125 retains kernel-only genesis and history parsing."
+
+[finding.2]
+path = "services/agent/crates/layerx-types/src/account.rs"
+line = 66
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+repair = "Removed the current AccountId parser branch for the retired reserve account instead of renaming it or admitting an alias."
+
+[finding.3]
+path = "services/agent/crates/layerx-types/src/account.rs"
+line = 191
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+repair = "Changed the account unit test to require UnknownNamespace for the retired reserve name and every formerly published asset suffix, matching the current account-proof decoder."
+
+[finding.4]
+path = "services/agent/crates/layerx-types/src/account.rs"
+line = 194
+component = "custody-disclosure"
+symbol = "paxeer-reserve"
+repair = "Retained and expanded exact reserve-suffix rejection assertions; the src directory allowance for paxeer-reserve documents these refusal cases under decision 3125."
+
+[finding.5]
+path = "services/agent/crates/layerx-types/src/historical/settlement.rs"
+line = 11
+component = "settlement-domain"
+symbol = "checkpoint-settlement.json"
+repair = "Removed the unused document-path constant; archive parsing accepts explicit document text and has no current trust-path dependency."
+
+[finding.6]
+path = "services/agent/crates/layerx-types/src/historical/settlement.rs"
+line = 70
+component = "anchor"
+symbol = "GuarantorBond"
+repair = "Removed the retired contract name from the archive accessor documentation; the historical address remains archive data."
+
+[finding.7]
+path = "services/agent/crates/layerx-types/src/historical/settlement.rs"
+line = 205
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Allowed settlement_domain under src/historical for the live settlement_domains archive document reader; it remains separate from current chain trust."
+
+[finding.8]
+path = "services/agent/crates/layerx-types/src/historical/settlement.rs"
+line = 318
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Allowed settlement_domain under src/historical for the live settlement_domains archive document reader; it remains separate from current chain trust."
+
+[finding.9]
+path = "services/agent/crates/layerx-types/src/historical/settlement.rs"
+line = 320
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Allowed settlement_domain under src/historical for the live settlement_domains archive document reader; it remains separate from current chain trust."
+
+[finding.10]
+path = "services/agent/crates/layerx-types/src/historical/settlement.rs"
+line = 325
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Allowed settlement_domain under src/historical for the live settlement_domains archive document reader; it remains separate from current chain trust."
+
+[finding.11]
+path = "services/agent/crates/layerx-types/src/vectors/checkpoint.rs"
+line = 85
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Allowed settlement_domain under src/vectors for the live historical checkpoint vector field and JSON loader; preserved the published wire spelling and clarified archive provenance."
+
+[finding.12]
+path = "services/agent/crates/layerx-types/src/vectors/checkpoint.rs"
+line = 237
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Allowed settlement_domain under src/vectors for the live historical checkpoint vector field and JSON loader; preserved the published wire spelling and clarified archive provenance."
+
+[finding.13]
+path = "services/agent/crates/layerx-types/src/vectors/checkpoint.rs"
+line = 259
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Allowed settlement_domain under src/vectors for the live historical checkpoint vector field and JSON loader; preserved the published wire spelling and clarified archive provenance."
+
+[finding.14]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 17
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.15]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 48
+component = "checkpoint-evidence"
+symbol = "SETTLEMENT_ANCHORED"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.16]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 48
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.17]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 76
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.18]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 111
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.19]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 111
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.20]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 142
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.21]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 151
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.22]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 309
+component = "checkpoint-evidence"
+symbol = "SETTLEMENT_ANCHORED"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.23]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 310
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[finding.24]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+line = 314
+component = "checkpoint-evidence"
+symbol = "settlement_anchored"
+repair = "Allowed SettlementAnchored, SETTLEMENT_ANCHORED and settlement_anchored under src for deprecated archive compatibility and explicit refusal tests; strengthened the existing test to assert rank decoding, current policy comparisons and write rungs reject archive authority."
+
+[continuation]
+resolution = "Attempt 2 explicitly includes tests/ids.rs and the catalogue, resolving the earlier scope conflict without discarding the seed settlement repairs."
+account_test = "Updated tests/ids.rs to the current account-proof producer vocabulary: retain all current accepted namespaces and require exact UnknownNamespace errors for the retired reserve account and all four historical asset suffixes."
+archive_tests = "Preserved all historical reader and deprecated verification APIs required by existing integration tests; archive labels continue to confer no current verification authority."
+scan_order = "Reuse the 24 findings recorded by attempt 1; the continuation runs no preliminary scan because hf-done alone runs the declared verification after full implementation."
+allowance_order = "Added one allowance per source directory in path order beside the existing agent crate entries, with explicit symbols and a one-sentence reason each."
+
+[gotcha.scope]
+symptom = "The initial scope omitted the catalogue and integration test required by the recorded findings."
+cause = "The scanner excludes integration-test files, while the build compiles them and they retained a retired reserve-namespace expectation."
+action = "The explicit attempt-2 ruling expands the scope; repaired the current account path and tests and catalogued live archive names instead of weakening or deleting tests."
+
+[gotcha.current_and_historical_accounts]
+symptom = "Kernel account-name parsing still accepts historical reserve accounts, while the current account-proof decoder rejects them."
+cause = "Decision 3125 retains the kernel name table for genesis and history replay until a post-upgrade state migration."
+action = "Use the current account-proof decoder as the current types contract and retain kernel history behavior outside this task unchanged."

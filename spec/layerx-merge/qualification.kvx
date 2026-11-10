@@ -39202,3 +39202,451 @@ symbol = "layerx-sdk"
 observed = "Attempt 9 at 8021eeccdb8b: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --all-targets exit 0; verification exit 101: cargo clippy reports one site, tests/repair_22_31_487.rs:45 clippy::too_many_lines (107/100); log /out/logs/verify-2.log."
 assumption = "The long function is the only remaining lint of the crate and its test targets."
 severity = "high"
+
+[finding.22.39.290.2]
+task = "22.39.290"
+file = "services/wallet/gateway/test"
+symbol = "test"
+observed = "Attempt 2 at c14d6aaf9117: corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck exit 0; verification exit 1: 39 failed, 396 passed, 30 todo in 17 files, among them the settle routes that never reach eth_estimateGas and the custody snapshot error that is not an AttestorQuorumError; log /out/logs/verify-2.log."
+assumption = "The environment causes of the record are repairable with the loopback material and stubs the attempt already introduced."
+severity = "high"
+
+[finding.22.39.168.7]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 7 at 4e70cd690089: anvil --version > /dev/null && make -C services/launchpad vet exit 0; verification exit 1: the ranking module passes and the statistics module fails eight cases in internal/app, internal/consumer, internal/httpapi, internal/projectionstats and internal/search (canonical fee evidence unavailable: projection required; status 500; TLS certificate signed by an unknown authority); log /out/logs/verify-2.log."
+assumption = "The eight cases are fixture gaps of the statistics module, not regressions of the ranking repairs."
+severity = "high"
+
+[finding.18.1667.1.12]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 12 at 32280073332c: go build ./daemon/committed-fixture/ exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:388, record vector-v4-committed: bind DID 0: fixture transaction reverted LXP_ADDR_LAYERX_ADDRESS_BOUND; log /out/logs/verify-2.log."
+assumption = "With a distinct authority key the committed vector binds its address once and the V1 Programs recorder keeps its bound caller."
+severity = "high"
+
+[finding.22.39.242.7]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 7 at 89d19a64ae5b (rebased on 064621acc59d): build exit 0; verification exit 1: TestRepairM_999_ReceiptQualifiedBackfill, TestRepairM_995_NativeReceiptAttribution and the three TestRepair_53 cases fail with receipt qualification rejected at repair_m999_test.go:371, repair_m995_test.go:321, repair_53_test.go:517, :518 and :578; log /out/logs/verify-1.log."
+assumption = "The rejection is the manifest surface hash 22.39.295 returned; the tree itself is complete."
+severity = "high"
+
+[finding.22.39.300.1]
+task = "22.39.300"
+file = "rpc/repair_478_test.go"
+symbol = "repair_478_test.go"
+observed = "Attempt 1 at a75a256bedd4: build exit 1 at go vet ./rpc/: rpc/subscribe_test.go:338:15 assignment copies lock value to storedEnv (core.Environment contains a mutex), a site outside the touches of the task; verification not run; log /out/logs/build-1.log."
+assumption = "The vet finding is independent of the pinned boundaries; go test does not run the copylocks analyser."
+severity = "high"
+
+[finding.17.5.7.9]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 9 at 0b7715be4a92: build exit 0; verification exit 1: test_wave_6_gate_passes records the gate failure inside mvn -f sdk/platform/jvm/pom.xml install at GeneratedCatalogueProgramsTest.nativePrepareCarriesThePreparationRecord (GeneratedCatalogueProgramsTest.java:214): expected five fields, found seven, components contain activity, fixture record missing required property activity; log /out/logs/verify-2.log."
+assumption = "With the test aligned the JVM install step passes and the gate continues to its next command."
+severity = "high"
+
+[finding.18.1724.1.11]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 11 at b7dbe7cd8e73: build exit 0; verification: go test -count=1 ./node/sequencer/ -run TestCurrentReceiptRestartFixture failed at the first run because the capture file did not exist yet (log /out/logs/verify-1.log) and passed at the second run with the capture committed; cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover exit 101: legacy_receipt_evidence_is_refused_after_restart fails at tests/outbox_recover.rs:133 and startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence fails at :261 (receipt_consumed 0, want 25); log /out/logs/verify-2.log."
+assumption = "The attempt did what do_11 asked: it recorded the refusing sites and stopped without weakening the check; the accounting repair is the work of 22.39.303."
+severity = "high"
+
+[finding.22.39.248.2]
+task = "22.39.248"
+file = "node/app.go"
+symbol = "app.go"
+observed = "Attempt 2 at 62c2fc2869a8: go vet ./node/ exit 0; verification exit 1: go test -count=1 ./node/ fails only TestRepairM_1319_RestoredBoundaryManifest at node/repair_m1319_test.go:25 (SHA-256 ba84aff353486b74, want 7f681de19c1c0540); log /out/logs/verify-1.log."
+assumption = "Every other case of the node package passed at the attempt-2 tree and the catalogue test passed on the node directory."
+severity = "high"
+
+[finding.22.33.223.22]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 23 at e0e47a0e9645: cargo build --locked --manifest-path programs/crates/layerx-programs-ai-market/Cargo.toml --tests exit 0; verification exit 101: cargo test --test repair_22_33_223 fails fuel_budget::roster_state_fuel_scaling at tests/fuel_budget.rs:3344 (16/4=102546, 32/8=117890), 33 cases pass; log /out/logs/verify-2.log."
+assumption = "The remaining difference between the rosters follows the state bytes the operation decodes, which the fixture prints for every native call."
+severity = "high"
+
+[finding.22.39.222.6]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 6 at f1b5e7751ec1: build exit 0 and cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib -- -D warnings exit 0 (log /out/logs/verify-1.log); the integration onto the agent domain branch reported a content conflict in services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs (stages b0d75844a00c, 8a3cde29111e, db5385d0035b) and the attempt ended for the rebase."
+assumption = "The lint repair and the state export touch the same adapter functions and both must stand; nothing else in the tree conflicts."
+severity = "high"
+
+[finding.22.39.269.2]
+task = "22.39.269"
+file = "apps/web/e2e/prepare-production.py"
+symbol = "prepare-production.py"
+observed = "Attempt 2 at 31d19566a52b: build exit 0; verification exit 1: pnpm --dir apps/web run test fails fourteen cases, four in e2e/gas-station.test.ts (:73, :86, :102 falsy expression with actual undefined; :191 ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING for the file-linked wallet SDK) and ten in files outside the touches; every history case passes; log /out/logs/verify-2.log."
+assumption = "The ten cases outside the touches fail with the same messages at attempt 1 on an older base, and the tree changes none of the files they read."
+severity = "high"
+
+[finding.22.39.299.1]
+task = "22.39.299"
+file = "services/agent/sdk/typescript/test/repair-22-33-24.test.ts"
+symbol = "repair-22-33-24.test.ts"
+observed = "Attempt 3 at f0d853dce44a: npm ci and pnpm run build exit 0; verification exit 1: node dist/test/repair-22-33-24.test.js fails one of 52 cases, verify_committed_receipt_recorded_inclusion at dist/test/sequencer-receipt-verify.test.js:140 (signed power 7000000000n, want 7000000001n); log /out/logs/verify-2.log."
+assumption = "The refreshed recording holds one absent commit signature; every other case of the aggregator and the sequencer module passes at the attempt-3 tree."
+severity = "high"
+
+[finding.18.1667.1.13]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 13 at 60474c5e3cd1: go build ./daemon/committed-fixture/... exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:388, record vector-v4-committed: bind DID 0: fixture transaction reverted LXP_ADDR_LAYERX_ADDRESS_BOUND; TestRecorderV6GenesisSelection passes; log /out/logs/verify-1.log."
+assumption = "v1ProgramsGenesisAuthority in main.go exports the private key of the keyring entry named fixture, the same account the V4 recorder uses as payer."
+severity = "high"
+
+[finding.22.39.266.2]
+task = "22.39.266"
+file = "tools/platform/cli/README.md"
+symbol = "README.md"
+observed = "Attempt 2 at d25367086cfb: build exit 0; verification exit 101: every module of layerx-platform-cli and layerx-platform-release passes except public_http_uses_system_trust_and_checks_server_identity, which panics at services/platform/tests/support/tls_boundary.rs:186 asking for the boundary binary; log /out/logs/verify-1.log."
+assumption = "The case is an environment prerequisite of the suite, not a defect of the tree."
+severity = "high"
+
+[finding.22.39.235.9]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 9 at 693a252c2d98: cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets exit 0; verification exit 101: cargo clippy reports two sites, tests/repair_22_31_566.rs:128 and :160 clippy::unwrap_used; log /out/logs/verify-2.log."
+assumption = "The two unwrap sites are the only remaining lint of the crate and its test targets; the sdk/rust warnings in the log are dependency warnings and not errors of the gate."
+severity = "high"
+
+[finding.22.39.242.8]
+task = "22.39.242"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53-producer.json"
+observed = "Attempt 8 at adf2a52050f1: build exit 0; verification exit 1: TestRepairM_999_ReceiptQualifiedBackfill, TestRepairM_995_NativeReceiptAttribution, TestRepair_53_native_swap_qualification, TestRepair_53_tenant_transaction_qualification and TestRepair_53_approved_history_rehydration fail with receipt qualification rejected: rehydrate historical creation; log /out/logs/verify-1.log."
+assumption = "The recorded creation proof carries the deployment id of the former manifest while the re-recorded manifest names paxeer125-v6.12.0; proveHistoricalMarket refuses at identity.go:752 before any response is read."
+severity = "high"
+
+[finding.22.39.278.2]
+task = "22.39.278"
+file = "rpc/config/config.go"
+symbol = "config.go"
+observed = "Attempt 2 at e2a082f7cf79: go vet ./rpc/ ./rpc/config/ exit 0; verification exit 1: TestPxNodeRoot_Account_CommittedReadsAndParity fails at rpc/px_node_root_account_test.go:711 with result lacks canonical_origin; every other TestPxNodeRoot case passes; log /out/logs/verify-1.log."
+assumption = "The handler that omits the field, rpc/px_discovery.go, is outside the touches of the task and red before the attempt."
+severity = "high"
+
+[finding.22.39.270.2]
+task = "22.39.270"
+file = "apps/explorer/lib/hooks/useNavItems.tsx"
+symbol = "useNavItems.tsx"
+observed = "Attempt 2 at e0a022007b7a: build exit 0; verification exit 2: yarn vitest run passes 14 files and 64 cases, then python3 tools/paxeer-x/tests/retired_callers_test.py cannot open the script under apps/explorer; log /out/logs/verify-1.log."
+assumption = "The failing step is the verification text, not the tree."
+severity = "high"
+
+[finding.22.39.249.2]
+task = "22.39.249"
+file = "modules/layerxgov/types/proposal.go"
+symbol = "proposal.go"
+observed = "Attempt 2 at 6ba915fa4d32: build exit 0; verification exit 1: TestCmdQueryAirdropNetwork, TestCmdQueryFeeRightNetwork and TestRepair_35_QuoteUint256 fail in modules/launchpad/client/cli and TestRESTRegistryRoutes fails in modules/launchpad/client/rest, each receiving the bare invalid request text; every other package passes; log /out/logs/verify-1.log."
+assumption = "The attempt changed nothing under modules/launchpad and attempt 1 failed the same four cases."
+severity = "high"
+
+[finding.22.39.271.2]
+task = "22.39.271"
+file = "services/explorer/backend/README.md"
+symbol = "README.md"
+observed = "Attempt 2 at 72d646417636: build exit 0; verification exit 2: mix test apps/explorer/test/explorer/chain/paxeer_x reports 171 cases and 17 failures, all {:error, :r3}, in committed_vectors_test.exs, status_committed_test.exs, status_test.exs and sequencer_receipt_test.exs; log /out/logs/verify-1.log."
+assumption = "The attempt changed only documentation lines of receipt.ex; the key guard changed at 6c6128318f before the attempt."
+severity = "high"
+
+[finding.22.39.273.2]
+task = "22.39.273"
+file = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+symbol = "px_node_root_contracts.json"
+observed = "Attempt 2 at 5dc5c523ab1e: build exit 0; verification exit 1: 4221 cases pass and test_repair_22_33_1053.py::test_finding_27_complete_provenance_without_deployment_defaults fails at :76 on the exports map of sdk/launchpad/packages/sidiora-launchpad-v3/package.json; log /out/logs/verify-1.log."
+assumption = "The package changed its exports to the conditional form at 1caf032cb4 and the case froze the string form."
+severity = "high"
+
+[finding.17.5.7.10]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 10 at aaee77f2eb55: build exit 0; verification exit 1: the gate fails inside make platform-jvm-dependencies-install at GeneratedCatalogueProgramsTest.programOperationsNameLayerxprogramsCalls with six assertions on program.activity and program.receipt (expected eth_getTransactionByHash but was eth_getLogs); log /out/logs/verify-1.log."
+assumption = "The attempt took 22.39.301, which repaired the native activity record of the same class; the transport mismatch is older than that repair."
+severity = "high"
+
+[finding.22.39.288.2]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/px.test.ts"
+symbol = "px.test.ts"
+observed = "Attempt 4 at 6214136f2301: build exit 0; verification exit 1: every self-contained suite passes except repair_22_33_24_preserves_recorded_producer_provenance, which compares the digest of daemon/committed-fixture/vectors/vector-v4-committed.json (5013cd232ee9) with the digest the recording pins (fc3fe1494c91); log /out/logs/verify-2.log."
+assumption = "The recording is refreshed by 22.39.299; the readiness_hosted envelope case the log also marks is counted by the envelope runner and fails no suite."
+severity = "high"
+
+[finding.22.39.303.1]
+task = "22.39.303"
+file = "services/agent/crates/layerx-agentd/tests/budget_schema.rs"
+symbol = "budget_schema.rs"
+observed = "Attempt 1 at d89a01cab119: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --tests exit 101: E0063 missing field requested_amount in initializer of PersistedReceipt in tests/repair_22_31_559.rs; no verification ran; log /out/logs/build-1.log."
+assumption = "The case constructs the record and was outside the touches the task named."
+severity = "high"
+
+[finding.22.39.266.3]
+task = "22.39.266"
+file = "tools/platform/cli/README.md"
+symbol = "README.md"
+observed = "Attempt 3 at e183fb31228b: build exit 101: package ID specification layerx-paxeer-boundary did not match any packages; no verification ran; log /out/logs/build-1.log."
+assumption = "The binary is a target of services/platform/hosted/paxeer/Cargo.toml and the suite runs from the tools/platform workspace."
+severity = "high"
+
+[finding.22.39.257.2]
+task = "22.39.257"
+file = "services/agent/crates/layerx-sdk/src/rpc.rs"
+symbol = "rpc.rs"
+observed = "Attempt 2 at f569c69c1642: build exit 0; verification exit 101: cargo test -p layerx-sdk --lib fails v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes with Error Verification, 50 other cases pass, and the record names the same failure at the base revision fbe6b13a1823; log /out/logs/verify-1.log."
+assumption = "The case refuses before any binding when the corpus path is unset; it is red on main and outside the touches."
+severity = "high"
+
+[finding.22.39.290.3]
+task = "22.39.290"
+file = "services/wallet/gateway/test"
+symbol = "test"
+observed = "Attempt 3 at 08501fd25a23: build exit 0; verification exit 1 twice: pnpm --dir services/wallet/gateway run test reports 16 failed files, 34 failed cases, 401 passed, 30 todo; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The failing set shrank from seventeen files to sixteen and every residual group has a named cause in the record."
+severity = "high"
+
+[finding.22.38.15.2]
+task = "22.38.15"
+file = "services/agent/crates/layerx-agentd/tests/inference_enrol.rs"
+symbol = "inference_enrol.rs"
+observed = "Attempt 2 at a79a868b133e: the first build failed on SequencerError (E0433) and the second passed; verification exit 101: bond_lock_precedes_bid_at_the_configured_quote panics at tests/inference_enrol.rs:38 with ApplicationError(14); five other cases pass; log /out/logs/verify-1.log."
+assumption = "Index 14 of the error registry is WRONG_DOMAIN; the enrolment, acceptance and metadata operations of the same case execute."
+severity = "high"
+
+[finding.18.1667.1.14]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 14 at 156b7d0ceab3: go build ./daemon/committed-fixture/... exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:402, record vector-v4-committed: bind DID 0: fixture transaction reverted LXP_ADDR_LAYERX_ADDRESS_BOUND; TestRecorderV6GenesisSelection passes; log /out/logs/verify-1.log."
+assumption = "The authority no longer shares the fixture address, and the V2 ledger recorder is the remaining binder of the fixture payer before the V4 recorder."
+severity = "high"
+
+[finding.22.33.223.23]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 24 at 5cfc8d6541ce: the first build failed on MAX_ENVELOPE_BYTES (E0425) and the second passed; verification exit 101: roster_state_fuel_scaling panics at tests/fuel_budget.rs:3216 with baseline READ_HEADER: Refused with an 82-byte result; 33 other cases pass; log /out/logs/verify-1.log."
+assumption = "Every routed operation of the fixture executes; only the baseline read the attempt added is refused."
+severity = "high"
+
+[finding.22.39.259.2]
+task = "22.39.259"
+file = "services/human/crates/layerx-human-service/src/audit/event.rs"
+symbol = "event.rs"
+observed = "Attempt 2 at d6c2e7a6a68c: build exit 0; verification exit 101: cargo test -p layerx-human-service --lib fails human_journey_and_approval_cross_tls_and_recover_after_sink_loss (clock authority: Unavailable at src/event_producer_tls.rs:89) and cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame (typed runtime at src/server/agent_runtime.rs:4716); 81 cases pass; log /out/logs/verify-1.log."
+assumption = "The attempt changed one allowance line per file and a doc comment; the two cases depend on the environment."
+severity = "high"
+
+[finding.22.39.248.3]
+task = "22.39.248"
+file = "node/app.go"
+symbol = "app.go"
+observed = "Attempt 3 at e5710f324231: go vet ./node/ exit 0; verification exit 1: go test -count=1 ./node/ panics with test timed out after 10m0s while TestFinalizeAdoptedBlockStoresVotes ran, FAIL after 603 seconds; log /out/logs/verify-1.log."
+assumption = "The timeout is the default of go test, not a hanging case."
+severity = "high"
+
+[finding.22.39.288.3]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/px.test.ts"
+symbol = "px.test.ts"
+observed = "Attempt 5 at 634b81d5b2ee: build exit 0; verification exit 1: 52 test files executed, 1 failed: test/web-search.test.ts fails 3 of 34 cases in webSearchExactPaymentLogReceipts (Missing expected rejection at dist/test/web-search.test.js:112, then two deepStrictEqual failures at :119 and :127 that hold one header too many); the python suite is not reached; log /out/logs/verify-1.log."
+assumption = "The three failures share one cause, the recorded receipt being accepted, and every other file of the suite passes."
+severity = "high"
+
+[finding.22.39.253.2]
+task = "22.39.253"
+file = "services/agent/crates/layerx-agentd/host-tests/retired_env.rs"
+symbol = "retired_env.rs"
+observed = "Attempt 2 at 34783598ec29: build exit 0; verification exit 101: cargo test -p layerx-agentd --lib reports 331 passed and 3 failed, the three human_runtime::retained_settlement_tests cases panicking at src/human_runtime.rs:23779 with Refused at witness_binding; the scan is not reached; log /out/logs/verify-1.log."
+assumption = "The two TLS identity cases are clear and the record carries no base-revision run of the three cases."
+severity = "high"
+
+[finding.22.39.95.10]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 11 at 8155a13897b7: three builds (the second and third after environment repairs) exit 0; verification exit 1: pnpm --dir apps/launchpad/web run test reports 5 failed files and 11 failed cases with 1274 passed (four cases of src/core/network/repair-22-33-901.test.ts, four of src/widgets/trading/chart-datafeed-recovery.test.ts, coin-failure-frames.test.tsx, creation-journey.integration.test.tsx with Network activation attestation is stale, connected-journeys.test.tsx with Route execution reverted); the mobile suite is not reached; log /out/logs/verify-1.log."
+assumption = "Nine of the eleven failures come from two producer defects outside the touches; the two journey repairs were made after the only verification and are unverified."
+severity = "high"
+
+[finding.22.39.307.1]
+task = "22.39.307"
+file = "modules/launchpad/client/cli"
+symbol = "cli"
+observed = "Attempt 1 at 98d21e7362dd: build exit 0; verification exit 1: go test -count=1 ./modules/launchpad/client/... passes and go test -count=1 ./modules/launchpad/keeper/... fails TestQueryAirdropEpochABCICodes (six cases, :217 and :219), TestCreateMarket (market_test.go:325) and TestEveryPoolMigrates (migrate_v6120_test.go:450) after 189 seconds; log /out/logs/verify-1.log."
+assumption = "The client paths are repaired; the three keeper cases are red on main."
+severity = "high"
+
+[finding.22.39.288.4]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/px.test.ts"
+symbol = "px.test.ts"
+observed = "Attempt 6 at f2f7d256ee21: build exit 0; verification exit 1: 52 TypeScript test files executed, 0 failed; python3 -m pytest -q services/agent/sdk/python/tests reports 1 failed, 148 passed: test_retained_receipt_and_commit_verification_are_public at tests/test_retired_kernel_receipts.py:313 expects inclusion identity and reads invalid committed transaction field; log /out/logs/verify-1.log."
+assumption = "The Python suite was reached for the first time; its one failure is red on main since the commit of issue 1833."
+severity = "high"
+
+[finding.22.39.310.1]
+task = "22.39.310"
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+symbol = "program_http.rs"
+observed = "Attempt 1 at 661b2312e8c7: build exit 0; verification exit 101: the case v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes ends with Error: Decode on the committed recording, 0 passed and 1 failed; log /out/logs/verify-1.log."
+assumption = "The recording is genuine; the case binds a request from a native activity that the constructor refuses since 22.39.233."
+severity = "high"
+
+[finding.22.39.311.1]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 1 at d4225f005d5d (gates at candidate 7fb2c2e47d0b): build exit 0; verification exit 101: the subject coordinate case passes and the TLS case panics at services/platform/hosted/internal/src/producer_test_support.rs:234 with LAYERX_TEST_WEBHOOKS_BIN required; log /out/logs/verify-1.log."
+assumption = "The clock and socket repairs hold; the case lacked the event sink binary the Makefile targets provide."
+severity = "high"
+
+[finding.22.39.306.1]
+task = "22.39.306"
+file = "rpc/px_node_root_account_test.go"
+symbol = "px_node_root_account_test.go"
+observed = "Attempt 1 at 4c65f3f81586: build exit 0; verification exit 1: TestPxNodeRoot_Account_CommittedReadsAndParity fails at rpc/px_node_root_account_test.go:306 through pxRootAssertSchema with result lacks node_rpc; log /out/logs/verify-1.log."
+assumption = "The origin repair holds; the answer lacks two further schema members and the parity case predates the node-served routes."
+severity = "high"
+
+[finding.22.38.13.3]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 3 at 80d13275407c: build exit 0; verification exit 101: twelve cases of the fuel_budget target pass and f11_fuel_table panics at tests/fuel_budget.rs:2351 with Operation(2825) refused by ApplicationError(22) after 126 seconds; log /out/logs/verify-1.log."
+assumption = "The fixture is valid; the settlement section cap is below the sum of the regions it carries at the declared capacities."
+severity = "high"
+
+[finding.18.1667.1.15]
+task = "18.1667.1"
+file = "daemon/committed-fixture/main_test.go::TestRecorderV6GenesisSelection"
+symbol = "main_test.go::TestRecorderV6GenesisSelection"
+observed = "Attempt 15 at 1d1ee8c7b45c: build exit 0; verification exit 1: TestRecorderAllSelectedV6Executes fails at daemon/committed-fixture/main_test.go:402 after 300.24 seconds with record vector-v7-named-payee ending in context deadline exceeded; log /out/logs/verify-2.log."
+assumption = "The second chain for V7 is right; the case deadline covers one chain only at the 10 second commit interval."
+severity = "high"
+
+[finding.22.38.15.3]
+task = "22.38.15"
+file = "services/agent/crates/layerx-agentd/tests/inference_enrol.rs"
+symbol = "inference_enrol.rs"
+observed = "Attempt 3 at e5691f8e3e04: build exit 0; verification exit 101: six cases pass and bond_lock_precedes_bid_at_the_configured_quote panics at tests/inference_enrol.rs:39 with ProgramRefused for LockBond, code 14, WRONG_ROSTER; log /out/logs/verify-2.log."
+assumption = "The case signs the room and bond operations with the roster digest of another family."
+severity = "high"
+
+[finding.17.5.7.11]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 11 at 0305e69f47bc on base 867c134a0d2c: build exit 0; verification exit 1 inside make platform-install-local-artifacts: mvn install of sdk/platform/jvm/pom.xml ends with Tests run 122, Failures 9, Errors 3; log /out/logs/verify-1.log."
+assumption = "The red JVM cases are red on main and belong to a repair task of their own."
+severity = "high"
+
+[finding.18.1724.1.12]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 12 at 18a20b1011ef on base 867c134a0d2c: build exit 0; verification exit 101: TestCurrentReceiptRestartFixture passes; tests/outbox_recover.rs 2 passed, 2 failed: legacy_receipt_evidence_is_refused_after_restart panics at :134 and startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence at :265 with receipt_consumed 0; log /out/logs/verify-1.log."
+assumption = "The startup case is right and the daemon selection is wrong; the legacy case asserts a former producer answer."
+severity = "high"
+
+[finding.22.39.168.8]
+task = "22.39.168"
+file = "services/launchpad/ranking-algo"
+symbol = "ranking-algo"
+observed = "Attempt 8 at a1b1b7fd609a on base 7c02f42054af: build exit 0; verification exit 1: TestPhase3CanonicalOpticalFeesAgainstIndependentIntegers fails at public_http_test.go:367 with relation indexer.indexer_accounting_fills_v1 does not exist, SQLSTATE 42P01; ten modules did not run; log /out/logs/verify-1.log."
+assumption = "The case needs data that no producer emits, so it is a configured case with its own variable."
+severity = "high"
+
+[finding.22.39.290.4]
+task = "22.39.290"
+file = "services/wallet/gateway/test"
+symbol = "test"
+observed = "Attempt 4 at 96730306a637 on base 7c02f42054af: builds 1 and 2 exit 1, build 3 exit 0; verification exit 1: Test Files 7 failed, 53 passed, 9 skipped; Tests 11 failed, 400 passed, 24 skipped; log /out/logs/verify-1.log."
+assumption = "The remaining cases share five causes in the test doubles and one route count."
+severity = "high"
+
+[finding.22.39.273.3]
+task = "22.39.273"
+file = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+symbol = "px_node_root_contracts.json"
+observed = "Attempt 3 at a30989fbfa38 on base 2ce65ef1b65c: build exit 0; verification exit 1 after 2917 seconds: 130 failed, 4092 passed, 13 skipped in 102 files of tools/qualification; log /out/logs/verify-1.log."
+assumption = "Most red cases pin text that other repairs rewrote; one cause is a missing chain_id in a test builder."
+severity = "high"
+
+[finding.22.39.249.3]
+task = "22.39.249"
+file = "modules/layerxgov/types/proposal.go"
+symbol = "proposal.go"
+observed = "Attempt 3 at de8890871068 on base 7de3a9051436: build exit 0; verification exit 1: red cases in modules/launchpad/keeper, modules/launchpad/types, modules/evm, modules/evm/keeper, modules/xweb, modules/xweb/keeper, modules/xweb/types, precompiles/layerxauth, precompiles/addr, precompiles/launchpad, layerxproof/codec and layerxproof/verify; log /out/logs/verify-1.log."
+assumption = "The tree changes comments only, so the red cases are red at the base."
+severity = "high"
+
+[finding.22.33.223.24]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 25 at 5908031f6129, verified at daccdd2f0690 on base cde7fc002f23: builds exit 0; verification exit 101: 33 of 34 cases pass; roster_state_fuel_scaling panics at tests/fuel_budget.rs:3510 with 16/4 chunk must cost at least its read-only baseline; log /out/logs/verify-2.log."
+assumption = "The baseline subtraction cannot hold because a read costs more than a chunk."
+severity = "high"
+
+[finding.22.39.311.2]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 2 at 64baba1d8d8f, gates at a4075b8c0adc on base f738d3da0346: build exit 0; verification exit 1 with cargo exit 101: the subject coordinate case passes and the TLS case panics at services/platform/hosted/internal/src/producer_test_support.rs:248 because redis-server is absent; log /out/logs/verify-1.log."
+assumption = "The tree is right; the binary the case starts was missing from the environment."
+severity = "high"
+
+[finding.22.39.315.1]
+task = "22.39.315"
+file = "modules/launchpad/keeper/market_test.go"
+symbol = "market_test.go"
+observed = "Attempt 1 at ff52845cb6c8, gates at 539eb835e045 on base f738d3da0346: build exit 0; verification exit 1: the keeper suite passes; TestQuery at sdk/baseapp/deliver_tx_test.go:323, TestGRPCQuery at :353 and TestBaseAppCreateQueryContext/valid_height at abci_test.go:166 fail with legacy rootmulti versioned state is unsupported; log /out/logs/verify-1.log."
+assumption = "The three cases are red at the base and outside the change of the attempt."
+severity = "high"
+
+[finding.22.39.162.6]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 6 at 055deb81de40 on base f738d3da0346: build exit 0 at 6977cff1a217 and at 055deb81de40; verification exit 1 twice (logs /out/logs/verify-1.log and /out/logs/verify-2.log): ten cases of internal/config, internal/decode and internal/receipt fail with recorded manifest must match the current deployment apart from role runtime hashes, five cases of internal/processor and one of internal/runtimedocs fail with reviewed catalog does not belong to the manifest, and TestSourceCapacityCandidate and TestHistoricalRealRangeExplorerSuffixAndParity of internal/source fail on the files of main."
+assumption = "The digest failures come from bcaaa5ef93 and end with 22.39.328; the two source cases are red at the base."
+severity = "high"
+
+[finding.22.39.314.1]
+task = "22.39.314"
+file = "services/launchpad/trading-charts/internal/consumer/repair_22_39_314_test.go"
+symbol = "repair_22_39_314_test.go"
+observed = "Attempt 1 at b7100338e975, gates at 509927b9541f on base f738d3da0346: build exit 0; verification exit 1: internal/migrate passes, TestFaultPoisonQuarantineAndAuditedReprocessing and TestSourceVerifiedBootstrapFromPoolCreationLive of internal/consumer and the four TestRepairM_1051 cases and TestArchive96HourReconstructionPostgres of internal/engine fail, the api run was not reached; log /out/logs/verify-1.log."
+assumption = "The seven cases are the baseline entries of 22.39.168 and are red without the change of the attempt."
+severity = "high"
+
+[finding.22.39.319.1]
+task = "22.39.319"
+file = "tools/qualification/test_retired_callers_17.py"
+symbol = "test_retired_callers_17.py"
+observed = "Attempt 1 at c21fa0b638d4: build exit 0; verification exit 1 with 2 failed and 3096 passed: test_repair_22_33_372.py:101 on the first line of apps/explorer/public/openapi.yaml and test_repair_22_33_849.py:212 on the text SequencerReceipt.verify(tx_hash of committed_vectors_test.exs; log /out/logs/verify-1.log."
+assumption = "Both cases are red since a4ab550e6a and 20d1e29d9d landed and are outside the change of the attempt."
+severity = "high"
+
+[finding.22.39.311.3]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 3 at 9dd4f10d7f0f: build exit 0, dependents exit 0; verification exit 1 (the test run exits 101): the subject coordinate case passes and the TLS case panics at services/platform/hosted/internal/src/producer_test_support.rs:340 with webhook exited before listening after 0.89 seconds; log /out/logs/verify-1.log."
+assumption = "The delivery process fails at its start inside the fixture and the fixture hides the cause."
+severity = "high"

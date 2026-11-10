@@ -1,0 +1,22 @@
+[repair]
+task = "22.39.303"
+base_revision = "fbe6b13a182368696aaddddce2942910074fada3"
+decision = "3147; receipt amount semantics follow decision 3128"
+gotchas = "4050, 3997"
+sites = "src/budget/hold.rs PersistedReceipt and rebuild_accounting; src/human_runtime.rs recover_tenant_budget_with_evidence and verified_policy_budget; src/budget/mod.rs requested_amount export; src/outbox/recover.rs RecoveryInputs"
+former_sum = "Every successful receipt added verified_receipt.amount(), which is the transaction value and is zero for a budgetSpend call."
+rule = "Verify receipt identity and replay protection, then add requested_amount for successful current evidence and verified receipt amount for successful legacy evidence; failed receipts contribute zero; checked arithmetic and protocol reconciliation bounds are unchanged."
+requested_amount = "The tenant-scoped persisted unknown reservation for the activity wins, including resolved reservations; otherwise recover the uint128 amount from canonical budgetSpend(bytes32,bytes32,uint128) calldata of the retained signed transaction whose hash equals the activity id and whose target is the pay precompile; otherwise zero. Malformed retained evidence is refused."
+regression = "rebuild_accounting_counts_the_requested_spend_of_a_zero_value_receipt verifies the unmodified node-produced zero-value conformance receipt, reopens the persisted reservation, and asserts receipt_consumed 25, protocol_consumed 25 and reconciled true."
+coverage = "requested_spend_recovers_signed_calldata_and_prefers_the_persisted_reservation checks restart calldata recovery, reservation precedence, absent spend, other destinations, invalid uint128 and mismatched hashes; recovery_keeps_legacy_receipt_amount_for_requested_spend preserves legacy consumption. Existing budget_schema, budget_unknown and recovery assertions are retained."
+qualification = "The hf-build and hf-done runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies the terminal gate evidence."
+
+[qualification]
+status = "implemented-not-qualified"
+revision = "c56a0c92212b0ff8b6b05ac7cdba669093705a90"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The build reports E0063 at tests/repair_22_31_559.rs:563: its existing PersistedReceipt initializer lacks requested_amount. This additional construction is outside the task's explicit allowed files."
+assumption = "The task scope must include tests/repair_22_31_559.rs to update its existing modeled requested amount without disabling or weakening a test."
+verification = "Not run: hf-done requires a passing hf-build; no out-of-scope file was changed and no unchanged failed gate was rerun."

@@ -1,0 +1,121 @@
+[repair.22.39.250]
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+scan_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/lxphost --path engine/executor"
+scan_exit = 1
+finding_count = 9
+qualification = "The private /out/run/gates.jsonl ledger records the exact candidate revision, command, exit and log for hf-build and hf-done; this record makes no claim of successful qualification."
+
+[finding.1]
+path = "engine/executor/precompiles/failfast.go"
+line = 14
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "Allowed reference under Decision 3125: this import supplies the address of the still-registered precompile whose calls must abort accelerated execution and retry ordinary execution."
+allowed_path = "engine/executor"
+allowed_symbol = "layerxanchor"
+
+[finding.2]
+path = "engine/executor/precompiles/failfast.go"
+line = 16
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "Allowed reference under Decision 3125: this import supplies the address of the still-registered precompile whose calls must abort accelerated execution and retry ordinary execution."
+allowed_path = "engine/executor"
+allowed_symbol = "layerxcustody"
+
+[finding.3]
+path = "engine/executor/precompiles/failfast.go"
+line = 18
+component = "verify"
+symbol = "layerxverify"
+disposition = "Allowed reference under Decision 3125: this import supplies the address of the still-registered precompile whose calls must abort accelerated execution and retry ordinary execution."
+allowed_path = "engine/executor"
+allowed_symbol = "layerxverify"
+
+[finding.4]
+path = "engine/executor/precompiles/failfast.go"
+line = 46
+component = "verify"
+symbol = "layerxverify"
+disposition = "Allowed reference under Decision 3125: retain the 0x1012 guard so the ordinary execution path applies the precompile's upgrade-height behavior, including its module-disabled refusal."
+allowed_path = "engine/executor"
+allowed_symbol = "layerxverify"
+
+[finding.5]
+path = "engine/executor/precompiles/failfast.go"
+line = 47
+component = "custody-deposit"
+symbol = "layerxcustody"
+disposition = "Allowed reference under Decision 3125: retain the 0x1013 guard so the ordinary execution path applies the precompile's upgrade-height behavior, including its module-disabled refusal."
+allowed_path = "engine/executor"
+allowed_symbol = "layerxcustody"
+
+[finding.6]
+path = "engine/executor/precompiles/failfast.go"
+line = 48
+component = "anchor"
+symbol = "layerxanchor"
+disposition = "Allowed reference under Decision 3125: retain the 0x1014 guard so the ordinary execution path applies the precompile's upgrade-height behavior and the separately gated retirement of its reads."
+allowed_path = "engine/executor"
+allowed_symbol = "layerxanchor"
+
+[finding.7]
+path = "modules/lxphost/host.go"
+line = 129
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "Allowed reference under Decision 3125: the live lxphost_receipt_authority_add helper validates canonical height-bound receipts and inserts the payment facts consumed by Programs execution and simulation; it does not register retired daemon finality authority."
+allowed_path = "modules/lxphost"
+allowed_symbol = "receipt_authority"
+
+[finding.8]
+path = "modules/lxphost/host.go"
+line = 343
+component = "fee-relay"
+symbol = "fee_governance"
+disposition = "Allowed reference under Decision 3125: lxp_programs_fee_governance_resolve_runtime reads the exact recorded fee-schedule version from kernel state for admission and replay; it does not submit retired relay activity 0x00090008."
+allowed_path = "modules/lxphost"
+allowed_symbol = "fee_governance"
+
+[finding.9]
+path = "modules/lxphost/host.go"
+line = 978
+component = "finality-authority"
+symbol = "receipt_authority"
+disposition = "Allowed reference under Decision 3125: execution and simulation call the live canonical-receipt validator before exposing height-bound receipt and payment facts to the kernel."
+allowed_path = "modules/lxphost"
+allowed_symbol = "receipt_authority"
+
+[attempt_1.scope-conflict]
+file = "tools/paxeer-x/retired_callers.json"
+observed = "Step do_2 requires allowed references for live symbols, but the explicit three-file scope excludes the catalogue; both required touches currently contain live references."
+constraint = "Do not rename equivalent symbols, replace live guards with unguarded paths, remove receipt validation or fee resolution, or edit the catalogue without a scope correction."
+
+[attempt_1.qualification.build]
+task = "22.39.250"
+file = "chain.mk"
+symbol = "evmone-lib"
+observed = "At revision 9c7ea3a08d6c8748b99f48eec1b7a926aeb42a3f, make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./engine/executor/... exited 2 because cmake was not found at chain.mk:111; private evidence is /out/logs/build-1.log."
+assumption = "The missing native build prerequisite is an unrelated environment failure; record it once without changing out-of-scope build files or rerunning the unchanged gate."
+severity = "blocker"
+
+[attempt_1.qualification.result]
+status = "not-qualified"
+verification = "hf-done did not run because hf-build failed."
+source_changes = "Neither Go source file was changed; their live references require catalogue allowances outside the authorized scope."
+evidence_revision = "9c7ea3a08d6c8748b99f48eec1b7a926aeb42a3f"
+evidence_command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./engine/executor/..."
+evidence_exit = 2
+evidence_log = "/out/logs/build-1.log"
+
+[attempt_2]
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+continued_from = "ec990cbc852191c436173480b6bb611115ad5acf"
+decision = "3125"
+repair = "Added allowed_references entries for engine/executor and modules/lxphost in tools/paxeer-x/retired_callers.json; all nine recorded findings map to their allowed_path and allowed_symbol."
+scope_resolution = "The task now authorizes the catalogue edit; the attempt-1 scope conflict is resolved without changing either Go source file."
+main_alignment = "The supplied origin/main revision is already HEAD and contains local main, so the continued repair is based on merged main."
+build_command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./engine/executor/..."
+verify_command = "cg spec done 22.39.250 -f layerx-merge --root /work/paxeer-monorepo"
+qualification_evidence = "/out/run/gates.jsonl"
+verified_revision = "The successful hf-done row in /out/run/gates.jsonl names the exact verified candidate revision, command, exit code and private log; qualification requires a passing hf-build row at that same revision."

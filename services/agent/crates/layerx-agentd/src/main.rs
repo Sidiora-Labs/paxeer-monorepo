@@ -211,6 +211,7 @@ struct Config {
     authority_endpoint: String,
     authority_bearer: String,
     authority_ca_der: Vec<u8>,
+    // Identity required by the shipped independent program-authority connection.
     authority_replica_id: [u8; 32],
     chain_trust_root: PathBuf,
     staleness_ms: u64,
@@ -930,6 +931,15 @@ fn start_shared_owner(
     .map_err(|error| format!("human operations are invalid: {error:?}"))?;
     if let Some(source) = export_trust {
         operations.install_export_trust(source, deadline);
+    }
+    match std::env::var("LAYERX_AGENT_STATE_EXPORT_SOURCE") {
+        Ok(path) => operations.install_state_export_source(
+            layerx_agentd::config::StateExportSource::load(std::path::Path::new(&path))?,
+        ),
+        Err(std::env::VarError::NotPresent) => {}
+        Err(std::env::VarError::NotUnicode(_)) => {
+            return Err("state export source path is not UTF-8".to_owned())
+        }
     }
 
     if let Some(sources) = policy_sources {
@@ -2086,6 +2096,112 @@ fn inference_observation(
     Ok((reference, components))
 }
 
+fn inference_enrol_host(
+    config: &Config,
+    inference: &layerx_agentd::config::InferenceConfig,
+) -> Result<(), String> {
+    use layerx_agentd::finality::inference_enrol::{
+        read_enrolment_file, EnrolmentRelay, MeasurementConfig, PriceQuote, SignedManifest,
+    };
+    use layerx_client::ai_market::{market_envelope, OperationJournal, OperationRecord};
+    PriceQuote::require_program_interface().map_err(|error| error.to_string())?;
+    let path = PathBuf::from(required("LAYERX_AGENT_INFERENCE_ENROLMENT")?);
+    let document = read_enrolment_file(&path).map_err(|error| error.to_string())?;
+    let bytes = |name: &str| -> Result<Vec<u8>, String> {
+        let text = document[name]
+            .as_str()
+            .ok_or_else(|| format!("inference enrolment {name} is required"))?;
+        layerx_programs::hex::decode(text.strip_prefix("0x").unwrap_or(text))
+            .map_err(|_| format!("inference enrolment {name} is malformed"))
+    };
+    let record = |name: &str| -> Result<OperationRecord, String> {
+        let raw = bytes(name)?;
+        let expiry = document["expiry"]
+            .as_u64()
+            .ok_or("inference enrolment expiry is required")?;
+        let record = OperationRecord::from_signed_transaction(raw, [0; 32], expiry)
+            .map_err(|error| format!("inference enrolment {name}: {error:?}"))?;
+        let envelope = market_envelope(&record)
+            .map_err(|error| format!("inference enrolment {name}: {error:?}"))?;
+        let env = layerx_client::ai_market::market_program::codec::decode_envelope(&envelope)
+            .map_err(|error| error.to_string())?;
+        if env.envelope.program.bytes() != config.probe_program.bytes()
+            || env.envelope.chain.bytes()
+                != layerx_client::ai_market::market_program::merged_chain_domain(
+                    config.expected_chain_id,
+                )
+        {
+            return Err(
+                "inference enrolment differs from the configured chain or program".to_owned(),
+            );
+        }
+        let intent = env.request_digest().map_err(|error| error.to_string())?;
+        OperationRecord::from_signed_transaction(
+            record.signed_bytes().to_vec(),
+            intent.bytes(),
+            expiry,
+        )
+        .map_err(|error| format!("inference enrolment {name}: {error:?}"))
+    };
+    let legacy = bytes("manifest_v1")?;
+    if legacy.get(138..170) != Some(inference.runtime_digest.as_slice())
+        || legacy.get(174..206) != Some(inference.model_digest.as_slice())
+    {
+        return Err(
+            "inference enrolment manifest differs from configured model or runtime".to_owned(),
+        );
+    }
+    let mut manifest = SignedManifest {
+        manifest: bytes("manifest_v2")?,
+        proposal: record("enroll")?,
+        acceptance: record("accept")?,
+        publication: record("publish")?,
+    };
+    let mut quote = PriceQuote {
+        lock_bond: record("lock_bond")?,
+        post_bid: record("post_bid")?,
+    };
+    let region: [u8; 2] = required("LAYERX_AGENT_INFERENCE_REGION")?
+        .as_bytes()
+        .try_into()
+        .map_err(|_| "inference region requires two ASCII letters")?;
+    let attestation_family = required("LAYERX_AGENT_INFERENCE_ATTESTATION_FAMILY")?
+        .parse::<u8>()
+        .map_err(|_| "inference attestation family must be a byte")?;
+    let probe = required("LAYERX_AGENT_INFERENCE_BANDWIDTH_PROBE")?;
+    let journal = OperationJournal::open(Path::new(&required(
+        "LAYERX_AGENT_INFERENCE_ENROLMENT_JOURNAL",
+    )?))
+    .map_err(|error| format!("inference enrolment journal: {error:?}"))?;
+    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
+        &config.node_endpoint,
+        &[&config.authority_ca_der],
+    )
+    .map_err(|error| format!("inference enrolment endpoint: {error:?}"))?;
+    let keys = endpoint
+        .receipt_keys()
+        .map_err(|error| format!("inference receipt keys: {error:?}"))?;
+    let relay = EnrolmentRelay {
+        endpoint: &endpoint,
+        journal: &journal,
+        receipt_keys: &keys,
+        timeout: REQUEST_DEADLINE,
+    };
+    relay
+        .enrol_host(
+            &MeasurementConfig {
+                manifest_v1: &legacy,
+                region_code: region,
+                attestation_family,
+                bandwidth_probe: &probe,
+            },
+            &mut manifest,
+            &mut quote,
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 fn inference_boot(
     config: &Config,
     inference: layerx_agentd::config::InferenceConfig,
@@ -2101,6 +2217,7 @@ fn inference_boot(
     let mut gate = layerx_agentd::boot::InferenceBootGate::default();
     gate.ready(reference, layerx_types::rung::Rung::Committed, &components)
         .map_err(|error| format!("inference boot refused: {error:?}"))?;
+    inference_enrol_host(config, &inference)?;
     let market = inference_market::serve_inference_market(inference, gate)?;
     let signal_gate = Arc::clone(&market.gate);
     let signal = HttpPool::start(

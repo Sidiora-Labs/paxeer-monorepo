@@ -427,7 +427,7 @@ def pre_v6120_exchange_cancel_order_call(order_id: str) -> PrecompileCall:
 
 
 def pre_v6120_exchange_request_settlement_call(position_id: str) -> PrecompileCall:
-    """``requestSettlement(bytes32)``."""
+    """Historical ``requestSettlement(bytes32)``; refuses with ErrRetired after v6.12.0."""
     return _pre_v6120_call("requestSettlement", ["bytes32"], [position_id])
 
 

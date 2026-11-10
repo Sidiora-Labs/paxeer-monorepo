@@ -2,6 +2,8 @@
 //! `NativeProgramCall`, owner review and signing, and durable exact-byte submission with
 //! receipt and block-commit resolution.
 
+pub use layerx_programs_ai_market as market_program;
+
 use std::cell::Cell;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write as _};
@@ -60,7 +62,7 @@ use crate::rpc::receipt::{
 };
 use crate::rpc::receipt_commit::ReceiptCommitEvidence;
 use crate::rpc::submit::{submit_signed, Submission, SubmitError};
-use crate::sequencer::SequencerEndpoint;
+use crate::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_programs_registry::chain_proof::{
     decode::ProofOp, state::verify_state, VerifiedChainHead,
 };
@@ -423,7 +425,16 @@ const HEX: &[u8; 16] = b"0123456789abcdef";
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AiClientError {
     Query(QueryError),
-    StaleAuthority { lag: u64, limit: u64 },
+    MissingOperation(&'static str),
+    ProgramRefused {
+        operation: &'static str,
+        code: u16,
+        name: &'static str,
+    },
+    StaleAuthority {
+        lag: u64,
+        limit: u64,
+    },
     NativeCall(InvalidNativeCall),
     Activity(ActivityBuildError),
     Actor(LengthError),
@@ -440,7 +451,9 @@ pub enum AiClientError {
     Signature(VerifyError),
     Submit(SubmitError),
     Receipt(ReceiptError),
-    InvalidTransition { from: OperationState },
+    InvalidTransition {
+        from: OperationState,
+    },
     ReceiptMismatch,
     FinalityMismatch,
     HistoryUnavailable(EpochStatus),
@@ -2316,16 +2329,38 @@ impl OperationJournal {
         endpoint: &SequencerEndpoint,
         context: AuthenticatedLookupContext<'_>,
     ) -> Result<OperationState, AiClientError> {
+        require(record, &[OperationState::Pending, OperationState::Unknown])?;
+        self.resolve_receipt(record, endpoint, context)?;
+        Ok(record.state)
+    }
+
+    pub fn resolve_receipt(
+        &self,
+        record: &mut OperationRecord,
+        endpoint: &SequencerEndpoint,
+        context: AuthenticatedLookupContext<'_>,
+    ) -> Result<Option<AuthenticatedReceipt>, AiClientError> {
         let _owner = self.acquire(&record.activity_id)?;
         self.current(record)?.ok_or(AiClientError::StaleRecord)?;
-        require(record, &[OperationState::Pending, OperationState::Unknown])?;
+        require(
+            record,
+            &[
+                OperationState::Pending,
+                OperationState::Unknown,
+                OperationState::Executed,
+            ],
+        )?;
         let receipt = match lookup_authenticated(endpoint, record.activity_id, context)? {
-            AuthenticatedLookup::Absent | AuthenticatedLookup::Submitted { .. } => {
-                return Ok(record.state);
-            }
+            AuthenticatedLookup::Absent | AuthenticatedLookup::Submitted { .. } => return Ok(None),
             AuthenticatedLookup::Verified(receipt) => receipt,
         };
-        self.apply_receipt(record, &receipt)
+        if record.state == OperationState::Executed
+            && record.receipt_digest != Some(Sha256::digest(receipt.canonical_bytes()).into())
+        {
+            return Err(AiClientError::ReceiptMismatch);
+        }
+        self.apply_receipt(record, &receipt)?;
+        Ok(Some(receipt))
     }
 
     /// Resolve with real node batch inclusion evidence; retained coverage survives reopen.
@@ -2574,5 +2609,156 @@ impl EpochHistoryEntry {
             return Err(QueryError::IntegrityFailure.into());
         }
         Ok(policy)
+    }
+}
+
+pub fn named_market_operation(name: &'static str) -> Result<Operation, AiClientError> {
+    dispatch::OPERATIONS
+        .iter()
+        .find(|entry| entry.name == name)
+        .map(|entry| entry.operation)
+        .ok_or(AiClientError::MissingOperation(name))
+}
+
+pub fn program_refusal(
+    operation: Operation,
+    bytes: &[u8],
+) -> Result<Option<AiClientError>, AiClientError> {
+    let result = layerx_programs_ai_market::codec::decode_result(bytes)?;
+    result
+        .error
+        .map(|error| {
+            let name = layerx_programs_ai_market::errors::APPLICATION_ERRORS
+                .iter()
+                .find(|entry| entry.code == error.code())
+                .ok_or(AiClientError::CorruptRecord)?
+                .name;
+            Ok(AiClientError::ProgramRefused {
+                operation: operation.metadata().name,
+                code: error.code(),
+                name,
+            })
+        })
+        .transpose()
+}
+
+pub fn market_envelope(record: &OperationRecord) -> Result<Vec<u8>, AiClientError> {
+    let (call, _) = evm_transaction::decode_signed(record.signed_bytes())?;
+    let mut target = [0; 20];
+    target[18..].copy_from_slice(&[0x10, 0x1d]);
+    if call.chain_id != 125 || call.to != target {
+        return Err(AiClientError::NotNativeProgramCall);
+    }
+    let (native, _) = decode_program_call(&call.data)?;
+    let envelope = decode_envelope(&native.calldata)?;
+    if native.guest_abi != GUEST_ABI
+        || native.entrypoint != ENTRYPOINT
+        || native.program_id.bytes() != envelope.envelope.program.bytes()
+        || envelope.envelope.expiry != record.not_after()
+    {
+        return Err(AiClientError::NotNativeProgramCall);
+    }
+    Ok(native.calldata.to_vec())
+}
+
+pub async fn sign_market_envelope(
+    envelope: &[u8],
+    terms: &NativeTerms<'_>,
+    signer: &dyn Signer,
+) -> Result<OperationRecord, AiClientError> {
+    let validated = decode_envelope(envelope)?;
+    let env = validated.envelope;
+    if env.operation.metadata().boundary != CallBoundary::Mutation {
+        return Err(AiClientError::NotMutation);
+    }
+    if terms.network_id != 125
+        || terms.owner_public_key != signer.public_key()
+        || terms.not_before != 0
+        || terms.not_after != env.expiry
+        || terms.idempotency_key != env.request.bytes()
+        || terms.gas_limit == 0
+        || terms.max_priority_fee_per_gas > terms.max_fee_per_gas
+        || u128::from(terms.gas_limit)
+            .checked_mul(terms.max_fee_per_gas)
+            .is_none()
+    {
+        return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+    }
+    Did::new(terms.actor_did)?;
+    let from = signer.evm_address().ok_or(AiClientError::UnauthorizedKey)?;
+    let native = NativeProgramCall {
+        program_id: intent::ProgramId::new(env.program.bytes()),
+        guest_abi: GUEST_ABI,
+        entrypoint: ENTRYPOINT,
+        calldata: envelope,
+        capabilities: terms.capabilities,
+        access_declaration: terms.access_declaration,
+        response_capacity: terms.response_capacity,
+        resources: terms.resources,
+    };
+    let mut target = [0; 20];
+    target[18..].copy_from_slice(&[0x10, 0x1d]);
+    let call = Eip1559Call {
+        chain_id: 125,
+        nonce: terms.account_sequence,
+        gas_limit: terms.gas_limit,
+        max_fee_per_gas: terms.max_fee_per_gas,
+        max_priority_fee_per_gas: terms.max_priority_fee_per_gas,
+        to: target,
+        data: encode_program_call(&native, terms.fee_limit),
+    };
+    let disclosure = bind_call(&call, from)?;
+    let signature = sign_disclosed_call(signer, &call, &disclosure, from).await?;
+    OperationRecord::from_signed_transaction(
+        evm_transaction::assemble(&call, &signature),
+        validated.request_digest()?.bytes(),
+        env.expiry,
+    )
+}
+
+pub fn submit_market_operation(
+    journal: &OperationJournal,
+    record: &mut OperationRecord,
+    endpoint: &SequencerEndpoint,
+) -> Result<OperationState, AiClientError> {
+    let envelope = market_envelope(record)?;
+    let operation = decode_envelope(&envelope)?.envelope.operation;
+    journal.record_signed(record)?;
+    let registry = ModuleRegistry::new(&[])?;
+    let retained = journal.load(&record.activity_id(), &registry)?;
+    if retained.signed_bytes != record.signed_bytes || retained.intent != record.intent {
+        return Err(AiClientError::CorruptRecord);
+    }
+    *record = retained;
+    if matches!(
+        record.state,
+        OperationState::Pending | OperationState::Unknown | OperationState::Executed
+    ) {
+        return Ok(record.state);
+    }
+    match journal.submit(record, endpoint) {
+        Err(error) => {
+            let refusal = match &error {
+                AiClientError::Submit(SubmitError::Sequencer(SequencerError::Rpc(refusal))) => {
+                    Some(refusal)
+                }
+                AiClientError::Submit(SubmitError::Refused { refusal, .. }) => Some(refusal),
+                _ => None,
+            };
+            if let Some(encoded) = refusal
+                .and_then(|refusal| refusal.data.as_ref())
+                .and_then(|data| data.as_str())
+            {
+                if let Some(hex) = encoded.strip_prefix("0x") {
+                    if let Ok(bytes) = layerx_programs_registry::hex::decode(hex) {
+                        if let Ok(Some(program_error)) = program_refusal(operation, &bytes) {
+                            return Err(program_error);
+                        }
+                    }
+                }
+            }
+            Err(error)
+        }
+        result => result,
     }
 }

@@ -63,8 +63,10 @@ fn run(
     trace_policy: Option<TracePolicy>,
     entrypoint: &str,
 ) -> Result<V2AuthorizedExecutionRecord, ExecutionError> {
-    let engine = WasmEngine::declared().unwrap();
-    let validated = engine.validate_v2(wasm).unwrap();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let engine = WasmEngine::declared().assert_success("test value");
+    let validated = engine.validate_v2(wasm).assert_success("test value");
     let mut executor = Executor::declared();
     if let Some(profile) = profile {
         executor = executor.with_program_replay_profile(profile);
@@ -72,19 +74,20 @@ fn run(
     if let Some(trace_policy) = trace_policy {
         executor = executor.with_trace_policy(trace_policy);
     }
-    let payer = PrincipalId::new([2; 32]).unwrap();
-    let binding = ActivityBudgetBinding::new([3; 32]).unwrap();
-    let declared = DeclaredBudget::new(1_000_000, 65_536, 0, 0, 1, 0, 0).unwrap();
+    let payer = PrincipalId::new([2; 32]).assert_success("test value");
+    let binding = ActivityBudgetBinding::new([3; 32]).assert_success("test value");
+    let declared =
+        DeclaredBudget::new(1_000_000, 65_536, 0, 0, 1, 0, 0).assert_success("test value");
     let admitted = executor
         .admit_activity_budget_for_qualification(declared, payer, binding, u128::MAX)
-        .unwrap();
+        .assert_success("test value");
     let mut storage = Storage::new();
     let result = executor.execute_authorized_v2_budgeted_for_qualification(
         &mut storage,
         BudgetedAuthorizedExecutionRequest::new(
             AuthorizedExecutionRequest {
                 module: &validated,
-                program: ProgramId::new([1; 32]).unwrap(),
+                program: ProgramId::new([1; 32]).assert_success("test value"),
                 authorization: AuthorizationContext::new(payer, CapabilitySet::empty()),
                 receipts: &UnavailableReceiptOracle,
                 entrypoint,
@@ -106,19 +109,26 @@ fn run(
 }
 
 fn profile() -> ProgramReplayProfile {
-    ProgramReplayProfile::new(128, 1_048_576).unwrap()
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    ProgramReplayProfile::new(128, 1_048_576).assert_success("test value")
 }
 
 #[test]
 fn profiled_capture_one_byte_above_its_bound_answers_replay_bound() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let wasm = guest(false, false);
-    let full = run(&wasm, Some(profile()), None, "layerx_call").unwrap();
-    let replay = full.replay_record().unwrap();
-    let maximum = u32::try_from(replay.canonical_bytes().len() - 1).unwrap();
-    let bounded = ProgramReplayProfile::new(128, maximum).unwrap();
+    let full = run(&wasm, Some(profile()), None, "layerx_call").assert_success("test value");
+    let replay = full.replay_record().assert_success("test value");
+    let maximum = u32::try_from(replay.canonical_bytes().len() - 1).assert_success("test value");
+    let bounded = ProgramReplayProfile::new(128, maximum).assert_success("test value");
     let result = run(&wasm, Some(bounded), None, "layerx_call");
+    let Err(refusal) = result.as_ref() else {
+        panic!("expected replay bound refusal, got {result:?}");
+    };
     assert_eq!(
-        result.as_ref().unwrap_err(),
+        refusal,
         &ExecutionError::Fault(ExecutionFault::EngineFault {
             reason: "program replay record refused: Bounds".to_string(),
         }),
@@ -129,24 +139,31 @@ fn profiled_capture_one_byte_above_its_bound_answers_replay_bound() {
 
 #[test]
 fn trapping_guest_initializer_retains_failure_and_replay_record() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let result = run(&guest(true, false), Some(profile()), None, "layerx_call");
-    let original = result.as_ref().unwrap().clone();
+    let original = result.as_ref().assert_success("test value").clone();
     assert!(matches!(original.outcome(), V2ActivityOutcome::Failure(_)));
     assert!(original.replay_record().is_some());
-    let record = from_captured(result).unwrap();
+    let record = from_captured(result).assert_success("test value");
     assert_eq!(record, original);
 }
 
 #[test]
 fn with_trace_policy() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let result = run(
         &guest(false, false),
         Some(profile()),
-        Some(TracePolicy::new(2, 128).unwrap()),
+        Some(TracePolicy::new(2, 128).assert_success("test value")),
         "layerx_call",
     );
+    let Err(refusal) = result.as_ref() else {
+        panic!("expected trace policy refusal, got {result:?}");
+    };
     assert_eq!(
-        result.as_ref().unwrap_err(),
+        refusal,
         &ExecutionError::Fault(ExecutionFault::EngineFault {
             reason: "program replay profile and trace policy diverged".to_string(),
         })
@@ -156,9 +173,11 @@ fn with_trace_policy() {
 
 #[test]
 fn unprofiled_call_and_retained_guest_failure_are_unchanged() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let result = run(&guest(false, false), None, None, "layerx_call");
-    let original = result.as_ref().unwrap().clone();
-    let record = from_captured(result).unwrap();
+    let original = result.as_ref().assert_success("test value").clone();
+    let record = from_captured(result).assert_success("test value");
     assert_eq!(record, original);
     assert!(matches!(
         record.outcome(),
@@ -168,8 +187,8 @@ fn unprofiled_call_and_retained_guest_failure_are_unchanged() {
     assert_eq!(record.execution().usage().cpu_fuel, 39);
 
     let result = run(&guest(false, true), None, None, "layerx_call");
-    let original = result.as_ref().unwrap().clone();
-    let record = from_captured(result).unwrap();
+    let original = result.as_ref().assert_success("test value").clone();
+    let record = from_captured(result).assert_success("test value");
     assert_eq!(record, original);
     assert!(matches!(record.outcome(), V2ActivityOutcome::Failure(_)));
     assert!(record.replay_record().is_none());
@@ -184,6 +203,8 @@ fn other_execution_variants_keep_non_canonical() {
 
 #[test]
 fn native_kernel_resolves_both_status_names() {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let executable = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../build/tests/kernel/codec/lxp_test_result_codes");
     // hf-done builds this producer before running the Rust target. Its name
@@ -191,14 +212,14 @@ fn native_kernel_resolves_both_status_names() {
     let output = Command::new(executable)
         .arg("--replay-status-names")
         .output()
-        .unwrap();
+        .assert_success("test value");
     assert!(
         output.status.success(),
         "native C registry: {}",
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(
-        String::from_utf8(output.stdout).unwrap(),
+        String::from_utf8(output.stdout).assert_success("test value"),
         "LXP_ERR_REPLAY_BOUND\nLXP_ERR_ENGINE_FAULT\n"
     );
 }
