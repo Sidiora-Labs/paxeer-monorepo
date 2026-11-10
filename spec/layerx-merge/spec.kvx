@@ -224699,7 +224699,7 @@ do_4 = "Attempt 2 (continue, gotcha 4010, decision 3125): the attempt-1 tree aeb
 
 [task.22.39.249]
 title = "Repair the retired references of the governance, pay, launchpad, evm and xweb modules and the shared precompile packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245", "22.39.334"]
@@ -225440,7 +225440,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.168]
 title = "Bring the twelve remaining launchpad Go modules to green and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.75"]
