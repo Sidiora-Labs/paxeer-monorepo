@@ -284229,7 +284229,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.358]
 title = "Leave the envelope probes out of the ordinary verification of the platform SDKs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.354"]
