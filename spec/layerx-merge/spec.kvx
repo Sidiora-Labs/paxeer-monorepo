@@ -195623,7 +195623,7 @@ do_4 = "Attempt 2 (continue after 22.39.222 lands; gotcha 3753, decisions 3053 a
 
 [task.22.39.222]
 title = "Bring the library of the agent daemon crate under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.39.209", "22.39.279"]
