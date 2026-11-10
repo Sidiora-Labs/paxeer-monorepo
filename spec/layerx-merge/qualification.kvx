@@ -39994,3 +39994,27 @@ symbol = "inference_deals.rs"
 observed = "Attempt 2 at 02a1d2a11c73 on base 167ce2a7f0cf: build 3 exits 0 at 02a1d2a11c73 (log /out/logs/build-3.log); the only verification ran at fcdbd6049e5d and exits 1 with 0 passed and 6 failed, each case stopped at tests/inference_deals.rs:1327 with application error 2061; log /out/logs/verify-1.log."
 assumption = "The final tree was built after the last allowed verification and has not been verified."
 severity = "high"
+
+[finding.22.38.13.7]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 7 at 8395325d0d07 on base 167ce2a7f0cf: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; the target fuel_budget reports 15 passed and 5 failed, f11_fuel_table at tests/fuel_budget.rs:4137 and four cases of tests/repair_22_33_260.rs, each with application error 14 at the Heartbeat of the fixture; log /out/logs/verify-1.log."
+assumption = "The fixture sends a Heartbeat where the program of the new base has captured no roster, and the cause is not yet located."
+severity = "high"
+
+[finding.22.39.346.3]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 3 at 6e98157ed545 on base 9d053ddf8fc5: both builds exit 0; verification 2 exits 1 at ef74de13ae7b with eight unit cases passed and the send case failed at apps/wallet/e2e/send.spec.ts:1117, the saved observation holds the truth submitted and no step; log /out/logs/verify-2.log."
+assumption = "The save function of the wallet refuses a big integer and sits outside the paths of the task."
+severity = "high"
+
+[finding.17.5.7.15]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 15 at 1328649c1bfc on base 26be171234b5: the build exits 0 and the verification exits 1; make workspace-build exits 2 at npm run build, the package @sidiora/layerx-example-next fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts; log /out/logs/verify-1.log."
+assumption = "The example directory is outside the paths of the gate task and does not build beside an own install of the agent SDK."
+severity = "high"

@@ -278,6 +278,78 @@ The focused gate covers every frame kind, size and decode refusals, the real
 WebSocket client handshake and named-peer relay; it does not exercise a
 browser or native WebRTC connection.
 
+## Inference peer deal execution
+
+[`src/deal.mjs`](../apps/inference-peer/src/deal.mjs) exports `DealClient`,
+`loadLayerRange`, `runActivation`, the activation codec and `createDenseRuntime`.
+Construct a client with `{ roomId, identity, offer, runtime, mesh, hostPeerKey,
+validateDeal, acknowledge }`. Room IDs and peer keys are lowercase 32-byte hex.
+The mesh provides `send(peerKey, kind, payload)` and `frame` events containing
+`{ peerKey, frame }`, as `PeerMesh` does. Feed signalling deals through
+`client.handleFrame(frame)`; mesh activations and bye frames are consumed
+through the mesh listener. `validateDeal(deal)` must explicitly return `true`
+after the application checks the chain authority and agreed terms. The host
+peer key is supplied separately from the plan's host owner identity.
+
+The deal payload is the Rust host's `DealFrame` (or `{ deal: DealFrame }`), with
+`plan.layers` assigning contiguous `[first_layer, end_layer)` ranges. Digests
+accept the host's 32-byte arrays or lowercase hex. The offer must carry matching
+`model_digest`, `runtime_digest`, and
+`model_source: { manifest_url: "https://.../manifest.json" }`. The model digest
+is SHA-256 of the exact manifest response bytes. Manifest version 1 has
+`layer_count`, `hidden_size`, `format`, and ordered `shards`, each with `path`,
+`first_layer`, `end_layer`, byte `size` and `sha256`. Shards partition all layers;
+assignment boundaries must align with shard boundaries. The client downloads
+only the manifest and shards wholly inside its range, bounds each response and
+verifies its digest before handing any weights to the runtime. Sources require
+HTTPS (HTTP loopback for local use); redirects, cross-origin shards, incomplete
+coverage and shards crossing an assignment boundary refuse explicitly.
+
+After verification, `acknowledge` receives the host's signed JSON payload
+`{ type: "deal_ack", deal_id, digest, signature }` with byte arrays. The signature
+covers `PAXAI/inference-deal-ack/v1`, a zero byte and the SHA-256 deal digest,
+using the exact field ordering and network-byte-order integers of the Rust
+`DealFrame::digest`. Unsafe JavaScript integers are refused; use decimal strings
+for integer values beyond JavaScript's exact range before decoding a host JSON
+message. Prices remain canonical decimal strings.
+
+Activation payload version 1 is binary: u8 version, u16 request-ID byte length,
+UTF-8 request ID (1–256 bytes), 32-byte deal digest, u32 token position, u16 next
+layer index, u32 float count, then finite float32 values, all in network byte
+order. `encodeActivation` and `decodeActivation` produce and consume this payload
+inside the existing bounded room frame. One payload holds one token's hidden
+vector; oversized vectors require a separate chunking protocol and are refused.
+The first peer receives embeddings from `hostPeerKey`; intermediate results go
+to the next assigned peer, and the last peer returns hidden vectors to the host
+for its head and token selection. Sender, deal, layer and dimensions are checked.
+Up to 32 positions of unordered arrivals are buffered per request; duplicates
+and larger gaps refuse. At most 64 requests are active. Each request owns its
+cache and position. Host bye with `{ requestId }` drops that request's cache
+and buffered activations and prevents its reuse; room bye or mesh closure drops
+all caches. The existing `PeerMesh` closes on any bye, so request-specific bye
+through that transport also closes the mesh and clears all requests.
+
+`createDenseRuntime({ device, maxSeq })` runs the vendored `DenseEngine` on an
+existing WebGPU device. Its manifest format is `safetensors-dense-v1` and includes
+`config` with the matching hidden size and layer count. It accepts only tensors
+for the assigned layers, disables embedding and head loading, and saves separate
+KV slots for each request. Other runtimes implement `loadLayerRange` returning
+`createCache`, `runActivation`, `dropCache`, and `close`; the caller supplies the
+runtime explicitly. GPU execution requires WebGPU and its own integration gate.
+
+The focused deal test uses the executable CPU attention model in
+[`tests/scripted_model.mjs`](../apps/inference-peer/tests/scripted_model.mjs),
+real HTTP shard downloads, real Ed25519 identities and encoded room frames over
+loopback TCP sockets. It checks a two-peer split against single-process hidden
+vectors and tokens, signed acknowledgements, digest refusals, per-request cache
+isolation, unordered delivery and bye cleanup. It does not qualify WebRTC or a
+live chain host. The current Rust `RoomOffer` has no model-source field, its
+listener uses JSON signalling envelopes, and `SignalClient.acknowledgeDeal`
+sends an unsigned `{ dealId }` payload. Those existing interfaces require host
+and signalling integration before this client can join a live room; a caller
+must transport the signed acknowledgement explicitly rather than route it
+through the unsigned acknowledgement method.
+
 ## Trees that move under core in a later release
 
 These are planned directory moves, not additional deployments. In particular, the current kernel sources still live at the repository root.

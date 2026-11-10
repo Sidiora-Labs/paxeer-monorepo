@@ -12460,6 +12460,24 @@ value = "When an attempt ends with a final revision that built and that no verif
 basis = "Gotchas 4151 and 4149, decisions 3183 and 3212."
 affects = ["22.38.17"]
 
+[decision.3225]
+title = "The fuel task owns the fixture file its target includes, and a defect of the guest source goes to an owner task"
+value = "The file programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs joins the paths of task 22.38.13, whose target compiles and runs it, and the verification of the task runs the own target of that file as well (decisions 3211 and 3183). A fixture that no longer meets a rule of the program is repaired in the fixture, by the operations the program admits. A cause in the source of the guest is not repaired by the task: it reports the site and the commit that introduced it and stops, and an owner task repairs it within the deployment bound (decisions 3192 and 3206). A tree that no verification has seen continues with a model session and is not requalified unchanged (decision 3224)."
+basis = "Gotcha 4152, decisions 3183, 3192, 3206, 3211 and 3224."
+affects = ["22.38.13"]
+
+[decision.3226]
+title = "A stored transfer observation writes a big integer as its decimal digits"
+value = "The wallet application stores an observation as JSON. A big integer member, such as the height of the authentication of a receipt, is written as a string of its decimal digits, and every other member keeps its form. The recovery of a stored observation never trusts a stored authentication: the wallet SDK derives it again from the receipt, the raw transaction and the receipt keys. A case that compares a stored observation with a receipt compares with the same stored form of that receipt and keeps every member of the comparison. The directory apps/wallet/src/components joins the paths of task 22.39.346 (decision 3211)."
+basis = "Gotcha 4153, decisions 3046, 3211, 3217 and 3220."
+affects = ["22.39.346", "17.4.6"]
+
+[decision.3227]
+title = "The Next example of the integration SDK builds in every install layout the repository uses"
+value = "The package @sidiora/layerx-example-next builds with the root install alone and with the root install followed by the own install of the agent TypeScript SDK that human-js-install performs. The repair sits in the configuration and the manifest of the example; the install order of the gate, the agent SDK and the lock of the root are not changed for it. Task 22.39.352 owns the repair and task 17.5.7 follows it (decisions 3130 and 3211)."
+basis = "Gotcha 4154, decisions 3130, 3183 and 3211."
+affects = ["22.39.352", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42120,6 +42138,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.352]
+title = "Build the Next example of the integration SDK beside an own install of the agent SDK"
+reqs = ["22998.1"]
+touches = ["sdk/integrations/next/example"]
+tests = []
+verification_contract = "test -s sdk/integrations/next/example/repair-22-39-352.kvx && npm run build --workspace @sidiora/layerx-example-next && rm -rf services/agent/sdk/typescript/node_modules && npm run build --workspace @sidiora/layerx-example-next"
+do_1 = "do_1 Decision 3227, gotcha 4154. After make platform-js-install human-js-install the build of the package @sidiora/layerx-example-next (sdk/integrations/next/example, next build with Turbopack) fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts. Reproduce it with the build of this task, then find why the bundle reaches a TypeScript source of @scure/base under the node_modules of the agent SDK: read the exports of that package in the installed copy, how sdk/integrations/next/example/next.config.mjs treats @scure/bip32 (transpilePackages) and the SDK packages (serverExternalPackages), and which module of the example or of sdk/integrations/next imports the agent SDK into a bundled graph."
+symbols = ["nextConfig"]
 
 [capability.22.39.351]
 title = "Read the receipt key heights without rounding in the px client of the agent TypeScript SDK"
@@ -161776,6 +161803,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.352]
+title = "Build the Next example of the integration SDK beside an own install of the agent SDK"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.352"]
+interfaces = []
+do_1 = "do_1 Decision 3227, gotcha 4154. After make platform-js-install human-js-install the build of the package @sidiora/layerx-example-next (sdk/integrations/next/example, next build with Turbopack) fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts. Reproduce it with the build of this task, then find why the bundle reaches a TypeScript source of @scure/base under the node_modules of the agent SDK: read the exports of that package in the installed copy, how sdk/integrations/next/example/next.config.mjs treats @scure/bip32 (transpilePackages) and the SDK packages (serverExternalPackages), and which module of the example or of sdk/integrations/next imports the agent SDK into a bundled graph."
+do_2 = "do_2 Repair the cause in sdk/integrations/next/example: its next.config.mjs, its package.json and its package-lock.json may change. The example must build in both layouts: with the root install followed by the own install of the agent SDK, and with the root install alone. Do not change the Makefile, the install targets, services/agent/sdk/typescript, sdk/integrations/next outside the example or the lock of the root. Do not turn the bundler off and do not remove a page or a route of the example. When the cause can only be repaired outside the paths, record file, line and the reason, and stop."
+do_3 = "do_3 Record in sdk/integrations/next/example/repair-22-39-352.kvx the cause with its files, the change and the result of the build in both layouts. Run the build once and the verification once at the final revision."
+symbols = ["nextConfig"]
+touches = ["sdk/integrations/next/example"]
+tests = []
+planned_paths = ["sdk/integrations/next/example/repair-22-39-352.kvx"]
+build_cmd = "make platform-js-install human-js-install"
+verify_cmd = "test -s sdk/integrations/next/example/repair-22-39-352.kvx && npm run build --workspace @sidiora/layerx-example-next && rm -rf services/agent/sdk/typescript/node_modules && npm run build --workspace @sidiora/layerx-example-next"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.351]
 title = "Read the receipt key heights without rounding in the px client of the agent TypeScript SDK"
 status = "done"
@@ -184650,7 +184707,7 @@ do_2 = "do_2 Add the case wallet_provider_lists_an_announced_wallet_once_when_di
 do_3 = "do_3 The verification runs the send case of apps/wallet/e2e/send.spec.ts against the local node; it must pass the onboarding assertions at :972 and :989 with one button and run to its end. Keep the case as it is. A failure whose cause sits in the wallet source under the paths is repaired in this task; a cause outside the paths is recorded with the first failing assertion and its line, and the task stops there. The development server of the wallet rewrites apps/wallet/next-env.d.ts, which is in the paths: restore it with git checkout before the commit."
 do_4 = "do_4 Record in apps/wallet/src/wallet/repair-22-39-346.kvx the defect with its two sites, the change, the new case and the result of the send case. Run the build once and the verification once at the final revision."
 symbols = ["discoverInjectedWallets"]
-touches = ["apps/wallet/src/wallet", "apps/wallet/src/components/onboarding", "apps/wallet/src/components/TransferSuccess.tsx", "apps/wallet/src/components/TransferSuccess.test.tsx", "apps/wallet/e2e/send.spec.ts", "apps/wallet/next-env.d.ts"]
+touches = ["apps/wallet/src/wallet", "apps/wallet/src/components", "apps/wallet/e2e/send.spec.ts", "apps/wallet/next-env.d.ts"]
 tests = ["apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts", "apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"]
 planned_paths = ["apps/wallet/src/wallet/repair-22-39-346.kvx"]
 build_cmd = "make -f chain.mk install && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet exec playwright install chromium && pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts --list"
@@ -184668,6 +184725,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue, gotcha 4140, decision 3217): the attempt-1 tree 0e121f89252b stands (the single entry per provider uuid in WalletProvider.tsx, the new case, the record); the six provider cases pass and the send case passes the onboarding locators, the connection and the receipted state of the page. It stops at send.spec.ts:1074 for a defect of the case itself: its helper rpcAt at :52 reads the body with response.json(), which rounds the last height 9223372036854775807 of the receipt key of the local node, and pinHeight of the wallet SDK then refuses the pin. In rpcAt read the body as text and parse the answer of px_getReceiptKeys with parseReceiptKeyResponse, which the package of the wallet SDK exports (sdk/wallet/src/rpc.ts:236); the other methods keep the plain parse. Change no assertion and no locator of the case, and change nothing under sdk/wallet. do_3 keeps its rule for a later failure. Reduce the record to product facts: remove its entries evidence and scope_note and its qualification block, and state the defect of the helper, the change and the result of the send case. Restore apps/wallet/next-env.d.ts before the commit. Run the build once and the verification once at the final revision."
 do_6 = "Attempt 3 (continue, gotcha 4145, decision 3220): the attempt-2 tree 22deb9aa1bdd stands (the single entry per provider uuid in WalletProvider.tsx, its case, the lossless helper of the send case, the record). The send case now stops at apps/wallet/e2e/send.spec.ts:1106 because the result page reads the node with a plain parse. The paths now name apps/wallet/src/components/TransferSuccess.tsx and apps/wallet/src/components/TransferSuccess.test.tsx. In TransferSuccess.tsx replace the request function at :109 with a JsonRpcClient of the wallet SDK built for the retained RPC URL of the transfer, the way apps/wallet/src/account/StatusLadder.tsx:128 builds its client, and hand observeTransfer at :181 the call of that client; keep the timeout of ten seconds per request, the retained network and every state of the page. Add to TransferSuccess.test.tsx the case transfer_observation_keeps_the_full_range_heights_of_the_receipt_keys: an endpoint that answers px_getReceiptKeys with a raw body whose lastHeight is 9223372036854775807 and whose firstHeight is a small number; the read of the page returns both heights exactly, and readReceiptKeyPins of the wallet SDK accepts the answer. The case must fail on the tree before the change. Search apps/wallet/src outside the test files for a further request function that sends a JSON-RPC method of the node and parses the answer with response.json(), and list each site with file and line in the record; repair one inside the paths and record one outside them. Change no assertion and no locator of the send case, and change nothing under sdk/wallet. The verification now runs both case files and then the send case to its end. do_3 keeps its rule for a cause outside the paths. Extend apps/wallet/src/wallet/repair-22-39-346.kvx with the reader, the change and the result. Restore apps/wallet/next-env.d.ts before the commit. Run the build once and the verification once at the final revision."
+do_7 = "Attempt 4 (continue, gotcha 4153, decision 3226): the attempt-3 tree 6e98157ed545 stands (one entry per announced wallet in WalletProvider.tsx, the reader of TransferSuccess.tsx through JsonRpcClient, the unit cases, the two helper changes of the send case, the record). The send case now passes through :1116 and stops at :1117, because the page cannot save an observation with an authenticated receipt: saveTransferObservation of apps/wallet/src/components/transferOrigin.ts:76 copies through JSON.stringify, which refuses the big integer authentication.height. The touches now name the directory apps/wallet/src/components. In saveTransferObservation write a big integer as a string of its decimal digits and keep every other member. Add to apps/wallet/src/components/TransferSuccess.test.tsx the case transfer_observation_with_an_authenticated_receipt_is_saved: an observation with the truth included and a receipt whose authentication.height is 9223372036854775807 as a big integer is saved, the stored record holds that height as the string 9223372036854775807, and the case records what recoverTransferObservation of the wallet SDK returns for the stored record. A refusal of the recovery whose cause sits in the wallet SDK is recorded with file and line and is not repaired here. In apps/wallet/e2e/send.spec.ts change only the expectation of the saved observation, before and after the reload: compare with the stored form of the receipt of the helper, the same members with the big integer height as its decimal digits, and remove no member from the comparison. Change no locator and no page assertion. A further failure of the send case whose cause sits in the wallet source under the paths is repaired in this attempt within the allowed cycle; a cause outside the paths is recorded with the first failing assertion and its line. Restore apps/wallet/next-env.d.ts before the commit and extend the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.340]
 title = "Bind the payment account of an identity destination in the programs runtime and write the version 2 account-bound evidence"
@@ -185645,11 +185703,11 @@ interfaces = []
 do_1 = "do_1 Extend tests/fuel_budget.rs with every F11 operation at its maximum payload and a full room (16 rooms, 64 asks, 128 bids, 64-lap batch) and assert each stays under 1000000 CPU fuel and within 4096 replay boundaries and 1048576 bytes."
 do_2 = "do_2 Extend tests/programs/test_ai_host_boundary.c with one native CALL per F11 operation through the built guest and assert status 0 and a present replay record; bring any operation over the cap under it through the joint-section readers."
 symbols = ["f11_fuel_table", "test_f11_host_boundary"]
-touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml"]
+touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"]
 planned_paths = []
 build_cmd = "go test -count=1 -timeout 45m ./rpc/ -run '^(TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution)$' && make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
-verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test fuel_budget --test host_boundary"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test repair_22_33_260 --test fuel_budget --test host_boundary"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-programs"
@@ -185657,7 +185715,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 150
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -185668,6 +185726,7 @@ do_6 = "Attempt 4 (continue, gotcha 4087, decision 3167): the attempt-3 tree 80d
 do_7 = "Attempt 5 (continue after 22.39.333 lands, gotchas 4114 and 4121, decisions 3192 and 3198): the attempt-4 tree 647b706c058f stands (tests/fuel_budget.rs of the AI market crate, tests/programs/test_ai_host_boundary.c, programs/Cargo.toml). Its build stopped at the ten minute default of go test inside TestFundConsumptionAttribution before the target and the cargo build ran; the build command now passes -timeout 45m. The task now requires 22.39.333, which gives the guest one packaging recipe and brings the host boundary target back under 524184 bytes. Merge main once that task is on it, change nothing for the size, the recipe or the Go case, run the build once and the verification once at the final revision; when a case of fuel_budget or host_boundary fails, record the first failing assertion and stop."
 do_8 = "Attempt 6 (continue, gotcha 4128, decision 3206): the attempt-5 tree acd6292aedbf stands for tests/fuel_budget.rs of the AI market crate and for tests/programs/test_ai_host_boundary.c. In programs/Cargo.toml set the package profile of layerx-programs-ai-market back to opt-level z with the comment that main carries, and keep any other line of the manifest that the cases need. Change nothing else for the size, the recipe or the Go cases. Run the build once and the verification once at the final revision. When an F11 operation on the full state exceeds the fuel cap or the replay profile at that level, report the operation, its state bytes and the measured fuel as the first failing assertion, change no source of the guest and stop: the repair in the source is an owner task."
 do_9 = "Attempt 7 (requalify after 22.39.348 lands, gotcha 4136, decision 3214): the attempt-6 tree 104080e251b3 stands (opt-level z in programs/Cargo.toml, tests/fuel_budget.rs of the AI market crate, tests/programs/test_ai_host_boundary.c) and its build exits 0. The check of the dependent packages stopped at the cases of the library of the agent daemon, which are red on main and which task 22.39.348 repairs; the task now requires it. Rebase on main once that task is on it, change nothing, and run the build once and the verification once at the final revision. The instruction of attempt 6 stands for an F11 operation that exceeds the fuel cap or the replay profile: report the operation, its state bytes and the measured fuel, change no source of the guest and stop."
+do_10 = "Attempt 8 (continue, gotcha 4152, decisions 3225, 3206 and 3192): the attempt-7 tree 8395325d0d07 stands (opt-level z in programs/Cargo.toml, the module f11_budget of tests/fuel_budget.rs, tests/programs/test_ai_host_boundary.c). Its build passes, 15 cases of the target fuel_budget pass and 5 stop with WRONG_ROSTER at the Heartbeat the fixture sends after the FUND operation and the OPEN_EPOCH operation: f11_fuel_table at tests/fuel_budget.rs:4137 and the four admission fixture cases of tests/repair_22_33_260.rs, which the target includes by path. The touches now name that file and the verification runs its own target first. Find the cause before any change: run the target repair_22_33_260 alone; then read why epoch::captured_roster of src/epoch.rs returns no roster after the OPEN_EPOCH operation of the helper grow, and which commit between 2ce65ef1b65c and 167ce2a7f0cf changed that. When the program now asks for a state or an operation before it captures a roster and the fixture does not provide it, repair the fixture in tests/repair_22_33_260.rs and in the module f11_budget by the operations the program admits, never by writing state past an operation, and name in the final report whether tests/fixtures/f11_producers.rs, which holds the same helpers and is outside the paths, needs the same change. When the cause is a defect in the source of the guest, change no source of the guest: report the file, the line, the commit and the smallest failing sequence of operations as the first failing assertion, and stop. Do not remove, skip or weaken a case, and keep the inclusion of the producers module. The instruction of attempt 6 stands for an F11 operation that exceeds the fuel cap or the replay profile: report the operation, its state bytes and the measured fuel, change no source of the guest and stop. Name the cause and the repair in a comment at the head of the module f11_budget. Run the build once and the verification once at the final revision."
 
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"
@@ -193928,7 +193987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.347]
 title = "Admit a signalling hello against the fields the room read serves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.348"]
@@ -225581,7 +225640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1695.1]
 title = "Issue #1695: Wire indexer status to canonical progress and authorized durable operations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.162"]
@@ -333674,7 +333733,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -333713,6 +333772,7 @@ do_14 = "Attempt 12 (continue after 22.39.317 lands, gotcha 4090, decision 3170)
 do_15 = "Attempt 13 (continue after 22.39.335 lands, gotcha 4123, decision 3201): the attempt-12 tree a8267ca704f9 stands (the gate changes, the Makefile, the web package file, the completion gate case). The gate now passes the install of sdk/platform/jvm and stops at the install of sdk/integrations/spring with 1 failure and 7 errors of 30. Six come from the place of the checkout: run_wave at spec/layerx-merge/programme/gates.py:38 creates it under the system temporary directory, the cases keep their stores under the target directory of the module, and DurableStores.inspectDirectory at DurableStores.java:406 refuses a store that has a group or world writable ancestor. Create the parent of the checkout with mode 0700 in a directory beside the repository root, verify before the checkout that no ancestor of it is group or world writable and stop with a message naming the first that is, keep the removal of the checkout and of its parent, and extend spec/layerx-merge/programme/tests/test_wave_6_gate.py with the assertion on the ancestors while its present assertions stay. Change no case and no source of the Spring integration. The two remaining errors (ReceiptKeysConfigTest) belong to task 22.39.335, which the task now requires: merge main once that task is on it. Run the build once and the verification once at the final revision."
 do_16 = "Attempt 14 (continue after 22.39.339 lands, gotcha 4129, decision 3207): the attempt-13 tree 0d064cbe7515 stands (the checkout beside the repository root with its ancestor check, the assertions of the wave gate test, the Makefile, the web package file, the completion gate case). The preparation now completes and the runner refuses the first command because it counts the build directories of Maven, SwiftPM and .NET as source; task 22.39.339 names them as output and the task now requires it. Merge main once that task is on it, change nothing of the tree and nothing of the runner, and run the build once and the verification once at the final revision. When the gate then stops at a further command, record the command, its exit code and the first error as a finding and repair it only when the cause lies inside the touches of this task."
 do_17 = "Attempt 15 (continue after 22.39.350 lands, gotcha 4139, decision 3216): the attempt-14 tree 26531ad69081 stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now runs its commands and stops in make workspace-build at platform-sdk-check, because the source agent-api of the platform SDK pipeline changed on main without a regeneration. The generated roots and sdk/platform/pipeline.kvx are outside the paths of this task and task 22.39.350 regenerates them; the task now requires it. Rebase on main once that task is on it, regenerate nothing and change no file of the pipeline here. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
+do_18 = "Attempt 16 (continue after 22.39.352 lands, gotcha 4154, decision 3227): the attempt-15 tree 1328649c1bfc stands (the Makefile, the web package file, the completion gate case, gates.py, the wave gate test). The gate now passes platform-sdk-check and stops in make workspace-build at the build of the Next example of the integration SDK, whose directory is outside the paths of this task and which task 22.39.352 repairs; the task now requires it. Rebase on main once that task is on it and change nothing for the example or for the install targets. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
