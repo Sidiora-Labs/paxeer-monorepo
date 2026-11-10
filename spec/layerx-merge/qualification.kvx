@@ -39250,3 +39250,11 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 9 at 0b7715be4a92: build exit 0; verification exit 1: test_wave_6_gate_passes records the gate failure inside mvn -f sdk/platform/jvm/pom.xml install at GeneratedCatalogueProgramsTest.nativePrepareCarriesThePreparationRecord (GeneratedCatalogueProgramsTest.java:214): expected five fields, found seven, components contain activity, fixture record missing required property activity; log /out/logs/verify-2.log."
 assumption = "With the test aligned the JVM install step passes and the gate continues to its next command."
 severity = "high"
+
+[finding.18.1724.1.11]
+task = "18.1724.1"
+file = "node/sequencer/receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+symbol = "receipt_equality_test.go::TestCurrentReceiptRestartFixture"
+observed = "Attempt 11 at b7dbe7cd8e73: build exit 0; verification: go test -count=1 ./node/sequencer/ -run TestCurrentReceiptRestartFixture failed at the first run because the capture file did not exist yet (log /out/logs/verify-1.log) and passed at the second run with the capture committed; cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover exit 101: legacy_receipt_evidence_is_refused_after_restart fails at tests/outbox_recover.rs:133 and startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence fails at :261 (receipt_consumed 0, want 25); log /out/logs/verify-2.log."
+assumption = "The attempt did what do_11 asked: it recorded the refusing sites and stopped without weakening the check; the accounting repair is the work of 22.39.303."
+severity = "high"

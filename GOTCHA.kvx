@@ -20065,3 +20065,13 @@ fix = "Decision 3145: task 22.39.302 repairs the site; 22.39.300 compiles its te
 title = "Ten retired-reference repairs waited on one live task because every one of them touches the catalogue"
 symptom = "Tasks 22.39.269 to 22.39.278 were admissible by their requirements but waited on the live task 22.39.248 because tools/paxeer-x/retired_callers.json is in the touches of each; with decision 3142 the catalogue merges by union and concurrent repairs of it are safe."
 fix = "Decision 3146: the catalogue is not an exclusive path; repairs that touch it are admitted together."
+
+[gotcha.4049]
+title = "A recursive merge of the retired-callers catalogue presents a base stage that carries conflict markers"
+symptom = "Task 22.39.299 attempt 2 and task 22.39.288 attempt 3: integrating the qualified commit of 22.39.297 (a3bd3021da71) onto main at 8742bd00eb conflicted on tools/paxeer-x/retired_callers.json and the three-way union of decision 3142 stopped with a JSON decode error at line 674 of the base stage. The two commits share two merge bases, so the base stage is a virtual merge of those bases and carried the marker line Temporary merge branch 1 where the two bases disagree on the allowed references list; both real sides parsed and held every entry."
+fix = "The union reads the catalogue at a real merge base of the two commits when the base stage carries markers and falls back to an empty base when no merge base is readable; the same guard applies to the union of GOTCHA.kvx and the qualification ledger. Both tasks resume from main."
+
+[gotcha.4050]
+title = "The restart accounting of the agent daemon sums receipt amounts that a pay spend never carries"
+symptom = "Task 18.1724.1 attempt 11 at b7dbe7cd8e73: with the node-produced capture committed (transaction value 0, receipt amount 0, committed budget spend 25, as decision 3128 defines them) the daemon recovery case startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence fails at services/agent/crates/layerx-agentd/tests/outbox_recover.rs:261 with receipt_consumed 0, want 25: src/budget/hold.rs:149-153 adds the amount of every successful receipt and :177-182 reconciles only when the record spend lies between that sum and the sum plus the unresolved holds, so a budgetSpend receipt whose amount is the zero transaction value leaves the committed spend of 25 unreconciled and src/human_runtime.rs:2439-2453 refuses writes. The spend of such an activity is the amount the daemon itself requested in the calldata of the transaction it signed."
+fix = "Decision 3147: the restart accounting counts the spend the daemon requested for each successful receipt (task 22.39.303); 18.1724.1 continues after it lands."
