@@ -199180,7 +199180,7 @@ do_5 = "do_5 Attempt 3 (continue, decisions 3211 and 3212): the attempt-2 tree 4
 
 [task.22.38.20]
 title = "Recover a room from peer loss by re-planning the layer split"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.17", "22.31.620", "22.39.353", "22.39.365", "22.39.364", "22.39.375"]
@@ -226157,7 +226157,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.376]
 title = "Give the development trade read of the launchpad the watermark of the head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
