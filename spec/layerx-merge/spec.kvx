@@ -193324,7 +193324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.318]
 title = "Select the receipts of a budget period by block time in the restart recovery of the agent daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
