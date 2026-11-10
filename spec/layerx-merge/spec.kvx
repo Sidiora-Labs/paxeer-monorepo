@@ -12304,6 +12304,12 @@ value = "A build or verification command that runs TestFundConsumptionAttributio
 basis = "Gotchas 4114 and 4121, decision 3192."
 affects = ["22.38.13"]
 
+[decision.3199]
+title = "A task that changes a manifest of a Cargo workspace carries the lock file of that workspace in its paths"
+value = "A task whose commit adds, removes or changes a dependency in the Cargo.toml of a member crate names the Cargo.lock at the root of the workspace of that crate in its touches, and the lock file changes only by what the manifest change needs under cargo build --locked. A qualified tree that was kept back only because that lock file was outside its paths stands unchanged once the record of the task names the file."
+basis = "Gotcha 4122, decisions 2829 and 2964."
+affects = ["22.38.16"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197226,7 +197232,7 @@ do_1 = "do_1 Add src/inference_market/signal.rs: a WebSocket listener (plain, no
 do_2 = "do_2 Refuse a hello whose signature does not verify, whose peer key has no enrolment on chain, or whose manifest digest differs from the enrolled one; cap connections at 64 and frames at 65536 bytes."
 do_3 = "do_3 Write tests/inference_signal.rs: hello admitted, bad signature refused, unenrolled refused, relay delivers a description to the named peer only, and the cap refuses the 65th connection."
 symbols = ["SignalListener", "HelloFrame", "RoomOffer", "relay_description"]
-touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/Cargo.toml"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock"]
 tests = ["services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/signal.rs", "services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
