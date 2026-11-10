@@ -39866,3 +39866,11 @@ symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
 observed = "Attempt 15 at d090e17d89c7 on base ce4f88dbbf43: the build exits 0 and the verification exits 2 in make -C services/launchpad ci; the indexer module fails in internal/app, internal/config, internal/decode, internal/processor and internal/receipt; log /out/logs/verify-1.log."
 assumption = "The three comparison helpers sit outside the paths of the task and the catalogue loaders are red on main."
 severity = "high"
+
+[finding.22.38.17.1]
+task = "22.38.17"
+file = "services/agent/crates/layerx-agentd/tests/inference_deals.rs"
+symbol = "inference_deals.rs"
+observed = "Attempt 1 at a7f84185ecb0 on base 1da5e223456f: build 3 exits 0 (log /out/logs/build-3.log), no verification ran, and the check of the dependent packages exits 101 with E0599 at main.rs:2234 and E0277 at main.rs:2263; log /out/logs/dependents-1.log."
+assumption = "The declared build never compiled the entry file because only the host package builds it."
+severity = "high"
