@@ -40386,3 +40386,11 @@ symbol = "ai_source.rs::committed_read_reaches_the_projection"
 observed = "Attempt 1 at c63a1ab475de on base 7cbe7a57367d: both builds exit 0; verification 2 exits 1 at c63a1ab475de with five cases passed and the lint step stopped, could not compile layerx-indexer (lib) due to 117 previous errors; log /out/logs/verify-2.log."
 assumption = "The verification named the whole library, which is red under the lint table of its workspace on main."
 severity = "high"
+
+[finding.17.5.7.20]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 20 at 367b142573e2 on base 7cbe7a57367d: the build exits 0 and the verification exits 1; make workspace-build exits 2 at Makefile:1742 with No space left on device, 1451708416 bytes free before the first command and 643072 bytes at the stop; log /out/logs/verify-1.log."
+assumption = "The temporary checkout and a measurement run outside the counted gates left the first command of the gate 1.4 GiB of the volume."
+severity = "high"
