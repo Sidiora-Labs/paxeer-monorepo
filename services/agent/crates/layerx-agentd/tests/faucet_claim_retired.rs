@@ -31,19 +31,39 @@ fn faucet_claim_is_refused_as_retired_and_absent_from_the_catalogue() {
             },
             "credential": credential,
         });
-        let rejection = decode(body.to_string().as_bytes())
-            .err()
-            .expect("retired faucet.claim must be refused before authorization");
+        let rejection = assert_some(
+            decode(body.to_string().as_bytes()).err(),
+            "retired faucet.claim must be refused before authorization",
+        );
         assert_eq!(rejection.class, ErrorClass::UnavailableCapability);
         assert_eq!(rejection.reason, "unavailable_capability.faucet.claim");
         assert_eq!(rejection.retriability, Retriability::Terminal);
         assert_eq!(rejection.request_id, RequestId(91));
         assert_eq!(http_status(&rejection), 503);
-        let response: Value = serde_json::from_slice(&error_body(&rejection)).unwrap();
+        let response: Value = assert_ok(
+            serde_json::from_slice(&error_body(&rejection)),
+            "unexpected error",
+        );
         assert_eq!(response["reason"], "unavailable_capability.faucet.claim");
         assert_eq!(response["request_id"], "91");
-        let error = rejection.into_api_error().expect("typed retirement error");
+        let error = assert_some(rejection.into_api_error(), "typed retirement error");
         assert_eq!(error.class, ErrorClass::UnavailableCapability);
         assert_eq!(error.retriability, Retriability::Terminal);
+    }
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
     }
 }

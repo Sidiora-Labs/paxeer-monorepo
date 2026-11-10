@@ -235,12 +235,21 @@ fn pending_fee_counts_against_the_daemon_limit() {
     ));
     drop(store);
     drop(limiter);
-    let store = must(Store::open(&directory.0));
+    assert_reopened_daemon_limit(&directory.0, &record, &second, tenant);
+}
+
+fn assert_reopened_daemon_limit(
+    directory: &std::path::Path,
+    record: &layerx_agentd::budget::DaemonLimitRecord,
+    second: &ReservationRequest,
+    tenant: TenantId,
+) {
+    let store = must(Store::open(directory));
     let restarted = must(BudgetLimiter::new(Vec::new()));
     must(load_daemon_limits(&store, &restarted));
     assert_eq!(restarted.consumed(record.limit_id), Ok(800));
     assert!(matches!(
-        reserve(&restarted, &second),
+        reserve(&restarted, second),
         Err(LimitRefusal::Exceeded { consumed: 800, .. })
     ));
     let key = must(TenantKey::new(

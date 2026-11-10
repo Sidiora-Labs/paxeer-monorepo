@@ -69,7 +69,22 @@ fn history_cursor_is_the_block_position_triple() {
         assert_eq!(Cursor::from_hex(invalid), Err(HistoryReadError::Cursor));
     }
 
-    let endpoint = SequencerEndpoint::new("http://127.0.0.1:1/", &[]).unwrap();
+    assert_history_range_refusals(cursor);
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+fn assert_history_range_refusals(cursor: Cursor) {
+    let endpoint = assert_ok(
+        SequencerEndpoint::new("http://127.0.0.1:1/", &[]),
+        "unexpected error",
+    );
     let limits = HistoryLimits {
         maximum_items: 3,
         maximum_response_bytes: 1_048_576,

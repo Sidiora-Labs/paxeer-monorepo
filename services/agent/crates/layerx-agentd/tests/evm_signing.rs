@@ -137,71 +137,86 @@ impl SessionFixture {
             std::process::id(),
             NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
-        std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&root)
-            .unwrap();
-        let uid = std::fs::metadata(&root).unwrap().uid();
-        let keys = layerx_agentd::session_keys::SessionKeyRegistry::open(
-            root.clone(),
-            vec![0x81; 32],
-            17,
-            uid,
-        )
-        .unwrap();
+        assert_ok(
+            std::fs::DirBuilder::new().mode(0o700).create(&root),
+            "unexpected error",
+        );
+        let uid = assert_ok(std::fs::metadata(&root), "unexpected error").uid();
+        let keys = assert_ok(
+            layerx_agentd::session_keys::SessionKeyRegistry::open(
+                root.clone(),
+                vec![0x81; 32],
+                17,
+                uid,
+            ),
+            "unexpected error",
+        );
         Self { root, keys }
     }
     fn provision(&self, seed: [u8; 32], grant: &IssuedSessionKey) -> ProvisionedSessionKey {
         // Decode the actual authorization registration before persisting its EVM key.
         assert_eq!(
-            layerx_crypto::session::decode_session_key(&grant.registration_payload).unwrap(),
+            assert_ok(
+                layerx_crypto::session::decode_session_key(&grant.registration_payload),
+                "unexpected error"
+            ),
             *grant
         );
-        self.keys.provision(grant.grant_id, &seed, grant).unwrap();
-        self.keys.load(grant.grant_id, grant.clone()).unwrap()
+        assert_ok(
+            self.keys.provision(grant.grant_id, &seed, grant),
+            "unexpected error",
+        );
+        assert_ok(
+            self.keys.load(grant.grant_id, grant.clone()),
+            "unexpected error",
+        )
     }
     fn reopen(&mut self) {
         use std::os::unix::fs::MetadataExt;
-        self.keys = layerx_agentd::session_keys::SessionKeyRegistry::open(
-            self.root.clone(),
-            vec![0x81; 32],
-            17,
-            std::fs::metadata(&self.root).unwrap().uid(),
-        )
-        .unwrap();
+        self.keys = assert_ok(
+            layerx_agentd::session_keys::SessionKeyRegistry::open(
+                self.root.clone(),
+                vec![0x81; 32],
+                17,
+                assert_ok(std::fs::metadata(&self.root), "unexpected error").uid(),
+            ),
+            "unexpected error",
+        );
     }
 }
 impl Drop for SessionFixture {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.root).unwrap();
+        assert_ok(std::fs::remove_dir_all(&self.root), "unexpected error");
     }
 }
 
 fn prepared() -> SigningPreparation {
     let actor_address = session_address([0xa5; 32]);
-    let transaction = layerx_agentd::prepare::prepare_bound(
-        layerx_agentd::prepare::EvmPreparationState {
-            chain_id: 17,
-            pending_nonce: 5,
-            base_fee_per_gas: 3,
-            head_height: 88,
-        },
-        layerx_agentd::prepare::EvmPreparationDefaults {
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 7,
-            maximum_payload_bytes: 1_024,
-        },
-        layerx_agentd::prepare::EvmPrepareRequest {
-            from: actor_address,
-            call: layerx_agentd::prepare::PrecompileCall::ledger_transfer(send_payload()),
-            expected_nonce: Some(5),
-            max_priority_fee_per_gas: None,
-            max_fee_per_gas: None,
-            declared_payload_limit: 1_024,
-        },
-        100_000,
-    )
-    .unwrap();
+    let transaction = assert_ok(
+        layerx_agentd::prepare::prepare_bound(
+            layerx_agentd::prepare::EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: 5,
+                base_fee_per_gas: 3,
+                head_height: 88,
+            },
+            layerx_agentd::prepare::EvmPreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 7,
+                maximum_payload_bytes: 1_024,
+            },
+            layerx_agentd::prepare::EvmPrepareRequest {
+                from: actor_address,
+                call: layerx_agentd::prepare::PrecompileCall::ledger_transfer(send_payload()),
+                expected_nonce: Some(5),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 1_024,
+            },
+            100_000,
+        ),
+        "unexpected error",
+    );
     SigningPreparation {
         transaction,
         actor_address,
@@ -218,27 +233,40 @@ fn self_signed_transaction_recovers_to_the_session_address() {
     assert_eq!(session.evm_address(), session_address(seed));
     drop(session);
     fixture.reopen();
-    let session = fixture
-        .keys
-        .load(session_issued.grant_id, session_issued.clone())
-        .unwrap();
-    let signed = ready(self_sign(Some(&session), &prepared, &registry(), 1_000, 5)).unwrap();
+    let session = assert_ok(
+        fixture
+            .keys
+            .load(session_issued.grant_id, session_issued.clone()),
+        "unexpected error",
+    );
+    let signed = assert_ok(
+        ready(self_sign(Some(&session), &prepared, &registry(), 1_000, 5)),
+        "unexpected error",
+    );
     assert_eq!(signed.signature.len(), 65);
-    let (call, signature) = decode_signed(&signed.signed_canonical_bytes).unwrap();
+    let (call, signature) = assert_ok(
+        decode_signed(&signed.signed_canonical_bytes),
+        "unexpected error",
+    );
     assert_eq!(call, prepared.transaction.call);
     assert_eq!(signature.as_bytes(), &signed.signature);
     let expected = session_address(seed);
-    assert_eq!(recover_sender(&call, &signature).unwrap(), expected);
+    assert_eq!(
+        assert_ok(recover_sender(&call, &signature), "unexpected error"),
+        expected
+    );
     assert_eq!(signed.signer_address, expected);
     assert_eq!(expected, prepared.actor_address);
     assert_eq!(signed.mode, SigningMode::ProtocolSessionKey);
-    let verified = layerx_agentd::sign::verify_before_submit(
-        &signed.signed_canonical_bytes,
-        &prepared,
-        &expected,
-        &registry(),
-    )
-    .unwrap();
+    let verified = assert_ok(
+        layerx_agentd::sign::verify_before_submit(
+            &signed.signed_canonical_bytes,
+            &prepared,
+            &expected,
+            &registry(),
+        ),
+        "unexpected error",
+    );
     assert_eq!(verified.exact_bytes(), signed.signed_canonical_bytes);
     assert_eq!(signed.audit.session_public_key, session_public_key(seed));
     assert_eq!(signed.audit.revocation_sequence, 5);
@@ -259,26 +287,7 @@ fn self_signed_transaction_recovers_to_the_session_address() {
         )),
         Err(SigningError::PreparedBytesChanged),
     );
-    let other_fixture = SessionFixture::new();
-    let mismatched_authority =
-        other_fixture.provision([0xa6; 32], &issued([0xa6; 32], send_type(), 1_100));
-    assert_eq!(
-        ready(self_sign(
-            Some(&mismatched_authority),
-            &prepared,
-            &registry(),
-            1_000,
-            5
-        )),
-        Err(SigningError::AuthorityMismatch),
-    );
-    let denied_fixture = SessionFixture::new();
-    let mint = ActivityType::new(ModuleId::Asset, 10).unwrap();
-    let denied = denied_fixture.provision(seed, &issued(seed, mint, 1_100));
-    assert_eq!(
-        ready(self_sign(Some(&denied), &prepared, &registry(), 1_000, 5)),
-        Err(SigningError::ScopeDenied)
-    );
+    let mint = assert_authority_and_scope(seed, &prepared);
     assert_eq!(session_issued.permitted_activity_types, vec![send_type()]);
     let mut changed_grant = session_issued.clone();
     changed_grant.permitted_activity_types = vec![mint];
@@ -286,7 +295,10 @@ fn self_signed_transaction_recovers_to_the_session_address() {
         .keys
         .load(changed_grant.grant_id, changed_grant)
         .is_err());
-    fixture.keys.revoke(session_issued.grant_id).unwrap();
+    assert_ok(
+        fixture.keys.revoke(session_issued.grant_id),
+        "unexpected error",
+    );
     assert_eq!(
         ready(self_sign(Some(&session), &prepared, &registry(), 1_000, 5)),
         Err(SigningError::Revoked)
@@ -302,11 +314,14 @@ fn self_signed_transaction_recovers_to_the_session_address() {
 #[test]
 fn external_signature_from_another_key_is_refused() {
     let prepared = prepared();
-    let foreign_raw = prepared.transaction.call.sign(&[0xa6; 32]).unwrap();
-    let (call, signature) = decode_signed(&foreign_raw).unwrap();
+    let foreign_raw = assert_ok(
+        prepared.transaction.call.sign(&[0xa6; 32]),
+        "unexpected error",
+    );
+    let (call, signature) = assert_ok(decode_signed(&foreign_raw), "unexpected error");
     assert_eq!(signature.as_bytes().len(), 65);
     assert_eq!(
-        recover_sender(&call, &signature).unwrap(),
+        assert_ok(recover_sender(&call, &signature), "unexpected error"),
         session_address([0xa6; 32])
     );
     assert_ne!(session_address([0xa6; 32]), prepared.actor_address);
@@ -318,8 +333,11 @@ fn external_signature_from_another_key_is_refused() {
         layerx_agentd::sign::attach_external_signature(&prepared, [0; 65]),
         Err(SigningError::SignatureInvalid),
     );
-    let valid_raw = prepared.transaction.call.sign(&[0xa5; 32]).unwrap();
-    let (_, valid_signature) = decode_signed(&valid_raw).unwrap();
+    let valid_raw = assert_ok(
+        prepared.transaction.call.sign(&[0xa5; 32]),
+        "unexpected error",
+    );
+    let (_, valid_signature) = assert_ok(decode_signed(&valid_raw), "unexpected error");
     assert_eq!(
         layerx_agentd::sign::verify_before_submit(
             &valid_raw,
@@ -342,8 +360,10 @@ fn external_signature_from_another_key_is_refused() {
     );
 
     assert_eq!(
-        layerx_agentd::sign::attach_external_signature(&prepared, *valid_signature.as_bytes())
-            .unwrap(),
+        assert_ok(
+            layerx_agentd::sign::attach_external_signature(&prepared, *valid_signature.as_bytes()),
+            "unexpected error"
+        ),
         valid_raw,
     );
     assert_eq!(
@@ -363,11 +383,11 @@ fn verify_before_submit_rejects_mutated_calldata() {
     let mut changed = prepared.transaction.call.clone();
     changed.data[0] ^= 1;
     // Sign the changed call with the correct key, so rejection proves call binding.
-    let mutated_raw = changed.sign(&[0xa5; 32]).unwrap();
-    let (decoded, signature) = decode_signed(&mutated_raw).unwrap();
+    let mutated_raw = assert_ok(changed.sign(&[0xa5; 32]), "unexpected error");
+    let (decoded, signature) = assert_ok(decode_signed(&mutated_raw), "unexpected error");
     assert_ne!(decoded.data, prepared.transaction.call.data);
     assert_eq!(
-        recover_sender(&decoded, &signature).unwrap(),
+        assert_ok(recover_sender(&decoded, &signature), "unexpected error"),
         prepared.actor_address
     );
     assert_eq!(
@@ -379,4 +399,36 @@ fn verify_before_submit_rejects_mutated_calldata() {
         ),
         Err(SigningError::PreparedBytesChanged),
     );
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+fn assert_authority_and_scope(seed: [u8; 32], prepared: &SigningPreparation) -> ActivityType {
+    let other_fixture = SessionFixture::new();
+    let mismatched_authority =
+        other_fixture.provision([0xa6; 32], &issued([0xa6; 32], send_type(), 1_100));
+    assert_eq!(
+        ready(self_sign(
+            Some(&mismatched_authority),
+            prepared,
+            &registry(),
+            1_000,
+            5
+        )),
+        Err(SigningError::AuthorityMismatch),
+    );
+    let denied_fixture = SessionFixture::new();
+    let mint = assert_ok(ActivityType::new(ModuleId::Asset, 10), "unexpected error");
+    let denied = denied_fixture.provision(seed, &issued(seed, mint, 1_100));
+    assert_eq!(
+        ready(self_sign(Some(&denied), prepared, &registry(), 1_000, 5)),
+        Err(SigningError::ScopeDenied)
+    );
+    mint
 }
