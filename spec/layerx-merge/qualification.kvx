@@ -40026,3 +40026,11 @@ symbol = "test_call_activity.c::main"
 observed = "Attempt 4 at 3e50ea6ff79a on base 6ed89b16ad06: both builds exit 0; verification 2 exits 1 at 6d690906f85c, both native binaries pass and the transfer module ends with 31 passed and 1 failed at transfer.rs:2209, nested-v2 left 4 right 2; log /out/logs/verify-2.log."
 assumption = "The count of the case matches two category labels with one suffix and the vectors are complete."
 severity = "high"
+
+[finding.22.39.227.2]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 2 at 313617fcd332 on base 896caeace6fa: build 3 exits 0 at 86714094a977 and the verification exits 101 at 86714094a977 with one too_many_lines error at tests/metrics_rungs.rs:58 and two needless_borrows_for_generic_args errors at tests/protocol2_restart.rs:183 and :258; log /out/logs/verify-1.log."
+assumption = "Both repair cycles were used by the two red builds before the only verification."
+severity = "high"
