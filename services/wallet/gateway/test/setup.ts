@@ -8,7 +8,8 @@
  * cleanly without anyone having to source `.env` in the shell.
  *
  * These values are NOT real secrets. They satisfy the schema and never touch
- * the network — every test must use mocks / fakes for IO.
+ * the network — integration cases must configure their own loopback services before
+ * importing runtime configuration. Protocol-only helpers must not load env.ts.
  */
 import { randomBytes } from 'node:crypto';
 

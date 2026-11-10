@@ -18,7 +18,7 @@ import {
   recoverTransactionAddress,
   serializeTransaction,
   toHex,
-  type Hex,
+  type Hex
 } from 'viem';
 import type { SequencerReceiptResult } from '../src/rpc/pool.js';
 import type { AttestorClient, EvmReviewResult } from '../src/attestor/client.js';
@@ -31,7 +31,7 @@ import {
   makePki,
   startIdentity,
   type Identity,
-  type Pki,
+  type Pki
 } from './e2e/attestors.js';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 
@@ -43,7 +43,7 @@ const recipient = '0x3333333333333333333333333333333333333333';
 const data = encodeFunctionData({
   abi: erc20Abi,
   functionName: 'transfer',
-  args: [recipient, 600n],
+  args: [recipient, 600n]
 });
 const tx = {
   type: 'eip1559',
@@ -54,7 +54,7 @@ const tx = {
   data,
   gas: 80_000n,
   maxFeePerGas: 2n,
-  maxPriorityFeePerGas: 1n,
+  maxPriorityFeePerGas: 1n
 } as const;
 const canonical = serializeTransaction(tx, { r: '0x0', s: '0x0', yParity: 0 });
 
@@ -113,8 +113,8 @@ const receiptPins = [
     keyId: Buffer.from(sequencerKeyId.slice(2), 'hex'),
     publicKey: sequencerPublicKey,
     first_height: 1n,
-    last_height: (1n << 64n) - 1n,
-  },
+    last_height: (1n << 64n) - 1n
+  }
 ];
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 let rpcModule: typeof import('../src/rpc/pool.js');
@@ -146,8 +146,8 @@ async function canonicalSignedReceipt(raw: Hex, from: Hex, sequence: number) {
         keyId: bytes(vector.pinnedKey.keyId),
         publicKey: bytes(vector.pinnedKey.publicKey),
         first_height: BigInt(vector.pinnedKey.firstHeight),
-        last_height: BigInt(vector.pinnedKey.lastHeight),
-      },
+        last_height: BigInt(vector.pinnedKey.lastHeight)
+      }
     ]
   );
   const transaction = parseTransaction(raw);
@@ -184,8 +184,8 @@ async function canonicalSignedReceipt(raw: Hex, from: Hex, sequence: number) {
         kind: 1 as const,
         monetary: false,
         transferSetRoot: Buffer.alloc(32),
-        body: summary,
-      },
+        body: summary
+      }
     ],
     feeCharged: tx.gas * transaction.maxFeePerGas!,
     batchId: Buffer.concat([Buffer.alloc(24), Buffer.from('0000000000000001', 'hex')]),
@@ -197,7 +197,7 @@ async function canonicalSignedReceipt(raw: Hex, from: Hex, sequence: number) {
     to: addressWord(transaction.to!),
     contextHash: bytes(sequencerKeyId),
     timestamp: BigInt(Date.now()),
-    sequencerSignature: Buffer.alloc(64),
+    sequencerSignature: Buffer.alloc(64)
   };
   const digest = createHash('sha256')
     .update('LXP/v1/receipt\0')
@@ -206,7 +206,7 @@ async function canonicalSignedReceipt(raw: Hex, from: Hex, sequence: number) {
   const receipt = toHex(
     encodeSequencerReceipt({
       ...unsigned,
-      sequencerSignature: sign(null, digest, sequencerKey.privateKey),
+      sequencerSignature: sign(null, digest, sequencerKey.privateKey)
     })
   );
   const view = {
@@ -233,7 +233,7 @@ async function canonicalSignedReceipt(raw: Hex, from: Hex, sequence: number) {
     vmError: '',
     keyId: sequencerKeyId,
     signingKey: toHex(sequencerPublicKey),
-    receipt,
+    receipt
   };
   const verified = await verifySequencerReceipt(bytes(receipt), bytes(raw), receiptPins);
   expect(toHex(verified.receipt.activityId)).toBe(hash);
@@ -260,8 +260,9 @@ async function startRpc(exchanges: RpcExchange[], sequencer: boolean): Promise<s
         receipts.set(hash, await canonicalSignedReceipt(raw, from, receipts.size + 1));
         result = hash;
       } else if (sequencer && body.method === 'pax_sequencerReceipt') {
-        if (!receipts.has(body.params[0]!)) throw new Error('receipt requested before broadcast');
-        result = receipts.get(body.params[0]!);
+        result = receipts.get(body.params[0]!) ?? null;
+      } else if (!sequencer && body.method === 'eth_chainId') {
+        result = '0x7d';
       } else if (!sequencer && body.method === 'eth_blockNumber') {
         result = '0x1';
       } else {
@@ -301,7 +302,10 @@ function call<T>(
         headers:
           raw === undefined
             ? {}
-            : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw) },
+            : {
+                'content-type': 'application/json',
+                'content-length': Buffer.byteLength(raw)
+              }
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -311,7 +315,7 @@ function call<T>(
           try {
             resolve({
               status: res.statusCode!,
-              body: JSON.parse(Buffer.concat(chunks).toString('utf8')) as T,
+              body: JSON.parse(Buffer.concat(chunks).toString('utf8')) as T
             });
           } catch (error) {
             reject(error);
@@ -325,7 +329,10 @@ function call<T>(
   });
 }
 
-async function reservePorts(): Promise<{ ports: number[]; release: () => Promise<void> }> {
+async function reservePorts(): Promise<{
+  ports: number[];
+  release: () => Promise<void>;
+}> {
   const servers: Server[] = [];
   const ports: number[] = [];
   for (let i = 0; i < 10; i++) {
@@ -351,7 +358,7 @@ async function reservePorts(): Promise<{ ports: number[]; release: () => Promise
             })
         )
       );
-    },
+    }
   };
 }
 
@@ -367,10 +374,13 @@ beforeAll(async () => {
   const inventoryFile = join(work, 'inventory.jwt');
   const inventoryPublic = join(work, 'inventory.pub');
   writeFileSync(producerFile, producer.privateKey.export({ format: 'pem', type: 'pkcs8' }), {
-    mode: 0o600,
+    mode: 0o600
   });
   writeFileSync(producerPublic, producer.publicKey.export({ format: 'pem', type: 'spki' }));
-  writeFileSync(inventoryPublic, inventorySigner.publicKey.export({ format: 'pem', type: 'spki' }));
+  writeFileSync(
+    inventoryPublic,
+    inventorySigner.publicKey.export({ format: 'pem', type: 'spki' })
+  );
   let sequence = 0;
   const approveInventory = (key: WalletInventoryKey): void => {
     const now = Math.floor(Date.now() / 1000);
@@ -389,15 +399,17 @@ beforeAll(async () => {
         protocol: 'wallet',
         threshold: 3,
         members: ids.map((id) => ({ id, spki_sha256: pki.node(id).pin })),
-        keys: [key],
+        keys: [key]
       })
     ).toString('base64url');
     const input = `${header}.${payload}`;
     const signature = sign('sha256', Buffer.from(input), {
       key: inventorySigner.privateKey,
-      dsaEncoding: 'ieee-p1363',
+      dsaEncoding: 'ieee-p1363'
     });
-    writeFileSync(inventoryFile, `${input}.${signature.toString('base64url')}`, { mode: 0o600 });
+    writeFileSync(inventoryFile, `${input}.${signature.toString('base64url')}`, {
+      mode: 0o600
+    });
   };
   approveInventory({
     key_id: keyId,
@@ -405,7 +417,7 @@ beforeAll(async () => {
     curve: 'secp256k1',
     epoch: 0,
     public_key: '',
-    operations: ['generate'],
+    operations: ['generate']
   });
   const policyFile = join(work, 'policy.json');
   writeFileSync(
@@ -418,10 +430,10 @@ beforeAll(async () => {
         rate_per_minute: 600,
         caps: {
           native: { per_transaction: '1000000', daily: '10000000' },
-          [tokenAddress]: { per_transaction: '1000', daily: '10000' },
+          [tokenAddress]: { per_transaction: '1000', daily: '10000' }
         },
-        selectors: { [tokenAddress]: ['0xa9059cbb'] },
-      },
+        selectors: { [tokenAddress]: ['0xa9059cbb'] }
+      }
     })
   );
   const bin = buildAttestor(work);
@@ -460,15 +472,15 @@ beforeAll(async () => {
         ATTESTOR_AUTHORITY_ISSUER: identity.issuer,
         ATTESTOR_AUTHORITY_TENANT: 'evm-approvals-test',
         ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: inventoryPublic,
-        ATTESTOR_INVENTORY_FILE: inventoryFile,
+        ATTESTOR_INVENTORY_FILE: inventoryFile
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     const node: Node = {
       id,
       endpoint: `https://127.0.0.1:${reserved.ports[i * 2]}`,
       process: child,
-      logs: [],
+      logs: []
     };
     child.stdout!.on('data', (chunk: Buffer) => node.logs.push(chunk.toString('utf8')));
     child.stderr!.on('data', (chunk: Buffer) => node.logs.push(chunk.toString('utf8')));
@@ -477,14 +489,14 @@ beforeAll(async () => {
   const tls = {
     ca: readFileSync(pki.caFile),
     cert: readFileSync(pki.clientCert),
-    key: readFileSync(pki.clientKey),
+    key: readFileSync(pki.clientKey)
   };
   gatewayAgent = new Agent({ ...tls, rejectUnauthorized: true, minVersion: 'TLSv1.3' });
   operatorAgent = new Agent({
     ca: tls.ca,
     cert: readFileSync(pki.operatorCert),
     key: readFileSync(pki.operatorKey),
-    rejectUnauthorized: true,
+    rejectUnauthorized: true
   });
   const deadline = Date.now() + 60_000;
   for (const node of nodes) {
@@ -498,7 +510,9 @@ beforeAll(async () => {
       ).catch(() => null);
       if (health && health.body.reachable_peers === 4) break;
       if (Date.now() >= deadline)
-        throw new Error(`${node.id} not ready: ${JSON.stringify(health)} ${node.logs.join('')}`);
+        throw new Error(
+          `${node.id} not ready: ${JSON.stringify(health)} ${node.logs.join('')}`
+        );
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
@@ -508,7 +522,7 @@ beforeAll(async () => {
         key_id: keyId,
         owner,
         curve: 'secp256k1',
-        session_id: 'evm-approval-key-generation',
+        session_id: 'evm-approval-key-generation'
       })
     )
   );
@@ -521,13 +535,13 @@ beforeAll(async () => {
     curve: 'secp256k1',
     epoch: 0,
     public_key: key.public_key,
-    operations: ['sign', 'refresh'],
+    operations: ['sign', 'refresh']
   });
   const refreshed = await Promise.all(
     nodes.map((node) =>
       call<KeyReply>(operatorAgent, node.endpoint, '/v1/keys/refresh', {
         key_id: keyId,
-        session_id: 'evm-approval-key-refresh',
+        session_id: 'evm-approval-key-refresh'
       })
     )
   );
@@ -541,7 +555,7 @@ beforeAll(async () => {
     curve: 'secp256k1',
     epoch: 1,
     public_key: key.public_key,
-    operations: ['sign', 'refresh'],
+    operations: ['sign', 'refresh']
   });
   process.env.SUPABASE_URL = identity.url;
   process.env.HYPERPAXEER_CHAIN_ID = String(CHAIN_ID);
@@ -570,7 +584,7 @@ beforeAll(async () => {
     tls,
     quorum: 3,
     healthIntervalMs: 60_000,
-    timeoutMs: 30_000,
+    timeoutMs: 30_000
   });
   rpcModule = await import('../src/rpc/pool.js');
   const { RateLimiter } = await import('../src/audit.js');
@@ -605,7 +619,9 @@ afterAll(async () => {
   await Promise.all(
     nodes.map(async (node) => {
       if (node.process.exitCode !== null || node.process.signalCode !== null) return;
-      const exited = new Promise<void>((resolve) => node.process.once('exit', () => resolve()));
+      const exited = new Promise<void>((resolve) =>
+        node.process.once('exit', () => resolve())
+      );
       node.process.kill('SIGTERM');
       const timer = setTimeout(() => node.process.kill('SIGKILL'), 10_000);
       await exited;
@@ -622,7 +638,7 @@ async function reviewTransaction(transaction: Hex = canonical): Promise<Review> 
     method: 'POST',
     url: '/v1/wallet/evm/review',
     headers: authorization,
-    payload: { transaction },
+    payload: { transaction }
   });
   expect(result.statusCode, result.body).toBe(200);
   return result.json<Review>();
@@ -633,7 +649,7 @@ function signApproval(approval_id: string) {
     method: 'POST',
     url: '/v1/wallet/evm/sign',
     headers: authorization,
-    payload: { approval_id },
+    payload: { approval_id }
   });
 }
 
@@ -642,7 +658,11 @@ async function approveTransaction(review: Review): Promise<Review> {
     method: 'POST',
     url: '/v1/wallet/evm/approve',
     headers: authorization,
-    payload: { review_id: review.id, signing_hash: review.signing_hash, decision: 'approve' },
+    payload: {
+      review_id: review.id,
+      signing_hash: review.signing_hash,
+      decision: 'approve'
+    }
   });
   expect(answer.statusCode, answer.body).toBe(200);
   return answer.json<Review>();
@@ -655,9 +675,10 @@ async function evmSignRequiresApprovedRow(): Promise<void> {
   expect(refused.json()).toEqual({ error: 'explicit_evm_approval_required' });
   expect(
     (
-      await pool.query('select state,attempted_at,evidence from wallet_evm_approvals where id=$1', [
-        review.id,
-      ])
+      await pool.query(
+        'select state,attempted_at,evidence from wallet_evm_approvals where id=$1',
+        [review.id]
+      )
     ).rows
   ).toEqual([{ state: 'reviewed', attempted_at: null, evidence: null }]);
   expect(
@@ -666,16 +687,21 @@ async function evmSignRequiresApprovedRow(): Promise<void> {
 
   const missingApproval = await reviewTransaction();
   await expect(
-    pool.query("update wallet_evm_approvals set state='approved' where id=$1", [missingApproval.id])
+    pool.query("update wallet_evm_approvals set state='approved' where id=$1", [
+      missingApproval.id
+    ])
   ).rejects.toMatchObject({ code: '23514', constraint: 'wallet_evm_approvals_check' });
   const missingApprovalAnswer = await signApproval(missingApproval.id);
   expect(missingApprovalAnswer.statusCode, missingApprovalAnswer.body).toBe(403);
-  expect(missingApprovalAnswer.json()).toEqual({ error: 'explicit_evm_approval_required' });
+  expect(missingApprovalAnswer.json()).toEqual({
+    error: 'explicit_evm_approval_required'
+  });
   expect(
     (
-      await pool.query('select state,attempted_at,evidence from wallet_evm_approvals where id=$1', [
-        missingApproval.id,
-      ])
+      await pool.query(
+        'select state,attempted_at,evidence from wallet_evm_approvals where id=$1',
+        [missingApproval.id]
+      )
     ).rows
   ).toEqual([{ state: 'reviewed', attempted_at: null, evidence: null }]);
 
@@ -684,7 +710,7 @@ async function evmSignRequiresApprovedRow(): Promise<void> {
     method: 'POST',
     url: '/v1/wallet/evm/sign',
     headers: { authorization: `Bearer ${await identity.mint(randomUUID())}` },
-    payload: { approval_id: review.id },
+    payload: { approval_id: review.id }
   });
   expect(foreign.statusCode).toBe(404);
   expect(
@@ -692,7 +718,7 @@ async function evmSignRequiresApprovedRow(): Promise<void> {
       await app.inject({
         method: 'POST',
         url: '/v1/wallet/evm/sign',
-        payload: { approval_id: review.id },
+        payload: { approval_id: review.id }
       })
     ).statusCode
   ).toBe(401);
@@ -700,7 +726,7 @@ async function evmSignRequiresApprovedRow(): Promise<void> {
     method: 'POST',
     url: '/v1/wallet/evm/sign',
     headers: authorization,
-    payload: { approval_id: 'invalid' },
+    payload: { approval_id: 'invalid' }
   });
   expect(malformed.statusCode).toBe(400);
   const approved = await approveTransaction(review);
@@ -717,7 +743,7 @@ async function evmSignRequiresApprovedRow(): Promise<void> {
   expect(
     (
       await pool.query('select state,attempted_at from wallet_evm_approvals where id=$1', [
-        approved.id,
+        approved.id
       ])
     ).rows
   ).toEqual([{ state: 'approved', attempted_at: null }]);
@@ -732,14 +758,15 @@ async function evmSignRequiresApprovedRow(): Promise<void> {
   expect(mismatch.statusCode, mismatch.body).toBe(502);
   expect(mismatch.json()).toEqual({ error: 'evm_signature_evidence_mismatch' });
   const unknown = (
-    await pool.query('select state,attempted_at,evidence from wallet_evm_approvals where id=$1', [
-      changed.id,
-    ])
+    await pool.query(
+      'select state,attempted_at,evidence from wallet_evm_approvals where id=$1',
+      [changed.id]
+    )
   ).rows[0];
   expect(unknown).toEqual({
     state: 'signing_unknown',
     attempted_at: expect.any(Date),
-    evidence: null,
+    evidence: null
   });
   const repeated = await signApproval(changed.id);
   expect(repeated.statusCode).toBe(202);
@@ -759,11 +786,12 @@ async function evmSignSendsThroughSequencerWithReceipt(): Promise<void> {
     value: '0',
     data,
     method: 'transfer',
-    destination: 'erc20',
+    destination: 'erc20'
   });
   const approved = await approveTransaction(review);
   const attempts = await Promise.all([signApproval(approved.id), signApproval(approved.id)]);
-  expect(attempts.map((answer) => answer.statusCode).sort()).toEqual([200, 202]);
+  expect(attempts.map((answer) => answer.statusCode).sort()).toEqual([200, 200]);
+  expect(attempts[0]!.json()).toEqual(attempts[1]!.json());
   const answer = attempts.find((result) => result.statusCode === 200)!;
   const body = answer.json<
     Review & {
@@ -772,7 +800,9 @@ async function evmSignSendsThroughSequencerWithReceipt(): Promise<void> {
       receipt: SequencerReceiptResult | null;
     }
   >();
-  const sends = sequencerExchanges.filter((entry) => entry.method === 'eth_sendRawTransaction');
+  const sends = sequencerExchanges.filter(
+    (entry) => entry.method === 'eth_sendRawTransaction'
+  );
   expect(sends).toHaveLength(1);
   const raw = sends[0]!.params[0]!;
   expect(body.tx_hash).toBe(keccak256(raw));
@@ -784,7 +814,13 @@ async function evmSignSendsThroughSequencerWithReceipt(): Promise<void> {
   expect(signed).toMatchObject(fields);
   expect(signed.value ?? 0n).toBe(zero);
   expect(serializeTransaction({ ...signed, value: tx.value })).toBe(raw);
-  const unsigned = { ...signed, r: undefined, s: undefined, v: undefined, yParity: undefined };
+  const unsigned = {
+    ...signed,
+    r: undefined,
+    s: undefined,
+    v: undefined,
+    yParity: undefined
+  };
   expect(keccak256(serializeTransaction(unsigned))).toBe(approved.signing_hash);
   expect(serializeTransaction(unsigned, { r: '0x0', s: '0x0', yParity: 0 })).toBe(
     approved.transaction
@@ -792,33 +828,55 @@ async function evmSignSendsThroughSequencerWithReceipt(): Promise<void> {
   expect((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase()).toBe(
     wallet.address.toLowerCase()
   );
-  const receipts = sequencerExchanges.filter((entry) => entry.method === 'pax_sequencerReceipt');
-  expect(receipts).toHaveLength(1);
-  expect(receipts[0]!.params).toEqual([body.tx_hash]);
+  const receipts = sequencerExchanges.filter(
+    (entry) => entry.method === 'pax_sequencerReceipt'
+  );
+  expect(receipts).toHaveLength(3);
+  expect(receipts.map((entry) => entry.params)).toEqual([
+    [body.tx_hash],
+    [body.tx_hash],
+    [body.tx_hash]
+  ]);
+  expect(
+    sequencerExchanges
+      .filter(
+        (entry) =>
+          entry.method === 'pax_sequencerReceipt' || entry.method === 'eth_sendRawTransaction'
+      )
+      .map((entry) => entry.method)
+  ).toEqual([
+    'pax_sequencerReceipt',
+    'eth_sendRawTransaction',
+    'pax_sequencerReceipt',
+    'pax_sequencerReceipt'
+  ]);
+  expect(receipts[0]!.result).toBeNull();
   expect(body.receipt).not.toBeNull();
-  expect(body.receipt).toEqual(receipts[0]!.result);
+  expect(body.receipt).toEqual(receipts[1]!.result);
+  expect(receipts[2]!.result).toEqual(receipts[1]!.result);
   expect(body.receipt).toMatchObject({
     rung: 'receipted',
     txHash: body.tx_hash,
     from: wallet.address,
-    to: tokenAddress,
+    to: tokenAddress
   });
   expect(body.rung).toBe(body.receipt === null ? 'submitted' : body.receipt.rung);
   if (body.receipt !== null) expect(body.receipt.txHash).toBe(body.tx_hash);
-  expect(readerExchanges.filter((entry) => entry.method === 'eth_sendRawTransaction')).toHaveLength(
-    0
-  );
-  const saved = (await pool.query('select * from wallet_evm_approvals where id=$1', [review.id]))
-    .rows[0];
+  expect(
+    readerExchanges.filter((entry) => entry.method === 'eth_sendRawTransaction')
+  ).toHaveLength(0);
+  const saved = (
+    await pool.query('select * from wallet_evm_approvals where id=$1', [review.id])
+  ).rows[0];
   expect(saved).toMatchObject({
     state: 'signed',
     attempted_at: expect.any(Date),
-    completed_at: expect.any(Date),
+    completed_at: expect.any(Date)
   });
   expect(saved.evidence).toMatchObject({
     tx_hash: body.tx_hash,
     receipt: body.receipt,
-    rung: body.rung,
+    rung: body.rung
   });
   expect(saved.evidence.attestor_audit).toHaveLength(3);
   for (const audit of saved.evidence.attestor_audit)
@@ -852,7 +910,7 @@ async function evmSignSendsThroughSequencerWithReceipt(): Promise<void> {
   const status = await app.inject({
     method: 'GET',
     url: `/v1/wallet/evm/approvals/${review.id}`,
-    headers: authorization,
+    headers: authorization
   });
   expect(status.statusCode).toBe(200);
   expect(status.json()).toEqual(body);
@@ -862,4 +920,8 @@ async function evmSignSendsThroughSequencerWithReceipt(): Promise<void> {
 }
 
 test(evmSignRequiresApprovedRow, evmSignRequiresApprovedRow, 120_000);
-test(evmSignSendsThroughSequencerWithReceipt, evmSignSendsThroughSequencerWithReceipt, 180_000);
+test(
+  evmSignSendsThroughSequencerWithReceipt,
+  evmSignSendsThroughSequencerWithReceipt,
+  180_000
+);
