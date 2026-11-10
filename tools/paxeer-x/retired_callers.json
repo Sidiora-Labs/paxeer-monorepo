@@ -2014,6 +2014,43 @@
         "|| authority_replica_id == [0; 32]"
       ],
       "citation": "Decision 3104 retains the live independent program-authority replica identity and its mandatory nonzero validation because that program reader still ships."
+    },
+    {
+      "path": "tools/qualification/audit_repairs/fixtures",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the independent_receipt_authority backend enum in the archived hosted contracts; it is a contract pin, not a call to the removed kernel authority."
+    },
+    {
+      "path": "tools/qualification/paxeer-x",
+      "symbols": [
+        "fee_governance",
+        "lx_getWalletCaps",
+        "signCustody"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the live governed fee test identifiers and explicit retired wallet-method refusal cases, none of which authorizes a retired producer."
+    },
+    {
+      "path": "tools/qualification/paxeer-x/repair-22.31.330.kvx",
+      "lines": [
+        "request = \"Domain 4 storage, tests/storage/lxp_test_batch_wal_recovery.c and src/modules/programs/feed_store.c: these existing storage producer inputs are absent (audit f012); coordinate the separately owned retained-store migration without changing that finding in this task.\""
+      ],
+      "citation": "Decision 3125 retains the exact historical finding about absent storage inputs in this repair record, which does not invoke a retired storage producer."
+    },
+    {
+      "path": "tools/qualification/paxeer-x/repair-22.33.765.kvx",
+      "lines": [
+        "repair = \"Use a disposable source-bound merged paxd generation through the maintained native bootstrap, root node JSON-RPC and hosted root px_getNetwork; require public /rpc and /rpc/schema to be absent, retain private /v1/agent/rpc and daemon /rpc authentication/idempotency checks, replace replica/LNI substitutions and binary fault relays with node/hosted root RPC, and restart the merged node while comparing a retained committed block. Migrate the existing release-kit test's deleted runtime fixture dependency in place.\""
+      ],
+      "citation": "Decision 3125 retains the exact historical repair instruction describing removal of the retired transport rather than a live transport caller."
+    },
+    {
+      "path": "tools/qualification/paxeer-x/fixtures",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the receipt_authority_fixture import because the hosted receipt-authority fixture still ships and consumes committed chain receipts."
     }
   ]
 }

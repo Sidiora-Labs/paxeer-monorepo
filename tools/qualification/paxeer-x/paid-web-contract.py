@@ -769,6 +769,7 @@ class Harness:
         self.launches = 0
         self.count = 0
         self.refusals = []
+        self.bind_payers()
         self.candidate = Candidate(self)
         unchanged_source(self)
         self.journal = (self.evidence / "assertions.jsonl").open("x")
@@ -848,6 +849,15 @@ class Harness:
             if p.is_file()
         }
 
+    def bind_payers(self):
+        self.payer_addresses = {
+            did: bound_address(self.gateway, did, self.gateway_headers())
+            for did in sorted({case["payer_did"] for case in self.cases.values()})
+        }
+
+    def payer_address(self, case):
+        return self.payer_addresses[case["payer_did"]]
+
     def request(self, name, target=None, header=None):
         case = self.cases[name]
         return exchange(
@@ -855,7 +865,7 @@ class Harness:
             target or case["target"],
             {
                 "PAYMENT-SIGNATURE": header or self.headers[name],
-                "LAYERX-PAYER-DID": case["payer_did"],
+                "LAYERX-PAYER-ADDRESS": self.payer_address(case),
             },
         )
 
@@ -1194,7 +1204,7 @@ class Harness:
         status, headers, _ = exchange(
             self.url,
             self.cases[valid]["target"],
-            {"LAYERX-PAYER-DID": self.cases[valid]["payer_did"]},
+            {"LAYERX-PAYER-ADDRESS": self.payer_address(self.cases[valid])},
         )
         require(status == 402, "unpaid request did not challenge")
         required = json.loads(
@@ -2845,7 +2855,7 @@ class ReadinessHarness:
             case["target"],
             {
                 "PAYMENT-SIGNATURE": self.paid.headers[name],
-                "LAYERX-PAYER-DID": case["payer_did"],
+                "LAYERX-PAYER-ADDRESS": self.paid.payer_address(case),
             },
         )
         self.paid.no_content(response, {503})
@@ -3081,7 +3091,7 @@ class ReadinessHarness:
         case = self.paid.cases[name]
         headers = {
             "X-Real-IP": self.m["frontend"]["client_ip"],
-            "LAYERX-PAYER-DID": case["payer_did"],
+            "LAYERX-PAYER-ADDRESS": self.paid.payer_address(case),
         }
         if paid:
             headers["PAYMENT-SIGNATURE"] = self.paid.headers[name]
@@ -3549,6 +3559,7 @@ class OperationalHarness(Harness):
         self.launches = 0
         self.count = 0
         self.refusals = []
+        self.bind_payers()
         self.candidate = Candidate(self)
         unchanged_source(self)
         self.journal = (self.evidence / "operational-assertions.jsonl").open("x")
@@ -3685,7 +3696,7 @@ class OperationalHarness(Harness):
         before, state = self.sequences(), self.snapshot()
         paid = self.cases["paid"]
         status, headers, _ = exchange(
-            self.url, paid["target"], {"LAYERX-PAYER-DID": paid["payer_did"]}
+            self.url, paid["target"], {"LAYERX-PAYER-ADDRESS": self.payer_address(paid)}
         )
         require(status == 402, "unpaid request did not challenge")
         offers = json.loads(
