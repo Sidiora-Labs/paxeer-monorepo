@@ -1266,6 +1266,64 @@
       "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
     },
     {
+      "path": "services/platform/hosted/agent-boundary",
+      "symbols": [
+        "/v1/programs/deploy",
+        "/v1/programs/upgrade"
+      ],
+      "citation": "Decision 3125 retains the obsolete internal deployment and upgrade route names solely for explicit mutation refusals in the shipping agent boundary."
+    },
+    {
+      "path": "services/platform/hosted/authority",
+      "symbols": [
+        "authority_replica"
+      ],
+      "citation": "Decision 3125 retains authority_replica_id as the historical receipt evidence wire identity pinned to the configured producer independently of committed-chain verification."
+    },
+    {
+      "path": "services/platform/hosted/core",
+      "symbols": [
+        "sign_disclosed"
+      ],
+      "citation": "Decision 3125 retains the live sign_disclosed_call helper that validates disclosure-bound EIP-1559 transactions and signs through the secp256k1 Signer trait."
+    },
+    {
+      "path": "services/platform/hosted/indexer",
+      "symbols": [
+        "FINALIZED_RANK",
+        "LNI",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decision 3125 retains disabled-precompile ABI exclusions and historical decoder regression rows, the committed-block publication rank, and obsolete socket input used to assert node RPC configuration ignores it."
+    },
+    {
+      "path": "services/platform/hosted/registry",
+      "symbols": [
+        "authority_replica",
+        "lni",
+        "lni_",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the shipping independent receipt evidence endpoint and producer pins used to cross-check committed-chain proofs, plus the public compatibility socket field that remains unset."
+    },
+    {
+      "path": "services/platform/hosted/testnet",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the shipping receipt_authority readiness dependency and its documented payment and receipt-inspection admission checks."
+    },
+    {
+      "path": "services/platform/hosted/webhooks",
+      "symbols": [
+        "FINALIZED_RANK",
+        "authority_replica"
+      ],
+      "citation": "Decision 3125 retains the publication rank gated by verified block commits and native store proofs and the historical authority evidence regression using its pinned producer identity."
+    },
+    {
       "path": "src/ledger",
       "symbols": [
         "lxp_grant",

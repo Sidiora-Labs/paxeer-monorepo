@@ -434,6 +434,7 @@ impl ReputationProjector {
         {
             return Err(ReputationError::Refused(F07_BINDING_MISMATCH));
         }
+        // The retained binding rank is earned by the authenticated block and store proof.
         let checkpoint_id = verified.store_proof_digest;
         let binding = bind_snapshot(
             authenticated.state(),

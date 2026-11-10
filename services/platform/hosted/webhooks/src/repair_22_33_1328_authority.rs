@@ -30,6 +30,7 @@ pub fn authority_path() {
                 maintained["first_batch"].as_str().expect("first"),
                 maintained["last_batch"].as_str().expect("last"),
             ));
+            // Exercise the retained producer identity field without changing signed evidence.
             let evidence = must(parse_replica_evidence(
                 &must(serde_json::to_vec(&json!({
                     "authority_replica_id":"01".repeat(32), "sequencer_public_key":maintained["sequencer_public_key"],
