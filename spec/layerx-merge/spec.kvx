@@ -12832,6 +12832,12 @@ value = "When the verification of a task chains several commands, cases of one l
 basis = "Gotcha 4214, decisions 3053, 3183 and 3242."
 affects = ["22.39.370"]
 
+[decision.3287]
+title = "A counted build is never the first compile of a change"
+value = "An attempt that divides functions or moves items for a lint compiles every target of its build command with cargo check outside the counted gates until no error remains, and only then spends a counted build. This puts the build under the rule that decisions 3242 and 3286 set for the verification. A helper divided out of a longer function receives every value it reads; when that would pass the argument limit of the lint, the values that belong together travel in one structure, and no allowance is added (decision 3053)."
+basis = "Gotcha 4215, decisions 3053, 3242 and 3286."
+affects = ["22.39.228"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -185287,7 +185293,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.370]
 title = "Serve the enrolment of a peer on the host and send it from the peer command"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.28"]
@@ -196912,6 +196918,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "do_4 Decisions 3242 and 3245, gotcha 4170: the verification now passes the keep going option, so one run reports every target of the list. Before the counted gates, run the lint command of the verification yourself and repair what it reports at source, as often as needed, until it reports nothing. Before an item reported as never used is removed, search every target that includes its file by path or by module: an item that another target uses stays, in the file of the target that uses it or in a module both include. A function over the line bound is divided into functions of the same file with every assertion kept in order (decision 3230). Keep cargo check of the package layerx-agentd-host with all targets green. Then run the build once and the verification once."
 do_5 = "Attempt 2 (continue after 22.39.364 lands, gotcha 4184, decision 3256): the attempt-1 tree 85055bc6a89c stands (the record). The lint command stops in the library before it reaches a test target: missing_errors_doc at src/node_rpc.rs:225 and :409, which task 22.39.364 repairs; the task now requires it. Rebase on main once that task is on it, then take the inventory of the test targets named r and repair their lints as the do items of the task state. Replace the two library findings of the record with one sentence that names decision 3256. Run the build once and the verification once at the final revision."
 do_6 = "Attempt 3 (continue after 22.39.368 and 22.39.229 land, gotcha 4196, decisions 3267 and 3268): the attempt-2 tree 3864ee686cb0 stands (the source repairs in 79 files, the divided functions, the record). The twelve errors of the target repair_22_31_549 are repaired by task 22.39.368, which the task now requires; rebase on main and change neither tests/bootstrap_bind_layerx.rs nor tests/repair_22_31_549.rs for them. The paths now also hold services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs, services/agent/tests/repair_22_33_1571.rs and services/agent/tests/repair_22_33_1573.rs: repair their findings at source. The file services/agent/tests/limits/exactly_once.rs is repaired by task 22.39.229, which the task now requires; change nothing in it. For programs/crates/layerx-programs-registry/tests/support/chain.rs and for the two unused items of services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs the including module item of the test target carries one allowance with a reason that names exactly the reported lints. Repair each duplicate_mod finding by loading the file once in the target and write no allowance for it. Before any counted gate, build every target of the build command with an ordinary cargo build and run the lint command of the verification yourself, as often as needed, until the build is green and the lint run reports nothing. Keep cargo check of the package layerx-agentd with all targets and of the package layerx-agentd-host with all targets green. Shorten the record: keep the counts by file and lint and one line for each kind of repair, and remove the list of single findings. Then run the build once and the verification once at the final revision."
+do_7 = "Attempt 4 (continue after 22.39.227 lands, gotcha 4215, decision 3287): the attempt-3 tree 6eadec21e97b stands (the source repairs, the divided functions, the record). It does not compile: tests/repair_22_31_570.rs:1722 reads held_digest inside the helper replay_approval_prepared at :1707, which does not receive it. The helper already takes seven arguments, so pass the values that belong together in one structure and add no allowance (decision 3053). Rebase on main first; task 22.39.227 changes files of the same directory, and where main restructured a file that this tree changed, take the main form and repair in it only what the lint of the targets of this task still reports (decision 3284). Then run cargo check with the manifest of services/agent for package layerx-agentd over the library and every target named r outside the counted gates until no error remains, and after that the lint command of the verification with the keep going option until it is clean (decision 3242). A counted build is spent only on a tree that this check has passed. Keep every assertion and the outer module rules of decisions 3273 and 3276. Extend the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.227]
 title = "Bring the agent daemon test targets named i-q under the workspace lints"
@@ -334741,7 +334748,7 @@ do_7 = "Attempt 4 (continue after 22.39.213 lands; gotcha 3741, decisions 2194, 
 
 [task.17.4.6]
 title = "Run the parity inventory once on the merged revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 49
 requires = ["17.4.5", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "22.39.230", "22.39.231", "22.39.232", "22.39.233", "22.39.240", "22.39.241", "22.39.280", "22.39.332", "22.39.346", "22.39.367"]

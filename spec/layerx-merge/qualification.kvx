@@ -40434,3 +40434,11 @@ symbol = "enrol.test.mjs"
 observed = "Attempt 1 at b3ea1c24541e on base 6e3abf0ebe49: both builds exit 0; verification 2 exits 1 at b3ea1c24541e, the three cases pass and the lint of the target inference_enrol_route reports assigning_clones at tests/inference_enrol_route.rs:356 and too_many_arguments at :587; log /out/logs/verify-2.log."
 assumption = "The lint and the peer cases were not run before the counted verifications."
 severity = "high"
+
+[finding.22.39.228.3]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 3 at 6eadec21e97b on base 96827b7c7207: build 3 exits 101 at 6eadec21e97b with cannot find value held_digest in this scope at services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs:1722; builds 1 and 2 exit 101 on other unresolved names of divided functions; no verification ran; log /out/logs/build-3.log."
+assumption = "The attempt met the compile errors of its divided functions in counted builds."
+severity = "high"
