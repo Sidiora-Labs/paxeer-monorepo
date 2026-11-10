@@ -163,6 +163,7 @@ class PxNetworkHead:
     network_id: str
     paxeer: PxPaxeerHead
     layerx: Mapping[str, object] | None
+    # Gateway block-commit observation; callers verify inclusion with CommitTrust.
     latest_committed_height: int
 
 

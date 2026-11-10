@@ -1590,6 +1590,35 @@
       "citation": "Decision 3125 permits the live kernel identifier lxp_verified_receipt_authority_facts on the ramp surface because its receipt_authority prefix does not denote the retired finality service."
     },
     {
+      "path": "services/agent/sdk/python/layerx_sdk",
+      "symbols": [
+        "FINALIZED_RANK"
+      ],
+      "citation": "Decision 3125 retains the AI projection wire rank used by the live market program; OperationJournal.finalize independently authenticates transaction inclusion through CommitTrust.verify before recording Rung.COMMITTED."
+    },
+    {
+      "path": "services/agent/sdk/python/layerx_sdk",
+      "symbols": [
+        "LXP_DA_"
+      ],
+      "citation": "Decision 3125 retains the generated LXP_DA_MISSING service-delivery error from the result-code registry, which remains part of layerxpay and is independent of the retired kernel DA implementation."
+    },
+    {
+      "path": "services/agent/sdk/python/layerx_sdk",
+      "symbols": [
+        "requestSettlement",
+        "request_settlement"
+      ],
+      "citation": "Decision 3125 retains the historical exchange ABI helpers because the catalogue explicitly preserves the selector as an ErrRetired rejection surface after v6.12.0."
+    },
+    {
+      "path": "services/agent/sdk/typescript/src",
+      "symbols": [
+        "requestSettlement"
+      ],
+      "citation": "Decision 3125 retains the historical exchange ABI helper because the catalogue explicitly preserves the selector as an ErrRetired rejection surface after v6.12.0."
+    },
+    {
       "path": "services/agent/crates/layerx-types/src",
       "symbols": [
         "SETTLEMENT_ANCHORED",
