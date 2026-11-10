@@ -39178,3 +39178,27 @@ symbol = "activity-transport.ts"
 observed = "Attempt 2 at 026eda712c3f: build exit 0; verification exit 1: the typecheck passes and python3 tools/paxeer-x/tests/retired_callers_test.py --path apps/launchpad --path sdk/launchpad --path contracts/launchpad reports twelve findings (statusOf twice, recordDeposit ten times); log /out/logs/verify-1.log."
 assumption = "With each finding repaired or allowed in the catalogue the scan reports nothing and the verification passes."
 severity = "high"
+
+[finding.22.39.298.1]
+task = "22.39.298"
+file = "modules/layerxpay/types/params_test.go"
+symbol = "params_test.go"
+observed = "Attempt 1 at 4b50ddc26e55: go build ./modules/layerxpay/... && go vet ./modules/layerxpay/types/ ./modules/layerxpay/keeper/ exit 0; verification exit 1: TestMethodActivityMatchesKernelTypes fails at modules/layerxpay/types/activity_test.go:107 and :133 (41 ABI methods, want 40) and TestCheckWritePauseExitPaths, TestCheckWriteFamilyDisabled and TestCheckWriteViewsUngated fail at modules/layerxpay/keeper/gate_test.go:60, :128 and :185 on the missing streamOpenForAsk activity entry; log /out/logs/verify-2.log."
+assumption = "With the four activity-table cases skipped every other case of both packages passes at the attempt-1 tree."
+severity = "high"
+
+[finding.22.39.235.8]
+task = "22.39.235"
+file = "programs/crates/layerx-programs-runtime"
+symbol = "layerx-programs-runtime"
+observed = "Attempt 8 at a746cb12c7d8: cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets exit 0; verification exit 101: cargo clippy reports one site, tests/program_replay.rs:256 clippy::range_plus_one; log /out/logs/verify-2.log."
+assumption = "The inclusive range is the only remaining lint of the crate and its test targets."
+severity = "high"
+
+[finding.22.39.225.9]
+task = "22.39.225"
+file = "services/agent/crates/layerx-sdk"
+symbol = "layerx-sdk"
+observed = "Attempt 9 at 8021eeccdb8b: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --all-targets exit 0; verification exit 101: cargo clippy reports one site, tests/repair_22_31_487.rs:45 clippy::too_many_lines (107/100); log /out/logs/verify-2.log."
+assumption = "The long function is the only remaining lint of the crate and its test targets."
+severity = "high"
