@@ -15,7 +15,7 @@ import (
 
 // geth deliberately accepts omitted/null params for zero-argument callbacks.
 // Receipt-key discovery checks governed state before requiring an explicit [].
-// Asset cursors allow omission but reject explicit null before pointer decoding.
+// px_listAssets allows cursor omission but rejects explicit null before pointer decoding.
 // Route refusals to private, unregistered names and translate their errors after dispatch.
 // The dispatcher still owns batch bounds, IDs, notifications and deny lists.
 type pxParamsGuard struct {
