@@ -39698,3 +39698,123 @@ symbol = "event_producer_tls.rs"
 observed = "Attempt 4 at f09df5255d79 on base d5614dd88e54: build exit 0 at ce55c220236f (log /out/logs/build-1.log); the verification at ce55c220236f exits 1 (the test run exits 101) with 1 passed and 1 failed: human_journey_and_approval_cross_tls_and_recover_after_sink_loss panics at crates/layerx-human-service/src/event_producer_tls.rs:91 with observe ack: webhook-trigger refused; log /out/logs/verify-1.log."
 assumption = "The node and consensus endpoints of the fixture point at the event source, which serves neither readiness call."
 severity = "high"
+
+[finding.22.39.317.1]
+task = "22.39.317"
+file = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java"
+symbol = "SequencerReceiptTest.java"
+observed = "Attempt 1 at 91a2708e8ba4 on base 5df422806409: build exit 0 at 91a2708e8ba4 (log /out/logs/build-2.log); the second verification at 91a2708e8ba4 exits 1 with 122 cases run and 2 failures: PortableReceiptTest.portableExportMatchesPublishedVectorV5:240 and Repair22331391Test.portableNormalizationRemainsAnExplicitIndependentVectorTest:44 report array lengths differ, expected 13859 but was 13857; log /out/logs/verify-2.log."
+assumption = "The export writes an empty text for an absent signature and both repair cycles were used before it could be corrected."
+severity = "high"
+
+[finding.17.4.6.6]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 11 at 1a315827bebd on base 408cf9b7bf87: build exit 0 at 1a315827bebd (log /out/logs/build-2.log); the second verification at 1a315827bebd exits 1 after 2076 seconds with 47 of 50 rows passing: test_parity_rows_pass_on_merged_revision fails at spec/layerx-merge/programme/tests/test_parity_run.py:52 naming construct.existing-wallet-human-service-and-explorer-playwright, construct.new-explorer-signature and construct.new-signed-receipt-logs-new-case; log /out/logs/verify-2.log. The gate also reports a file changed outside the task paths, apps/wallet/next-env.d.ts."
+assumption = "The wallet rows need the local node of their owning task, the explorer row is red on main, and a row rewrites a tracked file."
+severity = "high"
+
+[finding.22.39.222.7]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 7 at 61803b32828f on base 64e201cff588: build exit 0 at 61803b32828f (log /out/logs/build-3.log); the only verification, at fe82a180db25, exits 1 (cargo clippy exits 101) with one error, this function has too many lines (115/100) at crates/layerx-agentd/src/human_runtime.rs:3903; log /out/logs/verify-1.log."
+assumption = "The function was shortened after the only verification and the allowed runs were used."
+severity = "high"
+
+[finding.18.1749.1.6]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 6 at 557742ea3eb0 on base 495cd70105ac: make paxai-host-boundary-build exits 2 at the size test, guest exceeds 524184 bytes after wasm-opt -Oz --strip-debug --strip-producers; no verification ran; log /out/logs/build-1.log."
+assumption = "The guest of main is over the bound under the pass list of the target and the attempt changes no source of the guest."
+severity = "high"
+
+[finding.22.39.273.4]
+task = "22.39.273"
+file = "tools/qualification/audit_repairs/fixtures/px_node_root_contracts.json"
+symbol = "px_node_root_contracts.json"
+observed = "Attempt 4 at b5826bc0a27c on base 0c8737b4dd79: the verification exits 1 at the retired callers scan of tools/qualification with 14 references in caps_fixture.py and human-movement-kms-assembly.py after pytest reports 4222 passed; log /out/logs/verify-2.log."
+assumption = "The steps that hold the references cannot run because their producers are gone from the tree."
+severity = "high"
+
+[finding.22.39.311.5]
+task = "22.39.311"
+file = "services/human/crates/layerx-human-service/src/event_producer_tls.rs"
+symbol = "event_producer_tls.rs"
+observed = "Attempt 5 at 2ff38d0bb956 on base 5a08a1f641e2: the verification exits 1 (cargo test exits 101), 1 passed and 1 failed, panic at crates/layerx-human-service/src/event_producer_tls.rs:539 assertion failed: outbox.ready(); log /out/logs/verify-2.log."
+assumption = "The case reaches the recovery and the readiness flag trails the empty queue."
+severity = "high"
+
+[finding.22.39.249.4]
+task = "22.39.249"
+file = "modules/layerxgov/types/proposal.go"
+symbol = "proposal.go"
+observed = "Attempt 4 at 7e50b554f871 on base b219257bb473: the verification exits 1 at a86de1287b2e, TestRepair476_AttestationDocumentation at modules/evm/config/repair_476_test.go:227 fails because modules/xweb/ATTESTATION.md contains 713714; log /out/logs/verify-1.log."
+assumption = "The document was changed by task 22.39.322 and is outside the paths of the task."
+severity = "high"
+
+[finding.22.39.332.1]
+task = "22.39.332"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+symbol = "transaction_signature_controller_test.exs"
+observed = "Attempt 1 at 7cf8745ee354 on base 495cd70105ac: the verification exits 1 at 15b518d646b7 (mix test exits 2) with 21 tests and 2 failures, status 404 where 200 is expected at transaction_status_committed_test.exs:54 and transaction_signature_committed_test.exs:138; log /out/logs/verify-2.log."
+assumption = "The cases predate the producer change of task 22.31.411 and the routes answer as that task defines."
+severity = "high"
+
+[finding.22.39.222.8]
+task = "22.39.222"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 8 at 5adb26b25dfd on base 654bb784cafa: the build, the dependents run and the verification exit 0 (log /out/logs/verify-1.log); the merge with main conflicts in services/agent/crates/layerx-agentd/src/human_runtime.rs against commit 0190499213 of task 22.39.318."
+assumption = "The conflict comes from a change that landed between two attempts of the task and not from the tree."
+severity = "high"
+
+[finding.22.38.13.4]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 4 at 647b706c058f on base b155d9196308: the build exits 1, go test over ./rpc/ panics with test timed out after 10m0s in TestFundConsumptionAttribution at rpc/repair_478_test.go:211 and fails after 603 seconds; no verification ran; log /out/logs/build-1.log."
+assumption = "The case needs about ten minutes on a cold build and the command named no limit."
+severity = "high"
+
+[finding.17.5.7.12]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 12 at a8267ca704f9 on base 8c1f9300585c: the verification exits 1, the wave 6 gate exits 2 at mvn -f sdk/integrations/spring/pom.xml install with Tests run 30, Failures 1, Errors 7 (durable store ancestor is group/world writable: /tmp, and unsupported-payment in ReceiptKeysConfigTest); log /out/logs/verify-1.log."
+assumption = "Six cases fail because of the place of the checkout and two because of a declaration that is red on main."
+severity = "high"
+
+[finding.18.1749.1.7]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 7 at aa64b3a9fa82 on base 8c1f9300585c: the verification exits 101, reward_reopen_preserves_recipient_balances fails after call.c:2215 reports transfer account absent (source present, destination absent) and the Claim returns -736; log /out/logs/verify-1.log."
+assumption = "The guest names the recipient by identity and the kernel looks a destination up by account id only."
+severity = "high"
+
+[finding.17.2.8.5]
+task = "17.2.8"
+file = "spec/layerx-merge/programme/tests/test_no_retired_callers.py::test_scan_reports_no_caller"
+symbol = "test_no_retired_callers.py::test_scan_reports_no_caller"
+observed = "Attempt 6 at 7d8aa76566c4 on base 24609687e674: the verification exits 1, python3 tools/paxeer-x/tests/retired_callers_test.py --deleted reports 8 references in 6 paths; log /out/logs/verify-2.log."
+assumption = "Three references are catalogue entries behind retained items and the other five need the two owner tasks and the ruling on the compatibility root."
+severity = "high"
+
+[finding.22.39.314.2]
+task = "22.39.314"
+file = "services/launchpad/trading-charts/internal/consumer/repair_22_39_314_test.go"
+symbol = "repair_22_39_314_test.go"
+observed = "Attempt 2 at 37d1740cb712 on base 1b4b14bd3e44: the verification exits 1, TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic fails at repair_22_39_314_test.go:164 with 403 FORBIDDEN on /v2/snapshots after the chart lists pass; log /out/logs/verify-1.log."
+assumption = "The wait helper of the case omits the origin that the snapshot route requires."
+severity = "high"
+
+[finding.22.39.162.7]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+symbol = "runtimedocs::TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 7 at e2f14a479b62 on base 1b4b14bd3e44: the verification exits 1, internal/source fails in TestRepairM_997_ArchiveCapacityBounds, TestRepairM_997_AuthorizedIncidentSelection and TestRepairM_997_MixedRPCSourceSelection, every other package passes; log /out/logs/verify-2.log."
+assumption = "The historical cases of the package leave state behind that the capacity cases then meet."
+severity = "high"

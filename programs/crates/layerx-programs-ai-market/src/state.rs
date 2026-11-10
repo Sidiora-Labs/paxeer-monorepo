@@ -11,6 +11,8 @@ use crate::{
     MAX_STATE_BYTES, SCHEMA_VERSION,
 };
 
+/// Room-book length (u32) and the PAXAI/F11 suffix.
+pub const ROOM_MARKET_FRAMING_BYTES: usize = 4 + 9;
 pub const ACTOR_SLOTS: usize = 43;
 pub const CONTROL_FIXED_BYTES: usize = 10;
 pub const REPLAY_RESULT_BYTES: usize = 120;
@@ -144,6 +146,7 @@ impl Clone for ReplayTable {
 
 impl ReplayTable {
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub const fn new() -> Self {
         Self {
             actors: [None; ACTOR_SLOTS],
@@ -590,7 +593,7 @@ pub(crate) fn encode_room_market_parts(
     let len = prefix
         .len()
         .checked_add(book.len())
-        .and_then(|n| n.checked_add(13))
+        .and_then(|n| n.checked_add(ROOM_MARKET_FRAMING_BYTES))
         .ok_or(ARITHMETIC)?;
     if len > Section::SettlementClaims.payload_cap() || out.len() < len {
         return Err(CAPACITY);
@@ -611,7 +614,10 @@ impl<'s> SharedState<'s> {
         if !bytes.ends_with(b"PAXAI/F11") {
             return Ok((bytes, &[]));
         }
-        let footer = bytes.len().checked_sub(13).ok_or(NON_CANONICAL)?;
+        let footer = bytes
+            .len()
+            .checked_sub(ROOM_MARKET_FRAMING_BYTES)
+            .ok_or(NON_CANONICAL)?;
         let len = u32::from_be_bytes(
             bytes
                 .guest_index(footer..footer + 4)

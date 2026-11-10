@@ -4,7 +4,7 @@ Brings up, from real compiled binaries only, the closure behind a canonical
 payment event on the owned chain-125 RuntimeFixture:
 
   layerx-identity            principal + session with the treasury signer allowed
-  layerx-receipt-authority   receipts from the runtime LNI, evidence only from the runtime replica
+  layerx-receipt-authority   receipts from root JSON-RPC, evidence only from the runtime replica
   layerx-agent-boundary      component receipts (/internal/v1/receipts/{activity})
   redis-server (TLS)         gateway durable store and producer outbox
   layerx-gateway             API key, /v1/settle verification, payment producer, /internal/v1/principal
@@ -188,7 +188,8 @@ class EventSourceFixture:
             'LAYERX_AGENT_BOUNDARY_GATEWAY_TOKEN_FILE': str(self.boundary_tokens['gateway']),
             'LAYERX_AGENT_BOUNDARY_REGISTRY_TOKEN_FILE': str(self.boundary_tokens['registry']),
             'LAYERX_AGENT_BOUNDARY_WEBHOOK_TOKEN_FILE': str(self.boundary_tokens['webhook']),
-            'LAYERX_AGENT_BOUNDARY_LNI_SOCKET': self.runtime.manifest['node_socket'],
+            'LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL': self.runtime.rpc_url,
+            'LAYERX_AGENT_BOUNDARY_RECEIPT_KEYS_FILE': str(self.authority.receipt_keys_file),
             'LAYERX_AGENT_BOUNDARY_NODE_URL': f'http://127.0.0.1:{self.runtime.ports[7]}',
             'LAYERX_AGENT_BOUNDARY_NODE_BEARER_TOKEN_FILE': node['LAYERX_NODE_PROGRAM_BEARER_TOKEN_FILE'],
             'LAYERX_AGENT_BOUNDARY_STATE_DIR': str(private_directory(self.dirs['boundary'] / 'state')),

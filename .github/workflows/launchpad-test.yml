@@ -370,6 +370,16 @@ jobs:
               go build -modfile="$RUNNER_TEMP/launchpad-repair28.mod" -mod=mod -o "$RUNNER_TEMP/launchpad-repair28-producer" .
             )
           fi
+      - name: Record indexer fixture prerequisites
+        run: |
+          if [ "${{ matrix.module }}" = services/launchpad/indexer ]; then
+            anvil --version
+            test -s internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz
+            test -s internal/receipt/testdata/repair53-producer.json
+            test -s ../../../contracts/launchpad/artifacts/contracts/core/SidioraNFT.sol/SidioraNFT.json
+            test -s ../../../contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json
+            # The historical range and NFT tests mine their own chain-125 inputs.
+          fi
       - name: Test Go module
         run: python3 "$GITHUB_WORKSPACE/tests/ci/data/launchpad_go_tests.py" --module .
 

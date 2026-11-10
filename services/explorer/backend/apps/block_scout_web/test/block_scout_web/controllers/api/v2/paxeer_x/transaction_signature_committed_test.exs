@@ -108,17 +108,15 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureCommittedTest do
     end)
   end
 
-  test "signature_route_reports_receipted_for_malformed_gateway_batch", context do
-    signature_route_reports_receipted_for_malformed_gateway_batch(context)
+  test "signature_route_refuses_malformed_gateway_batch", context do
+    signature_route_refuses_malformed_gateway_batch(context)
   end
 
-  defp signature_route_reports_receipted_for_malformed_gateway_batch(%{conn: conn, vector: vector}) do
+  defp signature_route_refuses_malformed_gateway_batch(%{conn: conn, vector: vector}) do
     hash = tx_hash(vector)
     batch = gateway_batch(vector)
     tx = bytes(batch["tx"])
     <<domain::binary-size(25), _height::64, rest::binary>> = tx
-    {:ok, receipt} = vector["receipt"]["receipt"] |> bytes() |> SequencerReceipt.decode()
-    key = Evidence.receipt_key()
 
     for malformed_batch <- [
           Map.put(batch, "height", "11"),
@@ -135,16 +133,9 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureCommittedTest do
         )
 
       serve_rpc(calls)
-      response = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 200)
-
-      assert response == %{
-               "rung" => "receipted",
-               "receipt" => vector["receipt"]["receipt"],
-               "receipt_key" => %{"key_id" => key["keyId"], "public_key" => key["publicKey"]},
-               "signature" => hex(receipt.signature)
-             }
-
-      assert {:ok, ^receipt} = SequencerReceipt.verify_signature(bytes(response["receipt"]), bytes(key["publicKey"]))
+      response = get(conn, "/api/v2/transactions/#{hash}/signature")
+      assert response.status == 404
+      assert json_response(response, 404) == %{"message" => "Not found"}
       assert_calls(calls)
     end
   end

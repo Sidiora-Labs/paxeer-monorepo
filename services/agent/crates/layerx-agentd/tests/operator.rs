@@ -104,11 +104,7 @@ fn inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal(
         .unwrap_or_else(|error| panic!("inspect unknown: {error:?}"));
     assert_eq!(status.state, SubmissionState::Unknown);
 
-    let mut local = LocalAccounting {
-        consumed: 11,
-        window_start_sequence: 80,
-        last_receipt: None,
-    };
+    let mut local = LocalAccounting::at_period_start(11, 80, None);
     let protocol = ProtocolBudgetState {
         evidence: support::raw_state_leaf(b"budget-state-schema-unavailable".to_vec(), 99),
     };

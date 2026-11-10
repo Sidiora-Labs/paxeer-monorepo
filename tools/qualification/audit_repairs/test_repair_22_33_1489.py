@@ -65,7 +65,7 @@ def terms():
 def observation(rung):
     # Consumer validation inputs, not claimed node transcripts or signature proof.
     body = terms()["rebalance"]
-    return dict(settlement_domain="paxeer", operator_account=body["operator_account"],
+    return dict(chain_id=125, operator_account=body["operator_account"],
                 idempotency_key=CONTRACT.hash_bytes(body["idempotency_key"]),
                 asset=CONTRACT.hash_bytes(body["asset"]), amount=int(body["amount"]),
                 operation_id="operation-1", transaction_hash="0x" + "08" * 32,

@@ -1,8 +1,10 @@
+Code.require_file("../../../../../../../explorer/test/support/fixture/paxeer_x/governed_receipt_fixtures.exs", __DIR__)
+
 defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
   use BlockScoutWeb.ConnCase
 
   alias BlockScoutWeb.Schemas.API.V2.PaxeerX.TransactionSignature
-  alias Explorer.Chain.PaxeerX.SequencerReceipt
+  alias Explorer.Chain.PaxeerX.{GovernedReceiptFixtures, SequencerReceipt}
   alias OpenApiSpex.{Components, Info, OpenApi}
   alias Plug.Conn
 
@@ -12,13 +14,12 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
            )
 
   setup do
-    original_config = Application.get_env(:explorer, SequencerReceipt)
+    GovernedReceiptFixtures.restore_on_exit()
+    GovernedReceiptFixtures.configure_receipted()
     original_adapter = Application.get_env(:tesla, :adapter)
-    Application.put_env(:explorer, SequencerReceipt, router_url: nil)
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
     on_exit(fn ->
-      restore_env(:explorer, SequencerReceipt, original_config)
       restore_env(:tesla, :adapter, original_adapter)
     end)
 
@@ -110,6 +111,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
       {step, vector, answer, key} = rejection_inputs(rejection)
       hash = tx_hash(vector)
       assert {:ok, keys} = SequencerReceipt.decode_receipt_keys([key])
+      GovernedReceiptFixtures.configure_receipted()
+      if step == :r6, do: GovernedReceiptFixtures.configure_keys(keys)
       assert SequencerReceipt.verify(hash, answer, keys, []) == {:error, step}
       serve_rpc(hash, answer, %{"keys" => [key]})
 
@@ -174,7 +177,12 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
       |> Conn.resp(200, Jason.encode!(%{jsonrpc: "2.0", id: id, result: result}))
     end)
 
-    Application.put_env(:explorer, SequencerReceipt, router_url: "http://localhost:#{bypass.port}/")
+    Application.put_env(
+      :explorer,
+      SequencerReceipt,
+      Application.fetch_env!(:explorer, SequencerReceipt)
+      |> Keyword.put(:router_url, "http://localhost:#{bypass.port}/")
+    )
   end
 
   defp tx_hash(vector), do: vector["rawTransaction"] |> bytes() |> ExKeccak.hash_256() |> hex()

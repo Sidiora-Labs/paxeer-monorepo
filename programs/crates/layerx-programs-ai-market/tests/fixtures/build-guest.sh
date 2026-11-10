@@ -13,21 +13,17 @@ elif [[ $# != 0 ]]; then
 else
     unset PAXAI_AGGREGATION_PROBE
 fi
-if [[ "$(wasm-opt --version)" != "wasm-opt version 133 (version_133)" ]]; then
-    echo "guest fixture requires Binaryen 133" >&2
-    exit 1
-fi
-PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
-CARGO_PROFILE_RELEASE_OPT_LEVEL=z \
-CARGO_PROFILE_RELEASE_LTO=true \
-RUSTFLAGS="-C target-feature=-reference-types -C link-arg=--compress-relocations -C llvm-args=--enable-merge-functions -C llvm-args=--ir-outliner -C llvm-args=--inline-threshold=40" \
-cargo rustc --locked --release --target wasm32-unknown-unknown -p layerx-programs-ai-market --lib --crate-type cdylib
+source "$fixture_dir/guest-recipe.sh"
 guest_wasm="${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm"
 optimized_wasm="${guest_wasm%.wasm}.opt-z.wasm"
-wasm-opt -Oz --flatten --rereloop -Oz --converge --merge-similar-functions -Oz --converge --strip-debug --strip-producers "$guest_wasm" -o "$optimized_wasm"
+export PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6
+paxai_guest_build "$PWD" "$optimized_wasm"
+export PAXAI_GUEST_OPT_LEVEL PAXAI_GUEST_CRATE_TYPE PAXAI_GUEST_LLVM_PASSES
+export PAXAI_GUEST_POSTPROCESS="wasm-opt ${PAXAI_GUEST_PASSES[*]}"
 python3 - "$fixture_dir" "$optimized_wasm" "$fixture_name" <<'PY'
 from pathlib import Path
 import hashlib
+import os
 import sys
 root = Path(sys.argv[1])
 wasm = Path(sys.argv[2]).read_bytes()
@@ -46,12 +42,12 @@ for path in sorted(source_root.rglob('*.rs')):
     '[guest]\n'
     'source = "programs/crates/layerx-programs-ai-market"\n'
     'profile = "release"\n'
-    'opt_level = "z"\n'
-    'crate_type = "cdylib"\n'
+    f'opt_level = "{os.environ["PAXAI_GUEST_OPT_LEVEL"]}"\n'
+    f'crate_type = "{os.environ["PAXAI_GUEST_CRATE_TYPE"]}"\n'
     'lto = true\n'
-    'llvm_passes = "enable-merge-functions ir-outliner inline-threshold=40"\n'
+    f'llvm_passes = "{os.environ["PAXAI_GUEST_LLVM_PASSES"]}"\n'
     'optimizer_version = "133"\n'
-    'postprocess = "wasm-opt -Oz --flatten --rereloop -Oz --converge --merge-similar-functions -Oz --converge --strip-debug --strip-producers"\n'
+    f'postprocess = "{os.environ["PAXAI_GUEST_POSTPROCESS"]}"\n'
     'chain_id = 125\n'
     'chain_domain = "62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6"\n'
     f'source_sha256 = "{source.hexdigest()}"\n'

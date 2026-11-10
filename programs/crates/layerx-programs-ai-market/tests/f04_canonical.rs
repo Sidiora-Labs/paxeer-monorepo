@@ -374,7 +374,7 @@ fn maximum_byte_and_membership_work_bounds() -> Checked {
     assert_eq!(body.len() + 64, 1444);
     assert_eq!(8 * (body.len() + 64), 11552);
     assert_eq!(8 * 256, 2048);
-    assert_eq!(layerx_programs_ai_market::MAX_STATE_BYTES, 196_608);
+    assert_eq!(layerx_programs_ai_market::MAX_STATE_BYTES, 245_760);
     assert_eq!(workers.len() * entries.len(), 1024);
     let mut excess = body.clone();
     excess[226..228].copy_from_slice(&33_u16.to_be_bytes());
