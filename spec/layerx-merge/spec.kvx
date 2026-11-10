@@ -194936,7 +194936,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.385]
 title = "Bring the unit cases of the checkpoint, proof bundle, approval and policy files of the agent daemon under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222"]
