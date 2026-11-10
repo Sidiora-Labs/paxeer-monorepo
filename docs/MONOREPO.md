@@ -478,3 +478,43 @@ Workflows live in `.github/workflows/`. `node-build.yml` builds native libraries
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md): contribution guidelines
 - [`QUALIFICATION.md`](QUALIFICATION.md): evidence levels and qualification gates
 - [`paxeer-network.md`](paxeer-network.md): merged runtime, root node endpoints and tenant domains
+
+## Inference peer lap countersignatures
+
+[`src/laps.mjs`](../apps/inference-peer/src/laps.mjs) exports `LapTracker`,
+`countersignLap` and the program-compatible receipt and countersign digest
+functions. Construct a tracker with `{ identity, deal, hostMeterKey }`, using
+the accepted deal and independently trusted host meter key. Pass it to
+`DealClient` as `lapTracker`, with `countersign: ack => signal.countersignLap(ack)`.
+Forward `lap_receipt` signalling events to `DealClient.handleFrame`, alongside
+`deal` and `deal_live`. The client records each successfully forwarded encoded
+output activation in processing order. A range digest is SHA-256 of the
+concatenated activation payloads for that lap; the host supplies these digests
+through `LapInput.layer_range_digests`, in deal-plan order.
+
+The tracker starts at lap zero and checks the deal binding, pinned meter key,
+host signature, deadline, continuous lap index, its assigned range digest and
+local activation count. Cumulative tokens include prompt tokens on the first
+lap and advance only by generated tokens thereafter. Refusals preserve the
+activation evidence and return `{ type: "refusal", reason }` locally, surfaced
+as `lap-refusal` events. The host has no refusal message on its socket. Identical
+receipt retransmissions return the cached countersignature without advancing
+accounting; conflicting retransmissions refuse. Activations already processed
+for a later lap remain buffered, up to a total of 64 MiB. Tracker state is
+in memory and requires the original processing evidence to countersign.
+
+The socket carries JSON text `{ type: "lap_receipt", lap }` and
+`{ type: "lap_countersign", deal_id, lap_index, digest, signature }` through
+`src/signal.mjs`, using the Rust host's exact snake-case members and byte arrays.
+The peer signs the SHA-256 digest of `PAXAI/lap-countersign/v1`, a zero byte,
+deal digest, host meter key, big-endian deadline and program receipt digest.
+The program receipt encoding and its two hash domains match task 22.38.4;
+the binary lap kinds in `src/wire.mjs` are not sent on signalling sockets.
+
+[`test/laps.test.mjs`](../apps/inference-peer/test/laps.test.mjs) exercises these
+checks with the fixed vectors in `test/fixtures/host-lap-frames.json`, the real
+signalling client over loopback WebSockets, encoded activations over TCP and
+the CPU model's assigned layers loaded from verified HTTP shards. Its fixture
+recipe is `test/fixtures/generate-host-lap-frames.mjs`; it independently encodes
+the Rust layouts, including `f11_lap_settlement.rs::batch(0, 1, 0)`.
+The declared gate runs `node --test apps/inference-peer/test/laps.test.mjs`.
