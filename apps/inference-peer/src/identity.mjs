@@ -1,11 +1,14 @@
+import { signalBytes } from "./signal.mjs";
+
 const text = new TextEncoder();
 const METADATA_DOMAIN = text.encode("PAXAI/participant-metadata/v2\0");
-const HELLO_DOMAIN = text.encode("PAXAI/peer-hello/v1\0");
+const HELLO_DOMAIN = text.encode("PAXAI/inference-signal/hello/v1\0");
 const MIB = 1024 * 1024;
 export const MAX_MANIFEST_BYTES = 8192;
 
 function bytes(value) {
-  if (!(value instanceof Uint8Array)) throw new TypeError("Expected Uint8Array bytes");
+  if (!(value instanceof Uint8Array))
+    throw new TypeError("Expected Uint8Array bytes");
   return value;
 }
 
@@ -33,7 +36,8 @@ function unhex(value, length) {
 }
 
 function uint(value, max, name) {
-  if (!Number.isInteger(value) || value < 0 || value > max) throw new RangeError(`Invalid ${name}`);
+  if (!Number.isInteger(value) || value < 0 || value > max)
+    throw new RangeError(`Invalid ${name}`);
   return value;
 }
 
@@ -48,7 +52,8 @@ function runtime(mode) {
 // before appending capabilities, using workers::decode_manifest's bounds.
 function validateManifest(input, version) {
   bytes(input);
-  if (input.length > MAX_MANIFEST_BYTES) throw new RangeError("Manifest exceeds 8192 bytes");
+  if (input.length > MAX_MANIFEST_BYTES)
+    throw new RangeError("Manifest exceeds 8192 bytes");
   const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
   let offset = 0;
   function take(n) {
@@ -67,12 +72,14 @@ function validateManifest(input, version) {
   }
   function range(n, min, max) {
     const value = number(n);
-    if (value < min || value > max) throw new RangeError("Invalid manifest field");
+    if (value < min || value > max)
+      throw new RangeError("Invalid manifest field");
     return value;
   }
   function digest() {
     const value = take(32);
-    if (!value.some((b) => b !== 0)) throw new RangeError("Zero manifest identity");
+    if (!value.some((b) => b !== 0))
+      throw new RangeError("Zero manifest identity");
   }
   if (number(2) !== version) throw new RangeError("Wrong manifest version");
   for (let i = 0; i < 3; i++) digest();
@@ -97,7 +104,8 @@ function validateManifest(input, version) {
     range(2, 1, 32);
     range(1, 1, 2);
     const key = `${kind}${model}${schema}`;
-    if (key <= previous) throw new RangeError("Unordered manifest capabilities");
+    if (key <= previous)
+      throw new RangeError("Unordered manifest capabilities");
     previous = key;
   }
   const endpoints = range(2, 1, 2);
@@ -108,16 +116,20 @@ function validateManifest(input, version) {
     if (id <= previousId) throw new RangeError("Unordered manifest endpoints");
     previousId = id;
     const uriBytes = take(range(4, 1, 2048));
-    if (uriBytes.some((b) => b > 127)) throw new RangeError("Non-ASCII endpoint");
+    if (uriBytes.some((b) => b > 127))
+      throw new RangeError("Non-ASCII endpoint");
     const uri = new TextDecoder().decode(uriBytes);
-    const match = /^https:\/\/([^/:?#@]+)(?::([1-9][0-9]{0,4}))?\/paxai\/v1$/.exec(uri);
+    const match =
+      /^https:\/\/([^/:?#@]+)(?::([1-9][0-9]{0,4}))?\/paxai\/v1$/.exec(uri);
     if (!match || uri === previousUri || (match[2] && Number(match[2]) > 65535))
       throw new RangeError("Noncanonical manifest endpoint");
     const host = match[1];
     if (
       host.length > 253 ||
       /^[0-9]+$/.test(host.split(".").at(-1)) ||
-      host.split(".").some((label) => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))
+      host
+        .split(".")
+        .some((label) => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))
     )
       throw new RangeError("Noncanonical manifest hostname");
     previousUri = uri;
@@ -155,11 +167,23 @@ export function encodeManifestV2(manifestV1, capabilities) {
   const view = new DataView(result.buffer);
   view.setUint16(0, 2);
   const offset = manifestV1.length;
-  view.setUint32(offset, uint(capabilities.acceleratorMemoryMiB, 0xffffffff, "accelerator memory"));
-  view.setUint32(offset + 4, uint(capabilities.systemMemoryMiB, 0xffffffff, "system memory"));
-  view.setUint8(offset + 8, uint(capabilities.bandwidthClass, 4, "bandwidth class"));
+  view.setUint32(
+    offset,
+    uint(capabilities.acceleratorMemoryMiB, 0xffffffff, "accelerator memory"),
+  );
+  view.setUint32(
+    offset + 4,
+    uint(capabilities.systemMemoryMiB, 0xffffffff, "system memory"),
+  );
+  view.setUint8(
+    offset + 8,
+    uint(capabilities.bandwidthClass, 4, "bandwidth class"),
+  );
   result.set(text.encode(capabilities.regionCode), offset + 9);
-  view.setUint8(offset + 11, uint(capabilities.attestationFamily, 255, "attestation family"));
+  view.setUint8(
+    offset + 11,
+    uint(capabilities.attestationFamily, 255, "attestation family"),
+  );
   view.setUint8(offset + 12, uint(capabilities.runtimeKind, 2, "runtime kind"));
   return result;
 }
@@ -172,10 +196,13 @@ function endpoint(value) {
     url.hash ||
     !(
       url.protocol === "https:" ||
-      (url.protocol === "http:" && ["127.0.0.1", "[::1]"].includes(url.hostname))
+      (url.protocol === "http:" &&
+        ["127.0.0.1", "[::1]"].includes(url.hostname))
     )
   )
-    throw new TypeError("Endpoint requires HTTPS or HTTP loopback without credentials");
+    throw new TypeError(
+      "Endpoint requires HTTPS or HTTP loopback without credentials",
+    );
   return url;
 }
 
@@ -212,7 +239,8 @@ async function probeBandwidth(probeUrl, timeoutMs) {
       const { done, value } = await reader.read();
       if (done) break;
       received += value.length;
-      if (received > length) throw new RangeError("Bandwidth probe exceeds its length");
+      if (received > length)
+        throw new RangeError("Bandwidth probe exceeds its length");
     }
     if (received !== length) throw new Error("Incomplete bandwidth probe");
   } finally {
@@ -246,7 +274,8 @@ export async function measureManifest({
     readSystemBytes = (await import("node:os")).totalmem;
   } else {
     const gib = navigator?.deviceMemory;
-    if (!Number.isFinite(gib) || gib <= 0) throw new Error("navigator.deviceMemory is unavailable");
+    if (!Number.isFinite(gib) || gib <= 0)
+      throw new Error("navigator.deviceMemory is unavailable");
     readSystemBytes = () => gib * 1024 * MIB;
   }
   const bandwidthClass = await probeBandwidth(probeUrl, timeoutMs);
@@ -269,11 +298,15 @@ async function browserKeys(databaseName) {
     request.onupgradeneeded = () => request.result.createObjectStore("keys");
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error("Identity database upgrade is blocked"));
+    request.onblocked = () =>
+      reject(new Error("Identity database upgrade is blocked"));
   });
   try {
     // Generate outside the transaction: awaiting crypto would close an IDB transaction.
-    const candidate = await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]);
+    const candidate = await crypto.subtle.generateKey("Ed25519", false, [
+      "sign",
+      "verify",
+    ]);
     return await new Promise((resolve, reject) => {
       const transaction = db.transaction("keys", "readwrite");
       const store = transaction.objectStore("keys");
@@ -301,20 +334,46 @@ async function nativeKeys(path) {
   const { constants } = await import("node:fs");
   const { dirname, basename, join } = await import("node:path");
   const { createPrivateKey, createPublicKey } = await import("node:crypto");
-  path ??= join((await import("node:os")).homedir(), ".paxeer", "inference-peer", "identity.pkcs8");
+  path ??= join(
+    (await import("node:os")).homedir(),
+    ".paxeer",
+    "inference-peer",
+    "identity.pkcs8",
+  );
   async function read() {
-    const handle = await fs.open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const handle = await fs.open(
+      path,
+      constants.O_RDONLY | constants.O_NOFOLLOW,
+    );
     try {
       const stat = await handle.stat();
-      if (!stat.isFile() || stat.mode & 0o077 || stat.size > 4096 || stat.uid !== process.getuid())
+      if (
+        !stat.isFile() ||
+        stat.mode & 0o077 ||
+        stat.size > 4096 ||
+        stat.uid !== process.getuid()
+      )
         throw new Error("Identity key requires an owner-only regular file");
       const der = await handle.readFile();
-      const privateKey = await crypto.subtle.importKey("pkcs8", der, "Ed25519", false, ["sign"]);
+      const privateKey = await crypto.subtle.importKey(
+        "pkcs8",
+        der,
+        "Ed25519",
+        false,
+        ["sign"],
+      );
       const key = createPrivateKey({ key: der, format: "der", type: "pkcs8" });
-      const publicDer = createPublicKey(key).export({ format: "der", type: "spki" });
-      const publicKey = await crypto.subtle.importKey("spki", publicDer, "Ed25519", true, [
-        "verify",
-      ]);
+      const publicDer = createPublicKey(key).export({
+        format: "der",
+        type: "spki",
+      });
+      const publicKey = await crypto.subtle.importKey(
+        "spki",
+        publicDer,
+        "Ed25519",
+        true,
+        ["verify"],
+      );
       return { privateKey, publicKey };
     } finally {
       await handle.close();
@@ -326,9 +385,17 @@ async function nativeKeys(path) {
     if (error.code !== "ENOENT") throw error;
   }
   await fs.mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  const pair = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]);
-  const der = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
-  const temporary = join(dirname(path), `.${basename(path)}.${crypto.randomUUID()}.tmp`);
+  const pair = await crypto.subtle.generateKey("Ed25519", true, [
+    "sign",
+    "verify",
+  ]);
+  const der = new Uint8Array(
+    await crypto.subtle.exportKey("pkcs8", pair.privateKey),
+  );
+  const temporary = join(
+    dirname(path),
+    `.${basename(path)}.${crypto.randomUUID()}.tmp`,
+  );
   try {
     const handle = await fs.open(temporary, "wx", 0o600);
     try {
@@ -351,24 +418,17 @@ async function nativeKeys(path) {
 
 export async function manifestDigest(manifest) {
   validateManifest(manifest, 2);
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", concat(METADATA_DOMAIN, manifest)));
+  return new Uint8Array(
+    await crypto.subtle.digest("SHA-256", concat(METADATA_DOMAIN, manifest)),
+  );
 }
 
-export function helloSigningBytes(roomId, nonce, metadataDigest) {
-  function field(value) {
-    if (typeof value !== "string" || !value.length)
-      throw new TypeError("Room and nonce must be nonempty strings");
-    const encoded = text.encode(value);
-    if (
-      encoded.length > 4096 ||
-      new TextDecoder("utf-8", { fatal: true }).decode(encoded) !== value
-    )
-      throw new RangeError("Invalid hello text");
-    const size = new Uint8Array(4);
-    new DataView(size.buffer).setUint32(0, encoded.length);
-    return concat(size, encoded);
-  }
-  return concat(HELLO_DOMAIN, field(roomId), field(nonce), unhex(metadataDigest, 32));
+export function helloSigningBytes(roomId, nonce) {
+  return concat(
+    HELLO_DOMAIN,
+    Uint8Array.from(signalBytes(roomId)),
+    Uint8Array.from(signalBytes(nonce)),
+  );
 }
 
 export class PeerIdentity {
@@ -380,13 +440,33 @@ export class PeerIdentity {
     this.#peerKey = peerKey;
   }
 
-  static async open({ mode, path, databaseName = "paxeer-inference-peer" } = {}) {
+  static async open({
+    mode,
+    path,
+    databaseName = "paxeer-inference-peer",
+  } = {}) {
     mode = runtime(mode);
-    const pair = mode === "browser" ? await browserKeys(databaseName) : await nativeKeys(path);
-    const publicBytes = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey));
+    const pair =
+      mode === "browser"
+        ? await browserKeys(databaseName)
+        : await nativeKeys(path);
+    const publicBytes = new Uint8Array(
+      await crypto.subtle.exportKey("raw", pair.publicKey),
+    );
     const challenge = crypto.getRandomValues(new Uint8Array(32));
-    const signature = await crypto.subtle.sign("Ed25519", pair.privateKey, challenge);
-    if (!(await crypto.subtle.verify("Ed25519", pair.publicKey, signature, challenge)))
+    const signature = await crypto.subtle.sign(
+      "Ed25519",
+      pair.privateKey,
+      challenge,
+    );
+    if (
+      !(await crypto.subtle.verify(
+        "Ed25519",
+        pair.publicKey,
+        signature,
+        challenge,
+      ))
+    )
       throw new Error("Stored identity key pair does not match");
     return new PeerIdentity(pair.privateKey, hex(publicBytes));
   }
@@ -396,7 +476,11 @@ export class PeerIdentity {
   }
 
   async sign(input) {
-    return hex(new Uint8Array(await crypto.subtle.sign("Ed25519", this.#privateKey, bytes(input))));
+    return hex(
+      new Uint8Array(
+        await crypto.subtle.sign("Ed25519", this.#privateKey, bytes(input)),
+      ),
+    );
   }
 
   async signManifest(input) {
@@ -416,8 +500,12 @@ export class PeerIdentity {
     if (!url.pathname.endsWith("/enrol_peer"))
       throw new TypeError("Expected the host enrol_peer route");
     const signed = await this.signManifest(manifest);
-    const body = JSON.stringify({ manifest: signed, ...(quote === undefined ? {} : { quote }) });
-    if (text.encode(body).length > 262144) throw new RangeError("Enrolment exceeds 262144 bytes");
+    const body = JSON.stringify({
+      manifest: signed,
+      ...(quote === undefined ? {} : { quote }),
+    });
+    if (text.encode(body).length > 262144)
+      throw new RangeError("Enrolment exceeds 262144 bytes");
     const requestHeaders = new Headers(headers);
     requestHeaders.set("content-type", "application/json");
     const response = await fetch(url, {
@@ -436,8 +524,16 @@ export class PeerIdentity {
   }
 }
 
-export async function signHello(identity, { roomId, nonce = crypto.randomUUID(), manifest }) {
-  const signed = await identity.signManifest(manifest);
-  const signature = await identity.sign(helloSigningBytes(roomId, nonce, signed.metadataDigest));
-  return { peerKey: identity.peerKey, signature, nonce, manifest: signed };
+export async function signHello(identity, { roomId, nonce, manifest }) {
+  const encoded = bytes(manifest).slice();
+  await manifestDigest(encoded);
+  const signature = await identity.sign(helloSigningBytes(roomId, nonce));
+  return {
+    type: "hello",
+    room_id: signalBytes(roomId),
+    peer_key: signalBytes(identity.peerKey),
+    nonce: signalBytes(nonce),
+    signature: signalBytes(signature, 64),
+    manifest: Array.from(encoded),
+  };
 }
