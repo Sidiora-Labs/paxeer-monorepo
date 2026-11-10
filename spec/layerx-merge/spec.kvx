@@ -194888,7 +194888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.356]
 title = "Read the signalling vectors of the inference peer with the host frame types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.39.355", "22.39.364"]
