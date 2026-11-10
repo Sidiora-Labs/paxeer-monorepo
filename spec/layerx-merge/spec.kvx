@@ -225689,7 +225689,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.374]
 title = "Follow the committed producer transcript in the replay cases of the launchpad profit tracker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -225719,7 +225719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.372]
 title = "Serve the candle read after a replay, the trade read and the verified token in the development API of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

@@ -21,26 +21,6 @@ mod support;
 const BUDGET_ID: [u8; 32] = [0x51; 32];
 const SEQUENCER_SEED: [u8; 32] = [0x3a; 32];
 
-fn core_budget_record(per_period_limit: u128, spent_this_period: u128) -> Vec<u8> {
-    let mut bytes = vec![0_u8; 278];
-    bytes[1] = 1;
-    bytes[2..34].copy_from_slice(&BUDGET_ID);
-    bytes[34..66].copy_from_slice(&[0x52; 32]);
-    bytes[66..98].copy_from_slice(&[0x53; 32]);
-    bytes[98..130].copy_from_slice(&[0x24; 32]);
-    bytes[130..162].copy_from_slice(&[0x54; 32]);
-    bytes[162..178].copy_from_slice(&per_period_limit.to_be_bytes());
-    bytes[178..194].copy_from_slice(&per_period_limit.to_be_bytes());
-    bytes[194..210].copy_from_slice(&0_u128.to_be_bytes());
-    bytes[210..226].copy_from_slice(&spent_this_period.to_be_bytes());
-    bytes[226..242].copy_from_slice(&0_u128.to_be_bytes());
-    bytes[242..250].copy_from_slice(&1_000_u64.to_be_bytes());
-    bytes[250..258].copy_from_slice(&80_u64.to_be_bytes());
-    bytes[258..266].copy_from_slice(&5_000_u64.to_be_bytes());
-    bytes[266..274].copy_from_slice(&0_u64.to_be_bytes());
-    bytes
-}
-
 fn authorised_batch(global_sequence: u64) -> AuthorizedBatch {
     let batch_id =
         program_execution_batch_id([0x21; 32], [0x25; 32], global_sequence, global_sequence, 7)
@@ -147,59 +127,65 @@ fn archived_legacy_receipt_evidence_is_refused_after_restart() {
     let tenant = tenant();
     let idempotency_key = [0x44; 32];
     let raw = support::raw_receipt_at([0x11; 32], 0, 25, 100);
-    let mut durable = Store::open(&root).expect("store");
+    let mut durable = lint_success(Store::open(&root), "store");
     store_served_receipt(&mut durable, &tenant, idempotency_key, &raw, 100);
-    persist_evidence(&mut durable, tenant.clone(), idempotency_key, &raw)
-        .expect("persist legacy evidence");
-    let public_key = TenantKey::new(
-        tenant.clone(),
-        ObjectKind::Configuration,
-        [b"receipt-evidence:".as_slice(), &idempotency_key].concat(),
-    )
-    .expect("public evidence key");
-    let legacy_key = TenantKey::new(
-        tenant.clone(),
-        ObjectKind::Configuration,
-        [b"receipt-legacy-evidence:".as_slice(), &idempotency_key].concat(),
-    )
-    .expect("archived evidence key");
-    let encoded = durable
-        .get(&public_key)
-        .expect("encoded evidence")
+    lint_success(
+        persist_evidence(&mut durable, tenant.clone(), idempotency_key, &raw),
+        "persist legacy evidence",
+    );
+    let public_key = lint_success(
+        TenantKey::new(
+            tenant.clone(),
+            ObjectKind::Configuration,
+            [b"receipt-evidence:".as_slice(), &idempotency_key].concat(),
+        ),
+        "public evidence key",
+    );
+    let legacy_key = lint_success(
+        TenantKey::new(
+            tenant.clone(),
+            ObjectKind::Configuration,
+            [b"receipt-legacy-evidence:".as_slice(), &idempotency_key].concat(),
+        ),
+        "archived evidence key",
+    );
+    let encoded = lint_present(durable.get(&public_key), "encoded evidence")
         .bytes()
         .to_vec();
-    durable
-        .put_local(legacy_key, encoded)
-        .expect("archive evidence");
-    assert!(durable
-        .remove_local(&public_key)
-        .expect("remove public evidence"));
+    lint_success(durable.put_local(legacy_key, encoded), "archive evidence");
+    assert!(lint_success(
+        durable.remove_local(&public_key),
+        "remove public evidence"
+    ));
     drop(durable);
 
-    let reopened = Store::open(&root).expect("reopen");
+    let reopened = lint_success(Store::open(&root), "reopen");
     assert!(matches!(
         evidence_inventory(&reopened, &tenant),
         Err(ReceiptStoreError::EvidenceVersion)
     ));
     drop(reopened);
-    std::fs::remove_dir_all(root).expect("cleanup");
+    lint_success(std::fs::remove_dir_all(root), "cleanup");
 }
 
 fn seed_startup_recovery(root: &std::path::Path, tenant_a: &TenantId, tenant_b: &TenantId) {
     let mut durable = Store::open(root).unwrap_or_else(|error| panic!("store: {error}"));
     let capture = support::current_node::restart_capture();
     let receipt = support::current_node::authenticated_receipt(&capture);
-    durable
-        .put_local(
-            TenantKey::new(
-                tenant_a.clone(),
-                ObjectKind::PreparedActivity,
-                receipt.activity_id().to_vec(),
-            )
-            .expect("transaction key"),
+    lint_success(
+        durable.put_local(
+            lint_success(
+                TenantKey::new(
+                    tenant_a.clone(),
+                    ObjectKind::PreparedActivity,
+                    receipt.activity_id().to_vec(),
+                ),
+                "transaction key",
+            ),
             capture.bytes("signed_transaction"),
-        )
-        .expect("retain exact signed node transaction");
+        ),
+        "retain exact signed node transaction",
+    );
     let evidence = TransactionReceiptEvidence::from_authenticated(&receipt)
         .unwrap_or_else(|error| panic!("current transaction evidence: {error:?}"));
     store_verified_if_absent(
@@ -392,27 +378,34 @@ fn startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidenc
     let verifier = capture.authority();
     let (protocol, _) = support::current_node::committed_restart_budget(&capture);
     let receipt = support::current_node::authenticated_receipt(&capture);
-    let transaction_key = TenantKey::new(
-        tenant_a.clone(),
-        ObjectKind::PreparedActivity,
-        receipt.activity_id().to_vec(),
+    let transaction_key = lint_success(
+        TenantKey::new(
+            tenant_a.clone(),
+            ObjectKind::PreparedActivity,
+            receipt.activity_id().to_vec(),
+        ),
+        "transaction key",
+    );
+    let retained_transaction = lint_present(
+        reopened.get(&transaction_key),
+        "signed transaction survives restart",
     )
-    .expect("transaction key");
-    let retained_transaction = reopened
-        .get(&transaction_key)
-        .expect("signed transaction survives restart")
-        .bytes();
+    .bytes();
     assert_eq!(retained_transaction, capture.bytes("signed_transaction"));
     assert_eq!(
         layerx_crypto::evm_transaction::transaction_hash(retained_transaction),
         receipt.activity_id()
     );
-    layerx_crypto::evm_transaction::decode_signed(retained_transaction)
-        .expect("retained canonical zero-value signed transaction");
+    lint_success(
+        layerx_crypto::evm_transaction::decode_signed(retained_transaction),
+        "retained canonical zero-value signed transaction",
+    );
     assert_eq!(capture.amount("transaction_value"), 0);
-    let recovered_evidence = serve_evidence(&reopened, tenant_a.clone(), receipt.activity_id())
-        .unwrap_or_else(|error| panic!("reopen current evidence: {error:?}"))
-        .expect("current transaction evidence survives restart");
+    let recovered_evidence = lint_present(
+        serve_evidence(&reopened, tenant_a.clone(), receipt.activity_id())
+            .unwrap_or_else(|error| panic!("reopen current evidence: {error:?}")),
+        "current transaction evidence survives restart",
+    );
     assert_eq!(
         recovered_evidence.canonical_receipt,
         receipt.canonical_bytes()
@@ -426,14 +419,15 @@ fn startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidenc
     assert_eq!(current.activity_id, receipt.activity_id());
     assert_eq!(current.global_sequence, capture.sequence());
     assert_eq!(current.evidence, recovered_evidence);
-    let verified = verifier
-        .verify_current_receipt(&current.evidence)
-        .expect("reopened receipt verifies under governed node keys");
-    assert_eq!(verified.activity_id(), receipt.activity_id());
-    assert_eq!(verified.global_sequence(), capture.sequence());
-    assert_eq!(verified.amount(), capture.amount("receipt_amount"));
-    assert_eq!(verified.amount(), capture.amount("transaction_value"));
-    assert_eq!(verified.result_code(), 0);
+    let authenticated = lint_success(
+        verifier.verify_current_receipt(&current.evidence),
+        "reopened receipt verifies under governed node keys",
+    );
+    assert_eq!(authenticated.activity_id(), receipt.activity_id());
+    assert_eq!(authenticated.global_sequence(), capture.sequence());
+    assert_eq!(authenticated.amount(), capture.amount("receipt_amount"));
+    assert_eq!(authenticated.amount(), capture.amount("transaction_value"));
+    assert_eq!(authenticated.result_code(), 0);
     assert!(inventory_a.without_evidence.is_empty());
 
     let inventory_b = evidence_inventory(&reopened, &tenant_b)
@@ -444,16 +438,16 @@ fn startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidenc
     assert_eq!(inventory_b.without_evidence[0].idempotency_key, [0x45; 32]);
     assert_eq!(inventory_b.without_evidence[0].activity_id, [0x12; 32]);
     assert_eq!(inventory_b.without_evidence[0].global_sequence, 101);
-    let (reservation_protocol, _) = support::current_node::committed_budget(BUDGET_ID, 25);
+    let (reserved_budget, _) = support::current_node::committed_budget(BUDGET_ID, 25);
     assert_unevidenced_tenant_holds_its_reservation(
         &mut reopened,
         &tenant_b,
-        &reservation_protocol,
+        &reserved_budget,
         &verifier,
         &inventory_b,
     );
 
-    assert_tenant_without_receipts_blocks_writes(&mut reopened, &reservation_protocol, &verifier);
+    assert_tenant_without_receipts_blocks_writes(&mut reopened, &reserved_budget, &verifier);
     assert_budget_state_refusals(&mut reopened, &tenant_a, &protocol, &verifier, &inventory_a);
     assert_evidenced_tenant_admits_writes(
         &mut reopened,
@@ -464,4 +458,20 @@ fn startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidenc
         &capture,
     );
     let _ = std::fs::remove_dir_all(&root);
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
 }

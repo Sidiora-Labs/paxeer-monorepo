@@ -244,6 +244,12 @@ func TestRepair_63_RecordedReplayHeaders(t *testing.T) {
 			t.Fatalf("recorded replay block %x lost its header or transaction: %+v %v", recorded.height, block, err)
 		}
 	}
+	code, err := client.CodeAtHash(ctx,
+		common.HexToAddress("0x85fcd13735f4309833a503ee804ea32395851479"),
+		common.HexToHash("0xd955d693c649ee8e9a69be1e9d6d683ac05a6b846ecbb6f0d165ff1a698ceb68"))
+	if err != nil || len(code) != 4230 || production.Checksum(code) != "32ae0f6e3bebe0f39b69a2790c61f7899a77c6b6d5584f53c8783053cf98e9a4" {
+		t.Fatalf("recorded historical emitter code differs from the producer transcript: bytes=%d sha256=%s err=%v", len(code), production.Checksum(code), err)
+	}
 }
 
 // Replay the indexer's committed node traffic. State reads absent from the
@@ -256,7 +262,7 @@ func repair63RecordedRPC(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if production.Checksum(raw) != "4b5ebff5adc5d1fa33b2275ed4f27d9b68ff955a6443bda441eb191470214f60" {
+	if production.Checksum(raw) != "8e30a49734f6381b6234e64d2ee01367a9c47939d1cd1c13b5755914e43b61a1" {
 		t.Fatal("producer RPC transcript differs from its committed checksum")
 	}
 	z, err := gzip.NewReader(bytes.NewReader(raw))
