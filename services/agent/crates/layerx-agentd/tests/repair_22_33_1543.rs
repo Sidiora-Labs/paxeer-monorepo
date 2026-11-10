@@ -1,4 +1,12 @@
-//! Finding-to-test mapping and deferred domain wiring: prepare/repair_22_33_1543.kvx.
+//! Finding-to-test mapping and deferred domain wiring: `prepare/repair_22_33_1543.kvx`.
+
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
 
 use layerx_agentd::budget::{reserve, restore, LimitId, ReservationRequest};
 use layerx_agentd::prepare::{
@@ -14,23 +22,28 @@ use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_
 #[test]
 fn f14_call_disclosure_refuses_calldata_actor_nonce_fees_and_digest_mutations() {
     let original = prepared(14);
-    let decoded = disclose::restore_call(
-        &original.call.encode_unsigned(),
-        OWNER,
-        original.observed_head_height,
-        original.disclosure_digest,
-        original.signing_hash,
-    )
-    .unwrap();
+    let decoded = require_ok(
+        disclose::restore_call(
+            &original.call.encode_unsigned(),
+            OWNER,
+            original.observed_head_height,
+            original.disclosure_digest,
+            original.signing_hash,
+        ),
+        "required test value",
+    );
     assert_eq!(decoded, original);
     assert_eq!(
-        disclose::bind(&original.call, OWNER).unwrap().disclosure,
+        require_ok(disclose::bind(&original.call, OWNER), "required test value").disclosure,
         original.disclosure
     );
     let raw = signed(&decoded);
-    let (call, signature) = decode_signed(&raw).unwrap();
+    let (call, signature) = require_ok(decode_signed(&raw), "required test value");
     assert_eq!(call, original.call);
-    assert_eq!(recover_sender(&call, &signature).unwrap(), OWNER);
+    assert_eq!(
+        require_ok(recover_sender(&call, &signature), "required test value"),
+        OWNER
+    );
     for field in 0..9 {
         let mut changed = decoded.clone();
         match field {
@@ -86,7 +99,7 @@ fn f13_eip1559_validation_and_explicit_durable_version_handling() {
     assert_eq!(produced.call.encode_unsigned()[0], 2);
     assert_eq!(produced.call.max_fee_per_gas, 5);
     assert_eq!(produced.signing_hash, produced.disclosure_digest);
-    verify_call_binding(&produced).unwrap();
+    require_ok(verify_call_binding(&produced), "required test value");
     let mut stale = request(13);
     stale.expected_nonce = Some(8);
     assert_eq!(
@@ -122,13 +135,24 @@ fn f13_eip1559_validation_and_explicit_durable_version_handling() {
         Err(EvmPrepareError::InvalidDefaults)
     );
     let owner = session();
-    let record =
-        DurablePreparation::from_call(&owner, GENERATION, [13; 32], &produced, vec![]).unwrap();
-    let bytes = record.encode().unwrap();
+    let record = require_ok(
+        DurablePreparation::from_call(&owner, GENERATION, [13; 32], &produced, vec![]),
+        "required test value",
+    );
+    let bytes = require_ok(record.encode(), "required test value");
     assert_eq!(bytes[4], 3, "call records use an explicit format version");
-    let decoded = DurablePreparation::decode(owner.tenant.clone(), &bytes).unwrap();
-    assert_eq!(decoded.restore_call(&owner, GENERATION).unwrap(), produced);
-    assert_eq!(decoded.encode().unwrap(), bytes);
+    let decoded = require_ok(
+        DurablePreparation::decode(owner.tenant.clone(), &bytes),
+        "required test value",
+    );
+    assert_eq!(
+        require_ok(
+            decoded.restore_call(&owner, GENERATION),
+            "required test value"
+        ),
+        produced
+    );
+    assert_eq!(require_ok(decoded.encode(), "required test value"), bytes);
     let mut future = bytes.clone();
     future[4] = 4;
     assert_eq!(
@@ -143,10 +167,13 @@ fn f13_eip1559_validation_and_explicit_durable_version_handling() {
     );
     let mut old = record;
     old.extensions.clear();
-    let old_bytes = old.encode().unwrap();
+    let old_bytes = require_ok(old.encode(), "required test value");
     assert_eq!(old_bytes[4], 1);
-    let old = DurablePreparation::decode(owner.tenant.clone(), &old_bytes).unwrap();
-    assert_eq!(old.encode().unwrap(), old_bytes);
+    let old = require_ok(
+        DurablePreparation::decode(owner.tenant.clone(), &old_bytes),
+        "required test value",
+    );
+    assert_eq!(require_ok(old.encode(), "required test value"), old_bytes);
     assert_eq!(
         old.restore_call(&owner, GENERATION),
         Err(LifecycleError::MigrationRequired)
@@ -161,39 +188,7 @@ fn f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes() {
     let lifecycle = PreparationLifecycle::default();
     let budget = limiter();
     for identity in [11, 12, 13] {
-        let id = [identity; 32];
-        let hold = reserve(
-            &budget,
-            &ReservationRequest {
-                id,
-                amount: 100,
-                expiry_sequence: 2_000,
-                current_sequence: 80,
-                applicable_limits: vec![LimitId([1; 16])],
-            },
-        )
-        .unwrap();
-        let prepared = prepared(identity);
-        lifecycle
-            .register_call(
-                &mut store,
-                &owner,
-                GENERATION,
-                id,
-                &prepared,
-                hold.durable.into_iter().map(|hold| (hold, None)).collect(),
-            )
-            .unwrap();
-        lifecycle
-            .transition_call(
-                &mut store,
-                &owner,
-                GENERATION,
-                id,
-                LifecycleState::Signing,
-                81,
-            )
-            .unwrap();
+        let (id, prepared) = verify_f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes_1_repair_22_33_1543(&owner, &mut store, &lifecycle, &budget, identity);
         if identity != 11 {
             let mut wrong_call = prepared.clone();
             wrong_call.call.nonce += 1;
@@ -207,35 +202,38 @@ fn f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes() {
                 ),
                 Err(LifecycleError::InvalidSignedBytes)
             );
-            let wrong_signer = prepared.call.sign(&[2; 32]).unwrap();
+            let wrong_signer = require_ok(prepared.call.sign(&[2; 32]), "required test value");
             assert_eq!(
                 lifecycle.retain_signed_call(&mut store, &owner, GENERATION, id, wrong_signer),
                 Err(LifecycleError::InvalidSignedBytes)
             );
             let raw = signed(&prepared);
             assert_eq!(
-                lifecycle
-                    .retain_signed_call(&mut store, &owner, GENERATION, id, raw.clone())
-                    .unwrap(),
+                require_ok(
+                    lifecycle.retain_signed_call(&mut store, &owner, GENERATION, id, raw.clone()),
+                    "required test value"
+                ),
                 transaction_hash(&raw)
             );
             if identity == 12 {
                 assert_eq!(
-                    lifecycle
-                        .admit_call_submission(&mut store, &owner, GENERATION, id, 900)
-                        .unwrap(),
+                    require_ok(
+                        lifecycle.admit_call_submission(&mut store, &owner, GENERATION, id, 900),
+                        "required test value"
+                    ),
                     raw
                 );
-                lifecycle
-                    .transition_call(
+                require_ok(
+                    lifecycle.transition_call(
                         &mut store,
                         &owner,
                         GENERATION,
                         id,
                         LifecycleState::Unknown,
                         82,
-                    )
-                    .unwrap();
+                    ),
+                    "required test value",
+                );
             } else {
                 assert_eq!(
                     lifecycle.admit_call_submission(&mut store, &owner, GENERATION, id, EXPIRY + 1),
@@ -248,77 +246,160 @@ fn f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes() {
             Err(LifecycleError::AuthorizationRequired)
         );
     }
+    finish_f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes_2_repair_22_33_1543(&directory, &owner, store, lifecycle, budget);
+}
+
+fn verify_f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes_1_repair_22_33_1543(
+    owner: &SessionRef,
+    store: &mut layerx_agentd::store::Store,
+    lifecycle: &PreparationLifecycle,
+    budget: &layerx_agentd::budget::BudgetLimiter,
+    identity: u8,
+) -> ([u8; 32], layerx_agentd::prepare::Prepared) {
+    let id = [identity; 32];
+    let hold = require_ok(
+        reserve(
+            budget,
+            &ReservationRequest {
+                id,
+                amount: 100,
+                expiry_sequence: 2_000,
+                current_sequence: 80,
+                applicable_limits: vec![LimitId([1; 16])],
+            },
+        ),
+        "required test value",
+    );
+    let prepared = prepared(identity);
+    require_ok(
+        lifecycle.register_call(
+            store,
+            owner,
+            GENERATION,
+            id,
+            &prepared,
+            hold.durable.into_iter().map(|hold| (hold, None)).collect(),
+        ),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(store, owner, GENERATION, id, LifecycleState::Signing, 81),
+        "required test value",
+    );
+    (id, prepared)
+}
+
+fn finish_f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes_2_repair_22_33_1543(
+    directory: &Directory,
+    owner: &SessionRef,
+    store: layerx_agentd::store::Store,
+    lifecycle: PreparationLifecycle,
+    budget: layerx_agentd::budget::BudgetLimiter,
+) {
     assert_eq!(budget.held_reservations(), Ok(3));
     drop(lifecycle);
     drop(budget);
     drop(store);
-    let mut store = directory.open();
+    let store = directory.open();
     let lifecycle = PreparationLifecycle::default();
-    assert_eq!(lifecycle.restore_calls(&store, &owner.tenant).unwrap(), 3);
+    assert_eq!(
+        require_ok(
+            lifecycle.restore_calls(&store, &owner.tenant),
+            "required test value"
+        ),
+        3
+    );
     let budget = limiter();
-    let durable = DurablePreparation::load_all(&store, &owner.tenant).unwrap();
+    let durable = require_ok(
+        DurablePreparation::load_all(&store, &owner.tenant),
+        "required test value",
+    );
     for record in &durable {
-        restore(
-            &budget,
-            &record
-                .holds
-                .iter()
-                .map(|(hold, _)| hold.clone())
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
+        require_ok(
+            restore(
+                &budget,
+                &record
+                    .holds
+                    .iter()
+                    .map(|(hold, _)| hold.clone())
+                    .collect::<Vec<_>>(),
+            ),
+            "required test value",
+        );
     }
+    finish_f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes_1_repair_22_33_1543(directory, owner, store, lifecycle, &budget);
+}
+
+fn finish_f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes_1_repair_22_33_1543(
+    directory: &Directory,
+    owner: &SessionRef,
+    mut store: layerx_agentd::store::Store,
+    lifecycle: PreparationLifecycle,
+    budget: &layerx_agentd::budget::BudgetLimiter,
+) {
     assert_eq!(budget.held_reservations(), Ok(3));
     assert_eq!(lifecycle.state([13; 32]), Ok(LifecycleState::Signed));
     assert_eq!(
-        lifecycle
-            .recovered_signed_call(&store, &owner, GENERATION, [13; 32])
-            .unwrap(),
+        require_ok(
+            lifecycle.recovered_signed_call(&store, owner, GENERATION, [13; 32]),
+            "required test value"
+        ),
         signed(&prepared(13))
     );
     assert_eq!(
-        lifecycle
-            .prepared_call(&store, &owner, GENERATION, [12; 32])
-            .unwrap(),
+        require_ok(
+            lifecycle.prepared_call(&store, owner, GENERATION, [12; 32]),
+            "required test value"
+        ),
         prepared(12)
     );
     assert_eq!(
-        lifecycle
-            .recovered_signed_call(&store, &owner, GENERATION, [12; 32])
-            .unwrap(),
+        require_ok(
+            lifecycle.recovered_signed_call(&store, owner, GENERATION, [12; 32]),
+            "required test value"
+        ),
         signed(&prepared(12))
     );
-    let expired = lifecycle
-        .expire_calls(&mut store, &owner.tenant, &budget, EXPIRY + 1, 200)
-        .unwrap();
+    let expired = require_ok(
+        lifecycle.expire_calls(&mut store, &owner.tenant, budget, EXPIRY + 1, 200),
+        "required test value",
+    );
     assert_eq!(expired.expired_preparations, vec![[11; 32], [13; 32]]);
     assert_eq!(expired.released_reservations, vec![[11; 32], [13; 32]]);
     assert_eq!(budget.held_reservations(), Ok(1));
     assert_eq!(lifecycle.state([12; 32]), Ok(LifecycleState::Unknown));
     assert_eq!(lifecycle.state([13; 32]), Ok(LifecycleState::Expired));
     assert_eq!(
-        lifecycle.admit_call_submission(&mut store, &owner, GENERATION, [13; 32], EXPIRY + 1),
+        lifecycle.admit_call_submission(&mut store, owner, GENERATION, [13; 32], EXPIRY + 1),
         Err(LifecycleError::PreparationExpired)
     );
     drop(store);
     drop(lifecycle);
     let mut store = directory.open();
     let recovered = PreparationLifecycle::default();
-    assert_eq!(recovered.restore_calls(&store, &owner.tenant).unwrap(), 1);
     assert_eq!(
-        recovered
-            .recovered_signed_call(&store, &owner, GENERATION, [12; 32])
-            .unwrap(),
+        require_ok(
+            recovered.restore_calls(&store, &owner.tenant),
+            "required test value"
+        ),
+        1
+    );
+    assert_eq!(
+        require_ok(
+            recovered.recovered_signed_call(&store, owner, GENERATION, [12; 32]),
+            "required test value"
+        ),
         signed(&prepared(12))
     );
-    let report = recovered
-        .sweep_call_retention(&mut store, &owner.tenant, 300, 10)
-        .unwrap();
+    let report = require_ok(
+        recovered.sweep_call_retention(&mut store, &owner.tenant, 300, 10),
+        "required test value",
+    );
     assert_eq!(report.preserved_unresolved_signed_bytes, 1);
     assert_eq!(
         recovered.register_call(
             &mut store,
-            &owner,
+            owner,
             GENERATION,
             [11; 32],
             &prepared(11),
@@ -335,102 +416,50 @@ fn f16_terminal_history_is_evicted_with_durable_duplicate_protection_after_resta
     let mut store = directory.open();
     let mut lifecycle = PreparationLifecycle::default();
     let unknown = prepared(200);
-    lifecycle
-        .register_call(&mut store, &owner, GENERATION, [200; 32], &unknown, vec![])
-        .unwrap();
-    lifecycle
-        .transition_call(
-            &mut store,
-            &owner,
-            GENERATION,
-            [200; 32],
-            LifecycleState::Signing,
-            80,
-        )
-        .unwrap();
-    lifecycle
-        .retain_signed_call(&mut store, &owner, GENERATION, [200; 32], signed(&unknown))
-        .unwrap();
-    lifecycle
-        .admit_call_submission(&mut store, &owner, GENERATION, [200; 32], 500)
-        .unwrap();
-    lifecycle
-        .transition_call(
-            &mut store,
-            &owner,
-            GENERATION,
-            [200; 32],
-            LifecycleState::Unknown,
-            81,
-        )
-        .unwrap();
+    retain_unresolved_call(&mut store, &lifecycle, &owner, &unknown);
     for round in 0..8_u8 {
         let terminal = 100 + u64::from(round) * 20;
         for offset in 0..2_u8 {
             let identity = 30 + round * 2 + offset;
-            let call = prepared(identity);
-            let id = [identity; 32];
-            lifecycle
-                .register_call(&mut store, &owner, GENERATION, id, &call, vec![])
-                .unwrap();
-            lifecycle
-                .transition_call(
-                    &mut store,
-                    &owner,
-                    GENERATION,
-                    id,
-                    LifecycleState::Signing,
-                    terminal - 2,
-                )
-                .unwrap();
-            lifecycle
-                .retain_signed_call(&mut store, &owner, GENERATION, id, signed(&call))
-                .unwrap();
-            lifecycle
-                .admit_call_submission(&mut store, &owner, GENERATION, id, 500)
-                .unwrap();
-            lifecycle
-                .transition_call(
-                    &mut store,
-                    &owner,
-                    GENERATION,
-                    id,
-                    if offset == 0 {
-                        LifecycleState::Executed
-                    } else {
-                        LifecycleState::Failed
-                    },
-                    terminal,
-                )
-                .unwrap();
+            verify_f16_terminal_history_is_evicted_with_durable_duplicate_protection_after_restarts_1_repair_22_33_1543(VerifyF16TerminalHistoryIsEvictedWithDurableDuplicateProtectionAfterRestarts1Repair22331543Context { owner: &owner, store: &mut store, lifecycle: &lifecycle, terminal, offset, identity });
         }
-        let before = lifecycle
-            .sweep_call_retention(&mut store, &owner.tenant, terminal + 9, 10)
-            .unwrap();
+        let before = require_ok(
+            lifecycle.sweep_call_retention(&mut store, &owner.tenant, terminal + 9, 10),
+            "required test value",
+        );
         assert_eq!(before.evicted_terminal_preparations, 0);
         assert_eq!(lifecycle.retained_count(), Ok(3));
-        let swept = lifecycle
-            .sweep_call_retention(&mut store, &owner.tenant, terminal + 10, 10)
-            .unwrap();
+        let swept = require_ok(
+            lifecycle.sweep_call_retention(&mut store, &owner.tenant, terminal + 10, 10),
+            "required test value",
+        );
         assert_eq!(swept.evicted_terminal_preparations, 2);
         assert_eq!(swept.discarded_terminal_signed_bytes, 2);
         assert_eq!(swept.preserved_unresolved_signed_bytes, 1);
         assert_eq!(lifecycle.retained_count(), Ok(1));
-        let again = lifecycle
-            .sweep_call_retention(&mut store, &owner.tenant, terminal + 10, 10)
-            .unwrap();
+        let again = require_ok(
+            lifecycle.sweep_call_retention(&mut store, &owner.tenant, terminal + 10, 10),
+            "required test value",
+        );
         assert_eq!(again.evicted_terminal_preparations, 0);
         assert_eq!(again.discarded_terminal_signed_bytes, 0);
         drop(store);
         drop(lifecycle);
         store = directory.open();
         lifecycle = PreparationLifecycle::default();
-        assert_eq!(lifecycle.restore_calls(&store, &owner.tenant).unwrap(), 1);
+        assert_eq!(
+            require_ok(
+                lifecycle.restore_calls(&store, &owner.tenant),
+                "required test value"
+            ),
+            1
+        );
         assert_eq!(lifecycle.retained_count(), Ok(1));
         assert_eq!(
-            lifecycle
-                .recovered_signed_call(&store, &owner, GENERATION, [200; 32])
-                .unwrap(),
+            require_ok(
+                lifecycle.recovered_signed_call(&store, &owner, GENERATION, [200; 32]),
+                "required test value"
+            ),
             signed(&unknown)
         );
         for offset in 0..2_u8 {
@@ -458,19 +487,82 @@ fn f16_terminal_history_is_evicted_with_durable_duplicate_protection_after_resta
                 ),
                 Err(LifecycleError::Duplicate)
             );
-            let key = DurablePreparation::store_key(&owner.tenant, [identity; 32]).unwrap();
-            let compact = store.get(&key).unwrap();
+            let key = require_ok(
+                DurablePreparation::store_key(&owner.tenant, [identity; 32]),
+                "required test value",
+            );
+            let compact = require_some(store.get(&key), "required test value");
             assert!(
                 compact.bytes().len() < 256,
                 "terminal metadata is compacted"
             );
-            let decoded =
-                DurablePreparation::decode(owner.tenant.clone(), compact.bytes()).unwrap();
+            let decoded = require_ok(
+                DurablePreparation::decode(owner.tenant.clone(), compact.bytes()),
+                "required test value",
+            );
             assert!(decoded.terminal());
             assert!(decoded.holds.is_empty());
             assert!(!decoded.extensions.contains_key(&EXTENSION_CALL));
         }
     }
+}
+
+struct VerifyF16TerminalHistoryIsEvictedWithDurableDuplicateProtectionAfterRestarts1Repair22331543Context<
+    'a,
+> {
+    owner: &'a SessionRef,
+    store: &'a mut layerx_agentd::store::Store,
+    lifecycle: &'a PreparationLifecycle,
+    terminal: u64,
+    offset: u8,
+    identity: u8,
+}
+
+fn verify_f16_terminal_history_is_evicted_with_durable_duplicate_protection_after_restarts_1_repair_22_33_1543(
+    context: VerifyF16TerminalHistoryIsEvictedWithDurableDuplicateProtectionAfterRestarts1Repair22331543Context<'_>,
+) {
+    let VerifyF16TerminalHistoryIsEvictedWithDurableDuplicateProtectionAfterRestarts1Repair22331543Context { owner, store, lifecycle, terminal, offset, identity } = context;
+
+    let call = prepared(identity);
+    let id = [identity; 32];
+    require_ok(
+        lifecycle.register_call(store, owner, GENERATION, id, &call, vec![]),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(
+            store,
+            owner,
+            GENERATION,
+            id,
+            LifecycleState::Signing,
+            terminal - 2,
+        ),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.retain_signed_call(store, owner, GENERATION, id, signed(&call)),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.admit_call_submission(store, owner, GENERATION, id, 500),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(
+            store,
+            owner,
+            GENERATION,
+            id,
+            if offset == 0 {
+                LifecycleState::Executed
+            } else {
+                LifecycleState::Failed
+            },
+            terminal,
+        ),
+        "required test value",
+    );
 }
 
 #[test]
@@ -480,44 +572,47 @@ fn f16_shared_sweep_evicts_only_durably_recorded_terminal_history() {
     let mut store = directory.open();
     let lifecycle = PreparationLifecycle::default();
     let call = prepared(99);
-    lifecycle
-        .register_call(&mut store, &owner, GENERATION, [99; 32], &call, vec![])
-        .unwrap();
-    lifecycle
-        .transition_call(
+    require_ok(
+        lifecycle.register_call(&mut store, &owner, GENERATION, [99; 32], &call, vec![]),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(
             &mut store,
             &owner,
             GENERATION,
             [99; 32],
             LifecycleState::Signing,
             80,
-        )
-        .unwrap();
-    lifecycle
-        .retain_signed_call(&mut store, &owner, GENERATION, [99; 32], signed(&call))
-        .unwrap();
-    lifecycle
-        .admit_call_submission(&mut store, &owner, GENERATION, [99; 32], 500)
-        .unwrap();
-    lifecycle
-        .transition_call(
+        ),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.retain_signed_call(&mut store, &owner, GENERATION, [99; 32], signed(&call)),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.admit_call_submission(&mut store, &owner, GENERATION, [99; 32], 500),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(
             &mut store,
             &owner,
             GENERATION,
             [99; 32],
             LifecycleState::Executed,
             100,
-        )
-        .unwrap();
+        ),
+        "required test value",
+    );
     assert_eq!(
-        sweep_retention(&lifecycle, 109, 10)
-            .unwrap()
+        require_ok(sweep_retention(&lifecycle, 109, 10), "required test value")
             .evicted_terminal_preparations,
         0
     );
     assert_eq!(
-        sweep_retention(&lifecycle, 110, 10)
-            .unwrap()
+        require_ok(sweep_retention(&lifecycle, 110, 10), "required test value")
             .evicted_terminal_preparations,
         1
     );
@@ -529,9 +624,10 @@ fn f16_shared_sweep_evicts_only_durably_recorded_terminal_history() {
     drop(store);
     let mut store = directory.open();
     assert_eq!(
-        PreparationLifecycle::default()
-            .restore_calls(&store, &owner.tenant)
-            .unwrap(),
+        require_ok(
+            PreparationLifecycle::default().restore_calls(&store, &owner.tenant),
+            "required test value"
+        ),
         0
     );
     assert_eq!(
@@ -548,20 +644,33 @@ fn f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation(
     let id = [17; 32];
     let mut store = directory.open();
     let lifecycle = PreparationLifecycle::default();
-    lifecycle
-        .register_call(&mut store, &owner, GENERATION, id, &call, vec![])
-        .unwrap();
-    let key = DurablePreparation::store_key(&owner.tenant, id).unwrap();
-    let pristine = store.get(&key).unwrap().bytes().to_vec();
+    require_ok(
+        lifecycle.register_call(&mut store, &owner, GENERATION, id, &call, vec![]),
+        "required test value",
+    );
+    let key = require_ok(
+        DurablePreparation::store_key(&owner.tenant, id),
+        "required test value",
+    );
+    let pristine = require_some(store.get(&key), "required test value")
+        .bytes()
+        .to_vec();
     drop(lifecycle);
     drop(store);
-    let mut store = directory.open();
+    let store = directory.open();
     let recovered = PreparationLifecycle::default();
-    assert_eq!(recovered.restore_calls(&store, &owner.tenant).unwrap(), 1);
     assert_eq!(
-        recovered
-            .prepared_call(&store, &owner, GENERATION, id)
-            .unwrap(),
+        require_ok(
+            recovered.restore_calls(&store, &owner.tenant),
+            "required test value"
+        ),
+        1
+    );
+    assert_eq!(
+        require_ok(
+            recovered.prepared_call(&store, &owner, GENERATION, id),
+            "required test value"
+        ),
         call
     );
     assert_eq!(
@@ -573,24 +682,64 @@ fn f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation(
         recovered.prepared_call(&store, &other_session, GENERATION, id),
         Err(LifecycleError::AuthorizationMismatch)
     );
-    let other_tenant = SessionRef::new(TenantId::new("another-tenant").unwrap(), owner.session_id);
-    let copied_key = DurablePreparation::store_key(&other_tenant.tenant, id).unwrap();
-    store.put_local(copied_key, pristine.clone()).unwrap();
+    let other_tenant = SessionRef::new(
+        require_ok(TenantId::new("another-tenant"), "required test value"),
+        owner.session_id,
+    );
+    let copied_key = require_ok(
+        DurablePreparation::store_key(&other_tenant.tenant, id),
+        "required test value",
+    );
+    complete_f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation_2_repair_22_33_1543(CompleteF17StoredCallRecoveryRefusesModifiedBytesDigestTenantAndGeneration2Repair22331543Context { directory, owner, call, id, key, pristine, store, recovered, other_tenant, copied_key });
+}
+
+struct CompleteF17StoredCallRecoveryRefusesModifiedBytesDigestTenantAndGeneration2Repair22331543Context
+{
+    directory: Directory,
+    owner: SessionRef,
+    call: layerx_agentd::prepare::Prepared,
+    id: [u8; 32],
+    key: layerx_agentd::store::TenantKey,
+    pristine: Vec<u8>,
+    store: layerx_agentd::store::Store,
+    recovered: PreparationLifecycle,
+    other_tenant: SessionRef,
+    copied_key: layerx_agentd::store::TenantKey,
+}
+
+fn complete_f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation_2_repair_22_33_1543(
+    context: CompleteF17StoredCallRecoveryRefusesModifiedBytesDigestTenantAndGeneration2Repair22331543Context,
+) {
+    let CompleteF17StoredCallRecoveryRefusesModifiedBytesDigestTenantAndGeneration2Repair22331543Context { directory, owner, call, id, key, pristine, mut store, recovered, other_tenant, copied_key } = context;
+
+    require_ok(
+        store.put_local(copied_key, pristine.clone()),
+        "required test value",
+    );
     assert_eq!(
         recovered.prepared_call(&store, &other_tenant, GENERATION, id),
         Err(LifecycleError::AuthorizationMismatch)
     );
     for mutation in 0..6 {
-        let mut record = DurablePreparation::decode(owner.tenant.clone(), &pristine).unwrap();
+        let mut record = require_ok(
+            DurablePreparation::decode(owner.tenant.clone(), &pristine),
+            "required test value",
+        );
         match mutation {
             0 => {
-                let encoded = record.extensions.get_mut(&EXTENSION_CALL).unwrap();
+                let encoded = require_some(
+                    record.extensions.get_mut(&EXTENSION_CALL),
+                    "required test value",
+                );
                 let last = encoded.len() - 1;
                 encoded[last] ^= 1;
             }
             1 => {
                 let digest_offset = 1 + 4 + owner.tenant.as_str().len() + 32 + 8 + 32 + 20 + 8;
-                record.extensions.get_mut(&EXTENSION_CALL).unwrap()[digest_offset] ^= 1;
+                require_some(
+                    record.extensions.get_mut(&EXTENSION_CALL),
+                    "required test value",
+                )[digest_offset] ^= 1;
             }
             2 => record.generation += 1,
             3 => record.session_id[0] ^= 1,
@@ -598,9 +747,13 @@ fn f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation(
             5 => record.payload_hash[0] ^= 1,
             _ => unreachable!(),
         }
-        store
-            .put_local(key.clone(), record.encode().unwrap())
-            .unwrap();
+        require_ok(
+            store.put_local(
+                key.clone(),
+                require_ok(record.encode(), "required test value"),
+            ),
+            "required test value",
+        );
         drop(store);
         store = directory.open();
         let consumer = PreparationLifecycle::default();
@@ -614,26 +767,64 @@ fn f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation(
             "failed recovery publishes no records"
         );
     }
-    store.put_local(key.clone(), pristine).unwrap();
+    complete_f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation_1_repair_22_33_1543(CompleteF17StoredCallRecoveryRefusesModifiedBytesDigestTenantAndGeneration1Repair22331543Context { directory, owner, call, id, key, pristine, store });
+}
+
+struct CompleteF17StoredCallRecoveryRefusesModifiedBytesDigestTenantAndGeneration1Repair22331543Context
+{
+    directory: Directory,
+    owner: SessionRef,
+    call: layerx_agentd::prepare::Prepared,
+    id: [u8; 32],
+    key: layerx_agentd::store::TenantKey,
+    pristine: Vec<u8>,
+    store: layerx_agentd::store::Store,
+}
+
+fn complete_f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation_1_repair_22_33_1543(
+    context: CompleteF17StoredCallRecoveryRefusesModifiedBytesDigestTenantAndGeneration1Repair22331543Context,
+) {
+    let CompleteF17StoredCallRecoveryRefusesModifiedBytesDigestTenantAndGeneration1Repair22331543Context { directory, owner, call, id, key, pristine, mut store } = context;
+
+    require_ok(
+        store.put_local(key.clone(), pristine),
+        "required test value",
+    );
     let recovered = PreparationLifecycle::default();
-    assert_eq!(recovered.restore_calls(&store, &owner.tenant).unwrap(), 1);
-    recovered
-        .transition_call(
+    assert_eq!(
+        require_ok(
+            recovered.restore_calls(&store, &owner.tenant),
+            "required test value"
+        ),
+        1
+    );
+    require_ok(
+        recovered.transition_call(
             &mut store,
             &owner,
             GENERATION,
             id,
             LifecycleState::Signing,
             81,
-        )
-        .unwrap();
-    recovered
-        .retain_signed_call(&mut store, &owner, GENERATION, id, signed(&call))
-        .unwrap();
-    let mut record =
-        DurablePreparation::decode(owner.tenant.clone(), store.get(&key).unwrap().bytes()).unwrap();
-    record.extensions.get_mut(&4).unwrap()[10] ^= 1;
-    store.put_local(key, record.encode().unwrap()).unwrap();
+        ),
+        "required test value",
+    );
+    require_ok(
+        recovered.retain_signed_call(&mut store, &owner, GENERATION, id, signed(&call)),
+        "required test value",
+    );
+    let mut record = require_ok(
+        DurablePreparation::decode(
+            owner.tenant.clone(),
+            require_some(store.get(&key), "required test value").bytes(),
+        ),
+        "required test value",
+    );
+    require_some(record.extensions.get_mut(&4), "required test value")[10] ^= 1;
+    require_ok(
+        store.put_local(key, require_ok(record.encode(), "required test value")),
+        "required test value",
+    );
     drop(store);
     let store = directory.open();
     assert!(PreparationLifecycle::default()
@@ -649,58 +840,110 @@ fn f16_retention_refuses_eviction_without_durable_idempotency() {
     let mut store = directory.open();
     let lifecycle = PreparationLifecycle::default();
     let call = prepared(88);
-    lifecycle
-        .register_call(&mut store, &owner, GENERATION, [88; 32], &call, vec![])
-        .unwrap();
-    lifecycle
-        .transition_call(
+    require_ok(
+        lifecycle.register_call(&mut store, &owner, GENERATION, [88; 32], &call, vec![]),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(
             &mut store,
             &owner,
             GENERATION,
             [88; 32],
             LifecycleState::Signing,
             80,
-        )
-        .unwrap();
-    lifecycle
-        .retain_signed_call(&mut store, &owner, GENERATION, [88; 32], signed(&call))
-        .unwrap();
-    lifecycle
-        .admit_call_submission(&mut store, &owner, GENERATION, [88; 32], 500)
-        .unwrap();
-    lifecycle
-        .transition_call(
+        ),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.retain_signed_call(&mut store, &owner, GENERATION, [88; 32], signed(&call)),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.admit_call_submission(&mut store, &owner, GENERATION, [88; 32], 500),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(
             &mut store,
             &owner,
             GENERATION,
             [88; 32],
             LifecycleState::Executed,
             100,
-        )
-        .unwrap();
+        ),
+        "required test value",
+    );
     let ids = store.list_object_ids(&owner.tenant, ObjectKind::Idempotency);
     assert_eq!(ids.len(), 1);
-    let key = TenantKey::new(
-        owner.tenant.clone(),
-        ObjectKind::Idempotency,
-        ids[0].clone(),
-    )
-    .unwrap();
-    let identity = store.get(&key).unwrap().bytes().to_vec();
-    assert!(store.remove_local(&key).unwrap());
+    let key = require_ok(
+        TenantKey::new(
+            owner.tenant.clone(),
+            ObjectKind::Idempotency,
+            ids[0].clone(),
+        ),
+        "required test value",
+    );
+    let identity = require_some(store.get(&key), "required test value")
+        .bytes()
+        .to_vec();
+    assert!(require_ok(store.remove_local(&key), "required test value"));
     assert_eq!(
         lifecycle.sweep_call_retention(&mut store, &owner.tenant, 110, 10),
         Err(LifecycleError::InvalidSignedBytes)
     );
     assert_eq!(lifecycle.retained_count(), Ok(1));
     assert_eq!(lifecycle.has_signed_bytes([88; 32]), Ok(true));
-    store.put_local(key, identity).unwrap();
+    require_ok(store.put_local(key, identity), "required test value");
     assert_eq!(
-        lifecycle
-            .sweep_call_retention(&mut store, &owner.tenant, 110, 10)
-            .unwrap()
-            .evicted_terminal_preparations,
+        require_ok(
+            lifecycle.sweep_call_retention(&mut store, &owner.tenant, 110, 10),
+            "required test value"
+        )
+        .evicted_terminal_preparations,
         1
     );
     assert_eq!(lifecycle.retained_count(), Ok(0));
+}
+
+fn retain_unresolved_call(
+    store: &mut layerx_agentd::store::Store,
+    lifecycle: &PreparationLifecycle,
+    owner: &SessionRef,
+    unknown: &layerx_agentd::prepare::Prepared,
+) {
+    require_ok(
+        lifecycle.register_call(store, owner, GENERATION, [200; 32], unknown, vec![]),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(
+            store,
+            owner,
+            GENERATION,
+            [200; 32],
+            LifecycleState::Signing,
+            80,
+        ),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.retain_signed_call(store, owner, GENERATION, [200; 32], signed(unknown)),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.admit_call_submission(store, owner, GENERATION, [200; 32], 500),
+        "required test value",
+    );
+    require_ok(
+        lifecycle.transition_call(
+            store,
+            owner,
+            GENERATION,
+            [200; 32],
+            LifecycleState::Unknown,
+            81,
+        ),
+        "required test value",
+    );
 }

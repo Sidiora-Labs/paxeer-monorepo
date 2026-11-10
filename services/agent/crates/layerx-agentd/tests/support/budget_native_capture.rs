@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_agentd::read::{
@@ -6,10 +14,10 @@ use layerx_agentd::read::{
 use layerx_proof::merkle::Proof;
 use layerx_wire::encode::Encoder;
 
-pub(super) struct NativeCapture {
-    pub proofs: BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
-    pub receipt: Vec<u8>,
-}
+pub(super) type NativeCapture = (
+    BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
+    Vec<u8>,
+);
 
 fn base64(bytes: &[u8]) -> String {
     const LETTERS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -77,16 +85,18 @@ fn checkpoint_answers(answers: &mut Vec<Value>, height: u64, root: [u8; 32]) -> 
         },
         votes: vec![],
     };
-    let template: Vec<Value> = serde_json::from_slice(include_bytes!(
-        "../fixtures/repair_22_31_217/checkpoint-answers.json"
-    ))
-    .unwrap();
+    let template: Vec<Value> = require_ok(
+        serde_json::from_slice(include_bytes!(
+            "../fixtures/repair_22_31_217/checkpoint-answers.json"
+        )),
+        "required test value",
+    );
     for method in ["px_getCommit", "px_getValidators"] {
-        let mut row = template
-            .iter()
-            .find(|v| v["method"] == method)
-            .unwrap()
-            .clone();
+        let mut row = require_some(
+            template.iter().find(|v| v["method"] == method),
+            "required test value",
+        )
+        .clone();
         row["params"] = json!([height.to_string()]);
         row["result"]["height"] = json!(height.to_string());
         if method == "px_getCommit" {
@@ -104,11 +114,13 @@ fn checkpoint_answers(answers: &mut Vec<Value>, height: u64, root: [u8; 32]) -> 
         answers.push(row);
     }
     for full in [true, false] {
-        let mut row = template
-            .iter()
-            .find(|v| v["method"] == "eth_getBlockByNumber" && v["params"][1] == full)
-            .unwrap()
-            .clone();
+        let mut row = require_some(
+            template
+                .iter()
+                .find(|v| v["method"] == "eth_getBlockByNumber" && v["params"][1] == full),
+            "required test value",
+        )
+        .clone();
         row["params"] = json!([format!("0x{height:x}"), full]);
         row["result"]["number"] = json!(format!("0x{height:x}"));
         row["result"]["hash"] = json!(format!("0x{}", hex::encode(block_hash)));
@@ -123,8 +135,8 @@ fn state_leaf(key: &[u8], value: &[u8]) -> [u8; 32] {
     Sha256::digest(
         [
             b"LXP/v1/state-leaf\0".as_slice(),
-            &(key.len() as u32).to_be_bytes(),
-            &(value.len() as u32).to_be_bytes(),
+            &(require_ok(u32::try_from(key.len()), "test value fits u32")).to_be_bytes(),
+            &(require_ok(u32::try_from(value.len()), "test value fits u32")).to_be_bytes(),
             key,
             value,
         ]
@@ -140,34 +152,43 @@ fn account_proof(
 ) -> (layerx_proof::state::VerifiedAccountState, [u8; 32]) {
     let name = format!("module:programs:value:{}", hex::encode(account));
     let mut value = Encoder::new(512);
-    value.u16(name.len().try_into().unwrap()).unwrap();
-    value.fixed(name.as_bytes()).unwrap();
-    value.u8(13).unwrap();
-    value.u128(77).unwrap();
-    value.fixed(&asset).unwrap();
-    value.u8(1).unwrap();
-    value.u64(0).unwrap();
-    value.u64(2).unwrap();
-    value.u8(0).unwrap();
-    value.u8(0).unwrap();
-    value.fixed(&[0; 32]).unwrap();
-    value.u8(0).unwrap();
+    require_ok(
+        value.u16(require_ok(name.len().try_into(), "required test value")),
+        "required test value",
+    );
+    require_ok(value.fixed(name.as_bytes()), "required test value");
+    require_ok(value.u8(13), "required test value");
+    require_ok(value.u128(77), "required test value");
+    require_ok(value.fixed(&asset), "required test value");
+    require_ok(value.u8(1), "required test value");
+    require_ok(value.u64(0), "required test value");
+    require_ok(value.u64(2), "required test value");
+    require_ok(value.u8(0), "required test value");
+    require_ok(value.u8(0), "required test value");
+    require_ok(value.fixed(&[0; 32]), "required test value");
+    require_ok(value.u8(0), "required test value");
     let value = value.finish();
     let account_root = state_leaf(&[vec![4], account.to_vec()].concat(), &value);
     let universal_root = state_leaf(b"account-tree", &account_root);
     let root = state_leaf(&[0, 0], &universal_root);
     let receipt = account_snapshot_receipt(account, asset, root);
-    let (receipt_proof, receipt_root) = layerx_proof::merkle::build_proof(&[&receipt], 0).unwrap();
+    let (receipt_proof, receipt_root) = require_ok(
+        layerx_proof::merkle::build_proof(&[&receipt], 0),
+        "required test value",
+    );
     let mut header = Encoder::new(512);
-    header.structure_header_version(0x1701, 3).unwrap();
-    header.u8(15).unwrap();
-    header.tag(1, 15).unwrap();
-    header.u16(3).unwrap();
-    header.tag(2, 15).unwrap();
-    header.u32(125).unwrap();
+    require_ok(
+        header.structure_header_version(0x1701, 3),
+        "required test value",
+    );
+    require_ok(header.u8(15), "required test value");
+    require_ok(header.tag(1, 15), "required test value");
+    require_ok(header.u16(3), "required test value");
+    require_ok(header.tag(2, 15), "required test value");
+    require_ok(header.u32(125), "required test value");
     for (tag, n) in [(3, 1), (4, 8), (5, 8), (6, 8)] {
-        header.tag(tag, 15).unwrap();
-        header.u64(n).unwrap();
+        require_ok(header.tag(tag, 15), "required test value");
+        require_ok(header.u64(n), "required test value");
     }
     for (tag, hash) in [
         (7, [5; 32]),
@@ -178,19 +199,22 @@ fn account_proof(
         (12, [2; 32]),
         (13, [3; 32]),
     ] {
-        header.tag(tag, 15).unwrap();
-        header.bytes(&hash, 32).unwrap();
+        require_ok(header.tag(tag, 15), "required test value");
+        require_ok(header.bytes(&hash, 32), "required test value");
     }
-    header.tag(14, 15).unwrap();
-    header.u64(1_700_000_001_000).unwrap();
-    header.tag(15, 15).unwrap();
-    header.bytes(&[1; 32], 32).unwrap();
+    require_ok(header.tag(14, 15), "required test value");
+    require_ok(header.u64(1_700_000_001_000), "required test value");
+    require_ok(header.tag(15, 15), "required test value");
+    require_ok(header.bytes(&[1; 32], 32), "required test value");
     let header_bytes = header.finish();
     let signer = SigningKey::from_bytes(&[8; 32]);
     let header_signature = signer
-        .sign(&layerx_wire::hash::batch_header_digest(&header_bytes).unwrap())
+        .sign(&require_ok(
+            layerx_wire::hash::batch_header_digest(&header_bytes),
+            "required test value",
+        ))
         .to_bytes();
-    let single = Proof::new(0, 1, vec![]).unwrap();
+    let single = require_ok(Proof::new(0, 1, vec![]), "required test value");
     let proof = layerx_proof::state::NestedAccountProof {
         account_id: account,
         account_root,
@@ -206,14 +230,16 @@ fn account_proof(
     };
     let authorization =
         SequencerAuthorization::new([1; 32], signer.verifying_key().to_bytes(), 1, 100);
-    let verified = layerx_proof::state::verify_nested_account(
-        &value,
-        account,
-        Some(asset),
-        &proof,
-        &authorization,
-    )
-    .expect("real nested account proof and signature");
+    let verified = require_ok(
+        layerx_proof::state::verify_nested_account(
+            &value,
+            account,
+            Some(asset),
+            &proof,
+            &authorization,
+        ),
+        "real nested account proof and signature",
+    );
     assert!(!verified.account().frozen);
     (verified, root)
 }
@@ -259,22 +285,33 @@ pub(super) fn configure(name: &str, value: &mut Value, answers: &mut Vec<Value>)
     if name == "native_effect_settlement" {
         value["construct"]["arguments"][0]["word"] = json!(hex::encode(asset));
     }
-    let source = layerx_programs_runtime::derive_program_account(
-        layerx_programs::ProgramId::new(program).unwrap(),
-        &[1, 2, 3],
+    let source = require_ok(
+        layerx_programs_runtime::derive_program_account(
+            require_ok(
+                layerx_programs::ProgramId::new(program),
+                "required test value",
+            ),
+            &[1, 2, 3],
+        ),
+        "required test value",
     )
-    .unwrap()
     .bytes();
-    let corpus: Value =
-        serde_json::from_slice(include_bytes!("../fixtures/repair_22_31_217/corpus.json")).unwrap();
+    let corpus: Value = require_ok(
+        serde_json::from_slice(include_bytes!("../fixtures/repair_22_31_217/corpus.json")),
+        "required test value",
+    );
     let destination: [u8; 32] = fixed(&corpus["peer_views"]["identity"]["main"]);
     let actor: [u8; 32] = fixed(&corpus["peer_views"]["identity"]["owner"]);
-    let signing =
-        k256::ecdsa::SigningKey::from_bytes((&fixed::<32>(&value["signing_seed"])).into()).unwrap();
-    let payer = layerx_crypto::secp256k1::evm_address(
-        signing.verifying_key().to_encoded_point(false).as_bytes(),
-    )
-    .unwrap();
+    let signing = require_ok(
+        k256::ecdsa::SigningKey::from_bytes((&fixed::<32>(&value["signing_seed"])).into()),
+        "required test value",
+    );
+    let payer = require_ok(
+        layerx_crypto::secp256k1::evm_address(
+            signing.verifying_key().to_encoded_point(false).as_bytes(),
+        ),
+        "required test value",
+    );
     let mut fee_token = [0; 20];
     fee_token[18..].copy_from_slice(&[0x10, 0x18]);
     raw_answer(
@@ -318,6 +355,43 @@ pub(super) fn configure(name: &str, value: &mut Value, answers: &mut Vec<Value>)
         &[actor, asset].concat(),
         destination.to_vec(),
     );
+    complete_configure_3_budget_native_capture(CompleteConfigure3BudgetNativeCaptureContext {
+        name,
+        value,
+        answers,
+        program,
+        asset,
+        source,
+        destination,
+        actor,
+    })
+}
+
+struct CompleteConfigure3BudgetNativeCaptureContext<'a> {
+    name: &'a str,
+    value: &'a mut Value,
+    answers: &'a mut Vec<Value>,
+    program: [u8; 32],
+    asset: [u8; 32],
+    source: [u8; 32],
+    destination: [u8; 32],
+    actor: [u8; 32],
+}
+
+fn complete_configure_3_budget_native_capture(
+    context: CompleteConfigure3BudgetNativeCaptureContext<'_>,
+) -> NativeCapture {
+    let CompleteConfigure3BudgetNativeCaptureContext {
+        name,
+        value,
+        answers,
+        program,
+        asset,
+        source,
+        destination,
+        actor,
+    } = context;
+
     answer(
         answers,
         PrecompileTarget::Ledger,
@@ -336,40 +410,86 @@ pub(super) fn configure(name: &str, value: &mut Value, answers: &mut Vec<Value>)
         value["source_account"] = json!(hex::encode(source));
         value["accounts"] = json!([hex::encode(source)]);
         value["construct"]["arguments"][1]["word"] = json!(hex::encode(source));
-        let payload = layerx_types::program_lifecycle::NativeProgramWindDown {
-            program_id: layerx_types::intent::ProgramId::new(program),
-            operation: layerx_types::program_lifecycle::ProgramWindDownOperation::Exit {
-                account: source,
-            },
-        }
-        .encode()
-        .unwrap();
+        let payload = require_ok(
+            layerx_types::program_lifecycle::NativeProgramWindDown {
+                program_id: layerx_types::intent::ProgramId::new(program),
+                operation: layerx_types::program_lifecycle::ProgramWindDownOperation::Exit {
+                    account: source,
+                },
+            }
+            .encode(),
+            "required test value",
+        );
         value["generated_payload"] = json!(hex::encode(payload));
     } else if name == "wind_down" {
         value["construct"]["arguments"][1]["word"] = json!(hex::encode(program));
-        let payload = layerx_types::program_lifecycle::NativeProgramWindDown {
-            program_id: layerx_types::intent::ProgramId::new(program),
-            operation: layerx_types::program_lifecycle::ProgramWindDownOperation::Deprecate {
-                exit_program: program,
-                deadline_batch: 42,
-            },
-        }
-        .encode()
-        .unwrap();
+        let payload = require_ok(
+            layerx_types::program_lifecycle::NativeProgramWindDown {
+                program_id: layerx_types::intent::ProgramId::new(program),
+                operation: layerx_types::program_lifecycle::ProgramWindDownOperation::Deprecate {
+                    exit_program: program,
+                    deadline_batch: 42,
+                },
+            }
+            .encode(),
+            "required test value",
+        );
         value["generated_payload"] = json!(hex::encode(payload));
     }
     let construct = construct(value);
-    let signed = Eip1559Call {
-        chain_id: 125,
-        nonce: 0,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 3,
-        gas_limit: 100_000,
-        to: construct.target.address(),
-        data: construct.encode().unwrap(),
-    }
-    .sign(&fixed(&value["signing_seed"]))
-    .unwrap();
+    let signed = require_ok(
+        Eip1559Call {
+            chain_id: 125,
+            nonce: 0,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 3,
+            gas_limit: 100_000,
+            to: construct.target.address(),
+            data: require_ok(construct.encode(), "required test value"),
+        }
+        .sign(&fixed(&value["signing_seed"])),
+        "required test value",
+    );
+    complete_configure_2_budget_native_capture(CompleteConfigure2BudgetNativeCaptureContext {
+        name,
+        value,
+        answers,
+        program,
+        asset,
+        source,
+        destination,
+        actor,
+        signed,
+    })
+}
+
+struct CompleteConfigure2BudgetNativeCaptureContext<'a> {
+    name: &'a str,
+    value: &'a mut Value,
+    answers: &'a mut Vec<Value>,
+    program: [u8; 32],
+    asset: [u8; 32],
+    source: [u8; 32],
+    destination: [u8; 32],
+    actor: [u8; 32],
+    signed: Vec<u8>,
+}
+
+fn complete_configure_2_budget_native_capture(
+    context: CompleteConfigure2BudgetNativeCaptureContext<'_>,
+) -> NativeCapture {
+    let CompleteConfigure2BudgetNativeCaptureContext {
+        name,
+        value,
+        answers,
+        program,
+        asset,
+        source,
+        destination,
+        actor,
+        signed,
+    } = context;
+
     let mut proofs = BTreeMap::new();
     let root = if name == "wind_down_exit" {
         let (proof, root) = account_proof(source, asset, &signed);
@@ -392,11 +512,11 @@ pub(super) fn configure(name: &str, value: &mut Value, answers: &mut Vec<Value>)
         "wind_down_exit" => {
             let mut leg = vec![0];leg.extend(source);leg.extend(destination);leg.extend(asset);leg.extend(77u128.to_be_bytes());leg.extend(1u16.to_be_bytes());
             let transfer_root: [u8;32] = Sha256::digest([b"LXP/v1/merkle-leaf\0".as_slice(),&leg].concat()).into();
-            layerx_programs_runtime::transfer::verify_applied_kernel_legs(&leg,transfer_root).unwrap();
+            require_ok(layerx_programs_runtime::transfer::verify_applied_kernel_legs(&leg,transfer_root), "required test value");
             ("ProgramValueExited(bytes32,bytes32,bytes32)",[source,transfer_root].concat())
         }
         "native_effect_settlement" => {
-            let issuance = layerx_wire::hash::asset_issuance_account_id(&asset).unwrap();
+            let issuance = require_ok(layerx_wire::hash::asset_issuance_account_id(&asset), "required test value");
             logs.push(layerx_client::sequencer::SequencerLog {address:PrecompileTarget::Ledger.address(),
                 topics:vec![transaction_hash(b"Transfer(bytes32,bytes32,bytes32,uint128,uint8)"),destination,issuance,asset],data:[number(7),number(11)].concat(),log_index:0});
             ("",Vec::new())
@@ -410,100 +530,202 @@ pub(super) fn configure(name: &str, value: &mut Value, answers: &mut Vec<Value>)
             data,
             log_index: 0,
         });
-        let deployed = [number(1), [0x22; 32], hash, number(2), number(1), number(1)].concat();
-        answer(
+        complete_configure_1_budget_native_capture(CompleteConfigure1BudgetNativeCaptureContext {
+            name,
             answers,
-            PrecompileTarget::Programs,
-            b"getProgram(bytes32)",
-            &program,
-            deployed,
-        );
-        if name == "deploy" {
-            let row = answers.last_mut().unwrap();
-            row.as_object_mut().unwrap().remove("result");
-            row["error"] =
-                json!({"code":-32000,"message":"LXP_NOT_FOUND: getProgram: missing program"});
-        }
-        answer(
-            answers,
-            PrecompileTarget::Programs,
-            b"getProgramOwner(bytes32)",
-            &program,
-            actor.to_vec(),
-        );
-        answer(
-            answers,
-            PrecompileTarget::Programs,
-            b"getWindDown(bytes32)",
-            &program,
-            [
-                number(if name == "wind_down_exit" { 2 } else { 1 }),
-                program,
-                number(42),
-                number(3),
-                number(if name == "wind_down_exit" { 1 } else { 0 }),
-                number(if name == "wind_down_exit" { 1 } else { 0 }),
-            ]
-            .concat(),
-        );
-        answer(
-            answers,
-            PrecompileTarget::Programs,
-            b"getInterface(bytes32)",
-            &program,
-            dynamic(&[number(0), [0; 32]], &[]),
-        );
-        answer(
-            answers,
-            PrecompileTarget::Programs,
-            b"getCurrentFeeSchedule()",
-            &[],
-            [
-                number(1),
-                number(1),
-                number(1),
-                number(1),
-                number(1),
-                number(1),
-                number(1),
-                number(1),
-                asset,
-            ]
-            .concat(),
-        );
-        if name == "wind_down_exit" {
-            answer(
-                answers,
-                PrecompileTarget::Programs,
-                b"getProgramAccountById(bytes32)",
-                &source,
-                dynamic(&[program, asset], &[1, 2, 3]),
-            );
-            let args = dynamic(&[program, asset], &[1, 2, 3]);
-            answer(
-                answers,
-                PrecompileTarget::Programs,
-                b"getProgramAccount(bytes32,bytes32,bytes)",
-                &args,
-                [source, asset, number(2)].concat(),
-            );
-            answer(
-                answers,
-                PrecompileTarget::Programs,
-                b"getValueAccount(bytes32,bytes32)",
-                &[program, source].concat(),
-                [number(77), number(1)].concat(),
-            );
-            answer(
-                answers,
-                PrecompileTarget::Programs,
-                b"getExitRoute(bytes32,bytes32)",
-                &[program, source].concat(),
-                dynamic(&[asset, destination], &[1, 2, 3]),
-            );
-        }
+            program,
+            asset,
+            source,
+            destination,
+            actor,
+            hash,
+        });
     }
     // Inventory at the executed head uses the same immutable peer account records.
+    finish_configure_1_budget_native_capture(FinishConfigure1BudgetNativeCaptureContext {
+        value,
+        answers,
+        signed,
+        proofs,
+        root,
+        block9,
+        logs,
+    })
+}
+
+struct CompleteConfigure1BudgetNativeCaptureContext<'a> {
+    name: &'a str,
+    answers: &'a mut Vec<Value>,
+    program: [u8; 32],
+    asset: [u8; 32],
+    source: [u8; 32],
+    destination: [u8; 32],
+    actor: [u8; 32],
+    hash: [u8; 32],
+}
+
+fn complete_configure_1_budget_native_capture(
+    context: CompleteConfigure1BudgetNativeCaptureContext<'_>,
+) {
+    let CompleteConfigure1BudgetNativeCaptureContext {
+        name,
+        answers,
+        program,
+        asset,
+        source,
+        destination,
+        actor,
+        hash,
+    } = context;
+
+    let deployed = [number(1), [0x22; 32], hash, number(2), number(1), number(1)].concat();
+    answer(
+        answers,
+        PrecompileTarget::Programs,
+        b"getProgram(bytes32)",
+        &program,
+        deployed,
+    );
+    if name == "deploy" {
+        let row = require_some(answers.last_mut(), "required test value");
+        require_some(row.as_object_mut(), "required test value").remove("result");
+        row["error"] =
+            json!({"code":-32000,"message":"LXP_NOT_FOUND: getProgram: missing program"});
+    }
+    answer(
+        answers,
+        PrecompileTarget::Programs,
+        b"getProgramOwner(bytes32)",
+        &program,
+        actor.to_vec(),
+    );
+    answer(
+        answers,
+        PrecompileTarget::Programs,
+        b"getWindDown(bytes32)",
+        &program,
+        [
+            number(if name == "wind_down_exit" { 2 } else { 1 }),
+            program,
+            number(42),
+            number(3),
+            number(u128::from(name == "wind_down_exit")),
+            number(u128::from(name == "wind_down_exit")),
+        ]
+        .concat(),
+    );
+    finish_configure_2_budget_native_capture(FinishConfigure2BudgetNativeCaptureContext {
+        name,
+        answers,
+        program,
+        asset,
+        source,
+        destination,
+    });
+}
+
+struct FinishConfigure2BudgetNativeCaptureContext<'a> {
+    name: &'a str,
+    answers: &'a mut Vec<Value>,
+    program: [u8; 32],
+    asset: [u8; 32],
+    source: [u8; 32],
+    destination: [u8; 32],
+}
+
+fn finish_configure_2_budget_native_capture(
+    context: FinishConfigure2BudgetNativeCaptureContext<'_>,
+) {
+    let FinishConfigure2BudgetNativeCaptureContext {
+        name,
+        answers,
+        program,
+        asset,
+        source,
+        destination,
+    } = context;
+
+    answer(
+        answers,
+        PrecompileTarget::Programs,
+        b"getInterface(bytes32)",
+        &program,
+        dynamic(&[number(0), [0; 32]], &[]),
+    );
+    answer(
+        answers,
+        PrecompileTarget::Programs,
+        b"getCurrentFeeSchedule()",
+        &[],
+        [
+            number(1),
+            number(1),
+            number(1),
+            number(1),
+            number(1),
+            number(1),
+            number(1),
+            number(1),
+            asset,
+        ]
+        .concat(),
+    );
+    if name == "wind_down_exit" {
+        answer(
+            answers,
+            PrecompileTarget::Programs,
+            b"getProgramAccountById(bytes32)",
+            &source,
+            dynamic(&[program, asset], &[1, 2, 3]),
+        );
+        let args = dynamic(&[program, asset], &[1, 2, 3]);
+        answer(
+            answers,
+            PrecompileTarget::Programs,
+            b"getProgramAccount(bytes32,bytes32,bytes)",
+            &args,
+            [source, asset, number(2)].concat(),
+        );
+        answer(
+            answers,
+            PrecompileTarget::Programs,
+            b"getValueAccount(bytes32,bytes32)",
+            &[program, source].concat(),
+            [number(77), number(1)].concat(),
+        );
+        answer(
+            answers,
+            PrecompileTarget::Programs,
+            b"getExitRoute(bytes32,bytes32)",
+            &[program, source].concat(),
+            dynamic(&[asset, destination], &[1, 2, 3]),
+        );
+    }
+}
+
+struct FinishConfigure1BudgetNativeCaptureContext<'a> {
+    value: &'a mut Value,
+    answers: &'a mut Vec<Value>,
+    signed: Vec<u8>,
+    proofs: BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
+    root: [u8; 32],
+    block9: [u8; 32],
+    logs: Vec<layerx_client::sequencer::SequencerLog>,
+}
+
+fn finish_configure_1_budget_native_capture(
+    context: FinishConfigure1BudgetNativeCaptureContext<'_>,
+) -> NativeCapture {
+    let FinishConfigure1BudgetNativeCaptureContext {
+        value,
+        answers,
+        signed,
+        proofs,
+        root,
+        block9,
+        logs,
+    } = context;
+
     let at9 = answers
         .iter()
         .filter(|v| v["method"] == "eth_call" && v["params"][1] == "0x8")
@@ -515,7 +737,7 @@ pub(super) fn configure(name: &str, value: &mut Value, answers: &mut Vec<Value>)
         .collect::<Vec<_>>();
     answers.extend(at9);
     let denomination = "uhpx";
-    let mut observation = node_receipt_at(&signed, &logs, 9, root, [7; 32], &denomination);
+    let mut observation = node_receipt_at(&signed, &logs, 9, root, [7; 32], denomination);
     observation["blockHash"] = json!(format!("0x{}", hex::encode(block9)));
     let receipt = fixed_bytes(&observation["receipt"]);
     answers.retain(|v| v["method"] != "pax_sequencerReceipt");
@@ -524,174 +746,17 @@ pub(super) fn configure(name: &str, value: &mut Value, answers: &mut Vec<Value>)
     let public = SigningKey::from_bytes(&[8; 32]).verifying_key().to_bytes();
     answers.push(json!({"method":"px_getReceiptKeys","params":[],"result":{"keys":[{"keyId":format!("0x{}",hex::encode([1;32])),"publicKey":format!("0x{}",hex::encode(public)),"firstHeight":1,"lastHeight":100}]}}));
     value["receipt_public_key"] = json!(hex::encode(public));
-    NativeCapture { proofs, receipt }
+    (proofs, receipt)
 }
 
 pub(super) fn execute(case: &Case) {
-    let mut answers = case.replay.answers.lock().unwrap();
-    answers
-        .iter_mut()
-        .find(|v| v["method"] == "eth_blockNumber")
-        .unwrap()["result"] = json!("0x9");
-}
-
-pub(super) fn peer(case: &Case) -> layerx_agentd::human::HumanPeer {
-    let owner = case.value["did"].as_str().unwrap().to_owned();
-    layerx_agentd::human::HumanPeer {
-        uid: 1000,
-        principal: "operator".into(),
-        tenant: case.tenant().as_str().into(),
-        subject: Some(layerx_agentd::human::HumanSubject {
-            transport_tenant: "native-budget-peer".into(),
-            transport_principal: "unix-owner".into(),
-            account: format!("agent:{owner}:main"),
-            owner,
-            asset: case.id("fee_asset"),
-            registration: None,
-        }),
-    }
-}
-
-pub(super) fn retain(
-    case: &Case,
-    sources: &VerifiedResolvedProgramCharges,
-    native: &EvmPrepared,
-    submission: &VerifiedSubmission,
-    registry: &ModuleRegistry,
-) -> PathBuf {
-    use layerx_agentd::approval::native_effect::NativeEffectApprovalCarrier as Effect;
-    use layerx_agentd::approval::native_program::NativeProgramApprovalCarrier as Program;
-    use std::os::unix::fs::PermissionsExt;
-    let root = temporary(
-        case.value["store"]
-            .as_str()
-            .expect("corpus store producer path"),
-    );
-    let mut store = Store::open(&root).unwrap();
-    let budget = BudgetLimiter::new(vec![]).unwrap();
-    let configs = sources
-        .charges()
-        .iter()
-        .enumerate()
-        .map(|(index, _)| LimitConfig {
-            id: LimitId([index as u8 + 1; 16]),
-            name: format!("native debit {index}"),
-            scope: LimitScope::Tenant(sources.actor()),
-            ceiling: 1_000_000,
-            consumed: 0,
-        })
-        .collect::<Vec<_>>();
-    let installed =
-        install_enrolment_limits(&mut store, &budget, &case.tenant(), &configs).unwrap();
-    let allocations = sources
-        .budget_allocations(|charge| {
-            let index = sources
-                .charges()
-                .iter()
-                .position(|value| value == charge)
-                .unwrap();
-            Ok(vec![installed[index].limit_id])
-        })
-        .unwrap();
-    let path = root.join("denominations.json");
-    let limits = sources.charges().iter().zip(&installed).map(|(charge,limit)| json!({
-        "stable_id":hex::encode(limit.stable_id),"asset":hex::encode(charge.asset),"source":hex::encode(charge.source.account())
-    })).collect::<Vec<_>>();
-    std::fs::write(
-        &path,
-        serde_json::to_vec(&json!({"version":1,"tenant":case.tenant().as_str(),"limits":limits}))
-            .unwrap(),
-    )
-    .unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    let verified =
-        layerx_agentd::config::load_program_budget_denominations(&path, &case.tenant()).unwrap();
-    install_program_enrolment_denominations(&mut store, &budget, &verified).unwrap();
-    let now = case.value["now_ms"].as_u64().unwrap();
-    let request = ProgramReservationRequest {
-        id: allocations.preparation_digest(),
-        charges: allocations.charges().to_vec(),
-        expiry_sequence: 18,
-        current_sequence: 8,
-        core_deadline: Some(CoreTimestampMs(now + 30_000)),
-    };
-    let staged = budget
-        .stage_program_allocation(&request, &allocations, CoreTimestampMs(now))
-        .unwrap();
-    let public = SigningKey::from_bytes(&[8; 32]).verifying_key().to_bytes();
-    let keys = [SequencerAuthorization::new([1; 32], public, 1, 100)];
-    let peer = peer(case);
-    let id = allocations.preparation_digest();
-    let mut outbox = layerx_agentd::outbox::Outbox::default();
-    if native.call.to == PrecompileTarget::Programs.address() {
-        let held = Program::hold_call(&mut store, &peer, [3; 32], 1, native, staged, now, &keys)
-            .expect("production lifecycle approval hold");
-        Program::decide_call(
-            &mut store,
-            &budget,
-            &peer,
-            id,
-            held.call_held_digest().unwrap(),
-            [4; 32],
-            true,
-            8,
-            now + 1,
-        )
-        .unwrap();
-        Program::queue_call(
-            &mut store,
-            &mut outbox,
-            &peer,
-            id,
-            submission,
-            registry,
-            8,
-            now + 2,
-        )
-        .expect("production native program queue");
-    } else {
-        let held = Effect::hold_call(&mut store, &peer, [3; 32], 1, native, staged, now, &keys)
-            .expect("production burn approval hold");
-        Effect::decide_call(
-            &mut store,
-            &budget,
-            &peer,
-            id,
-            held.call_held_digest().unwrap(),
-            [4; 32],
-            true,
-            8,
-            now + 1,
-        )
-        .unwrap();
-        Effect::queue_call(
-            &mut store,
-            &mut outbox,
-            &peer,
-            id,
-            submission,
-            registry,
-            8,
-            now + 2,
-        )
-        .expect("production native effect queue");
-    }
-    assert_eq!(
-        outbox
-            .bytes_for_transmission(submission.activity_id())
-            .unwrap(),
-        submission.exact_bytes()
-    );
-    assert_eq!(
-        case.endpoint
-            .send_raw_transaction(submission.exact_bytes())
-            .expect("submit exact producer bytes to loopback peer"),
-        submission.activity_id()
-    );
-    drop(store);
-    drop(budget);
-    drop(outbox);
-    root
+    let mut answers = require_ok(case.replay.answers.lock(), "required test value");
+    require_some(
+        answers
+            .iter_mut()
+            .find(|v| v["method"] == "eth_blockNumber"),
+        "required test value",
+    )["result"] = json!("0x9");
 }
 
 fn account_snapshot_receipt(account: [u8; 32], asset: [u8; 32], state: [u8; 32]) -> Vec<u8> {
@@ -700,55 +765,68 @@ fn account_snapshot_receipt(account: [u8; 32], asset: [u8; 32], state: [u8; 32])
     let key = SigningKey::from_bytes(&[8; 32]);
     let encode = |signature: Option<[u8; 64]>| {
         let mut e = Encoder::new(4096);
-        e.structure_header_version(0x5201, 3).unwrap();
-        e.u16(3).unwrap();
-        e.bytes(&Sha256::digest(account), 32).unwrap();
-        e.u64(8).unwrap();
+        require_ok(e.structure_header_version(0x5201, 3), "required test value");
+        require_ok(e.u16(3), "required test value");
+        require_ok(e.bytes(&Sha256::digest(account), 32), "required test value");
+        require_ok(e.u64(8), "required test value");
         for root in [[5; 32], state, [8; 32]] {
-            e.bytes(&root, 32).unwrap();
+            require_ok(e.bytes(&root, 32), "required test value");
         }
-        e.i32(0).unwrap();
-        e.sequence_length(1, 512).unwrap();
-        e.u16(1).unwrap();
-        e.u16(0).unwrap();
-        e.u16(4).unwrap();
-        e.u8(3).unwrap();
-        e.u8(0).unwrap();
-        e.bytes(&[0; 32], 32).unwrap();
-        e.bytes(&account, 256).unwrap();
-        e.u128(0).unwrap();
-        e.bytes(&number(8), 32).unwrap();
-        e.u16(1).unwrap();
-        e.u32(1).unwrap();
-        e.u32(0).unwrap();
-        e.u8(4).unwrap();
-        e.bytes(&asset, 32).unwrap();
-        e.u128(0).unwrap();
-        e.bytes(&[0; 32], 32).unwrap();
-        e.u128(0).unwrap();
-        e.u128(0).unwrap();
-        e.u64(0).unwrap();
-        e.bytes(&account, 32).unwrap();
-        e.u128(0).unwrap();
-        e.u128(0).unwrap();
-        e.bytes(&[0; 32], 32).unwrap();
-        e.bytes(&[0; 32], 32).unwrap();
-        e.bytes(&[1; 32], 32).unwrap();
-        e.u64(1_700_000_001_000).unwrap();
-        e.u8(u8::from(signature.is_some())).unwrap();
+        require_ok(e.i32(0), "required test value");
+        require_ok(e.sequence_length(1, 512), "required test value");
+        require_ok(e.u16(1), "required test value");
+        require_ok(e.u16(0), "required test value");
+        require_ok(e.u16(4), "required test value");
+        require_ok(e.u8(3), "required test value");
+        require_ok(e.u8(0), "required test value");
+        require_ok(e.bytes(&[0; 32], 32), "required test value");
+        require_ok(e.bytes(&account, 256), "required test value");
+        require_ok(e.u128(0), "required test value");
+        require_ok(e.bytes(&number(8), 32), "required test value");
+        require_ok(e.u16(1), "required test value");
+        require_ok(e.u32(1), "required test value");
+        require_ok(e.u32(0), "required test value");
+        require_ok(e.u8(4), "required test value");
+        require_ok(e.bytes(&asset, 32), "required test value");
+        require_ok(e.u128(0), "required test value");
+        require_ok(e.bytes(&[0; 32], 32), "required test value");
+        require_ok(e.u128(0), "required test value");
+        require_ok(e.u128(0), "required test value");
+        require_ok(e.u64(0), "required test value");
+        require_ok(e.bytes(&account, 32), "required test value");
+        require_ok(e.u128(0), "required test value");
+        require_ok(e.u128(0), "required test value");
+        require_ok(e.bytes(&[0; 32], 32), "required test value");
+        require_ok(e.bytes(&[0; 32], 32), "required test value");
+        require_ok(e.bytes(&[1; 32], 32), "required test value");
+        require_ok(e.u64(1_700_000_001_000), "required test value");
+        require_ok(e.u8(u8::from(signature.is_some())), "required test value");
         if let Some(signature) = signature {
-            e.bytes(&signature, 64).unwrap();
+            require_ok(e.bytes(&signature, 64), "required test value");
         }
         e.finish()
     };
     let signature = key
-        .sign(&layerx_wire::hash::receipt_digest(&encode(None)).unwrap())
+        .sign(&require_ok(
+            layerx_wire::hash::receipt_digest(&encode(None)),
+            "required test value",
+        ))
         .to_bytes();
     let encoded = encode(Some(signature));
-    let decoded =
-        layerx_wire::receipt::decode(&encoded).expect("canonical account snapshot receipt");
-    assert_eq!(layerx_wire::receipt::encode(&decoded).unwrap(), encoded);
-    layerx_proof::receipt::verify_sequencer_signature(&encoded, key.verifying_key().to_bytes())
-        .expect("snapshot proof receipt signature");
+    let decoded = require_ok(
+        layerx_wire::receipt::decode(&encoded),
+        "canonical account snapshot receipt",
+    );
+    assert_eq!(
+        require_ok(
+            layerx_wire::receipt::encode(&decoded),
+            "required test value"
+        ),
+        encoded
+    );
+    require_ok(
+        layerx_proof::receipt::verify_sequencer_signature(&encoded, key.verifying_key().to_bytes()),
+        "snapshot proof receipt signature",
+    );
     encoded
 }

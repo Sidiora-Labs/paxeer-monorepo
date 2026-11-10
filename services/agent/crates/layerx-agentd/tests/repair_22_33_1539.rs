@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::os::unix::fs::DirBuilderExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -40,10 +48,10 @@ impl Directory {
             std::process::id(),
             NEXT_ROOT.fetch_add(1, Ordering::Relaxed)
         ));
-        std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&path)
-            .expect("private test directory");
+        require_ok(
+            std::fs::DirBuilder::new().mode(0o700).create(&path),
+            "private test directory",
+        );
         Self(path)
     }
 }
@@ -55,14 +63,14 @@ impl Drop for Directory {
 }
 
 fn tenant() -> TenantId {
-    TenantId::new("tenant-approval-semantics").expect("tenant")
+    require_ok(TenantId::new("tenant-approval-semantics"), "tenant")
 }
 
 fn context(id: u8) -> ApprovalContext {
     ApprovalContext {
         actor_address: [4; 20],
         tenant: tenant(),
-        agent: Did::new(hex::encode([4; 20]).as_bytes()).expect("agent"),
+        agent: require_ok(Did::new(hex::encode([4; 20]).as_bytes()), "agent"),
         session: SessionId([2; 32]),
         capability: CapabilityId([3; 32]),
         policy_version: "policy-v3".to_owned(),
@@ -71,47 +79,60 @@ fn context(id: u8) -> ApprovalContext {
 }
 
 fn modules() -> ModuleRegistry {
-    ModuleRegistry::new(&[ModuleRegistration::new(
-        ModuleId::Asset,
-        &[ActivityType::new(ModuleId::Asset, 5).expect("ledger send activity")],
+    require_ok(
+        ModuleRegistry::new(&[require_ok(
+            ModuleRegistration::new(
+                ModuleId::Asset,
+                &[require_ok(
+                    ActivityType::new(ModuleId::Asset, 5),
+                    "ledger send activity",
+                )],
+            ),
+            "ledger registration",
+        )]),
+        "module registry",
     )
-    .expect("ledger registration")])
-    .expect("module registry")
 }
 
 fn limiter() -> BudgetLimiter {
-    BudgetLimiter::new(vec![LimitConfig {
-        id: LimitId([4; 16]),
-        name: "approval-semantics".to_owned(),
-        scope: LimitScope::Tenant([5; 32]),
-        ceiling: 1_000,
-        consumed: 0,
-    }])
-    .expect("limiter")
+    require_ok(
+        BudgetLimiter::new(vec![LimitConfig {
+            id: LimitId([4; 16]),
+            name: "approval-semantics".to_owned(),
+            scope: LimitScope::Tenant([5; 32]),
+            ceiling: 1_000,
+            consumed: 0,
+        }]),
+        "limiter",
+    )
 }
 
 fn hold(registry: &ApprovalRegistry, limiter: &BudgetLimiter, id: u8, prepared: Prepared) {
-    let reservation = reserve(
-        limiter,
-        &ReservationRequest {
-            id: [id; 32],
-            amount: 50,
-            expiry_sequence: 40,
-            current_sequence: 10,
-            applicable_limits: vec![LimitId([4; 16])],
-        },
-    )
-    .expect("reservation");
-    hold_reserved_timed(
-        registry,
-        context(id),
-        prepared,
-        ApprovalSequence(10),
-        ApprovalSequence(40),
-        &reservation,
-        TimestampSeconds(10),
-    )
-    .expect("producer-bound hold");
+    let reservation = require_ok(
+        reserve(
+            limiter,
+            &ReservationRequest {
+                id: [id; 32],
+                amount: 50,
+                expiry_sequence: 40,
+                current_sequence: 10,
+                applicable_limits: vec![LimitId([4; 16])],
+            },
+        ),
+        "reservation",
+    );
+    require_ok(
+        hold_reserved_timed(
+            registry,
+            context(id),
+            prepared,
+            ApprovalSequence(10),
+            ApprovalSequence(40),
+            &reservation,
+            TimestampSeconds(10),
+        ),
+        "producer-bound hold",
+    );
 }
 
 fn request<'a>(tenant: &'a TenantId, id: u8, key: &'a DecisionKey) -> DecisionRequest<'a> {
@@ -119,7 +140,7 @@ fn request<'a>(tenant: &'a TenantId, id: u8, key: &'a DecisionKey) -> DecisionRe
         tenant,
         approval_id: [id; 32],
         idempotency_key: key,
-        approver: ApproverId::new("human:review").expect("approver"),
+        approver: require_ok(ApproverId::new("human:review"), "approver"),
         current_sequence: 11,
         current_time: TimestampSeconds(11),
     }
@@ -130,8 +151,8 @@ fn finding_27_ledger_producer_fields_survive_codec_and_approval_hold() {
     let produced = preparation::produced(14, 40);
     let api = preparation::prepared(14, 40);
     let bytes = api.unsigned_canonical_bytes.as_bytes();
-    let received = decode_unsigned(bytes).expect("real transaction codec");
-    let disclosure = bind_call(&received, [4; 20]).expect("consumer disclosure");
+    let received = require_ok(decode_unsigned(bytes), "real transaction codec");
+    let disclosure = require_ok(bind_call(&received, [4; 20]), "consumer disclosure");
     assert_eq!(received, produced.call);
     assert_eq!(disclosure, produced.disclosure);
     assert_eq!(received.to, prepare::PrecompileTarget::Ledger.address());
@@ -191,15 +212,18 @@ fn finding_27_ledger_producer_fields_survive_codec_and_approval_hold() {
     let registry = ApprovalRegistry::default();
     let limiter = limiter();
     hold(&registry, &limiter, 14, api);
-    registry
-        .validate_registry(&tenant(), &modules())
-        .expect("real approval consumer");
+    require_ok(
+        registry.validate_registry(&tenant(), &modules()),
+        "real approval consumer",
+    );
     assert_eq!(
-        registry
-            .ticket([14; 32])
-            .expect("ticket")
-            .expect("held ticket")
-            .state,
+        require_some(
+            registry
+                .ticket([14; 32])
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "ticket")),
+            "held ticket"
+        )
+        .state,
         ApprovalState::AwaitingApproval
     );
 }
@@ -243,25 +267,29 @@ fn finding_27_durable_hold_reopens_with_the_exact_producer_binding() {
     let directory = Directory::new();
     let prepared = preparation::prepared(17, 40);
     {
-        let store = Arc::new(Mutex::new(Store::open(&directory.0).expect("store")));
+        let store = Arc::new(Mutex::new(require_ok(Store::open(&directory.0), "store")));
         let registry = ApprovalRegistry::with_store(store);
         hold(&registry, &limiter(), 17, prepared.clone());
     }
-    let store = Arc::new(Mutex::new(Store::open(&directory.0).expect("reopen store")));
+    let store = Arc::new(Mutex::new(require_ok(
+        Store::open(&directory.0),
+        "reopen store",
+    )));
     let registry = ApprovalRegistry::with_store(Arc::clone(&store));
     let limiter = limiter();
     assert_eq!(registry.replay_tenant(&tenant(), &limiter), Ok(1));
     assert_eq!(limiter.held_reservations(), Ok(1));
-    registry
-        .validate_registry(&tenant(), &modules())
-        .expect("recovered call binding");
+    require_ok(
+        registry.validate_registry(&tenant(), &modules()),
+        "recovered call binding",
+    );
     let mut changed_digest = prepared.disclosure.canonical_digest;
     changed_digest[0] ^= 1;
     assert_eq!(
         decide_at(
             &registry,
             [17; 32],
-            ApproverId::new("human:review").expect("approver"),
+            require_ok(ApproverId::new("human:review"), "approver"),
             ApprovalChoice::Approve,
             changed_digest,
             ApprovalSequence(11),
@@ -269,33 +297,38 @@ fn finding_27_durable_hold_reopens_with_the_exact_producer_binding() {
         ),
         Err(ApprovalError::DisclosureChanged)
     );
-    let audit = decide_at(
-        &registry,
-        [17; 32],
-        ApproverId::new("human:review").expect("approver"),
-        ApprovalChoice::Approve,
-        prepared.disclosure.canonical_digest,
-        ApprovalSequence(11),
-        TimestampSeconds(11),
-    )
-    .expect("recovered decision");
+    let audit = require_ok(
+        decide_at(
+            &registry,
+            [17; 32],
+            require_ok(ApproverId::new("human:review"), "approver"),
+            ApprovalChoice::Approve,
+            prepared.disclosure.canonical_digest,
+            ApprovalSequence(11),
+            TimestampSeconds(11),
+        ),
+        "recovered decision",
+    );
     assert_eq!(
         audit.disclosure_digest,
         prepared.disclosure.canonical_digest
     );
     assert_eq!(
-        registry
-            .ticket([17; 32])
-            .expect("ticket")
-            .expect("held")
-            .state,
+        require_some(
+            registry
+                .ticket([17; 32])
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "ticket")),
+            "held"
+        )
+        .state,
         ApprovalState::Approved
     );
     drop(registry);
     drop(store);
-    let reopened = ApprovalRegistry::with_store(Arc::new(Mutex::new(
-        Store::open(&directory.0).expect("reopen after decision"),
-    )));
+    let reopened = ApprovalRegistry::with_store(Arc::new(Mutex::new(require_ok(
+        Store::open(&directory.0),
+        "reopen after decision",
+    ))));
     assert_eq!(reopened.replay_tenant(&tenant(), &self::limiter()), Ok(0));
 }
 
@@ -304,13 +337,13 @@ fn finding_27_grant_rejection_concurrency_and_durable_winner() {
     let directory = Directory::new();
     let registry = ApprovalRegistry::default();
     let limiter = limiter();
-    let expiry = ApprovalExpiry::open(&directory.0).expect("expiry");
+    let expiry = require_ok(ApprovalExpiry::open(&directory.0), "expiry");
     let queue = ApprovalSubmissionQueue::default();
     let prepared = preparation::prepared(18, 40);
     hold(&registry, &limiter, 18, prepared.clone());
     let owner = tenant();
-    let grant_key = DecisionKey::new("grant-18").expect("grant key");
-    let reject_key = DecisionKey::new("reject-18").expect("reject key");
+    let grant_key = require_ok(DecisionKey::new("grant-18"), "grant key");
+    let reject_key = require_ok(DecisionKey::new("reject-18"), "reject key");
     let start = Barrier::new(2);
     let (grant, rejection) = std::thread::scope(|scope| {
         let grant = scope.spawn(|| {
@@ -330,11 +363,18 @@ fn finding_27_grant_rejection_concurrency_and_durable_winner() {
             ))
         });
         (
-            grant.join().expect("grant thread").expect("grant decision"),
-            rejection
-                .join()
-                .expect("reject thread")
-                .expect("rejection decision"),
+            require_ok(
+                grant
+                    .join()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "grant thread")),
+                "grant decision",
+            ),
+            require_ok(
+                rejection
+                    .join()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "reject thread")),
+                "rejection decision",
+            ),
         )
     });
     let winner = match (grant.outcome, rejection.outcome) {
@@ -342,7 +382,7 @@ fn finding_27_grant_rejection_concurrency_and_durable_winner() {
             assert_eq!(rejection.winning_outcome, Some(ApprovalOutcome::Granted));
             assert_eq!(queue.len(), 1);
             assert_eq!(
-                queue.prepared(grant.submission_ref.expect("submission")),
+                queue.prepared(require_some(grant.submission_ref, "submission")),
                 Some(prepared)
             );
             grant
@@ -355,10 +395,11 @@ fn finding_27_grant_rejection_concurrency_and_durable_winner() {
         outcomes => panic!("exactly one durable winner required: {outcomes:?}"),
     };
     drop(expiry);
-    let reopened = ApprovalExpiry::open(&directory.0).expect("reopen expiry");
-    let durable = reopened
-        .recover(&owner, [18; 32], 40, 12, &limiter)
-        .expect("recovered decision");
+    let reopened = require_ok(ApprovalExpiry::open(&directory.0), "reopen expiry");
+    let durable = require_ok(
+        reopened.recover(&owner, [18; 32], 40, 12, &limiter),
+        "recovered decision",
+    );
     assert_eq!(durable.outcome, winner.outcome);
     assert_eq!(durable.submission_ref, winner.submission_ref);
 }
@@ -369,40 +410,43 @@ fn finding_27_api_changed_call_and_disclosure_never_queue() {
         let directory = Directory::new();
         let registry = ApprovalRegistry::default();
         let limiter = limiter();
-        let expiry = ApprovalExpiry::open(&directory.0).expect("expiry");
+        let expiry = require_ok(ApprovalExpiry::open(&directory.0), "expiry");
         let queue = ApprovalSubmissionQueue::default();
         let prepared = preparation::prepared(id, 40);
         hold(&registry, &limiter, id, prepared.clone());
         let mut changed = prepared;
         if id == 19 {
             let other_call = preparation::produced(id + 1, 40);
-            changed.unsigned_canonical_bytes =
-                layerx_agent_api::prepare::CanonicalBytes::new(other_call.call.encode_unsigned())
-                    .expect("changed call");
+            changed.unsigned_canonical_bytes = require_ok(
+                layerx_agent_api::prepare::CanonicalBytes::new(other_call.call.encode_unsigned()),
+                "changed call",
+            );
         } else {
             changed.disclosure.fee_limit.0 += 1;
         }
-        let decision = ApprovalService::new(&registry, &limiter, &expiry)
-            .approve(
+        let decision = require_ok(
+            ApprovalService::new(&registry, &limiter, &expiry).approve(
                 request(
                     &tenant(),
                     id,
-                    &DecisionKey::new(format!("changed-{id}")).expect("decision key"),
+                    &require_ok(DecisionKey::new(format!("changed-{id}")), "decision key"),
                 ),
                 &changed,
                 &queue,
-            )
-            .expect("changed preparation decision");
+            ),
+            "changed preparation decision",
+        );
         assert_eq!(decision.outcome, ApprovalOutcome::Defective);
         assert_eq!(decision.submission_ref, None);
         assert!(queue.is_empty());
         drop(expiry);
-        let reopened = ApprovalExpiry::open(&directory.0).expect("reopen refusal");
+        let reopened = require_ok(ApprovalExpiry::open(&directory.0), "reopen refusal");
         assert_eq!(
-            reopened
-                .recover(&tenant(), [id; 32], 40, 12, &limiter)
-                .expect("durable refusal")
-                .outcome,
+            require_ok(
+                reopened.recover(&tenant(), [id; 32], 40, 12, &limiter),
+                "durable refusal"
+            )
+            .outcome,
             ApprovalOutcome::Defective
         );
     }
