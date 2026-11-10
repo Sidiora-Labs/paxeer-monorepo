@@ -196801,7 +196801,7 @@ do_4 = "Attempt 2 (continue, gotcha 3376, decision 2761, after 22.38.8 and 22.38
 
 [task.22.38.15]
 title = "Enrol the host and peers with a v2 manifest, a bond lock and a price quote"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.2", "22.38.14", "22.38.3", "22.38.7", "22.31.620"]
