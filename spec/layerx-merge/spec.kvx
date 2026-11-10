@@ -305051,7 +305051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.250]
 title = "Repair the retired references of the kernel host module and the executor precompile guard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
