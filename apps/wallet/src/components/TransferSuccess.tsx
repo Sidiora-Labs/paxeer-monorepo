@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
+  JsonRpcClient,
   observeTransfer,
   recoverTransferObservation,
   statusLadder,
@@ -106,30 +107,12 @@ function recoverObservation(identity: TransferIdentity): TransferObservation {
   }
 }
 
-async function rpcRequest(
-  url: string,
-  method: string,
-  params: readonly unknown[]
-): Promise<unknown> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-    signal: AbortSignal.timeout(10_000),
-    cache: 'no-store',
+export function createTransferObservationClient(url: string): JsonRpcClient {
+  return new JsonRpcClient({
+    url,
+    timeoutMs: 10_000,
+    fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
   });
-  if (!response.ok) throw new Error(`RPC answered HTTP ${response.status}`);
-  const body = (await response.json()) as {
-    jsonrpc?: unknown;
-    id?: unknown;
-    result?: unknown;
-    error?: { message?: string };
-  };
-  if (body.jsonrpc !== '2.0' || body.id !== 1) throw new Error('Malformed RPC response');
-  if (body.error) throw new Error(body.error.message || `RPC ${method} failed`);
-  if (!Object.prototype.hasOwnProperty.call(body, 'result'))
-    throw new Error('RPC response omitted its result');
-  return body.result;
 }
 
 export function useTransferObservation(identity: TransferIdentity): {
@@ -173,16 +156,15 @@ export function useTransferObservation(identity: TransferIdentity): {
     // Retain the origin before the first request, including offline/pending submissions.
     persist(current);
     setError(persistenceError);
+    const rpc = createTransferObservationClient(retainedOrigin.rpcUrl);
     const tick = async () => {
       if (cancelled || running) return;
       if (timer) clearTimeout(timer);
       running = true;
       try {
-        const next = await observeTransfer(
-          (method, params) => rpcRequest(retainedOrigin.rpcUrl, method, params),
-          current,
-          { url: retainedOrigin.statusUrl }
-        );
+        const next = await observeTransfer((method, params) => rpc.call(method, params), current, {
+          url: retainedOrigin.statusUrl,
+        });
         if (cancelled) return;
         current = next;
         setObservation(next);
