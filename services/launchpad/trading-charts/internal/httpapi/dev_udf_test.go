@@ -33,6 +33,7 @@ import (
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 )
 
@@ -42,8 +43,6 @@ import (
 // an in-process geth node (go-ethereum simulated backend) served over HTTP
 // JSON-RPC, on which the real SidioraERC20 artifact is deployed and a real
 // transaction emits the EventEmitter MarketCreated log.
-
-const devFixtureRedis = "redis://:kindle_fixture_password@127.0.0.1:26379/0"
 
 const devPool = "0x00000000000000000000000000000000000d0d01"
 
@@ -202,7 +201,7 @@ func newDevFixture(t *testing.T, withChain bool) devFixture {
 		t.Cleanup(client.Close)
 		f.rpc = client
 	}
-	rdb := goredis.NewClient(parseRedisOpts(devFixtureRedis))
+	rdb := goredis.NewClient(parseRedisOpts(internaltest.NewRedisURL(t)))
 	t.Cleanup(func() { _ = rdb.Close() })
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		t.Fatal(err)
@@ -295,7 +294,7 @@ func TestDevelopmentUDFHistoryFromWebhookCandles(t *testing.T) {
 	// A new pool's first swaps arrive through the signed indexer webhook.
 	events := []map[string]any{}
 	for i, price := range []string{"1000000000000000000", "3000000000000000000", "2000000000000000000"} {
-		events = append(events, map[string]any{"eventName": "Swap", "blockNumber": 100 + i, "blockTimestamp": 1760000000 + int64(i)*60, "txHash": "0x" + strings.Repeat(strconv.Itoa(i+1), 64), "logIndex": 0, "args": map[string]any{"poolAddress": devPool, "sender": "0x00000000000000000000000000000000000000aa", "isBuy": true, "amountIn": "2500000", "amountOut": "1000", "fee": "1", "price": price}})
+		events = append(events, map[string]any{"eventName": "Swap", "blockNumber": 100 + i, "position": engine.ChainOrder{Height: uint64(100 + i)}, "blockTimestamp": 1760000000 + int64(i)*60, "txHash": "0x" + strings.Repeat(strconv.Itoa(i+1), 64), "logIndex": 0, "args": map[string]any{"poolAddress": devPool, "sender": "0x00000000000000000000000000000000000000aa", "isBuy": true, "amountIn": "2500000", "amountOut": "1000", "fee": "1", "price": price}})
 	}
 	raw, _ := json.Marshal(map[string]any{"events": events})
 	rec := httptest.NewRecorder()
@@ -357,7 +356,7 @@ func TestDevelopmentUDFHistoryFromWebhookCandles(t *testing.T) {
 	}
 
 	// A further swap changes the stored rows and therefore the snapshot.
-	more, _ := json.Marshal(map[string]any{"events": []map[string]any{{"eventName": "Swap", "blockNumber": 200, "blockTimestamp": 1760000200, "txHash": "0x" + strings.Repeat("9", 64), "logIndex": 0, "args": map[string]any{"poolAddress": devPool, "sender": "0x00000000000000000000000000000000000000bb", "isBuy": false, "amountIn": "10", "amountOut": "1000000", "fee": "1", "price": "500000000000000000"}}}})
+	more, _ := json.Marshal(map[string]any{"events": []map[string]any{{"eventName": "Swap", "blockNumber": 200, "position": engine.ChainOrder{Height: 200}, "blockTimestamp": 1760000200, "txHash": "0x" + strings.Repeat("9", 64), "logIndex": 0, "args": map[string]any{"poolAddress": devPool, "sender": "0x00000000000000000000000000000000000000bb", "isBuy": false, "amountIn": "10", "amountOut": "1000000", "fee": "1", "price": "500000000000000000"}}}})
 	rec = httptest.NewRecorder()
 	f.router.ServeHTTP(rec, signedRequest(more))
 	if rec.Code != 200 {

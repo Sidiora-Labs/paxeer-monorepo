@@ -149,6 +149,10 @@ impl<'a> AdmittedReport<'a> {
     pub fn signed(&self) -> CodecResult<SignedReport<'a>> {
         decode_signed_report(self.signed)
     }
+    pub(crate) fn committed_body(&self) -> CodecResult<crate::codec::ReportBody<'a>> {
+        let end = self.signed.len().checked_sub(64).ok_or(NON_CANONICAL)?;
+        crate::codec::decode_report_frame(&self.signed[..end])
+    }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>, epoch: u64) -> CodecResult<Self> {
         let row = Self::read_validated(r)?;
@@ -189,6 +193,144 @@ impl<'a> AdmittedReport<'a> {
     }
 }
 
+/// Borrow only the receipt identities and signed bytes needed by a chunk.
+/// The fixed receipt's height/activity remain stored verbatim and are not
+/// materialized by this read-only projection.
+#[derive(Clone, Copy)]
+pub(crate) struct ChunkReport<'a> {
+    pub evaluator: crate::types::CheckedIdentityBytes<'a>,
+    pub report: crate::types::CheckedIdentityBytes<'a>,
+    signed: &'a [u8],
+}
+impl<'a> ChunkReport<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read(r: &mut Reader<'a>) -> CodecResult<Self> {
+        let header = r.take(82)?;
+        let evaluator = crate::types::CheckedIdentityBytes::new_inline(
+            header
+                .guest_index(..32)
+                .try_into()
+                .map_err(|_| NON_CANONICAL)?,
+        )?;
+        let report = crate::types::CheckedIdentityBytes::new_inline(
+            header
+                .guest_index(32..64)
+                .try_into()
+                .map_err(|_| NON_CANONICAL)?,
+        )?;
+        let length = usize::from(u16::from_be_bytes([header[80], header[81]]));
+        if !(SIGNED_REPORT_MIN_BYTES..=SIGNED_REPORT_MAX_BYTES).contains(&length) {
+            return Err(NON_CANONICAL);
+        }
+        Ok(Self {
+            evaluator,
+            report,
+            signed: r.take(length)?,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn chunk_scores(
+        &self,
+        frozen: &crate::types::FrozenBinding,
+        encoded_binding: &[u8],
+    ) -> CodecResult<crate::codec::ScoreVector<'a>> {
+        let end = self.signed.len().checked_sub(64).ok_or(NON_CANONICAL)?;
+        let bytes = self.signed.get(..end).ok_or(NON_CANONICAL)?;
+        if bytes.len() > crate::codec::REPORT_MAX_BYTES {
+            return Err(crate::errors::CAPACITY);
+        }
+        let schema: [u8; 2] = bytes
+            .get(..2)
+            .ok_or(NON_CANONICAL)?
+            .try_into()
+            .map_err(|_| NON_CANONICAL)?;
+        if u16::from_be_bytes(schema) != crate::SCHEMA_VERSION {
+            return Err(crate::errors::BAD_VERSION);
+        }
+        let header: &[u8; 228] = bytes
+            .get(..228)
+            .ok_or(NON_CANONICAL)?
+            .try_into()
+            .map_err(|_| NON_CANONICAL)?;
+        if !crate::codec::equal_bytes(&header[2..146], encoded_binding) {
+            let body = crate::codec::decode_report_frame(bytes)?;
+            crate::aggregation_codec::check_binding(body.binding.frozen, *frozen)?;
+        }
+        let evaluator = header[146..178].try_into().map_err(|_| NON_CANONICAL)?;
+        if !crate::types::identity_equal_inline(evaluator, self.evaluator.bytes()) {
+            return Err(crate::errors::F05_REPORT_INVARIANT);
+        }
+        // Keep both nonzero version and evidence identity checks even though
+        // admission already validated this immutable signed report.
+        for version in header[178..194].as_chunks::<8>().0 {
+            if u64::from_ne_bytes(*version) == 0 {
+                return Err(NON_CANONICAL);
+            }
+        }
+        crate::types::CheckedIdentityBytes::new_inline(
+            header[194..226].try_into().map_err(|_| NON_CANONICAL)?,
+        )?;
+        let count = usize::from(u16::from_be_bytes([header[226], header[227]]));
+        if count == 0 {
+            return Err(crate::errors::F03_NO_SCORES);
+        }
+        if count > crate::MAX_WORKERS {
+            return Err(crate::errors::CAPACITY);
+        }
+        let scores = bytes.get(228..).ok_or(NON_CANONICAL)?;
+        if scores.len() != count * 36 {
+            return Err(NON_CANONICAL);
+        }
+        Ok(crate::codec::ScoreVector::Encoded(scores))
+    }
+}
+/// Receipt index for one chunk call. Row framing and canonical evaluator order
+/// are checked once, including rows excluded by the seal; score cells remain borrowed.
+pub(crate) struct ChunkReports<'a> {
+    epoch: u64,
+    rows: [Option<ChunkReport<'a>>; MAX_EVALUATORS],
+}
+impl<'a> ChunkReports<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn committed(section: &'a [u8]) -> CodecResult<Self> {
+        let mut index = Self {
+            epoch: 0,
+            rows: [None; MAX_EVALUATORS],
+        };
+        if section.is_empty() {
+            return Ok(index);
+        }
+        let mut reader = Reader::new(section);
+        index.epoch = reader.u64()?;
+        let count = usize::from(reader.u8()?);
+        if count > MAX_EVALUATORS {
+            return Err(NON_CANONICAL);
+        }
+        let mut previous = None;
+        for slot in index.rows.iter_mut().take(count) {
+            let row = ChunkReport::read(&mut reader)?;
+            if previous.is_some_and(|previous| {
+                crate::types::identity_order(previous, row.evaluator.bytes())
+                    != core::cmp::Ordering::Less
+            }) {
+                return Err(NON_CANONICAL);
+            }
+            previous = Some(row.evaluator.bytes());
+            *slot = Some(row);
+        }
+        if count == 0 && reader.remaining() == 0 {
+            return Err(NON_CANONICAL);
+        }
+        Ok(index)
+    }
+    pub(crate) fn rows(&self, epoch: u64) -> impl Iterator<Item = &ChunkReport<'a>> {
+        self.rows
+            .iter()
+            .flatten()
+            .filter(move |_| self.epoch == epoch)
+    }
+}
+
 /// Rows of one admitted-report region, already validated by [`ReportRegion::decode`].
 pub struct Rows<'a> {
     reader: Reader<'a>,
@@ -214,6 +356,48 @@ pub struct ReportRegion<'a> {
     rest: &'a [u8],
 }
 impl<'a> ReportRegion<'a> {
+    /// Index the immutable rows of a committed section without re-hashing reports
+    /// admitted by its producer. A consumer still decodes each report it uses.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn committed(section: &'a [u8]) -> CodecResult<Self> {
+        if section.is_empty() {
+            return Ok(Self {
+                epoch: 0,
+                count: 0,
+                rows: &[],
+                rest: &[],
+            });
+        }
+        let mut r = Reader::new(section);
+        let epoch = r.u64()?;
+        let count = usize::from(r.u8()?);
+        if count > MAX_EVALUATORS {
+            return Err(NON_CANONICAL);
+        }
+        let start = r.offset();
+        let mut previous = None;
+        for _ in 0..count {
+            let evaluator = ChunkReport::read(&mut r)?.evaluator;
+            if previous.is_some_and(|id| {
+                crate::types::identity_order(id, evaluator.bytes()) != core::cmp::Ordering::Less
+            }) {
+                return Err(NON_CANONICAL);
+            }
+            previous = Some(evaluator.bytes());
+        }
+        let rows = section.get(start..r.offset()).ok_or(NON_CANONICAL)?;
+        let rest = section.get(r.offset()..).ok_or(NON_CANONICAL)?;
+        if count == 0 && rest.is_empty() {
+            return Err(NON_CANONICAL);
+        }
+        Ok(Self {
+            epoch,
+            count,
+            rows,
+            rest,
+        })
+    }
+
     /// Strictly decodes the region prefix of the current-reports section.
     ///
     /// # Errors
@@ -222,6 +406,24 @@ impl<'a> ReportRegion<'a> {
     /// nothing after it.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(section: &'a [u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        if let Some(frozen) = crate::state::current_slice(section) {
+            static DECODED: crate::guest_cell::GuestCell<
+                crate::guest_cell::Cached<(&'static [u8], ReportRegion<'static>)>,
+            > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+            let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+            if let Some((bytes, region)) = decoded.as_ref() {
+                if core::ptr::eq(*bytes, section) {
+                    return Ok(*region);
+                }
+            }
+            let region = ReportRegion::decode_uncached(frozen)?;
+            *decoded = crate::guest_cell::Cached::Value((frozen, region));
+            return Ok(region);
+        }
+        Self::decode_uncached(section)
+    }
+    fn decode_uncached(section: &'a [u8]) -> CodecResult<Self> {
         if section.is_empty() {
             return Ok(Self {
                 epoch: 0,
@@ -363,7 +565,7 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 /// Committed views of the currently opened epoch.
 struct Opened<'a> {
     section: PolicySection<'a>,
-    rewards: RewardState<'a>,
+    dictionary: crate::rewards::RecipientDictionary<'a>,
     frozen: FrozenBinding,
     row: RewardEpoch,
     reports: ReportRegion<'a>,
@@ -374,7 +576,7 @@ struct Opened<'a> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecResult<Opened<'a>> {
     let section = committed(state)?;
-    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
+    let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
         *state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
@@ -385,16 +587,14 @@ fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecRes
 fn view_in_state<'a>(
     state: &SharedState<'a>,
     section: PolicySection<'a>,
-    known: Option<RewardState<'a>>,
+    _known: Option<RewardState<'a>>,
     admission: &AdmissionTable,
     known_reports: Option<ReportRegion<'a>>,
 ) -> CodecResult<Opened<'a>> {
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = settlement_rewards(state, known)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let rewards = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
+    let row = rewards.row;
     let header = &section.header;
     let frozen = FrozenBinding {
         chain: header.deployment_chain_domain,
@@ -417,36 +617,11 @@ fn view_in_state<'a>(
     }
     Ok(Opened {
         section,
-        rewards,
+        dictionary: rewards.dictionary,
         frozen,
         row,
         reports,
     })
-}
-
-/// The complete immutable worker set shared by report admission and settlement.
-#[cfg_attr(target_arch = "wasm32", inline(never))]
-fn frozen_workers(
-    admission: &AdmissionTable,
-    policy: &PolicySection<'_>,
-    region: &EvaluatorRegion,
-    rewards: &RewardState<'_>,
-    row: &RewardEpoch,
-) -> CodecResult<([WorkerRosterEntry; MAX_WORKERS], usize)> {
-    let captured = crate::epoch::captured_roster_with(admission, policy, region, *rewards)?;
-    if captured.binding.epoch != row.epoch
-        || captured.binding.roster != row.roster
-        || rewards.row(row.epoch)?.roster != row.roster
-    {
-        return Err(WRONG_ROSTER);
-    }
-    let entries = captured.workers();
-    let first = *entries.first().ok_or(WRONG_ROSTER)?;
-    let mut workers = [first; MAX_WORKERS];
-    workers
-        .guest_index_mut(..entries.len())
-        .guest_copy_from_slice(entries);
-    Ok((workers, entries.len()))
 }
 
 /// One reveal-admission request supplied by the F04 `RevealScore` operation.
@@ -505,18 +680,21 @@ fn frozen_evaluator(
             ..*binding
         },
     )?;
-    let region = evaluator_region(
-        *state
-            .feature_sections
-            .guest_index(Section::IdentityRoster.index()),
-    )?;
-    let snapshot = region.snapshot().ok_or(crate::errors::F03_NO_GRANT)?;
-    if snapshot.epoch != opened.frozen.epoch {
-        return Err(NON_CANONICAL);
-    }
-    snapshot
-        .get(binding.evaluator)
-        .ok_or(crate::errors::F03_NO_GRANT)
+    EvaluatorRegion::with_decoded(
+        crate::evaluators::authority::split_identity_section(
+            state.section(Section::IdentityRoster)?,
+        )?
+        .1,
+        |region| {
+            let snapshot = region.snapshot().ok_or(crate::errors::F03_NO_GRANT)?;
+            if snapshot.epoch != opened.frozen.epoch {
+                return Err(NON_CANONICAL);
+            }
+            snapshot
+                .get(binding.evaluator)
+                .ok_or(crate::errors::F03_NO_GRANT)
+        },
+    )
 }
 
 /// Verifies the report against the complete frozen context and the evaluator signature.
@@ -527,19 +705,28 @@ fn verify(
     frozen: &FrozenEvaluator,
     report: &SignedReport<'_>,
     admission: &AdmissionTable,
+    known_digest: Option<ReportDigest>,
 ) -> Result<ReportDigest, VerificationError> {
     let evaluator = frozen.entry.evaluator;
-    let region = evaluator_region(
-        *state
-            .feature_sections
-            .guest_index(Section::IdentityRoster.index()),
-    )?;
-    let (workers, count) = frozen_workers(
-        admission,
-        &opened.section,
-        &region,
-        &opened.rewards,
-        &opened.row,
+    let (captured, frozen_grant, live_grant) = EvaluatorRegion::with_decoded(
+        crate::evaluators::authority::split_identity_section(
+            state.section(Section::IdentityRoster)?,
+        )?
+        .1,
+        |region| {
+            let captured = crate::epoch::committed_roster_row(
+                admission,
+                &opened.section,
+                region,
+                opened.row,
+                opened.dictionary,
+            )?;
+            Ok((
+                captured,
+                region.frozen_grant(evaluator)?,
+                region.stored_grant(evaluator)?,
+            ))
+        },
     )?;
     let context = ReportContext {
         binding: EvaluatorBinding {
@@ -548,14 +735,19 @@ fn verify(
             grant: frozen.entry.grant,
             key_version: frozen.entry.key_version,
         },
-        frozen_grant: region.frozen_grant(evaluator)?,
-        live_grant: region.stored_grant(evaluator)?,
+        frozen_grant,
+        live_grant,
         approved_rubric: opened.section.current.commitments.rubric,
         market_owner: opened.section.header.owner_principal,
-        workers: workers.get(..count).ok_or(CAPACITY)?,
+        workers: captured.workers(),
         evidence: crate::evidence::sealed_evidence_for_binding(state, opened.frozen, evaluator)?,
     };
-    let digest = verify_signed_report(report, &context)?;
+    let digest = match known_digest {
+        Some(digest) => {
+            crate::evaluators::codec::verify_report_with_digest(report, &context, digest)?
+        }
+        None => verify_signed_report(report, &context)?,
+    };
     // Worker ownership is also a live role constraint; the captured roster
     // remains the immutable source of report keys and metadata.
     let (workers, _) = crate::evaluators::authority::split_identity_section(
@@ -563,10 +755,7 @@ fn verify(
             .feature_sections
             .guest_index(Section::IdentityRoster.index()),
     )?;
-    if crate::workers::WorkerTable::decode(workers)?
-        .iter()
-        .any(|worker| worker.owner == frozen.entry.owner)
-    {
+    if crate::workers::committed_has_owner(workers, frozen.entry.owner)? {
         return Err(crate::errors::ROLE_CONFLICT.into());
     }
     Ok(digest)
@@ -650,7 +839,7 @@ pub(crate) fn admit_report_with<'a>(
     let signed = signed.get(..signed_len).ok_or(CAPACITY)?;
     let state = decode_shared_state(current)?;
     admit_encoded_report(
-        &state, reveal, signed, next, scratch, event, known, None, None,
+        &state, reveal, signed, next, scratch, event, known, None, None, None,
     )
 }
 
@@ -663,10 +852,9 @@ pub(crate) fn admit_report_in_state<'a>(
     scratch: &mut [u8],
     event: &mut [u8],
     known: Option<RewardState<'a>>,
+    report: ReportDigest,
+    signed: &[u8],
 ) -> Result<Admission, VerificationError> {
-    let mut signed = [0; SIGNED_REPORT_MAX_BYTES];
-    let signed_len = encode_signed_report(&reveal.report, &mut signed)?;
-    let signed = signed.get(..signed_len).ok_or(CAPACITY)?;
     admit_encoded_report(
         state,
         reveal,
@@ -677,6 +865,7 @@ pub(crate) fn admit_report_in_state<'a>(
         known,
         Some(admission),
         Some(reports),
+        Some(report),
     )
 }
 
@@ -690,6 +879,7 @@ fn admit_encoded_report<'a>(
     known: Option<RewardState<'a>>,
     known_admission: Option<&AdmissionTable>,
     known_reports: Option<ReportRegion<'a>>,
+    known_digest: Option<ReportDigest>,
 ) -> Result<Admission, VerificationError> {
     let body = &reveal.report.body;
     let section = committed(state)?;
@@ -697,11 +887,12 @@ fn admit_encoded_report<'a>(
     let admission = match known_admission {
         Some(admission) => admission,
         None => {
-            decoded = AdmissionTable::decode(crate::reputation_transition::joint_table(
-                *state
-                    .feature_sections
-                    .guest_index(Section::ReputationAdmission.index()),
-            )?)?;
+            decoded =
+                AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+                    *state
+                        .feature_sections
+                        .guest_index(Section::ReputationAdmission.index()),
+                )?)?;
             &decoded
         }
     };
@@ -724,7 +915,14 @@ fn admit_encoded_report<'a>(
         };
     }
     check_membership(admission, &frozen)?;
-    let report = verify(&state, &opened, &frozen, &reveal.report, admission)?;
+    let report = verify(
+        &state,
+        &opened,
+        &frozen,
+        &reveal.report,
+        admission,
+        known_digest,
+    )?;
     let row = AdmittedReport {
         receipt: AdmissionReceipt {
             evaluator: frozen.entry.evaluator,

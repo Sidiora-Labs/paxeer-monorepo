@@ -313,17 +313,6 @@ impl PreparedDecision {
             .map_err(|_| ApprovalExpiryError::Store)
     }
 
-    pub(crate) fn remove_hold(
-        self,
-        store: &mut Store,
-        hold_key: TenantKey,
-    ) -> Result<(), ApprovalExpiryError> {
-        self.check_pending(store)?;
-        store
-            .update_local_batch_removing(vec![(self.key, self.bytes)], vec![hold_key])
-            .map_err(|_| ApprovalExpiryError::Store)
-    }
-
     pub(crate) fn persist(self, store: &mut Store) -> Result<(), ApprovalExpiryError> {
         self.check_pending(store)?;
         store
@@ -820,12 +809,12 @@ impl PreparedDecision {
         }
         crate::policy::approval::validate_hold_snapshot(expected_hold, snapshot)
             .map_err(|_| ApprovalExpiryError::Corrupt)?;
-        let mut updates = vec![updated
+        let mut record_updates = vec![updated
             .companion()
             .map_err(|_| ApprovalExpiryError::Corrupt)?];
         let mut inserts = Vec::new();
         if self.expected.is_some() {
-            updates.push((self.key, self.bytes));
+            record_updates.push((self.key, self.bytes));
         } else {
             inserts.push((self.key, self.bytes));
         }
@@ -857,7 +846,7 @@ impl PreparedDecision {
             inserts.push((terminal_key, expected_hold.to_vec()));
         }
         store
-            .apply_program_approval_batch(updates, inserts, vec![hold_key])
+            .apply_program_approval_batch(record_updates, inserts, vec![hold_key])
             .map_err(|_| ApprovalExpiryError::Store)
     }
 }

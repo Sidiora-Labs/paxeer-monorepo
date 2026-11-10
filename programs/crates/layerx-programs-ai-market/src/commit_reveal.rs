@@ -39,7 +39,6 @@ use crate::{
         model::{SignedReport, VerificationError},
     },
     registry_ops::{CallContext, PolicySection, SUSPENDED},
-    rewards::RewardState,
     state::{
         decode_shared_state, settlement_rewards, ActorSlot, HeightWindow, ReplayDecision,
         ReplayRequest, RetainedResult, Section, SharedState,
@@ -167,6 +166,32 @@ pub struct CommitRegion<'a> {
     records: &'a [u8],
 }
 impl<'a> CommitRegion<'a> {
+    fn committed(bytes: &'a [u8]) -> CodecResult<Self> {
+        if bytes.is_empty() {
+            return Ok(Self {
+                epoch: 0,
+                records: &[],
+            });
+        }
+        let mut r = Reader::new(bytes);
+        let epoch = r.u64()?;
+        let count = usize::from(r.u8()?);
+        if count == 0 || count > MAX_EVALUATORS {
+            return Err(NON_CANONICAL);
+        }
+        let records = r.take(count * COMMIT_RECORD_BYTES)?;
+        r.finish()?;
+        let mut previous = None;
+        for bytes in records.chunks_exact(COMMIT_RECORD_BYTES) {
+            let evaluator = Reader::new(bytes).evaluator_id()?;
+            if previous.is_some_and(|id| id >= evaluator) {
+                return Err(NON_CANONICAL);
+            }
+            previous = Some(evaluator);
+        }
+        Ok(Self { epoch, records })
+    }
+
     /// Strictly decodes the bytes after the F03 region.
     ///
     /// # Errors
@@ -212,11 +237,17 @@ impl<'a> CommitRegion<'a> {
     /// Propagates record decoding refusals.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn get(&self, epoch: u64, evaluator: EvaluatorId) -> CodecResult<Option<CommitRecord>> {
-        let mut r = Reader::new(self.of(epoch));
-        while r.remaining() > 0 {
-            let record = CommitRecord::read(&mut r)?;
-            if record.evaluator == evaluator {
-                return Ok(Some(record));
+        let records = self.of(epoch);
+        let (mut left, mut right) = (0, records.len() / COMMIT_RECORD_BYTES);
+        while left < right {
+            let mid = left + (right - left) / 2;
+            let bytes = &records[mid * COMMIT_RECORD_BYTES..(mid + 1) * COMMIT_RECORD_BYTES];
+            match Reader::new(bytes).evaluator_id()?.cmp(&evaluator) {
+                core::cmp::Ordering::Less => left = mid + 1,
+                core::cmp::Ordering::Greater => right = mid,
+                core::cmp::Ordering::Equal => {
+                    return CommitRecord::read(&mut Reader::new(bytes)).map(Some)
+                }
             }
         }
         Ok(None)
@@ -261,10 +292,9 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 
 /// Committed views of the currently opened epoch.
 struct Opened<'a> {
-    admission: AdmissionTable,
-    state: SharedState<'a>,
+    admission: &'a AdmissionTable,
+    state: &'a SharedState<'a>,
     section: PolicySection<'a>,
-    rewards: RewardState<'a>,
     frozen: FrozenBinding,
     reports: ReportRegion<'a>,
     commits: CommitRegion<'a>,
@@ -272,20 +302,17 @@ struct Opened<'a> {
 /// The opened epoch: F08 epoch presence, F01 domain and config, the F06 frozen roster row and
 /// the F03/F04 current-reports regions.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
-    let state = decode_shared_state(current)?;
+fn opened<'a>(
+    state: &'a SharedState<'a>,
+    admission: &'a AdmissionTable,
+    reports: ReportRegion<'a>,
+    commits: CommitRegion<'a>,
+) -> CodecResult<Opened<'a>> {
     let section = committed(&state)?;
-    let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
-        *state
-            .feature_sections
-            .guest_index(Section::ReputationAdmission.index()),
-    )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = settlement_rewards(&state, None)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?
+        .row;
     let header = &section.header;
     let frozen = FrozenBinding {
         chain: header.deployment_chain_domain,
@@ -295,12 +322,6 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
         config: Version::new(header.active_config_version)?,
         roster: row.roster,
     };
-    let reports = ReportRegion::decode(
-        *state
-            .feature_sections
-            .guest_index(Section::CurrentReports.index()),
-    )?;
-    let commits = CommitRegion::decode(reports.rest())?;
     if commits.epoch > epoch && !commits.records.is_empty() {
         return Err(NON_CANONICAL);
     }
@@ -308,7 +329,6 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
         admission,
         state,
         section,
-        rewards,
         frozen,
         reports,
         commits,
@@ -343,7 +363,17 @@ pub struct Slot {
 /// Returns `WRONG_EPOCH` without an opened epoch; `NON_CANONICAL` for an inconsistent state;
 /// `ARITHMETIC` when the reveal end overflows.
 pub fn slot(current: &[u8], evaluator: EvaluatorId, height: u64) -> CodecResult<Slot> {
-    let opened = opened(current)?;
+    let state = decode_shared_state(current)?;
+    let reports = ReportRegion::decode(state.section(Section::CurrentReports)?)?;
+    let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+        state.section(Section::ReputationAdmission)?,
+    )?)?;
+    let opened = opened(
+        &state,
+        &admission,
+        reports,
+        CommitRegion::decode(reports.rest())?,
+    )?;
     let epoch = opened.frozen.epoch;
     let commit = opened.commits.get(epoch, evaluator)?;
     let reveal = opened.reports.get(epoch, evaluator)?.map(|row| row.receipt);
@@ -417,41 +447,47 @@ impl Call<'_> {
             .state
             .feature_sections
             .guest_index(Section::IdentityRoster.index());
-        let region = evaluator_region(identity)?;
-        let snapshot = region.snapshot().ok_or(F03_NO_GRANT)?;
-        if snapshot.epoch != self.opened.frozen.epoch {
-            return Err(NON_CANONICAL);
-        }
-        let frozen = snapshot.get(binding.evaluator).ok_or(UNAUTHORIZED)?;
-        if e.actor != frozen.entry.owner {
-            return Err(UNAUTHORIZED);
-        }
-        match e.authentication {
-            Authentication::Native => codec::compare_native_principal(e, self.ctx.principal)?,
-            Authentication::Delegate { key, signature } => {
-                if key != frozen.entry.public_key {
-                    return Err(KEY_MISMATCH);
+        crate::evaluators::authority::EvaluatorRegion::with_decoded(
+            crate::evaluators::authority::split_identity_section(identity)?.1,
+            |region| {
+                let snapshot = region.snapshot().ok_or(F03_NO_GRANT)?;
+                if snapshot.epoch != self.opened.frozen.epoch {
+                    return Err(NON_CANONICAL);
                 }
-                let digest = self.envelope.request_digest()?;
-                verify_digest(key, signature, digest.bytes()).map_err(verification)?;
-            }
-        }
-        commitment::check_binding(
-            binding,
-            &EvaluatorBinding {
-                frozen: self.opened.frozen,
-                evaluator: frozen.entry.evaluator,
-                grant: frozen.entry.grant,
-                key_version: frozen.entry.key_version,
+                let frozen = snapshot.get(binding.evaluator).ok_or(UNAUTHORIZED)?;
+                if e.actor != frozen.entry.owner {
+                    return Err(UNAUTHORIZED);
+                }
+                match e.authentication {
+                    Authentication::Native => {
+                        codec::compare_native_principal(e, self.ctx.principal)?
+                    }
+                    Authentication::Delegate { key, signature } => {
+                        if key != frozen.entry.public_key {
+                            return Err(KEY_MISMATCH);
+                        }
+                        let digest = self.envelope.request_digest()?;
+                        verify_digest(key, signature, digest.bytes()).map_err(verification)?;
+                    }
+                }
+                commitment::check_binding(
+                    binding,
+                    &EvaluatorBinding {
+                        frozen: self.opened.frozen,
+                        evaluator: frozen.entry.evaluator,
+                        grant: frozen.entry.grant,
+                        key_version: frozen.entry.key_version,
+                    },
+                )?;
+                crate::evidence::check_frozen_evaluator_in_table(
+                    region,
+                    &frozen,
+                    self.opened.frozen.epoch,
+                    &self.opened.admission,
+                )?;
+                Ok(frozen)
             },
-        )?;
-        crate::evidence::check_frozen_evaluator_in_table(
-            &region,
-            &frozen,
-            self.opened.frozen.epoch,
-            &self.opened.admission,
-        )?;
-        Ok(frozen)
+        )
     }
     /// Role replay request under the evaluator slot bound to the evaluator owner.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -629,7 +665,20 @@ fn reveal_score(
         );
     }
     let record = opened.commits.get(epoch, evaluator)?.ok_or(NOT_FOUND)?;
-    let report = codec::report_digest(&payload.report)?;
+    // The ingress decoder above proved the canonical report encoding. Hash and
+    // persist its actual bytes, including the original signature, just once.
+    let mut encoded = Reader::new(call.envelope.envelope.payload);
+    let body = encoded.bytes(codec::REPORT_MAX_BYTES)?;
+    let signed_end = 4 + body.len() + 64;
+    let signed = call
+        .envelope
+        .envelope
+        .payload
+        .get(4..signed_end)
+        .ok_or(NON_CANONICAL)?;
+    let report = crate::types::ReportDigest::new(
+        codec::domain_hash("PAXAI/score-report/v1", body)?.bytes(),
+    )?;
     let recomputed = codec::commitment_digest(&binding, report, payload.salt)?;
     commitment::check_commitment(recomputed, record.commitment)?;
     let reveal = RevealAdmission {
@@ -649,7 +698,9 @@ fn reveal_score(
         next,
         scratch,
         event,
-        Some(opened.rewards),
+        None,
+        report,
+        signed,
     )
     .map_err(verification)?
     {
@@ -702,17 +753,32 @@ pub fn apply(
     if operation != dispatch::CommitScore && operation != dispatch::RevealScore {
         return Err(UNKNOWN_OPERATION);
     }
-    let opened = opened(current)?;
-    let call = Call {
-        ctx,
-        envelope,
-        opened: &opened,
-    };
-    if operation == dispatch::CommitScore {
-        commit_score(&call, next, scratch, event)
-    } else {
-        reveal_score(&call, current, next, scratch, event)
-    }
+    crate::state::with_shared_state(current, |state| {
+        AdmissionTable::with_decoded(
+            crate::reputation_transition::framed_admission_table(
+                state.section(Section::ReputationAdmission)?,
+            )?,
+            |admission| {
+                let reports = ReportRegion::committed(state.section(Section::CurrentReports)?)?;
+                let opened = opened(
+                    state,
+                    admission,
+                    reports,
+                    CommitRegion::committed(reports.rest())?,
+                )?;
+                let call = Call {
+                    ctx,
+                    envelope,
+                    opened: &opened,
+                };
+                if operation == dispatch::CommitScore {
+                    commit_score(&call, next, scratch, event)
+                } else {
+                    reveal_score(&call, current, next, scratch, event)
+                }
+            },
+        )
+    })
 }
 
 pub struct CanaryEnvelope<'a> {

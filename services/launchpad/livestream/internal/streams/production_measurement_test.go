@@ -8,6 +8,12 @@ import (
 )
 
 func TestPhase4MediaProductionMeasurement(t *testing.T) {
+	for _, name := range []string{"L40_MEASUREMENT_MANIFEST", "L40_MEASUREMENT_MANIFEST_SHA256"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	path, sha := os.Getenv("L40_MEASUREMENT_MANIFEST"), os.Getenv("L40_MEASUREMENT_MANIFEST_SHA256")
 	if path == "" || sha == "" {
 		t.Fatal("exact approved media measurement manifest and SHA256 are required")

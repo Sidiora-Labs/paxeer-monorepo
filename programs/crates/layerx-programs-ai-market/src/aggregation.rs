@@ -25,9 +25,9 @@ use crate::{
     admission::{AdmissionTable, Participant},
     aggregation_codec::{
         decode_current, decode_history, encode_current, encode_history, input_digest,
-        validate_current_history, AggregationInputView, AggregationPhase, CurrentAggregation,
-        DecodedCurrent, DecodedHistory, EpochAggregation, HistorySummary, QualityStatus,
-        ReportCommitment, WorkerAggregate, WorkerVotes, MAX_TOTAL_WEIGHT, WORKER_AGGREGATE_BYTES,
+        AggregationInputView, AggregationPhase, CheckedCurrent, CurrentAggregation, DecodedCurrent,
+        DecodedHistory, EpochAggregation, HistorySummary, QualityStatus, ReportCommitment,
+        WorkerAggregate, WorkerVotes, MAX_TOTAL_WEIGHT, WORKER_AGGREGATE_BYTES,
     },
     codec::{self, EventCommon, Reader, ReportBody, Roster, ValidatedEnvelope, Writer},
     dispatch,
@@ -39,11 +39,8 @@ use crate::{
     evaluators::{authority::evaluator_region, model::GrantStatus},
     registry_ops::{CallContext, PolicySection},
     reward_math::allocate_aggregation,
-    rewards::{
-        decode_reward_state, EpochStatus, RewardEffect, RewardEpoch, RewardState,
-        REWARD_STATE_BYTES,
-    },
-    state::{decode_shared_state, Section, SharedState},
+    rewards::{EpochStatus, RewardEffect, RewardEpoch, RewardState, REWARD_STATE_BYTES},
+    state::{Section, SectionReader},
     types::{
         Digest32, EpochWindows, EvaluatorId, EvaluatorRosterEntry, FrozenBinding, Presence,
         ResultDigest, Score, Version, WorkerRosterEntry,
@@ -53,7 +50,26 @@ use crate::{
 pub const QUORUM: usize = 3;
 pub const MAX_VOTES: usize = 8;
 pub const MAX_WORKERS: usize = 32;
+#[cfg(target_arch = "wasm32")]
+pub(crate) static PROBE_FUEL: crate::guest_cell::GuestCell<[u64; 9]> =
+    crate::guest_cell::GuestCell::new([0; 9]);
+
+#[inline(always)]
+fn probe_mark(index: usize) {
+    #[cfg(target_arch = "wasm32")]
+    if option_env!("PAXAI_AGGREGATION_PROBE").is_some() {
+        let fuel = layerx_program_sdk::Context::remaining_fuel()
+            .unwrap_or_else(|_| core::arch::wasm32::unreachable());
+        let mut samples = PROBE_FUEL
+            .try_borrow_mut()
+            .unwrap_or_else(|| core::arch::wasm32::unreachable());
+        samples[index] = fuel;
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = index;
+}
 pub const WORKERS_PER_CHUNK: usize = 8;
+pub use crate::reputation::{participant_chunk_size, PARTICIPANTS_PER_CHUNK};
 /// Insertion sort over at most eight scores: n(n-1)/2 <= 28 comparisons.
 pub const MAX_COMPARISONS_PER_WORKER: u32 = 28;
 pub const DISPLAY_SCALE_PPM: u64 = 1_000_000;
@@ -77,37 +93,64 @@ pub fn lower_median(scores: &[Score]) -> CodecResult<Median> {
     if scores.len() > MAX_VOTES {
         return Err(CAPACITY);
     }
-    let n = scores.len();
-    let mut sorted = [0u32; MAX_VOTES];
-    for (slot, score) in sorted.iter_mut().zip(scores) {
-        *slot = score.get();
+    let mut sorted = ScoreMedian::new()?;
+    for &score in scores {
+        sorted.push(score)?;
     }
-    let mut comparisons = 0u32;
-    for i in 1..n {
-        let mut j = i;
-        while j > 0 {
-            comparisons = comparisons.checked_add(1).ok_or(ARITHMETIC)?;
-            if *sorted.guest_index(j - 1) <= *sorted.guest_index(j) {
+    sorted.median()
+}
+
+/// The same insertion median, accumulated while a report column is projected.
+/// This avoids copying and re-reading the column in a later median pass.
+#[derive(Clone, Copy)]
+pub(crate) struct ScoreMedian {
+    sorted: [Score; MAX_VOTES],
+    count: u8,
+    comparisons: u32,
+}
+impl ScoreMedian {
+    pub(crate) fn new() -> CodecResult<Self> {
+        Ok(Self {
+            sorted: [Score::new(0)?; MAX_VOTES],
+            count: 0,
+            comparisons: 0,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
+    pub(crate) fn push(&mut self, score: Score) -> CodecResult<()> {
+        let count = usize::from(self.count);
+        if count >= MAX_VOTES {
+            return Err(CAPACITY);
+        }
+        let mut at = count;
+        while at > 0 {
+            self.comparisons = self.comparisons.checked_add(1).ok_or(ARITHMETIC)?;
+            let previous = *self.sorted.guest_index(at - 1);
+            if previous <= score {
                 break;
             }
-            sorted.guest_swap(j - 1, j);
-            j -= 1;
+            *self.sorted.guest_index_mut(at) = previous;
+            at -= 1;
         }
+        *self.sorted.guest_index_mut(at) = score;
+        self.count += 1;
+        Ok(())
     }
-    if comparisons > MAX_COMPARISONS_PER_WORKER {
-        return Err(ARITHMETIC);
+    pub(crate) fn median(&self) -> CodecResult<Median> {
+        if self.comparisons > MAX_COMPARISONS_PER_WORKER {
+            return Err(ARITHMETIC);
+        }
+        let selected = if usize::from(self.count) < QUORUM {
+            Presence::Absent
+        } else {
+            Presence::Present(*self.sorted.guest_index(usize::from((self.count - 1) / 2)))
+        };
+        Ok(Median {
+            support: self.count,
+            selected,
+            comparisons: self.comparisons,
+        })
     }
-    let support = u8::try_from(n).map_err(|_| CAPACITY)?;
-    let selected = if n < QUORUM {
-        Presence::Absent
-    } else {
-        Presence::Present(Score::new(*sorted.guest_index((n - 1) / 2))?)
-    };
-    Ok(Median {
-        support,
-        selected,
-        comparisons,
-    })
 }
 
 /// Votes must be the canonical projection in ascending distinct evaluator identity.
@@ -131,20 +174,32 @@ pub fn aggregate_votes(votes: &WorkerVotes) -> CodecResult<WorkerAggregate> {
         last = Some(vote.evaluator);
         *slot = vote.score;
     }
-    let median = lower_median(scores.guest_index(..votes.len()))?;
+    aggregate_scores(
+        votes.worker(),
+        votes.generation(),
+        scores.guest_index(..votes.len()),
+    )
+}
+
+fn aggregate_scores(
+    worker: crate::types::WorkerId,
+    generation: Version,
+    scores: &[Score],
+) -> CodecResult<WorkerAggregate> {
+    aggregate_median(worker, generation, lower_median(scores)?)
+}
+
+fn aggregate_median(
+    worker: crate::types::WorkerId,
+    generation: Version,
+    median: Median,
+) -> CodecResult<WorkerAggregate> {
     let (status, score) = match median.selected {
         Presence::Absent => (QualityStatus::InsufficientQuorum, 0),
         Presence::Present(s) if s.get() == 0 => (QualityStatus::ScoredZero, 0),
         Presence::Present(s) => (QualityStatus::ScoredPositive, s.get()),
     };
-    WorkerAggregate::new(
-        votes.worker(),
-        votes.generation(),
-        median.support,
-        status,
-        score,
-        score,
-    )
+    WorkerAggregate::new(worker, generation, median.support, status, score, score)
 }
 
 /// Aggregates one frozen roster worker from the structural view.
@@ -276,17 +331,30 @@ pub fn aggregate_chunk(
         return Err(STALE_CURSOR);
     }
     let end = workers.len().min(start + WORKERS_PER_CHUNK);
+    let votes = view.chunk_votes(start, end)?;
+    aggregate_vote_rows(&votes, end - start, cursor, running_weight)
+}
+
+fn aggregate_vote_rows(
+    votes: &crate::aggregation_codec::ChunkVotes<'_>,
+    count: usize,
+    cursor: u16,
+    running_weight: u64,
+) -> CodecResult<Chunk> {
     let mut outputs = [None; WORKERS_PER_CHUNK];
     let mut sum = running_weight;
-    for (slot, worker) in outputs.iter_mut().zip(workers.guest_index(start..end)) {
-        let output = aggregate_worker(view, *worker)?;
+    for (index, slot) in outputs.iter_mut().enumerate().take(count) {
+        let (worker, median) = votes.worker_median(index)?;
+        let output = aggregate_median(worker.worker, worker.generation, median)?;
         sum = add_weight(sum, output)?;
         *slot = Some(output);
     }
     Ok(Chunk {
         outputs,
-        count: end - start,
-        cursor: u16::try_from(end).map_err(|_| CAPACITY)?,
+        count,
+        cursor: cursor
+            .checked_add(u16::try_from(count).map_err(|_| CAPACITY)?)
+            .ok_or(ARITHMETIC)?,
         running_weight: sum,
     })
 }
@@ -377,7 +445,7 @@ pub const BEGIN_RESPONSE_BYTES: usize = 36;
 /// `input32 || cursor:u16 || worker_count:u16 || partial_weight_sum:u64`.
 pub const PROCESS_RESPONSE_BYTES: usize = 44;
 /// `input32 || aggregate_root32 || worker_count:u16 || total_reward_weight:u64`.
-pub const FINALIZE_RESPONSE_BYTES: usize = 74;
+pub const FINALIZE_RESPONSE_BYTES: usize = 76;
 
 /// The structural fields of one persisted current record, read without the frozen roster.
 #[derive(Clone, Copy)]
@@ -385,8 +453,11 @@ pub const FINALIZE_RESPONSE_BYTES: usize = 74;
 struct Record<'a> {
     bytes: &'a [u8],
     phase: AggregationPhase,
+    seal_height: u64,
     input: Presence<Digest32>,
     cursor: u16,
+    reports: &'a [u8],
+    output_bytes: &'a [u8],
     outputs: u16,
     running_weight: u64,
     root: Presence<Digest32>,
@@ -395,32 +466,28 @@ struct Record<'a> {
 /// Splits the bytes after the F06 reward state into the F05 current record and its history.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn split_tail(tail: &[u8]) -> CodecResult<(Option<Record<'_>>, &[u8])> {
+    let (tail, _) = split_finalization_journal(tail)?;
     if tail.is_empty() {
         return Ok((None, &[]));
     }
     let mut r = Reader::new(tail);
-    let phase = match r.u8()? {
-        0 => AggregationPhase::Unsealed,
-        1 => AggregationPhase::Processing,
-        2 => AggregationPhase::Terminal,
-        _ => return Err(NON_CANONICAL),
-    };
-    r.u64()?;
-    let raw: [u8; 32] = r.fixed()?;
-    let input = if raw == [0; 32] {
-        Presence::Absent
-    } else {
-        Presence::Present(Digest32::new(raw)?)
-    };
-    let cursor = r.u16()?;
-    let reports = usize::from(r.u16()?);
-    r.take(
+    let crate::aggregation_codec::CurrentPrefix {
+        phase,
+        seal_height,
+        input,
+        cursor,
+        report_count: reports,
+    } = crate::aggregation_codec::read_current_prefix(&mut r)?;
+    let reports = r.take(
         reports
             .checked_mul(REPORT_COMMITMENT_BYTES)
             .ok_or(ARITHMETIC)?,
     )?;
     let outputs = r.u16()?;
-    r.take(
+    if usize::from(outputs) > MAX_WORKERS || cursor != outputs {
+        return Err(NON_CANONICAL);
+    }
+    let output_bytes = r.take(
         usize::from(outputs)
             .checked_mul(WORKER_AGGREGATE_BYTES)
             .ok_or(ARITHMETIC)?,
@@ -432,8 +499,11 @@ fn split_tail(tail: &[u8]) -> CodecResult<(Option<Record<'_>>, &[u8])> {
         Some(Record {
             bytes,
             phase,
+            seal_height,
             input,
             cursor,
+            reports,
+            output_bytes,
             outputs,
             running_weight,
             root,
@@ -442,49 +512,60 @@ fn split_tail(tail: &[u8]) -> CodecResult<(Option<Record<'_>>, &[u8])> {
     ))
 }
 
+/// The finalizer's private trailer is excluded from the public current/history codecs.
+pub(crate) fn split_finalization_journal(bytes: &[u8]) -> CodecResult<(&[u8], &[u8])> {
+    if !bytes.ends_with(b"FN17") {
+        return Ok((bytes, &[]));
+    }
+    let footer = bytes.len().checked_sub(8).ok_or(NON_CANONICAL)?;
+    let mut r = Reader::new(&bytes[footer..]);
+    let len = usize::try_from(r.u32()?).map_err(|_| CAPACITY)?;
+    let start = footer.checked_sub(len).ok_or(NON_CANONICAL)?;
+    Ok((&bytes[..start], &bytes[start..footer]))
+}
+
 /// Committed views of the currently opened epoch and its F05 tail.
 struct View<'a> {
-    state: SharedState<'a>,
+    frame: codec::StateFrame<'a>,
     section: PolicySection<'a>,
     frozen: FrozenBinding,
-    rewards: RewardState<'a>,
-    row: RewardEpoch,
-    reports: crate::evaluators::admission::ReportRegion<'a>,
+    rewards: &'a [u8],
+    budget: crate::types::Amount,
+    status: EpochStatus,
+    worker_count: u16,
+    reports: Reports<'a>,
     record: Option<Record<'a>>,
     history: &'a [u8],
 }
 
+enum Reports<'a> {
+    Full(crate::evaluators::admission::ReportRegion<'a>),
+    Chunk(crate::evaluators::admission::ChunkReports<'a>),
+}
+
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn view(current: &[u8]) -> CodecResult<View<'_>> {
-    let state = decode_shared_state(current)?;
-    let section = PolicySection::decode(
-        *state
-            .feature_sections
-            .guest_index(Section::PolicyLifecycle.index()),
-    )?;
-    if section.header.state_revision != state.revision {
+fn view(frame: codec::StateFrame<'_>, chunk: bool) -> CodecResult<View<'_>> {
+    let section = PolicySection::decode(frame.sections[Section::PolicyLifecycle.index()])?;
+    if section.header.state_revision != frame.revision {
         return Err(NON_CANONICAL);
     }
-    let admission = AdmissionTable::decode(
-        crate::reputation_transition::split_joint(
-            *state
-                .feature_sections
-                .guest_index(Section::ReputationAdmission.index()),
-        )?
-        .1,
-    )?;
-    let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let settlement = *state
-        .feature_sections
-        .guest_index(Section::SettlementClaims.index());
+    let epoch =
+        AdmissionTable::committed_epoch(crate::reputation_transition::framed_admission_table(
+            frame.sections[Section::ReputationAdmission.index()],
+        )?)?
+        .ok_or(WRONG_EPOCH)?;
+    let settlement = frame.sections[Section::SettlementClaims.index()];
     let (rewards, tail) = settlement
         .split_at_checked(REWARD_STATE_BYTES)
         .ok_or(WRONG_EPOCH)?;
-    let rewards = decode_reward_state(rewards)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let (status, roster, worker_count, budget) =
+        crate::rewards::committed_epoch_header(settlement, epoch).map_err(|e| {
+            if e == NOT_FOUND {
+                WRONG_EPOCH
+            } else {
+                e
+            }
+        })?;
     let header = &section.header;
     let frozen = FrozenBinding {
         chain: header.deployment_chain_domain,
@@ -492,20 +573,27 @@ fn view(current: &[u8]) -> CodecResult<View<'_>> {
         market: header.market_id,
         epoch,
         config: Version::new(header.active_config_version)?,
-        roster: row.roster,
+        roster,
     };
-    let reports = crate::evaluators::admission::ReportRegion::decode(
-        *state
-            .feature_sections
-            .guest_index(Section::CurrentReports.index()),
-    )?;
+    let report_bytes = frame.sections[Section::CurrentReports.index()];
+    let reports = if chunk {
+        Reports::Chunk(crate::evaluators::admission::ChunkReports::committed(
+            report_bytes,
+        )?)
+    } else {
+        Reports::Full(crate::evaluators::admission::ReportRegion::committed(
+            report_bytes,
+        )?)
+    };
     let (record, history) = split_tail(tail)?;
     Ok(View {
-        state,
+        frame,
         section,
         frozen,
         rewards,
-        row,
+        budget,
+        status,
+        worker_count,
         reports,
         record,
         history,
@@ -513,6 +601,12 @@ fn view(current: &[u8]) -> CodecResult<View<'_>> {
 }
 
 impl<'a> View<'a> {
+    fn reports(&self) -> CodecResult<crate::evaluators::admission::ReportRegion<'a>> {
+        match &self.reports {
+            Reports::Full(region) => Ok(*region),
+            Reports::Chunk(_) => Err(NON_CANONICAL),
+        }
+    }
     fn history(&self) -> CodecResult<DecodedHistory> {
         if self.record.is_some() {
             decode_history(self.history)
@@ -550,7 +644,7 @@ impl<'a> View<'a> {
                 {
                     return Err(F05_REPORT_INVARIANT);
                 }
-                if self.row.status == EpochStatus::Reserved {
+                if self.status == EpochStatus::Reserved {
                     if last.epoch >= self.frozen.epoch {
                         return Err(F05_REPORT_INVARIANT);
                     }
@@ -570,7 +664,7 @@ impl<'a> View<'a> {
     fn progress(&self, sealed: Option<Record<'_>>) -> CodecResult<Progress> {
         let worker_count = match sealed {
             Some(record) if record.phase == AggregationPhase::Terminal => record.outputs,
-            _ => u16::try_from(self.row.entries().len()).map_err(|_| CAPACITY)?,
+            _ => self.worker_count,
         };
         let epoch = self.frozen.epoch;
         Ok(match sealed {
@@ -597,9 +691,16 @@ impl<'a> View<'a> {
 }
 
 /// Copies the leading `Some` items into a plain array; `None` when there is none.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn pack<T: Copy, const N: usize>(items: &[Option<T>; N]) -> Option<[T; N]> {
     let first = items.first().copied().flatten()?;
-    Some(items.map(|item| item.unwrap_or(first)))
+    let mut packed = [first; N];
+    for (slot, item) in packed.iter_mut().zip(items) {
+        if let Some(item) = item {
+            *slot = *item;
+        }
+    }
+    Some(packed)
 }
 
 fn packed<T, const N: usize>(items: Option<&[T; N]>, count: usize) -> CodecResult<&[T]> {
@@ -612,85 +713,78 @@ fn packed<T, const N: usize>(items: Option<&[T; N]>, count: usize) -> CodecResul
 
 /// The immutable F03 opening roster, cross-checked against the F06 reservation.
 struct FrozenRoster {
-    workers: Option<[WorkerRosterEntry; MAX_WORKERS]>,
-    worker_count: usize,
-    evaluators: Option<[EvaluatorRosterEntry; MAX_VOTES]>,
-    evaluator_count: usize,
+    captured: crate::epoch::CapturedRoster,
 }
 impl FrozenRoster {
     fn workers(&self) -> CodecResult<&[WorkerRosterEntry]> {
-        packed(self.workers.as_ref(), self.worker_count)
+        Ok(self.captured.workers())
     }
     fn roster<'r>(&'r self, frozen: &FrozenBinding) -> CodecResult<Roster<'r>> {
-        Ok(Roster {
-            market: frozen.market,
-            epoch: frozen.epoch,
-            config: frozen.config,
-            workers: self.workers()?,
-            evaluators: packed(self.evaluators.as_ref(), self.evaluator_count)?,
-        })
+        if self.captured.binding != *frozen {
+            return Err(WRONG_ROSTER);
+        }
+        Ok(self.captured.view())
     }
+}
+
+fn committed_roster(frame: codec::StateFrame<'_>) -> CodecResult<crate::epoch::CapturedRoster> {
+    crate::epoch::committed_roster_sections(
+        frame.sections[Section::PolicyLifecycle.index()],
+        frame.sections[Section::IdentityRoster.index()],
+        frame.sections[Section::ReputationAdmission.index()],
+        frame.sections[Section::SettlementClaims.index()],
+    )
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn frozen_roster(view: &View<'_>) -> CodecResult<FrozenRoster> {
-    let identity = *view
-        .state
-        .feature_sections
-        .guest_index(Section::IdentityRoster.index());
-    let captured = crate::epoch::captured_roster(&view.state)?.ok_or(WRONG_ROSTER)?;
+    let captured = committed_roster(view.frame)?;
     if captured.binding != view.frozen {
         return Err(WRONG_ROSTER);
     }
-    let mut workers = [None; MAX_WORKERS];
-    for (slot, entry) in workers.iter_mut().zip(captured.workers()) {
-        *slot = Some(*entry);
-    }
-    let workers = pack(&workers);
-    let worker_count = captured.workers().len();
-    let region = evaluator_region(identity)?;
-    let snapshot = region
-        .snapshot()
-        .filter(|s| s.epoch == view.frozen.epoch)
-        .ok_or(NON_CANONICAL)?;
-    let mut evaluators = [None; MAX_VOTES];
-    for (slot, frozen) in evaluators.iter_mut().zip(snapshot.entries()) {
-        *slot = Some(frozen.entry);
-    }
-    Ok(FrozenRoster {
-        workers,
-        worker_count,
-        evaluators: pack(&evaluators),
-        evaluator_count: snapshot.len(),
-    })
+    Ok(FrozenRoster { captured })
 }
 
 /// Report bodies with their sealed commitments, in ascending evaluator order.
 struct Inputs<'a> {
-    bodies: [Option<ReportBody<'a>>; MAX_VOTES],
-    commitments: [Option<ReportCommitment>; MAX_VOTES],
-    count: usize,
+    value: PackedInputs<'a>,
 }
 impl<'a> Inputs<'a> {
     const fn new() -> Self {
         Self {
-            bodies: [None; MAX_VOTES],
-            commitments: [None; MAX_VOTES],
-            count: 0,
+            value: PackedInputs {
+                bodies: None,
+                commitments: None,
+                count: 0,
+            },
         }
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn push(&mut self, commitment: ReportCommitment, body: ReportBody<'a>) -> CodecResult<()> {
-        *self.bodies.get_mut(self.count).ok_or(CAPACITY)? = Some(body);
-        *self.commitments.get_mut(self.count).ok_or(CAPACITY)? = Some(commitment);
-        self.count += 1;
+        let value = &mut self.value;
+        if value.count == 0 {
+            value.bodies = Some([body; MAX_VOTES]);
+            value.commitments = Some([commitment; MAX_VOTES]);
+        } else {
+            *value
+                .bodies
+                .as_mut()
+                .ok_or(NON_CANONICAL)?
+                .get_mut(value.count)
+                .ok_or(CAPACITY)? = body;
+            *value
+                .commitments
+                .as_mut()
+                .ok_or(NON_CANONICAL)?
+                .get_mut(value.count)
+                .ok_or(CAPACITY)? = commitment;
+        }
+        value.count += 1;
         Ok(())
     }
-    fn pack(&self) -> PackedInputs<'a> {
-        PackedInputs {
-            bodies: pack(&self.bodies),
-            commitments: pack(&self.commitments),
-            count: self.count,
-        }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn pack(self) -> PackedInputs<'a> {
+        self.value
     }
 }
 struct PackedInputs<'a> {
@@ -710,57 +804,85 @@ impl<'a> PackedInputs<'a> {
 /// Live eligibility at the seal: the evaluator's grant is not revoked, its revocation does
 /// not exclude the frozen epoch and its F08 membership is present and not revoked.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-fn eligible_inputs<'a>(view: &View<'a>) -> CodecResult<PackedInputs<'a>> {
-    let region = evaluator_region(
-        *view
-            .state
-            .feature_sections
-            .guest_index(Section::IdentityRoster.index()),
-    )?;
-    let admission = AdmissionTable::decode(
-        crate::reputation_transition::split_joint(
-            *view
-                .state
-                .feature_sections
-                .guest_index(Section::ReputationAdmission.index()),
-        )?
-        .1,
-    )?;
-    let mut inputs = Inputs::new();
-    for row in view.reports.rows(view.frozen.epoch) {
-        let row = row?;
-        let evaluator = row.receipt.evaluator;
-        let live = region.get(evaluator).ok_or(F05_REPORT_INVARIANT)?;
-        let eligible = live.grant.status != GrantStatus::Revoked
-            && !region.excluded(evaluator)
-            && admission
-                .get(Participant::Evaluator(evaluator))
-                .is_some_and(|meta| !meta.revoked());
-        if eligible {
-            let commitment = ReportCommitment {
-                evaluator,
-                report: row.receipt.report,
-            };
-            inputs.push(commitment, row.signed()?.body)?;
-        }
-    }
-    Ok(inputs.pack())
+fn eligible_inputs<'a>(view: &View<'a>) -> CodecResult<(PackedInputs<'a>, u8)> {
+    AdmissionTable::with_decoded(
+        crate::reputation_transition::framed_admission_table(
+            view.frame.sections[Section::ReputationAdmission.index()],
+        )?,
+        |admission| {
+            crate::evaluators::authority::EvaluatorRegion::with_decoded(
+                crate::evaluators::authority::split_identity_section(
+                    view.frame.sections[Section::IdentityRoster.index()],
+                )?
+                .1,
+                |region| {
+                    let mut inputs = Inputs::new();
+                    for row in view.reports()?.rows(view.frozen.epoch) {
+                        let row = row?;
+                        let evaluator = row.receipt.evaluator;
+                        let eligible = region
+                            .eligible_member(evaluator, admission)
+                            .ok_or(F05_REPORT_INVARIANT)?;
+                        if eligible {
+                            let commitment = ReportCommitment {
+                                evaluator,
+                                report: row.receipt.report,
+                            };
+                            inputs.push(commitment, row.committed_body()?)?;
+                        }
+                    }
+                    let snapshot = region
+                        .snapshot()
+                        .filter(|s| s.epoch == view.frozen.epoch)
+                        .ok_or(NON_CANONICAL)?;
+                    let eligible = snapshot
+                        .entries()
+                        .filter(|f| {
+                            region.eligible_member(f.entry.evaluator, admission) == Some(true)
+                        })
+                        .count();
+                    Ok((inputs.pack(), u8::try_from(eligible).map_err(|_| CAPACITY)?))
+                },
+            )
+        },
+    )
 }
 
 /// The sealed rows, read back from the admitted region by their sealed digests.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn sealed_inputs<'a>(view: &View<'a>, current: &DecodedCurrent) -> CodecResult<PackedInputs<'a>> {
+    let mut commitments = [None; MAX_VOTES];
+    for (i, slot) in commitments
+        .iter_mut()
+        .enumerate()
+        .take(current.report_count())
+    {
+        *slot = Some(current.report(i)?);
+    }
+    let commitments = pack(&commitments);
+    committed_inputs(view, packed(commitments.as_ref(), current.report_count())?)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn committed_inputs<'a>(
+    view: &View<'a>,
+    commitments: &[ReportCommitment],
+) -> CodecResult<PackedInputs<'a>> {
     let mut inputs = Inputs::new();
-    for i in 0..current.report_count() {
-        let sealed = current.report(i)?;
-        let admitted = view
-            .reports
-            .get(view.frozen.epoch, sealed.evaluator)?
-            .ok_or(F05_REPORT_INVARIANT)?;
-        if admitted.receipt.report != sealed.report {
+    let mut rows = view.reports()?.rows(view.frozen.epoch);
+    for &sealed in commitments {
+        let admitted = loop {
+            let row = rows.next().transpose()?.ok_or(F05_REPORT_INVARIANT)?;
+            if row.receipt.evaluator >= sealed.evaluator {
+                break row;
+            }
+        };
+        if admitted.receipt.evaluator != sealed.evaluator
+            || admitted.receipt.report != sealed.report
+        {
             return Err(F05_REPORT_INVARIANT);
         }
-        inputs.push(sealed, admitted.signed()?.body)?;
+        inputs.push(sealed, admitted.committed_body()?)?;
     }
     Ok(inputs.pack())
 }
@@ -800,6 +922,9 @@ impl Progress {
         ))
     }
     fn finalize_response(&self) -> CodecResult<Response> {
+        self.finalize_cursor_response(self.worker_count)
+    }
+    fn finalize_cursor_response(&self, cursor: u16) -> CodecResult<Response> {
         let Presence::Present(root) = self.root else {
             return Err(NON_CANONICAL);
         };
@@ -808,6 +933,7 @@ impl Progress {
             put: root.as_bytes();
             u16: self.worker_count;
             u64: self.running_weight;
+            u16: cursor;
         ))
     }
 }
@@ -820,20 +946,26 @@ impl Progress {
 /// Returns `WRONG_EPOCH` without an opened epoch; `NON_CANONICAL` and `F05_REPORT_INVARIANT`
 /// for an inconsistent committed state.
 pub fn progress(current: &[u8]) -> CodecResult<Progress> {
-    let view = view(current)?;
-    let sealed = view.sealed()?;
-    view.progress(sealed)
+    let reader = SectionReader::new(current)?;
+    {
+        let view = view(reader.frame(), false)?;
+        let sealed = view.sealed()?;
+        view.progress(sealed)
+    }
 }
 
 /// Validated aggregation output for the captured opening, absent until its F05 seal.
 /// A previous terminal record carried into a new opening is not that opening's output.
 pub fn captured_aggregation(current: &[u8]) -> CodecResult<Option<DecodedCurrent>> {
-    let view = view(current)?;
-    let Some(record) = view.sealed()? else {
-        return Ok(None);
-    };
-    let roster = crate::epoch::captured_roster(&view.state)?.ok_or(WRONG_ROSTER)?;
-    decode_current(record.bytes, view.frozen, roster.workers()).map(Some)
+    let reader = SectionReader::new(current)?;
+    {
+        let view = view(reader.frame(), false)?;
+        let Some(record) = view.sealed()? else {
+            return Ok(None);
+        };
+        let roster = committed_roster(view.frame)?;
+        decode_current(record.bytes, view.frozen, roster.workers()).map(Some)
+    }
 }
 
 /// The compact C08 result payload of one aggregation operation.
@@ -925,25 +1057,18 @@ impl Call<'_> {
     ) -> CodecResult<Outcome> {
         let Out {
             policy: policy_out,
-            control: control_out,
+            control: _control_out,
             next,
             event,
         } = out;
         let view = self.view;
-        let mut candidate = view.state.clone();
-        *candidate
-            .feature_sections
-            .guest_index_mut(Section::SettlementClaims.index()) = settlement;
         let result = response.result()?;
-        let (revision, state_len) = crate::rewards::finish_feature_transition(
-            candidate,
+        let (revision, state_len) = crate::rewards::finish_feature_frame(
+            view.frame,
             view.section,
-            None,
-            self.ctx.height,
-            result,
-            NON_CANONICAL,
+            Section::SettlementClaims,
+            settlement,
             policy_out,
-            control_out,
             next,
         )?;
         let frozen = &view.frozen;
@@ -1026,6 +1151,15 @@ fn begin(
     next: &mut [u8],
     scratch: &mut [u8],
     event: &mut [u8],
+    finish: Option<
+        &mut dyn FnMut(
+            Outcome,
+            &crate::epoch::CapturedRoster,
+            u8,
+            Option<&EpochAggregation<'_>>,
+            &mut [u8],
+        ) -> CodecResult<Outcome>,
+    >,
 ) -> CodecResult<Outcome> {
     let view = call.view;
     if !call.envelope.envelope.payload.is_empty() {
@@ -1044,28 +1178,19 @@ fn begin(
             response: progress.begin_response()?,
         });
     }
-    if view.row.status != EpochStatus::Reserved {
+    if view.status != EpochStatus::Reserved {
         return Err(WRONG_PHASE);
     }
     let roster = frozen_roster(view)?;
     let workers = roster.workers()?;
-    let inputs = eligible_inputs(view)?;
+    let (inputs, eligible) = eligible_inputs(view)?;
     let bodies = inputs.bodies()?;
-    AggregationInputView::structural(view.frozen, roster.roster(&view.frozen)?, bodies)?;
+    AggregationInputView::from_committed(&roster.captured, bodies)?;
     let commitments = inputs.commitments()?;
-    let seal_height = call.ctx.height;
-    let input = input_digest(view.frozen, seal_height, commitments)?;
-    let record = CurrentAggregation {
-        phase: AggregationPhase::Processing,
-        seal_height,
-        input: Presence::Present(input),
-        cursor: 0,
-        reports: commitments,
-        outputs: &[],
-        running_weight: 0,
-        root: Presence::Absent,
+    let record = CheckedCurrent::begin(view.frozen, call.ctx.height, commitments)?;
+    let Presence::Present(input) = record.input() else {
+        return Err(NON_CANONICAL);
     };
-    record.validate_seal_window(view.frozen, origin)?;
     let history: &[u8] = if view.record.is_some() {
         view.history
     } else {
@@ -1073,8 +1198,8 @@ fn begin(
     };
     let (settlement_out, out) = split_outputs(scratch, next, event)?;
     let settlement = write_settlement(
-        view.rewards.bytes(),
-        |out| encode_current(&record, view.frozen, workers, out),
+        view.rewards,
+        |out| record.encode(out),
         history,
         settlement_out,
     )?;
@@ -1088,7 +1213,11 @@ fn begin(
         root: Presence::Absent,
     };
     let response = progress.begin_response()?;
-    call.commit(settlement, out, progress, response)
+    let outcome = call.commit(settlement, out, progress, response)?;
+    match finish {
+        Some(finish) => finish(outcome, &roster.captured, eligible, None, next),
+        None => Ok(outcome),
+    }
 }
 
 /// The sealed record decoded against the frozen roster, with its sealed inputs.
@@ -1117,6 +1246,7 @@ fn process(
     scratch: &mut [u8],
     event: &mut [u8],
 ) -> CodecResult<Outcome> {
+    probe_mark(0);
     let view = call.view;
     let payload = call.envelope.envelope.payload;
     if payload.len() != PROCESS_PAYLOAD_BYTES {
@@ -1139,48 +1269,110 @@ fn process(
             response: progress.process_response()?,
         });
     }
-    let roster = frozen_roster(view)?;
-    let workers = roster.workers()?;
-    let (current, inputs) = sealed_current(view, &sealed, &roster)?;
-    let input_view = AggregationInputView::structural(
-        view.frozen,
-        roster.roster(&view.frozen)?,
-        inputs.bodies()?,
+    probe_mark(1);
+    // The running record is a separate borrowed section: old output bytes are
+    // carried verbatim and only this chunk's outputs are decoded and written.
+    let snapshot = crate::evaluators::authority::CommittedSnapshot::read(
+        view.frame.sections[Section::IdentityRoster.index()],
     )?;
-    current.validate_inputs(&input_view)?;
-    let chunk = aggregate_chunk(&input_view, current.cursor(), current.running_weight())?;
-    let mut outputs = outputs_of(&current)?;
-    let start = current.output_count();
-    for i in 0..chunk.len() {
-        *outputs
-            .get_mut(start.checked_add(i).ok_or(ARITHMETIC)?)
-            .ok_or(CAPACITY)? = Some(chunk.output(i)?);
+    if snapshot.epoch != view.frozen.epoch
+        || snapshot.worker_count() != usize::from(progress.worker_count)
+    {
+        return Err(WRONG_ROSTER);
     }
-    let outputs = pack(&outputs);
-    let record = CurrentAggregation {
-        phase: AggregationPhase::Processing,
-        seal_height: current.seal_height(),
-        input: current.input(),
-        cursor: chunk.cursor(),
-        reports: inputs.commitments()?,
-        outputs: packed(outputs.as_ref(), usize::from(chunk.cursor()))?,
-        running_weight: chunk.running_weight(),
-        root: Presence::Absent,
+    let start = usize::from(sealed.cursor);
+    let end = snapshot.worker_count().min(start + WORKERS_PER_CHUNK);
+    let first = snapshot.worker(start)?;
+    let mut workers = [first; WORKERS_PER_CHUNK];
+    for (i, slot) in workers.iter_mut().enumerate().take(end - start) {
+        *slot = snapshot.worker(start + i)?;
+    }
+    let workers = workers.guest_index(..end - start);
+    probe_mark(2);
+    let count = sealed.reports.len() / REPORT_COMMITMENT_BYTES;
+    if sealed.input
+        != Presence::Present(crate::aggregation_codec::encoded_input_digest(
+            view.frozen,
+            sealed.seal_height,
+            sealed.reports,
+        )?)
+    {
+        return Err(CONFLICT);
+    }
+    let mut encoded_binding = [0; 144];
+    codec::write_frozen_binding(&mut Writer::new(&mut encoded_binding), &view.frozen)?;
+    probe_mark(3);
+    let Reports::Chunk(reports) = &view.reports else {
+        return Err(NON_CANONICAL);
     };
+    let mut rows = reports.rows(view.frozen.epoch);
+    let mut votes = crate::aggregation_codec::ChunkVotes::new(workers)?;
+    for sealed in sealed.reports.as_chunks::<64>().0 {
+        let evaluator = crate::types::CheckedIdentityBytes::new_inline(
+            sealed[..32].try_into().map_err(|_| NON_CANONICAL)?,
+        )?;
+        let report = sealed[32..].try_into().map_err(|_| NON_CANONICAL)?;
+        let admitted = loop {
+            let row = rows.next().ok_or(F05_REPORT_INVARIANT)?;
+            if crate::types::identity_order(row.evaluator.bytes(), evaluator.bytes())
+                != core::cmp::Ordering::Less
+            {
+                break row;
+            }
+        };
+        if !crate::types::identity_equal_inline(admitted.evaluator.bytes(), evaluator.bytes())
+            || !crate::types::identity_equal_inline(admitted.report.bytes(), report)
+        {
+            return Err(F05_REPORT_INVARIANT);
+        }
+        votes.add_report(
+            evaluator.bytes(),
+            admitted.chunk_scores(&view.frozen, &encoded_binding)?,
+            start,
+            snapshot.worker_count(),
+        )?;
+    }
+    probe_mark(4);
+    let chunk = aggregate_vote_rows(&votes, workers.len(), 0, sealed.running_weight)?;
+    probe_mark(5);
+    let cursor = u16::try_from(end).map_err(|_| CAPACITY)?;
     let (settlement_out, out) = split_outputs(scratch, next, event)?;
     let settlement = write_settlement(
-        view.rewards.bytes(),
-        |out| encode_current(&record, view.frozen, workers, out),
+        view.rewards,
+        |out| {
+            let mut w = Writer::new(out);
+            codec::write_fields!(w;
+                u8: AggregationPhase::Processing as u8;
+                u64: sealed.seal_height;
+                id32: progress.sealed_input()?.as_bytes();
+                u16: cursor;
+                u16: u16::try_from(count).map_err(|_| CAPACITY)?;
+                put: sealed.reports;
+                u16: cursor;
+                put: sealed.output_bytes;
+            )?;
+            let mut bytes = [0; WORKER_AGGREGATE_BYTES];
+            for i in 0..chunk.len() {
+                crate::aggregation_codec::encode_worker_aggregate(chunk.output(i)?, &mut bytes)?;
+                w.put(&bytes)?;
+            }
+            w.u64(chunk.running_weight())?;
+            w.u8(0)?;
+            Ok(w.len())
+        },
         view.history,
         settlement_out,
     )?;
     let progress = Progress {
-        cursor: chunk.cursor(),
+        cursor,
         running_weight: chunk.running_weight(),
         ..progress
     };
     let response = progress.process_response()?;
-    call.commit(settlement, out, progress, response)
+    probe_mark(6);
+    let outcome = call.commit(settlement, out, progress, response);
+    probe_mark(7);
+    outcome
 }
 
 /// History after this epoch's terminal row: rows whose F06 epoch is still retained, then the
@@ -1215,6 +1407,15 @@ fn finalize(
     next: &mut [u8],
     scratch: &mut [u8],
     event: &mut [u8],
+    finish: Option<
+        &mut dyn FnMut(
+            Outcome,
+            &crate::epoch::CapturedRoster,
+            u8,
+            Option<&EpochAggregation<'_>>,
+            &mut [u8],
+        ) -> CodecResult<Outcome>,
+    >,
 ) -> CodecResult<Outcome> {
     let view = call.view;
     let payload = call.envelope.envelope.payload;
@@ -1236,13 +1437,17 @@ fn finalize(
     }
     let roster = frozen_roster(view)?;
     let workers = roster.workers()?;
-    let (current, inputs) = sealed_current(view, &sealed, &roster)?;
-    let input_view = AggregationInputView::structural(
-        view.frozen,
-        roster.roster(&view.frozen)?,
-        inputs.bodies()?,
-    )?;
-    current.validate_inputs(&input_view)?;
+    let current = decode_current(sealed.bytes, view.frozen, workers)?;
+    let mut commitments = [None; MAX_VOTES];
+    for (i, slot) in commitments
+        .iter_mut()
+        .enumerate()
+        .take(current.report_count())
+    {
+        *slot = Some(current.report(i)?);
+    }
+    let commitments = pack(&commitments);
+    let commitments = packed(commitments.as_ref(), current.report_count())?;
     let outputs = pack(&outputs_of(&current)?);
     let outputs = packed(outputs.as_ref(), current.output_count())?;
     let Presence::Present(input) = current.input() else {
@@ -1250,17 +1455,45 @@ fn finalize(
     };
     let aggregation = EpochAggregation::structural(view.frozen, input, workers, outputs)?;
     let root = aggregation.root();
-    let allocation = allocate_aggregation(view.row.budget, &aggregation)?;
-    let record = CurrentAggregation {
-        phase: AggregationPhase::Terminal,
-        seal_height: current.seal_height(),
-        input: current.input(),
-        cursor: current.cursor(),
-        reports: inputs.commitments()?,
-        outputs,
-        running_weight: aggregation.total_weight(),
+    let settlement_before = view.frame.sections[Section::SettlementClaims.index()];
+    let (settlement_before, pending) = split_finalization_journal(settlement_before)?;
+    let journal = crate::epoch::stage_finalization(
+        &view.frame,
+        &roster.captured,
+        &aggregation,
+        call.ctx.height,
+        pending,
+    )?;
+    let response_progress = Progress {
         root: Presence::Present(root),
+        ..progress
     };
+    if journal.cursor < journal.count {
+        let (settlement_out, out) = split_outputs(scratch, next, event)?;
+        settlement_out
+            .get_mut(..settlement_before.len())
+            .ok_or(CAPACITY)?
+            .guest_copy_from_slice(settlement_before);
+        let n = journal.encode(
+            settlement_out
+                .get_mut(settlement_before.len()..)
+                .ok_or(CAPACITY)?,
+        )?;
+        let mut w = Writer::new(
+            settlement_out
+                .get_mut(settlement_before.len() + n..)
+                .ok_or(CAPACITY)?,
+        );
+        w.u32(n as u32)?;
+        w.put(b"FN17")?;
+        return call.commit(
+            &settlement_out[..settlement_before.len() + n + 8],
+            out,
+            progress,
+            response_progress.finalize_cursor_response(journal.cursor)?,
+        );
+    }
+    let allocation = allocate_aggregation(view.budget, &aggregation)?;
     let terminal = HistorySummary {
         epoch: view.frozen.epoch,
         config: view.frozen.config,
@@ -1272,12 +1505,12 @@ fn finalize(
     let (reward_out, tail) = settlement_out
         .split_at_mut_checked(REWARD_STATE_BYTES)
         .ok_or(CAPACITY)?;
-    let (retained, effect) = view.rewards.terminalize(
+    let (retained, effect) = crate::rewards::committed_state(view.rewards)?.terminalize(
         &view.frozen,
         root,
         &allocation,
         workers,
-        call.ctx.height,
+        journal.height,
         reward_out,
     )?;
     if effect != RewardEffect::NoTransfer {
@@ -1286,8 +1519,9 @@ fn finalize(
     let (history, count) = next_history(view, &retained, terminal)?;
     let history = pack(&history);
     let history = packed(history.as_ref(), count)?;
-    validate_current_history(&record, view.frozen, workers, history)?;
-    let record_len = encode_current(&record, view.frozen, workers, tail)?;
+    let checked = CheckedCurrent::terminal(&current, commitments, &aggregation)?;
+    checked.check_history(history)?;
+    let record_len = checked.encode(tail)?;
     let history_len = encode_history(history, tail.get_mut(record_len..).ok_or(CAPACITY)?)?;
     let total = REWARD_STATE_BYTES
         .checked_add(record_len)
@@ -1301,7 +1535,9 @@ fn finalize(
         ..progress
     };
     let response = progress.finalize_response()?;
-    call.commit(settlement, out, progress, response)
+    let outcome = call.commit(settlement, out, progress, response)?;
+    let _ = finish;
+    crate::epoch::commit_finalized_region(outcome, journal.state.as_ref(), next, scratch)
 }
 
 /// Applies one `BeginAggregation` (0x0501), `ProcessAggregation` (0x0502) or
@@ -1336,6 +1572,27 @@ pub fn apply(
     scratch: &mut [u8],
     event: &mut [u8],
 ) -> CodecResult<Outcome> {
+    apply_finishing(ctx, envelope, current, next, scratch, event, None)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn apply_finishing(
+    ctx: &CallContext,
+    envelope: &ValidatedEnvelope<'_>,
+    current: &[u8],
+    next: &mut [u8],
+    scratch: &mut [u8],
+    event: &mut [u8],
+    finish: Option<
+        &mut dyn FnMut(
+            Outcome,
+            &crate::epoch::CapturedRoster,
+            u8,
+            Option<&EpochAggregation<'_>>,
+            &mut [u8],
+        ) -> CodecResult<Outcome>,
+    >,
+) -> CodecResult<Outcome> {
     let operation = envelope.envelope.operation;
     if operation != dispatch::BeginAggregation
         && operation != dispatch::ProcessAggregation
@@ -1343,18 +1600,29 @@ pub fn apply(
     {
         return Err(UNKNOWN_OPERATION);
     }
-    let view = view(current)?;
-    let call = Call {
-        ctx,
-        envelope,
-        view: &view,
-    };
-    if operation == dispatch::BeginAggregation {
-        begin(&call, next, scratch, event)
-    } else if operation == dispatch::ProcessAggregation {
-        process(&call, next, scratch, event)
-    } else {
-        finalize(&call, next, scratch, event)
+    let reader = SectionReader::new(current)?;
+    if operation != dispatch::FinalizeAggregation
+        && !split_finalization_journal(reader.section(Section::SettlementClaims))?
+            .1
+            .is_empty()
+    {
+        return Err(WRONG_PHASE);
+    }
+    {
+        probe_mark(8);
+        let view = view(reader.frame(), operation == dispatch::ProcessAggregation)?;
+        let call = Call {
+            ctx,
+            envelope,
+            view: &view,
+        };
+        if operation == dispatch::BeginAggregation {
+            begin(&call, next, scratch, event, finish)
+        } else if operation == dispatch::ProcessAggregation {
+            process(&call, next, scratch, event)
+        } else {
+            finalize(&call, next, scratch, event, finish)
+        }
     }
 }
 

@@ -1,0 +1,192 @@
+[meta]
+task = "22.39.268"
+mode = "BUILD"
+requirement = "22998.1"
+decisions = ["3101", "3104", "3125", "3126", "3173"]
+base_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+inventory_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path sdk/wallet --path services/wallet/gateway --path services/wallet/demo --path services/wallet/deploy --path scripts/wallet --path sdk/platform"
+inventory_exit = 1
+inventory_findings = 9
+allowed_references_added = 2
+qualification = "The private gate ledger records the exact candidate revision, command, exit and log for each build and verification; this record is part of that candidate, so its own content does not claim a self-referential candidate hash."
+qualification_ledger = "/out/run/gates.jsonl"
+build_gate = "hf-build"
+verify_gate = "hf-done"
+verify_command = "test -s sdk/wallet/repair_22_39_268.kvx && pnpm --dir services/wallet/gateway run test && bash -n scripts/wallet/check-live.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path sdk/wallet --path services/wallet/gateway --path services/wallet/demo --path services/wallet/deploy --path scripts/wallet --path sdk/platform"
+
+[finding.1]
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java"
+line = 28
+component = "checkpoint-evidence"
+symbol = "SettlementAnchored"
+repair = "Remove the retired agent-api verification level from the transport's accepted levels; CheckpointFinalised remains the highest accepted level."
+
+[finding.2]
+path = "sdk/wallet/src/human.ts"
+line = 390
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete evidence-field branch; journey evidence retains its identity, class, verification and optional EVM transaction hash."
+
+[finding.3]
+path = "sdk/wallet/src/human.ts"
+line = 391
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete assignment and domain decoder with the branch; no domain value is treated as chain evidence or renamed into a new field."
+
+[finding.4]
+path = "sdk/wallet/src/kernel.ts"
+line = 21
+component = "finality-authority"
+symbol = "receipt_authority"
+repair = "Remove the retired independent authority from the backend inventory; availability continues to depend on the node consensus head and receipts use the sequencer receipt path."
+
+[finding.5]
+path = "sdk/wallet/src/provider.ts"
+line = 87
+component = "wallet-two-domain"
+symbol = "signCustody"
+repair = "Remove the obsolete custody-method list and reject every unimplemented provider-owned paxeer_ method in dispatch before RPC transport; the implemented EVM send and sponsored transaction methods keep their explicit handlers."
+
+[finding.6]
+path = "sdk/wallet/src/types.ts"
+line = 399
+component = "finality-authority"
+symbol = "receipt_authority"
+repair = "Remove the retired authority from KernelBackendName in step with the runtime backend inventory."
+
+[finding.7]
+path = "sdk/wallet/src/types.ts"
+line = 536
+component = "settlement-domain"
+symbol = "settlement_domain"
+repair = "Remove the obsolete optional field from EvidenceRef in step with the human evidence decoder; this reference type does not represent an offline validator export."
+
+[finding.8]
+path = "services/wallet/gateway/migrations/005_agent_actions.sql"
+line = 65
+component = "wallet-two-domain"
+symbol = "depositUSDL"
+repair = "Describe the primary leg as an EVM transaction and remove the retired deposit example; preserve historical DDL consumed by migration 019 and its real database upgrade test."
+
+[finding.9]
+path = "services/wallet/gateway/migrations/005_agent_actions.sql"
+line = 110
+component = "wallet-two-domain"
+symbol = "layerxSync"
+repair = "Remove the dead sync-job documentation and identify the ledger mirror as historical schema dropped by migration 019."
+
+[related.endpoint]
+path = "sdk/wallet/src/endpoint.ts"
+repair = "Preserve the exact hostedUrl error pinned by test_readme_planning_limit_matches_real_endpoint_contract and document that only registration and funding use this client; network reads already use the node client."
+
+[related.demo]
+path = "services/wallet/demo/README.md"
+repair = "Preserve the historical planning paragraph pinned by test_readme_planning_limit_matches_real_endpoint_contract byte for byte and append the current node consensus availability path used before intent planning."
+
+[related.deployment]
+path = "services/wallet/deploy/env"
+repair = "Remove receipt-authority endpoint and token guidance and describe wallet availability through the node consensus head."
+
+[related.scripts]
+path = "scripts/wallet/check-live.sh"
+repair = "Validate the consensus head fields and unsigned 64-bit height rather than accepting any object as node consensus; preserve the explicit consensus_unavailable answer."
+
+[note.historical_schema]
+path = "services/wallet/gateway/test/migrations-retired.test.ts"
+observation = "The existing upgrade test reapplies migration 005, inserts historical deposits and mirror rows, and proves migration 019 refuses active deposits before dropping retired state; altering the original DDL would invalidate that real upgrade path."
+
+[note.out_of_scope_sdk_test]
+path = "sdk/wallet/test/human-binding.test.ts"
+symbol = "journey_evidence_carries_an_optional_transaction_hash"
+observation = "The existing test at line 155 constructs the retired evidence field and expects it to round-trip; that fixture contradicts removal of the field, is outside this task's scope and is not executed by its declared verification."
+assumption = "Its owning task must update the historical fixture to the current evidence contract; no test or assertion is changed here."
+
+[note.scope]
+observation = "The attempt-1 inventory reports six source files; its related SDK, demo, deployment and script repairs are retained, with the pinned planning paragraph and diagnostic preserved under decision 3173 and recorded as exact-line allowances in the newly scoped catalogue."
+
+[attempt_1.build_environment]
+task = "22.39.268"
+file = "package.json"
+symbol = "packageManager"
+observed = "At revision af5fe346f6d1a1c295ccacf7c48756710f1588be, command corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck && pnpm --dir sdk/wallet exec tsc --noEmit exited 1 before typechecking because Corepack selected the root npm package-manager declaration; private log /out/logs/build-1.log."
+assumption = "The declared pnpm gates require COREPACK_ENABLE_STRICT=0 so Corepack permits the explicitly requested package manager in the monorepo root; dependency resolution, typechecking and tests remain unchanged."
+severity = "blocker"
+
+[attempt_1.build_environment_version]
+task = "22.39.268"
+file = "services/wallet/package.json"
+symbol = "packageManager"
+observed = "At revision cbc58b7ee86f20bcc2348d5234865bf705d503f7, command corepack enable && cd services/wallet && pnpm install --frozen-lockfile --ignore-scripts && cd ../.. && pnpm --dir services/wallet/gateway run typecheck && pnpm --dir sdk/wallet exec tsc --noEmit exited 1 before typechecking because Corepack's root default selected pnpm 12.18.0 while the wallet requires 10.34.9; private log /out/logs/build-2.log."
+assumption = "Activating pnpm 10.34.9 globally with corepack install --global pnpm@10.34.9 and setting COREPACK_DEFAULT_TO_LATEST=0 retains the wallet's exact package-manager version at the root without bypassing pnpm's version check."
+severity = "blocker"
+
+[attempt_1.gateway_tests]
+task = "22.39.268"
+file = "services/wallet/gateway/test/sponsor-budget.test.ts"
+symbol = "sponsoredQuoteAnswersBudgetExhausted"
+observed = "At revision ab70a0700f51b16c80f0e64569edd0aafc5213c5, command cg spec done 22.39.268 -f layerx-merge --root /work/paxeer-monorepo exited 1 with 68 failed gateway tests across 25 files, including an expected 400 versus received 429 at line 152; private log /out/logs/verify-1.log."
+assumption = "These untouched gateway runtime and test failures are unrelated to the migration comment changes and require their owning tasks; the two repair cycles are spent, so the gate is not rerun."
+severity = "blocker"
+
+[attempt_1.result]
+status = "implemented-not-qualified"
+verified_revision = "ab70a0700f51b16c80f0e64569edd0aafc5213c5"
+build_exit = 0
+build_log = "/out/logs/build-3.log"
+verify_exit = 1
+verify_log = "/out/logs/verify-1.log"
+remaining_checks = "The failing gateway test command short-circuited verification before bash -n and the final retired-caller scan; neither is claimed to have passed."
+record_update = "This failure evidence was appended after the bounded gate result; no implementation changed after the successful build, and this final record update has not been qualified."
+
+[continuation]
+base_revision = "329173f5052d5d15727e220f85682e3cfe54d4da"
+seed_revision = "ffdbfa83942b14f563ee881a3a491fd9d39300c2"
+prerequisite = "22.39.290 is done on the supplied main-line base; its qualified revision a470b4e2a204b882f717d80544912fdfb2185c7a is listed in /out/run/prereqs.tsv."
+initial_state = "The seed's eleven scoped paths and runner-owned workflow changes were already present; no current gate ledger existed and /out/run/gate.json recorded zero builds and verifications."
+inventory_review = "Read-only literal source inspection of the merged, seeded tree found no remaining catalogue-symbol callers in the selected production paths; the earlier nine inventory findings above remain the repair inventory, and only hf-done will execute the final scan and its assertions."
+implementation = "Retain the seed's retired evidence, backend, migration comment and verification-level removals, the provider's paxeer_ refusal, deployment cleanup and consensus-head validation."
+pinning_search = "Searched tools/qualification, tests and wallet tests before changing documentation or configuration; test_readme_planning_limit_matches_real_endpoint_contract pins the demo planning paragraph and endpoint diagnostic, while tests/ci/test_no_deployment_hosts_in_source.py::test_private_host_names_only_in_deploy_data reads the unchanged production operator RPC field."
+environment_search = "The authority variable assertions in test_repair_22_33_1395.py concern services/platform/hosted/gateway configuration, not services/wallet/deploy/env; no case found pins the removed wallet authority guidance or the corrected public-core availability description."
+qualification = "Run hf-build and hf-done against this final record and implementation; /out/run/gates.jsonl and the final hf-done evidence line bind the verified revision without changing this record after the build."
+
+[allowed_reference.endpoint_diagnostic]
+path = "sdk/wallet/src/endpoint.ts"
+symbols = ["hosted px_ reads"]
+pinning_case = "tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract"
+repair = "Keep the pinned diagnostic byte for byte and add an exact-line catalogue allowance; clarify the hosted client's two operations without changing node RPC routing."
+
+[allowed_reference.demo_planning]
+path = "services/wallet/demo/README.md"
+symbols = ["px_getNetwork", "hosted px_ reads"]
+pinning_case = "tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract"
+repair = "Keep the pinned historical paragraph byte for byte and add an exact-line catalogue allowance; append a separate correction explaining current node routing and consensus readiness."
+
+[gotcha.pinned_planning_contract]
+observed = "The seed rewrote the demo planning paragraph and endpoint diagnostic, but the later decision 3173 requires retaining text pinned by the existing integration audit."
+resolution = "Restore the pinned bytes and document the current behavior alongside them; no test, assertion, route, evidence bound or type is widened."
+
+[gotcha.workflow_scope]
+observed = "Repository workflow instructions request GOTCHA.kvx and spec updates, commits and pushes, while this task explicitly forbids those edits and leaves publication to the runner."
+resolution = "Keep task observations in this scoped repair record, let hf-done perform its own workflow bookkeeping, and leave commits and pushes to the runner."
+
+[qualification.attempt_2_first_verify]
+task = "22.39.268"
+file = "services/wallet/gateway/test/migrations-evm.test.ts"
+symbol = "evmApprovalsTableAppliesAfter016"
+observed = "At revision 74ee3fa7ba5d833ccda9ef0d059d7915d6d7c318, command cg spec done 22.39.268 -f layerx-merge --root /work/paxeer-monorepo exited 1 with a 30000ms migration timeout and a policy-cap case receiving 503 quorum_unavailable instead of 403; 434 tests passed, private log /out/logs/verify-1.log."
+assumption = "Cross-file contention among the real database and attestor fixtures may explain the timeout and transient health refusal, so the bounded repair sets Vitest's supported VITEST_MAX_WORKERS=1 without changing any timeout, assertion, test selection or gateway code."
+severity = "suspect"
+
+[repair.runner_scheduling]
+setting = "VITEST_MAX_WORKERS=1"
+source = "Installed Vitest 4.1.12 dist/chunks/coverage.DM_a_rWm.js reads process.env.VITEST_MAX_WORKERS into resolved.maxWorkers."
+change = "Execute test files one at a time so their real PostgreSQL and attestor fixture networks do not contend with other files; concurrency exercised inside each test remains intact."
+gates = "Run hf-build again and then hf-done with COREPACK_ENABLE_STRICT=0, COREPACK_DEFAULT_TO_LATEST=0 and VITEST_MAX_WORKERS=1 on this final record."
+limits = "Every existing test, assertion and deadline remains unchanged; a remaining out-of-scope source failure will be recorded without chasing it, and no third gate attempt is authorized."
+evidence = "The last hf-done line and /out/run/gates.jsonl bind the final revision, command, exit and private evidence log; no successful shell check or retired scan is claimed for the short-circuited first verification."
+
+[gotcha.runner_scheduling]
+observed = "The first verification ran real attestor networks alongside in-process PostgreSQL migration suites and returned a migration deadline failure and a quorum-health refusal after a successful health poll."
+resolution = "Use the runner's supported file-worker limit for the single bounded repair while preserving all original checks and bounds; cgroup limit files were absent and are not evidence of a CPU quota."

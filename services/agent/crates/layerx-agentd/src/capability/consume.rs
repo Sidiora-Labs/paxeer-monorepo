@@ -510,7 +510,9 @@ pub struct ChainReservation {
 #[derive(Clone, Copy, Debug)]
 pub enum SettleOutcome<'a> {
     Verified(&'a VerifiedReceiptEvidence),
+    #[cfg(test)]
     Failed,
+    #[cfg(test)]
     Unknown,
 }
 
@@ -523,12 +525,31 @@ pub enum ConsumeError {
         dimension: Dimension,
     },
     Conflict,
+    #[cfg(test)]
     Indeterminate,
     MissingReservation,
     Overflow,
     Corrupt,
     SizeOverflow,
     Store(StoreError),
+}
+
+impl std::fmt::Display for ConsumeError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Refused {
+                capability_id,
+                dimension,
+            } => {
+                write!(
+                    formatter,
+                    "capability {capability_id:02x?} refused at {dimension:?}"
+                )
+            }
+            Self::Store(error) => write!(formatter, "capability store: {error:?}"),
+            other => write!(formatter, "{other:?}"),
+        }
+    }
 }
 
 impl From<StoreError> for ConsumeError {
@@ -541,7 +562,9 @@ impl From<StoreError> for ConsumeError {
 enum Settlement {
     Consume,
     VerifiedRelease,
+    #[cfg(test)]
     Release,
+    #[cfg(test)]
     Unknown,
 }
 
@@ -569,29 +592,6 @@ pub(crate) fn plan_chain(
 
 /// # Errors
 ///
-/// Returns every `plan_chain` refusal and the store error raised while writing the reservation.
-pub(crate) fn reserve_chain(
-    store: &mut Store,
-    tenant: &TenantId,
-    preparation_id: [u8; 32],
-    chain: &[TimedCapability],
-    plan: &SemanticPlan,
-    observed_head_sequence: u64,
-) -> Result<ChainReservation, ConsumeError> {
-    let reservation = plan_chain(
-        store,
-        tenant,
-        preparation_id,
-        chain,
-        plan,
-        observed_head_sequence,
-    )?;
-    commit(store, &reservation)?;
-    Ok(reservation)
-}
-
-/// # Errors
-///
 /// Returns `MissingReservation`, `Indeterminate` for an unverified failure after an unknown outcome, `Conflict` for a contradicting terminal state, `Corrupt` and store errors.
 pub(crate) fn settle_chain(
     store: &mut Store,
@@ -602,7 +602,9 @@ pub(crate) fn settle_chain(
     let settlement = match outcome {
         SettleOutcome::Verified(receipt) if receipt.result_code() == 0 => Settlement::Consume,
         SettleOutcome::Verified(_) => Settlement::VerifiedRelease,
+        #[cfg(test)]
         SettleOutcome::Failed => Settlement::Release,
+        #[cfg(test)]
         SettleOutcome::Unknown => Settlement::Unknown,
     };
     apply(store, tenant, preparation_id, settlement)
@@ -722,6 +724,7 @@ fn plan_amounts(
     Ok(ChainReservation { record, companion })
 }
 
+#[cfg(test)]
 fn commit(store: &mut Store, reservation: &ChainReservation) -> Result<(), ConsumeError> {
     if let Some((key, bytes)) = reservation.companion.clone() {
         store.put_local(key, bytes)?;
@@ -741,17 +744,22 @@ fn apply(
         (ReservationState::Held | ReservationState::Unknown, Settlement::Consume) => {
             ReservationState::Consumed
         }
-        (ReservationState::Held | ReservationState::Unknown, Settlement::VerifiedRelease)
-        | (ReservationState::Held, Settlement::Release) => ReservationState::Released,
+        (ReservationState::Held | ReservationState::Unknown, Settlement::VerifiedRelease) => {
+            ReservationState::Released
+        }
+        #[cfg(test)]
+        (ReservationState::Held, Settlement::Release) => ReservationState::Released,
+        #[cfg(test)]
         (ReservationState::Unknown, Settlement::Release) => {
             return Err(ConsumeError::Indeterminate)
         }
+        #[cfg(test)]
         (ReservationState::Held, Settlement::Unknown) => ReservationState::Unknown,
+        #[cfg(test)]
         (ReservationState::Unknown, Settlement::Unknown)
-        | (ReservationState::Consumed, Settlement::Consume)
-        | (ReservationState::Released, Settlement::VerifiedRelease | Settlement::Release) => {
-            return Ok(())
-        }
+        | (ReservationState::Released, Settlement::Release) => return Ok(()),
+        (ReservationState::Consumed, Settlement::Consume)
+        | (ReservationState::Released, Settlement::VerifiedRelease) => return Ok(()),
         (ReservationState::Consumed | ReservationState::Released, _) => {
             return Err(ConsumeError::Conflict)
         }

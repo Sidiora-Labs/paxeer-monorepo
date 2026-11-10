@@ -149,7 +149,7 @@ async function sponsoredQuoteAnswersBudgetExhausted(): Promise<void> {
     });
   expect((await send(body, null)).statusCode).toBe(401);
   expect((await send({ ...body, calls: [] })).statusCode).toBe(400);
-  expect((await send({ ...body, did: owner.did })).statusCode).toBe(400);
+  expect((await send({ ...body, did: 'did:layerx:invalid' })).statusCode).toBe(400);
   expect((await send({ ...body, chainId: String(owner.wallet.chain_id + 1) })).statusCode).toBe(
     403
   );
@@ -159,7 +159,8 @@ async function sponsoredQuoteAnswersBudgetExhausted(): Promise<void> {
 
   for (const status of [429, 422]) {
     quoteReply = { status, body: { error: 'budget_exhausted' } };
-    const response = await send(body);
+    const payload = status === 429 ? { ...body, did: owner.did } : body;
+    const response = await send(payload);
     expect(response.statusCode, response.body).toBe(429);
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.json()).toStrictEqual({
@@ -168,7 +169,7 @@ async function sponsoredQuoteAnswersBudgetExhausted(): Promise<void> {
     });
   }
   expect(requests).toStrictEqual([
-    { path: '/station/quote', body },
+    { path: '/station/quote', body: { ...body, did: owner.did } },
     { path: '/station/quote', body },
   ]);
   quoteReply = { status: 429, body: { error: 'rate_limited' } };

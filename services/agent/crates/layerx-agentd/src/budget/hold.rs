@@ -31,6 +31,10 @@ pub struct PersistedReceipt<E = RawReceiptEvidence> {
 
 /// The two independently verified durable receipt evidence formats.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Preserve the public receipt evidence variants accepted by budget recovery."
+)]
 pub enum BudgetReceiptEvidence {
     Legacy(RawReceiptEvidence),
     Current(crate::receipt::TransactionReceiptEvidence),
@@ -195,6 +199,7 @@ pub(crate) fn requested_amount(
     tenant: &TenantId,
     activity_id: [u8; 32],
 ) -> Result<u128, RestartError> {
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
     if let Some(value) = store.get(&key(tenant.clone(), activity_id)?) {
         return decode(tenant, activity_id, value.bytes()).map(|reservation| reservation.amount);
     }
@@ -206,7 +211,6 @@ pub(crate) fn requested_amount(
     let Some(signed) = store.get(&signed_key) else {
         return Ok(0);
     };
-    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
     if transaction_hash(signed.bytes()) != activity_id {
         return Err(RestartError::ReceiptActivityMismatch);
     }

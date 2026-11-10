@@ -21,6 +21,66 @@ MAKEFILE = (ROOT / "Makefile").read_text(encoding="utf-8")
 RELEASE_SCRIPT = ROOT / "tools/release/build-paxd.sh"
 RECORD = Path(__file__).with_name("repair_22_33_788.kvx")
 
+GUEST_RECIPE_PATH = "programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh"
+
+
+def guest_recipe():
+    return (ROOT / GUEST_RECIPE_PATH).read_text(encoding="utf-8")
+
+
+def guest_recipe_array(name):
+    match = re.search(r"^" + re.escape(name) + r"=\(\n(.*?)\n\)", guest_recipe(), re.M | re.S)
+    assert match, name
+    return shlex.split(match.group(1))
+
+
+def guest_recipe_compile_contract():
+    recipe = guest_recipe()
+    assert "PAXAI_GUEST_OPT_LEVEL=z" in recipe
+    assert "PAXAI_GUEST_CRATE_TYPE=cdylib" in recipe
+    assert "export CARGO_PROFILE_RELEASE_OPT_LEVEL=\"$PAXAI_GUEST_OPT_LEVEL\"" in recipe
+    for value in ("LTO=true", "CODEGEN_UNITS=1", "PANIC=abort", "STRIP=true"):
+        assert "export CARGO_PROFILE_RELEASE_" + value in recipe
+    assert 'unset CARGO_ENCODED_RUSTFLAGS' in recipe
+    flags = guest_recipe_array("PAXAI_GUEST_RUSTFLAGS")
+    assert flags[:4] == ["-C", "target-feature=-reference-types", "-C", "link-arg=--compress-relocations"]
+    assert flags[4:] == [
+        "-C", "llvm-args=--enable-merge-functions", "-C", "llvm-args=--ir-outliner",
+        "-C", "llvm-args=--inline-threshold=40",
+    ]
+    assert 'export RUSTFLAGS="${PAXAI_GUEST_RUSTFLAGS[*]}"' in recipe
+    compile_line = re.search(
+        r'^    ("\$\{PROGRAMS_CARGO:-cargo\}" rustc.*?)\n\)', recipe, re.M | re.S,
+    )
+    assert compile_line
+    assert shlex.split(compile_line.group(1).replace("\\\n", " ")) == [
+        "${PROGRAMS_CARGO:-cargo}", "rustc", "--locked", "--release", "--target",
+        "wasm32-unknown-unknown", "-p", "layerx-programs-ai-market", "--lib",
+        "--crate-type", "$PAXAI_GUEST_CRATE_TYPE",
+    ]
+    assert 'paxai_guest_compile "$source_dir"' in recipe
+    assert 'paxai_guest_package "$target_dir/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm" "$output"' in recipe
+
+
+def guest_recipe_optimizer_contract():
+    recipe = guest_recipe()
+    guard = re.search(r"^    command -v wasm-opt[^\n]+\n(.*?)^    \}", recipe, re.M | re.S)
+    assert guard and "wasm-opt is required" in guard.group(1)
+    assert "return 1" in guard.group(1) and "|| true" not in guard.group(0)
+    assert "PAXAI_GUEST_OPTIMIZER_VERSION='wasm-opt version 133 (version_133)'" in recipe
+    assert 'if [[ "$(wasm-opt --version)" != "$PAXAI_GUEST_OPTIMIZER_VERSION" ]]; then' in recipe
+    assert "AI market guest requires Binaryen 133" in recipe
+    assert recipe.count("    paxai_guest_require_optimizer\n") == 2
+    passes = guest_recipe_array("PAXAI_GUEST_PASSES")
+    assert passes[0] == "-Oz"
+    assert passes[-2:] == ["--strip-debug", "--strip-producers"]
+    assert "--flatten" in passes and "--rereloop" in passes
+    assert "--merge-similar-functions" in passes and passes.count("--converge") == 2
+    assert 'wasm-opt "${PAXAI_GUEST_PASSES[@]}" "$1" -o "$2"' in recipe
+    metadata = (ROOT / "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx").read_text()
+    assert f'postprocess = "wasm-opt {" ".join(passes)}"' in metadata
+    return passes
+
 
 def read(path):
     return (ROOT / path).read_text(encoding="utf-8")
@@ -46,48 +106,38 @@ def test_finding_7_guest_size_profile_and_required_binaryen_pass():
     dependencies, commands = make_rule("paxai-host-boundary-build")
     assert dependencies == ["$(BUILD_DIR)/tests/paxai_host_boundary"]
     assert commands[0] == "rm -f $(PAXAI_HOST_BOUNDARY_DIR)/manifest"
-    tool_guard = commands[2]
-    assert tool_guard.startswith("command -v wasm-opt >/dev/null 2>&1 || {")
-    assert "wasm-opt is required" in tool_guard and "exit 1; }" in tool_guard
-    assert "|| true" not in tool_guard
-    cargo = shlex.split(commands[3])
-    assert cargo == [
-        "cd", "programs", "&&", "PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN)",
-        "$(PROGRAMS_CARGO)", "build", "--locked", "--release", "--config",
-        'profile.release.opt-level="z"', "--target", "wasm32-unknown-unknown",
-        "-p", "layerx-programs-ai-market",
-    ]
+    assert commands[2] == "bash " + GUEST_RECIPE_PATH + " check"
+    assert commands[3] == "mkdir -p $(PAXAI_HOST_BOUNDARY_DIR)"
+    assert commands[4] == (
+        "PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) PROGRAMS_CARGO=$(PROGRAMS_CARGO) bash "
+        + GUEST_RECIPE_PATH + " build programs $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm"
+    )
+    guest_recipe_compile_contract()
+    guest_recipe_optimizer_contract()
     # The explicit override must beat the workspace's throughput profile.
     workspace = tomllib.loads(read("programs/Cargo.toml"))
     assert workspace["profile"]["release"]["opt-level"] == 3
-    optimizer = shlex.split(commands[5])
-    assert optimizer == [
-        "wasm-opt", "-Oz", "--strip-debug", "--strip-producers",
-        "$(if", "$(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/"
-        "wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm",
-        "-o", "$(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm",
-    ]
     assert not any(command.startswith("cp ") for command in commands)
 
 
 def test_finding_7_final_bytes_are_bounded_deployed_and_then_published():
     _, commands = make_rule("paxai-host-boundary-build")
     final_wasm = "$(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm"
-    guard = commands[6]
+    guard = commands[5]
     assert guard.startswith(f'test "$$(wc -c < {final_wasm})" -le 524184 || {{')
     assert "exit 1; }" in guard and "|| true" not in guard
     assert 524288 - 104 == 524184
-    assert commands[7] == (
+    assert commands[6] == (
         "$(RUN_PREFIX) $(BUILD_DIR)/tests/paxai_host_boundary "
         + final_wasm + " < /dev/null"
     )
-    assert commands[8] == (
+    assert commands[7] == (
         "printf '%s\\n%s\\n%s\\n' "
         "'$(abspath $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)' "
         "'$(abspath $(BUILD_DIR)/tests/paxai_host_boundary)' "
         "'$(PAXAI_CHAIN_DOMAIN)' > $(PAXAI_HOST_BOUNDARY_DIR)/manifest"
     )
-    assert len(commands) == 9
+    assert len(commands) == 8
     expected = hashlib.sha256(b"PAXAI/chain-domain/v1" + (125).to_bytes(8, "big")).hexdigest()
     assert re.search(r"^PAXAI_CHAIN_DOMAIN \?= " + expected + r"$", MAKEFILE, re.M)
     assert commands[1] == (

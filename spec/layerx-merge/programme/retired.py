@@ -133,12 +133,33 @@ DOMAIN_ROOT_FILES: dict[int, tuple[str, ...]] = {
 }
 
 
+# Merged-tree snapshot at 1a66b50a6fe980d89fb9bed46b7fe0c50b0fb8d3.
+# Scan: python3 tools/paxeer-x/tests/retired_callers_test.py --deleted.
+# 8 hits in 6 paths, 28.278s; core/deps excluded.
+# Evidence: /tmp/layerx-merge-retired-callers-966pxtwh/scan.log
+# Historical counts only: these are not allowances; the gate still requires zero.
+CALLER_BASELINE: dict[str, int] = {
+    "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx": 1,
+    "sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json": 3,
+    "services/agent/crates/layerx-client/src/ai_market.rs": 1,
+    "services/platform/hosted/paxeer": 1,
+    "tests/replay/golden/history.lxl": 1,
+    "tests/replay/lxp_test_golden_replay.c": 1,
+}
+
+
 def load_components() -> dict[str, dict[str, KvxValue]]:
-    return {
+    components = {
         section.removeprefix("component."): component
         for section, component in load(INVENTORY_PATH).items()
         if section.startswith("component.")
     }
+    # Decisions 3125 and 3202 retain the live golden replay (task 22.39.277).
+    # Decision 3203 retains the Paxeer boundary crate as a compatibility root.
+    # Keep both components' symbols so callers in these trees are still scanned.
+    for name in ("replay-golden", "eth-relay"):
+        components[name]["deleted_trees"] = []
+    return components
 
 
 def _doc_cell(value: KvxValue) -> str:
@@ -355,10 +376,14 @@ def owners(callers: Iterable[str]) -> dict[str, int]:
         ]
         if path.startswith("tests/explorer"):
             matches.append((len("tests/explorer"), 14))
-        if relative.parent == PurePosixPath("api") and (
-            relative.suffix == ".yaml" or relative.name == "README.md"
-        ):
+        if relative.parent == PurePosixPath("api") and relative.suffix == ".yaml":
             matches.append((len(path), 7))
+        if relative.parent in {
+            PurePosixPath("modules"),
+            PurePosixPath("precompiles"),
+            PurePosixPath("api"),
+        } and relative.name == "README.md":
+            matches.append((len(path), 17))
         if relative.parent == PurePosixPath("."):
             for domain, patterns in DOMAIN_ROOT_FILES.items():
                 if any(fnmatchcase(path, pattern) for pattern in patterns):

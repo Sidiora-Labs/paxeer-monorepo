@@ -1,0 +1,54 @@
+[repair.22.39.320]
+task = "22.39.320"
+mode = "BUILD"
+requirement = "22998.1"
+decision = "3174"
+gotchas = ["3046", "4095"]
+base_revision = "1ce99f9f25b28e0777ee0c0f5bcb0e944db1b34f"
+verified_revision = "The final successful hf-done receipt in /out/run/gates.jsonl names the exact verified candidate revision; its hf-build receipt must name that same revision."
+private_evidence_location = "/out/run/gates.jsonl and /out/logs/verify-*.log"
+qualification = "Only the bounded gate receipts establish qualification; this source record is written before either gate runs."
+
+[baseline]
+inventory_revision = "7de3a9051436"
+inventory_source = "GOTCHA.kvx gotcha.4095, task 22.39.249 attempt 3 at de8890871068, /out/logs/verify-1.log, exit 1."
+starting_revision = "1ce99f9f25b28e0777ee0c0f5bcb0e944db1b34f"
+starting_run = "Not run: the explicit task order allows testing only after complete implementation through hf-build then hf-done, and prohibits running verify_cmd by hand. The initial gate ledger has no earlier runs."
+first_errors = "The inventory names TestGenesisRefusesGenerationOneState at genesis_test.go:119 and TestGenesisValidate at :169; source inspection identifies the missing owner enumeration refusal for token 2. TestProofLaunchpadErrorsKeeper at proof_launchpad_errors_test.go:219 reports corrupt surface 0x3993D004166738d1069B5C4e0a923f7B9D5D8830: unexpected end of JSON input: LXP_LAUNCHPAD_INVALID_PARAMS. No fresh starting-revision result is claimed."
+
+[case.TestGenesisRefusesGenerationOneState]
+site = "modules/launchpad/types/genesis_test.go:contractGenesis"
+producer_commit = "74b08abddb101496da616c7337d2436500dd77d2"
+producer_record = "modules/launchpad/keeper/repair_34.kvx wiring_request_2, task 22.31.34"
+cause = "The populated fixture retained the former schema without OwnerTokens after the producer added independent ERC721 owner enumeration and required it on genesis import. Its otherwise valid empty and null legacy sections therefore failed the unrelated fee-right validation."
+repair = "Supply both owned token IDs in explicit owner order [5, 2], independent of global token order [2, 5]; retain every empty/null success assertion and every populated legacy-section refusal. No inferred global-order fallback is added to the validator."
+
+[case.TestGenesisValidate]
+site = "modules/launchpad/types/genesis_test.go:TestGenesisValidate"
+producer_commit = "74b08abddb101496da616c7337d2436500dd77d2"
+cause = "The shared contractGenesis fixture omitted the producer-required owner enumeration, preventing the positive round-trip and negative mutation cases from reaching their criteria."
+repair = "Use the corrected shared fixture, assert exact owner enumeration and its independent order through JSON round-trip, and add refusals for absent, empty, duplicate, zero-owner, unknown-token, repeated-token, incomplete and wrong-owner enumeration. Every original validation assertion remains."
+
+[case.TestProofLaunchpadErrorsKeeper]
+site = "modules/launchpad/types/proof_launchpad_errors_test.go:TestProofLaunchpadErrorsKeeper"
+producer_commit = "82672da364eb2dec17a7b430b81ab05ef5f7cf3d"
+cause = "SetSurface now reads its previous record to maintain fee-accounting pool counts and correctly refuses corrupt JSON; the proof left deliberately truncated JSON in its store, then expected SetSurface to overwrite that corruption in the next iteration."
+repair = "Each repeated corruption check uses a fresh real CacheContext branch without committing it. SetSurface still produces the original record, GetSurface still refuses the damaged bytes, and the proof additionally asserts SetSurface refuses the corrupt record with launchpad code 2 through real ABCI protobuf transport while leaving the damaged bytes unchanged. The parent retains its valid record."
+
+[runtime.rule]
+producer_commit = "68964425e4"
+record = "modules/launchpad/keeper/repair_22_39_315.kvx runtime.rules and runtime.writers, decision 3162"
+rule = "InstallRoleSurfaces and fresh-chain genesis install the guarded 51-byte SurfaceRuntime at role addresses; new pools use the same guarded runtime. Only historical v6.12.0 pool replay uses v6120PoolSurfaceRuntime, the installed 41-byte identity. Genesis JSON carries surface registrations, while its EVM state carries code."
+repair = "The proof calls the real InstallRoleSurfaces producer after importing registrations and asserts that every role address holds exactly keeper.SurfaceRuntime. Genesis validation and historical migration constants remain intact."
+
+[qualification.gates]
+build_command = "go build ./modules/launchpad/... && go test -count=1 -run '^$' ./modules/launchpad/types/..."
+verify_command = "test -s modules/launchpad/types/repair_22_39_320.kvx && go test -count=1 ./modules/launchpad/types/..."
+wrapper_command = "cg spec done 22.39.320 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "The final response copies revision, command, exit and log from hf-done; the candidate is unchanged between its matching build and verification receipts. No gate is rerun after a pass on an unchanged candidate."
+scope = "Only the two specified Go test files and this repair record are edited; runner bookkeeping, spec updates and publication belong to the runner."
+
+[gotchas]
+schema = "A populated fee-right genesis needs explicit owner_tokens after producer commit 74b08abddb101496da616c7337d2436500dd77d2; reconstructing it from global token order loses swap-last owner ordering."
+corruption = "SetSurface must read the previous record for pool-count accounting; discard each test's corrupt cache branch rather than expecting a subsequent write to silently repair persisted corruption."
+baseline = "The historical task step requests a starting test, but the explicit bounded gate order prohibits it; retain the recorded inventory evidence and do not claim an unexecuted baseline."

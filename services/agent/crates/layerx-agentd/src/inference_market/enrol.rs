@@ -7,7 +7,7 @@ use layerx_client::ai_market::market_program::{
     codec::{self, Reader},
     dispatch,
     types::{Authentication, MetadataDigest},
-    workers::{decode_manifest, CapabilityFields, ManifestV2, MAX_MANIFEST_BYTES},
+    workers::{decode_manifest, CapabilityFields, ManifestSummary, ManifestV2, MAX_MANIFEST_BYTES},
 };
 use layerx_client::ai_market::{
     market_envelope, named_market_operation, submit_market_operation, AiClientError,
@@ -224,6 +224,10 @@ fn bandwidth_class(endpoint: &str) -> Result<u8, EnrolError> {
     })
 }
 
+/// Measures host resources and encodes the bound version-two manifest.
+/// # Errors
+/// Returns an error if the template or region is invalid, resource measurement or
+/// the bounded bandwidth probe fails, or capability validation or encoding fails.
 pub fn measured_manifest(config: &MeasurementConfig<'_>) -> Result<Vec<u8>, EnrolError> {
     if decode_manifest(config.manifest_v1)?.version != 1
         || !config.region_code.iter().all(u8::is_ascii_alphabetic)
@@ -260,7 +264,7 @@ pub struct SignedManifest {
     pub publication: OperationRecord,
 }
 
-/// Peer-signed LockBond and PostBid records carry the admission table's current
+/// Peer-signed `LockBond` and `PostBid` records carry the admission table's current
 /// epoch and `roster::roster_digest` for the state each operation executes on,
 /// after identity acceptance. The captured epoch roster is not this binding.
 pub struct PriceQuote {
@@ -269,6 +273,9 @@ pub struct PriceQuote {
 }
 
 impl PriceQuote {
+    /// Checks that the market program serves both quote operations.
+    /// # Errors
+    /// Returns an error if either required operation is absent from the program interface.
     pub fn require_program_interface() -> Result<(), EnrolError> {
         named_market_operation("LockBond")?;
         named_market_operation("PostBid")?;
@@ -299,6 +306,10 @@ fn sender(record: &OperationRecord) -> Result<[u8; 20], EnrolError> {
 }
 
 impl SignedManifest {
+    /// Verifies the manifest bindings and signed enrolment operation sequence.
+    /// # Errors
+    /// Returns an error for malformed envelopes, inconsistent identities or manifests,
+    /// invalid authority or delegate signatures, or invalid proposal validity.
     pub fn validate(&self) -> Result<(), EnrolError> {
         let summary = decode_manifest(&self.manifest)?;
         if summary.version != 2
@@ -354,83 +365,112 @@ impl SignedManifest {
                     return Err(EnrolError::Binding("proposal does not bind the manifest"));
                 }
             } else if operation == dispatch::AcceptEnrollment {
-                let mut reader = Reader::new(env.payload);
-                if reader.worker_id()? != summary.worker
-                    || reader.u64()? != summary.generation
-                    || reader.u64()? != summary.key_version
-                    || reader.metadata_digest()? != summary.digest
-                {
-                    return Err(EnrolError::Binding("acceptance does not bind the manifest"));
-                }
-                let signature: [u8; 64] = reader.fixed()?;
-                reader.finish()?;
-                if env.authentication != Authentication::Native {
-                    return Err(EnrolError::Binding(
-                        "acceptance requires native peer authority",
-                    ));
-                }
-                let delegate =
-                    proposal_delegate.ok_or(EnrolError::Binding("proposal delegate is absent"))?;
-                let mut consent = Vec::new();
-                for value in [
-                    env.chain.as_bytes(),
-                    env.program.as_bytes(),
-                    env.market.as_bytes(),
-                    summary.worker.as_bytes(),
-                    summary.owner.as_bytes(),
-                    &delegate,
-                ] {
-                    consent.extend_from_slice(value);
-                }
-                consent.extend_from_slice(&summary.generation.to_be_bytes());
-                consent.extend_from_slice(&summary.key_version.to_be_bytes());
-                consent.extend_from_slice(summary.digest.as_bytes());
-                consent.extend_from_slice(
-                    &proposal_expiry
-                        .ok_or(EnrolError::Binding("proposal expiry is absent"))?
-                        .to_be_bytes(),
-                );
-                let digest = codec::domain_hash("PAXAI/worker-delegate-consent/v1", &consent)?;
-                layerx_crypto::ed25519::verify_message(&delegate, &signature, digest.as_bytes())
-                    .map_err(|_| EnrolError::Binding("peer acceptance consent is invalid"))?;
+                validate_manifest_acceptance(&env, &summary, proposal_delegate, proposal_expiry)?;
             } else {
-                let mut reader = Reader::new(env.payload);
-                if reader.worker_id()? != summary.worker
-                    || reader.u64()?.checked_add(1) != Some(summary.revision)
-                    || reader.u64()? != summary.revision
-                    || reader.metadata_digest()? != summary.digest
-                    || reader.u64()? != summary.valid_from
-                    || reader.u64()? != summary.expiry
-                    || reader.bytes(MAX_MANIFEST_BYTES)? != self.manifest
-                {
-                    return Err(EnrolError::Binding(
-                        "publication does not bind the manifest",
-                    ));
-                }
-                reader.finish()?;
-                let Authentication::Delegate { key, signature } = env.authentication else {
-                    return Err(EnrolError::Binding(
-                        "peer publication requires its own delegate signature",
-                    ));
-                };
-                if Some(key.0) != proposal_delegate {
-                    return Err(EnrolError::Binding(
-                        "publication delegate differs from proposal",
-                    ));
-                }
-                layerx_crypto::ed25519::verify_message(
-                    &key.0,
-                    &signature.0,
-                    codec::decode_envelope(&bytes)?.request_digest()?.as_bytes(),
-                )
-                .map_err(|_| EnrolError::Binding("peer publication signature is invalid"))?;
+                validate_manifest_publication(
+                    &env,
+                    &summary,
+                    &self.manifest,
+                    proposal_delegate,
+                    &bytes,
+                )?;
             }
         }
         Ok(())
     }
 }
 
+fn validate_manifest_acceptance(
+    env: &codec::Envelope<'_>,
+    summary: &ManifestSummary,
+    proposal_delegate: Option<[u8; 32]>,
+    proposal_expiry: Option<u64>,
+) -> Result<(), EnrolError> {
+    let mut reader = Reader::new(env.payload);
+    if reader.worker_id()? != summary.worker
+        || reader.u64()? != summary.generation
+        || reader.u64()? != summary.key_version
+        || reader.metadata_digest()? != summary.digest
+    {
+        return Err(EnrolError::Binding("acceptance does not bind the manifest"));
+    }
+    let signature: [u8; 64] = reader.fixed()?;
+    reader.finish()?;
+    if env.authentication != Authentication::Native {
+        return Err(EnrolError::Binding(
+            "acceptance requires native peer authority",
+        ));
+    }
+    let delegate = proposal_delegate.ok_or(EnrolError::Binding("proposal delegate is absent"))?;
+    let mut consent = Vec::new();
+    for value in [
+        env.chain.as_bytes(),
+        env.program.as_bytes(),
+        env.market.as_bytes(),
+        summary.worker.as_bytes(),
+        summary.owner.as_bytes(),
+        &delegate,
+    ] {
+        consent.extend_from_slice(value);
+    }
+    consent.extend_from_slice(&summary.generation.to_be_bytes());
+    consent.extend_from_slice(&summary.key_version.to_be_bytes());
+    consent.extend_from_slice(summary.digest.as_bytes());
+    consent.extend_from_slice(
+        &proposal_expiry
+            .ok_or(EnrolError::Binding("proposal expiry is absent"))?
+            .to_be_bytes(),
+    );
+    let digest = codec::domain_hash("PAXAI/worker-delegate-consent/v1", &consent)?;
+    layerx_crypto::ed25519::verify_message(&delegate, &signature, digest.as_bytes())
+        .map_err(|_| EnrolError::Binding("peer acceptance consent is invalid"))?;
+    Ok(())
+}
+
+fn validate_manifest_publication(
+    env: &codec::Envelope<'_>,
+    summary: &ManifestSummary,
+    manifest: &[u8],
+    proposal_delegate: Option<[u8; 32]>,
+    bytes: &[u8],
+) -> Result<(), EnrolError> {
+    let mut reader = Reader::new(env.payload);
+    if reader.worker_id()? != summary.worker
+        || reader.u64()?.checked_add(1) != Some(summary.revision)
+        || reader.u64()? != summary.revision
+        || reader.metadata_digest()? != summary.digest
+        || reader.u64()? != summary.valid_from
+        || reader.u64()? != summary.expiry
+        || reader.bytes(MAX_MANIFEST_BYTES)? != manifest
+    {
+        return Err(EnrolError::Binding(
+            "publication does not bind the manifest",
+        ));
+    }
+    reader.finish()?;
+    let Authentication::Delegate { key, signature } = env.authentication else {
+        return Err(EnrolError::Binding(
+            "peer publication requires its own delegate signature",
+        ));
+    };
+    if Some(key.0) != proposal_delegate {
+        return Err(EnrolError::Binding(
+            "publication delegate differs from proposal",
+        ));
+    }
+    layerx_crypto::ed25519::verify_message(
+        &key.0,
+        &signature.0,
+        codec::decode_envelope(bytes)?.request_digest()?.as_bytes(),
+    )
+    .map_err(|_| EnrolError::Binding("peer publication signature is invalid"))?;
+    Ok(())
+}
+
 impl EnrolmentRelay<'_> {
+    /// Submits the exact signed operation and waits for its authenticated receipt.
+    /// # Errors
+    /// Returns an error if submission, execution, receipt authentication or the bounded wait fails.
     pub fn submit_and_accept(
         &self,
         record: &mut OperationRecord,
@@ -451,6 +491,9 @@ impl EnrolmentRelay<'_> {
         )
     }
 
+    /// Validates and submits the proposal, peer acceptance and manifest publication.
+    /// # Errors
+    /// Returns an error if validation or any operation's submission and acceptance fails.
     pub fn enrol_identity(
         &self,
         manifest: &mut SignedManifest,
@@ -462,6 +505,9 @@ impl EnrolmentRelay<'_> {
         Ok(acceptance)
     }
 
+    /// Enrols the host after comparing the signed manifest with measured capabilities.
+    /// # Errors
+    /// Returns an error if measurement fails, capabilities differ, or peer enrolment fails.
     pub fn enrol_host(
         &self,
         config: &MeasurementConfig<'_>,
@@ -476,6 +522,10 @@ impl EnrolmentRelay<'_> {
         self.enrol_peer(manifest, quote)
     }
 
+    /// Verifies the peer's market quote and submits identity, bond and bid operations.
+    /// # Errors
+    /// Returns an error if signatures, quote bindings or manifest checks fail, a required
+    /// operation is unavailable, or any submission or acceptance fails.
     pub fn enrol_peer(
         &self,
         manifest: &mut SignedManifest,
@@ -536,6 +586,9 @@ impl EnrolmentRelay<'_> {
     }
 }
 
+/// Reads one enrolment JSON document within the fixed file-size bound.
+/// # Errors
+/// Returns an error if the file is unreadable, exceeds the size bound or contains invalid JSON.
 pub fn read_enrolment_file(path: &Path) -> Result<serde_json::Value, EnrolError> {
     let mut bytes = Vec::new();
     File::open(path)

@@ -4,7 +4,6 @@
 package consumer
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -30,6 +29,7 @@ import (
 // SwapConsumer subscribes to the Redis swap channel and processes swaps through
 // the candle builder.
 type SwapConsumer struct {
+	source     *DevelopmentSource
 	builder    *engine.Builder
 	subscriber *sharedredis.Subscriber
 	logger     *slog.Logger
@@ -51,47 +51,9 @@ func New(builder *engine.Builder, redisURL string, logger *slog.Logger) (*SwapCo
 // Start subscribes to the swap channel and processes events until ctx is cancelled.
 func (sc *SwapConsumer) Start(ctx context.Context) error {
 	errc, err := sc.subscriber.Subscribe(ctx, constants.ChannelSwap, func(ctx context.Context, payload []byte) error {
-		var data struct {
-			EventName      string                 `json:"eventName"`
-			BlockNumber    int64                  `json:"blockNumber"`
-			BlockTimestamp int64                  `json:"blockTimestamp"`
-			TxHash         string                 `json:"txHash"`
-			LogIndex       int                    `json:"logIndex"`
-			Args           map[string]interface{} `json:"args"`
-		}
-		decoder := json.NewDecoder(bytes.NewReader(payload))
-		decoder.UseNumber()
-		if err := decoder.Decode(&data); err != nil {
-			sc.logger.Error("consumer: unmarshal swap", slog.String("err", err.Error()))
-			return fmt.Errorf("consumer: invalid swap envelope: %w", err)
-		}
-
-		swap := engine.SwapEvent{
-			PoolID:      asString(data.Args["poolId"]),
-			PoolAddress: asString(data.Args["poolAddress"]),
-			Sender:      asString(data.Args["sender"]),
-			IsBuy:       asBool(data.Args["isBuy"]),
-			AmountIn:    asString(data.Args["amountIn"]),
-			AmountOut:   asString(data.Args["amountOut"]),
-			Fee:         asString(data.Args["fee"]),
-			Price:       asString(data.Args["price"]),
-			TxHash:      data.TxHash,
-			LogIndex:    data.LogIndex,
-		}
-
-		// Resolve the block timestamp. The indexer envelope (identical on the Redis
-		// and webhook paths) carries it top-level as blockTimestamp; fall back to
-		// args.blockTimestamp / args.timestamp for legacy message shapes. A height
-		// is never a timestamp.
-		switch {
-		case data.BlockTimestamp > 0:
-			swap.BlockTimestamp = data.BlockTimestamp
-		case asInt64(data.Args["blockTimestamp"]) > 0:
-			swap.BlockTimestamp = asInt64(data.Args["blockTimestamp"])
-		case asInt64(data.Args["timestamp"]) > 0:
-			swap.BlockTimestamp = asInt64(data.Args["timestamp"])
-		default:
-			return fmt.Errorf("consumer: authenticated block timestamp unavailable")
+		swap, err := DecodeDevelopmentSwap(payload)
+		if err != nil {
+			return err
 		}
 
 		if err := sc.builder.ProcessSwap(ctx, swap); err != nil {
@@ -103,6 +65,9 @@ func (sc *SwapConsumer) Start(ctx context.Context) error {
 		return fmt.Errorf("consumer: subscribe: %w", err)
 	}
 
+	if sc.source != nil {
+		go sc.source.Run(ctx)
+	}
 	sc.logger.Info("candle swap consumer started")
 
 	go func() {

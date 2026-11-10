@@ -1,0 +1,113 @@
+[repair.22.39.338]
+requirement = "22998.1"
+base_revision = "779bb0fbe4b5d292d68a4178e8559134a696d3ff"
+decision = "3203"
+gotcha = "4125"
+scope = "services/platform/Makefile.inc; services/platform/hosted/paxeer"
+implementation = "Remove the two retired deployment scripts, their digest/compile/parse pins and the uncalled check-profile-only Python suite. Assert file absence while retaining native bootstrap, deployment phase refusal, signing refusal, manifest and EVM checks. Close the four compatibility-root findings as retained under decision 3203."
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The final hf-done ledger entry names the exact candidate revision, command, exit code and private log. A passing result requires the hf-build entry to name the same revision; no passing gate is claimed before execution."
+
+[search.callers]
+command = "rg -l 'custody-genesis\\.py|deploy-contracts\\.sh|deployment_profile\\.py' .github Makefile services/platform/Makefile.inc tools services/platform --glob '!*.kvx' --glob '!**/target/**' --glob '!**/node_modules/**'"
+before = "The Makefile only parsed deploy-contracts.sh; repair_467_test.go pinned and parsed the scripts, repair_m1319_test.go pinned them, and tests/deployment_profile.py invoked only deploy-contracts.sh check-profile. The remaining external matches are negative assertions in tools/bringup/repair_m796_test.go and tools/qualification/audit_repairs/test_repair_22_33_1320.py."
+after = "Only repair_m1319_test.go and those two external refusal/absence tests match. No executable script, recipe or workflow invokes a removed file."
+
+[removed.custody_genesis]
+path = "services/platform/hosted/paxeer/custody-genesis.py"
+search = "search.callers; rg -n 'custody-genesis\\.py|deploy-contracts\\.sh' services/platform/hosted/paxeer --glob '!*.kvx'"
+result = "No remaining caller. Package references only assert absence and prohibit the filename in init-chain.sh. The native initializer still delegates to ../node/bootstrap.sh and refuses custody arguments before handoff."
+
+[removed.deployer]
+path = "services/platform/hosted/paxeer/deploy-contracts.sh"
+search = "search.callers; rg -n 'custody-genesis\\.py|deploy-contracts\\.sh' services/platform/hosted/paxeer --glob '!*.kvx'"
+result = "No remaining caller after removing the Makefile parse entry and check-profile-only Python suite. Package references only assert absence. RunDeployment continues to refuse every historical deployment phase before opening inputs."
+
+[removed.profile_suite]
+path = "services/platform/hosted/paxeer/tests/deployment_profile.py"
+search = "rg -l 'deployment_profile(\\.py)?' .github Makefile services/platform/Makefile.inc tools services/platform --glob '!*.kvx' --glob '!**/target/**' --glob '!**/node_modules/**'"
+result = "No recipe or workflow runs this suite. Other deployment_profile matches in sandbox-journey.sh and gates/104.26.1.sh are JSON report fields. The removed suite drove only the retired deployer check-profile phase."
+
+[changed.make_recipe]
+path = "services/platform/Makefile.inc"
+change = "Remove deploy-contracts.sh from platform-test-tooling bash -n inputs and terminate the preceding supervisor.sh line without a continuation. Keep every other recipe input and command."
+test = "tests/ci/test_make_recipe_paths_exist.py"
+
+[changed.restored_content]
+path = "services/platform/hosted/paxeer/repair_467_test.go"
+cases = ["TestRepair467_RestoredContent", "TestRepair467_PythonCompile", "TestRepair467_DeployerParses"]
+change = "Remove both scripts from repair467OriginalSHA256 and TestRepair467_RestoredContent, remove custody-genesis.py from TestRepair467_PythonCompile, and remove the obsolete TestRepair467_DeployerParses as instructed. Preserve the evm.py and deployment-input.beta.json digests and TestRepair467_MergedOwnerLoader. Decision 3208 moves only the deployment.yaml digest to its maintained content; both manifest test cases and the manifest itself remain unchanged."
+
+[changed.retirement]
+path = "services/platform/hosted/paxeer/repair_m1319_test.go"
+cases = ["TestRepairM_1319_CustodyGenesisRetirement", "TestRepairM_1319_RelayDeployerRetirement", "TestRepairM_1319_DeploymentKeyArgv", "TestRepairM_1319_DeploymentPhaseRecovery"]
+change = "Replace the three script restoration calls with repair1319Absent (Lstat rejects existing files including dangling symlinks); keep repair467Restored for evm.py and all refusal assertions. Update only the stale restored-runner comment in DeploymentPhaseRecovery. No manifest, EVM or boundary binary assertion changes."
+
+[search.finding_cases]
+command = "rg -l 'repair_22_33_1322\\.kvx|open; maintained-owner migration required|relay-retirement-(15|16|17|18)' services/platform/hosted/paxeer tools/qualification tests --glob '!*.kvx'"
+result = "No case reads these state lines; no case requires a corresponding expectation change under decision 3046."
+
+[retained.refusal_probes]
+paths = ["services/platform/hosted/paxeer/fork-rehearsal.sh", "services/platform/hosted/paxeer/src/comet.rs"]
+result = "Unchanged; task 17.2.8 records their decision 3203 allowances."
+
+[qualification]
+build_gate = "hf-build"
+build_cmd = "go build ./services/platform/hosted/paxeer/... && go vet ./services/platform/hosted/paxeer/"
+verify_gate = "hf-done"
+verify_cmd = "test -s services/platform/hosted/paxeer/repair_22_39_338.kvx && test ! -e services/platform/hosted/paxeer/custody-genesis.py && test ! -e services/platform/hosted/paxeer/deploy-contracts.sh && go test -count=1 ./services/platform/hosted/paxeer/ -run '^(TestRepair467_|TestRepairM_1319_)' && python3 -m pytest -q tests/ci/test_make_recipe_paths_exist.py tools/qualification/audit_repairs/test_repair_22_33_1320.py"
+limits = "Only the declared bounded build and verification; no Rust, cluster, deployment or additional gate qualification is claimed."
+
+[gotcha.inspection]
+observed = "A lookup of deployment.go failed because the real RunDeployment handler lives in profile.go."
+resolution = "Located and read profile.go; no source or behavior change was needed. Record kept in this scoped repair file because GOTCHA.kvx is outside the authorized paths."
+
+[finding.relay-retirement-15]
+path = "services/platform/hosted/paxeer/src/repair_22_33_1322.kvx"
+state = "retained under decision 3203"
+closure = "The boundary crate and compatibility root remain supported under decisions 2524, 2533 and 3203. Preserve the production transport and refusal assertions; retirement of the crate requires a separate owner decision. The record summary and owner-scope resolution now agree with this closure."
+
+[finding.relay-retirement-16]
+path = "services/platform/hosted/paxeer/src/repair_22_33_1322.kvx"
+state = "retained under decision 3203"
+closure = "The boundary crate and compatibility root remain supported under decisions 2524, 2533 and 3203. Preserve the production transport and refusal assertions; retirement of the crate requires a separate owner decision. The record summary and owner-scope resolution now agree with this closure."
+
+[finding.relay-retirement-17]
+path = "services/platform/hosted/paxeer/src/repair_22_33_1322.kvx"
+state = "retained under decision 3203"
+closure = "The boundary crate and compatibility root remain supported under decisions 2524, 2533 and 3203. Preserve the production transport and refusal assertions; retirement of the crate requires a separate owner decision. The record summary and owner-scope resolution now agree with this closure."
+
+[finding.relay-retirement-18]
+path = "services/platform/hosted/paxeer/src/repair_22_33_1322.kvx"
+state = "retained under decision 3203"
+closure = "The boundary crate and compatibility root remain supported under decisions 2524, 2533 and 3203. Preserve the production transport and refusal assertions; retirement of the crate requires a separate owner decision. The record summary and owner-scope resolution now agree with this closure."
+
+[qualification.previous_attempt_build_result]
+revision = "a491cab991c3fac9e8f635b5735b676cd329469e"
+command = "go build ./services/platform/hosted/paxeer/... && go vet ./services/platform/hosted/paxeer/"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.previous_attempt_verify_result]
+revision = "a491cab991c3fac9e8f635b5735b676cd329469e"
+command = "cg spec done 22.39.338 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+result = "Implemented, not qualified. The Go failure prevented the subsequent Python tests and successful graph qualification; no completion is claimed. This post-gate evidence entry is documentation only and was not part of the tested candidate."
+
+[changed.manifest_digest]
+decision = "3208"
+gotcha = "4130"
+continuation_base_revision = "390496e41e48567c3358b31bab1b6ab9326ddbe3"
+path = "services/platform/hosted/paxeer/repair_467_test.go"
+symbol = "repair467OriginalSHA256"
+cases = ["TestRepair467_RestoredContent", "TestRepairM_1319_NativeDeployment"]
+producer_commit = "9e17ec8e4db42af931932623e20386de056c9bcd"
+producer_task = "18.1790.1"
+producer_change = "services/platform/hosted/paxeer/deployment.yaml:148 replaces the gateway-only podSelector with namespaceSelector for layerx-mainnet-beta and the gateway podSelector on line 149."
+inspection = "git show 9e17ec8e4d -- services/platform/hosted/paxeer/deployment.yaml; sha256sum services/platform/hosted/paxeer/deployment.yaml"
+change = "Move only the deployment.yaml entry from 7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066 to ba84aff353486b744f3b9759fb158219b9de90558366485b483e4793c60dc9a2, matching the maintained manifest on main. All other table entries and test cases remain as in attempt 1; deployment.yaml remains unchanged."
+
+[gotcha.inherited_manifest_digest]
+observed = "The declared verification stops at the inherited deployment.yaml digest mismatch before executing Python tests."
+resolution = "Decision 3208 authorizes the single digest-pin correction to the manifest produced by commit 9e17ec8e4d at line 148. Preserve the manifest and both test cases, retain the previous attempt evidence as historical, and qualify the final candidate through hf-build then hf-done. GOTCHA.kvx and spec qualification files are outside the authorized scope."

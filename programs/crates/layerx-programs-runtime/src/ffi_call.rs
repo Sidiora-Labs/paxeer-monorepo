@@ -1614,6 +1614,18 @@ impl ReceiptOracle for CReceiptOracle {
 }
 
 unsafe extern "C" {
+    fn layerx_programs_call_destination_name_byte(
+        token: u64,
+        t0: u64,
+        t1: u64,
+        t2: u64,
+        t3: u64,
+        a0: u64,
+        a1: u64,
+        a2: u64,
+        a3: u64,
+        offset: u32,
+    ) -> i32;
     fn layerx_programs_call_payment_name_byte(
         token: u64,
         a0: u64,
@@ -1626,7 +1638,33 @@ unsafe extern "C" {
 
 fn bind_payment_accounts(token: u64, set: &mut AtomicTransferSet) -> Result<(), i32> {
     let mut names = Vec::with_capacity(set.legs().len());
+    let mut destination_names = Vec::with_capacity(set.legs().len());
     for leg in set.legs() {
+        let destination = words(leg.to);
+        let asset = words(leg.asset);
+        let read_destination = |offset| unsafe {
+            layerx_programs_call_destination_name_byte(
+                token,
+                destination[0],
+                destination[1],
+                destination[2],
+                destination[3],
+                asset[0],
+                asset[1],
+                asset[2],
+                asset[3],
+                offset,
+            )
+        };
+        let length = read_destination(u32::MAX);
+        if length < 0 {
+            return Err(length);
+        }
+        let length = usize::try_from(length).map_err(|_| LENGTH_LIMIT)?;
+        if length > 512 {
+            return Err(NON_CANONICAL);
+        }
+        destination_names.push(scalar_bytes(length, read_destination)?);
         if matches!(leg.source, TransferSource::Program(_)) {
             names.push(Vec::new());
             continue;
@@ -1655,7 +1693,8 @@ fn bind_payment_accounts(token: u64, set: &mut AtomicTransferSet) -> Result<(), 
             },
         )?);
     }
-    set.bind_account_names(&names).map_err(|_| NON_CANONICAL)
+    set.bind_account_names(&names, &destination_names)
+        .map_err(|_| NON_CANONICAL)
 }
 
 fn submit_kernel_transfer_leg(
