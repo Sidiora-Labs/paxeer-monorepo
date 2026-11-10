@@ -542,7 +542,7 @@ fn notification(value: &Value, id: &str) -> Result<(Value, LogPosition), RpcErro
 }
 
 impl RpcSubscription {
-    fn request(&mut self, id: &str, method: &str, params: Value) -> Result<Value, RpcError> {
+    fn request(&mut self, id: &str, method: &str, params: &Value) -> Result<Value, RpcError> {
         transport(&mut self.socket)?.reset()?;
         self.socket
             .send(Message::Text(
@@ -579,7 +579,7 @@ impl RpcSubscription {
     }
 
     fn backfill(&mut self, cursor: LogPosition) -> Result<(), RpcError> {
-        let head = self.request("3", "eth_blockNumber", json!([]))?;
+        let head = self.request("3", "eth_blockNumber", &json!([]))?;
         let head = head
             .as_str()
             .and_then(quantity)
@@ -595,7 +595,7 @@ impl RpcSubscription {
             let mut filter = self.filter.clone();
             filter["fromBlock"] = json!(format!("0x{from:x}"));
             filter["toBlock"] = json!(format!("0x{to:x}"));
-            let logs = self.request("4", "eth_getLogs", json!([filter]))?;
+            let logs = self.request("4", "eth_getLogs", &json!([filter]))?;
             for log in logs.as_array().ok_or(RpcError::InvalidResponse)? {
                 let position = log_position(log)?;
                 if position.block_number < from
@@ -1200,10 +1200,10 @@ mod tests {
         }
         assert!(matches!(
             cancellation(
-                &json!({"jsonrpc":"2.0", "id":"2", "error":{"code":-32602, "message":"Unknown subscription"}})
+                &json!({"jsonrpc":"2.0", "id":"2", "error":{"code":-32_602, "message":"Unknown subscription"}})
             ),
             Err(RpcError::Remote {
-                code: -32602,
+                code: -32_602,
                 ref message,
                 data: None
             }) if message == "Unknown subscription"

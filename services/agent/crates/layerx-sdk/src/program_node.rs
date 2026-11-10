@@ -23,36 +23,51 @@ pub struct NodeProgramExecution {
     guest_abi: u16,
 }
 impl NodeProgramExecution {
+    #[must_use]
     pub const fn receipt(&self) -> &Receipt {
         &self.receipt
     }
+    #[must_use]
     pub fn canonical_receipt(&self) -> &[u8] {
         &self.canonical_receipt
     }
+    #[must_use]
     pub fn signed_transaction(&self) -> &[u8] {
         &self.signed_transaction
     }
+    #[must_use]
     pub fn transaction_hash(&self) -> [u8; 32] {
         transaction_hash(&self.signed_transaction)
     }
+    #[must_use]
     pub const fn program_id(&self) -> [u8; 32] {
         self.program_id
     }
+    #[must_use]
     pub const fn idempotency_key(&self) -> [u8; 32] {
         self.idempotency_key
     }
+    #[must_use]
     pub const fn terminal_result(&self) -> Option<i32> {
         self.terminal_result
     }
+    #[must_use]
     pub const fn terminal_kind(&self) -> Option<u8> {
         self.terminal_kind
     }
+    #[must_use]
     pub fn response(&self) -> &[u8] {
         &self.response
     }
+    #[must_use]
     pub const fn guest_abi(&self) -> u16 {
         self.guest_abi
     }
+    #[must_use]
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public execution.rung() accessor contract for receipt evidence."
+    )]
     pub const fn rung(&self) -> Rung {
         Rung::Receipted
     }
@@ -155,6 +170,9 @@ impl HttpProgramTransport {
     }
 
     /// Connects to live node JSON-RPC with independently configured network and height-ranged receipt trust.
+    /// # Errors
+    ///
+    /// Refuses a policy outside protocol version 2 or with network ID zero, invalid connection configuration, or a node whose chain ID differs from the policy.
     pub fn connect_node_with_policy(
         endpoint: &str,
         credential: Option<super::LayerXKeyCredential>,
@@ -174,7 +192,7 @@ impl HttpProgramTransport {
             .node_policy
             .as_ref()
             .ok_or(ProgramOperationError::MissingNodeReadAuthority)?;
-        if quantity(&self.node_rpc("eth_chainId", json!([]))?)? != u64::from(policy.network_id) {
+        if quantity(&self.node_rpc("eth_chainId", &json!([]))?)? != u64::from(policy.network_id) {
             return Err(ProgramOperationError::Verification);
         }
         Ok(policy)
@@ -193,7 +211,7 @@ impl HttpProgramTransport {
         {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        let result = self.node_rpc("eth_sendRawTransaction", json!([hex(raw)]))?;
+        let result = self.node_rpc("eth_sendRawTransaction", &json!([hex(raw)]))?;
         if fixed::<32>(&result)? != expected {
             return Err(ProgramOperationError::IdentityMismatch);
         }
@@ -207,9 +225,12 @@ impl HttpProgramTransport {
         if call.to != PROGRAMS_PRECOMPILE || call.chain_id != u64::from(policy.network_id) {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        bytes(&self.node_rpc("eth_call",json!([{"from":hex(&from),"to":hex(&call.to),"data":hex(&call.data),"gas":format!("0x{:x}",call.gas_limit)},"pending"]))?)
+        bytes(&self.node_rpc("eth_call",&json!([{"from":hex(&from),"to":hex(&call.to),"data":hex(&call.data),"gas":format!("0x{:x}",call.gas_limit)},"pending"]))?)
     }
     /// Reads a currently served registry method at a fixed, rechecked committed block.
+    /// # Errors
+    ///
+    /// Refuses a zero program or unsupported method, missing network authority, malformed RPC results, transport errors, or a block that changes during the read.
     pub fn node_read(
         &self,
         program: [u8; 32],
@@ -224,7 +245,7 @@ impl HttpProgramTransport {
             return Err(ProgramOperationError::IdentityMismatch);
         }
         self.check_node_network()?;
-        let block = self.node_rpc("eth_getBlockByNumber", json!(["latest", false]))?;
+        let block = self.node_rpc("eth_getBlockByNumber", &json!(["latest", false]))?;
         let height = quantity(&block["number"])?;
         let hash = fixed::<32>(&block["hash"])?;
         let mut data = layerx_crypto::disclosure::call::ledger_selector(method).to_vec();
@@ -232,9 +253,9 @@ impl HttpProgramTransport {
         let selector = format!("0x{height:x}");
         let result = bytes(&self.node_rpc(
             "eth_call",
-            json!([{"to":hex(&PROGRAMS_PRECOMPILE),"data":hex(&data)},selector]),
+            &json!([{"to":hex(&PROGRAMS_PRECOMPILE),"data":hex(&data)},selector]),
         )?)?;
-        let again = self.node_rpc("eth_getBlockByNumber", json!([selector, false]))?;
+        let again = self.node_rpc("eth_getBlockByNumber", &json!([selector, false]))?;
         if quantity(&again["number"])? != height || fixed::<32>(&again["hash"])? != hash {
             return Err(ProgramOperationError::Verification);
         }
@@ -250,11 +271,11 @@ impl HttpProgramTransport {
     ) -> Result<Receipt, ProgramOperationError> {
         let policy = self.check_node_network()?;
         let hash = request.bound_activity_id();
-        let raw = bytes(&self.node_rpc("eth_getRawTransactionByHash", json!([hex(&hash)]))?)?;
+        let raw = bytes(&self.node_rpc("eth_getRawTransactionByHash", &json!([hex(&hash)]))?)?;
         if raw != request.signed_activity() {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        let value = self.node_rpc("pax_sequencerReceipt", json!([hex(&hash)]))?;
+        let value = self.node_rpc("pax_sequencerReceipt", &json!([hex(&hash)]))?;
         let (receipt, canonical) = verify_node_receipt(&value, hash, policy)
             .map_err(|_| ProgramOperationError::Verification)?;
         bind_transaction(&receipt, &raw)?;
@@ -294,7 +315,7 @@ impl HttpProgramTransport {
         if hash == [0; 32] {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        let raw = self.node_rpc("eth_getRawTransactionByHash", json!([hex(&hash)]))?;
+        let raw = self.node_rpc("eth_getRawTransactionByHash", &json!([hex(&hash)]))?;
         if raw.is_null() {
             return Err(ProgramOperationError::UnknownOutcome);
         }
@@ -305,7 +326,7 @@ impl HttpProgramTransport {
         {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        let value = self.node_rpc("pax_sequencerReceipt", json!([hex(&hash)]))?;
+        let value = self.node_rpc("pax_sequencerReceipt", &json!([hex(&hash)]))?;
         if value.is_null() || value["rung"] == "submitted" {
             if !value.is_null() {
                 let (call, _) = decode_signed(&raw).map_err(|_| ProgramOperationError::Decode)?;
@@ -351,6 +372,9 @@ fn bind_transaction(receipt: &Receipt, raw: &[u8]) -> Result<(), ProgramOperatio
 
 /// Verifies a real node summary, signed Programs outcome log, canonical ABI return,
 /// requested ABI and response capacity. No kernel proof is inferred from JSON.
+/// # Errors
+///
+/// Refuses an unauthenticated receipt, mismatched transaction or Programs outcome, malformed ABI return, or response exceeding the signed capacity.
 pub fn verify_node_program_execution(
     value: &Value,
     raw: &[u8],
@@ -401,7 +425,8 @@ pub fn verify_node_program_execution(
         .checked_add(length)
         .ok_or(ProgramOperationError::Bounds)?;
     let padded = end.checked_add(31).ok_or(ProgramOperationError::Bounds)? & !31;
-    if length > call.response_capacity as usize
+    if length
+        > usize::try_from(call.response_capacity).map_err(|_| ProgramOperationError::Decode)?
         || padded != returned.len()
         || returned[end..].iter().any(|b| *b != 0)
     {

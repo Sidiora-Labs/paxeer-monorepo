@@ -1,4 +1,4 @@
-//! Proves: Wallet::{create,execute} -> RpcClient / paxd EVM RPC -> layerx-wallet-rpc::{submit,wait}.
+//! Proves: `Wallet::{create,execute}` -> `RpcClient` / paxd EVM RPC -> `layerx-wallet-rpc::{submit,wait}`.
 //!
 //! Starts tools/qualification/localnode/v6120-node.sh from this repository, using the
 //! node installed by the declared build. All endpoints and keys come from files the
@@ -6,29 +6,29 @@
 //! and used to register an asset and open its account. The node is stopped and its
 //! durable home reopened before fresh SDK and bridge consumers read the same state.
 //!
-//! Repairs: rpc.rs::estimate_fee_from omitted estimate_fee's calldata limit, and
-//! production.rs omitted the contracted verify_receipt entry point. Wallet, MCP, CLI
-//! and bridge preparation now share the same calldata bound. RpcClient::connect_node
+//! Repairs: `rpc.rs::estimate_fee_from` omitted `estimate_fee`'s calldata limit, and
+//! production.rs omitted the contracted `verify_receipt` entry point. Wallet, MCP, CLI
+//! and bridge preparation now share the same calldata bound. `RpcClient::connect_node`
 //! repairs direct-node routing: connect appended the gateway-only `/rpc` suffix,
 //! so node calls received HTTP 404 before any envelope could be decoded. The bridge
-//! selects the same explicit node route with configuration.rpc_route = "node".
-//! RpcClient::estimate_fee now documents that maxFeePerGas triggers the node's
+//! selects the same explicit node route with `configuration.rpc_route` = "node".
+//! `RpcClient::estimate_fee` now documents that maxFeePerGas triggers the node's
 //! payer balance check: the proof checks the funded balance at latest and uses
-//! RpcClient::estimate_fee_from with that payer rather than an omitted sender.
-//! In the separate version-3 policy mismatch regression, after Wallet::create refuses the sequencer receipt, the proof waits for the
+//! `RpcClient::estimate_fee_from` with that payer rather than an omitted sender.
+//! In the separate version-3 policy mismatch regression, after `Wallet::create` refuses the sequencer receipt, the proof waits for the
 //! committed nonce before reading the registered asset at latest.
 //!
 //! The positive in-process proof below uses a pinned version-2 policy and reopened
-//! protocol peer for Wallet::create and wait_for. The real-node version mismatch
+//! protocol peer for `Wallet::create` and `wait_for`. The real-node version mismatch
 //! regression retains its explicit version-3 refusal.
-//! rpc/sequencer_receipt.go::sequencerReceiptView publishes version-2
-//! EVM summary receipts. Wallet::{create,wait_for} and bridge wait refuse them under
+//! `rpc/sequencer_receipt.go::sequencerReceiptView` publishes version-2
+//! EVM summary receipts. `Wallet::{create,wait_for}` and bridge wait refuse them under
 //! the version-3 receipt policy while successful EVM mutations remain visible.
 //! services/agent/crates/layerx-proof/src/receipt.rs::verify_outcome accepts version 2
-//! at line 344 and checks the authorized asset at line 375. production::verify_receipt
+//! at line 344 and checks the authorized asset at line 375. `production::verify_receipt`
 //! must economically verify the node-produced summary under its pinned key when
 //! the batch carries the decoded asset, batch id and state roots, and refuse a
-//! different asset at ReceiptCheck::Asset without changing the external producer.
+//! different asset at `ReceiptCheck::Asset` without changing the external producer.
 
 use std::fs::{self, File, OpenOptions};
 use std::future::Future;
@@ -64,7 +64,7 @@ use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(bytes)
 }
 
 fn run<F: Future>(future: F) -> F::Output {
@@ -97,7 +97,7 @@ impl Directory {
         fs::DirBuilder::new()
             .mode(0o700)
             .create(&root)
-            .expect("private proof directory");
+            .unwrap_or_else(|error| panic!("private proof directory: {error:?}"));
         Self(root)
     }
 }
@@ -123,7 +123,7 @@ fn call() -> Eip1559Call {
             &Payment::OpenAccount { asset: [3; 32] },
             b"did:layerx:alice",
         )
-        .expect("real payment calldata producer"),
+        .unwrap_or_else(|error| panic!("real payment calldata producer: {error:?}")),
     }
 }
 
@@ -139,76 +139,113 @@ fn bridge(request: &Value) -> (bool, Value) {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs producer");
+        .unwrap_or_else(|error| {
+            panic!(
+                "services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs producer: {error:?}"
+            )
+        });
     child
         .stdin
         .take()
-        .expect("bridge input")
-        .write_all(&serde_json::to_vec(request).expect("bridge request JSON"))
-        .expect("real bridge stdin transport");
+        .unwrap_or_else(|| panic!("bridge input"))
+        .write_all(
+            &serde_json::to_vec(request)
+                .unwrap_or_else(|error| panic!("bridge request JSON: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("real bridge stdin transport: {error:?}"));
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
-        if child.try_wait().expect("bridge status").is_some() {
+        if child
+            .try_wait()
+            .unwrap_or_else(|error| panic!("bridge status: {error:?}"))
+            .is_some()
+        {
             break;
         }
         if Instant::now() >= deadline {
-            child.kill().expect("stop stalled bridge");
+            child
+                .kill()
+                .unwrap_or_else(|error| panic!("stop stalled bridge: {error:?}"));
             let _ = child.wait();
             panic!("layerx-wallet-rpc consumer exceeded its deadline");
         }
         std::thread::sleep(Duration::from_millis(2));
     }
-    let output = child.wait_with_output().expect("closed bridge process");
+    let output = child
+        .wait_with_output()
+        .unwrap_or_else(|error| panic!("closed bridge process: {error:?}"));
     (
         output.status.success(),
-        serde_json::from_slice(&output.stdout).expect("consumer reply"),
+        serde_json::from_slice(&output.stdout)
+            .unwrap_or_else(|error| panic!("consumer reply: {error:?}")),
     )
 }
 
 #[test]
 fn proof_sdk_signed_transaction_reopens_and_reaches_the_real_bridge() {
     let root = Directory::new();
-    let transaction = call().sign(&[0x42; 32]).expect("real EIP-1559 signer");
+    let transaction = call()
+        .sign(&[0x42; 32])
+        .unwrap_or_else(|error| panic!("real EIP-1559 signer: {error:?}"));
     let path = root.0.join("transaction");
     let mut producer = OpenOptions::new()
         .create_new(true)
         .write(true)
         .mode(0o600)
         .open(&path)
-        .expect("create producer state");
+        .unwrap_or_else(|error| panic!("create producer state: {error:?}"));
     producer
         .write_all(&transaction)
-        .expect("persist signed transaction");
-    producer.sync_all().expect("durable producer bytes");
+        .unwrap_or_else(|error| panic!("persist signed transaction: {error:?}"));
+    producer
+        .sync_all()
+        .unwrap_or_else(|error| panic!("durable producer bytes: {error:?}"));
     drop(producer);
-    let reopened = fs::read(&path).expect("reopen producer state");
+    let reopened =
+        fs::read(&path).unwrap_or_else(|error| panic!("reopen producer state: {error:?}"));
     assert_eq!(reopened, transaction);
-    assert_eq!(call().sign(&[0x42; 32]).expect("repeat producer"), reopened);
+    assert_eq!(
+        call()
+            .sign(&[0x42; 32])
+            .unwrap_or_else(|error| panic!("repeat producer: {error:?}")),
+        reopened
+    );
     assert_eq!(
         OpenOptions::new()
             .create_new(true)
             .write(true)
             .open(&path)
-            .expect_err("duplicate producer state must be refused")
+            .err()
+            .unwrap_or_else(|| panic!("duplicate producer state must be refused"))
             .kind(),
         std::io::ErrorKind::AlreadyExists
     );
-    let (decoded, signature) = decode_signed(&reopened).expect("real transaction decoder");
+    let (decoded, signature) = decode_signed(&reopened)
+        .unwrap_or_else(|error| panic!("real transaction decoder: {error:?}"));
     assert_eq!(decoded, call());
-    let sender = recover_sender(&decoded, &signature).expect("real transaction recovery");
+    let sender = recover_sender(&decoded, &signature)
+        .unwrap_or_else(|error| panic!("real transaction recovery: {error:?}"));
     assert_ne!(sender, [0; 20]);
-    let listener = TcpListener::bind("127.0.0.1:0").expect("local no-traffic boundary");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("local no-traffic boundary: {error:?}"));
     listener
         .set_nonblocking(true)
-        .expect("nonblocking boundary");
-    let endpoint = format!("http://{}", listener.local_addr().expect("bound address"));
+        .unwrap_or_else(|error| panic!("nonblocking boundary: {error:?}"));
+    let endpoint = format!(
+        "http://{}",
+        listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("bound address: {error:?}"))
+    );
     let hash = format!("0x{}", hex(&transaction_hash(&reopened)));
     let request = json!({"action": "wait", "configuration": configuration(&endpoint),
         "txHash": hash, "rung": "submitted", "timeout_ms": "1000"});
     let expected = json!({"ok":true,"result":{"txHash":hash,"rung":"submitted"}});
     assert_eq!(bridge(&request), (true, expected.clone()));
     // bridge() has reaped the process; this invocation starts a fresh consumer.
-    drop(File::open(&path).expect("reopen durable producer before consumer restart"));
+    drop(File::open(&path).unwrap_or_else(|error| {
+        panic!("reopen durable producer before consumer restart: {error:?}")
+    }));
     assert_eq!(bridge(&request), (true, expected));
     let mut malformed = request;
     malformed["txHash"] = json!("0x00");
@@ -221,7 +258,8 @@ fn proof_sdk_signed_transaction_reopens_and_reaches_the_real_bridge() {
     assert_eq!(
         listener
             .accept()
-            .expect_err("submitted acknowledgement must not claim a node read")
+            .err()
+            .unwrap_or_else(|| panic!("submitted acknowledgement must not claim a node read"))
             .kind(),
         std::io::ErrorKind::WouldBlock
     );
@@ -229,15 +267,21 @@ fn proof_sdk_signed_transaction_reopens_and_reaches_the_real_bridge() {
 
 #[test]
 fn proof_sdk_public_wallet_refusals_do_not_cross_the_transport() {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("local refusal boundary");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("local refusal boundary: {error:?}"));
     listener
         .set_nonblocking(true)
-        .expect("nonblocking boundary");
+        .unwrap_or_else(|error| panic!("nonblocking boundary: {error:?}"));
     let rpc = RpcClient::connect(
-        &format!("http://{}", listener.local_addr().expect("address")),
+        &format!(
+            "http://{}",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("address: {error:?}"))
+        ),
         None,
     )
-    .expect("real RpcClient");
+    .unwrap_or_else(|error| panic!("real RpcClient: {error:?}"));
     assert!(matches!(
         rpc.get_identity_sequence("did:layerx:alice"),
         Err(RpcError::InvalidRequest)
@@ -309,7 +353,8 @@ fn proof_sdk_public_wallet_refusals_do_not_cross_the_transport() {
     assert_eq!(
         listener
             .accept()
-            .expect_err("local refusals must not contact a replacement producer")
+            .err()
+            .unwrap_or_else(|| panic!("local refusals must not contact a replacement producer"))
             .kind(),
         std::io::ErrorKind::WouldBlock
     );
@@ -324,9 +369,9 @@ impl OsClock {
     fn new() -> Self {
         let mut generation = [0; 16];
         File::open("/dev/urandom")
-            .expect("OS entropy")
+            .unwrap_or_else(|error| panic!("OS entropy: {error:?}"))
             .read_exact(&mut generation)
-            .expect("clock generation");
+            .unwrap_or_else(|error| panic!("clock generation: {error:?}"));
         assert_ne!(generation, [0; 16]);
         Self {
             origin: Instant::now(),
@@ -361,16 +406,19 @@ fn repository() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(4)
-        .expect("repository root")
+        .unwrap_or_else(|| panic!("repository root"))
         .to_owned()
 }
 
 fn generated_setting(path: &Path, key: &str) -> String {
-    let document = Zeroizing::new(fs::read_to_string(path).expect("harness-generated settings"));
+    let document = Zeroizing::new(
+        fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("harness-generated settings: {error:?}")),
+    );
     let value = document
         .lines()
         .find_map(|line| line.strip_prefix(&format!("{key}=")))
-        .expect("generated setting exists");
+        .unwrap_or_else(|| panic!("generated setting exists"));
     // The requested values are paths, hex or loopback URLs: bash %q emits these
     // without quoting. Refuse shell syntax instead of evaluating the env file.
     assert!(
@@ -404,7 +452,8 @@ impl LocalNode {
         let directory = Directory::new();
         let env_path = directory.0.join("lx-localnode/localnode.env");
         let log_path = directory.0.join("startup.log");
-        let log = File::create(&log_path).expect("private startup evidence");
+        let log = File::create(&log_path)
+            .unwrap_or_else(|error| panic!("private startup evidence: {error:?}"));
         let mut node = Self {
             directory,
             home: PathBuf::new(),
@@ -413,8 +462,8 @@ impl LocalNode {
             restarted: None,
         };
         let status = node.script().args(["--sequencer", "--env-out"]).arg(&env_path)
-            .stdout(log.try_clone().expect("log clone")).stderr(log).status()
-            .expect("missing producer tools/qualification/localnode/v6120-node.sh (build: make -f chain.mk install)");
+            .stdout(log.try_clone().unwrap_or_else(|error| panic!("log clone: {error:?}"))).stderr(log).status()
+            .unwrap_or_else(|error| panic!("missing producer tools/qualification/localnode/v6120-node.sh (build: make -f chain.mk install): {error:?}"));
         assert!(status.success(), "producer tools/qualification/localnode/v6120-node.sh failed: {status}; private evidence {}", log_path.display());
         node.home = generated_setting(&env_path, "LOCAL_NODE_HOME").into();
         node.endpoint = generated_setting(&env_path, "LOCAL_NODE_RPC");
@@ -428,7 +477,7 @@ impl LocalNode {
     }
     fn rpc(&self) -> RpcClient {
         RpcClient::connect_node(&self.endpoint, None)
-            .expect("real node RpcClient")
+            .unwrap_or_else(|error| panic!("real node RpcClient: {error:?}"))
             .with_clock(Arc::new(OsClock::new()))
     }
     fn stop(&mut self) {
@@ -440,10 +489,12 @@ impl LocalNode {
             .arg("--stop")
             .arg(&self.home)
             .status()
-            .expect("stop owned node")
+            .unwrap_or_else(|error| panic!("stop owned node: {error:?}"))
             .success());
         if let Some(mut child) = self.restarted.take() {
-            child.wait().expect("reap restarted node");
+            child
+                .wait()
+                .unwrap_or_else(|error| panic!("reap restarted node: {error:?}"));
         }
     }
     fn restart(&mut self) {
@@ -451,7 +502,7 @@ impl LocalNode {
         let log = OpenOptions::new()
             .append(true)
             .open(self.home.join("node.log"))
-            .expect("restart evidence");
+            .unwrap_or_else(|error| panic!("restart evidence: {error:?}"));
         let child = Command::new(&self.executable)
             .arg("start")
             .arg("--home")
@@ -478,11 +529,15 @@ impl LocalNode {
             .arg("--sequencer.receipt-key-file")
             .arg(self.home.join("config/receipt-key.hex"))
             .stdin(Stdio::null())
-            .stdout(log.try_clone().expect("log clone"))
+            .stdout(
+                log.try_clone()
+                    .unwrap_or_else(|error| panic!("log clone: {error:?}")),
+            )
             .stderr(log)
             .spawn()
-            .expect("restart installed paxd");
-        fs::write(self.home.join("node.pid"), child.id().to_string()).expect("owned restart pid");
+            .unwrap_or_else(|error| panic!("restart installed paxd: {error:?}"));
+        fs::write(self.home.join("node.pid"), child.id().to_string())
+            .unwrap_or_else(|error| panic!("owned restart pid: {error:?}"));
         self.restarted = Some(child);
         let deadline = Instant::now() + Duration::from_secs(60);
         loop {
@@ -497,9 +552,9 @@ impl LocalNode {
             assert!(
                 self.restarted
                     .as_mut()
-                    .expect("restart child")
+                    .unwrap_or_else(|| panic!("restart child"))
                     .try_wait()
-                    .expect("restart status")
+                    .unwrap_or_else(|error| panic!("restart status: {error:?}"))
                     .is_none(),
                 "reopened node exited; evidence {}",
                 self.home.join("node.log").display()
@@ -523,17 +578,18 @@ impl LocalNode {
                 "21000",
             ])
             .output()
-            .expect("real funding producer");
+            .unwrap_or_else(|error| panic!("real funding producer: {error:?}"));
         assert!(
             output.status.success(),
             "real funding failed: {}",
             String::from_utf8_lossy(&output.stderr)
         );
-        let text = String::from_utf8(output.stdout).expect("funding output");
+        let text = String::from_utf8(output.stdout)
+            .unwrap_or_else(|error| panic!("funding output: {error:?}"));
         let hash = text
             .lines()
             .find_map(|line| line.strip_prefix("Transaction hash: "))
-            .expect("funding transaction hash");
+            .unwrap_or_else(|| panic!("funding transaction hash"));
         mined(&self.rpc(), &self.endpoint, hash);
     }
 }
@@ -550,12 +606,13 @@ impl Drop for LocalNode {
 }
 
 fn receipt_diagnostic(endpoint: &str, hash: &str) {
-    let endpoint = url::Url::parse(endpoint).expect("owned node endpoint");
+    let endpoint =
+        url::Url::parse(endpoint).unwrap_or_else(|error| panic!("owned node endpoint: {error:?}"));
     let request = serde_json::to_vec(&json!({
         "jsonrpc": "2.0", "id": "receipt-diagnostic",
         "method": "eth_getTransactionReceipt", "params": [hash]
     }))
-    .expect("receipt diagnostic request");
+    .unwrap_or_else(|error| panic!("receipt diagnostic request: {error:?}"));
     match ureq::post(endpoint.as_str())
         .header("Content-Type", "application/json")
         .config()
@@ -576,7 +633,7 @@ fn receipt_diagnostic(endpoint: &str, hash: &str) {
                     String::from_utf8_lossy(&bytes)
                 ),
                 Err(error) => {
-                    eprintln!("eth_getTransactionReceipt diagnostic body failed: {error}")
+                    eprintln!("eth_getTransactionReceipt diagnostic body failed: {error}");
                 }
             }
         }
@@ -610,15 +667,23 @@ fn mined(rpc: &RpcClient, endpoint: &str, hash: &str) -> Value {
 
 fn eth_call(node: &LocalNode, to: &[u8; 20], data: &[u8]) -> Vec<u8> {
     let mut response = ureq::post(&node.endpoint).header("Content-Type", "application/json")
-        .send(serde_json::to_vec(&json!({"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":format!("0x{}", hex(to)),"data":format!("0x{}",hex(data))},"latest"]})).expect("setup read request").as_slice()).expect("real precompile read");
-    let document: Value =
-        serde_json::from_slice(&response.body_mut().read_to_vec().expect("precompile reply"))
-            .expect("precompile JSON");
+        .send(serde_json::to_vec(&json!({"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":format!("0x{}", hex(to)),"data":format!("0x{}",hex(data))},"latest"]})).unwrap_or_else(|error| panic!("setup read request: {error:?}")).as_slice()).unwrap_or_else(|error| panic!("real precompile read: {error:?}"));
+    let document: Value = serde_json::from_slice(
+        &response
+            .body_mut()
+            .read_to_vec()
+            .unwrap_or_else(|error| panic!("precompile reply: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("precompile JSON: {error:?}"));
     assert!(
         document.get("error").is_none(),
         "precompile refused: {document}"
     );
-    unhex(document["result"].as_str().expect("precompile hex"))
+    unhex(
+        document["result"]
+            .as_str()
+            .unwrap_or_else(|| panic!("precompile hex")),
+    )
 }
 
 fn quantity_latest(node: &LocalNode, method: &str, address: &str) -> u128 {
@@ -626,18 +691,18 @@ fn quantity_latest(node: &LocalNode, method: &str, address: &str) -> u128 {
         "jsonrpc": "2.0", "id": "latest-quantity",
         "method": method, "params": [address, "latest"]
     }))
-    .expect("latest quantity request");
+    .unwrap_or_else(|error| panic!("latest quantity request: {error:?}"));
     let mut response = ureq::post(&node.endpoint)
         .header("Content-Type", "application/json")
         .send(request.as_slice())
-        .expect("real latest quantity transport");
+        .unwrap_or_else(|error| panic!("real latest quantity transport: {error:?}"));
     let document: Value = serde_json::from_slice(
         &response
             .body_mut()
             .read_to_vec()
-            .expect("latest quantity reply"),
+            .unwrap_or_else(|error| panic!("latest quantity reply: {error:?}")),
     )
-    .expect("latest quantity JSON");
+    .unwrap_or_else(|error| panic!("latest quantity JSON: {error:?}"));
     assert_eq!(document["jsonrpc"], "2.0");
     assert_eq!(document["id"], "latest-quantity");
     assert!(
@@ -647,8 +712,9 @@ fn quantity_latest(node: &LocalNode, method: &str, address: &str) -> u128 {
     let quantity = document["result"]
         .as_str()
         .and_then(|value| value.strip_prefix("0x"))
-        .expect("latest hex quantity");
-    u128::from_str_radix(quantity, 16).expect("latest quantity fits u128")
+        .unwrap_or_else(|| panic!("latest hex quantity"));
+    u128::from_str_radix(quantity, 16)
+        .unwrap_or_else(|error| panic!("latest quantity fits u128: {error:?}"))
 }
 
 fn unhex(text: &str) -> Vec<u8> {
@@ -657,13 +723,19 @@ fn unhex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex byte")
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex text: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("hex byte: {error:?}"))
         })
         .collect()
 }
 fn registration(actor: &str, salt: [u8; 32]) -> Registration {
-    let did = layerx_types::ids::Did::new(actor.as_bytes()).expect("real DID");
-    let issuer = layerx_wire::hash::did_id_for_protocol(&did, 3).expect("real issuer id");
+    let did = layerx_types::ids::Did::new(actor.as_bytes())
+        .unwrap_or_else(|error| panic!("real DID: {error:?}"));
+    let issuer = layerx_wire::hash::did_id_for_protocol(&did, 3)
+        .unwrap_or_else(|error| panic!("real issuer id: {error:?}"));
     Registration {
         asset: asset_id(&issuer, &salt),
         salt,
@@ -678,85 +750,16 @@ fn registration(actor: &str, salt: [u8; 32]) -> Registration {
 
 #[test]
 fn proof_sdk_requires_the_real_evm_producer_in_the_declared_build() {
-    use layerx_client::account_binding::{
-        bound_did_call, decode_bound_did, plan_bind, sign_bind_transaction, BindFees, BindPlan,
-        ADDR_PRECOMPILE,
-    };
     let mut node = LocalNode::start();
     let env_path = node.directory.0.join("lx-localnode/localnode.env");
     let secret = Zeroizing::new(generated_setting(&env_path, "LOCAL_NODE_KEY"));
     let seed = Zeroizing::new(unhex(&secret));
-    let account = derive_from_seed(&seed, 0).expect("derive real wallet from harness key material");
+    let account = derive_from_seed(&seed, 0)
+        .unwrap_or_else(|error| panic!("derive real wallet from harness key material: {error:?}"));
     node.fund(&account.evm_address_text());
     let rpc = node.rpc();
-    let (chain_id, tip, maximum) = rpc.eip1559_parameters().expect("real fee producer");
-    assert_eq!(chain_id, 125);
-    let balance = quantity_latest(&node, "eth_getBalance", &account.evm_address_text());
-    let required_balance = maximum.checked_mul(21_000).expect("transfer fee fits u128");
-    assert!(
-        balance >= required_balance,
-        "funded account balance at latest {balance} is below 21000 * fee cap {required_balance}"
-    );
-    let transfer = Eip1559Call {
-        chain_id,
-        nonce: 0,
-        max_priority_fee_per_gas: tip,
-        max_fee_per_gas: maximum,
-        gas_limit: 21_000,
-        to: account.evm_address(),
-        data: vec![],
-    };
-    assert_eq!(
-        rpc.estimate_fee_from(&transfer, account.evm_address())
-            .expect("real public fee estimator"),
-        21_000
-    );
-    assert_eq!(
-        rpc.get_identity_sequence(&account.evm_address_text())
-            .expect("new account nonce"),
-        0
-    );
-    let BindPlan::Bind(binding) =
-        plan_bind(&account, chain_id, None, 0).expect("real binding producer")
-    else {
-        panic!("fresh account already bound");
-    };
-    let raw = sign_bind_transaction(
-        &account,
-        chain_id,
-        &binding,
-        BindFees {
-            evm_nonce: 0,
-            max_priority_fee_per_gas: tip,
-            max_fee_per_gas: maximum,
-            gas_limit: 500_000,
-        },
-    )
-    .expect("real binding signatures");
-    let hash = rpc.send_raw_transaction(&raw).expect("submit real binding");
-    mined(&rpc, &node.endpoint, &format!("0x{}", hex(&hash)));
-    assert_eq!(
-        decode_bound_did(&eth_call(
-            &node,
-            &ADDR_PRECOMPILE,
-            &bound_did_call(&account.evm_address())
-        ))
-        .expect("binding consumer"),
-        Some(account.layerx_public_key())
-    );
-    let public: Value = serde_json::from_slice(
-        &fs::read(node.home.join("receipt-public.json")).expect("generated receipt key"),
-    )
-    .expect("receipt key JSON");
-    let key: [u8; 32] = unhex(public["public_key"].as_str().expect("generated public key"))
-        .try_into()
-        .expect("receipt key width");
-    let policy = ReceiptPolicy {
-        protocol_version: 3,
-        network_id: 125,
-        sequencer: SequencerAuthorization::new(Sha256::digest(key).into(), key, 1, u64::MAX),
-        trusted_checkpoint_context_digest: None,
-    };
+    bind_funded_account(&node, &rpc, &account);
+    let (policy, key) = live_receipt_policy(&node);
     let signer = LocalSigner::from_derived_account(&account);
     let wallet = Wallet {
         rpc: &rpc,
@@ -764,35 +767,14 @@ fn proof_sdk_requires_the_real_evm_producer_in_the_declared_build() {
         policy: &policy,
         native_asset: [3; 32],
     };
-    let options = PaymentOptions {
-        actor: account.did(),
-        idempotency_key: [0x51; 32],
-        fee_limit: 10_000_000_000_000_000_000,
-        not_before: 0,
-        not_after: u64::MAX,
-        commitment: Commitment::Executed,
-        wait_timeout: Duration::from_secs(60),
-    };
+    let options = live_payment_options(account.did());
     let first = registration(&options.actor, [0x51; 32]);
     // The mutation succeeds on the EVM; the external version-2 receipt is refused.
     assert!(matches!(
         run(wallet.create(first.clone(), &options)),
         Err(RpcError::Verification)
     ));
-    let deadline = Instant::now() + Duration::from_secs(60);
-    loop {
-        let committed = quantity_latest(
-            &node,
-            "eth_getTransactionCount",
-            &account.evm_address_text(),
-        );
-        if committed >= 2 {
-            assert_eq!(committed, 2, "registration committed nonce");
-            break;
-        }
-        assert!(Instant::now() < deadline, "registration never committed");
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    assert_registration_nonce(&node, &account);
     let mut asset_read =
         layerx_crypto::disclosure::call::ledger_selector("getAsset(bytes32)").to_vec();
     asset_read.extend_from_slice(&first.asset);
@@ -801,76 +783,46 @@ fn proof_sdk_requires_the_real_evm_producer_in_the_declared_build() {
     assert_eq!(&state[..32], &first.asset);
     let payload = Payment::OpenAccount { asset: first.asset }
         .encode(options.actor.as_bytes())
-        .expect("canonical account producer");
+        .unwrap_or_else(|error| panic!("canonical account producer: {error:?}"));
     let prepared = wallet
         .prepare_payload(ModuleId::Asset, 4, &payload, &options)
-        .expect("real wallet preparation and gas estimate");
-    let hash = run(wallet.execute(prepared, &options)).expect("real wallet execute");
+        .unwrap_or_else(|error| panic!("real wallet preparation and gas estimate: {error:?}"));
+    let hash = run(wallet.execute(prepared, &options))
+        .unwrap_or_else(|error| panic!("real wallet execute: {error:?}"));
     let hash_text = format!("0x{}", hex(&hash));
     let receipt = mined(&rpc, &node.endpoint, &hash_text);
     assert!(matches!(
         wallet.wait_for(hash, Commitment::Executed, Duration::from_secs(60)),
         Err(RpcError::Verification)
     ));
-    let evidence = rpc.sequencer_receipt(hash).expect("real receipt transport");
-    let canonical = unhex(evidence["receipt"].as_str().expect("node-produced receipt"));
-    let decoded = layerx_wire::receipt::decode(&canonical).expect("real EVM receipt decode");
-    let protocol = decoded.protocol().expect("full producer receipt");
-    assert_eq!(protocol.protocol_version(), 2);
-    assert_eq!(protocol.activity_id(), hash);
-    assert_eq!(protocol.result_code(), 0);
-    let authority = AuthorizedBatch::new(
-        protocol.batch_id(),
-        protocol.asset(),
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        key,
-    );
-    let verified = verify_receipt(&canonical, &authority)
-        .expect("node-produced summary verifies economically under the pinned key");
-    assert_eq!(verified.canonical_bytes(), canonical);
-    let mut different_asset = protocol.asset();
-    different_asset[0] ^= 1;
-    let wrong_authority = AuthorizedBatch::new(
-        protocol.batch_id(),
-        different_asset,
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        key,
-    );
-    assert_eq!(
-        verify_receipt(&canonical, &wrong_authority)
-            .expect_err("a different authorized asset must be refused")
-            .check,
-        ReceiptCheck::Asset
-    );
+    let canonical = assert_live_summary(&rpc, hash, key);
     let nonce = rpc
         .get_identity_sequence(&account.evm_address_text())
-        .expect("post-producer nonce");
+        .unwrap_or_else(|error| panic!("post-producer nonce: {error:?}"));
     assert_eq!(nonce, 3);
-    drop(wallet);
     drop(rpc);
     node.restart();
     let reopened = node.rpc();
     assert_eq!(
         reopened
             .get_identity_sequence(&account.evm_address_text())
-            .expect("reopened durable nonce"),
+            .unwrap_or_else(|error| panic!("reopened durable nonce: {error:?}")),
         nonce
     );
     assert_eq!(
         reopened
             .get_receipt(&hash_text)
-            .expect("reopened durable transaction"),
+            .unwrap_or_else(|error| panic!("reopened durable transaction: {error:?}")),
         receipt
     );
     assert_eq!(
         unhex(
             reopened
                 .sequencer_receipt(hash)
-                .expect("reopened durable sequencer WAL")["receipt"]
+                .unwrap_or_else(|error| panic!("reopened durable sequencer WAL: {error:?}"))
+                ["receipt"]
                 .as_str()
-                .expect("persisted receipt")
+                .unwrap_or_else(|| panic!("persisted receipt"))
         ),
         canonical
     );
@@ -887,23 +839,189 @@ fn proof_sdk_requires_the_real_evm_producer_in_the_declared_build() {
     assert_eq!(
         reopened
             .get_identity_sequence(&account.evm_address_text())
-            .expect("duplicate never submitted"),
+            .unwrap_or_else(|error| panic!("duplicate never submitted: {error:?}")),
         nonce
     );
+    assert_live_bridge(&node, &reopened, &seed, &options, key, ledger);
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn proof_sdk_verified_create_balance_and_wait_survive_reopen() {
+    audit::wallet_native_token_and_node_summary_round_trip_after_reopen();
+}
+
+fn bind_funded_account(
+    node: &LocalNode,
+    rpc: &RpcClient,
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+) {
+    use layerx_client::account_binding::{
+        bound_did_call, decode_bound_did, plan_bind, sign_bind_transaction, BindFees, BindPlan,
+        ADDR_PRECOMPILE,
+    };
+
+    let (chain_id, tip, maximum) = rpc
+        .eip1559_parameters()
+        .unwrap_or_else(|error| panic!("real fee producer: {error:?}"));
+    assert_eq!(chain_id, 125);
+    let balance = quantity_latest(node, "eth_getBalance", &account.evm_address_text());
+    let required_balance = maximum
+        .checked_mul(21_000)
+        .unwrap_or_else(|| panic!("transfer fee fits u128"));
+    assert!(
+        balance >= required_balance,
+        "funded account balance at latest {balance} is below 21000 * fee cap {required_balance}"
+    );
+    let transfer = Eip1559Call {
+        chain_id,
+        nonce: 0,
+        max_priority_fee_per_gas: tip,
+        max_fee_per_gas: maximum,
+        gas_limit: 21_000,
+        to: account.evm_address(),
+        data: vec![],
+    };
+    assert_eq!(
+        rpc.estimate_fee_from(&transfer, account.evm_address())
+            .unwrap_or_else(|error| panic!("real public fee estimator: {error:?}")),
+        21_000
+    );
+    assert_eq!(
+        rpc.get_identity_sequence(&account.evm_address_text())
+            .unwrap_or_else(|error| panic!("new account nonce: {error:?}")),
+        0
+    );
+    let BindPlan::Bind(binding) = plan_bind(account, chain_id, None, 0)
+        .unwrap_or_else(|error| panic!("real binding producer: {error:?}"))
+    else {
+        panic!("fresh account already bound");
+    };
+    let raw = sign_bind_transaction(
+        account,
+        chain_id,
+        &binding,
+        BindFees {
+            evm_nonce: 0,
+            max_priority_fee_per_gas: tip,
+            max_fee_per_gas: maximum,
+            gas_limit: 500_000,
+        },
+    )
+    .unwrap_or_else(|error| panic!("real binding signatures: {error:?}"));
+    let hash = rpc
+        .send_raw_transaction(&raw)
+        .unwrap_or_else(|error| panic!("submit real binding: {error:?}"));
+    mined(rpc, &node.endpoint, &format!("0x{}", hex(&hash)));
+    assert_eq!(
+        decode_bound_did(&eth_call(
+            node,
+            &ADDR_PRECOMPILE,
+            &bound_did_call(&account.evm_address())
+        ))
+        .unwrap_or_else(|error| panic!("binding consumer: {error:?}")),
+        Some(account.layerx_public_key())
+    );
+}
+
+fn live_receipt_policy(node: &LocalNode) -> (ReceiptPolicy, [u8; 32]) {
+    let public: Value = serde_json::from_slice(
+        &fs::read(node.home.join("receipt-public.json"))
+            .unwrap_or_else(|error| panic!("generated receipt key: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("receipt key JSON: {error:?}"));
+    let key: [u8; 32] = unhex(
+        public["public_key"]
+            .as_str()
+            .unwrap_or_else(|| panic!("generated public key")),
+    )
+    .try_into()
+    .unwrap_or_else(|error| panic!("receipt key width: {error:?}"));
+    let policy = ReceiptPolicy {
+        protocol_version: 3,
+        network_id: 125,
+        sequencer: SequencerAuthorization::new(Sha256::digest(key).into(), key, 1, u64::MAX),
+        trusted_checkpoint_context_digest: None,
+    };
+    (policy, key)
+}
+
+fn assert_live_summary(rpc: &RpcClient, hash: [u8; 32], key: [u8; 32]) -> Vec<u8> {
+    let evidence = rpc
+        .sequencer_receipt(hash)
+        .unwrap_or_else(|error| panic!("real receipt transport: {error:?}"));
+    let canonical = unhex(
+        evidence["receipt"]
+            .as_str()
+            .unwrap_or_else(|| panic!("node-produced receipt")),
+    );
+    let decoded = layerx_wire::receipt::decode(&canonical)
+        .unwrap_or_else(|error| panic!("real EVM receipt decode: {error:?}"));
+    let protocol = decoded
+        .protocol()
+        .unwrap_or_else(|| panic!("full producer receipt"));
+    assert_eq!(protocol.protocol_version(), 2);
+    assert_eq!(protocol.activity_id(), hash);
+    assert_eq!(protocol.result_code(), 0);
+    let authority = AuthorizedBatch::new(
+        protocol.batch_id(),
+        protocol.asset(),
+        protocol.previous_state_root(),
+        protocol.resulting_state_root(),
+        key,
+    );
+    let verified = verify_receipt(&canonical, &authority).unwrap_or_else(|error| {
+        panic!("node-produced summary verifies economically under the pinned key: {error:?}")
+    });
+    assert_eq!(verified.canonical_bytes(), canonical);
+    let mut different_asset = protocol.asset();
+    different_asset[0] ^= 1;
+    let wrong_authority = AuthorizedBatch::new(
+        protocol.batch_id(),
+        different_asset,
+        protocol.previous_state_root(),
+        protocol.resulting_state_root(),
+        key,
+    );
+    assert_eq!(
+        verify_receipt(&canonical, &wrong_authority)
+            .err()
+            .unwrap_or_else(|| panic!("a different authorized asset must be refused"))
+            .check,
+        ReceiptCheck::Asset
+    );
+    canonical
+}
+
+fn assert_live_bridge(
+    node: &LocalNode,
+    reopened: &RpcClient,
+    seed: &[u8],
+    options: &PaymentOptions,
+    key: [u8; 32],
+    ledger: [u8; 20],
+) {
     let seed_path = node.directory.0.join("bridge-seed");
     let mut seed_file = OpenOptions::new()
         .create_new(true)
         .write(true)
         .mode(0o600)
         .open(&seed_path)
-        .expect("bridge key custody");
-    seed_file.write_all(&seed).expect("private bridge seed");
-    seed_file.sync_all().expect("durable bridge seed");
+        .unwrap_or_else(|error| panic!("bridge key custody: {error:?}"));
+    seed_file
+        .write_all(seed)
+        .unwrap_or_else(|error| panic!("private bridge seed: {error:?}"));
+    seed_file
+        .sync_all()
+        .unwrap_or_else(|error| panic!("durable bridge seed: {error:?}"));
     drop(seed_file);
     let second = registration(&options.actor, [0x52; 32]);
     let payload = Payment::Register(second.clone())
         .encode(options.actor.as_bytes())
-        .expect("real registration codec");
+        .unwrap_or_else(|error| panic!("real registration codec: {error:?}"));
     let mut config = configuration(&node.endpoint);
     config["rpc_route"] = json!("node");
     config["sequencer_key"] = json!(hex(&key));
@@ -918,12 +1036,12 @@ fn proof_sdk_requires_the_real_evm_producer_in_the_declared_build() {
     assert_eq!(result["result"]["rung"], "submitted");
     let bridge_hash = result["result"]["txHash"]
         .as_str()
-        .expect("bridge consumer hash");
-    mined(&reopened, &node.endpoint, bridge_hash);
+        .unwrap_or_else(|| panic!("bridge consumer hash"));
+    mined(reopened, &node.endpoint, bridge_hash);
     let mut second_read =
         layerx_crypto::disclosure::call::ledger_selector("getAsset(bytes32)").to_vec();
     second_read.extend_from_slice(&second.asset);
-    assert_eq!(&eth_call(&node, &ledger, &second_read)[..32], &second.asset);
+    assert_eq!(&eth_call(node, &ledger, &second_read)[..32], &second.asset);
     let (success, observed) = bridge(
         &json!({"action":"wait","configuration":config,"txHash":bridge_hash,"rung":"receipted","timeout_ms":"1000"}),
     );
@@ -937,11 +1055,31 @@ fn proof_sdk_requires_the_real_evm_producer_in_the_declared_build() {
     );
 }
 
-#[allow(dead_code)]
-#[path = "support/audit_22_30_99.rs"]
-mod audit;
+fn assert_registration_nonce(
+    node: &LocalNode,
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+) {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    loop {
+        let committed =
+            quantity_latest(node, "eth_getTransactionCount", &account.evm_address_text());
+        if committed >= 2 {
+            assert_eq!(committed, 2, "registration committed nonce");
+            break;
+        }
+        assert!(Instant::now() < deadline, "registration never committed");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
 
-#[test]
-fn proof_sdk_verified_create_balance_and_wait_survive_reopen() {
-    audit::wallet_native_token_and_node_summary_round_trip_after_reopen();
+fn live_payment_options(actor: String) -> PaymentOptions {
+    PaymentOptions {
+        actor,
+        idempotency_key: [0x51; 32],
+        fee_limit: 10_000_000_000_000_000_000,
+        not_before: 0,
+        not_after: u64::MAX,
+        commitment: Commitment::Executed,
+        wait_timeout: Duration::from_secs(60),
+    }
 }
