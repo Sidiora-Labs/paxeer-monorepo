@@ -1,0 +1,27 @@
+[repair.22.39.339]
+decision = "3207"
+gotcha = "4129"
+acceptance = "22998.1"
+implementation = "scripts/gates/run_gate.py:permitted_output"
+build = "python3 -m py_compile scripts/gates/run_gate.py scripts/gates/test_run_gate.py"
+verify = "test -s scripts/gates/repair_22_39_339.kvx && python3 -m pytest -q scripts/gates/test_run_gate.py scripts/gates/test_repair_22_33_899.py"
+revision_evidence = "The hf-build/hf-done private ledger records the exact qualified candidate revision, command, exit and log; no passing revision is claimed before qualification."
+
+[rules]
+maven = "A target path component is output when its parent holds a pom.xml file."
+swiftpm = "A .build path component is output when its parent holds a Package.swift file."
+dotnet = "An obj or bin path component is output when its parent holds at least one file whose name ends in .csproj."
+source_identity = "Only untracked and ignored entries receive output exemptions. Tracked files stay source. No other runner policy changes."
+
+[gotcha.4129]
+maven_directories = ["sdk/platform/jvm/target", "sdk/integrations/spring/target", "sdk/integrations/spring/example/target", "sdk/integrations/android/target", "services/platform/examples/samples/first-payment-jvm/target", "services/platform/examples/samples/paid-endpoint-spring/target", "services/platform/examples/samples/mobile-payment-android/target"]
+swiftpm_directories = ["sdk/platform/swift/.build", "sdk/integrations/ios/.build"]
+dotnet_directories = ["sdk/platform/dotnet/obj", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/obj", "services/platform/examples/samples/first-payment-csharp/obj"]
+directory_count = 12
+dotnet_bin = "The same project manifest rule permits bin alongside obj."
+
+[proof]
+permitted = "RunGateTest.test_declared_untracked_build_outputs_are_permitted commits pom.xml, Package.swift and GateFixture.csproj in three directories, drives the real runner to create outputs under target, .build, obj and bin, asserts the untracked and ignored Git states and successful evidence, then reopens retained outputs in a fresh runner process. Existing output and evidence assertions remain intact."
+missing_manifest = "RunGateTest.test_build_directories_without_manifests_are_refused asserts exit 125 before execution for all four directory names, both untracked and ignored, and proves no later command ran."
+tracked_maven_source = "RunGateTest.test_tracked_files_in_maven_target_are_source commits a Maven manifest and a tracked file under target, modifies the tracked file through the real runner child, and asserts exit 125 after execution with no later command."
+regressions = "Every existing RunGateTest case is retained. TestRepair2233899 inherits all cases and executes them again through the real CLI and isolated Git checkouts."
